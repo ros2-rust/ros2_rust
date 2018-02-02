@@ -1,0 +1,8 @@
+[package]
+name = "rclrs_common"
+version = "0.1.0"
+authors = ["Esteve Fernandez <esteve@apache.org>"]
+
+[dependencies]
+libc = "0.2"
+downcast = "0.9"

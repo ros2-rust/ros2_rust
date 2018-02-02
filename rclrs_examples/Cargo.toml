@@ -1,0 +1,12 @@
+[package]
+name = "rclrs_examples"
+version = "0.1.0"
+authors = ["Esteve Fernandez <esteve@apache.org>"]
+
+[[bin]]
+name = "rclrs_subscriber"
+path = "src/rclrs_subscriber.rs"
+
+[[bin]]
+name = "rclrs_publisher"
+path = "src/rclrs_publisher.rs"

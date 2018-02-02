@@ -1,0 +1,1 @@
+char empty_char

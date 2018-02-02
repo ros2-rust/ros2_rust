@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>rclrs_examples</name>
+  <version>0.0.0</version>
+  <description>Package containing examples of how to use the rclrs API.</description>
+  <maintainer email="esteve@apache.org">Esteve Fernandez</maintainer>
+  <license>Apache License 2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <buildtool_depend>rosidl_default_generators</buildtool_depend>
+  <buildtool_depend>rosidl_generator_rs</buildtool_depend>
+
+  <build_depend>example_interfaces</build_depend>
+  <build_depend>rclrs</build_depend>
+  <build_depend>std_msgs</build_depend>
+
+  <exec_depend>rosidl_generator_rs</exec_depend>
+  <exec_depend>rclrs</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

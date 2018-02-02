@@ -1,0 +1,8 @@
+[package]
+name = "rclrs"
+version = "0.1.0"
+authors = ["Esteve Fernandez <esteve@apache.org>"]
+
+[dependencies]
+libc = "0.2"
+rclrs_common = { path = '@rclrs_common_CRATES@' }

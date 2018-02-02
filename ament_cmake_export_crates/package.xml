@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>ament_cmake_export_crates</name>
+  <version>0.0.3</version>
+  <description>The ability to export Rust crates to downstream packages in the ament buildsystem in CMake.</description>
+  <author email="esteve@apache.org">Esteve Fernandez</author>
+  <maintainer email="esteve@apache.org">Esteve Fernandez</maintainer>
+  <license>Apache License 2.0</license>
+
+  <buildtool_depend>ament_cmake_core</buildtool_depend>
+
+  <buildtool_export_depend>ament_cmake_core</buildtool_export_depend>
+
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
