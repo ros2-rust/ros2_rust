@@ -1,8 +1,12 @@
 [package]
 name = "rclrs_common"
-version = "0.1.0"
-authors = ["Esteve Fernandez <esteve@apache.org>"]
+version = "0.2.0"
+authors = [
+    "Esteve Fernandez <esteve@apache.org>",
+    "Gérald Lelong <gerald.lelong@easymov.fr>"]
+edition = "2018"
 
 [dependencies]
 libc = "0.2"
 downcast = "0.9"
+failure = "0.1.3"

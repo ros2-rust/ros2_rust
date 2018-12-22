@@ -1,0 +1,9 @@
+# A list of parameter names to get.
+# TODO(wjwwood): Decide on the rules for grouping, nodes, and parameter "names" in general, then link to that.
+string[] names
+
+---
+
+# List of values which is the same length and order as the provided names.
+# If a parameter was not set yet, the value will have PARAMETER_NOT_SET as the type.
+ParameterValue[] values

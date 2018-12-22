@@ -1,0 +1,13 @@
+[package]
+name = "rclrs"
+version = "0.1.0"
+authors = ["Gérald Lelong <gerald.lelong@easymov.fr>"]
+edition = "2018"
+
+[dependencies]
+libc = "0.2.43"
+rclrs_common = { path = "/home/sisyphe/Projects/tests/ros2_rust_ws/install/share/rclrs_common/rust" }
+failure = "0.1.3"
+
+[build-dependencies]
+bindgen = "0.43.1"

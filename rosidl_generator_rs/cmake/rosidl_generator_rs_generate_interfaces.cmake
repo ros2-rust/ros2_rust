@@ -12,10 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-find_package(ament_cmake_export_crates REQUIRED)
-find_package(rosidl_generator_c REQUIRED)
 find_package(rmw_implementation_cmake REQUIRED)
 find_package(rmw REQUIRED)
+find_package(ament_cmake_export_crates REQUIRED)
 find_package(rclrs_common REQUIRED)
 
 if(NOT WIN32)
@@ -116,7 +115,7 @@ foreach(dep ${target_dependencies})
   endif()
 endforeach()
 
-set(generator_arguments_file "${CMAKE_BINARY_DIR}/rosidl_generator_rs__arguments.json")
+set(generator_arguments_file "${CMAKE_CURRENT_BINARY_DIR}/rosidl_generator_rs__arguments.json")
 rosidl_write_generator_arguments(
   "${generator_arguments_file}"
   PACKAGE_NAME "${PROJECT_NAME}"
@@ -199,7 +198,7 @@ foreach(_typesupport_impl ${_typesupport_impls})
     ${PROJECT_NAME}__${_typesupport_impl}
   )
   rosidl_target_interfaces(${_target_name}
-    ${PROJECT_NAME} rosidl_typesupport_c)
+    ${rosidl_generate_interfaces_TARGET} rosidl_typesupport_c)
 
   target_include_directories(${_target_name}
     PUBLIC

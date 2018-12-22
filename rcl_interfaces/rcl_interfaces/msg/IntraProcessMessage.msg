@@ -1,0 +1,2 @@
+uint64 publisher_id
+uint64 message_sequence

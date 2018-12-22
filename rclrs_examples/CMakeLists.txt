@@ -3,8 +3,9 @@ project(rclrs_examples NONE)
 
 find_package(ament_cmake REQUIRED)
 find_package(rclrs_common REQUIRED)
-find_package(rclrs REQUIRED)
-find_package(std_msgs REQUIRED)
+# find_package(rclrs REQUIRED)
+# find_package(std_msgs REQUIRED)
+# find_package(sensor_msgs REQUIRED)
 
 set(_native_libraries_dirs "")
 foreach(_native_library ${rclrs_LIBRARIES})
@@ -25,6 +26,12 @@ foreach(_native_library ${std_msgs_LIBRARIES})
         set(_native_libraries_dirs "${_native_libraries_dirs}\n'-Lnative=${_native_library_dir}',")
     endif()
 endforeach()
+foreach(_native_library ${sensor_msgs_LIBRARIES})
+    get_filename_component(_native_library_dir ${_native_library} DIRECTORY)
+    if(NOT _native_library_dir STREQUAL "")
+        set(_native_libraries_dirs "${_native_libraries_dirs}\n'-Lnative=${_native_library_dir}',")
+    endif()
+endforeach()
 
 set(_crates_dependencies "")
 foreach(_crate_dependency ${rclrs_CRATES})
@@ -35,6 +42,9 @@ foreach(_crate_dependency ${rclrs_common_CRATES})
 endforeach()
 foreach(_crate_dependency ${std_msgs_CRATES})
     set(_crates_dependencies "${_crates_dependencies}\n[dependencies.std_msgs]\npath = '${_crate_dependency}'\n")
+endforeach()
+foreach(_crate_dependency ${sensor_msgs_CRATES})
+    set(_crates_dependencies "${_crates_dependencies}\n[dependencies.sensor_msgs]\npath = '${_crate_dependency}'\n")
 endforeach()
 
 include(ExternalProject)
@@ -70,4 +80,5 @@ install(FILES
     PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
     DESTINATION lib/${PROJECT_NAME}
 )
+
 ament_package()

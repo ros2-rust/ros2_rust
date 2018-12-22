@@ -1,23 +1,18 @@
-bool bool_value false
-byte byte_value 1
-char char_value 1
-float32 float32_value 1.23
-float64 float64_value
-int8 int8_value -5
-uint16[2] two_uint16_value [5, 23]
-int32[<=3] up_to_three_int32_values
-int32[<=3] up_to_three_int32_values_with_default_values [5, 23]
-uint64[] unbounded_uint64_values
-
-#string[2] two_string_value ['foo', 'bar']
-string[<=3] up_to_three_string_values
-string[] unbounded_string_values
-
-Empty empty
-Empty[2] two_empty
-Empty[] unbounded_empty
-
-Nested nested
-Nested[2] two_nested
-Nested[<=3] up_to_three_nested
-Nested[] unbounded_nested
+float32 float32_value 1.125
+float64 float64_value 2.4
+uint64 uint64_value
+string string_value "bar"
+float32[10] float32_arr
+float64[3] float64_arr [8.5, 1.2, 3.4]
+float64[2] float64_arr2 [99.0, 2.3]
+string[3] string_arr
+# TODO(clalancette): default values for strings aren't currently implemented;
+# see https://github.com/ros2/rosidl/issues/206
+#string[3] string_def_arr ["hello", "there", "world"]
+float32[] unbounded [1, 2]
+float32[<=3] bounded_no_def
+float32[<=3] bounded_def [3, 4]
+FieldsWithSameTypeSomeDefaults vec3
+FieldsWithSameTypeSomeDefaults[2] vec3_fixed
+FieldsWithSameTypeSomeDefaults[] vec3_unbounded
+FieldsWithSameTypeSomeDefaults[<=2] vec3_bounded
