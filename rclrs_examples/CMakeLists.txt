@@ -70,7 +70,7 @@ ExternalProject_Add(
     rclrs_examples
     DOWNLOAD_COMMAND ""
     CONFIGURE_COMMAND ""
-    BUILD_COMMAND cargo build --release --manifest-path "${CMAKE_BINARY_DIR}/Cargo.toml"
+    BUILD_COMMAND cargo build --manifest-path "${CMAKE_BINARY_DIR}/Cargo.toml"
     INSTALL_COMMAND ""
     LOG_BUILD ON)
 

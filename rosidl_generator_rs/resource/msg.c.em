@@ -1,8 +1,7 @@
 #include "rosidl_generator_c/message_type_support_struct.h"
 
-#include "rosidl_generator_c/string.h"
-#include "rosidl_generator_c/string_functions.h"
 #include <assert.h>
+#include <string.h>
 
 @[for subfolder, msg_spec in msg_specs]@
 @{
@@ -13,9 +12,40 @@ for field in msg_spec.fields:
     if field.type.is_array:
         c_fields.append("size_t %s__len" % field.name)
 
-
 msg_normalized_type = get_normalized_type(msg_spec.base_type, subfolder=subfolder)
 }@
+
+@{
+have_not_included_primitive_arrays = True
+have_not_included_string = True
+nested_array_dict = {}
+}@
+@[for field in msg_spec.fields]@
+@[  if field.type.is_array and have_not_included_primitive_arrays]@
+@{have_not_included_primitive_arrays = False}@
+#include <rosidl_generator_c/primitives_sequence.h>
+#include <rosidl_generator_c/primitives_sequence_functions.h>
+
+@[  end if]@
+@[  if field.type.type == 'string' and have_not_included_string]@
+@{have_not_included_string = False}@
+#include <rosidl_generator_c/string.h>
+#include <rosidl_generator_c/string_functions.h>
+
+@[  end if]@
+@{
+if not field.type.is_primitive_type() and field.type.is_array:
+    if field.type.type not in nested_array_dict:
+        nested_array_dict[field.type.type] = field.type.pkg_name
+}@
+@[end for]@
+@[if nested_array_dict != {}]@
+// Nested array functions includes
+@[  for key in nested_array_dict]@
+#include <@(nested_array_dict[key])/msg/@convert_camel_case_to_lower_case_underscore(key)__functions.h>
+@[  end for]@
+// end nested array functions include
+@[end if]@
 
 #include "@(msg_spec.base_type.pkg_name)/@(subfolder)/@(convert_camel_case_to_lower_case_underscore(type_name)).h"
 
@@ -32,9 +62,17 @@ uintptr_t @(package_name)_msg_@(convert_camel_case_to_lower_case_underscore(type
 @[        if field.type.is_primitive_type() and field.type.is_fixed_size_array()]@
     assert(@(field.name)__len == @(field.type.array_size));
     memcpy(ros_message->@(field.name), @(field.name), @(field.type.array_size));
+@[        elif field.type.is_primitive_type()]@
+@[            if field.type.type == 'string']@
+    rosidl_generator_c__String__Sequence__init(&(ros_message->@(field.name)), @(field.name)__len);
+    memcpy(ros_message->@(field.name).data, (void*) @(field.name), @(field.name)__len);
+@[            else]@
+    rosidl_generator_c__@(field.type.type)__Sequence__init(&(ros_message->@(field.name)), @(field.name)__len);
+    memcpy(ros_message->@(field.name).data, (void*) @(field.name), @(field.name)__len);
+@[            end if]@
 @[        else]@
-    ros_message->@(field.name).data = @(field.name);
-    ros_message->@(field.name).size = @(field.name)__len;
+    @(get_normalized_type(field.type))__Sequence__init(&(ros_message->@(field.name)), @(field.name)__len);
+    memcpy(ros_message->@(field.name).data, (void*) @(field.name), @(field.name)__len);
 @[        end if]@
 @[    else]@
 @[        if field.type.is_primitive_type()]@

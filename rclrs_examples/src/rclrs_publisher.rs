@@ -1,4 +1,6 @@
-
+use rclrs::{self, RclResult};
+use std::{thread, time};
+use std_msgs;
 
 fn main() -> RclResult {
     let ros = rclrs::Context::default();
@@ -14,6 +16,3 @@ fn main() -> RclResult {
 
     Ok(())
 }
-use rclrs::{self, RclResult};
-use std::{thread, time};
-use std_msgs;
