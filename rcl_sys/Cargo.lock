@@ -223,7 +223,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "rcl-sys"
+name = "rcl_sys"
 version = "0.1.0"
 dependencies = [
  "bindgen 0.45.0 (registry+https://github.com/rust-lang/crates.io-index)",

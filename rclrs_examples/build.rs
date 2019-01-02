@@ -3,7 +3,6 @@ use std::env;
 
 fn main() {
     let dir = env::var("CARGO_MANIFEST_DIR").unwrap();
-    // println!("cargo:rustc-link-search=native={}", Path::new(&dir).join("lib").display());
     println!("cargo:rustc-link-search=native=/home/esteve/Projects/rust/ros2_rust_ws/install_isolated/rclrs/lib/");
     println!("cargo:rustc-link-search=native=/home/esteve/Projects/rust/ros2_rust_ws/install_isolated/rcl/lib/");
     println!("cargo:rustc-link-search=native=/home/esteve/Projects/rust/ros2_rust_ws/install_isolated/rcutils/lib/");

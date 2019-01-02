@@ -1,7 +1,9 @@
 [package]
 name = "rclrs_examples"
 version = "0.1.0"
-authors = ["Esteve Fernandez <esteve@apache.org>"]
+authors = [
+    "Esteve Fernandez <esteve@apache.org>",
+    "Gérald Lelong <gerald.lelong@easymov.fr>"]
 edition = "2018"
 
 [[bin]]
@@ -13,7 +15,4 @@ name = "rclrs_publisher"
 path = "src/rclrs_publisher.rs"
 
 [dependencies]
-rclrs = { path = "/home/sisyphe/Projects/tests/ros2_rust_ws/install/share/rclrs/rust" }
-sensor_msgs = { path = "/home/sisyphe/Projects/tests/ros2_rust_ws/install/share/sensor_msgs/rust" }
-std_msgs = { path = "/home/sisyphe/Projects/tests/ros2_rust_ws/install/share/std_msgs/rust" }
 failure = "0.1.3"

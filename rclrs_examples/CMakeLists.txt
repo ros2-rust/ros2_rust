@@ -3,9 +3,9 @@ project(rclrs_examples NONE)
 
 find_package(ament_cmake REQUIRED)
 find_package(rclrs_common REQUIRED)
-# find_package(rclrs REQUIRED)
-# find_package(std_msgs REQUIRED)
-# find_package(sensor_msgs REQUIRED)
+find_package(rclrs REQUIRED)
+find_package(std_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
 
 set(_native_libraries_dirs "")
 foreach(_native_library ${rclrs_LIBRARIES})
