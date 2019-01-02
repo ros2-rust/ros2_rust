@@ -1,5 +1,5 @@
 use crate::error::{RclResult, ToRclResult};
-use crate::rcl_bindings::*;
+use rcl_sys::*;
 use crate::Context;
 use std::ffi::CString;
 use std::marker::PhantomData;

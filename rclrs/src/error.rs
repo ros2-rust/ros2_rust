@@ -1,4 +1,4 @@
-use crate::rcl_bindings::*;
+use rcl_sys::*;
 use rclrs_common::error::RCLStatusCode as RclError;
 
 pub type RclResult<T = ()> = Result<T, RclError>;

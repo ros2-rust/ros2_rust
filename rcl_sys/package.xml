@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>rcl_sys</name>
+  <version>0.1.0</version>
+  <description>RCL Rust binding</description>
+  <author email="gerald.lelong@easymov.fr">Gérald Lelong</author>
+  <maintainer email="dev@easymov.fr">Easymov Robotics</maintainer>
+  <license>Apache License 2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <buildtool_depend>ament_cmake_export_crates</buildtool_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
