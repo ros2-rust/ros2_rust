@@ -29,6 +29,7 @@ for field in msg_spec.fields:
         includes[key].add(type_name + "." + field.name)
 }@
 
+#[allow(non_camel_case_types)]
 #[derive(Default, Debug, Clone)]
 pub struct @(type_name) {
 @[for field in msg_spec.fields]@
@@ -67,12 +68,21 @@ extern "C" {
 
 impl @(type_name) {
   fn get_native_message(&self) -> uintptr_t {
-    return unsafe { @(package_name)_@(subfolder)_@(convert_camel_case_to_lower_case_underscore(type_name))_get_native_message(
+@[for field in msg_spec.fields]@
+@[    if field.type.is_primitive_type() and field.type.type == 'string']@
+@[        if field.type.is_array ]@
+    let @(sanitize_identifier(field.name))_c_strings = self.@(sanitize_identifier(field.name)).iter().map(|s| CString::new(s.clone()).unwrap()).collect::<Vec<_>>();
+@[        else]@
+    let @(sanitize_identifier(field.name))_c_string = CString::new(self.@(sanitize_identifier(field.name)).clone()).unwrap();
+@[        end if]@
+@[    end if]@
+@[end for]@
+    unsafe { @(package_name)_@(subfolder)_@(convert_camel_case_to_lower_case_underscore(type_name))_get_native_message(
 @[for field in msg_spec.fields]@
 @[    if field.type.is_array ]@
 @[        if field.type.is_primitive_type()]@
 @[            if field.type.type == 'string']@
-      self.@(sanitize_identifier(field.name)).iter().map(|s| CString::new(s.clone()).unwrap().as_ptr()).collect::<Vec<_>>().as_ptr(),
+      @(sanitize_identifier(field.name))_c_strings.iter().map(|c_string| c_string.as_ptr()).collect::<Vec<_>>().as_ptr(),
 @[            else]@
       self.@(sanitize_identifier(field.name)).as_ptr(),
 @[            end if]@
@@ -83,7 +93,7 @@ impl @(type_name) {
 @[    else]@
 @[        if field.type.is_primitive_type()]@
 @[            if field.type.type == 'string']@
-      CString::new(self.@(sanitize_identifier(field.name)).clone()).unwrap().as_ptr(),
+      @(sanitize_identifier(field.name))_c_string.as_ptr(),
 @[            else]@
       self.@(sanitize_identifier(field.name)),
 @[            end if]@
@@ -92,70 +102,74 @@ impl @(type_name) {
 @[        end if]@
 @[    end if]@
 @[end for]@
-    ) };
+    ) }
   }
 
-  fn destroy_native_message(&self, message_handle: uintptr_t) -> () {
+  fn destroy_native_message(&self, message_handle: uintptr_t) {
     unsafe {
       @(package_name)_@(subfolder)_@(convert_camel_case_to_lower_case_underscore(type_name))_destroy_native_message(message_handle);
     }
   }
 
-  fn read_handle(&mut self, message_handle: uintptr_t) -> () {
+@[if msg_spec.fields]
+  fn read_handle(&mut self, message_handle: uintptr_t) {
     unsafe {
-@[for field in msg_spec.fields]@
-@[    if field.type.is_array]@
-@[        if field.type.is_primitive_type() and field.type.array_size]@
+@[    for field in msg_spec.fields]@
+@[        if field.type.is_array]@
+@[            if field.type.is_primitive_type() and field.type.array_size]@
       let mut @(field.name)_size = 0usize;
       self.@(sanitize_identifier(field.name)).copy_from_slice(std::slice::from_raw_parts(
           @(package_name)_@(subfolder)_@(convert_camel_case_to_lower_case_underscore(type_name))_@(field.name)_read_handle(
               message_handle, &mut @(field.name)_size as *mut _) as *const _, @(field.type.array_size)));
-@[        else]@
+@[            else]@
       let mut @(field.name)_size = 0usize;
       let @(field.name)_array = @(package_name)_@(subfolder)_@(convert_camel_case_to_lower_case_underscore(type_name))_@(field.name)_read_handle(message_handle, &mut @(field.name)_size as *mut _);
       self.@(sanitize_identifier(field.name)) = std::slice::from_raw_parts(@(field.name)_array as *const _, @(field.name)_size).to_vec();
-@[        end if]@
-@[    else]@
-@[        if field.type.is_primitive_type()]@
-@[            if field.type.type == 'string']@
-      let ptr = @(package_name)_@(subfolder)_@(convert_camel_case_to_lower_case_underscore(type_name))_@(field.name)_read_handle(message_handle);
-      self.@(sanitize_identifier(field.name)) = CStr::from_ptr(ptr).to_string_lossy().into_owned();
-@[            else]@
-      self.@(sanitize_identifier(field.name)) = @(package_name)_@(subfolder)_@(convert_camel_case_to_lower_case_underscore(type_name))_@(field.name)_read_handle(message_handle);
 @[            end if]@
 @[        else]@
+@[            if field.type.is_primitive_type()]@
+@[                if field.type.type == 'string']@
+      let ptr = @(package_name)_@(subfolder)_@(convert_camel_case_to_lower_case_underscore(type_name))_@(field.name)_read_handle(message_handle);
+      self.@(sanitize_identifier(field.name)) = CStr::from_ptr(ptr).to_string_lossy().into_owned();
+@[                else]@
+      self.@(sanitize_identifier(field.name)) = @(package_name)_@(subfolder)_@(convert_camel_case_to_lower_case_underscore(type_name))_@(field.name)_read_handle(message_handle);
+@[                end if]@
+@[            else]@
       self.@(sanitize_identifier(field.name)).read_handle(@(package_name)_@(subfolder)_@(convert_camel_case_to_lower_case_underscore(type_name))_@(field.name)_read_handle(message_handle));
+@[            end if]@
 @[        end if]@
-@[    end if]@
-@[end for]@
+@[    end for]@
     }
+@[else]@
+  fn read_handle(&mut self, _message_handle: uintptr_t) {
+@[end if]@
   }
 }
 
 impl rclrs_common::traits::Message for @(type_name) {
   fn get_native_message(&self) -> uintptr_t {
-    return self.get_native_message();
+    self.get_native_message()
   }
 
-  fn destroy_native_message(&self, message_handle: uintptr_t) -> () {
+  fn destroy_native_message(&self, message_handle: uintptr_t) {
     self.destroy_native_message(message_handle);
   }
 
-  fn read_handle(&mut self, message_handle: uintptr_t) -> () {
+  fn read_handle(&mut self, message_handle: uintptr_t) {
     self.read_handle(message_handle);
   }
 }
 
 impl rclrs_common::traits::MessageDefinition<@(type_name)> for @(type_name) {
   fn get_type_support() -> uintptr_t {
-    return unsafe { @(package_name)_@(subfolder)_@(convert_camel_case_to_lower_case_underscore(type_name))_get_type_support() };
+    unsafe { @(package_name)_@(subfolder)_@(convert_camel_case_to_lower_case_underscore(type_name))_get_type_support() }
   }
 
   fn static_get_native_message(message: &@(type_name)) -> uintptr_t {
-    return message.get_native_message();
+    message.get_native_message()
   }
 
-  fn static_destroy_native_message(message_handle: uintptr_t) -> () {
+  fn static_destroy_native_message(message_handle: uintptr_t) {
     unsafe {
       @(package_name)_@(subfolder)_@(convert_camel_case_to_lower_case_underscore(type_name))_destroy_native_message(message_handle);
     }

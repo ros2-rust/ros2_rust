@@ -9,7 +9,7 @@ fn main() -> RclResult {
 
     while ros.ok() {
         let mut message = std_msgs::msg::String::default();
-        message.data = format!("Hello, world!");
+        message.data = "Hello, world!".to_string();
         publisher.publish(&message)?;
         thread::sleep(time::Duration::from_secs(1));
     }

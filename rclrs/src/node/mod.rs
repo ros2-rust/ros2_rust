@@ -56,6 +56,7 @@ impl<'a> Node<'a> {
     {
         let mut publisher = unsafe { rcl_get_zero_initialized_publisher() };
         let type_support = T::get_type_support() as *const rosidl_message_type_support_t;
+        let topic_c_string = CString::new(topic).unwrap();
 
         unsafe {
             let publisher_options = rcl_publisher_get_default_options();
@@ -63,7 +64,7 @@ impl<'a> Node<'a> {
                 &mut publisher as *mut _,
                 &*self.handle.read().unwrap() as *const _,
                 type_support,
-                CString::new(topic).unwrap().as_ptr(),
+                topic_c_string.as_ptr(),
                 &publisher_options as *const _,
             )
             .ok()?;
@@ -82,6 +83,7 @@ impl<'a> Node<'a> {
     {
         let mut subscription = unsafe { rcl_get_zero_initialized_subscription() };
         let type_support = T::get_type_support() as *const rosidl_message_type_support_t;
+        let topic_c_string = CString::new(topic).unwrap();
 
         unsafe {
             let subscription_options = rcl_subscription_get_default_options();
@@ -89,7 +91,7 @@ impl<'a> Node<'a> {
                 &mut subscription as *mut _,
                 &*self.handle.read().unwrap() as *const _,
                 type_support,
-                CString::new(topic).unwrap().as_ptr(),
+                topic_c_string.as_ptr(),
                 &subscription_options as *const _,
             )
             .ok()?;

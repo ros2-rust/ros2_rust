@@ -231,7 +231,7 @@ def get_builtin_rs_type(type_):
         return "u8"
 
     if type_ == "char":
-        return "char"
+        return "i8"
 
     if type_ == "float32":
         return "f32"
@@ -307,7 +307,7 @@ def get_normalized_type(type_, subfolder="msg"):
 MSG_TYPE_TO_C = {
     "bool": "bool",
     "byte": "uint8_t",
-    "char": "char",
+    "char": "c_char",
     "float32": "c_float",
     "float64": "c_double",
     "uint8": "uint8_t",

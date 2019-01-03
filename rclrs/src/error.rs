@@ -6,7 +6,7 @@ pub type RclResult<T = ()> = Result<T, RclError>;
 pub(crate) trait ToRclResult {
     fn ok(&self) -> RclResult<()>;
 
-    fn unwrap(&self) -> () {
+    fn unwrap(&self) {
         self.ok().unwrap();
     }
 }
