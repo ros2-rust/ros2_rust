@@ -3,8 +3,8 @@
   <name>rclrs</name>
   <version>0.0.3</version>
   <description>Common files for the Rust client.</description>
-  <author email="esteve@apache.org">Esteve Fernandez</author>
-  <maintainer email="esteve@apache.org">Esteve Fernandez</maintainer>
+  <maintainer email="dev@easymov.fr">Easymov Robotics</maintainer>
+  <author email="gerald.lelong@easymov.fr">Gérald Lelong</author>
   <license>Apache License 2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
