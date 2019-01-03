@@ -1,10 +1,10 @@
+use super::Node;
 use crate::error::{RclResult, ToRclResult};
 use rcl_sys::*;
 use std::env;
 use std::ffi::CString;
 use std::os::raw::c_char;
 use std::sync::{Arc, RwLock};
-use super::Node;
 
 pub struct Context {
     pub(crate) inner: Arc<RwLock<rcl_context_t>>,

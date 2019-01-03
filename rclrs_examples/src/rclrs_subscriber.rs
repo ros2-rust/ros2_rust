@@ -1,7 +1,7 @@
 use rclrs::{self, RclResult};
+use sensor_msgs;
 use std::{thread, time};
 use std_msgs;
-use sensor_msgs;
 
 fn main() -> RclResult {
     let ros = rclrs::Context::default();

@@ -5,7 +5,7 @@ pub mod error {
     pub struct RCLError {
         pub code: RCLStatusCode,
         pub message: &'static str,
-    }    
+    }
 
     #[derive(Debug, Fail)]
     pub enum RCLStatusCode {
@@ -114,8 +114,10 @@ pub mod error {
 }
 
 pub mod traits {
+    use downcast::{
+        downcast, downcast_methods, downcast_methods_core, downcast_methods_std, impl_downcast, Any,
+    };
     use libc::uintptr_t;
-    use downcast::{Any, downcast, impl_downcast, downcast_methods, downcast_methods_std, downcast_methods_core};
 
     pub trait Message: Any {
         fn get_native_message(&self) -> uintptr_t;

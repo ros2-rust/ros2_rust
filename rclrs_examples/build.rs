@@ -1,5 +1,5 @@
-use std::path::Path;
 use std::env;
+use std::path::Path;
 
 fn main() {
     let dir = env::var("CARGO_MANIFEST_DIR").unwrap();

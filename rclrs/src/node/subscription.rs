@@ -1,7 +1,7 @@
+use super::Node;
 use crate::error::{RclResult, ToRclResult};
 use rcl_sys::*;
 use std::marker::PhantomData;
-use super::Node;
 
 pub struct Subscription<'a, 'b, T>
 where
@@ -19,7 +19,11 @@ where
     pub fn take(&self, message: &mut T) -> RclResult {
         let message_handle = message.get_native_message();
         let ret = unsafe {
-            rcl_take(&self.subscription as *const _, message_handle as *mut _, std::ptr::null_mut())
+            rcl_take(
+                &self.subscription as *const _,
+                message_handle as *mut _,
+                std::ptr::null_mut(),
+            )
         };
         message.read_handle(message_handle);
         message.destroy_native_message(message_handle);
@@ -36,7 +40,8 @@ where
             rcl_subscription_fini(
                 &mut self.subscription as *mut _,
                 &mut *self.node.handle.write().unwrap() as *mut _,
-            ).unwrap();
+            )
+            .unwrap();
         }
     }
 }

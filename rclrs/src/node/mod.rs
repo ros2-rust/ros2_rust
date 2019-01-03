@@ -1,6 +1,6 @@
 use crate::error::{RclResult, ToRclResult};
-use rcl_sys::*;
 use crate::Context;
+use rcl_sys::*;
 use std::ffi::CString;
 use std::marker::PhantomData;
 use std::sync::Arc;
@@ -22,7 +22,11 @@ impl<'a> Node<'a> {
         Self::new_with_namespace(node_name, "", context)
     }
 
-    pub fn new_with_namespace(node_name: &str, node_ns: &str, context: &'a Context) -> RclResult<Node<'a>> {
+    pub fn new_with_namespace(
+        node_name: &str,
+        node_ns: &str,
+        context: &'a Context,
+    ) -> RclResult<Node<'a>> {
         let raw_node_name = CString::new(node_name).unwrap();
         let raw_node_ns = CString::new(node_ns).unwrap();
 
@@ -61,7 +65,8 @@ impl<'a> Node<'a> {
                 type_support,
                 CString::new(topic).unwrap().as_ptr(),
                 &publisher_options as *const _,
-            ).ok()?;
+            )
+            .ok()?;
         }
 
         Ok(Publisher::<T> {
@@ -86,7 +91,8 @@ impl<'a> Node<'a> {
                 type_support,
                 CString::new(topic).unwrap().as_ptr(),
                 &subscription_options as *const _,
-            ).ok()?;
+            )
+            .ok()?;
         }
 
         Ok(Subscription::<T> {
