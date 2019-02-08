@@ -1,4 +1,5 @@
 use crate::error::{RclResult, ToRclResult};
+use crate::qos::QoSProfile;
 use crate::Context;
 use rcl_sys::*;
 use std::ffi::CString;
@@ -50,7 +51,7 @@ impl<'a> Node<'a> {
         })
     }
 
-    pub fn advertise<T>(&self, topic: &str) -> RclResult<Publisher<T>>
+    pub fn create_publisher<T>(&self, topic: &str, qos: QoSProfile) -> RclResult<Publisher<T>>
     where
         T: rclrs_common::traits::MessageDefinition<T>,
     {
@@ -59,7 +60,9 @@ impl<'a> Node<'a> {
         let topic_c_string = CString::new(topic).unwrap();
 
         unsafe {
-            let publisher_options = rcl_publisher_get_default_options();
+            let mut publisher_options = rcl_publisher_get_default_options();
+            publisher_options.qos = qos.into();
+
             rcl_publisher_init(
                 &mut publisher as *mut _,
                 &*self.handle.read().unwrap() as *const _,
@@ -77,7 +80,7 @@ impl<'a> Node<'a> {
         })
     }
 
-    pub fn subscribe<T>(&self, topic: &str) -> RclResult<Subscription<T>>
+    pub fn create_subscription<T>(&self, topic: &str, qos: QoSProfile) -> RclResult<Subscription<T>>
     where
         T: rclrs_common::traits::MessageDefinition<T>,
     {
@@ -86,7 +89,8 @@ impl<'a> Node<'a> {
         let topic_c_string = CString::new(topic).unwrap();
 
         unsafe {
-            let subscription_options = rcl_subscription_get_default_options();
+            let mut subscription_options = rcl_subscription_get_default_options();
+            subscription_options.qos = qos.into();
             rcl_subscription_init(
                 &mut subscription as *mut _,
                 &*self.handle.read().unwrap() as *const _,

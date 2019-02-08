@@ -1,30 +1,21 @@
-use rclrs::{self, RclResult};
-use sensor_msgs;
-use std::{thread, time};
+use rclrs;
 use std_msgs;
 
-fn main() -> RclResult {
-    let ros = rclrs::Context::default();
-    let node = ros.new_node("rclrs_publisher")?;
-    let subscription = node.subscribe::<std_msgs::msg::String>("greetings")?;
-    let subscription2 = node.subscribe::<std_msgs::msg::Header>("header")?;
-    let subscription3 = node.subscribe::<sensor_msgs::msg::JointState>("joint_state")?;
+// fn topic_callback(msg: &std_msgs::msg::String) {
+//     println!("I heard: '{}'", msg.data);
+// }
 
-    while ros.ok() {
-        let mut message = std_msgs::msg::String::default();
-        if subscription.take(&mut message).is_ok() {
-            println!("{:?}", message);
-        }
-        let mut message = std_msgs::msg::Header::default();
-        if subscription2.take(&mut message).is_ok() {
-            println!("{:?}", message);
-        }
-        let mut message = sensor_msgs::msg::JointState::default();
-        if subscription3.take(&mut message).is_ok() {
-            println!("{:?}", message);
-        }
-        thread::sleep(time::Duration::from_millis(100));
-    }
+fn main() -> rclrs::RclResult {
+    let context = rclrs::Context::default();
+
+    let mut node = context.create_node("minimal_subscriber")?;
+    let subscription = node.create_subscription::<std_msgs::msg::String>(
+        "topic",
+        rclrs::qos::QOS_PROFILE_DEFAULT,
+        // topic_callback,
+    )?;
+
+    // rclrs::spin(&node);
 
     Ok(())
 }

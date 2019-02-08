@@ -43,7 +43,7 @@ impl Context {
         unsafe { rcl_context_is_valid(&mut *self.inner.write().unwrap() as *mut _) }
     }
 
-    pub fn new_node(&self, node_name: &str) -> RclResult<Node<'_>> {
+    pub fn create_node(&self, node_name: &str) -> RclResult<Node<'_>> {
         Ok(Node::new(node_name, self)?)
     }
 }
