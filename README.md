@@ -9,6 +9,22 @@ applications in Rust.
 
 This project is still in early development stage. It's just a step toward a first class Rust support in ROS2.
 
+## Features
+
+The current set of features include:
+- Generation of all builtin ROS types
+- Support for publishers and subscriptions
+- Tunable QoS settings
+
+## What's missing?
+
+Lots of things!
+- An ament build type for Cargo. The current examples use CMake to install and build the binaries... and it's really ugly.
+- Component nodes
+- Clients and services
+- Tests
+- Documentation
+
 ### Limitations
 
 - messages are deep-copied and this can be terribly inefficient for big messages like images; the current solution leverages C typesupport implementations and might benefits from a direct serialization/deserialization
