@@ -136,7 +136,7 @@ where
         ret.ok()
     }
 
-    fn callback_ext(&self, message: Box<rclrs_common::traits::Message>) -> () {
+    fn callback_ext(&self, message: Box<rclrs_common::traits::Message>) {
         let msg = message.downcast_ref::<T>().unwrap();
         (self.callback)(msg);
     }
@@ -151,11 +151,10 @@ where
     }
 
     fn create_message(&self) -> Box<rclrs_common::traits::Message> {
-        let message: T = Default::default();
-        return Box::new(message);
+        Box::new(T::default())
     }
 
-    fn callback_fn(&self, message: Box<rclrs_common::traits::Message>) -> () {
+    fn callback_fn(&self, message: Box<rclrs_common::traits::Message>) {
         self.callback_ext(message);
     }
 }
