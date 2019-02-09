@@ -1,21 +1,20 @@
 use rclrs;
 use std_msgs;
 
-// fn topic_callback(msg: &std_msgs::msg::String) {
-//     println!("I heard: '{}'", msg.data);
-// }
+fn topic_callback(msg: &std_msgs::msg::String) {
+    println!("I heard: '{}'", msg.data);
+}
 
 fn main() -> rclrs::RclResult {
     let context = rclrs::Context::default();
 
     let mut node = context.create_node("minimal_subscriber")?;
-    let subscription = node.create_subscription::<std_msgs::msg::String>(
+
+    let publisher = node.create_subscription::<std_msgs::msg::String>(
         "topic",
-        rclrs::qos::QOS_PROFILE_DEFAULT,
-        // topic_callback,
+        rclrs::QOS_PROFILE_DEFAULT,
+        topic_callback,
     )?;
 
-    // rclrs::spin(&node);
-
-    Ok(())
+    node.spin()
 }

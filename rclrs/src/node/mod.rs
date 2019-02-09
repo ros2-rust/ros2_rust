@@ -1,53 +1,81 @@
-use crate::error::{RclResult, ToRclResult};
+use crate::error::{RclError, RclResult, ToRclResult};
 use crate::qos::QoSProfile;
-use crate::Context;
+use crate::{Context, ContextHandle, Handle};
 use rcl_sys::*;
+use std::cell::{Ref, RefCell, RefMut};
 use std::ffi::CString;
-use std::marker::PhantomData;
-use std::sync::Arc;
-use std::sync::RwLock;
+use std::rc::{Rc, Weak};
 
 pub mod publisher;
 pub use self::publisher::*;
 pub mod subscription;
 pub use self::subscription::*;
 
-pub struct Node<'a> {
-    handle: Arc<RwLock<rcl_node_t>>,
-    context: PhantomData<&'a Context>,
+pub struct NodeHandle(RefCell<rcl_node_t>);
+
+impl<'a> Handle<rcl_node_t> for &'a NodeHandle {
+    type DerefT = Ref<'a, rcl_node_t>;
+    type DerefMutT = RefMut<'a, rcl_node_t>;
+
+    fn get(self) -> Self::DerefT {
+        self.0.borrow()
+    }
+
+    fn get_mut(self) -> Self::DerefMutT {
+        self.0.borrow_mut()
+    }
 }
 
-impl<'a> Node<'a> {
+impl Drop for NodeHandle {
+    fn drop(&mut self) {
+        let handle = &mut *self.get_mut();
+        unsafe {
+            rcl_node_fini(handle as *mut _).unwrap();
+        }
+    }
+}
+
+pub struct Node {
+    handle: Rc<NodeHandle>,
+    context: Rc<ContextHandle>,
+    subscriptions: Vec<Weak<SubscriptionBase>>,
+}
+
+impl Node {
     #[allow(clippy::new_ret_no_self)]
-    pub fn new(node_name: &str, context: &'a Context) -> RclResult<Node<'a>> {
+    pub fn new(node_name: &str, context: &Context) -> RclResult<Node> {
         Self::new_with_namespace(node_name, "", context)
     }
 
     pub fn new_with_namespace(
         node_name: &str,
         node_ns: &str,
-        context: &'a Context,
-    ) -> RclResult<Node<'a>> {
+        context: &Context,
+    ) -> RclResult<Node> {
         let raw_node_name = CString::new(node_name).unwrap();
         let raw_node_ns = CString::new(node_ns).unwrap();
 
-        let node_handle = Arc::new(RwLock::new(unsafe { rcl_get_zero_initialized_node() }));
+        let mut node_handle = unsafe { rcl_get_zero_initialized_node() };
+        let context_handle = &mut *context.handle.get_mut();
 
         unsafe {
             let node_options = rcl_node_get_default_options();
             rcl_node_init(
-                &mut *node_handle.write().unwrap() as *mut _,
+                &mut node_handle as *mut _,
                 raw_node_name.as_ptr(),
                 raw_node_ns.as_ptr(),
-                &mut *context.inner.write().unwrap() as *mut _,
+                context_handle as *mut _,
                 &node_options as *const _,
             )
             .ok()?;
         }
 
+        let handle = Rc::new(NodeHandle(RefCell::new(node_handle)));
+
         Ok(Node {
-            handle: node_handle,
-            context: PhantomData,
+            handle,
+            context: context.handle.clone(),
+            subscriptions: vec![],
         })
     }
 
@@ -55,66 +83,95 @@ impl<'a> Node<'a> {
     where
         T: rclrs_common::traits::MessageDefinition<T>,
     {
-        let mut publisher = unsafe { rcl_get_zero_initialized_publisher() };
-        let type_support = T::get_type_support() as *const rosidl_message_type_support_t;
-        let topic_c_string = CString::new(topic).unwrap();
-
-        unsafe {
-            let mut publisher_options = rcl_publisher_get_default_options();
-            publisher_options.qos = qos.into();
-
-            rcl_publisher_init(
-                &mut publisher as *mut _,
-                &*self.handle.read().unwrap() as *const _,
-                type_support,
-                topic_c_string.as_ptr(),
-                &publisher_options as *const _,
-            )
-            .ok()?;
-        }
-
-        Ok(Publisher::<T> {
-            node: self,
-            publisher,
-            message: PhantomData,
-        })
+        Publisher::<T>::new(self, topic, qos)
     }
 
-    pub fn create_subscription<T>(&self, topic: &str, qos: QoSProfile) -> RclResult<Subscription<T>>
+    pub fn create_subscription<T>(
+        &mut self,
+        topic: &str,
+        qos: QoSProfile,
+        callback: fn(&T),
+    ) -> RclResult<Rc<Subscription<T>>>
     where
-        T: rclrs_common::traits::MessageDefinition<T>,
+        T: rclrs_common::traits::MessageDefinition<T> + Default,
     {
-        let mut subscription = unsafe { rcl_get_zero_initialized_subscription() };
-        let type_support = T::get_type_support() as *const rosidl_message_type_support_t;
-        let topic_c_string = CString::new(topic).unwrap();
+        let subscription = Rc::new(Subscription::<T>::new(self, topic, qos, callback)?);
+        self.subscriptions
+            .push(Rc::downgrade(&subscription) as Weak<SubscriptionBase>);
+        Ok(subscription)
+    }
+
+    pub fn spin(&self) -> RclResult {
+        let context_handle = &mut *self.context.get_mut();
+        while unsafe { rcl_context_is_valid(context_handle) } {
+            if let Some(error) = self.spin_once(500).err() {
+                match error {
+                    RclError::Timeout => continue,
+                    _ => return Err(error),
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    pub fn spin_once(&self, timeout: i64) -> RclResult {
+        let mut wait_set_handle = unsafe { rcl_get_zero_initialized_wait_set() };
+
+        let number_of_subscriptions = self.subscriptions.len();
+        let number_of_guard_conditions = 0;
+        let number_of_timers = 0;
+        let number_of_clients = 0;
+        let number_of_services = 0;
 
         unsafe {
-            let mut subscription_options = rcl_subscription_get_default_options();
-            subscription_options.qos = qos.into();
-            rcl_subscription_init(
-                &mut subscription as *mut _,
-                &*self.handle.read().unwrap() as *const _,
-                type_support,
-                topic_c_string.as_ptr(),
-                &subscription_options as *const _,
+            rcl_wait_set_init(
+                &mut wait_set_handle as *mut _,
+                number_of_subscriptions,
+                number_of_guard_conditions,
+                number_of_timers,
+                number_of_clients,
+                number_of_services,
+                rcutils_get_default_allocator(),
             )
             .ok()?;
         }
 
-        Ok(Subscription::<T> {
-            node: self,
-            subscription,
-            message: PhantomData,
-        })
-    }
-}
-
-impl Drop for Node<'_> {
-    fn drop(&mut self) {
-        let mut raw_node = self.handle.write().unwrap();
-        let raw_node_ptr: *mut _ = &mut *raw_node;
         unsafe {
-            rcl_node_fini(raw_node_ptr).unwrap();
+            rcl_wait_set_clear(&mut wait_set_handle as *mut _).ok()?;
         }
+
+        for subscription in &self.subscriptions {
+            if let Some(subscription) = subscription.upgrade() {
+                let subscription_handle = &*subscription.handle().get();
+                unsafe {
+                    rcl_wait_set_add_subscription(
+                        &mut wait_set_handle as *mut _,
+                        subscription_handle as *const _,
+                        std::ptr::null_mut(),
+                    )
+                    .ok()?;
+                }
+            }
+        }
+
+        unsafe {
+            rcl_wait(&mut wait_set_handle as *mut _, timeout).ok()?;
+        }
+
+        for subscription in &self.subscriptions {
+            if let Some(subscription) = subscription.upgrade() {
+                let mut message = subscription.create_message();
+                let result = subscription.take(&mut *message).unwrap();
+                if result {
+                    subscription.callback_fn(message);
+                }
+            }
+        }
+        unsafe {
+            rcl_wait_set_fini(&mut wait_set_handle as *mut _).ok()?;
+        }
+
+        Ok(())
     }
 }

@@ -1,13 +1,38 @@
-use super::Node;
 use crate::error::{RclResult, ToRclResult};
+use crate::{Handle, Node};
 use rcl_sys::*;
+use std::cell::{Ref, RefCell, RefMut};
 use std::env;
 use std::ffi::CString;
 use std::os::raw::c_char;
-use std::sync::{Arc, RwLock};
+use std::rc::Rc;
+
+pub struct ContextHandle(RefCell<rcl_context_t>);
+
+impl<'a> Handle<rcl_context_t> for &'a ContextHandle {
+    type DerefT = Ref<'a, rcl_context_t>;
+    type DerefMutT = RefMut<'a, rcl_context_t>;
+
+    fn get(self) -> Self::DerefT {
+        self.0.borrow()
+    }
+
+    fn get_mut(self) -> Self::DerefMutT {
+        self.0.borrow_mut()
+    }
+}
+
+impl Drop for ContextHandle {
+    fn drop(&mut self) {
+        let handle = &mut *self.get_mut();
+        unsafe {
+            rcl_shutdown(handle as *mut _);
+        }
+    }
+}
 
 pub struct Context {
-    pub(crate) inner: Arc<RwLock<rcl_context_t>>,
+    pub handle: Rc<ContextHandle>,
 }
 
 impl Context {
@@ -17,6 +42,7 @@ impl Context {
             .collect();
 
         let c_args: Vec<*const c_char> = args.iter().map(|arg| arg.as_ptr()).collect();
+        let handle = &mut *self.handle.get_mut();
 
         unsafe {
             let allocator = rcutils_get_default_allocator();
@@ -26,7 +52,7 @@ impl Context {
                 c_args.len() as i32,
                 c_args.as_ptr(),
                 &init_options as *const _,
-                &mut *self.inner.write().unwrap() as *mut _,
+                handle as *mut _,
             )
             .ok()?;
             rcl_init_options_fini(&mut init_options as *mut _).ok()?;
@@ -35,15 +61,12 @@ impl Context {
         Ok(())
     }
 
-    fn shutdown(&mut self) -> RclResult {
-        unsafe { rcl_shutdown(&mut *self.inner.write().unwrap() as *mut _) }.ok()
-    }
-
     pub fn ok(&self) -> bool {
-        unsafe { rcl_context_is_valid(&mut *self.inner.write().unwrap() as *mut _) }
+        let handle = &mut *self.handle.get_mut();
+        unsafe { rcl_context_is_valid(handle as *mut _) }
     }
 
-    pub fn create_node(&self, node_name: &str) -> RclResult<Node<'_>> {
+    pub fn create_node(&self, node_name: &str) -> RclResult<Node> {
         Ok(Node::new(node_name, self)?)
     }
 }
@@ -51,15 +74,11 @@ impl Context {
 impl Default for Context {
     fn default() -> Self {
         let mut context = Self {
-            inner: Arc::new(RwLock::new(unsafe { rcl_get_zero_initialized_context() })),
+            handle: Rc::new(ContextHandle(RefCell::new(unsafe {
+                rcl_get_zero_initialized_context()
+            }))),
         };
         context.init().unwrap();
         context
-    }
-}
-
-impl Drop for Context {
-    fn drop(&mut self) {
-        self.shutdown().unwrap();
     }
 }

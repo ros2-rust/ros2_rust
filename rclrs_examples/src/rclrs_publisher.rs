@@ -5,19 +5,20 @@ fn main() -> rclrs::RclResult {
     let context = rclrs::Context::default();
 
     let node = context.create_node("minimal_publisher")?;
+
     let publisher =
-        node.create_publisher::<std_msgs::msg::String>("topic", rclrs::qos::QOS_PROFILE_DEFAULT)?;
+        node.create_publisher::<std_msgs::msg::String>("topic", rclrs::QOS_PROFILE_DEFAULT)?;
 
     let mut message = std_msgs::msg::String::default();
 
     let mut publish_count: u32 = 1;
 
     while context.ok() {
+        std::thread::sleep(std::time::Duration::from_millis(500));
         message.data = format!("Hello, world! {}", publish_count);
         println!("Publishing: [{}]", message.data);
         publisher.publish(&message)?;
         publish_count += 1;
-        std::thread::sleep(std::time::Duration::from_millis(1500));
     }
 
     Ok(())
