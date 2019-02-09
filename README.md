@@ -5,19 +5,9 @@
 This is a set of projects (bindings, code generator, examples and more) that enables developers to write ROS2
 applications in Rust.
 
-This is a fork of [github.com/esteve/ros2_rust](https://github.com/esteve/ros2_rust).
-
 ## Status
 
-This project is still in early development stage. It's just another step toward a first class Rust support in ROS2.
-
-### Changes from original repository
-
-- no need to patch ROS2 installation
-- `rosidl_generator_rs` is extended to support nested messages and arrays in messages, so all message types should be supported now
-- the new crate `rcl_sys` use [bindgen](https://github.com/rust-lang/rust-bindgen) to automatically generate RCL binding based on ROS2 installation
-- `rclrs` and `rclrs_examples` are totally rewritten to use `rcl_sys` and try to wrap RCL into an idiomatic Rust interface
-- ROS2 Crystal release is supported
+This project is still in early development stage. It's just a step toward a first class Rust support in ROS2.
 
 ### Limitations
 
