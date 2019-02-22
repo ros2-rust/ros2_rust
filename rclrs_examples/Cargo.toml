@@ -1,9 +1,7 @@
 [package]
 name = "rclrs_examples"
 version = "0.1.0"
-authors = [
-    "Esteve Fernandez <esteve@apache.org>",
-    "Gérald Lelong <gerald.lelong@easymov.fr>"]
+authors = ["Esteve Fernandez <esteve@apache.org>"]
 edition = "2018"
 
 [[bin]]
