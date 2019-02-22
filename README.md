@@ -38,6 +38,10 @@ Sounds great, how can I try this out?
 The following steps show how to build the examples:
 
 ```
+mkdir -p ros2_rust_ws/src
+cd ros2_rust_ws
+git clone https://github.com/esteve/ros2_rust.git src/ros2_rust
+vcs import src < ./src/ros2_rust/ros2_rust.repos
 source /opt/ros/crystal/setup.sh
 colcon build
 ```
