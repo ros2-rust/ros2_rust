@@ -59,7 +59,7 @@ uintptr_t @(package_name)_msg_@(convert_camel_case_to_lower_case_underscore(type
     @(msg_normalized_type) * ros_message = @(msg_normalized_type)__create();
 @[for field in msg_spec.fields]@
 @[    if field.type.is_array]@
-@[        if field.type.is_primitive_type() and field.type.is_fixed_size_array()]@
+@[        if field.type.is_fixed_size_array()]@
     assert(@(field.name)__len == @(field.type.array_size));
     memcpy(ros_message->@(field.name), @(field.name), @(field.type.array_size));
 @[        elif field.type.is_primitive_type()]@
@@ -97,7 +97,7 @@ void @(package_name)_msg_@(convert_camel_case_to_lower_case_underscore(type_name
 @[for field in msg_spec.fields]@
 @[    if field.type.is_array]@
 @(get_c_type(field.type)) @(package_name)_msg_@(convert_camel_case_to_lower_case_underscore(type_name))_@(field.name)_read_handle(uintptr_t message_handle, size_t* size) {
-@[        if field.type.is_primitive_type() and field.type.is_fixed_size_array()]@
+@[        if field.type.is_fixed_size_array()]@
     @(msg_normalized_type) * ros_message = (@(msg_normalized_type) *)message_handle;
     return ros_message->@(field.name);
 @[        else]@
