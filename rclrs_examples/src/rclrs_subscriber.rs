@@ -10,7 +10,7 @@ fn main() -> rclrs::RclResult {
 
     let mut node = context.create_node("minimal_subscriber")?;
 
-    let publisher = node.create_subscription::<std_msgs::msg::String>(
+    let _subscription = node.create_subscription::<std_msgs::msg::String>(
         "topic",
         rclrs::QOS_PROFILE_DEFAULT,
         topic_callback,

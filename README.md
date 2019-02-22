@@ -1,22 +1,22 @@
-# ROS2 for Rust
+ROS2 for Rust
+=============
 
-## Overview
+Introduction
+------------
 
 This is a set of projects (bindings, code generator, examples and more) that enables developers to write ROS2
 applications in Rust.
 
-## Status
-
-This project is still in early development stage. It's just a step toward a first class Rust support in ROS2.
-
-## Features
+Features
+--------
 
 The current set of features include:
 - Generation of all builtin ROS types
 - Support for publishers and subscriptions
 - Tunable QoS settings
 
-## What's missing?
+What's missing?
+---------------
 
 Lots of things!
 - An ament build type for Cargo. The current examples use CMake to install and build the binaries... and it's really ugly.
@@ -31,32 +31,35 @@ Lots of things!
 - the current solution for crates export with CMake is not very robust
 - `rclrs` interface is very limited for now and might not be so much idiomatic yet, any help and suggestion on the interface would be greatly appreciated
 - due to the current ROS2 support of non-default clients, packages containing definitions of messages used in Rust crates must be present in the current workspace; otherwise message crates generation won't be triggered
-- due to a not yet understood issue, `find_package` inclusion order matters in `CMakeLists.txt` of ROS packages containing message definitions:
-    `rosidl_default_generators` must be included before any other ROS packages containing message definitions, as in the following sample from `std_msgs`
-    ```cmake
-    find_package(rosidl_default_generators REQUIRED)
-    find_package(builtin_interfaces REQUIRED)
-    ```
 
-## Quickstart
+Sounds great, how can I try this out?
+-------------------------------------
 
-### Build
+The following steps show how to build the examples:
 
-```bash
-source /opt/ros/crystal/setup.bash
-colcon build --symlink-install --merge-install --cmake-args -G Ninja
+```
+source /opt/ros/crystal/setup.sh
+colcon build
 ```
 
-### Publisher
+Now you can just run a bunch of examples.
 
-```bash
-source ./install/setup.bash
+### Publisher and subscriber
+
+Publisher:
+
+```
+. ./install/setup.sh
+
 ros2 run rclrs_examples rclrs_publisher
 ```
 
-### Subscriber
+Subscriber:
 
-```bash
-source ./install/setup.bash
+```
+. ./install/setup.sh
+
 ros2 run rclrs_examples rclrs_subscriber
 ```
+
+Enjoy!

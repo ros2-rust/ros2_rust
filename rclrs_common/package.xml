@@ -1,10 +1,9 @@
 <?xml version="1.0"?>
 <package format="2">
   <name>rclrs_common</name>
-  <version>0.1.0</version>
+  <version>0.0.3</version>
   <description>Common files for the Rust client.</description>
   <author email="esteve@apache.org">Esteve Fernandez</author>
-  <author email="gerald.lelong@easymov.fr">Gérald Lelong</author>
   <maintainer email="esteve@apache.org">Esteve Fernandez</maintainer>
   <license>Apache License 2.0</license>
 
