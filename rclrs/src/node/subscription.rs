@@ -1,7 +1,7 @@
 use crate::error::{RclError, RclResult, ToRclResult};
 use crate::qos::QoSProfile;
 use crate::{Handle, Node, NodeHandle};
-use rcl_sys::*;
+use crate::rcl_bindings::*;
 use std::borrow::Borrow;
 use std::cell::{Ref, RefCell, RefMut};
 use std::ffi::CString;

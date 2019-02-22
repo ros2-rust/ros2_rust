@@ -12,6 +12,7 @@ pub trait Handle<T> {
     fn get_mut(self) -> Self::DerefMutT;
 }
 
+mod rcl_bindings;
 pub mod context;
 pub mod error;
 pub mod node;

@@ -5,7 +5,6 @@
   <version>0.0.3</version>
   <description>Generate the ROS interfaces in Rust.</description>
   <author email="esteve@apache.org">Esteve Fernandez</author>
-  <author email="gerald.lelong@easymov.fr">Gérald Lelong</author>
   <maintainer email="esteve@apache.org">Esteve Fernandez</maintainer>
   <license>Apache License 2.0</license>
 
