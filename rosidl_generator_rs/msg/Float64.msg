@@ -1,1 +1,0 @@
-float64 empty_float64

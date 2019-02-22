@@ -1,1 +1,0 @@
-PrimitivesStatic[] primitive_values
