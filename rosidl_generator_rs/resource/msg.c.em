@@ -101,9 +101,6 @@ void @(package_name)_msg_@(convert_camel_case_to_lower_case_underscore(type_name
 @[        if field.type.is_fixed_size_array()]@
     *size = @(field.type.array_size);
     return ros_message->@(field.name);
-@[        elif field.type.is_primitive_type()]@
-    *size = ros_message->@(field.name).size;
-    return ros_message->@(field.name).data;
 @[        else]@
     *size = ros_message->@(field.name).size;
     return (uintptr_t)(ros_message->@(field.name).data);
