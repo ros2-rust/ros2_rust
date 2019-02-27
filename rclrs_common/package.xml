@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <package format="2">
   <name>rclrs_common</name>
-  <version>0.0.3</version>
+  <version>0.2.0</version>
   <description>Common files for the Rust client.</description>
   <author email="esteve@apache.org">Esteve Fernandez</author>
   <maintainer email="esteve@apache.org">Esteve Fernandez</maintainer>

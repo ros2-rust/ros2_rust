@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <package format="2">
   <name>ament_cmake_export_crates</name>
-  <version>0.0.3</version>
+  <version>0.2.0</version>
   <description>The ability to export Rust crates to downstream packages in the ament buildsystem in CMake.</description>
   <author email="esteve@apache.org">Esteve Fernandez</author>
   <maintainer email="esteve@apache.org">Esteve Fernandez</maintainer>

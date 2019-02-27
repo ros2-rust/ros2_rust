@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <package format="2">
   <name>rclrs_examples</name>
-  <version>0.0.0</version>
+  <version>0.2.0</version>
   <description>Package containing examples of how to use the rclrs API.</description>
   <maintainer email="esteve@apache.org">Esteve Fernandez</maintainer>
   <license>Apache License 2.0</license>
