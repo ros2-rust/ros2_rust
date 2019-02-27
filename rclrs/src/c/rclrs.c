@@ -4,15 +4,27 @@
 #include <rcl/error_handling.h>
 #include <rcl/rcl.h>
 
-bool rclrs_native_ok() { return rcl_ok(); }
+rcl_context_t ctx;
 
 int32_t rclrs_native_init() {
   // TODO(esteve): parse args
-  return rcl_init(0, NULL, rcl_get_default_allocator());
+  rcl_init_options_t opts;
+  ctx = rcl_get_zero_initialized_context();
+  rcl_ret_t ret;
+  ret = rcl_init_options_init(&opts, rcl_get_default_allocator());
+  if(ret!=RCL_RET_OK || ret!=RCL_RET_ALREADY_INIT) { return ret; }
+
+  ret = rcl_init(0, NULL, &opts, &ctx);
+  if(ret!=RCL_RET_OK || ret!=RCL_RET_ALREADY_INIT) { return ret; }
+
+  ret = rcl_init_options_fini(&opts);
+  if(ret!=RCL_RET_OK) { return ret; }
+
+  return RCL_RET_OK;
 }
 
 const char *rclrs_native_get_error_string_safe() {
-  return rcl_get_error_string_safe();
+  return rcl_get_error_string().str;
 }
 
 void rclrs_native_reset_error() { rcl_reset_error(); }
@@ -24,7 +36,7 @@ int32_t rclrs_native_create_node_handle(uintptr_t *node_handle,
   *node = rcl_get_zero_initialized_node();
 
   rcl_node_options_t default_options = rcl_node_get_default_options();
-  rcl_ret_t ret = rcl_node_init(node, name, namespace, &default_options);
+  rcl_ret_t ret = rcl_node_init(node, name, namespace, &ctx, &default_options);
   *node_handle = (uintptr_t)node;
   return ret;
 }
@@ -95,21 +107,21 @@ int32_t rclrs_native_wait_set_init(uintptr_t wait_set_handle,
 
 int32_t rclrs_native_wait_set_clear_subscriptions(uintptr_t wait_set_handle) {
   rcl_wait_set_t *wait_set = (rcl_wait_set_t *)wait_set_handle;
-  rcl_ret_t ret = rcl_wait_set_clear_subscriptions(wait_set);
+  rcl_ret_t ret = rcl_wait_set_clear(wait_set);
 
   return ret;
 }
 
 int32_t rclrs_native_wait_set_clear_services(uintptr_t wait_set_handle) {
   rcl_wait_set_t *wait_set = (rcl_wait_set_t *)wait_set_handle;
-  rcl_ret_t ret = rcl_wait_set_clear_services(wait_set);
+  rcl_ret_t ret = rcl_wait_set_clear(wait_set);
 
   return ret;
 }
 
 int32_t rclrs_native_wait_set_clear_clients(uintptr_t wait_set_handle) {
   rcl_wait_set_t *wait_set = (rcl_wait_set_t *)wait_set_handle;
-  rcl_ret_t ret = rcl_wait_set_clear_clients(wait_set);
+  rcl_ret_t ret = rcl_wait_set_clear(wait_set);
 
   return ret;
 }
@@ -118,7 +130,7 @@ int32_t rclrs_native_wait_set_add_subscription(uintptr_t wait_set_handle,
                                                uintptr_t subscription_handle) {
   rcl_wait_set_t *wait_set = (rcl_wait_set_t *)wait_set_handle;
   rcl_subscription_t *subscription = (rcl_subscription_t *)subscription_handle;
-  rcl_ret_t ret = rcl_wait_set_add_subscription(wait_set, subscription);
+  rcl_ret_t ret = rcl_wait_set_add_subscription(wait_set, subscription, NULL);
 
   return ret;
 }
@@ -160,7 +172,7 @@ int32_t rclrs_native_create_subscription_handle(
 
 int32_t rclrs_native_take(uintptr_t subscription_handle, uintptr_t message_handle) {
   rcl_subscription_t * subscription = (rcl_subscription_t *)subscription_handle;
-  void * taken_msg = message_handle;
+  void * taken_msg = (void *)message_handle;
 
   rcl_ret_t ret = rcl_take(subscription, taken_msg, NULL);
 
