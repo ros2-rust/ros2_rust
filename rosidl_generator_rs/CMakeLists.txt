@@ -23,6 +23,13 @@ ament_package(
     "cmake/register_rs.cmake"
 )
 
+install(DIRECTORY cmake
+        DESTINATION share/${PROJECT_NAME})
+ament_register_extension(
+        "rosidl_generate_interfaces"
+        "rosidl_generator_rs"
+        "${PROJECT_SOURCE_DIR}/cmake/rosidl_generator_rs_generate_interfaces.cmake")
+
 install(
   PROGRAMS bin/rosidl_generator_rs
   DESTINATION lib/rosidl_generator_rs
