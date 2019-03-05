@@ -16,5 +16,5 @@ fn main() -> rclrs::RclResult {
         topic_callback,
     )?;
 
-    node.spin()
+    rclrs::spin(&node)
 }
