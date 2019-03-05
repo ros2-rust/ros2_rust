@@ -14,11 +14,11 @@ fn main() -> rclrs::RclResult {
     let mut publish_count: u32 = 1;
 
     while context.ok() {
-        std::thread::sleep(std::time::Duration::from_millis(500));
         message.data = format!("Hello, world! {}", publish_count);
         println!("Publishing: [{}]", message.data);
         publisher.publish(&message)?;
         publish_count += 1;
+        std::thread::sleep(std::time::Duration::from_millis(500));
     }
 
     Ok(())
