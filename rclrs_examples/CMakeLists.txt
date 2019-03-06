@@ -45,8 +45,8 @@ add_custom_target(copy_crate ALL
 
 add_custom_command(
     TARGET copy_crate
-    COMMAND ${CMAKE_COMMAND} -E remove_directory "${CMAKE_BINARY_DIR}/src"
-    COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_SOURCE_DIR}/src" "${CMAKE_BINARY_DIR}/src"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_SOURCE_DIR}/src/rclrs_publisher.rs" "${CMAKE_BINARY_DIR}/src/rclrs_publisher.rs"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_SOURCE_DIR}/src/rclrs_subscriber.rs" "${CMAKE_BINARY_DIR}/src/rclrs_subscriber.rs"
 )
 
 file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/.cargo")
