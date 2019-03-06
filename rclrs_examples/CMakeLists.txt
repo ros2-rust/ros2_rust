@@ -39,14 +39,12 @@ endforeach()
 
 include(ExternalProject)
 
-add_custom_target(copy_crate ALL
-    COMMENT "Copying crate from ${CMAKE_SOURCE_DIR}/src to ${CMAKE_BINARY_DIR}/src"
-)
+configure_file(${CMAKE_SOURCE_DIR}/src/rclrs_publisher.rs ${CMAKE_BINARY_DIR}/src/rclrs_publisher.rs COPYONLY)
+configure_file(${CMAKE_SOURCE_DIR}/src/rclrs_subscriber.rs ${CMAKE_BINARY_DIR}/src/rclrs_subscriber.rs COPYONLY)
 
-add_custom_command(
-    TARGET copy_crate
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_SOURCE_DIR}/src/rclrs_publisher.rs" "${CMAKE_BINARY_DIR}/src/rclrs_publisher.rs"
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_SOURCE_DIR}/src/rclrs_subscriber.rs" "${CMAKE_BINARY_DIR}/src/rclrs_subscriber.rs"
+add_custom_target(
+    copy_crate
+    DEPENDS ${CMAKE_BINARY_DIR}/src/rclrs_publisher.rs ${CMAKE_BINARY_DIR}/src/rclrs_subscriber.rs
 )
 
 file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/.cargo")
@@ -77,5 +75,4 @@ install(FILES
     PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
     DESTINATION lib/${PROJECT_NAME}
 )
-
 ament_package()
