@@ -65,6 +65,9 @@ add_custom_target(cargo_build ALL
     COMMENT "build crate")
     
 add_custom_command(
+    OUTPUT
+        ${CMAKE_BINARY_DIR}/ament_cargo/${PROJECT_NAME}/target/release/rclrs_publisher
+        ${CMAKE_BINARY_DIR}/ament_cargo/${PROJECT_NAME}/target/release/rclrs_subscriber
     TARGET cargo_build
     COMMAND cargo build --release --manifest-path "${CMAKE_BINARY_DIR}/Cargo.toml"
     DEPENDS copy_crate)
