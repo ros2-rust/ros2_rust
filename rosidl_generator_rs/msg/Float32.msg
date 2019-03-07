@@ -1,0 +1,1 @@
+float32 empty_float32
