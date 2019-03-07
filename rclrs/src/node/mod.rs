@@ -79,6 +79,7 @@ impl Node {
         })
     }
 
+    // TODO: make publisher's lifetime depend on node's lifetime 
     pub fn create_publisher<T>(&self, topic: &str, qos: QoSProfile) -> RclResult<Publisher<T>>
     where
         T: rclrs_common::traits::MessageDefinition<T>,
@@ -86,6 +87,7 @@ impl Node {
         Publisher::<T>::new(self, topic, qos)
     }
 
+    // TODO: make subscription's lifetime depend on node's lifetime 
     pub fn create_subscription<T>(
         &mut self,
         topic: &str,
