@@ -39,8 +39,8 @@ endforeach()
 
 include(ExternalProject)
 
-file(REMOVE_RECURSE "${CMAKE_BINARY_DIR}/src")
-file(COPY "${CMAKE_SOURCE_DIR}/src" DESTINATION "${CMAKE_BINARY_DIR}")
+configure_file(${CMAKE_SOURCE_DIR}/src/rclrs_publisher.rs ${CMAKE_BINARY_DIR}/src/rclrs_publisher.rs COPYONLY)
+configure_file(${CMAKE_SOURCE_DIR}/src/rclrs_subscriber.rs ${CMAKE_BINARY_DIR}/src/rclrs_subscriber.rs COPYONLY)
 
 file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/.cargo")
 file(WRITE "${CMAKE_BINARY_DIR}/.cargo/config"
@@ -56,13 +56,22 @@ ${_native_libraries_dirs}
 file(COPY "${CMAKE_SOURCE_DIR}/Cargo.toml" DESTINATION "${CMAKE_BINARY_DIR}/")
 file(APPEND "${CMAKE_BINARY_DIR}/Cargo.toml" "${_crates_dependencies}")
 
-ExternalProject_Add(
-    rclrs_examples
-    DOWNLOAD_COMMAND ""
-    CONFIGURE_COMMAND ""
-    BUILD_COMMAND cargo build --release --manifest-path "${CMAKE_BINARY_DIR}/Cargo.toml"
-    INSTALL_COMMAND ""
-    LOG_BUILD ON)
+add_custom_command(
+    OUTPUT
+        ${CMAKE_BINARY_DIR}/ament_cargo/${PROJECT_NAME}/target/release/rclrs_publisher
+        ${CMAKE_BINARY_DIR}/ament_cargo/${PROJECT_NAME}/target/release/rclrs_subscriber
+    COMMAND cargo build --release --manifest-path "${CMAKE_BINARY_DIR}/Cargo.toml"
+    DEPENDS
+        ${CMAKE_BINARY_DIR}/src/rclrs_publisher.rs
+        ${CMAKE_BINARY_DIR}/src/rclrs_subscriber.rs
+)
+
+add_custom_target(
+    build_crate ALL
+    DEPENDS
+        ${CMAKE_BINARY_DIR}/ament_cargo/${PROJECT_NAME}/target/release/rclrs_publisher
+        ${CMAKE_BINARY_DIR}/ament_cargo/${PROJECT_NAME}/target/release/rclrs_subscriber
+)
 
 install(FILES
     ${CMAKE_BINARY_DIR}/ament_cargo/${PROJECT_NAME}/target/release/rclrs_publisher
