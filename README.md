@@ -1,6 +1,13 @@
 ROS2 for Rust
 =============
 
+Build status
+------------
+
+| Target | Status |
+|----------|--------|
+| **Ubuntu 18.04** | [![Build Status](https://dev.azure.com/ros2-rust/ros2-rust/_apis/build/status/ros2-rust.ros2_rust?branchName=master)](https://dev.azure.com/ros2-rust/ros2-rust/_build/latest?definitionId=1&branchName=master) |
+
 Introduction
 ------------
 
