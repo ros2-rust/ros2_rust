@@ -12,10 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-find_package(ament_cmake_export_crates REQUIRED)
-find_package(rosidl_generator_c REQUIRED)
 find_package(rmw_implementation_cmake REQUIRED)
 find_package(rmw REQUIRED)
+find_package(ament_cmake_export_crates REQUIRED)
 find_package(rclrs_common REQUIRED)
 
 if(NOT WIN32)
@@ -57,8 +56,13 @@ foreach(_idl_file ${rosidl_generate_interfaces_IDL_FILES})
 
   if(_parent_folder STREQUAL "msg")
     set(_has_msg TRUE)
+    set(_idl_file_without_actions ${_idl_file_without_actions} ${_idl_file})
   elseif(_parent_folder STREQUAL "srv")
     set(_has_srv TRUE)
+    set(_idl_file_without_actions ${_idl_file_without_actions} ${_idl_file})
+  elseif(_parent_folder STREQUAL "action")
+    set(_has_action TRUE)
+    message(WARNING "Rust actions generation is not implemented")
   else()
     message(FATAL_ERROR "Interface file with unknown parent folder: ${_idl_file}")
   endif()
@@ -108,7 +112,7 @@ set(target_dependencies
   "${rosidl_generator_rs_TEMPLATE_DIR}/srv.c.em"
   "${rosidl_generator_rs_TEMPLATE_DIR}/msg.rs.em"
   "${rosidl_generator_rs_TEMPLATE_DIR}/srv.rs.em"
-  ${rosidl_generate_interfaces_IDL_FILES}
+  ${_idl_file_without_actions}
   ${_dependency_files})
 foreach(dep ${target_dependencies})
   if(NOT EXISTS "${dep}")
@@ -116,11 +120,11 @@ foreach(dep ${target_dependencies})
   endif()
 endforeach()
 
-set(generator_arguments_file "${CMAKE_BINARY_DIR}/rosidl_generator_rs__arguments.json")
+set(generator_arguments_file "${CMAKE_CURRENT_BINARY_DIR}/rosidl_generator_rs__arguments.json")
 rosidl_write_generator_arguments(
   "${generator_arguments_file}"
   PACKAGE_NAME "${PROJECT_NAME}"
-  ROS_INTERFACE_FILES "${rosidl_generate_interfaces_IDL_FILES}"
+  ROS_INTERFACE_FILES "${_idl_file_without_actions}"
   ROS_INTERFACE_DEPENDENCIES "${_dependencies}"
   OUTPUT_DIR "${_output_path}"
   TEMPLATE_DIR "${rosidl_generator_rs_TEMPLATE_DIR}"
@@ -199,7 +203,7 @@ foreach(_typesupport_impl ${_typesupport_impls})
     ${PROJECT_NAME}__${_typesupport_impl}
   )
   rosidl_target_interfaces(${_target_name}
-    ${PROJECT_NAME} rosidl_typesupport_c)
+    ${rosidl_generate_interfaces_TARGET} rosidl_typesupport_c)
 
   target_include_directories(${_target_name}
     PUBLIC

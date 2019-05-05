@@ -19,12 +19,18 @@ What's missing?
 ---------------
 
 Lots of things!
-- Nested types
 - An ament build type for Cargo. The current examples use CMake to install and build the binaries... and it's really ugly.
 - Component nodes
 - Clients and services
 - Tests
 - Documentation
+
+### Limitations
+
+- messages are deep-copied and this can be terribly inefficient for big messages like images; the current solution leverages C typesupport implementations and might benefits from a direct serialization/deserialization
+- the current solution for crates export with CMake is not very robust
+- `rclrs` interface is very limited for now and might not be so much idiomatic yet, any help and suggestion on the interface would be greatly appreciated
+- due to the current ROS2 support of non-default clients, packages containing definitions of messages used in Rust crates must be present in the current workspace; otherwise message crates generation won't be triggered
 
 Sounds great, how can I try this out?
 -------------------------------------
@@ -32,14 +38,12 @@ Sounds great, how can I try this out?
 The following steps show how to build the examples:
 
 ```
-mkdir -p ~/ros2_rust_ws/src
-cd ~/ros2_rust_ws
-wget https://raw.githubusercontent.com/esteve/ros2_rust/master/ros2_rust.repos
-vcs import ~/ros2_rust_ws/src < ros2_rust.repos
-cd ~/ros2_rust_ws/src/ros2/rosidl_typesupport
-patch -p1 < ../../ros2_rust/ros2_rust/rosidl_typesupport_ros2_rust.patch
-cd ~/ros2_rust_ws
-src/ament/ament_tools/scripts/ament.py build --isolated
+mkdir -p ros2_rust_ws/src
+cd ros2_rust_ws
+git clone https://github.com/esteve/ros2_rust.git src/ros2_rust
+vcs import src < ./src/ros2_rust/ros2_rust.repos
+source /opt/ros/crystal/setup.sh
+colcon build
 ```
 
 Now you can just run a bunch of examples.
@@ -49,7 +53,7 @@ Now you can just run a bunch of examples.
 Publisher:
 
 ```
-. ~/ros2_rust_ws/install_isolated/local_setup.sh
+. ./install/setup.sh
 
 ros2 run rclrs_examples rclrs_publisher
 ```
@@ -57,7 +61,7 @@ ros2 run rclrs_examples rclrs_publisher
 Subscriber:
 
 ```
-. ~/ros2_rust_ws/install_isolated/local_setup.sh
+. ./install/setup.sh
 
 ros2 run rclrs_examples rclrs_subscriber
 ```

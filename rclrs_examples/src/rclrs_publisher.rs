@@ -1,22 +1,26 @@
-extern crate rclrs;
-extern crate std_msgs;
+use rclrs;
+use std_msgs;
 
-fn main() {
-    rclrs::init().unwrap();
+fn main() -> rclrs::RclResult {
+    let context = rclrs::Context::default();
 
-    let node = rclrs::create_node("minimal_publisher");
+    let node = context.create_node("minimal_publisher")?;
+
     let publisher =
-        node.create_publisher::<std_msgs::msg::String>("topic", rclrs::qos::QOS_PROFILE_DEFAULT);
+        node.create_publisher::<std_msgs::msg::String>("topic", rclrs::QOS_PROFILE_DEFAULT)?;
 
-    let mut message: std_msgs::msg::String = Default::default();
+    let mut message = std_msgs::msg::String::default();
 
     let mut publish_count: u32 = 1;
 
-    while rclrs::ok() {
+    while context.ok() {
         message.data = format!("Hello, world! {}", publish_count);
         println!("Publishing: [{}]", message.data);
-        publisher.publish(&message).unwrap();
+        publisher.publish(&message)?;
         publish_count += 1;
-        std::thread::sleep(std::time::Duration::from_millis(1500));
+        std::thread::sleep(std::time::Duration::from_millis(500));
     }
+
+    Ok(())
 }
+

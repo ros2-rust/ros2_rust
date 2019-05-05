@@ -1,11 +1,5 @@
 #include "rosidl_generator_c/message_type_support_struct.h"
 
-#include "rosidl_generator_c/string.h"
-#include "rosidl_generator_c/string_functions.h"
-
-#include "rosidl_generator_c/primitives_array.h"
-#include "rosidl_generator_c/primitives_array_functions.h"
-
 @[for subfolder, msg_spec in msg_specs]@
 @{
 type_name = msg_spec.base_type.type
