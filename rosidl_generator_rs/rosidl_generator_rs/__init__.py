@@ -485,33 +485,23 @@ def is_static_array(field):
 
 def is_static_string_array(field):
     return (
-        field.type.is_array
-        and field.type.is_fixed_size_array()
+        is_static_array(field)
         and field.type.is_primitive_type()
         and field.type.type == "string"
     )
 
 
 def is_static_primitive_array(field):
-    return (
-        field.type.is_array
-        and field.type.is_fixed_size_array()
-        and field.type.is_primitive_type()
-    )
+    return is_static_array(field) and field.type.is_primitive_type()
 
 
 def is_static_nested_array(field):
-    return (
-        field.type.is_array
-        and field.type.is_fixed_size_array()
-        and not field.type.is_primitive_type()
-    )
+    return is_static_array(field) and not field.type.is_primitive_type()
 
 
 def is_dynamic_string_array(field):
     return (
-        field.type.is_array
-        and not field.type.is_fixed_size_array()
+        is_dynamic_array(field)
         and field.type.is_primitive_type()
         and field.type.type == "string"
     )
@@ -519,19 +509,14 @@ def is_dynamic_string_array(field):
 
 def is_dynamic_primitive_array(field):
     return (
-        field.type.is_array
-        and not field.type.is_fixed_size_array()
+        is_dynamic_array(field)
         and field.type.is_primitive_type()
         and field.type.type != "string"
     )
 
 
 def is_dynamic_nested_array(field):
-    return (
-        field.type.is_array
-        and not field.type.is_fixed_size_array()
-        and not field.type.is_primitive_type()
-    )
+    return is_dynamic_array(field) and not field.type.is_primitive_type()
 
 
 def is_string_array(field):

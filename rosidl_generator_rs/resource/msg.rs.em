@@ -16,56 +16,158 @@ includes = {}
 @[for subfolder, msg_spec in msg_specs]@
 @{
 type_name = msg_spec.base_type.type
+can_derive_common_traits = True
 }@
 @
 @{
 for field in msg_spec.fields:
+    if is_static_array(field) and field.type.array_size > 32:
+        can_derive_common_traits = False
     if not field.type.is_primitive_type():
         key = field.type.pkg_name
         if key == package_name:
-          continue
+            continue
         if key not in includes:
             includes[key] = set([])
         includes[key].add(type_name + "." + field.name)
 }@
 
 #[allow(non_camel_case_types)]
+@[if can_derive_common_traits]@
 #[derive(Default, Debug, Clone, PartialEq)]
+@[end if]@
 pub struct @(type_name) {
 @[for field in msg_spec.fields]@
   pub @(sanitize_identifier(field.name)): @(get_rs_type(field.type, package_name)),
 @[end for]@
 }
 
-#[link(name = "@(package_name)__rosidl_typesupport_c__rsext")]
-extern "C" {
-    fn @(package_name)_@(subfolder)_@(convert_camel_case_to_lower_case_underscore(type_name))_get_type_support() -> uintptr_t;
-@
-    fn @(package_name)_@(subfolder)_@(convert_camel_case_to_lower_case_underscore(type_name))_create_native_message() -> uintptr_t;
-@
-    fn @(package_name)_@(subfolder)_@(convert_camel_case_to_lower_case_underscore(type_name))_get_native_message_at(
-      message_handle: uintptr_t,
+@[if not can_derive_common_traits]@
+impl Default for @(type_name) {
+  fn default() -> Self {
 @[for field in msg_spec.fields]@
-@[    if is_dynamic_array(field)]@
-      @(sanitize_identifier(field.name))__len: size_t,
-@[    end if]@
-@[    if not is_nested(field)]@
-      @(sanitize_identifier(field.name)): @(get_ffi_type(field, package_name)),
+@[    if is_static_array(field) and field.type.array_size > 32]@
+    let @(sanitize_identifier(field.name)) = [
+@[        for i in range(field.type.array_size)]@
+      @(get_non_array_rs_type(field.type, package_name))::default(),
+@[        end for]@
+    ];
+
 @[    end if]@
 @[end for]@
-    );
 @
-    fn @(package_name)_@(subfolder)_@(convert_camel_case_to_lower_case_underscore(type_name))_destroy_native_message(message_handle: uintptr_t);
+    Self {
+@[for field in msg_spec.fields]@
+@[    if is_static_array(field) and field.type.array_size > 32]@
+      @(sanitize_identifier(field.name)),
+@[    else]@
+      @(sanitize_identifier(field.name)): @(get_rs_type(field.type, package_name))::default(),
+@[    end if]@
+@[end for]@
+    }
+  }
+}
+
+impl std::fmt::Debug for @(type_name) {
+  fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
+    let mut debug_struct = fmt.debug_struct("@(type_name)");
+@[for field in msg_spec.fields]@
+@[    if is_static_array(field) and field.type.array_size > 32]@
+
+    struct @(convert_lower_case_underscore_to_camel_case(sanitize_identifier(field.name)))Wrapper<'a>(&'a @(get_rs_type(field.type, package_name)));
+
+    impl<'a> std::fmt::Debug for @(convert_lower_case_underscore_to_camel_case(sanitize_identifier(field.name)))Wrapper<'a> {
+      fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
+        fmt.debug_list()
+@[        for i in range(field.type.array_size)]@
+          .entry(&self.0[@(i)])
+@[        end for]@
+          .finish()
+      }
+    }
+
+    debug_struct.field("@(sanitize_identifier(field.name))", &@(convert_lower_case_underscore_to_camel_case(sanitize_identifier(field.name)))Wrapper(&self.@(sanitize_identifier(field.name))));
+@[    else]@
+    debug_struct.field("@(sanitize_identifier(field.name))", &self.@(sanitize_identifier(field.name)));
+@[    end if]@
+@[end for]@
+    debug_struct.finish()
+  }
+}
+
+impl Clone for @(type_name) {
+  fn clone(&self) -> Self {
+@[for field in msg_spec.fields]@
+@[    if is_static_array(field) and field.type.array_size > 32]@
+    let @(sanitize_identifier(field.name)) = [
+@[        for i in range(field.type.array_size)]@
+      self.@(sanitize_identifier(field.name))[@(i)].clone(),
+@[        end for]@
+    ];
+@[    end if]@
+@[end for]@
+@
+    Self {
+@[for field in msg_spec.fields]@
+@[    if is_static_array(field) and field.type.array_size > 32]@
+      @(sanitize_identifier(field.name)),
+@[    else]@
+      @(sanitize_identifier(field.name)): self.@(sanitize_identifier(field.name)).clone(),
+@[    end if]@
+@[end for]@
+    }
+  }
+}
+
+impl PartialEq for @(type_name) {
+  fn eq(&self, other: &Self) -> bool {
+@[for field in msg_spec.fields]@
+@[    if is_static_array(field) and field.type.array_size > 32]@
+@[        for i in range(field.type.array_size)]@
+    if self.@(sanitize_identifier(field.name))[@(i)] != other.@(sanitize_identifier(field.name))[@(i)] {
+      return false;
+    }
+@[        end for]@
+@[    else]@
+    if self.@(sanitize_identifier(field.name)) != other.@(sanitize_identifier(field.name)) {
+      return false;
+    }
+@[    end if]@
+@[end for]@
+    return true;
+  }
+}
+@[end if]@
+@
+#[link(name = "@(package_name)__rosidl_typesupport_c__rsext")]
+extern "C" {
+  fn @(package_name)_@(subfolder)_@(convert_camel_case_to_lower_case_underscore(type_name))_get_type_support() -> uintptr_t;
+@
+  fn @(package_name)_@(subfolder)_@(convert_camel_case_to_lower_case_underscore(type_name))_create_native_message() -> uintptr_t;
+@
+  fn @(package_name)_@(subfolder)_@(convert_camel_case_to_lower_case_underscore(type_name))_get_native_message_at(
+    message_handle: uintptr_t,
+@[for field in msg_spec.fields]@
+@[    if is_dynamic_array(field)]@
+    @(sanitize_identifier(field.name))__len: size_t,
+@[    end if]@
+@[    if not is_nested(field)]@
+    @(sanitize_identifier(field.name)): @(get_ffi_type(field, package_name)),
+@[    end if]@
+@[end for]@
+  );
+@
+  fn @(package_name)_@(subfolder)_@(convert_camel_case_to_lower_case_underscore(type_name))_destroy_native_message(message_handle: uintptr_t);
 @
 @[for field in msg_spec.fields]@
 @[    if is_dynamic_array(field)]@
-    fn @(package_name)_@(subfolder)_@(convert_camel_case_to_lower_case_underscore(type_name))_@(field.name)_array_size(message_handle: uintptr_t) -> size_t;
+  fn @(package_name)_@(subfolder)_@(convert_camel_case_to_lower_case_underscore(type_name))_@(field.name)_array_size(message_handle: uintptr_t) -> size_t;
 @[    end if]@
 @
 @[    if is_nested_array(field) or is_string_array(field)]@
-    fn @(package_name)_@(subfolder)_@(convert_camel_case_to_lower_case_underscore(type_name))_@(field.name)_read_handle(message_handle: uintptr_t, item_handles: *mut uintptr_t);
+  fn @(package_name)_@(subfolder)_@(convert_camel_case_to_lower_case_underscore(type_name))_@(field.name)_read_handle(message_handle: uintptr_t, item_handles: *mut uintptr_t);
 @[    else]@
-    fn @(package_name)_@(subfolder)_@(convert_camel_case_to_lower_case_underscore(type_name))_@(field.name)_read_handle(message_handle: uintptr_t) -> @(get_ffi_return_type(field, package_name));
+  fn @(package_name)_@(subfolder)_@(convert_camel_case_to_lower_case_underscore(type_name))_@(field.name)_read_handle(message_handle: uintptr_t) -> @(get_ffi_return_type(field, package_name));
 @[    end if]@
 @[end for]@
 }
@@ -73,14 +175,6 @@ extern "C" {
 #[allow(non_snake_case)]
 impl @(type_name) {
   fn get_native_message(&self) -> uintptr_t {
-@[for field in msg_spec.fields]@
-@[    if is_string_array(field)]@
-    let @(sanitize_identifier(field.name))__c_strings = self.@(sanitize_identifier(field.name)).iter().map(|s| CString::new(s.clone()).unwrap()).collect::<Vec<_>>();
-@[    elif is_single_string(field)]@
-    let @(sanitize_identifier(field.name))__c_string = CString::new(self.@(sanitize_identifier(field.name)).clone()).unwrap();
-@[    end if]@
-@[end for]@
-@
     unsafe {
       let native_message = @(package_name)_@(subfolder)_@(convert_camel_case_to_lower_case_underscore(type_name))_create_native_message();
       self.get_native_message_at(native_message);
