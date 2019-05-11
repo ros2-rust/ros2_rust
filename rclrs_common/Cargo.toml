@@ -2,7 +2,9 @@
 name = "rclrs_common"
 version = "0.1.0"
 authors = ["Esteve Fernandez <esteve@apache.org>"]
+edition = "2018"
 
 [dependencies]
 libc = "0.2"
-downcast = "0.9"
+downcast = "0.10"
+failure = "0.1.5"
