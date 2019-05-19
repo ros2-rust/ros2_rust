@@ -38,9 +38,9 @@ Sounds great, how can I try this out?
 The following steps show how to build the examples:
 
 ```
-# first, install vcstools from PyPI or apt:
-# sudo apt install python3-vcstools
-# pip install vcstools
+# first, install vcstool from PyPI or apt:
+# sudo apt install python3-vcstool
+# pip install vcstool
 
 mkdir -p ~/ros2_rust_ws/src
 cd ~/ros2_rust_ws
