@@ -42,11 +42,12 @@ Lots of things!
 Sounds great, how can I try this out?
 -------------------------------------
 
-The following steps show how to build the examples:
+The following steps were last tested on Ubuntu 18.04. They show how to build the examples:
+
 
 ```
 # first, install vcstool from PyPI or apt:
-# sudo apt install python3-vcstool
+# sudo apt install ros-crystal-desktop python3-vcstool libclang-dev clang
 # pip install vcstool
 
 mkdir -p ~/ros2_rust_ws/src
