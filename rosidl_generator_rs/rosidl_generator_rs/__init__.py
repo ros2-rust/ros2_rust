@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections import defaultdict
 import os
 
 from rosidl_cmake import convert_camel_case_to_lower_case_underscore
@@ -206,7 +205,7 @@ def get_builtin_rs_type(type_):
         return 'u8'
 
     if type_ == 'char':
-        return 'char'
+        return 'u8'
 
     if type_ == 'float32':
         return 'f32'

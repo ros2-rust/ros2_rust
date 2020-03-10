@@ -1,3 +1,4 @@
+#include "rosidl_generator_c/string_functions.h"
 #include "rosidl_generator_c/message_type_support_struct.h"
 
 @[for subfolder, msg_spec in msg_specs]@

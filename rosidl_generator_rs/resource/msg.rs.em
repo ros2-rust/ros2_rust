@@ -1,4 +1,3 @@
-use std;
 use libc::c_char;
 use libc::uintptr_t;
 use rclrs_common;
@@ -92,7 +91,8 @@ impl @(type_name) {
     }
   }
 
-  fn read_handle(&mut self, message_handle: uintptr_t) -> () {
+  #[allow(unused_unsafe)]
+  fn read_handle(&mut self, _message_handle: uintptr_t) -> () {
     unsafe {
       {
 @[for field in msg_spec.fields]@
@@ -100,10 +100,10 @@ impl @(type_name) {
 @[    else]@
 @[        if field.type.is_primitive_type()]@
 @[            if field.type.type == 'string']@
-      let ptr = @(package_name)_@(subfolder)_@(convert_camel_case_to_lower_case_underscore(type_name))_@(field.name)_read_handle(message_handle);
+      let ptr = @(package_name)_@(subfolder)_@(convert_camel_case_to_lower_case_underscore(type_name))_@(field.name)_read_handle(_message_handle);
       self.@(field.name) = CStr::from_ptr(ptr).to_string_lossy().into_owned();
 @[            else]@
-      self.@(field.name) = @(package_name)_@(subfolder)_@(convert_camel_case_to_lower_case_underscore(type_name))_@(field.name)_read_handle(message_handle);
+      self.@(field.name) = @(package_name)_@(subfolder)_@(convert_camel_case_to_lower_case_underscore(type_name))_@(field.name)_read_handle(_message_handle);
 @[            end if]@
 @[        else]@
 @[        end if]@
