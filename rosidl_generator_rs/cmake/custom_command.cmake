@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
 add_custom_command(
   OUTPUT
   ${_generated_extension_files}
@@ -33,7 +32,7 @@ if(TARGET ${rosidl_generate_interfaces_TARGET}${_target_suffix})
   message(WARNING "Custom target ${rosidl_generate_interfaces_TARGET}${_target_suffix} already exists")
 else()
   add_custom_target(
-    ${rosidl_generate_interfaces_TARGET}${_target_suffix}
+    ${rosidl_generate_interfaces_TARGET}${_target_suffix} ALL
     DEPENDS
     ${_generated_extension_files}
     ${_generated_common_rs_files}

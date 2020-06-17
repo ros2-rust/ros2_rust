@@ -37,6 +37,10 @@ set(_output_path
   "${CMAKE_CURRENT_BINARY_DIR}/rosidl_generator_rs/${PROJECT_NAME}")
 set(_generated_extension_files "")
 set(_generated_common_rs_files "")
+
+set(_generated_c_files "")
+set(_generated_rs_files "")
+
 set(_generated_msg_rs_files "")
 set(_generated_msg_c_files "")
 set(_generated_srv_rs_files "")
@@ -49,7 +53,7 @@ foreach(_typesupport_impl ${_typesupport_impls})
   set(_generated_extension_${_typesupport_impl}_files "")
 endforeach()
 
-foreach(_idl_file ${rosidl_generate_interfaces_IDL_FILES})
+foreach(_idl_file ${rosidl_generate_interfaces_ABS_IDL_FILES})
   get_filename_component(_parent_folder "${_idl_file}" DIRECTORY)
   get_filename_component(_parent_folder "${_parent_folder}" NAME)
   get_filename_component(_module_name "${_idl_file}" NAME_WE)
@@ -97,7 +101,7 @@ endif()
 set(_dependency_files "")
 set(_dependencies "")
 foreach(_pkg_name ${rosidl_generate_interfaces_DEPENDENCY_PACKAGE_NAMES})
-  foreach(_idl_file ${${_pkg_name}_INTERFACE_FILES})
+  foreach(_idl_file ${${_pkg_name}_IDL_FILES})
     set(_abs_idl_file "${${_pkg_name}_DIR}/../${_idl_file}")
     normalize_path(_abs_idl_file "${_abs_idl_file}")
     list(APPEND _dependency_files "${_abs_idl_file}")
@@ -112,6 +116,7 @@ set(target_dependencies
   "${rosidl_generator_rs_TEMPLATE_DIR}/srv.c.em"
   "${rosidl_generator_rs_TEMPLATE_DIR}/msg.rs.em"
   "${rosidl_generator_rs_TEMPLATE_DIR}/srv.rs.em"
+  ${rosidl_generate_interfaces_ABS_IDL_FILES}
   ${_idl_file_without_actions}
   ${_dependency_files})
 foreach(dep ${target_dependencies})
@@ -124,6 +129,7 @@ set(generator_arguments_file "${CMAKE_CURRENT_BINARY_DIR}/rosidl_generator_rs__a
 rosidl_write_generator_arguments(
   "${generator_arguments_file}"
   PACKAGE_NAME "${PROJECT_NAME}"
+  IDL_TUPLES "${rosidl_generate_interfaces_IDL_TUPLES}"
   ROS_INTERFACE_FILES "${_idl_file_without_actions}"
   ROS_INTERFACE_DEPENDENCIES "${_dependencies}"
   OUTPUT_DIR "${_output_path}"
@@ -187,7 +193,6 @@ foreach(_typesupport_impl ${_typesupport_impls})
     ${_generated_msg_c_files}
     ${_generated_srv_c_files}
   )
-
   add_dependencies(
     ${_target_name}
     ${rosidl_generate_interfaces_TARGET}${_target_suffix}
@@ -202,6 +207,7 @@ foreach(_typesupport_impl ${_typesupport_impls})
     ${_target_name}
     ${PROJECT_NAME}__${_typesupport_impl}
   )
+
   rosidl_target_interfaces(${_target_name}
     ${rosidl_generate_interfaces_TARGET} rosidl_typesupport_c)
 

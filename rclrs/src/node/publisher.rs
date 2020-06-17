@@ -91,7 +91,7 @@ where
     pub fn publish(&self, message: &T) -> RclResult {
         let native_message_ptr = message.get_native_message();
         let handle = &mut *self.handle.get_mut();
-        let ret = unsafe { rcl_publish(handle as *mut _, native_message_ptr as *mut _) };
+        let ret = unsafe { rcl_publish(handle as *mut _, native_message_ptr as *mut _, std::ptr::null_mut()) };
         message.destroy_native_message(native_message_ptr);
         ret.ok()
     }
