@@ -234,7 +234,6 @@ foreach(_typesupport_impl ${_typesupport_impls})
   ament_target_dependencies(${_target_name}
     "rosidl_generator_c"
     "rosidl_generator_rs"
-    "${PROJECT_NAME}__rosidl_generator_c"
   )
 
   if(NOT rosidl_generate_interfaces_SKIP_INSTALL)
