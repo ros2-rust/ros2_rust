@@ -1,5 +1,5 @@
-#include "rosidl_generator_c/string_functions.h"
-#include "rosidl_generator_c/message_type_support_struct.h"
+#include "rosidl_runtime_c/string_functions.h"
+#include "rosidl_runtime_c/message_type_support_struct.h"
 
 @{
 from rosidl_parser.definition import AbstractGenericString
@@ -36,7 +36,7 @@ uintptr_t @(package_name)_msg_@(convert_camel_case_to_lower_case_underscore(type
 @[for member in msg_spec.structure.members]@
 @[    if isinstance(member.type, Array)]@
 @[    elif isinstance(member.type, AbstractGenericString)]@
-      rosidl_generator_c__String__assign(&(ros_message->@(member.name)), @(member.name));
+      rosidl_runtime_c__String__assign(&(ros_message->@(member.name)), @(member.name));
 @[    elif isinstance(member.type, BasicType)]@
       ros_message->@(member.name) = @(member.name);
 @[    end if]@

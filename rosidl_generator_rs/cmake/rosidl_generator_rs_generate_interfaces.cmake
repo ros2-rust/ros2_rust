@@ -175,23 +175,24 @@ set_property(
   ${_generated_msg_rs_files}
   ${_generated_msg_c_files}
   ${_generated_srv_rs_files}
-  ${_generated_srv_c_files}
   PROPERTY GENERATED 1)
 
 set(_type_support_by_generated_c_files ${_type_support_by_generated_msg_c_files} ${_type_support_by_generated_srv_c_files})
-set(_generated_c_files ${_generated_msg_c_files} ${_generated_srv_c_files})
 set(_generated_rs_files ${_generated_msg_rs_files} ${_generated_srv_rs_files})
 
 set(_rsext_suffix "__rsext")
 foreach(_typesupport_impl ${_typesupport_impls})
   find_package(${_typesupport_impl} REQUIRED)
 
+  set(_extension_compile_flags "")
+  if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    set(_extension_compile_flags -Wall -Wextra)
+  endif()
+
   set(_target_name "${PROJECT_NAME}__${_typesupport_impl}${_rsext_suffix}")
 
   add_library(${_target_name} SHARED
     ${_generated_extension_${_typesupport_impl}_files}
-    ${_generated_msg_c_files}
-    ${_generated_srv_c_files}
   )
   add_dependencies(
     ${_target_name}
@@ -199,13 +200,10 @@ foreach(_typesupport_impl ${_typesupport_impls})
     ${rosidl_generate_interfaces_TARGET}__rosidl_typesupport_c
   )
 
-  set(_extension_compile_flags "")
-  if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-    set(_extension_compile_flags -Wall -Wextra)
-  endif()
   target_link_libraries(
     ${_target_name}
     ${PROJECT_NAME}__${_typesupport_impl}
+    ${rosidl_generate_interfaces_TARGET}__rosidl_generator_c
   )
 
   rosidl_target_interfaces(${_target_name}
@@ -218,7 +216,7 @@ foreach(_typesupport_impl ${_typesupport_impls})
   )
 
   ament_target_dependencies(${_target_name}
-    "rosidl_generator_c"
+    "rosidl_runtime_c"
     "rosidl_typesupport_c"
     "rosidl_typesupport_interface"
   )
@@ -232,7 +230,7 @@ foreach(_typesupport_impl ${_typesupport_impls})
     ${rosidl_generate_interfaces_TARGET}__${_typesupport_impl}
   )
   ament_target_dependencies(${_target_name}
-    "rosidl_generator_c"
+    "rosidl_runtime_c"
     "rosidl_generator_rs"
   )
 
@@ -264,9 +262,7 @@ endforeach()
 if(BUILD_TESTING AND rosidl_generate_interfaces_ADD_LINTER_TESTS)
   if(
     NOT _generated_msg_rs_files STREQUAL "" OR
-    NOT _generated_msg_c_files STREQUAL "" OR
-    NOT _generated_srv_rs_files STREQUAL "" OR
-    NOT _generated_srv_c_files STREQUAL ""
+    NOT _generated_srv_rs_files STREQUAL ""
   )
     find_package(ament_cmake_cppcheck REQUIRED)
     ament_cppcheck(
