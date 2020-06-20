@@ -254,20 +254,18 @@ def get_builtin_rs_type(type_, package_name=None):
     elif isinstance(type_, AbstractGenericString):
         return 'std::string::String'
     elif isinstance(type_, Array):
-        return '[{}, {}]'.format(get_rs_type(type_.value_type, package_name=package_name), 32 if type_.size <= 32 else 32)
+        return '[{}, {}]'.format(get_rs_type(type_.value_type), 32 if type_.size <= 32 else 32)
     elif isinstance(type_, AbstractSequence):
-        return 'Vec<{}>'.format(get_rs_type(type_.value_type, package_name=package_name))
-    elif isinstance(type_, BoundedSequence):
-        return 'nope'
+        return 'Vec<{}>'.format(get_rs_type(type_.value_type))
 
     assert False, "unknown type '%s'" % type_.typename
 
 
-def get_rs_type(type_, package_name=None, subfolder='msg'):
+def get_rs_type(type_):
     if isinstance(type_, NamespacedType):
         return '::'.join(type_.namespaced_name())
 
-    return get_builtin_rs_type(type_, package_name=package_name)
+    return get_builtin_rs_type(type_)
 
 
 def get_builtin_c_type(type_):
@@ -275,44 +273,30 @@ def get_builtin_c_type(type_):
     if isinstance(type_, BasicType):
         if type_.typename == 'boolean':
             return 'bool'
-
         if type_.typename in ['byte', 'octet']:
             return 'uint8_t'
-
         if type_.typename == 'char':
             return 'char'
-
-        # FIXME(nnarain): float* needed?
-        if type_.typename in ['float32', 'float']:
+        if type_.typename in ['float']:
             return 'float'
-
-        if type_.typename in ['float64', 'double']:
+        if type_.typename in ['double', 'long double']:
             return 'double'
-
         if type_.typename == 'int8':
             return 'int8_t'
-
         if type_.typename == 'uint8':
             return 'uint8_t'
-
         if type_.typename == 'int16':
             return 'int16_t'
-
         if type_.typename == 'uint16':
             return 'uint16_t'
-
         if type_.typename == 'int32':
             return 'int32_t'
-
         if type_.typename == 'uint32':
             return 'uint32_t'
-
         if type_.typename == 'int64':
             return 'int64_t'
-
         if type_.typename == 'uint64':
             return 'uint64_t'
-
     elif isinstance(type_, AbstractGenericString):
         return 'const char *'
 

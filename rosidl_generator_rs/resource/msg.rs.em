@@ -20,7 +20,7 @@ type_name = msg_spec.structure.namespaced_type.name
 #[derive(Default)]
 pub struct @(type_name) {
 @[for member in msg_spec.structure.members]@
-    pub @(member.name): @(get_rs_type(member.type, package_name=package_name).replace(package_name, 'crate')),
+    pub @(member.name): @(get_rs_type(member.type).replace(package_name, 'crate')),
 @[end for]@
 }
 
@@ -33,7 +33,7 @@ extern "C" {
 @[    if isinstance(member.type, AbstractGenericString)]@
     @(member.name): *const c_char,
 @[    elif isinstance(member.type, BasicType)]@
-    @(member.name): @(get_rs_type(member.type, package_name=package_name)),
+    @(member.name): @(get_rs_type(member.type)),
 @[    end if]@
 @[end for]@
     ) -> uintptr_t;
@@ -45,7 +45,7 @@ extern "C" {
 @[    elif isinstance(member.type, AbstractGenericString)]@
     fn @(package_name)_@(subfolder)_@(convert_camel_case_to_lower_case_underscore(type_name))_@(member.name)_read_handle(message_handle: uintptr_t) -> *const c_char;
 @[    elif isinstance(member.type, BasicType)]@
-    fn @(package_name)_@(subfolder)_@(convert_camel_case_to_lower_case_underscore(type_name))_@(member.name)_read_handle(message_handle: uintptr_t) -> @(get_rs_type(member.type, package_name=package_name));
+    fn @(package_name)_@(subfolder)_@(convert_camel_case_to_lower_case_underscore(type_name))_@(member.name)_read_handle(message_handle: uintptr_t) -> @(get_rs_type(member.type));
 @[    end if]@
 @[end for]@
 }

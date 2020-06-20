@@ -10,7 +10,7 @@ find_package(rosidl_typesupport_interface REQUIRED)
 find_package(rosidl_typesupport_introspection_c REQUIRED)
 
 ament_export_dependencies(rosidl_cmake)
-# ament_export_dependencies(rmw) 
+ament_export_dependencies(rmw)
 ament_export_dependencies(rosidl_generator_c)
 
 ament_index_register_resource("rosidl_generator_packages")

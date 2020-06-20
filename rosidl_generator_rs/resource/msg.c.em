@@ -21,7 +21,7 @@ for member in msg_spec.structure.members:
         else:
             pass
 
-msg_normalized_type = get_rs_type(msg_spec.structure.namespaced_type, package_name=package_name, subfolder=subfolder).replace('::', '__')
+msg_normalized_type = get_rs_type(msg_spec.structure.namespaced_type).replace('::', '__')
 }@
 
 #include "@(package_name)/@(subfolder)/@(convert_camel_case_to_lower_case_underscore(type_name)).h"
