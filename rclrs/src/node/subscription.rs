@@ -42,11 +42,28 @@ impl Drop for SubscriptionHandle {
     }
 }
 
+/// Trait to be implemented by concrete Subscriber structs
+/// See [`Subscription<T>`] for an example
 pub trait SubscriptionBase {
     fn handle(&self) -> &SubscriptionHandle;
     fn create_message(&self) -> Box<dyn rclrs_common::traits::Message>;
     fn callback_fn(&self, message: Box<dyn rclrs_common::traits::Message>) -> ();
 
+    /// Ask RMW for the data
+    ///
+    /// +-------------+
+    /// | rclrs::take |
+    /// +------+------+
+    ///        |
+    ///        |
+    /// +------v------+
+    /// |  rcl_take   |
+    /// +------+------+
+    ///        |
+    ///        |
+    /// +------v------+
+    /// |  rmw_take   |
+    /// +-------------+
     fn take(&self, message: &mut dyn rclrs_common::traits::Message) -> RclResult<bool> {
         let handle = &*self.handle().get();
         let message_handle = message.get_native_message();
@@ -75,6 +92,7 @@ pub trait SubscriptionBase {
     }
 }
 
+/// Main class responsible for subscribing to topics and receiving data over IPC in ROS
 pub struct Subscription<T>
 where
     T: rclrs_common::traits::Message,

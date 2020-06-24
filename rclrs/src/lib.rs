@@ -21,6 +21,7 @@ pub trait Handle<T> {
     fn get_mut(self) -> Self::DerefMutT;
 }
 
+/// Wrapper around [`spin_once`]
 pub fn spin(node: &Node) -> RclResult {
     while unsafe { rcl_context_is_valid(&mut *node.context.get_mut() as *mut _) } {
         if let Some(error) = spin_once(node, 500).err() {
@@ -34,7 +35,47 @@ pub fn spin(node: &Node) -> RclResult {
     Ok(())
 }
 
+
+/// Main function for waiting.
+///
+/// Following is a schematic representation of the interation of [`spin_once`] with ROS RCL FFI
+///
+/// +---------------------------------------+
+/// |                                       |
+/// |   rcl_get_zero_initialized_wait_set   |
+/// |                                       |
+/// +-----------------+---------------------+
+///                   |
+///                   |
+///        +----------v----------+
+///        |  rcl_wait_set_init  |
+///        +----------+----------+
+///                   |
+///        +----------v----------+
+///        |  rcl_wait_set_clear |
+///        +----------+----------+
+///                   |
+///   +---------------v------------------+   <---+
+///   |rcl_wait_set_add_{subscription,   |       | for all subscriptions,
+///   |                  guard_condition |       | services, etc.
+///   |                  timer,          |       |
+///   |                  client,         |       |
+///   |                  service,        |       |
+///   |                  e^ent}          |       |
+///   +---------------+------------------+ +-----+
+///                   |
+///         +---------v----------+
+///         |     rcl_wait       |
+///         +---------+----------+
+///                   |
+///         +---------v----------+
+///         | rcl_wait_set_fini  |
+///         +--------------------+
+///
+///
 pub fn spin_once(node: &Node, timeout: i64) -> RclResult {
+
+    // get an rcl_wait_set_t - All NULLs
     let mut wait_set_handle = unsafe { rcl_get_zero_initialized_wait_set() };
 
     let number_of_subscriptions = node.subscriptions.len();

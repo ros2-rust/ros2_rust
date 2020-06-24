@@ -1,5 +1,6 @@
 #[allow(dead_code)]
 
+/// namespace and entry point for the RCL FFI bindings
 mod rcl_bindings {
     #![allow(non_upper_case_globals)]
     #![allow(non_camel_case_types)]

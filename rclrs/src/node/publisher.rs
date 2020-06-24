@@ -42,6 +42,7 @@ impl Drop for PublisherHandle {
     }
 }
 
+/// Main class responsible for publishing data to ROS topics
 pub struct Publisher<T>
 where
     T: rclrs_common::traits::MessageDefinition<T>,
