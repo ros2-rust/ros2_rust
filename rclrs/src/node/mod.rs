@@ -88,14 +88,15 @@ impl Node {
     }
 
     // TODO: make subscription's lifetime depend on node's lifetime
-    pub fn create_subscription<T>(
+    pub fn create_subscription<T, F>(
         &mut self,
         topic: &str,
         qos: QoSProfile,
-        callback: fn(&T),
+        callback: F,
     ) -> RclResult<Rc<Subscription<T>>>
     where
         T: rclrs_common::traits::MessageDefinition<T> + Default,
+        F: FnMut(&T) + Sized + 'static,
     {
         let subscription = Rc::new(Subscription::<T>::new(self, topic, qos, callback)?);
         self.subscriptions

@@ -98,7 +98,8 @@ where
     T: rclrs_common::traits::Message,
 {
     pub handle: Rc<SubscriptionHandle>,
-    pub callback: fn(&T),
+    // The callback's lifetime should last as long as we need it to
+    pub callback: RefCell<Box<dyn FnMut(&T) + 'static>>,
     message: PhantomData<T>,
 }
 
@@ -106,9 +107,10 @@ impl<T> Subscription<T>
 where
     T: rclrs_common::traits::Message,
 {
-    pub fn new(node: &Node, topic: &str, qos: QoSProfile, callback: fn(&T)) -> RclResult<Self>
+    pub fn new<F>(node: &Node, topic: &str, qos: QoSProfile, callback: F) -> RclResult<Self>
     where
         T: rclrs_common::traits::MessageDefinition<T>,
+        F: FnMut(&T) + Sized + 'static,
     {
         let mut subscription_handle = unsafe { rcl_get_zero_initialized_subscription() };
         let type_support = T::get_type_support() as *const rosidl_message_type_support_t;
@@ -135,7 +137,7 @@ where
 
         Ok(Self {
             handle,
-            callback,
+            callback: RefCell::new(Box::new(callback)),
             message: PhantomData,
         })
     }
@@ -158,7 +160,7 @@ where
 
     fn callback_ext(&self, message: Box<dyn rclrs_common::traits::Message>) {
         let msg = message.downcast_ref::<T>().unwrap();
-        (self.callback)(msg);
+        (&mut *self.callback.borrow_mut())(msg);
     }
 }
 
