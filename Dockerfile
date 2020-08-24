@@ -82,7 +82,6 @@ ARG FAIL_ON_TEST_FAILURE=Ture
 RUN if [ -n "$RUN_TESTS" ]; then \
         . $OVERLAY_WS/install/setup.sh && \
         colcon test \
-          --mixin $OVERLAY_MIXINS \
         && colcon test-result \
           || ([ -z "$FAIL_ON_TEST_FAILURE" ] || exit 1) \
     fi
