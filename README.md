@@ -42,8 +42,20 @@ Lots of things!
 Sounds great, how can I try this out?
 -------------------------------------
 
-The following steps were last tested on Ubuntu 18.04. They show how to build the examples:
+You can build and run the example using the included Dockerfile: 
 
+```
+git clone https://github.com/ros2-rust/ros2_rust.git
+docker build --tag ros2:rust .
+docker run -it --rm ros2:rust
+ros2 run rclrs_examples rclrs_publisher &
+ros2 run rclrs_examples rclrs_subscriber
+
+```
+
+Or do so manually as summarized in the steps below:
+
+> The following steps were last tested on Ubuntu 20.04.
 
 ```
 # first, install vcstool from PyPI or apt:
