@@ -1,3 +1,13 @@
+# This dockerfile can be configured via --build-arg
+# Build context must be the /ros2_rust root folder for COPY.
+# Example build command:
+# export OVERLAY_MIXINS="debug ccache coverage"
+# export RUN_TESTS="true"
+# docker build -t nav2:latest \
+#   --build-arg OVERLAY_MIXINS \
+#   --build-arg RUN_TESTS 
+#   --pull ./
+
 ARG FROM_IMAGE=ros:foxy
 ARG OVERLAY_WS=/opt/overlay_ws
 
