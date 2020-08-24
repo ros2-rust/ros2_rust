@@ -50,10 +50,11 @@ The following steps were last tested on Ubuntu 18.04. They show how to build the
 # sudo apt install ros-foxy-desktop python3-vcstool libclang-dev clang
 # pip install vcstool
 
-mkdir -p ~/ros2_rust_ws/src
-cd ~/ros2_rust_ws
-wget https://raw.githubusercontent.com/ros2-rust/ros2_rust/master/ros2_rust.repos
-vcs import src < ros2_rust.repos
+mkdir -p ~/ros2_rust_ws/src/ros2-rust
+cd ~/ros2_rust_ws/src/ros2-rust
+git clone https://github.com/ros2-rust/ros2_rust.git
+cd ../../
+vcs import src < src/ros2-rust/ros2_rust/ros2_rust.repos
 source /opt/ros/foxy/setup.sh
 colcon build
 ```
