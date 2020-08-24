@@ -12,15 +12,29 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections import defaultdict
 import os
+import pathlib
 
 from rosidl_cmake import convert_camel_case_to_lower_case_underscore
 from rosidl_cmake import expand_template
+from rosidl_cmake import generate_files
 from rosidl_cmake import get_newest_modification_time
 from rosidl_cmake import read_generator_arguments
-from rosidl_parser import parse_message_file
-from rosidl_parser import parse_service_file
+
+from rosidl_parser.definition import AbstractGenericString
+from rosidl_parser.definition import AbstractNestedType
+from rosidl_parser.definition import AbstractSequence
+from rosidl_parser.definition import BoundedSequence
+from rosidl_parser.definition import Array
+from rosidl_parser.definition import BasicType
+from rosidl_parser.definition import BASIC_TYPES
+from rosidl_parser.definition import IdlContent
+from rosidl_parser.definition import IdlLocator
+from rosidl_parser.definition import Message
+from rosidl_parser.definition import NamespacedType
+from rosidl_parser.definition import Service
+
+from rosidl_parser.parser import parse_idl_file
 
 
 # Taken from http://stackoverflow.com/a/6425628
@@ -30,6 +44,23 @@ def convert_lower_case_underscore_to_camel_case(word):
 
 def generate_rs(generator_arguments_file, typesupport_impls):
     args = read_generator_arguments(generator_arguments_file)
+    package_name = args['package_name']
+
+    # expand init modules for each directory
+    modules = {}
+    idl_content = IdlContent()
+    for idl_tuple in args.get('idl_tuples', []):
+        idl_parts = idl_tuple.rsplit(':', 1)
+        assert len(idl_parts) == 2
+
+        idl_rel_path = pathlib.Path(idl_parts[1])
+        idl_stems = modules.setdefault(str(idl_rel_path.parent), set())
+        idl_stems.add(idl_rel_path.stem)
+
+        locator = IdlLocator(*idl_parts)
+        idl_file = parse_idl_file(locator)
+        idl_content.elements += idl_file.content.elements
+
     typesupport_impls = typesupport_impls.split(';')
 
     template_dir = args['template_dir']
@@ -37,18 +68,18 @@ def generate_rs(generator_arguments_file, typesupport_impls):
         '%s_rs.ep.{0}.c'.format(impl): impl
         for impl in typesupport_impls
     }
+
     mapping_msgs = {
         os.path.join(template_dir, 'msg.rs.em'): ['rust/src/%s.rs'],
-        os.path.join(template_dir, 'msg.c.em'):
-        type_support_impl_by_filename.keys(),
+        os.path.join(template_dir, 'msg.c.em'): type_support_impl_by_filename.keys(),
     }
 
     mapping_srvs = {
         os.path.join(template_dir, 'srv.rs.em'): ['rust/src/%s.rs'],
-        os.path.join(template_dir, 'srv.c.em'):
-        type_support_impl_by_filename.keys(),
+        os.path.join(template_dir, 'srv.c.em'): type_support_impl_by_filename.keys(),
     }
 
+    # Ensure the required templates exist
     for template_file in mapping_msgs.keys():
         assert os.path.exists(template_file), \
             'Messages template file %s not found' % template_file
@@ -74,17 +105,11 @@ def generate_rs(generator_arguments_file, typesupport_impls):
     latest_target_timestamp = get_newest_modification_time(
         args['target_dependencies'])
 
-    for ros_interface_file in args['ros_interface_files']:
-        extension = os.path.splitext(ros_interface_file)[1]
-        subfolder = os.path.basename(os.path.dirname(ros_interface_file))
-        if extension == '.msg':
-            data['msg_specs'].append((subfolder, parse_message_file(
-                args['package_name'], ros_interface_file)))
-        elif extension == '.srv':
-            data['srv_specs'].append((subfolder, parse_service_file(
-                args['package_name'], ros_interface_file)))
-        else:
-            continue
+    for message in idl_content.get_elements_of_type(Message):
+        data['msg_specs'].append(('msg', message))
+
+    for service in idl_content.get_elements_of_type(Service):
+        data['srv_specs'].append(('srv', service))
 
     if data['msg_specs']:
         for template_file, generated_filenames in mapping_msgs.items():
@@ -198,107 +223,88 @@ def constant_value_to_rs(type_, value):
     assert False, "unknown constant type '%s'" % type_
 
 
-def get_builtin_rs_type(type_):
-    if type_ == 'bool':
-        return 'bool'
-
-    if type_ == 'byte':
-        return 'u8'
-
-    if type_ == 'char':
-        return 'char'
-
-    if type_ == 'float32':
-        return 'f32'
-
-    if type_ == 'float64':
-        return 'f64'
-
-    if type_ == 'int8':
-        return 'i8'
-
-    if type_ == 'uint8':
-        return 'u8'
-
-    if type_ == 'int16':
-        return 'i16'
-
-    if type_ == 'uint16':
-        return 'u16'
-
-    if type_ == 'int32':
-        return 'i32'
-
-    if type_ == 'uint32':
-        return 'u32'
-
-    if type_ == 'int64':
-        return 'i64'
-
-    if type_ == 'uint64':
-        return 'u64'
-
-    if type_ == 'string':
+def get_builtin_rs_type(type_, package_name=None):
+    if isinstance(type_, BasicType):
+        if type_.typename == 'boolean':
+            return 'bool'
+        elif type_.typename in ['byte', 'octet']:
+            return 'u8'
+        elif type_.typename == 'char':
+            return 'u8'
+        elif type_.typename in ['float']:
+            return 'f32'
+        elif type_.typename in ['double', 'long double']:
+            return 'f64'
+        elif type_.typename == 'int8':
+            return 'i8'
+        elif type_.typename == 'uint8':
+            return 'u8'
+        elif type_.typename == 'int16':
+            return 'i16'
+        elif type_.typename == 'uint16':
+            return 'u16'
+        elif type_.typename == 'int32':
+            return 'i32'
+        elif type_.typename == 'uint32':
+            return 'u32'
+        elif type_.typename == 'int64':
+            return 'i64'
+        elif type_.typename == 'uint64':
+            return 'u64'
+    elif isinstance(type_, AbstractGenericString):
         return 'std::string::String'
+    elif isinstance(type_, Array):
+        return '[{}, {}]'.format(get_rs_type(type_.value_type), 32 if type_.size <= 32 else 32)
+    elif isinstance(type_, AbstractSequence):
+        return 'Vec<{}>'.format(get_rs_type(type_.value_type))
 
-    assert False, "unknown type '%s'" % type_
+    assert False, "unknown type '%s'" % type_.typename
 
 
-def get_rs_type(type_, subfolder='msg'):
-    if not type_.is_primitive_type():
-        return '%s::%s::%s' % (type_.pkg_name, subfolder, type_.type)
+def get_rs_type(type_):
+    if isinstance(type_, NamespacedType):
+        return '::'.join(type_.namespaced_name())
 
-    return get_builtin_rs_type(type_.type)
+    return get_builtin_rs_type(type_)
 
 
 def get_builtin_c_type(type_):
-    if type_ == 'bool':
-        return 'bool'
 
-    if type_ == 'byte':
-        return 'uint8_t'
-
-    if type_ == 'char':
-        return 'char'
-
-    if type_ == 'float32':
-        return 'float'
-
-    if type_ == 'float64':
-        return 'double'
-
-    if type_ == 'int8':
-        return 'int8_t'
-
-    if type_ == 'uint8':
-        return 'uint8_t'
-
-    if type_ == 'int16':
-        return 'int16_t'
-
-    if type_ == 'uint16':
-        return 'uint16_t'
-
-    if type_ == 'int32':
-        return 'int32_t'
-
-    if type_ == 'uint32':
-        return 'uint32_t'
-
-    if type_ == 'int64':
-        return 'int64_t'
-
-    if type_ == 'uint64':
-        return 'uint64_t'
-
-    if type_ == 'string':
+    if isinstance(type_, BasicType):
+        if type_.typename == 'boolean':
+            return 'bool'
+        if type_.typename in ['byte', 'octet']:
+            return 'uint8_t'
+        if type_.typename == 'char':
+            return 'char'
+        if type_.typename in ['float']:
+            return 'float'
+        if type_.typename in ['double', 'long double']:
+            return 'double'
+        if type_.typename == 'int8':
+            return 'int8_t'
+        if type_.typename == 'uint8':
+            return 'uint8_t'
+        if type_.typename == 'int16':
+            return 'int16_t'
+        if type_.typename == 'uint16':
+            return 'uint16_t'
+        if type_.typename == 'int32':
+            return 'int32_t'
+        if type_.typename == 'uint32':
+            return 'uint32_t'
+        if type_.typename == 'int64':
+            return 'int64_t'
+        if type_.typename == 'uint64':
+            return 'uint64_t'
+    elif isinstance(type_, AbstractGenericString):
         return 'const char *'
 
-    assert False, "unknown type '%s'" % type_
+    assert False, "unknown type '%s'" % type_.typename
 
 
 def get_c_type(type_, subfolder='msg'):
-    if not type_.is_primitive_type():
+    if not isinstance(type_, BasicType) and not isinstance(type_, AbstractGenericString):
         return 'uintptr_t'
 
-    return get_builtin_c_type(type_.type)
+    return get_builtin_c_type(type_)

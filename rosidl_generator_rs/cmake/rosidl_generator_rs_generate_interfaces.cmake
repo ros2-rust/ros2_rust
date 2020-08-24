@@ -37,6 +37,10 @@ set(_output_path
   "${CMAKE_CURRENT_BINARY_DIR}/rosidl_generator_rs/${PROJECT_NAME}")
 set(_generated_extension_files "")
 set(_generated_common_rs_files "")
+
+set(_generated_c_files "")
+set(_generated_rs_files "")
+
 set(_generated_msg_rs_files "")
 set(_generated_msg_c_files "")
 set(_generated_srv_rs_files "")
@@ -49,7 +53,7 @@ foreach(_typesupport_impl ${_typesupport_impls})
   set(_generated_extension_${_typesupport_impl}_files "")
 endforeach()
 
-foreach(_idl_file ${rosidl_generate_interfaces_IDL_FILES})
+foreach(_idl_file ${rosidl_generate_interfaces_ABS_IDL_FILES})
   get_filename_component(_parent_folder "${_idl_file}" DIRECTORY)
   get_filename_component(_parent_folder "${_parent_folder}" NAME)
   get_filename_component(_module_name "${_idl_file}" NAME_WE)
@@ -97,7 +101,7 @@ endif()
 set(_dependency_files "")
 set(_dependencies "")
 foreach(_pkg_name ${rosidl_generate_interfaces_DEPENDENCY_PACKAGE_NAMES})
-  foreach(_idl_file ${${_pkg_name}_INTERFACE_FILES})
+  foreach(_idl_file ${${_pkg_name}_IDL_FILES})
     set(_abs_idl_file "${${_pkg_name}_DIR}/../${_idl_file}")
     normalize_path(_abs_idl_file "${_abs_idl_file}")
     list(APPEND _dependency_files "${_abs_idl_file}")
@@ -112,6 +116,7 @@ set(target_dependencies
   "${rosidl_generator_rs_TEMPLATE_DIR}/srv.c.em"
   "${rosidl_generator_rs_TEMPLATE_DIR}/msg.rs.em"
   "${rosidl_generator_rs_TEMPLATE_DIR}/srv.rs.em"
+  ${rosidl_generate_interfaces_ABS_IDL_FILES}
   ${_idl_file_without_actions}
   ${_dependency_files})
 foreach(dep ${target_dependencies})
@@ -124,6 +129,7 @@ set(generator_arguments_file "${CMAKE_CURRENT_BINARY_DIR}/rosidl_generator_rs__a
 rosidl_write_generator_arguments(
   "${generator_arguments_file}"
   PACKAGE_NAME "${PROJECT_NAME}"
+  IDL_TUPLES "${rosidl_generate_interfaces_IDL_TUPLES}"
   ROS_INTERFACE_FILES "${_idl_file_without_actions}"
   ROS_INTERFACE_DEPENDENCIES "${_dependencies}"
   OUTPUT_DIR "${_output_path}"
@@ -169,39 +175,37 @@ set_property(
   ${_generated_msg_rs_files}
   ${_generated_msg_c_files}
   ${_generated_srv_rs_files}
-  ${_generated_srv_c_files}
   PROPERTY GENERATED 1)
 
 set(_type_support_by_generated_c_files ${_type_support_by_generated_msg_c_files} ${_type_support_by_generated_srv_c_files})
-set(_generated_c_files ${_generated_msg_c_files} ${_generated_srv_c_files})
 set(_generated_rs_files ${_generated_msg_rs_files} ${_generated_srv_rs_files})
 
 set(_rsext_suffix "__rsext")
 foreach(_typesupport_impl ${_typesupport_impls})
   find_package(${_typesupport_impl} REQUIRED)
 
+  set(_extension_compile_flags "")
+  if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    set(_extension_compile_flags -Wall -Wextra)
+  endif()
+
   set(_target_name "${PROJECT_NAME}__${_typesupport_impl}${_rsext_suffix}")
 
   add_library(${_target_name} SHARED
     ${_generated_extension_${_typesupport_impl}_files}
-    ${_generated_msg_c_files}
-    ${_generated_srv_c_files}
   )
-
   add_dependencies(
     ${_target_name}
     ${rosidl_generate_interfaces_TARGET}${_target_suffix}
     ${rosidl_generate_interfaces_TARGET}__rosidl_typesupport_c
   )
 
-  set(_extension_compile_flags "")
-  if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-    set(_extension_compile_flags -Wall -Wextra)
-  endif()
   target_link_libraries(
     ${_target_name}
     ${PROJECT_NAME}__${_typesupport_impl}
+    ${rosidl_generate_interfaces_TARGET}__rosidl_generator_c
   )
+
   rosidl_target_interfaces(${_target_name}
     ${rosidl_generate_interfaces_TARGET} rosidl_typesupport_c)
 
@@ -212,7 +216,7 @@ foreach(_typesupport_impl ${_typesupport_impls})
   )
 
   ament_target_dependencies(${_target_name}
-    "rosidl_generator_c"
+    "rosidl_runtime_c"
     "rosidl_typesupport_c"
     "rosidl_typesupport_interface"
   )
@@ -226,9 +230,8 @@ foreach(_typesupport_impl ${_typesupport_impls})
     ${rosidl_generate_interfaces_TARGET}__${_typesupport_impl}
   )
   ament_target_dependencies(${_target_name}
-    "rosidl_generator_c"
+    "rosidl_runtime_c"
     "rosidl_generator_rs"
-    "${PROJECT_NAME}__rosidl_generator_c"
   )
 
   if(NOT rosidl_generate_interfaces_SKIP_INSTALL)
@@ -259,9 +262,7 @@ endforeach()
 if(BUILD_TESTING AND rosidl_generate_interfaces_ADD_LINTER_TESTS)
   if(
     NOT _generated_msg_rs_files STREQUAL "" OR
-    NOT _generated_msg_c_files STREQUAL "" OR
-    NOT _generated_srv_rs_files STREQUAL "" OR
-    NOT _generated_srv_c_files STREQUAL ""
+    NOT _generated_srv_rs_files STREQUAL ""
   )
     find_package(ament_cmake_cppcheck REQUIRED)
     ament_cppcheck(

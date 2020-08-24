@@ -1,86 +1,64 @@
-use std;
 use libc::c_char;
 use libc::uintptr_t;
 use rclrs_common;
 use std::ffi::CString;
 use std::ffi::CStr;
 
+@{
+from rosidl_parser.definition import AbstractGenericString
+from rosidl_parser.definition import AbstractNestedType
+from rosidl_parser.definition import AbstractSequence
+from rosidl_parser.definition import BasicType
+from rosidl_parser.definition import Array
+}@
+
 @[for subfolder, msg_spec in msg_specs]@
 @{
-type_name = msg_spec.base_type.type
+type_name = msg_spec.structure.namespaced_type.name
 }@
 
 #[derive(Default)]
 pub struct @(type_name) {
-@[for field in msg_spec.fields]@
-@[    if field.type.is_array]@
-  // TODO(esteve): arrays are not supported yet
-@[    else]@
-@[        if field.type.is_primitive_type()]@
-  pub @(field.name): @(get_rs_type(field.type)),
-@[        else]@
-  // TODO(esteve): nested types are not supported yet
-@[        end if]@
-@[    end if]@
+@[for member in msg_spec.structure.members]@
+    pub @(member.name): @(get_rs_type(member.type).replace(package_name, 'crate')),
 @[end for]@
 }
 
 #[link(name = "@(package_name)__rosidl_typesupport_c__rsext")]
 extern "C" {
     fn @(package_name)_@(subfolder)_@(convert_camel_case_to_lower_case_underscore(type_name))_get_type_support() -> uintptr_t;
+
     fn @(package_name)_@(subfolder)_@(convert_camel_case_to_lower_case_underscore(type_name))_get_native_message(
-@[for field in msg_spec.fields]@
-@[    if field.type.is_array]@
-@[    else]@
-@[        if field.type.is_primitive_type()]@
-@[            if field.type.type == 'string']@
-  @(field.name): *const c_char,
-@[            else]@
-  @(field.name): @(get_rs_type(field.type)),
-@[            end if]@
-@[        else]@
-@[        end if]@
+@[for member in msg_spec.structure.members]@
+@[    if isinstance(member.type, AbstractGenericString)]@
+    @(member.name): *const c_char,
+@[    elif isinstance(member.type, BasicType)]@
+    @(member.name): @(get_rs_type(member.type)),
 @[    end if]@
 @[end for]@
     ) -> uintptr_t;
 
     fn @(package_name)_@(subfolder)_@(convert_camel_case_to_lower_case_underscore(type_name))_destroy_native_message(message_handle: uintptr_t) -> ();
 
-@[for field in msg_spec.fields]@
-@[    if field.type.is_array]@
-@[    else]@
-@[        if field.type.is_primitive_type()]@
-@[            if field.type.type == 'string']@
-    fn @(package_name)_@(subfolder)_@(convert_camel_case_to_lower_case_underscore(type_name))_@(field.name)_read_handle(message_handle: uintptr_t) -> *const c_char;
-@[            else]@
-    fn @(package_name)_@(subfolder)_@(convert_camel_case_to_lower_case_underscore(type_name))_@(field.name)_read_handle(message_handle: uintptr_t) -> @(get_rs_type(field.type));
-@[            end if]@
-@[        else]@
-@[        end if]@
+@[for member in msg_spec.structure.members]@
+@[    if isinstance(member.type, Array)]@
+@[    elif isinstance(member.type, AbstractGenericString)]@
+    fn @(package_name)_@(subfolder)_@(convert_camel_case_to_lower_case_underscore(type_name))_@(member.name)_read_handle(message_handle: uintptr_t) -> *const c_char;
+@[    elif isinstance(member.type, BasicType)]@
+    fn @(package_name)_@(subfolder)_@(convert_camel_case_to_lower_case_underscore(type_name))_@(member.name)_read_handle(message_handle: uintptr_t) -> @(get_rs_type(member.type));
 @[    end if]@
 @[end for]@
 }
 
-// impl @(type_name) {
-//   pub fn new() -> @(type_name) {
-//     @(type_name) {}
-//   }
-// }
-
 impl @(type_name) {
   fn get_native_message(&self) -> uintptr_t {
     return unsafe { @(package_name)_@(subfolder)_@(convert_camel_case_to_lower_case_underscore(type_name))_get_native_message(
-@[for field in msg_spec.fields]@
-@[    if field.type.is_array]@
-@[    else]@
-@[        if field.type.is_primitive_type()]@
-@[            if field.type.type == 'string']@
-  CString::new(self.@(field.name).clone()).unwrap().as_ptr(),
-@[            else]@
-  self.@(field.name),
-@[            end if]@
-@[        else]@
-@[        end if]@
+@[for member in msg_spec.structure.members]@
+@[    if isinstance(member.type, Array)]@
+@[    elif isinstance(member.type, AbstractGenericString)]@
+    CString::new(self.@(member.name).clone()).unwrap().as_ptr(),
+@[    elif isinstance(member.type, BasicType)]@
+    self.@(member.name),
 @[    end if]@
 @[end for]@
     ) };
@@ -92,21 +70,18 @@ impl @(type_name) {
     }
   }
 
-  fn read_handle(&mut self, message_handle: uintptr_t) -> () {
+  #[allow(unused_unsafe)]
+  fn read_handle(&mut self, _message_handle: uintptr_t) -> () {
     unsafe {
       {
-@[for field in msg_spec.fields]@
-@[    if field.type.is_array]@
-@[    else]@
-@[        if field.type.is_primitive_type()]@
-@[            if field.type.type == 'string']@
-      let ptr = @(package_name)_@(subfolder)_@(convert_camel_case_to_lower_case_underscore(type_name))_@(field.name)_read_handle(message_handle);
-      self.@(field.name) = CStr::from_ptr(ptr).to_string_lossy().into_owned();
-@[            else]@
-      self.@(field.name) = @(package_name)_@(subfolder)_@(convert_camel_case_to_lower_case_underscore(type_name))_@(field.name)_read_handle(message_handle);
-@[            end if]@
-@[        else]@
-@[        end if]@
+@[for member in msg_spec.structure.members]@
+@[    if isinstance(member.type, Array)]@
+@[    elif isinstance(member.type, AbstractGenericString)]@
+      let ptr = @(package_name)_@(subfolder)_@(convert_camel_case_to_lower_case_underscore(type_name))_@(member.name)_read_handle(_message_handle);
+      self.@(member.name) = CStr::from_ptr(ptr).to_string_lossy().into_owned();
+@[    elif isinstance(member.type, BasicType)]@
+      self.@(member.name) = @(package_name)_@(subfolder)_@(convert_camel_case_to_lower_case_underscore(type_name))_@(member.name)_read_handle(_message_handle);
+@[    elif isinstance(member.type, AbstractSequence)]@
 @[    end if]@
 @[end for]@
       }
@@ -143,13 +118,5 @@ impl rclrs_common::traits::MessageDefinition<@(type_name)> for @(type_name) {
     }
   }
 }
-
-// impl Default for @(type_name) {
-//     fn default() -> @(type_name) {
-//         @(type_name) {
-// 
-//         }
-//    }
-// }
 
 @[end for]

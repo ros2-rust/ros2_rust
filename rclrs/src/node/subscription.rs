@@ -44,10 +44,10 @@ impl Drop for SubscriptionHandle {
 
 pub trait SubscriptionBase {
     fn handle(&self) -> &SubscriptionHandle;
-    fn create_message(&self) -> Box<rclrs_common::traits::Message>;
-    fn callback_fn(&self, message: Box<rclrs_common::traits::Message>) -> ();
+    fn create_message(&self) -> Box<dyn rclrs_common::traits::Message>;
+    fn callback_fn(&self, message: Box<dyn rclrs_common::traits::Message>) -> ();
 
-    fn take(&self, message: &mut rclrs_common::traits::Message) -> RclResult<bool> {
+    fn take(&self, message: &mut dyn rclrs_common::traits::Message) -> RclResult<bool> {
         let handle = &*self.handle().get();
         let message_handle = message.get_native_message();
 
@@ -56,6 +56,7 @@ pub trait SubscriptionBase {
                 handle as *const _,
                 message_handle as *mut _,
                 std::ptr::null_mut(),
+                std::ptr::null_mut()
             )
         };
 
@@ -129,6 +130,7 @@ where
                 handle as *const _,
                 message_handle as *mut _,
                 std::ptr::null_mut(),
+                std::ptr::null_mut()
             )
         };
         message.read_handle(message_handle);
@@ -136,7 +138,7 @@ where
         ret.ok()
     }
 
-    fn callback_ext(&self, message: Box<rclrs_common::traits::Message>) {
+    fn callback_ext(&self, message: Box<dyn rclrs_common::traits::Message>) {
         let msg = message.downcast_ref::<T>().unwrap();
         (self.callback)(msg);
     }
@@ -150,11 +152,11 @@ where
         self.handle.borrow()
     }
 
-    fn create_message(&self) -> Box<rclrs_common::traits::Message> {
+    fn create_message(&self) -> Box<dyn rclrs_common::traits::Message> {
         Box::new(T::default())
     }
 
-    fn callback_fn(&self, message: Box<rclrs_common::traits::Message>) {
+    fn callback_fn(&self, message: Box<dyn rclrs_common::traits::Message>) {
         self.callback_ext(message);
     }
 }

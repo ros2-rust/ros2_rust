@@ -125,7 +125,7 @@ pub mod traits {
         fn read_handle(&mut self, message_handle: uintptr_t) -> ();
     }
 
-    downcast!(Message);
+    downcast!(dyn Message);
 
     pub trait MessageDefinition<T>: Message {
         fn get_type_support() -> uintptr_t;

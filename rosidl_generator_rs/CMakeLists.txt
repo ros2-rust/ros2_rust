@@ -10,6 +10,7 @@ find_package(rosidl_typesupport_interface REQUIRED)
 find_package(rosidl_typesupport_introspection_c REQUIRED)
 
 ament_export_dependencies(rosidl_cmake)
+ament_export_dependencies(rmw)
 ament_export_dependencies(rosidl_generator_c)
 
 ament_index_register_resource("rosidl_generator_packages")
@@ -26,7 +27,7 @@ ament_package(
 install(DIRECTORY cmake
         DESTINATION share/${PROJECT_NAME})
 ament_register_extension(
-        "rosidl_generate_interfaces"
+        "rosidl_generate_idl_interfaces"
         "rosidl_generator_rs"
         "${PROJECT_SOURCE_DIR}/cmake/rosidl_generator_rs_generate_interfaces.cmake")
 

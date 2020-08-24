@@ -1,44 +1,44 @@
-#include "rosidl_generator_c/message_type_support_struct.h"
+#include "rosidl_runtime_c/string_functions.h"
+#include "rosidl_runtime_c/message_type_support_struct.h"
+
+@{
+from rosidl_parser.definition import AbstractGenericString
+from rosidl_parser.definition import AbstractNestedType
+from rosidl_parser.definition import Array
+from rosidl_parser.definition import BasicType
+}@
 
 @[for subfolder, msg_spec in msg_specs]@
 @{
-type_name = msg_spec.base_type.type
+type_name = msg_spec.structure.namespaced_type.name
 c_fields = []
-for field in msg_spec.fields:
-    if field.type.is_array:
+for member in msg_spec.structure.members:
+    if type(member.type) is Array:
         pass
     else:
-        if field.type.is_primitive_type():
-            c_fields.append("%s %s" % (get_c_type(field.type), field.name))
+        if isinstance(member.type, BasicType) or isinstance(member.type, AbstractGenericString):
+            c_fields.append("%s %s" % (get_c_type(member.type), member.name))
         else:
             pass
 
-def get_normalized_type(type_, subfolder='msg'):
-    return get_rs_type(type_, subfolder=subfolder).replace('::', '__')
-
-msg_normalized_type = get_normalized_type(msg_spec.base_type, subfolder=subfolder)
+msg_normalized_type = get_rs_type(msg_spec.structure.namespaced_type).replace('::', '__')
 }@
 
-#include "@(msg_spec.base_type.pkg_name)/@(subfolder)/@(convert_camel_case_to_lower_case_underscore(type_name)).h"
+#include "@(package_name)/@(subfolder)/@(convert_camel_case_to_lower_case_underscore(type_name)).h"
 
 uintptr_t @(package_name)_msg_@(convert_camel_case_to_lower_case_underscore(type_name))_get_type_support() {
-    return (uintptr_t)ROSIDL_GET_MSG_TYPE_SUPPORT(@(msg_spec.base_type.pkg_name), @(subfolder), @(msg_spec.msg_name));
+    return (uintptr_t)ROSIDL_GET_MSG_TYPE_SUPPORT(@(package_name), @(subfolder), @(msg_spec.structure.namespaced_type.name));
 }
 
 uintptr_t @(package_name)_msg_@(convert_camel_case_to_lower_case_underscore(type_name))_get_native_message(
   @(', '.join(c_fields))) {
-      @(msg_normalized_type) * ros_message = @(msg_normalized_type)__create();
-@[for field in msg_spec.fields]@
-@[    if field.type.is_array]@
-@[    else]@
-@[        if field.type.is_primitive_type()]@
-@[            if field.type.type == 'string']@
-      rosidl_generator_c__String__assign(&(ros_message->@(field.name)), @(field.name));
-@[            else]@
-      ros_message->@(field.name) = @(field.name);
-@[            end if]@
-@[        else]@
-@[        end if]@
+      @(msg_normalized_type) *ros_message = @(msg_normalized_type)__create();
+@[for member in msg_spec.structure.members]@
+@[    if isinstance(member.type, Array)]@
+@[    elif isinstance(member.type, AbstractGenericString)]@
+      rosidl_runtime_c__String__assign(&(ros_message->@(member.name)), @(member.name));
+@[    elif isinstance(member.type, BasicType)]@
+      ros_message->@(member.name) = @(member.name);
 @[    end if]@
 @[end for]@
     return (uintptr_t)ros_message;
@@ -49,22 +49,25 @@ void @(package_name)_msg_@(convert_camel_case_to_lower_case_underscore(type_name
       @(msg_normalized_type)__destroy(ros_message);
 }
 
-@[for field in msg_spec.fields]@
-@[    if field.type.is_array]@
+@[for member in msg_spec.structure.members]@
+@(get_c_type(member.type)) @(package_name)_msg_@(convert_camel_case_to_lower_case_underscore(type_name))_@(member.name)_read_handle(uintptr_t message_handle) {
+@[    if isinstance(member.type, Array)]@
+    (void)message_handle;
+    return 0;
+@[    elif isinstance(member.type, AbstractGenericString)]@
+    @(msg_normalized_type) * ros_message = (@(msg_normalized_type) *)message_handle;
+    return ros_message->@(member.name).data;
+@[    elif isinstance(member.type, BasicType)]@
+    @(msg_normalized_type) * ros_message = (@(msg_normalized_type) *)message_handle;
+    return ros_message->@(member.name);
+@[    elif isinstance(member.type, AbstractNestedType)]@
+    @(msg_normalized_type) * ros_message = (@(msg_normalized_type) *)message_handle;
+    return (@(get_c_type(member.type)))&ros_message->@(member.name);
 @[    else]@
-@[        if field.type.is_primitive_type()]@
-@(get_c_type(field.type)) @(package_name)_msg_@(convert_camel_case_to_lower_case_underscore(type_name))_@(field.name)_read_handle(uintptr_t message_handle) {
-@[            if field.type.type == 'string']@
-    @(msg_normalized_type) * ros_message = (@(msg_normalized_type) *)message_handle;
-    return ros_message->@(field.name).data;
-@[            else]@
-    @(msg_normalized_type) * ros_message = (@(msg_normalized_type) *)message_handle;
-    return ros_message->@(field.name);
-@[            end if]@
-}
-@[        else]@
-@[        end if]@
+    (void)message_handle;
+    return 0;
 @[    end if]@
+}
 @[end for]@
 
 @[end for]

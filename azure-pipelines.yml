@@ -7,7 +7,7 @@ trigger:
     - README.md
 
 container:
-  image: osrf/ros:crystal-desktop
+  image: osrf/ros:foxy-desktop
   options: "--name ci-container -v /usr/bin/docker:/tmp/docker:ro"
 
 steps:
@@ -46,13 +46,13 @@ steps:
     displayName: Install ROS dependencies
 
   - script: |
-      source /opt/ros/crystal/setup.bash
+      source /opt/ros/foxy/setup.bash
       cd ~/ros2_rust_ws
       colcon build --packages-skip test_msgs
     displayName: Build ros2-rust (Linux)
 
   - script: |
-      source /opt/ros/crystal/setup.bash
+      source /opt/ros/foxy/setup.bash
       cd ~/ros2_rust_ws
       colcon test --packages-select rclrs rclrs_common rclrs_examples rosidl_generator_rs
       colcon test-result --verbose

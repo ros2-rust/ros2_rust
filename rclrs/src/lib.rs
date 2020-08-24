@@ -22,8 +22,7 @@ pub trait Handle<T> {
 }
 
 pub fn spin(node: &Node) -> RclResult {
-    let context_handle = &mut *node.context.get_mut();
-    while unsafe { rcl_context_is_valid(context_handle) } {
+    while unsafe { rcl_context_is_valid(&mut *node.context.get_mut() as *mut _) } {
         if let Some(error) = spin_once(node, 500).err() {
             match error {
                 RclError::Timeout => continue,
@@ -43,6 +42,9 @@ pub fn spin_once(node: &Node, timeout: i64) -> RclResult {
     let number_of_timers = 0;
     let number_of_clients = 0;
     let number_of_services = 0;
+    let number_of_events = 0;
+
+    let context = &mut *node.context.get_mut();
 
     unsafe {
         rcl_wait_set_init(
@@ -52,6 +54,8 @@ pub fn spin_once(node: &Node, timeout: i64) -> RclResult {
             number_of_timers,
             number_of_clients,
             number_of_services,
+            number_of_events,
+            context,
             rcutils_get_default_allocator(),
         )
         .ok()?;

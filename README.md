@@ -42,18 +42,19 @@ Lots of things!
 Sounds great, how can I try this out?
 -------------------------------------
 
-The following steps show how to build the examples:
+The following steps were last tested on Ubuntu 18.04. They show how to build the examples:
+
 
 ```
 # first, install vcstool from PyPI or apt:
-# sudo apt install python3-vcstool
+# sudo apt install ros-foxy-desktop python3-vcstool libclang-dev clang
 # pip install vcstool
 
 mkdir -p ~/ros2_rust_ws/src
 cd ~/ros2_rust_ws
 wget https://raw.githubusercontent.com/ros2-rust/ros2_rust/master/ros2_rust.repos
 vcs import src < ros2_rust.repos
-source /opt/ros/crystal/setup.sh
+source /opt/ros/foxy/setup.sh
 colcon build
 ```
 
