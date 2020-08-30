@@ -12,6 +12,7 @@ pub use self::qos::*;
 
 use self::rcl_bindings::*;
 use std::ops::{Deref, DerefMut};
+use std::convert::TryInto;
 
 pub trait Handle<T> {
     type DerefT: Deref<Target = T>;
@@ -90,7 +91,7 @@ pub fn spin_once(node: &Node, timeout: i64) -> RclResult {
     unsafe {
         rcl_wait_set_init(
             &mut wait_set_handle as *mut _,
-            number_of_subscriptions,
+            number_of_subscriptions.try_into().unwrap(),
             number_of_guard_conditions,
             number_of_timers,
             number_of_clients,

@@ -80,7 +80,7 @@ impl From<QoSProfile> for rmw_qos_profile_t {
     fn from(qos: QoSProfile) -> Self {
         Self {
             history: qos.history.into(),
-            depth: qos.depth as usize,
+            depth: qos.depth as u64,
             reliability: qos.reliability.into(),
             durability: qos.durability.into(),
             avoid_ros_namespace_conventions: qos.avoid_ros_namespace_conventions,

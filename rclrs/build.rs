@@ -7,7 +7,9 @@ fn main() {
     let mut builder = bindgen::Builder::default()
         .header("src/rcl_wrapper.h")
         .derive_copy(false)
-        .default_enum_style(bindgen::EnumVariation::Rust);
+        .default_enum_style(bindgen::EnumVariation::Rust {
+            non_exhaustive: true,
+        });
 
     let ament_prefix_var_name = "AMENT_PREFIX_PATH";
     let ament_prefix_var = env::var(ament_prefix_var_name);
