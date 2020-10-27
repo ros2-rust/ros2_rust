@@ -42,18 +42,31 @@ Lots of things!
 Sounds great, how can I try this out?
 -------------------------------------
 
-The following steps were last tested on Ubuntu 18.04. They show how to build the examples:
+You can build and run the example using the included Dockerfile: 
 
+```
+git clone https://github.com/ros2-rust/ros2_rust.git
+docker build --tag ros2:rust .
+docker run -it --rm ros2:rust
+ros2 run rclrs_examples rclrs_publisher &
+ros2 run rclrs_examples rclrs_subscriber
+
+```
+
+Or do so manually as summarized in the steps below:
+
+> The following steps were last tested on Ubuntu 20.04.
 
 ```
 # first, install vcstool from PyPI or apt:
 # sudo apt install ros-foxy-desktop python3-vcstool libclang-dev clang
 # pip install vcstool
 
-mkdir -p ~/ros2_rust_ws/src
-cd ~/ros2_rust_ws
-wget https://raw.githubusercontent.com/ros2-rust/ros2_rust/master/ros2_rust.repos
-vcs import src < ros2_rust.repos
+mkdir -p ~/ros2_rust_ws/src/ros2-rust
+cd ~/ros2_rust_ws/src/ros2-rust
+git clone https://github.com/ros2-rust/ros2_rust.git
+cd ../../
+vcs import src < src/ros2-rust/ros2_rust/ros2_rust.repos
 source /opt/ros/foxy/setup.sh
 colcon build
 ```
