@@ -20,7 +20,7 @@ type_name = msg_spec.structure.namespaced_type.name
 #[derive(Default)]
 pub struct @(type_name) {
 @[for member in msg_spec.structure.members]@
-    pub @(member.name): @(get_rs_type(member.type).replace(package_name, 'crate')),
+    pub @(get_rs_name(member.name)): @(get_rs_type(member.type).replace(package_name, 'crate')),
 @[end for]@
 }
 
@@ -31,9 +31,9 @@ extern "C" {
     fn @(package_name)_@(subfolder)_@(convert_camel_case_to_lower_case_underscore(type_name))_get_native_message(
 @[for member in msg_spec.structure.members]@
 @[    if isinstance(member.type, AbstractGenericString)]@
-    @(member.name): *const c_char,
+    @(get_rs_name(member.name)): *const c_char,
 @[    elif isinstance(member.type, BasicType)]@
-    @(member.name): @(get_rs_type(member.type)),
+    @(get_rs_name(member.name)): @(get_rs_type(member.type)),
 @[    end if]@
 @[end for]@
     ) -> uintptr_t;
@@ -56,9 +56,9 @@ impl @(type_name) {
 @[for member in msg_spec.structure.members]@
 @[    if isinstance(member.type, Array)]@
 @[    elif isinstance(member.type, AbstractGenericString)]@
-    CString::new(self.@(member.name).clone()).unwrap().as_ptr(),
+    CString::new(self.@(get_rs_name(member.name)).clone()).unwrap().as_ptr(),
 @[    elif isinstance(member.type, BasicType)]@
-    self.@(member.name),
+    self.@(get_rs_name(member.name)),
 @[    end if]@
 @[end for]@
     ) };
@@ -78,9 +78,9 @@ impl @(type_name) {
 @[    if isinstance(member.type, Array)]@
 @[    elif isinstance(member.type, AbstractGenericString)]@
       let ptr = @(package_name)_@(subfolder)_@(convert_camel_case_to_lower_case_underscore(type_name))_@(member.name)_read_handle(_message_handle);
-      self.@(member.name) = CStr::from_ptr(ptr).to_string_lossy().into_owned();
+      self.@(get_rs_name(member.name)) = CStr::from_ptr(ptr).to_string_lossy().into_owned();
 @[    elif isinstance(member.type, BasicType)]@
-      self.@(member.name) = @(package_name)_@(subfolder)_@(convert_camel_case_to_lower_case_underscore(type_name))_@(member.name)_read_handle(_message_handle);
+      self.@(get_rs_name(member.name)) = @(package_name)_@(subfolder)_@(convert_camel_case_to_lower_case_underscore(type_name))_@(member.name)_read_handle(_message_handle);
 @[    elif isinstance(member.type, AbstractSequence)]@
 @[    end if]@
 @[end for]@

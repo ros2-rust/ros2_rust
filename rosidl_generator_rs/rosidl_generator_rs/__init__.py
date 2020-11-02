@@ -90,6 +90,7 @@ def generate_rs(generator_arguments_file, typesupport_impls):
     data = {
         'get_c_type': get_c_type,
         'get_rs_type': get_rs_type,
+        'get_rs_name': get_rs_name,
         'constant_value_to_rs': constant_value_to_rs,
         'value_to_rs': value_to_rs,
         'convert_camel_case_to_lower_case_underscore':
@@ -141,6 +142,20 @@ def generate_rs(generator_arguments_file, typesupport_impls):
 
     return 0
 
+def get_rs_name(name):
+    keywords = [
+        # strict keywords
+        'as', 'break', 'const', 'continue', 'crate', 'else', 'enum', 'extern', 'false', 'fn', 'for', 'if', 'for',
+        'impl', 'in', 'let', 'loop', 'match', 'mod', 'move', 'mut', 'pub', 'ref', 'return', 'self', 'Self', 'static',
+        'struct', 'super', 'trait', 'true', 'type', 'unsafe', 'use', 'where', 'while',
+        # Edition 2018+
+        'async', 'await', 'dyn',
+        # Reserved
+        'abstract', 'become', 'box', 'do', 'final', 'macro', 'override', 'priv', 'typeof', 'unsized', 'virtual',
+        'yield', 'try'
+    ]
+    # If the field name is a reserved keyword in rust append an underscore
+    return name if not name in keywords else name + '_'
 
 def escape_string(s):
     s = s.replace('\\', '\\\\')
@@ -254,7 +269,7 @@ def get_builtin_rs_type(type_, package_name=None):
     elif isinstance(type_, AbstractGenericString):
         return 'std::string::String'
     elif isinstance(type_, Array):
-        return '[{}, {}]'.format(get_rs_type(type_.value_type), 32 if type_.size <= 32 else 32)
+        return '[{}; {}]'.format(get_rs_type(type_.value_type), 32 if type_.size <= 32 else 32)
     elif isinstance(type_, AbstractSequence):
         return 'Vec<{}>'.format(get_rs_type(type_.value_type))
 
