@@ -1,10 +1,9 @@
-//use crate::qos::QoSProfile;
 use crate::rcl_bindings as ffi;
 use crate::Context;
 use crate::qos::QoSProfile;
-//use std::cell::{Ref, RefCell, RefMut};
-//use std::ffi::CString;
-//use std::rc::{Rc, Weak};
+use std::ffi::{CString, CStr};
+use std::sync::Mutex;
+use thiserror::Error;
 
 pub struct NodeOptions {
     node_options: ffi::rcl_node_options_t
@@ -13,6 +12,7 @@ pub struct NodeOptions {
 impl Default for NodeOptions {
     /// Get the default options for a Node.
     fn default() -> Self {
+        // Safety: cannot fail, will always return valid default options.
         let default_options = unsafe { ffi::rcl_node_get_default_options() };
         Self {
             node_options: default_options
@@ -55,7 +55,6 @@ impl NodeOptions {
     /// ```
     /// # use rclrs::NodeOptions;
     /// # use rclrs::qos::QOS_PROFILE_SYSTEM_DEFAULT;
-    ///
     /// let mut node_options = NodeOptions::default();
     /// node_options.set_rosout_qos_profile(QOS_PROFILE_SYSTEM_DEFAULT);
     /// ```
@@ -64,8 +63,156 @@ impl NodeOptions {
     }
 }
 
+#[derive(Error, Debug)]
+pub enum NodeError {
+    #[error("The given node has already been initialized")]
+    AlreadyInitialized,
+    #[error("The given context is invalid")]
+    InvalidContext,
+    #[error("One of the provided arguments is invalid")]
+    InvalidArgument,
+    #[error("Allocating memory failed")]
+    BadAllocation,
+    #[error("The given name is invalid")]
+    InvalidNodeName,
+    #[error("The given namespace is invalid")]
+    InvalidNamespaceName,
+    #[error("Unspecified error occured")]
+    UnspecifiedError,
+}
+
 pub struct Node<'context> {
-    context: &'context Context
+    context: &'context Context,
+    node: Mutex<ffi::rcl_node_t>
+}
+
+impl<'context> Node<'context> {
+    pub(crate) fn new(context: &'context Context, name: &str, namespace: &str, options: &NodeOptions) -> Result<Self, NodeError> {
+        // Safety: reserves space for a struct, cannot fail
+        let mut node = unsafe { ffi::rcl_get_zero_initialized_node() };
+
+        let c_name = CString::new(name).map_err(|_| NodeError::InvalidNodeName).unwrap();
+        let c_namespace = CString::new(namespace).map_err(|_| NodeError::InvalidNamespaceName).unwrap();
+
+        let mut context_lock = context.handle.lock().unwrap();
+        // Safety: This is safe, because
+        // - node is zero initialized and new
+        // - c_name and c_namespace are valid CStrings with a lifetime that
+        //   exceeds this function. They are copied into the node and
+        //   therefore, the node cannot have dangling pointers to
+        //   c_name and c_namespace in case they are dropped.
+        // - The context is valid, because an invalid Context object cannot
+        //   be via the Context::new() function.
+        // - Options are valid and deep copied into the node. It is therefore
+        //   safe to drop the options after the initialization of this node.
+        let return_code = unsafe { ffi::rcl_node_init(&mut node, c_name.as_ptr(), c_namespace.as_ptr(), &mut *context_lock, &options.node_options) };
+        drop(context_lock);
+
+        match return_code {
+            RCL_RET_OK => Ok(Node {
+                context,
+                node: Mutex::new(node)
+            }),
+            RCL_RET_ALREADY_INIT => Err(NodeError::AlreadyInitialized),
+            RCL_RET_NOT_INIT => Err(NodeError::InvalidContext),
+            RCL_RET_INVALID_ARGUMENT => Err(NodeError::InvalidArgument),
+            RCL_RET_BAD_ALLOC => Err(NodeError::BadAllocation),
+            RCL_RET_NODE_INVALID_NAME => Err(NodeError::InvalidNodeName),
+            RCL_RET_NODE_INVALID_NAMESPACE => Err(NodeError::InvalidNamespaceName),
+            _ => Err(NodeError::UnspecifiedError)
+        }
+    }
+
+    /// Get the name of this Node
+    /// # Example
+    /// ```
+    /// # use rclrs::{ Context, NodeOptions };
+    /// let context = Context::new().unwrap();
+    /// let node = context.create_node("NodeName", "/this/is/a/namespace", &NodeOptions::default()).unwrap();
+    /// assert_eq!(node.get_name(), "NodeName".to_string());
+    /// ```
+    pub fn get_name(&self) -> String {
+        let node = self.node.lock().unwrap();
+        // Safety: Node is always initiliazed, otherwise this function cannot
+        // be called.
+        let c_buffer = unsafe { ffi::rcl_node_get_name(&*node) };
+        // Safety: Rust documentation lists these issues:
+        //  - There is no guarantee to the validity of ptr.
+        //      > This can be guaranteed if we trust that rcl_node_get_name
+        //      > actually returns a valid pointer.
+        //  - The returned lifetime is not guaranteed to be the actual lifetime of ptr.
+        //      > The RCL docs specify that the returned pointer is only valid as long
+        //      > as the given rcl_node_t is valid. Given that this function can only
+        //      > be called on valid nodes, this is also not a problem.
+        //  - There is no guarantee that the memory pointed to by ptr contains a
+        //  - valid nul terminator byte at the end of the string.
+        //      > Because the string has been constructed from a Rust &str, we can
+        //      > ensure that the string has a valid nul terminator. We have to
+        //      > trust RCL to keep a valid nul terminator at the end of the string.
+        //  - It is not guaranteed that the memory pointed by ptr won't change
+        //  - before the CStr has been destroyed.
+        //      > This node can only be changed if someone else has access to it.
+        //      > Because a mutex is locked at the beginning of this function,
+        //      > it can be ensured that nobody else can access the node from Rust.
+        let c_str = unsafe { CStr::from_ptr(c_buffer) };
+        let str_slice = c_str.to_str().unwrap();
+        str_slice.to_owned()
+    }
+
+    /// Get the namespace of this Node.
+    /// # Example
+    /// ```
+    /// # use rclrs::{ Context, NodeOptions };
+    /// let context = Context::new().unwrap();
+    /// let node = context.create_node("NodeName", "/this/is/a/namespace", &NodeOptions::default()).unwrap();
+    /// assert_eq!(node.get_namespace(), "/this/is/a/namespace".to_string());
+    /// ```
+    pub fn get_namespace(&self) -> String {
+        let node = self.node.lock().unwrap();
+        // Safety: these two functions have the same safety assumptions
+        // as the two functions in get_name(). The same assumptions are
+        // true here.
+        let c_buffer = unsafe { ffi::rcl_node_get_namespace(&*node) };
+        let c_str = unsafe { CStr::from_ptr(c_buffer) };
+        let str_slice = c_str.to_str().unwrap();
+        str_slice.to_owned()
+    }
+
+    /// Get the fully qualified name of this Node.
+    /// # Example
+    /// ```
+    /// # use rclrs::{ Context, NodeOptions };
+    /// let context = Context::new().unwrap();
+    /// let node = context.create_node("NodeName", "/this/is/a/namespace", &NodeOptions::default()).unwrap();
+    /// assert_eq!(node.get_fully_qualified_name(), "/this/is/a/namespace/NodeName".to_string());
+    /// ```
+    pub fn get_fully_qualified_name(&self) -> String {
+        let node = self.node.lock().unwrap();
+        // Safety: these two functions have the same safety assumptions
+        // as the two functions in get_name(). The same assumptions are
+        // true here.
+        let c_buffer = unsafe { ffi::rcl_node_get_fully_qualified_name(&*node) };
+        let c_str = unsafe { CStr::from_ptr(c_buffer) };
+        let str_slice = c_str.to_str().unwrap();
+        str_slice.to_owned()
+    }
+}
+
+impl Drop for Node<'_> {
+    fn drop(&mut self) {
+        let mut node = self.node.lock().unwrap();
+        // Safety: This is safe to call, because a node will always be non-NULL
+        // and valid, because a node will always be initialized by the
+        // init function that function cannot succeed if the node is invalid.
+        //
+        // However, there might still be an "unspecified error", in which case
+        // it is not safe to continue. Because drop() does not support returning
+        // `Result`s, we have to panic here.
+        let return_code = unsafe { ffi::rcl_node_fini(&mut *node) } as u32;
+        if return_code == ffi::RCL_RET_ERROR {
+            panic!("Unspecified error occured while dropping Node")
+        }
+    }
 }
 
 /*

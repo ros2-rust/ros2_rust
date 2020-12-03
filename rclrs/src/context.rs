@@ -1,9 +1,12 @@
 use crate::rcl_bindings as ffi;
-//use crate::Node;
+use crate::Node;
+use crate::NodeOptions;
+use crate::NodeError;
 use std::convert::TryInto;
 use std::env;
 use std::ffi::CString;
 use std::os::raw::c_char;
+use std::sync::Mutex;
 use thiserror::Error;
 
 struct ContextOptions {
@@ -67,7 +70,7 @@ pub enum ContextError {
 }
 
 pub struct Context {
-    handle: ffi::rcl_context_t,
+    pub(crate) handle: Mutex<ffi::rcl_context_t>,
 }
 
 impl Context {
@@ -104,7 +107,7 @@ impl Context {
         } as u32;
 
         match init_result {
-            ffi::RCL_RET_OK => Ok(Self { handle: context }),
+            ffi::RCL_RET_OK => Ok(Self { handle: Mutex::new(context) }),
             ffi::RCL_RET_ALREADY_INIT => Err(ContextError::AlreadyInitialized),
             ffi::RCL_RET_INVALID_ARGUMENT => Err(ContextError::InvalidArgument),
             ffi::RCL_RET_BAD_ALLOC => Err(ContextError::BadAllocation),
@@ -119,19 +122,26 @@ impl Context {
         unsafe { ffi::rcl_context_is_valid(mut_handle) }
     }
 
-    /// Get a reference to the internal `rcl_context_t` object.
-    pub(crate) fn get(&self) -> &ffi::rcl_context_t {
-        &self.handle
+    /// Create a ROS Node within this Context. A Node has to have a lifetime that
+    /// is at most as long as the Context it is created in.
+    ///
+    /// # Arguments
+    /// * `name` - The name of the node. Node names must not be empty, only
+    ///            contain alphanumeric characters and underscores and
+    ///            cannot start with a number.
+    /// * `namespace` - The namespace of the node. Namespaces must comply
+    ///            with [these rules](https://design.ros2.org/articles/topic_and_service_names.html#namespaces).
+    /// * `options` - Options for the Node.
+    ///
+    /// # Example
+    /// ```
+    /// # use rclrs::{Context, NodeOptions};
+    /// let ros = Context::new().unwrap();
+    /// let node = ros.create_node("hello", "world", &NodeOptions::default()).unwrap();
+    /// ```
+    pub fn create_node(&self, name: &str, namespace: &str, options: &NodeOptions) -> Result<Node, NodeError> {
+        Ok(Node::new(&self, name, namespace, options)?)
     }
-
-    /// Get a mutable reference to the internal `rcl_context_t` object.
-    pub(crate) fn get_mut(&mut self) -> &mut ffi::rcl_context_t {
-        &mut self.handle
-    }
-
-    //pub fn create_node(&self, node_name: &str) -> RclResult<Node> {
-    //    Ok(Node::new(node_name, self)?)
-    //}
 }
 
 impl Drop for Context {
@@ -151,9 +161,10 @@ impl Drop for Context {
     // Since these specified errors cannot occur, it is safe to ignore them
     // in the implementation of `drop`.
     fn drop(&mut self) {
+        let mut context = self.handle.lock().unwrap();
         unsafe {
-            ffi::rcl_shutdown(&mut self.handle);
-            ffi::rcl_context_fini(&mut self.handle);
+            ffi::rcl_shutdown(&mut *context);
+            ffi::rcl_context_fini(&mut *context);
         }
     }
 }
