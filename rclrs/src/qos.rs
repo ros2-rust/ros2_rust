@@ -86,7 +86,7 @@ impl From<QoSProfile> for rmw_qos_profile_t {
             avoid_ros_namespace_conventions: qos.avoid_ros_namespace_conventions,
             deadline: rmw_time_t { sec: 0, nsec: 0 },
             lifespan: rmw_time_t { sec: 0, nsec: 0 },
-            liveliness_lease_duration: rmw_time_t { sec: 0, nsec: 0},
+            liveliness_lease_duration: rmw_time_t { sec: 0, nsec: 0 },
             liveliness: rmw_qos_liveliness_policy_t::RMW_QOS_POLICY_LIVELINESS_SYSTEM_DEFAULT,
         }
     }

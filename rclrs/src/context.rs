@@ -1,10 +1,11 @@
-use ffi;
 use crate::Node;
-use crate::NodeOptions;
 use crate::NodeError;
+use crate::NodeOptions;
+use ffi;
 use std::convert::TryInto;
 use std::env;
 use std::ffi::CString;
+use std::mem::MaybeUninit;
 use std::os::raw::c_char;
 use std::sync::Mutex;
 use thiserror::Error;
@@ -86,8 +87,7 @@ impl Context {
             .collect();
         let c_args: Vec<*const c_char> = args.iter().map(|arg| arg.as_ptr()).collect();
 
-        // Reserve some memory to store the RCL context in.
-        let mut context = unsafe { ffi::rcl_get_zero_initialized_context() };
+        let mut context = MaybeUninit::zeroed();
         let options = ContextOptions::new()?;
 
         // These arguments are safe to use, because
@@ -102,12 +102,16 @@ impl Context {
                 c_args.len().try_into()?,
                 c_args.as_ptr(),
                 &options.handle,
-                &mut context,
+                context.as_mut_ptr(),
             )
         } as u32;
+        // Safety: Context has been initialized with rcl_init
+        let context = unsafe { context.assume_init() };
 
         match init_result {
-            ffi::RCL_RET_OK => Ok(Self { handle: Mutex::new(context) }),
+            ffi::RCL_RET_OK => Ok(Self {
+                handle: Mutex::new(context),
+            }),
             ffi::RCL_RET_ALREADY_INIT => Err(ContextError::AlreadyInitialized),
             ffi::RCL_RET_INVALID_ARGUMENT => Err(ContextError::InvalidArgument),
             ffi::RCL_RET_BAD_ALLOC => Err(ContextError::BadAllocation),
@@ -139,7 +143,12 @@ impl Context {
     /// let ros = Context::new().unwrap();
     /// let node = ros.create_node("hello", "world", &NodeOptions::default()).unwrap();
     /// ```
-    pub fn create_node(&self, name: &str, namespace: &str, options: &NodeOptions) -> Result<Node, NodeError> {
+    pub fn create_node(
+        &self,
+        name: &str,
+        namespace: &str,
+        options: &NodeOptions,
+    ) -> Result<Node, NodeError> {
         Ok(Node::new(&self, name, namespace, options)?)
     }
 }

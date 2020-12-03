@@ -1,9 +1,12 @@
-pub mod context;
-pub mod node;
-pub mod qos;
+mod context;
+mod node;
+mod publisher;
+mod qos;
 
 pub use self::context::*;
 pub use self::node::*;
+pub use self::publisher::*;
+pub use self::qos::*;
 
 //use self::rcl_bindings::*;
 use std::ops::{Deref, DerefMut};

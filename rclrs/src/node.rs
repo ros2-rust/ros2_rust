@@ -1,12 +1,13 @@
-use ffi;
-use crate::Context;
 use crate::qos::QoSProfile;
-use std::ffi::{CString, CStr};
+use crate::Context;
+use ffi;
+use std::ffi::{CStr, CString};
+use std::mem::MaybeUninit;
 use std::sync::Mutex;
 use thiserror::Error;
 
 pub struct NodeOptions {
-    node_options: ffi::rcl_node_options_t
+    node_options: ffi::rcl_node_options_t,
 }
 
 impl Default for NodeOptions {
@@ -15,7 +16,7 @@ impl Default for NodeOptions {
         // Safety: cannot fail, will always return valid default options.
         let default_options = unsafe { ffi::rcl_node_get_default_options() };
         Self {
-            node_options: default_options
+            node_options: default_options,
         }
     }
 }
@@ -31,7 +32,7 @@ impl Drop for NodeOptions {
         // it is not safe to continue. Because drop() does not support returning
         // `Result`s, we have to panic here.
         let return_code = unsafe { ffi::rcl_node_options_fini(&mut self.node_options) };
-        if return_code as u32 == ffi::RCL_RET_ERROR {
+        if return_code as u32 != ffi::RCL_RET_OK {
             panic!("Unspecified error occured while dropping NodeOptions")
         }
     }
@@ -54,7 +55,7 @@ impl NodeOptions {
     /// # Example
     /// ```
     /// # use rclrs::NodeOptions;
-    /// # use rclrs::qos::QOS_PROFILE_SYSTEM_DEFAULT;
+    /// # use rclrs::QOS_PROFILE_SYSTEM_DEFAULT;
     /// let mut node_options = NodeOptions::default();
     /// node_options.set_rosout_qos_profile(QOS_PROFILE_SYSTEM_DEFAULT);
     /// ```
@@ -83,20 +84,28 @@ pub enum NodeError {
 
 pub struct Node<'context> {
     context: &'context Context,
-    node: Mutex<ffi::rcl_node_t>
+    pub(crate) node: Mutex<ffi::rcl_node_t>,
 }
 
 impl<'context> Node<'context> {
-    pub(crate) fn new(context: &'context Context, name: &str, namespace: &str, options: &NodeOptions) -> Result<Self, NodeError> {
-        // Safety: reserves space for a struct, cannot fail
-        let mut node = unsafe { ffi::rcl_get_zero_initialized_node() };
+    pub(crate) fn new(
+        context: &'context Context,
+        name: &str,
+        namespace: &str,
+        options: &NodeOptions,
+    ) -> Result<Self, NodeError> {
+        let mut node = MaybeUninit::zeroed();
 
-        let c_name = CString::new(name).map_err(|_| NodeError::InvalidNodeName).unwrap();
-        let c_namespace = CString::new(namespace).map_err(|_| NodeError::InvalidNamespaceName).unwrap();
+        let c_name = CString::new(name)
+            .map_err(|_| NodeError::InvalidNodeName)
+            .unwrap();
+        let c_namespace = CString::new(namespace)
+            .map_err(|_| NodeError::InvalidNamespaceName)
+            .unwrap();
 
         let mut context_lock = context.handle.lock().unwrap();
         // Safety: This is safe, because
-        // - node is zero initialized and new
+        // - node is zero initialized
         // - c_name and c_namespace are valid CStrings with a lifetime that
         //   exceeds this function. They are copied into the node and
         //   therefore, the node cannot have dangling pointers to
@@ -105,13 +114,23 @@ impl<'context> Node<'context> {
         //   be via the Context::new() function.
         // - Options are valid and deep copied into the node. It is therefore
         //   safe to drop the options after the initialization of this node.
-        let return_code = unsafe { ffi::rcl_node_init(&mut node, c_name.as_ptr(), c_namespace.as_ptr(), &mut *context_lock, &options.node_options) };
+        let return_code = unsafe {
+            ffi::rcl_node_init(
+                node.as_mut_ptr(),
+                c_name.as_ptr(),
+                c_namespace.as_ptr(),
+                &mut *context_lock,
+                &options.node_options,
+            )
+        };
         drop(context_lock);
+        // Safety: node_init function has just been called on this node.
+        let node = unsafe { node.assume_init() };
 
         match return_code as u32 {
             ffi::RCL_RET_OK => Ok(Node {
                 context,
-                node: Mutex::new(node)
+                node: Mutex::new(node),
             }),
             ffi::RCL_RET_ALREADY_INIT => Err(NodeError::AlreadyInitialized),
             ffi::RCL_RET_NOT_INIT => Err(NodeError::InvalidContext),
@@ -119,7 +138,7 @@ impl<'context> Node<'context> {
             ffi::RCL_RET_BAD_ALLOC => Err(NodeError::BadAllocation),
             ffi::RCL_RET_NODE_INVALID_NAME => Err(NodeError::InvalidNodeName),
             ffi::RCL_RET_NODE_INVALID_NAMESPACE => Err(NodeError::InvalidNamespaceName),
-            _ => Err(NodeError::UnspecifiedError)
+            _ => Err(NodeError::UnspecifiedError),
         }
     }
 
