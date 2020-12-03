@@ -114,7 +114,10 @@ impl Context {
     }
 
     fn is_valid(&self) -> bool {
-        unsafe { ffi::rcl_context_is_valid(&self.handle) }
+        // This cast to a mutable variable is necessary
+        // until https://github.com/ros2/rcl/pull/872 is merged.
+        let mut_handle = &self.handle as *const _ as *mut _;
+        unsafe { ffi::rcl_context_is_valid(mut_handle) }
     }
 
     /// Get a reference to the internal `rcl_context_t` object.
@@ -136,10 +139,11 @@ impl Drop for Context {
     // Dropping the `Context` could hypothetically throw three types of errors.
     // 1. Invalid argument - This cannot happen in the case of
     //     `rcl_shutdown`, because a `Context` can only be constructed by
-    //     succeeding `Context::new()` and that function will only create
-    //     a valid instance of `Context`.
-    //     This cannot in the `rcl_context_fini`, because the handle is
-    //     not NULL and `rcl_shutdown` is called before `rcl_context_fini`.
+    //     a succesful `Context::new()` and that function will only create
+    //     a valid instances of `Context`.
+    //     This cannot error can therefore not happen in in the `rcl_context_fini`,
+    //     because the handle is valid, not NULL and `rcl_shutdown` is called
+    //     before `rcl_context_fini`.
     // 2. Already shutdown - This cannot happen, because `drop` is called
     //     once per instance.
     // 3. Unspecified error - This could happen, but no precaution can be
