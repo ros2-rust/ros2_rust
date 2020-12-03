@@ -1,6 +1,5 @@
-use crate::error::{RclResult, ToRclResult};
 use crate::rcl_bindings as ffi;
-use crate::Node;
+//use crate::Node;
 use std::convert::TryInto;
 use std::env;
 use std::ffi::CString;
@@ -75,8 +74,8 @@ impl Context {
     /// Create a new context in which this client of ROS 2 is executed.
     /// # Example
     /// ```
+    /// # use rclrs::Context;
     /// let ros = Context::new().unwrap();
-    /// assert_eq(ros.is_valid(), true);
     /// ```
     pub fn new() -> Result<Self, ContextError> {
         let args: Vec<CString> = env::args()
@@ -130,9 +129,9 @@ impl Context {
         &mut self.handle
     }
 
-    pub fn create_node(&self, node_name: &str) -> RclResult<Node> {
-        Ok(Node::new(node_name, self)?)
-    }
+    //pub fn create_node(&self, node_name: &str) -> RclResult<Node> {
+    //    Ok(Node::new(node_name, self)?)
+    //}
 }
 
 impl Drop for Context {

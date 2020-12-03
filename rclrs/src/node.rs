@@ -1,11 +1,74 @@
-use crate::error::{RclResult, ToRclResult};
+//use crate::qos::QoSProfile;
+use crate::rcl_bindings as ffi;
+use crate::Context;
 use crate::qos::QoSProfile;
-use crate::rcl_bindings::*;
-use crate::{Context, ContextHandle, Handle};
-use std::cell::{Ref, RefCell, RefMut};
-use std::ffi::CString;
-use std::rc::{Rc, Weak};
+//use std::cell::{Ref, RefCell, RefMut};
+//use std::ffi::CString;
+//use std::rc::{Rc, Weak};
 
+pub struct NodeOptions {
+    node_options: ffi::rcl_node_options_t
+}
+
+impl Default for NodeOptions {
+    /// Get the default options for a Node.
+    fn default() -> Self {
+        let default_options = unsafe { ffi::rcl_node_get_default_options() };
+        Self {
+            node_options: default_options
+        }
+    }
+}
+
+impl Drop for NodeOptions {
+    fn drop(&mut self) {
+        // This is safe to call, because `node_options` will always be non-NULL
+        // and valid, and will always had `rcl_node_get_default_options()`
+        // called on it, because this is done on construction. Therefore,
+        // it is safe to ignore potential errors that might occur here.
+        //
+        // However, there might still be an "unspecified error", in which case
+        // it is not safe to continue. Because drop() does not support returning
+        // `Result`s, we have to panic here.
+        let return_code = unsafe { ffi::rcl_node_options_fini(&mut self.node_options) };
+        if return_code as u32 == ffi::RCL_RET_ERROR {
+            panic!("Unspecified error occured while dropping NodeOptions")
+        }
+    }
+}
+
+impl NodeOptions {
+    /// Flag to enable /rosout for this node. By default, this is enabled.
+    /// # Example
+    /// ```
+    /// # use rclrs::NodeOptions;
+    /// let mut node_options = NodeOptions::default();
+    /// node_options.enable_rosout(true);
+    /// ```
+    pub fn enable_rosout(&mut self, state: bool) {
+        self.node_options.enable_rosout = state;
+    }
+
+    /// Set the quality of service profile for the messages posted
+    /// to the /rosout topic.
+    /// # Example
+    /// ```
+    /// # use rclrs::NodeOptions;
+    /// # use rclrs::qos::QOS_PROFILE_SYSTEM_DEFAULT;
+    ///
+    /// let mut node_options = NodeOptions::default();
+    /// node_options.set_rosout_qos_profile(QOS_PROFILE_SYSTEM_DEFAULT);
+    /// ```
+    pub fn set_rosout_qos_profile(&mut self, qos: QoSProfile) {
+        self.node_options.rosout_qos = qos.into();
+    }
+}
+
+pub struct Node<'context> {
+    context: &'context Context
+}
+
+/*
 pub mod publisher;
 pub use self::publisher::*;
 pub mod subscription;
@@ -85,7 +148,7 @@ impl Node {
         T: rclrs_common::traits::MessageDefinition<T>,
     {
         Publisher::<T>::new(self, topic, qos)
-    }
+    }n
 
     // TODO: make subscription's lifetime depend on node's lifetime
     pub fn create_subscription<T, F>(
@@ -104,3 +167,4 @@ impl Node {
         Ok(subscription)
     }
 }
+*/
