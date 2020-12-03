@@ -1,4 +1,4 @@
-use crate::rcl_bindings as ffi;
+use ffi;
 use crate::Node;
 use crate::NodeOptions;
 use crate::NodeError;

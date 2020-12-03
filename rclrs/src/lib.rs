@@ -2,8 +2,6 @@ pub mod context;
 pub mod node;
 pub mod qos;
 
-mod rcl_bindings;
-
 pub use self::context::*;
 pub use self::node::*;
 

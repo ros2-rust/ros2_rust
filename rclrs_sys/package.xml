@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <package format="2">
-  <name>rclrs</name>
-  <version>0.0.3</version>
-  <description>Package containing the Rust client.</description>
+  <name>rclrs_sys</name>
+  <version>0.0.1</version>
+  <description>Generated bindings to the RCL.</description>
   <author email="esteve@apache.org">Esteve Fernandez</author>
   <maintainer email="esteve@apache.org">Esteve Fernandez</maintainer>
   <license>Apache License 2.0</license>
@@ -13,8 +13,6 @@
   <build_depend>builtin_interfaces</build_depend>
   <build_depend>rcl</build_depend>
   <build_depend>rcl_interfaces</build_depend>
-  <build_depend>rclrs_common</build_depend>
-  <build_depend>rclrs_sys</build_depend>
 
   <export>
     <build_type>ament_cmake</build_type>

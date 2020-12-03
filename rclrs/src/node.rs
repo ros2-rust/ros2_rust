@@ -1,4 +1,4 @@
-use crate::rcl_bindings as ffi;
+use ffi;
 use crate::Context;
 use crate::qos::QoSProfile;
 use std::ffi::{CString, CStr};
@@ -108,17 +108,17 @@ impl<'context> Node<'context> {
         let return_code = unsafe { ffi::rcl_node_init(&mut node, c_name.as_ptr(), c_namespace.as_ptr(), &mut *context_lock, &options.node_options) };
         drop(context_lock);
 
-        match return_code {
-            RCL_RET_OK => Ok(Node {
+        match return_code as u32 {
+            ffi::RCL_RET_OK => Ok(Node {
                 context,
                 node: Mutex::new(node)
             }),
-            RCL_RET_ALREADY_INIT => Err(NodeError::AlreadyInitialized),
-            RCL_RET_NOT_INIT => Err(NodeError::InvalidContext),
-            RCL_RET_INVALID_ARGUMENT => Err(NodeError::InvalidArgument),
-            RCL_RET_BAD_ALLOC => Err(NodeError::BadAllocation),
-            RCL_RET_NODE_INVALID_NAME => Err(NodeError::InvalidNodeName),
-            RCL_RET_NODE_INVALID_NAMESPACE => Err(NodeError::InvalidNamespaceName),
+            ffi::RCL_RET_ALREADY_INIT => Err(NodeError::AlreadyInitialized),
+            ffi::RCL_RET_NOT_INIT => Err(NodeError::InvalidContext),
+            ffi::RCL_RET_INVALID_ARGUMENT => Err(NodeError::InvalidArgument),
+            ffi::RCL_RET_BAD_ALLOC => Err(NodeError::BadAllocation),
+            ffi::RCL_RET_NODE_INVALID_NAME => Err(NodeError::InvalidNodeName),
+            ffi::RCL_RET_NODE_INVALID_NAMESPACE => Err(NodeError::InvalidNamespaceName),
             _ => Err(NodeError::UnspecifiedError)
         }
     }
