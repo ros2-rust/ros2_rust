@@ -1,0 +1,63 @@
+name: Rust
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+    container: ros:foxy
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Install APT dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          clang \
+          curl \
+          libclang-dev \
+          llvm-dev \
+          python3-colcon-common-extensions \
+          python3-vcstool
+
+    - name: Setup Rust
+      run: |
+        curl https://sh.rustup.rs -sSf | sh -s -- --profile minimal -y
+
+    - name: Setup workspace
+      run: |
+          mkdir -p ~/ros2_rust_ws/src
+          cd ~/ros2_rust_ws
+          cp -av ${GITHUB_WORKSPACE}/ros2_rust.repos .
+          vcs import src < ros2_rust.repos
+          mkdir -p ~/ros2_rust_ws/src/ros2_rust
+          cp -av ${GITHUB_WORKSPACE} ~/ros2_rust_ws/src/ros2_rust/ros2_rust
+
+    - name: Install ROS dependencies
+      run: |
+          cd ~/ros2_rust_ws
+          rosdep update && rosdep install -y --from src --ignore-src
+
+    - name: Build ros2-rust (Linux)
+      run: |
+          . /opt/ros/foxy/setup.sh
+          . ~/.cargo/env
+          cd ~/ros2_rust_ws
+          colcon build --packages-skip test_msgs
+
+    - name: Test ros2-rust (Linux)
+      run: |
+          . ~/.cargo/env
+          cd ~/ros2_rust_ws
+          . install/setup.sh
+          colcon test --packages-select rclrs rclrs_common rclrs_examples rosidl_generator_rs
+          colcon test-result --verbose
