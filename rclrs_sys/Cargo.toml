@@ -1,0 +1,8 @@
+[package]
+name = "rclrs_sys"
+version = "0.1.0"
+authors = ["Esteve Fernandez <esteve@apache.org>", "Thijs Raymakers <thijs@raymakers.nl>"]
+edition = "2018"
+
+[build-dependencies]
+bindgen = "0.56"

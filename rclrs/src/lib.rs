@@ -1,17 +1,16 @@
-pub mod context;
-pub mod error;
-pub mod node;
-pub mod qos;
-
-mod rcl_bindings;
+mod context;
+mod node;
+mod publisher;
+mod qos;
 
 pub use self::context::*;
-pub use self::error::*;
 pub use self::node::*;
+pub use self::publisher::*;
 pub use self::qos::*;
 
-use self::rcl_bindings::*;
+//use self::rcl_bindings::*;
 use std::ops::{Deref, DerefMut};
+//use std::convert::TryInto;
 
 pub trait Handle<T> {
     type DerefT: Deref<Target = T>;
@@ -21,6 +20,7 @@ pub trait Handle<T> {
     fn get_mut(self) -> Self::DerefMutT;
 }
 
+/*
 /// Wrapper around [`spin_once`]
 pub fn spin(node: &Node) -> RclResult {
     while unsafe { rcl_context_is_valid(&mut *node.context.get_mut() as *mut _) } {
@@ -60,7 +60,7 @@ pub fn spin(node: &Node) -> RclResult {
 ///   |                  guard_condition |       | services, etc.
 ///   |                  timer,          |       |
 ///   |                  client,         |       |
-///   |                  service,        |       |
+///   |      }            service,        |       |
 ///   |                  e^ent}          |       |
 ///   +---------------+------------------+ +-----+
 ///                   |
@@ -90,7 +90,7 @@ pub fn spin_once(node: &Node, timeout: i64) -> RclResult {
     unsafe {
         rcl_wait_set_init(
             &mut wait_set_handle as *mut _,
-            number_of_subscriptions,
+            number_of_subscriptions.try_into().unwrap(),
             number_of_guard_conditions,
             number_of_timers,
             number_of_clients,
@@ -139,3 +139,4 @@ pub fn spin_once(node: &Node, timeout: i64) -> RclResult {
 
     Ok(())
 }
+*/
