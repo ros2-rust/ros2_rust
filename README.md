@@ -59,7 +59,7 @@ Or do so manually as summarized in the steps below:
 
 ```
 # first, install vcstool from PyPI or apt:
-# sudo apt install ros-foxy-desktop python3-vcstool libclang-dev clang
+# sudo apt install ros-foxy-desktop ros-foxy-test-interface-files python3-vcstool libclang-dev clang
 # pip install vcstool
 
 mkdir -p ~/ros2_rust_ws/src/ros2-rust
