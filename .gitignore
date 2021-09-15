@@ -221,3 +221,7 @@ Cargo.lock
 **/*.rs.bk
 
 # End of https://www.toptal.com/developers/gitignore/api/cmake,rust,python,cpp,c
+
+# Copies of repositories needed to get ros2_rust to build (To be removed when we no longer need them)
+builtin_interfaces
+std_msgs
