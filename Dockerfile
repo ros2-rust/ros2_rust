@@ -7,6 +7,10 @@
 #   --build-arg OVERLAY_MIXINS \
 #   --build-arg RUN_TESTS 
 #   --pull ./
+#
+# If you prefer to use Rolling, just add the following build args:
+# --build-arg FROM_IMAGE=ros:rolling
+# --build-arg REPOS_FILE=ros2_rust_rolling.repos
 
 ARG FROM_IMAGE=ros:foxy
 ARG OVERLAY_WS=/opt/overlay_ws
