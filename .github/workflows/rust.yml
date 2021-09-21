@@ -13,7 +13,7 @@ jobs:
   build:
 
     runs-on: ubuntu-latest
-    container: ros:foxy
+    container: ros:rolling
 
     steps:
     - uses: actions/checkout@v2
@@ -37,8 +37,8 @@ jobs:
       run: |
           mkdir -p ~/ros2_rust_ws/src
           cd ~/ros2_rust_ws
-          cp -av ${GITHUB_WORKSPACE}/ros2_rust.repos .
-          vcs import src < ros2_rust.repos
+          cp -av ${GITHUB_WORKSPACE}/ros2_rust_rolling.repos .
+          vcs import src < ros2_rust_rolling.repos
           mkdir -p ~/ros2_rust_ws/src/ros2_rust
           cp -av ${GITHUB_WORKSPACE} ~/ros2_rust_ws/src/ros2_rust/ros2_rust
 
@@ -49,7 +49,7 @@ jobs:
 
     - name: Build ros2-rust (Linux)
       run: |
-          . /opt/ros/foxy/setup.sh
+          . /opt/ros/rolling/setup.sh
           . ~/.cargo/env
           cd ~/ros2_rust_ws
           colcon build --packages-skip test_msgs
