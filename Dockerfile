@@ -10,6 +10,7 @@
 
 ARG FROM_IMAGE=ros:foxy
 ARG OVERLAY_WS=/opt/overlay_ws
+ARG REPOS_FILE=ros2_rust_foxy.repos
 
 # multi-stage for caching
 FROM $FROM_IMAGE AS cacher
@@ -17,8 +18,8 @@ FROM $FROM_IMAGE AS cacher
 # clone overlay source
 ARG OVERLAY_WS
 WORKDIR $OVERLAY_WS/src
-COPY ./ros2_rust.repos ../
-RUN vcs import ./ < ../ros2_rust.repos && \
+COPY ./${REPOS_FILE} ../
+RUN vcs import ./ < ../${REPOS_FILE} && \
     find ./ -name ".git" | xargs rm -rf
 COPY ./ ./ros2-rust/ros2_rust
 
