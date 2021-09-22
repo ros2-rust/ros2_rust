@@ -12,8 +12,11 @@ env:
 jobs:
   build:
 
+    strategy:
+    matrix:
+      ros_distro: [rolling, foxy, galactic]
     runs-on: ubuntu-latest
-    container: ros:rolling
+    container: ros:${{ matrix.ros_distro }}
 
     steps:
     - uses: actions/checkout@v2
@@ -37,8 +40,8 @@ jobs:
       run: |
           mkdir -p ~/ros2_rust_ws/src
           cd ~/ros2_rust_ws
-          cp -av ${GITHUB_WORKSPACE}/ros2_rust_rolling.repos .
-          vcs import src < ros2_rust_rolling.repos
+          cp -av ${GITHUB_WORKSPACE}/ros2_rust_${{ matrix.ros_distro }}.repos .
+          vcs import src < ros2_rust_${{ matrix.ros_distro }}.repos
           mkdir -p ~/ros2_rust_ws/src/ros2_rust
           cp -av ${GITHUB_WORKSPACE} ~/ros2_rust_ws/src/ros2_rust/ros2_rust
 
@@ -61,16 +64,3 @@ jobs:
           . install/setup.sh
           colcon test --packages-select rclrs rclrs_common rclrs_examples rosidl_generator_rs
           colcon test-result --verbose
-
-  build:
-
-    strategy:
-    matrix:
-      ros_distro: [rolling, galactic]
-
-    runs-on: ubuntu-latest
-    container: ros:${{ matrix.ros_distro }}
-
-...
-          cp -av ${GITHUB_WORKSPACE}/ros2_rust_${{ matrix.ros_distro }}.repos .
-          vcs import src < ros2_rust_${{ matrix.ros_distro }}.repos
