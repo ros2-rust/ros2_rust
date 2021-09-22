@@ -61,3 +61,16 @@ jobs:
           . install/setup.sh
           colcon test --packages-select rclrs rclrs_common rclrs_examples rosidl_generator_rs
           colcon test-result --verbose
+
+  build:
+
+    strategy:
+    matrix:
+      ros_distro: [rolling, galactic]
+
+    runs-on: ubuntu-latest
+    container: ros:${{ matrix.ros_distro }}
+
+...
+          cp -av ${GITHUB_WORKSPACE}/ros2_rust_${{ matrix.ros_distro }}.repos .
+          vcs import src < ros2_rust_${{ matrix.ros_distro }}.repos
