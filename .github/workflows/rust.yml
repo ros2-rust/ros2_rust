@@ -52,7 +52,7 @@ jobs:
 
     - name: Build ros2-rust (Linux)
       run: |
-          . /opt/ros/rolling/setup.sh
+          . /opt/ros/${{ matrix.ros_distro }}/setup.sh
           . ~/.cargo/env
           cd ~/ros2_rust_ws
           colcon build --packages-skip test_msgs
