@@ -11,10 +11,9 @@ env:
 
 jobs:
   build:
-
     strategy:
-    matrix:
-      ros_distro: [rolling, foxy, galactic]
+      matrix:
+        ros_distro: [rolling, foxy, galactic]
     runs-on: ubuntu-latest
     container: ros:${{ matrix.ros_distro }}
 
