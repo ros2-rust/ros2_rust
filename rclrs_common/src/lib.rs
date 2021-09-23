@@ -1,5 +1,5 @@
 pub mod error {
-    use failure::Fail;
+    use thiserror::Error;
 
     #[derive(Debug)]
     pub struct RCLError {
@@ -7,69 +7,69 @@ pub mod error {
         pub message: &'static str,
     }
 
-    #[derive(Debug, Fail)]
+    #[derive(Debug, Error)]
     pub enum RCLStatusCode {
-        #[fail(display = "success")]
+        #[error("Success")]
         Ok = 0,
-        #[fail(display = "unspecified error")]
+        #[error("Unspecified Error")]
         Error = 1,
-        #[fail(display = "timeout occurred")]
+        #[error("Timeout occurred")]
         Timeout = 2,
-        #[fail(display = "failed to allocate memory")]
+        #[error("Failed to allocate memory")]
         BadAlloc = 10,
-        #[fail(display = "invalid argument")]
+        #[error("Invalid argument")]
         InvalidArgument = 11,
-        #[fail(display = "context already initialized")]
+        #[error("Context already initialized")]
         AlreadyInit = 100,
-        #[fail(display = "context not yet initialized")]
+        #[error("Context not yet initialized")]
         NotInit = 101,
-        #[fail(display = "mismatched rmw identifier")]
+        #[error("Mismatched RMW identifier")]
         MismatchedRmwId = 102,
-        #[fail(display = "topic name does not pass validation")]
+        #[error("Topic name does not pass validation")]
         TopicNameInvalid = 103,
-        #[fail(display = "service name (same as topic name) does not pass validation")]
+        #[error("Service name (same as topic name) does not pass validation")]
         ServiceNameInvalid = 104,
-        #[fail(display = "topic name substitution is unknown")]
+        #[error("Topic name substitution is unknown")]
         UnknownSubstitution = 105,
-        #[fail(display = "node already shutdown")]
+        #[error("Node already shutdown")]
         AlreadyShutdown = 106,
-        #[fail(display = "invalid node given")]
+        #[error("Invalid node given")]
         NodeInvalid = 200,
-        #[fail(display = "invalid node name given")]
+        #[error("Invalid node name given")]
         NodeInvalidName = 201,
-        #[fail(display = "invalid node namespace given")]
+        #[error("Invalid node namespace given")]
         NodeInvalidNamespace = 202,
-        #[fail(display = "invalid publisher given")]
+        #[error("Invalid publisher given")]
         PublisherInvalid = 300,
-        #[fail(display = "invalid subscriber given")]
+        #[error("Invalid subscriber given")]
         SubscriptionInvalid = 400,
-        #[fail(display = "failed to take a message from the subscription")]
+        #[error("Failed to take a message from the subscription")]
         SubscriptionTakeFailed = 401,
-        #[fail(display = "invalid client given")]
+        #[error("Invalid client given")]
         ClientInvalid = 500,
-        #[fail(display = "failed to take a response from the client")]
+        #[error("Failed to take a response from the client")]
         ClientTakeFailed = 501,
-        #[fail(display = "invalid service given")]
+        #[error("Invalid service given")]
         ServiceInvalid = 600,
-        #[fail(display = "failed to take a request from the service")]
+        #[error("Failed to take a request from the service")]
         ServiceTakeFailed = 601,
-        #[fail(display = "invalid timer given")]
+        #[error("Invalid timer given")]
         TimerInvalid = 800,
-        #[fail(display = "given timer was canceled")]
+        #[error("Given timer was canceled")]
         TimerCanceled = 801,
-        #[fail(display = "invalid wait set given")]
+        #[error("Invalid wait set given")]
         WaitSetInvalid = 900,
-        #[fail(display = "given wait set is empty")]
+        #[error("Given wait set is empty")]
         WaitSetEmpty = 901,
-        #[fail(display = "given wait set is full")]
+        #[error("Given wait set is full")]
         WaitSetFull = 902,
-        #[fail(display = "argument is not a valid remap rule")]
+        #[error("Argument is not a valid remap rule")]
         InvalidRemapRule = 1001,
-        #[fail(display = "expected one type of lexeme but got another")]
+        #[error("Expected one type of lexeme, but got another")]
         WrongLexeme = 1002,
-        #[fail(display = "argument is not a valid parameter rule")]
+        #[error("Argument is not a valid parameter rule")]
         InvalidParamRule = 1010,
-        #[fail(display = "argument is not a valid log level")]
+        #[error("Argument is not a valid log level")]
         InvalidLogLevelRule = 1020,
     }
 
@@ -121,8 +121,8 @@ pub mod traits {
 
     pub trait Message: Any {
         fn get_native_message(&self) -> uintptr_t;
-        fn destroy_native_message(&self, message_handle: uintptr_t) -> ();
-        fn read_handle(&mut self, message_handle: uintptr_t) -> ();
+        fn destroy_native_message(&self, message_handle: uintptr_t);
+        fn read_handle(&mut self, message_handle: uintptr_t);
     }
 
     downcast!(dyn Message);
@@ -130,6 +130,6 @@ pub mod traits {
     pub trait MessageDefinition<T>: Message {
         fn get_type_support() -> uintptr_t;
         fn static_get_native_message(message: &T) -> uintptr_t;
-        fn static_destroy_native_message(message_handle: uintptr_t) -> ();
+        fn static_destroy_native_message(message_handle: uintptr_t);
     }
 }
