@@ -1,7 +1,8 @@
-use rclrs;
+use anyhow::{Error, Result, Context};
+use rclrs::{self, RclError};
 use std_msgs;
 
-fn main() -> rclrs::RclResult {
+fn main() -> Result<(), Error> {
     let context = rclrs::Context::default();
 
     let mut node = context.create_node("minimal_subscriber")?;
@@ -18,5 +19,9 @@ fn main() -> rclrs::RclResult {
         },
     )?;
 
-    rclrs::spin(&node)
+    // rclrs::spin(&node).with_context(|| "RCL Error Occurred")
+    match rclrs::spin(&node) {
+        Ok(()) => Ok(()),
+        Err(RclError) => Err(anyhow::Error::from(RclError)),
+    }
 }

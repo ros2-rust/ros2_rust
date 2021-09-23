@@ -1,3 +1,5 @@
+use anyhow::Result;
+
 use crate::rcl_bindings::*;
 pub use rclrs_common::error::RCLStatusCode as RclError;
 

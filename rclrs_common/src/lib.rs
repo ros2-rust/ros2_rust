@@ -1,76 +1,76 @@
 pub mod error {
     use thiserror::Error;
 
-    #[derive(Debug)]
-    pub struct RCLError {
-        pub code: RCLStatusCode,
-        pub message: &'static str,
-    }
+    // #[derive(Debug)]
+    // pub struct RCLError {
+    //     pub code: RCLStatusCode,
+    //     pub message: &'static str,
+    // }
 
     #[derive(Debug, Error)]
     pub enum RCLStatusCode {
         #[error("Success")]
-        Ok = 0,
+        Ok,
         #[error("Unspecified Error")]
-        Error = 1,
+        Error,
         #[error("Timeout occurred")]
-        Timeout = 2,
+        Timeout,
         #[error("Failed to allocate memory")]
-        BadAlloc = 10,
+        BadAlloc,
         #[error("Invalid argument")]
-        InvalidArgument = 11,
+        InvalidArgument,
         #[error("Context already initialized")]
-        AlreadyInit = 100,
+        AlreadyInit,
         #[error("Context not yet initialized")]
-        NotInit = 101,
+        NotInit,
         #[error("Mismatched RMW identifier")]
-        MismatchedRmwId = 102,
+        MismatchedRmwId,
         #[error("Topic name does not pass validation")]
-        TopicNameInvalid = 103,
+        TopicNameInvalid,
         #[error("Service name (same as topic name) does not pass validation")]
-        ServiceNameInvalid = 104,
+        ServiceNameInvalid,
         #[error("Topic name substitution is unknown")]
-        UnknownSubstitution = 105,
+        UnknownSubstitution,
         #[error("Node already shutdown")]
-        AlreadyShutdown = 106,
+        AlreadyShutdown,
         #[error("Invalid node given")]
-        NodeInvalid = 200,
+        NodeInvalid,
         #[error("Invalid node name given")]
-        NodeInvalidName = 201,
+        NodeInvalidName,
         #[error("Invalid node namespace given")]
-        NodeInvalidNamespace = 202,
+        NodeInvalidNamespace,
         #[error("Invalid publisher given")]
-        PublisherInvalid = 300,
+        PublisherInvalid,
         #[error("Invalid subscriber given")]
-        SubscriptionInvalid = 400,
+        SubscriptionInvalid,
         #[error("Failed to take a message from the subscription")]
-        SubscriptionTakeFailed = 401,
+        SubscriptionTakeFailed,
         #[error("Invalid client given")]
-        ClientInvalid = 500,
+        ClientInvalid,
         #[error("Failed to take a response from the client")]
-        ClientTakeFailed = 501,
+        ClientTakeFailed,
         #[error("Invalid service given")]
-        ServiceInvalid = 600,
+        ServiceInvalid,
         #[error("Failed to take a request from the service")]
-        ServiceTakeFailed = 601,
+        ServiceTakeFailed,
         #[error("Invalid timer given")]
-        TimerInvalid = 800,
+        TimerInvalid,
         #[error("Given timer was canceled")]
-        TimerCanceled = 801,
+        TimerCanceled,
         #[error("Invalid wait set given")]
-        WaitSetInvalid = 900,
+        WaitSetInvalid,
         #[error("Given wait set is empty")]
-        WaitSetEmpty = 901,
+        WaitSetEmpty,
         #[error("Given wait set is full")]
-        WaitSetFull = 902,
+        WaitSetFull,
         #[error("Argument is not a valid remap rule")]
-        InvalidRemapRule = 1001,
+        InvalidRemapRule,
         #[error("Expected one type of lexeme, but got another")]
-        WrongLexeme = 1002,
+        WrongLexeme,
         #[error("Argument is not a valid parameter rule")]
-        InvalidParamRule = 1010,
+        InvalidParamRule,
         #[error("Argument is not a valid log level")]
-        InvalidLogLevelRule = 1020,
+        InvalidLogLevelRule,
     }
 
     impl From<i32> for RCLStatusCode {
