@@ -8,7 +8,6 @@ edition = "2018"
 libc = "0.2.43"
 thiserror = "1"
 anyhow = {version = "1", features = ["backtrace"]}
-# rclrs_common = {path = "../rclrs_common"}
 
 [build-dependencies]
 bindgen = "0.59.1"

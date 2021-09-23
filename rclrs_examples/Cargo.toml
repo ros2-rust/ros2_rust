@@ -15,5 +15,3 @@ path = "src/rclrs_publisher.rs"
 [dependencies]
 thiserror = "1"
 anyhow = {version = "1", features = ["backtrace"]}
-# rclrs = {path = "../rclrs"}
-# rclrs_common = {path = "../rclrs_common"}
