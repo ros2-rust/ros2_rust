@@ -74,7 +74,6 @@ pub fn spin(node: &Node) -> RclResult {
 ///
 ///
 pub fn spin_once(node: &Node, timeout: i64) -> RclResult {
-
     // get an rcl_wait_set_t - All NULLs
     let mut wait_set_handle = unsafe { rcl_get_zero_initialized_wait_set() };
 
@@ -98,30 +97,67 @@ pub fn spin_once(node: &Node, timeout: i64) -> RclResult {
             number_of_events,
             context,
             rcutils_get_default_allocator(),
-        )
-        .ok()?;
+        ).ok()?;
     }
 
     unsafe {
-        rcl_wait_set_clear(&mut wait_set_handle as *mut _).ok()?;
+        match rcl_wait_set_clear(&mut wait_set_handle as *mut _).ok() {
+            Ok(()) => (),
+            Err(rcl_err) => {
+                eprintln!("Unable to clear WaitSet! Error code: {:?}", rcl_err);
+                match rcl_wait_set_fini(&mut wait_set_handle as *mut _).ok() {
+                    Ok(()) => return Err(rcl_err),
+                    Err(rcl_err2) => {
+                        eprintln!("Trying to clear the WaitSet caused a second error!! Error code: {:?}", rcl_err2);
+                        return Err(rcl_err2);
+                    }
+                }
+            }
+        };
     }
 
     for subscription in &node.subscriptions {
         if let Some(subscription) = subscription.upgrade() {
             let subscription_handle = &*subscription.handle().get();
             unsafe {
-                rcl_wait_set_add_subscription(
+                match rcl_wait_set_add_subscription(
                     &mut wait_set_handle as *mut _,
                     subscription_handle as *const _,
                     std::ptr::null_mut(),
                 )
-                .ok()?;
+                .ok() {
+                    Ok(()) => (),
+                    Err(rcl_err) => {
+                        eprintln!("Unable to add subscription to WaitSet! Error code: {:?}", rcl_err);
+                        match rcl_wait_set_fini(&mut wait_set_handle as *mut _).ok() {
+                            Ok(()) => return Err(rcl_err),
+                            Err(rcl_err2) => {
+                                eprintln!("Trying to clear the WaitSet caused a second error!! Error code: {:?}", rcl_err2);
+                                return Err(rcl_err2);
+                            }
+                        }
+                    }
+                };
             }
         }
     }
 
     unsafe {
-        rcl_wait(&mut wait_set_handle as *mut _, timeout).ok()?;
+        match rcl_wait(&mut wait_set_handle as *mut _, timeout).ok() {
+            Ok(()) => (),
+            Err(rcl_err) => {
+                match rcl_wait_set_fini(&mut wait_set_handle as *mut _).ok() {
+                    Ok(()) => return Err(rcl_err),
+                    Err(RclError::Timeout) => return Err(RclError::Timeout),
+                    Err(rcl_err2) => {
+                        eprintln!("Error waiting on WaitSet! Error code: {:?}", rcl_err);
+                        eprintln!("Trying to clear the WaitSet caused a second error!! Error code: {:?}", rcl_err2);
+                        return Err(rcl_err2);
+                    }
+                }
+            }
+
+        };
     }
 
     for subscription in &node.subscriptions {
@@ -134,7 +170,13 @@ pub fn spin_once(node: &Node, timeout: i64) -> RclResult {
         }
     }
     unsafe {
-        rcl_wait_set_fini(&mut wait_set_handle as *mut _).ok()?;
+        match rcl_wait_set_fini(&mut wait_set_handle as *mut _).ok() {
+            Ok(()) => (),
+            Err(rcl_err) => {
+                eprintln!("Error cleaning up WaitSet! Error code: {:?}", rcl_err);
+                return Err(rcl_err);
+            }
+        };
     }
 
     Ok(())
