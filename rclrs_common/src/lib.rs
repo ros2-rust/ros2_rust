@@ -1,14 +1,8 @@
 pub mod error {
     use thiserror::Error;
 
-    // #[derive(Debug)]
-    // pub struct RCLError {
-    //     pub code: RCLStatusCode,
-    //     pub message: &'static str,
-    // }
-
     #[derive(Debug, Error)]
-    pub enum RCLStatusCode {
+    pub enum RclError {
         #[error("Success")]
         Ok,
         #[error("Unspecified Error")]
@@ -73,40 +67,40 @@ pub mod error {
         InvalidLogLevelRule,
     }
 
-    impl From<i32> for RCLStatusCode {
+    impl From<i32> for RclError {
         fn from(error: i32) -> Self {
             match error {
-                0 => RCLStatusCode::Ok,
-                1 => RCLStatusCode::Error,
-                2 => RCLStatusCode::Timeout,
-                10 => RCLStatusCode::BadAlloc,
-                11 => RCLStatusCode::InvalidArgument,
-                100 => RCLStatusCode::AlreadyInit,
-                101 => RCLStatusCode::NotInit,
-                102 => RCLStatusCode::MismatchedRmwId,
-                103 => RCLStatusCode::TopicNameInvalid,
-                104 => RCLStatusCode::ServiceNameInvalid,
-                105 => RCLStatusCode::UnknownSubstitution,
-                106 => RCLStatusCode::AlreadyShutdown,
-                200 => RCLStatusCode::NodeInvalid,
-                201 => RCLStatusCode::NodeInvalidName,
-                202 => RCLStatusCode::NodeInvalidNamespace,
-                300 => RCLStatusCode::PublisherInvalid,
-                400 => RCLStatusCode::SubscriptionInvalid,
-                401 => RCLStatusCode::SubscriptionTakeFailed,
-                500 => RCLStatusCode::ClientInvalid,
-                501 => RCLStatusCode::ClientTakeFailed,
-                600 => RCLStatusCode::ServiceInvalid,
-                601 => RCLStatusCode::ServiceTakeFailed,
-                800 => RCLStatusCode::TimerInvalid,
-                801 => RCLStatusCode::TimerCanceled,
-                900 => RCLStatusCode::WaitSetInvalid,
-                901 => RCLStatusCode::WaitSetEmpty,
-                902 => RCLStatusCode::WaitSetFull,
-                1001 => RCLStatusCode::InvalidRemapRule,
-                1002 => RCLStatusCode::WrongLexeme,
-                1010 => RCLStatusCode::InvalidParamRule,
-                1020 => RCLStatusCode::InvalidLogLevelRule,
+                0 => RclError::Ok,
+                1 => RclError::Error,
+                2 => RclError::Timeout,
+                10 => RclError::BadAlloc,
+                11 => RclError::InvalidArgument,
+                100 => RclError::AlreadyInit,
+                101 => RclError::NotInit,
+                102 => RclError::MismatchedRmwId,
+                103 => RclError::TopicNameInvalid,
+                104 => RclError::ServiceNameInvalid,
+                105 => RclError::UnknownSubstitution,
+                106 => RclError::AlreadyShutdown,
+                200 => RclError::NodeInvalid,
+                201 => RclError::NodeInvalidName,
+                202 => RclError::NodeInvalidNamespace,
+                300 => RclError::PublisherInvalid,
+                400 => RclError::SubscriptionInvalid,
+                401 => RclError::SubscriptionTakeFailed,
+                500 => RclError::ClientInvalid,
+                501 => RclError::ClientTakeFailed,
+                600 => RclError::ServiceInvalid,
+                601 => RclError::ServiceTakeFailed,
+                800 => RclError::TimerInvalid,
+                801 => RclError::TimerCanceled,
+                900 => RclError::WaitSetInvalid,
+                901 => RclError::WaitSetEmpty,
+                902 => RclError::WaitSetFull,
+                1001 => RclError::InvalidRemapRule,
+                1002 => RclError::WrongLexeme,
+                1010 => RclError::InvalidParamRule,
+                1020 => RclError::InvalidLogLevelRule,
                 _ => unimplemented!(),
             }
         }
