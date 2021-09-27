@@ -2,6 +2,7 @@ pub mod context;
 pub mod error;
 pub mod node;
 pub mod qos;
+pub mod wait;
 
 mod rcl_bindings;
 
