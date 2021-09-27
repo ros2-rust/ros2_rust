@@ -1,7 +1,8 @@
+use anyhow::{Result, Error};
 use rclrs;
 use std_msgs;
 
-fn main() -> rclrs::RclResult {
+fn main() -> Result<(), Error>{
     let context = rclrs::Context::default();
 
     let node = context.create_node("minimal_publisher")?;

@@ -1,5 +1,5 @@
-use anyhow::{Error, Result, Context};
-use rclrs::{self, RclError};
+use anyhow::{Error, Result};
+use rclrs;
 use std_msgs;
 
 fn main() -> Result<(), Error> {
@@ -19,7 +19,6 @@ fn main() -> Result<(), Error> {
         },
     )?;
 
-    // rclrs::spin(&node).with_context(|| "RCL Error Occurred")
     match rclrs::spin(&node) {
         Ok(()) => Ok(()),
         Err(RclError) => Err(anyhow::Error::from(RclError)),
