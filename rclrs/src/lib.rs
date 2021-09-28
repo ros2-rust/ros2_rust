@@ -97,8 +97,6 @@ pub fn spin_once(node: &Node, timeout: i64) -> Result<(), WaitSetError> {
         number_of_events,
         context)?;
 
-    wait_set.clear()?;
-
     for subscription in &node.subscriptions {
         match wait_set.add_subscription(subscription) {
             Ok(()) => (),
