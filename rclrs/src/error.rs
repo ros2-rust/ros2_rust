@@ -14,10 +14,5 @@ pub(crate) trait ToResult {
 impl ToResult for rcl_ret_t {
     fn ok(&self) -> Result<(), RclError> {
         to_rcl_result(*self as i32)
-    //     if *self as u32 == RCL_RET_OK {
-    //         Ok(())
-    //     } else {
-    //         Err(RclError::from(*self))
-    //     }
     }
 }
