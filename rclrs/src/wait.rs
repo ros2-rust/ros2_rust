@@ -18,8 +18,8 @@
 use std::borrow::BorrowMut;
 use std::rc::Weak;
 
-use crate::{SubscriptionBase, error::*};
 use crate::Handle;
+use crate::{error::*, SubscriptionBase};
 
 use crate::rcl_bindings::*;
 
@@ -71,7 +71,6 @@ impl WaitSet {
                 }
             }
         }
-
     }
 
     /// Removes (sets to NULL) all entities in the WaitSet
@@ -87,7 +86,8 @@ impl WaitSet {
         unsafe {
             // Whether or not we successfully clear, this WaitSet will count as uninitialized
             self.initialized = false;
-            to_rcl_result(rcl_wait_set_clear(self.wait_set.borrow_mut() as *mut _)).map_err(WaitSetError::RclError)
+            to_rcl_result(rcl_wait_set_clear(self.wait_set.borrow_mut() as *mut _))
+                .map_err(WaitSetError::RclError)
         }
     }
 
@@ -96,14 +96,19 @@ impl WaitSet {
     /// # Errors
     /// - `WaitSetError::DroppedSubscription` if the passed weak pointer refers to a dropped subscription
     /// - `WaitSetError::RclError` for any `rcl` errors that occur during the process
-    pub fn add_subscription(&mut self, subscription: &Weak<dyn SubscriptionBase>) -> Result<(), WaitSetError> {
+    pub fn add_subscription(
+        &mut self,
+        subscription: &Weak<dyn SubscriptionBase>,
+    ) -> Result<(), WaitSetError> {
         if let Some(subscription) = subscription.upgrade() {
             let subscription_handle = &*subscription.handle().get();
             unsafe {
                 return to_rcl_result(rcl_wait_set_add_subscription(
                     self.wait_set.borrow_mut() as *mut _,
-                subscription_handle as *const _,
-            std::ptr::null_mut())).map_err(WaitSetError::RclError);
+                    subscription_handle as *const _,
+                    std::ptr::null_mut(),
+                ))
+                .map_err(WaitSetError::RclError);
             }
         } else {
             Err(WaitSetError::DroppedSubscription)
@@ -160,7 +165,8 @@ impl WaitSet {
     /// - `RclError::Error` for an unspecified error
     pub fn wait(&mut self, timeout: i64) -> Result<(), WaitSetError> {
         unsafe {
-            to_rcl_result(rcl_wait(self.wait_set.borrow_mut() as *mut _, timeout)).map_err(WaitSetError::RclError)
+            to_rcl_result(rcl_wait(self.wait_set.borrow_mut() as *mut _, timeout))
+                .map_err(WaitSetError::RclError)
         }
     }
 }
