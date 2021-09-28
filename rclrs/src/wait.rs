@@ -16,15 +16,14 @@
 // OPSEC #4584.
 
 use std::borrow::BorrowMut;
-use std::cell::{Ref, RefCell, RefMut};
-use std::rc::{Rc, Weak};
+use std::rc::Weak;
 
 use crate::{SubscriptionBase, error::*};
 use crate::Handle;
 
 use crate::rcl_bindings::*;
 
-use anyhow::{Context, Error, Result};
+use anyhow::Result;
 use rclrs_common::error::WaitSetError;
 
 pub struct WaitSet {
@@ -44,7 +43,7 @@ impl WaitSet {
         number_of_clients: usize,
         number_of_services: usize,
         number_of_events: usize,
-        context: &mut rcl_context_s,
+        context: &mut rcl_context_t,
     ) -> Result<Self, WaitSetError> {
         let mut waitset = Self {
             wait_set: unsafe { rcl_get_zero_initialized_wait_set() },
