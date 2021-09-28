@@ -33,24 +33,11 @@ pub struct WaitSet {
 }
 
 impl WaitSet {
-    /// Creates a new WaitSet object.
+    /// Creates and initializes a new WaitSet object.
     ///
     /// Under the hood, this calls `rcl_get_zero_initialized_wait_set()`, and stores it
     /// within the WaitSet struct, while also noting that the returned value is uninitialized.
-    pub fn new() -> Self {
-        Self {
-            wait_set: unsafe { rcl_get_zero_initialized_wait_set() },
-            initialized: false,
-        }
-    }
-
-    /// Initializes an rcl wait set with space for items to be waited on
-    ///
-    /// This function allocates space for the subscriptions and other wait-able
-    /// entities that can be stored in the wait set, using a default allocator grabbed from
-    /// `rcutils_get_default_allocator()`
-    pub fn init(
-        &mut self,
+    pub fn new(
         number_of_subscriptions: usize,
         number_of_guard_conditions: usize,
         number_of_timers: usize,
@@ -58,13 +45,14 @@ impl WaitSet {
         number_of_services: usize,
         number_of_events: usize,
         context: &mut rcl_context_s,
-    ) -> Result<(), WaitSetError> {
-        if self.initialized {
-            return Err(WaitSetError::RclError(RclError::WaitSetInvalid));
-        }
+    ) -> Result<Self, WaitSetError> {
+        let mut waitset = Self {
+            wait_set: unsafe { rcl_get_zero_initialized_wait_set() },
+            initialized: false,
+        };
         unsafe {
             match to_rcl_result(rcl_wait_set_init(
-                self.wait_set.borrow_mut() as *mut _,
+                waitset.wait_set.borrow_mut() as *mut _,
                 number_of_subscriptions,
                 number_of_guard_conditions,
                 number_of_timers,
@@ -75,15 +63,16 @@ impl WaitSet {
                 rcutils_get_default_allocator(),
             )) {
                 Ok(()) => {
-                    self.initialized = true;
-                    Ok(())
+                    waitset.initialized = true;
+                    Ok(waitset)
                 }
                 Err(err) => {
-                    self.initialized = false;
+                    waitset.initialized = false;
                     Err(WaitSetError::RclError(err))
                 }
             }
         }
+
     }
 
     /// Removes (sets to NULL) all entities in the WaitSet
@@ -103,6 +92,11 @@ impl WaitSet {
         }
     }
 
+    /// Adds a subscription to the WaitSet
+    ///
+    /// # Errors
+    /// - `WaitSetError::DroppedSubscription` if the passed weak pointer refers to a dropped subscription
+    /// - `WaitSetError::RclError` for any `rcl` errors that occur during the process
     pub fn add_subscription(&mut self, subscription: &Weak<dyn SubscriptionBase>) -> Result<(), WaitSetError> {
         if let Some(subscription) = subscription.upgrade() {
             let subscription_handle = &*subscription.handle().get();
@@ -117,6 +111,54 @@ impl WaitSet {
         }
     }
 
+    /// Blocks until the WaitSet is ready, or until the timeout has been exceeded
+    ///
+    /// This function will collect the items in the rcl_wait_set_t and pass them
+    /// to the underlying rmw_wait function.
+    /// The items in the wait set will be either left untouched or set to NULL after
+    /// this function returns.
+    /// Items that are not NULL are ready, where ready means different things based
+    /// on the type of the item.
+    /// For subscriptions this means there may be messages that can be taken, or
+    /// perhaps that the state of the subscriptions has changed, in which case
+    /// rcl_take may succeed but return with taken == false.
+    /// For guard conditions this means the guard condition was triggered.
+    ///
+    /// The wait set struct must be allocated, initialized, and should have been
+    /// cleared and then filled with items, e.g. subscriptions and guard conditions.
+    /// Passing a wait set with no wait-able items in it will fail.
+    /// NULL items in the sets are ignored, e.g. it is valid to have as input:
+    /// subscriptions[0] = valid pointer
+    /// subscriptions[1] = NULL
+    /// subscriptions[2] = valid pointer
+    /// size_of_subscriptions = 3
+    ///
+    /// Passing an uninitialized (zero initialized) wait set struct will fail.
+    /// Passing a wait set struct with uninitialized memory is undefined behavior.
+    /// For this reason, it is advised to use the WaitSet struct to call `wait`, as it
+    /// cannot be created uninitialized.
+    ///
+    /// The unit of timeout is nanoseconds.
+    /// If the timeout is negative then this function will block indefinitely until
+    /// something in the wait set is valid or it is interrupted.
+    /// If the timeout is 0 then this function will be non-blocking; checking what's
+    /// ready now, but not waiting if nothing is ready yet.
+    /// If the timeout is greater than 0 then this function will return after
+    /// that period of time has elapsed or the wait set becomes ready, which ever
+    /// comes first.
+    /// Passing a timeout struct with uninitialized memory is undefined behavior.
+    ///
+    /// This function is thread-safe for unique wait sets with unique contents.
+    /// This function cannot operate on the same wait set in multiple threads, and
+    /// the wait sets may not share content.
+    /// For example, calling wait() in two threads on two different wait sets
+    /// that both contain a single, shared guard condition is undefined behavior.
+    /// # Errors
+    /// - `RclError::InvalidArgument` if an argument was invalid
+    /// - `RclError::WaitSetInvalid` if the wait set is zero initialized
+    /// - `RclError::WaitSetEmpty` if the wait set contains no items
+    /// - `RclError::Timeout` if the timeout expired before something was ready
+    /// - `RclError::Error` for an unspecified error
     pub fn wait(&mut self, timeout: i64) -> Result<(), WaitSetError> {
         unsafe {
             to_rcl_result(rcl_wait(self.wait_set.borrow_mut() as *mut _, timeout)).map_err(WaitSetError::RclError)
