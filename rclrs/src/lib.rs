@@ -79,10 +79,6 @@ pub fn spin(node: &Node) -> Result<(), RclError> {
 ///
 ///
 pub fn spin_once(node: &Node, timeout: i64) -> Result<(), WaitSetError> {
-    // get an rcl_wait_set_t - All NULLs
-    // let mut wait_set_handle = unsafe { rcl_get_zero_initialized_wait_set() };
-    let mut wait_set = WaitSet::new();
-
     let number_of_subscriptions = node.subscriptions.len();
     let number_of_guard_conditions = 0;
     let number_of_timers = 0;
@@ -92,7 +88,7 @@ pub fn spin_once(node: &Node, timeout: i64) -> Result<(), WaitSetError> {
 
     let context = &mut *node.context.get_mut();
 
-    wait_set.init(
+    let mut wait_set = WaitSet::new(
         number_of_subscriptions,
         number_of_guard_conditions,
         number_of_timers,
