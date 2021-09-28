@@ -1,4 +1,4 @@
-use crate::error::{RclResult, ToRclResult};
+use crate::error::{RclError, ToResult};
 use crate::qos::QoSProfile;
 use crate::{Handle, Node, NodeHandle};
 use crate::rcl_bindings::*;
@@ -7,6 +7,7 @@ use std::cell::{Ref, RefCell, RefMut};
 use std::ffi::CString;
 use std::marker::PhantomData;
 use std::rc::Rc;
+use anyhow::Result;
 
 pub struct PublisherHandle {
     handle: RefCell<rcl_publisher_t>,
@@ -55,7 +56,7 @@ impl<T> Publisher<T>
 where
     T: rclrs_common::traits::MessageDefinition<T>,
 {
-    pub fn new(node: &Node, topic: &str, qos: QoSProfile) -> RclResult<Self>
+    pub fn new(node: &Node, topic: &str, qos: QoSProfile) -> Result<Self, RclError>
     where
         T: rclrs_common::traits::MessageDefinition<T>,
     {
@@ -89,7 +90,7 @@ where
         })
     }
 
-    pub fn publish(&self, message: &T) -> RclResult {
+    pub fn publish(&self, message: &T) -> Result<(), RclError> {
         let native_message_ptr = message.get_native_message();
         let handle = &mut *self.handle.get_mut();
         let ret = unsafe { rcl_publish(handle as *mut _, native_message_ptr as *mut _, std::ptr::null_mut()) };

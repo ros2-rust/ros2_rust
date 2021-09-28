@@ -7,4 +7,4 @@ edition = "2018"
 [dependencies]
 libc = "0.2"
 downcast = "0.10"
-failure = "0.1.5"
+thiserror = "1"

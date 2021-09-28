@@ -1,4 +1,4 @@
-use crate::error::{RclError, RclResult, ToRclResult};
+use crate::error::{RclError, ToResult};
 use crate::qos::QoSProfile;
 use crate::{Handle, Node, NodeHandle};
 use crate::rcl_bindings::*;
@@ -7,6 +7,7 @@ use std::cell::{Ref, RefCell, RefMut};
 use std::ffi::CString;
 use std::marker::PhantomData;
 use std::rc::Rc;
+use anyhow::Result;
 
 pub struct SubscriptionHandle {
     handle: RefCell<rcl_subscription_t>,
@@ -64,7 +65,7 @@ pub trait SubscriptionBase {
     /// +------v------+
     /// |  rmw_take   |
     /// +-------------+
-    fn take(&self, message: &mut dyn rclrs_common::traits::Message) -> RclResult<bool> {
+    fn take(&self, message: &mut dyn rclrs_common::traits::Message) -> Result<bool, RclError> {
         let handle = &*self.handle().get();
         let message_handle = message.get_native_message();
 
@@ -107,7 +108,7 @@ impl<T> Subscription<T>
 where
     T: rclrs_common::traits::Message,
 {
-    pub fn new<F>(node: &Node, topic: &str, qos: QoSProfile, callback: F) -> RclResult<Self>
+    pub fn new<F>(node: &Node, topic: &str, qos: QoSProfile, callback: F) -> Result<Self, RclError>
     where
         T: rclrs_common::traits::MessageDefinition<T>,
         F: FnMut(&T) + Sized + 'static,
@@ -142,7 +143,7 @@ where
         })
     }
 
-    pub fn take(&self, message: &mut T) -> RclResult {
+    pub fn take(&self, message: &mut T) -> Result<(), RclError> {
         let handle = &*self.handle.get();
         let message_handle = message.get_native_message();
         let ret = unsafe {

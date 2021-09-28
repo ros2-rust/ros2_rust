@@ -12,6 +12,7 @@ pub use self::qos::*;
 
 use self::rcl_bindings::*;
 use std::ops::{Deref, DerefMut};
+use anyhow::Result;
 
 pub trait Handle<T> {
     type DerefT: Deref<Target = T>;
@@ -22,7 +23,7 @@ pub trait Handle<T> {
 }
 
 /// Wrapper around [`spin_once`]
-pub fn spin(node: &Node) -> RclResult {
+pub fn spin(node: &Node) -> Result<(), RclError> {
     while unsafe { rcl_context_is_valid(&mut *node.context.get_mut() as *mut _) } {
         if let Some(error) = spin_once(node, 500).err() {
             match error {
@@ -73,7 +74,7 @@ pub fn spin(node: &Node) -> RclResult {
 ///         +--------------------+
 ///
 ///
-pub fn spin_once(node: &Node, timeout: i64) -> RclResult {
+pub fn spin_once(node: &Node, timeout: i64) -> Result<(), RclError> {
     // get an rcl_wait_set_t - All NULLs
     let mut wait_set_handle = unsafe { rcl_get_zero_initialized_wait_set() };
 

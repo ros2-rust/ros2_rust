@@ -1,112 +1,106 @@
 pub mod error {
-    use failure::Fail;
+    use thiserror::Error;
 
-    #[derive(Debug)]
-    pub struct RCLError {
-        pub code: RCLStatusCode,
-        pub message: &'static str,
+    #[derive(Debug, Error)]
+    pub enum RclError {
+        #[error("Success")]
+        Ok,
+        #[error("Unspecified Error")]
+        Error,
+        #[error("Timeout occurred")]
+        Timeout,
+        #[error("Failed to allocate memory")]
+        BadAlloc,
+        #[error("Invalid argument")]
+        InvalidArgument,
+        #[error("Context already initialized")]
+        AlreadyInit,
+        #[error("Context not yet initialized")]
+        NotInit,
+        #[error("Mismatched RMW identifier")]
+        MismatchedRmwId,
+        #[error("Topic name does not pass validation")]
+        TopicNameInvalid,
+        #[error("Service name (same as topic name) does not pass validation")]
+        ServiceNameInvalid,
+        #[error("Topic name substitution is unknown")]
+        UnknownSubstitution,
+        #[error("Node already shutdown")]
+        AlreadyShutdown,
+        #[error("Invalid node given")]
+        NodeInvalid,
+        #[error("Invalid node name given")]
+        NodeInvalidName,
+        #[error("Invalid node namespace given")]
+        NodeInvalidNamespace,
+        #[error("Invalid publisher given")]
+        PublisherInvalid,
+        #[error("Invalid subscriber given")]
+        SubscriptionInvalid,
+        #[error("Failed to take a message from the subscription")]
+        SubscriptionTakeFailed,
+        #[error("Invalid client given")]
+        ClientInvalid,
+        #[error("Failed to take a response from the client")]
+        ClientTakeFailed,
+        #[error("Invalid service given")]
+        ServiceInvalid,
+        #[error("Failed to take a request from the service")]
+        ServiceTakeFailed,
+        #[error("Invalid timer given")]
+        TimerInvalid,
+        #[error("Given timer was canceled")]
+        TimerCanceled,
+        #[error("Invalid wait set given")]
+        WaitSetInvalid,
+        #[error("Given wait set is empty")]
+        WaitSetEmpty,
+        #[error("Given wait set is full")]
+        WaitSetFull,
+        #[error("Argument is not a valid remap rule")]
+        InvalidRemapRule,
+        #[error("Expected one type of lexeme, but got another")]
+        WrongLexeme,
+        #[error("Argument is not a valid parameter rule")]
+        InvalidParamRule,
+        #[error("Argument is not a valid log level")]
+        InvalidLogLevelRule,
     }
 
-    #[derive(Debug, Fail)]
-    pub enum RCLStatusCode {
-        #[fail(display = "success")]
-        Ok = 0,
-        #[fail(display = "unspecified error")]
-        Error = 1,
-        #[fail(display = "timeout occurred")]
-        Timeout = 2,
-        #[fail(display = "failed to allocate memory")]
-        BadAlloc = 10,
-        #[fail(display = "invalid argument")]
-        InvalidArgument = 11,
-        #[fail(display = "context already initialized")]
-        AlreadyInit = 100,
-        #[fail(display = "context not yet initialized")]
-        NotInit = 101,
-        #[fail(display = "mismatched rmw identifier")]
-        MismatchedRmwId = 102,
-        #[fail(display = "topic name does not pass validation")]
-        TopicNameInvalid = 103,
-        #[fail(display = "service name (same as topic name) does not pass validation")]
-        ServiceNameInvalid = 104,
-        #[fail(display = "topic name substitution is unknown")]
-        UnknownSubstitution = 105,
-        #[fail(display = "node already shutdown")]
-        AlreadyShutdown = 106,
-        #[fail(display = "invalid node given")]
-        NodeInvalid = 200,
-        #[fail(display = "invalid node name given")]
-        NodeInvalidName = 201,
-        #[fail(display = "invalid node namespace given")]
-        NodeInvalidNamespace = 202,
-        #[fail(display = "invalid publisher given")]
-        PublisherInvalid = 300,
-        #[fail(display = "invalid subscriber given")]
-        SubscriptionInvalid = 400,
-        #[fail(display = "failed to take a message from the subscription")]
-        SubscriptionTakeFailed = 401,
-        #[fail(display = "invalid client given")]
-        ClientInvalid = 500,
-        #[fail(display = "failed to take a response from the client")]
-        ClientTakeFailed = 501,
-        #[fail(display = "invalid service given")]
-        ServiceInvalid = 600,
-        #[fail(display = "failed to take a request from the service")]
-        ServiceTakeFailed = 601,
-        #[fail(display = "invalid timer given")]
-        TimerInvalid = 800,
-        #[fail(display = "given timer was canceled")]
-        TimerCanceled = 801,
-        #[fail(display = "invalid wait set given")]
-        WaitSetInvalid = 900,
-        #[fail(display = "given wait set is empty")]
-        WaitSetEmpty = 901,
-        #[fail(display = "given wait set is full")]
-        WaitSetFull = 902,
-        #[fail(display = "argument is not a valid remap rule")]
-        InvalidRemapRule = 1001,
-        #[fail(display = "expected one type of lexeme but got another")]
-        WrongLexeme = 1002,
-        #[fail(display = "argument is not a valid parameter rule")]
-        InvalidParamRule = 1010,
-        #[fail(display = "argument is not a valid log level")]
-        InvalidLogLevelRule = 1020,
-    }
-
-    impl From<i32> for RCLStatusCode {
+    impl From<i32> for RclError {
         fn from(error: i32) -> Self {
             match error {
-                0 => RCLStatusCode::Ok,
-                1 => RCLStatusCode::Error,
-                2 => RCLStatusCode::Timeout,
-                10 => RCLStatusCode::BadAlloc,
-                11 => RCLStatusCode::InvalidArgument,
-                100 => RCLStatusCode::AlreadyInit,
-                101 => RCLStatusCode::NotInit,
-                102 => RCLStatusCode::MismatchedRmwId,
-                103 => RCLStatusCode::TopicNameInvalid,
-                104 => RCLStatusCode::ServiceNameInvalid,
-                105 => RCLStatusCode::UnknownSubstitution,
-                106 => RCLStatusCode::AlreadyShutdown,
-                200 => RCLStatusCode::NodeInvalid,
-                201 => RCLStatusCode::NodeInvalidName,
-                202 => RCLStatusCode::NodeInvalidNamespace,
-                300 => RCLStatusCode::PublisherInvalid,
-                400 => RCLStatusCode::SubscriptionInvalid,
-                401 => RCLStatusCode::SubscriptionTakeFailed,
-                500 => RCLStatusCode::ClientInvalid,
-                501 => RCLStatusCode::ClientTakeFailed,
-                600 => RCLStatusCode::ServiceInvalid,
-                601 => RCLStatusCode::ServiceTakeFailed,
-                800 => RCLStatusCode::TimerInvalid,
-                801 => RCLStatusCode::TimerCanceled,
-                900 => RCLStatusCode::WaitSetInvalid,
-                901 => RCLStatusCode::WaitSetEmpty,
-                902 => RCLStatusCode::WaitSetFull,
-                1001 => RCLStatusCode::InvalidRemapRule,
-                1002 => RCLStatusCode::WrongLexeme,
-                1010 => RCLStatusCode::InvalidParamRule,
-                1020 => RCLStatusCode::InvalidLogLevelRule,
+                0 => RclError::Ok,
+                1 => RclError::Error,
+                2 => RclError::Timeout,
+                10 => RclError::BadAlloc,
+                11 => RclError::InvalidArgument,
+                100 => RclError::AlreadyInit,
+                101 => RclError::NotInit,
+                102 => RclError::MismatchedRmwId,
+                103 => RclError::TopicNameInvalid,
+                104 => RclError::ServiceNameInvalid,
+                105 => RclError::UnknownSubstitution,
+                106 => RclError::AlreadyShutdown,
+                200 => RclError::NodeInvalid,
+                201 => RclError::NodeInvalidName,
+                202 => RclError::NodeInvalidNamespace,
+                300 => RclError::PublisherInvalid,
+                400 => RclError::SubscriptionInvalid,
+                401 => RclError::SubscriptionTakeFailed,
+                500 => RclError::ClientInvalid,
+                501 => RclError::ClientTakeFailed,
+                600 => RclError::ServiceInvalid,
+                601 => RclError::ServiceTakeFailed,
+                800 => RclError::TimerInvalid,
+                801 => RclError::TimerCanceled,
+                900 => RclError::WaitSetInvalid,
+                901 => RclError::WaitSetEmpty,
+                902 => RclError::WaitSetFull,
+                1001 => RclError::InvalidRemapRule,
+                1002 => RclError::WrongLexeme,
+                1010 => RclError::InvalidParamRule,
+                1020 => RclError::InvalidLogLevelRule,
                 _ => unimplemented!(),
             }
         }
@@ -121,8 +115,8 @@ pub mod traits {
 
     pub trait Message: Any {
         fn get_native_message(&self) -> uintptr_t;
-        fn destroy_native_message(&self, message_handle: uintptr_t) -> ();
-        fn read_handle(&mut self, message_handle: uintptr_t) -> ();
+        fn destroy_native_message(&self, message_handle: uintptr_t);
+        fn read_handle(&mut self, message_handle: uintptr_t);
     }
 
     downcast!(dyn Message);
@@ -130,6 +124,6 @@ pub mod traits {
     pub trait MessageDefinition<T>: Message {
         fn get_type_support() -> uintptr_t;
         fn static_get_native_message(message: &T) -> uintptr_t;
-        fn static_destroy_native_message(message_handle: uintptr_t) -> ();
+        fn static_destroy_native_message(message_handle: uintptr_t);
     }
 }

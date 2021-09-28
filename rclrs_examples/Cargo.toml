@@ -13,4 +13,5 @@ name = "rclrs_publisher"
 path = "src/rclrs_publisher.rs"
 
 [dependencies]
-failure = "0.1.5"
+thiserror = "1"
+anyhow = {version = "1", features = ["backtrace"]}

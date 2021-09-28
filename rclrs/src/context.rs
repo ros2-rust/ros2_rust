@@ -1,4 +1,4 @@
-use crate::error::{RclResult, ToRclResult};
+use crate::error::{RclError, ToResult};
 use crate::{Handle, Node};
 use crate::rcl_bindings::*;
 use std::cell::{Ref, RefCell, RefMut};
@@ -6,6 +6,7 @@ use std::env;
 use std::ffi::CString;
 use std::os::raw::c_char;
 use std::rc::Rc;
+use anyhow::Result;
 
 pub struct ContextHandle(RefCell<rcl_context_t>);
 
@@ -36,7 +37,7 @@ pub struct Context {
 }
 
 impl Context {
-    fn init(&mut self) -> RclResult {
+    fn init(&mut self) -> Result<(), RclError> {
         let args: Vec<CString> = env::args()
             .filter_map(|arg| CString::new(arg).ok())
             .collect();
@@ -66,7 +67,7 @@ impl Context {
         unsafe { rcl_context_is_valid(handle as *mut _) }
     }
 
-    pub fn create_node(&self, node_name: &str) -> RclResult<Node> {
+    pub fn create_node(&self, node_name: &str) -> Result<Node, RclError> {
         Ok(Node::new(node_name, self)?)
     }
 }

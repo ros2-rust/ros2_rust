@@ -6,7 +6,8 @@ edition = "2018"
 
 [dependencies]
 libc = "0.2.43"
-failure = "0.1.5"
+thiserror = "1"
+anyhow = {version = "1", features = ["backtrace"]}
 
 [build-dependencies]
 bindgen = "0.59.1"

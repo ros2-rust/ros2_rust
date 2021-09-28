@@ -1,10 +1,11 @@
-use crate::error::{RclResult, ToRclResult};
+use crate::{RclError, ToResult};
 use crate::qos::QoSProfile;
 use crate::rcl_bindings::*;
 use crate::{Context, ContextHandle, Handle};
 use std::cell::{Ref, RefCell, RefMut};
 use std::ffi::CString;
 use std::rc::{Rc, Weak};
+use anyhow::Result;
 
 pub mod publisher;
 pub use self::publisher::*;
@@ -43,7 +44,7 @@ pub struct Node {
 
 impl Node {
     #[allow(clippy::new_ret_no_self)]
-    pub fn new(node_name: &str, context: &Context) -> RclResult<Node> {
+    pub fn new(node_name: &str, context: &Context) -> Result<Node, RclError> {
         Self::new_with_namespace(node_name, "", context)
     }
 
@@ -51,7 +52,7 @@ impl Node {
         node_name: &str,
         node_ns: &str,
         context: &Context,
-    ) -> RclResult<Node> {
+    ) -> Result<Node, RclError> {
         let raw_node_name = CString::new(node_name).unwrap();
         let raw_node_ns = CString::new(node_ns).unwrap();
 
@@ -80,7 +81,7 @@ impl Node {
     }
 
     // TODO: make publisher's lifetime depend on node's lifetime
-    pub fn create_publisher<T>(&self, topic: &str, qos: QoSProfile) -> RclResult<Publisher<T>>
+    pub fn create_publisher<T>(&self, topic: &str, qos: QoSProfile) -> Result<Publisher<T>, RclError>
     where
         T: rclrs_common::traits::MessageDefinition<T>,
     {
@@ -93,7 +94,7 @@ impl Node {
         topic: &str,
         qos: QoSProfile,
         callback: F,
-    ) -> RclResult<Rc<Subscription<T>>>
+    ) -> Result<Rc<Subscription<T>>, RclError>
     where
         T: rclrs_common::traits::MessageDefinition<T> + Default,
         F: FnMut(&T) + Sized + 'static,
