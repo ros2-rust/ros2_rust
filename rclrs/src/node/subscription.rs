@@ -8,6 +8,7 @@ use std::ffi::CString;
 use std::marker::PhantomData;
 use std::rc::Rc;
 use anyhow::Result;
+use rclrs_common::error::to_rcl_result;
 
 pub struct SubscriptionHandle {
     handle: RefCell<rcl_subscription_t>,
@@ -78,13 +79,13 @@ pub trait SubscriptionBase {
             )
         };
 
-        let result = match result.into() {
-            RclError::Ok => {
+        let result = match to_rcl_result(result) {
+            Ok(()) => {
                 message.read_handle(message_handle);
                 Ok(true)
             }
-            RclError::SubscriptionTakeFailed => Ok(false),
-            error => Err(error),
+            Err(RclError::SubscriptionTakeFailed) => Ok(false),
+            Err(error) => Err(error),
         };
 
         message.destroy_native_message(message_handle);

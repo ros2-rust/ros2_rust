@@ -3,8 +3,8 @@ pub mod error {
 
     #[derive(Debug, Error)]
     pub enum RclError {
-        #[error("Success")]
-        Ok,
+        // #[error("Success")]
+        // Ok,
         #[error("Unspecified Error")]
         Error,
         #[error("Timeout occurred")]
@@ -65,46 +65,93 @@ pub mod error {
         InvalidParamRule,
         #[error("Argument is not a valid log level")]
         InvalidLogLevelRule,
+        #[error("Unknown RCL return code: {0}")]
+        UnknownError(i32)
     }
 
-    impl From<i32> for RclError {
-        fn from(error: i32) -> Self {
-            match error {
-                0 => RclError::Ok,
-                1 => RclError::Error,
-                2 => RclError::Timeout,
-                10 => RclError::BadAlloc,
-                11 => RclError::InvalidArgument,
-                100 => RclError::AlreadyInit,
-                101 => RclError::NotInit,
-                102 => RclError::MismatchedRmwId,
-                103 => RclError::TopicNameInvalid,
-                104 => RclError::ServiceNameInvalid,
-                105 => RclError::UnknownSubstitution,
-                106 => RclError::AlreadyShutdown,
-                200 => RclError::NodeInvalid,
-                201 => RclError::NodeInvalidName,
-                202 => RclError::NodeInvalidNamespace,
-                300 => RclError::PublisherInvalid,
-                400 => RclError::SubscriptionInvalid,
-                401 => RclError::SubscriptionTakeFailed,
-                500 => RclError::ClientInvalid,
-                501 => RclError::ClientTakeFailed,
-                600 => RclError::ServiceInvalid,
-                601 => RclError::ServiceTakeFailed,
-                800 => RclError::TimerInvalid,
-                801 => RclError::TimerCanceled,
-                900 => RclError::WaitSetInvalid,
-                901 => RclError::WaitSetEmpty,
-                902 => RclError::WaitSetFull,
-                1001 => RclError::InvalidRemapRule,
-                1002 => RclError::WrongLexeme,
-                1010 => RclError::InvalidParamRule,
-                1020 => RclError::InvalidLogLevelRule,
-                _ => unimplemented!(),
-            }
+    pub fn to_rcl_result(error_id: i32) -> Result<(), RclError> {
+        match error_id {
+            0 => Ok(()),
+            1 => Err(RclError::Error),
+            2 => Err(RclError::Timeout),
+            10 => Err(RclError::BadAlloc),
+            11 => Err(RclError::InvalidArgument),
+            100 => Err(RclError::AlreadyInit),
+            101 => Err(RclError::NotInit),
+            102 => Err(RclError::MismatchedRmwId),
+            103 => Err(RclError::TopicNameInvalid),
+            104 => Err(RclError::ServiceNameInvalid),
+            105 => Err(RclError::UnknownSubstitution),
+            106 => Err(RclError::AlreadyShutdown),
+            200 => Err(RclError::NodeInvalid),
+            201 => Err(RclError::NodeInvalidName),
+            202 => Err(RclError::NodeInvalidNamespace),
+            300 => Err(RclError::PublisherInvalid),
+            400 => Err(RclError::SubscriptionInvalid),
+            401 => Err(RclError::SubscriptionTakeFailed),
+            500 => Err(RclError::ClientInvalid),
+            501 => Err(RclError::ClientTakeFailed),
+            600 => Err(RclError::ServiceInvalid),
+            601 => Err(RclError::ServiceTakeFailed),
+            800 => Err(RclError::TimerInvalid),
+            801 => Err(RclError::TimerCanceled),
+            900 => Err(RclError::WaitSetInvalid),
+            901 => Err(RclError::WaitSetEmpty),
+            902 => Err(RclError::WaitSetFull),
+            1001 => Err(RclError::InvalidRemapRule),
+            1002 => Err(RclError::WrongLexeme),
+            1010 => Err(RclError::InvalidParamRule),
+            1020 => Err(RclError::InvalidLogLevelRule),
+            unrecognized => Err(RclError::UnknownError(unrecognized))
         }
     }
+
+    #[derive(Debug, Error)]
+    pub enum WaitSetError {
+        #[error("Passed subscription was dropped")]
+        DroppedSubscription,
+        #[error("Rcl error occurred")]
+        RclError (#[from] RclError)
+    }
+
+    // impl From<i32> for RclError {
+    //     fn from(error: i32) -> Self {
+    //         match error {
+    //             // 0 => RclError::Ok,
+    //             1 => RclError::Error,
+    //             2 => RclError::Timeout,
+    //             10 => RclError::BadAlloc,
+    //             11 => RclError::InvalidArgument,
+    //             100 => RclError::AlreadyInit,
+    //             101 => RclError::NotInit,
+    //             102 => RclError::MismatchedRmwId,
+    //             103 => RclError::TopicNameInvalid,
+    //             104 => RclError::ServiceNameInvalid,
+    //             105 => RclError::UnknownSubstitution,
+    //             106 => RclError::AlreadyShutdown,
+    //             200 => RclError::NodeInvalid,
+    //             201 => RclError::NodeInvalidName,
+    //             202 => RclError::NodeInvalidNamespace,
+    //             300 => RclError::PublisherInvalid,
+    //             400 => RclError::SubscriptionInvalid,
+    //             401 => RclError::SubscriptionTakeFailed,
+    //             500 => RclError::ClientInvalid,
+    //             501 => RclError::ClientTakeFailed,
+    //             600 => RclError::ServiceInvalid,
+    //             601 => RclError::ServiceTakeFailed,
+    //             800 => RclError::TimerInvalid,
+    //             801 => RclError::TimerCanceled,
+    //             900 => RclError::WaitSetInvalid,
+    //             901 => RclError::WaitSetEmpty,
+    //             902 => RclError::WaitSetFull,
+    //             1001 => RclError::InvalidRemapRule,
+    //             1002 => RclError::WrongLexeme,
+    //             1010 => RclError::InvalidParamRule,
+    //             1020 => RclError::InvalidLogLevelRule,
+    //             _ => unimplemented!(),
+    //         }
+    //     }
+    // }
 }
 
 pub mod traits {
