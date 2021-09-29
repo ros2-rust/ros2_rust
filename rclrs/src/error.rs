@@ -1,7 +1,7 @@
 use anyhow::Result;
 
 use crate::rcl_bindings::*;
-pub use rclrs_common::error::RclError;
+pub use rclrs_common::error::{RclError, to_rcl_result};
 
 pub(crate) trait ToResult {
     fn ok(&self) -> Result<(), RclError>;
@@ -13,10 +13,6 @@ pub(crate) trait ToResult {
 
 impl ToResult for rcl_ret_t {
     fn ok(&self) -> Result<(), RclError> {
-        if *self as u32 == RCL_RET_OK {
-            Ok(())
-        } else {
-            Err(RclError::from(*self))
-        }
+        to_rcl_result(*self as i32)
     }
 }
