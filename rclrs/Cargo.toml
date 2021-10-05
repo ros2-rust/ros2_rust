@@ -5,9 +5,10 @@ authors = ["Esteve Fernandez <esteve@apache.org>"]
 edition = "2018"
 
 [dependencies]
-libc = "0.2.43"
-thiserror = "1"
 anyhow = {version = "1", features = ["backtrace"]}
+libc = "0.2.43"
+parking_lot = "0.11"
+thiserror = "1"
 
 [build-dependencies]
 bindgen = "0.59.1"

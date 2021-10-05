@@ -3,8 +3,6 @@ pub mod error {
 
     #[derive(Debug, Error)]
     pub enum RclError {
-        // #[error("Success")]
-        // Ok,
         #[error("Unspecified Error")]
         Error,
         #[error("Timeout occurred")]

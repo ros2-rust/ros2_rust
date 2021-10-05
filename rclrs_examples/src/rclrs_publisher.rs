@@ -14,7 +14,7 @@ fn main() -> Result<(), Error>{
 
     let mut publish_count: u32 = 1;
 
-    while context.ok() {
+    while context.ok()? {
         message.data = format!("Hello, world! {}", publish_count);
         println!("Publishing: [{}]", message.data);
         publisher.publish(&message)?;

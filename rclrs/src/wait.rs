@@ -16,14 +16,12 @@
 // OPSEC #4584.
 
 use std::borrow::BorrowMut;
-use std::rc::Weak;
+use std::sync::Weak;
 
-use crate::Handle;
 use crate::{error::*, SubscriptionBase};
 
 use crate::rcl_bindings::*;
 
-use anyhow::Result;
 use rclrs_common::error::WaitSetError;
 
 pub struct WaitSet {
@@ -101,7 +99,7 @@ impl WaitSet {
         subscription: &Weak<dyn SubscriptionBase>,
     ) -> Result<(), WaitSetError> {
         if let Some(subscription) = subscription.upgrade() {
-            let subscription_handle = &*subscription.handle().get();
+            let subscription_handle = &mut *subscription.handle().lock();
             unsafe {
                 return to_rcl_result(rcl_wait_set_add_subscription(
                     self.wait_set.borrow_mut() as *mut _,
