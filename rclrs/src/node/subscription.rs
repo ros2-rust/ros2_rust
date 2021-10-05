@@ -21,21 +21,15 @@ impl SubscriptionHandle {
     }
 
     pub fn get_mut(&mut self) -> &mut rcl_subscription_t {
-        self
-        .handle
-        .get_mut()
+        self.handle.get_mut()
     }
 
     pub fn lock(&self) -> MutexGuard<rcl_subscription_t> {
-        self
-        .handle
-        .lock()
+        self.handle.lock()
     }
 
     pub fn try_lock(&self) -> Option<MutexGuard<rcl_subscription_t>> {
-        self
-        .handle
-        .try_lock()
+        self.handle.try_lock()
     }
 }
 
@@ -165,7 +159,10 @@ where
         ret.ok().map_err(|err| err.into())
     }
 
-    fn callback_ext(&self, message: Box<dyn rclrs_common::traits::Message>) ->Result<(), RclError> {
+    fn callback_ext(
+        &self,
+        message: Box<dyn rclrs_common::traits::Message>,
+    ) -> Result<(), RclError> {
         let msg = message.downcast_ref::<T>().unwrap();
         (&mut *self.callback.lock())(msg);
         Ok(())

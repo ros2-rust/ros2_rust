@@ -1,7 +1,7 @@
 use crate::qos::QoSProfile;
 use crate::rcl_bindings::*;
-use crate::{Context, ContextHandle};
 use crate::ToResult;
+use crate::{Context, ContextHandle};
 use rclrs_common::error::RclError;
 use std::ffi::CString;
 use std::sync::{Arc, Weak};
@@ -21,15 +21,11 @@ impl NodeHandle {
     }
 
     pub fn lock(&self) -> MutexGuard<rcl_node_t> {
-        self
-        .0
-        .lock()
+        self.0.lock()
     }
 
     pub fn try_lock(&self) -> Option<MutexGuard<rcl_node_t>> {
-        self
-        .0
-        .try_lock()
+        self.0.try_lock()
     }
 }
 

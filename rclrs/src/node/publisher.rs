@@ -21,21 +21,15 @@ impl PublisherHandle {
     }
 
     fn get_mut(&mut self) -> &mut rcl_publisher_t {
-        self
-        .handle
-        .get_mut()
+        self.handle.get_mut()
     }
 
     fn lock(&self) -> MutexGuard<rcl_publisher_t> {
-        self
-        .handle
-        .lock()
+        self.handle.lock()
     }
 
     fn try_lock(&self) -> Option<MutexGuard<rcl_publisher_t>> {
-        self
-        .handle
-        .try_lock()
+        self.handle.try_lock()
     }
 }
 

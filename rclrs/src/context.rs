@@ -1,32 +1,26 @@
 use crate::error::ToResult;
 use crate::rcl_bindings::*;
 use crate::Node;
+use parking_lot::{Mutex, MutexGuard};
 use rclrs_common::error::RclError;
 use std::env;
 use std::ffi::CString;
 use std::os::raw::c_char;
 use std::sync::Arc;
-use parking_lot::{Mutex, MutexGuard};
 
 pub struct ContextHandle(Mutex<rcl_context_t>);
 
 impl ContextHandle {
     pub fn get_mut(&mut self) -> &mut rcl_context_t {
-        self
-        .0
-        .get_mut()
+        self.0.get_mut()
     }
 
     pub fn lock(&self) -> MutexGuard<rcl_context_t> {
-        self
-        .0
-        .lock()
+        self.0.lock()
     }
 
     pub fn try_lock(&self) -> Option<MutexGuard<rcl_context_t>> {
-        self
-        .0
-        .try_lock()
+        self.0.try_lock()
     }
 }
 

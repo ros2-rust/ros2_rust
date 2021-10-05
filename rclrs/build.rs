@@ -8,7 +8,9 @@ fn main() {
         .header("src/rcl_wrapper.h")
         .derive_copy(false)
         .size_t_is_usize(true)
-        .default_enum_style(bindgen::EnumVariation::Rust{non_exhaustive: false});
+        .default_enum_style(bindgen::EnumVariation::Rust {
+            non_exhaustive: false,
+        });
 
     let ament_prefix_var_name = "AMENT_PREFIX_PATH";
     let ament_prefix_var = env::var(ament_prefix_var_name);

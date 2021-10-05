@@ -29,8 +29,9 @@ pub fn spin<'node>(node: &'node node::Node) -> Result<(), WaitSetError> {
     while unsafe { rcl_context_is_valid(&mut *node.context.lock() as *mut _) } {
         if let Some(error) = spin_once(node, 500).err() {
             match error {
-                WaitSetError::DroppedSubscription |
-                    WaitSetError::RclError(RclError::Timeout) => continue,
+                WaitSetError::DroppedSubscription | WaitSetError::RclError(RclError::Timeout) => {
+                    continue
+                }
                 error => return Err(error),
             };
         }

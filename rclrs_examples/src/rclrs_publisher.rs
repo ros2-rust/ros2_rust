@@ -1,8 +1,8 @@
-use anyhow::{Result, Error};
+use anyhow::{Error, Result};
 use rclrs;
 use std_msgs;
 
-fn main() -> Result<(), Error>{
+fn main() -> Result<(), Error> {
     let context = rclrs::Context::default();
 
     let node = context.create_node("minimal_publisher")?;
@@ -24,4 +24,3 @@ fn main() -> Result<(), Error>{
 
     Ok(())
 }
-
