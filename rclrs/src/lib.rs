@@ -12,9 +12,8 @@ pub use self::node::*;
 pub use self::qos::*;
 
 use self::rcl_bindings::*;
-use std::ops::{Deref, DerefMut};
-use anyhow::Result;
 use rclrs_common::error::WaitSetError;
+use std::ops::{Deref, DerefMut};
 use wait::WaitSet;
 
 pub trait Handle<T> {
@@ -26,20 +25,20 @@ pub trait Handle<T> {
 }
 
 /// Wrapper around [`spin_once`]
-pub fn spin(node: &Node) -> Result<(), RclError> {
-    while unsafe { rcl_context_is_valid(&mut *node.context.get_mut() as *mut _) } {
+pub fn spin<'node>(node: &'node node::Node) -> Result<(), WaitSetError> {
+    while unsafe { rcl_context_is_valid(&mut *node.context.lock() as *mut _) } {
         if let Some(error) = spin_once(node, 500).err() {
             match error {
-                WaitSetError::DroppedSubscription => continue,
-                WaitSetError::RclError(RclError::Timeout) => continue,
-                WaitSetError::RclError(rclerr) => return Err(rclerr),
-            }
+                WaitSetError::DroppedSubscription | WaitSetError::RclError(RclError::Timeout) => {
+                    continue
+                }
+                error => return Err(error),
+            };
         }
     }
 
     Ok(())
 }
-
 
 /// Main function for waiting.
 ///
@@ -78,7 +77,7 @@ pub fn spin(node: &Node) -> Result<(), RclError> {
 ///         +--------------------+
 ///
 ///
-pub fn spin_once(node: &Node, timeout: i64) -> Result<(), WaitSetError> {
+pub fn spin_once<'node>(node: &'node Node, timeout: i64) -> Result<(), WaitSetError> {
     let number_of_subscriptions = node.subscriptions.len();
     let number_of_guard_conditions = 0;
     let number_of_timers = 0;
@@ -86,7 +85,7 @@ pub fn spin_once(node: &Node, timeout: i64) -> Result<(), WaitSetError> {
     let number_of_services = 0;
     let number_of_events = 0;
 
-    let context = &mut *node.context.get_mut();
+    let context = &mut *node.context.lock();
 
     let mut wait_set = WaitSet::new(
         number_of_subscriptions,
@@ -95,13 +94,14 @@ pub fn spin_once(node: &Node, timeout: i64) -> Result<(), WaitSetError> {
         number_of_clients,
         number_of_services,
         number_of_events,
-        context)?;
+        context,
+    )?;
 
     for subscription in &node.subscriptions {
         match wait_set.add_subscription(subscription) {
             Ok(()) => (),
             Err(WaitSetError::DroppedSubscription) => (),
-            err => return err,
+            Err(err) => return Err(err),
         };
     }
 

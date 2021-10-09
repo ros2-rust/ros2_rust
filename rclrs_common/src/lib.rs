@@ -3,8 +3,6 @@ pub mod error {
 
     #[derive(Debug, Error)]
     pub enum RclError {
-        // #[error("Success")]
-        // Ok,
         #[error("Unspecified Error")]
         Error,
         #[error("Timeout occurred")]
@@ -66,7 +64,7 @@ pub mod error {
         #[error("Argument is not a valid log level")]
         InvalidLogLevelRule,
         #[error("Unknown RCL return code: {0}")]
-        UnknownError(i32)
+        UnknownError(i32),
     }
 
     pub fn to_rcl_result(error_id: i32) -> Result<(), RclError> {
@@ -102,7 +100,7 @@ pub mod error {
             1002 => Err(RclError::WrongLexeme),
             1010 => Err(RclError::InvalidParamRule),
             1020 => Err(RclError::InvalidLogLevelRule),
-            unrecognized => Err(RclError::UnknownError(unrecognized))
+            unrecognized => Err(RclError::UnknownError(unrecognized)),
         }
     }
 
@@ -111,7 +109,7 @@ pub mod error {
         #[error("Passed subscription was dropped")]
         DroppedSubscription,
         #[error("Rcl error occurred")]
-        RclError (#[from] RclError)
+        RclError(#[from] RclError),
     }
 }
 

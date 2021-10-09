@@ -1,54 +1,54 @@
-use crate::{RclError, ToResult};
 use crate::qos::QoSProfile;
 use crate::rcl_bindings::*;
-use crate::{Context, ContextHandle, Handle};
-use std::cell::{Ref, RefCell, RefMut};
+use crate::ToResult;
+use crate::{Context, ContextHandle};
+use rclrs_common::error::RclError;
 use std::ffi::CString;
-use std::rc::{Rc, Weak};
-use anyhow::Result;
+use std::sync::{Arc, Weak};
+
+use parking_lot::{Mutex, MutexGuard};
 
 pub mod publisher;
 pub use self::publisher::*;
 pub mod subscription;
 pub use self::subscription::*;
 
-pub struct NodeHandle(RefCell<rcl_node_t>);
+pub struct NodeHandle(Mutex<rcl_node_t>);
 
-impl<'a> Handle<rcl_node_t> for &'a NodeHandle {
-    type DerefT = Ref<'a, rcl_node_t>;
-    type DerefMutT = RefMut<'a, rcl_node_t>;
-
-    fn get(self) -> Self::DerefT {
-        self.0.borrow()
+impl NodeHandle {
+    pub fn get_mut(&mut self) -> &mut rcl_node_t {
+        self.0.get_mut()
     }
 
-    fn get_mut(self) -> Self::DerefMutT {
-        self.0.borrow_mut()
+    pub fn lock(&self) -> MutexGuard<rcl_node_t> {
+        self.0.lock()
+    }
+
+    pub fn try_lock(&self) -> Option<MutexGuard<rcl_node_t>> {
+        self.0.try_lock()
     }
 }
 
 impl Drop for NodeHandle {
     fn drop(&mut self) {
         let handle = &mut *self.get_mut();
-        unsafe {
-            rcl_node_fini(handle as *mut _).unwrap();
-        }
+        unsafe { rcl_node_fini(handle as *mut _).unwrap() };
     }
 }
 
 pub struct Node {
-    handle: Rc<NodeHandle>,
-    pub(crate) context: Rc<ContextHandle>,
+    handle: Arc<NodeHandle>,
+    pub(crate) context: Arc<ContextHandle>,
     pub(crate) subscriptions: Vec<Weak<dyn SubscriptionBase>>,
 }
 
 impl Node {
     #[allow(clippy::new_ret_no_self)]
-    pub fn new(node_name: &str, context: &Context) -> Result<Node, RclError> {
+    pub fn new<'ctxt>(node_name: &str, context: &Context) -> Result<Node, RclError> {
         Self::new_with_namespace(node_name, "", context)
     }
 
-    pub fn new_with_namespace(
+    pub fn new_with_namespace<'ctxt>(
         node_name: &str,
         node_ns: &str,
         context: &Context,
@@ -57,7 +57,7 @@ impl Node {
         let raw_node_ns = CString::new(node_ns).unwrap();
 
         let mut node_handle = unsafe { rcl_get_zero_initialized_node() };
-        let context_handle = &mut *context.handle.get_mut();
+        let context_handle = &mut *context.handle.lock();
 
         unsafe {
             let node_options = rcl_node_get_default_options();
@@ -71,7 +71,7 @@ impl Node {
             .ok()?;
         }
 
-        let handle = Rc::new(NodeHandle(RefCell::new(node_handle)));
+        let handle = Arc::new(NodeHandle(Mutex::new(node_handle)));
 
         Ok(Node {
             handle,
@@ -81,7 +81,11 @@ impl Node {
     }
 
     // TODO: make publisher's lifetime depend on node's lifetime
-    pub fn create_publisher<T>(&self, topic: &str, qos: QoSProfile) -> Result<Publisher<T>, RclError>
+    pub fn create_publisher<T>(
+        &self,
+        topic: &str,
+        qos: QoSProfile,
+    ) -> Result<Publisher<T>, RclError>
     where
         T: rclrs_common::traits::MessageDefinition<T>,
     {
@@ -94,14 +98,14 @@ impl Node {
         topic: &str,
         qos: QoSProfile,
         callback: F,
-    ) -> Result<Rc<Subscription<T>>, RclError>
+    ) -> Result<Arc<Subscription<T>>, RclError>
     where
         T: rclrs_common::traits::MessageDefinition<T> + Default,
         F: FnMut(&T) + Sized + 'static,
     {
-        let subscription = Rc::new(Subscription::<T>::new(self, topic, qos, callback)?);
+        let subscription = Arc::new(Subscription::<T>::new(self, topic, qos, callback)?);
         self.subscriptions
-            .push(Rc::downgrade(&subscription) as Weak<dyn SubscriptionBase>);
+            .push(Arc::downgrade(&subscription) as Weak<dyn SubscriptionBase>);
         Ok(subscription)
     }
 }
