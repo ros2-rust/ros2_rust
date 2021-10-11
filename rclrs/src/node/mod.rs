@@ -121,7 +121,9 @@ impl Node {
 
 #[cfg(test)]
 mod tests {
-    use crate::{Context, Node, RclError, QOS_PROFILE_DEFAULT};
+    use super::*;
+    use crate::{Context, Node, QOS_PROFILE_DEFAULT};
+    use rclrs_common::error::RclError;
     use std_msgs;
 
     #[test]

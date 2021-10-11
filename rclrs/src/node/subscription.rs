@@ -197,3 +197,26 @@ where
         self.callback_ext(message);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{Context, QOS_PROFILE_DEFAULT, Subscription};
+    use rclrs_common::error::RclError;
+    use std_msgs;
+
+    #[test]
+    fn test_new_subscriber() -> Result<(), RclError> {
+        let context = Context::default();
+        let node = context.create_node("test_new_subscriber")?;
+        let _subscriber = Subscription::<std_msgs::msg::String>::new(
+            &node,
+            "test",
+            QOS_PROFILE_DEFAULT,
+            move |msg: &std_msgs::msg::String| {
+                println!("Recieved message: '{}'", msg.data);
+            }
+        )?;
+        Ok(())
+    }
+}

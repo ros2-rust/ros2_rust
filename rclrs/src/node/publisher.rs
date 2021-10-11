@@ -111,7 +111,9 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::{Context, Publisher, QOS_PROFILE_DEFAULT, RclError};
+    use super::*;
+    use crate::{Context, Publisher, QOS_PROFILE_DEFAULT};
+    use rclrs_common::error::RclError;
     use std_msgs;
 
     #[test]

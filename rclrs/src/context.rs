@@ -86,7 +86,9 @@ impl Context {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use crate::{Context, RclError};
+    use rclrs_common::error::RclError;
 
     #[test]
     fn test_create_context() {
