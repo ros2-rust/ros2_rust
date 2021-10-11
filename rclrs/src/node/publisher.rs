@@ -108,3 +108,26 @@ where
         ret.ok()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::{Context, Publisher, QOS_PROFILE_DEFAULT, RclError};
+    use std_msgs;
+
+    #[test]
+    fn test_new_publisher() -> Result<(), RclError> {
+        let context = Context::default();
+        let node = context.create_node( "test_new_publisher")?;
+        Publisher::<std_msgs::msg::String>::new(&node, "test", QOS_PROFILE_DEFAULT).map(|_x| ())
+    }
+
+    #[test]
+    fn test_publish() -> Result<(), RclError> {
+        let context = Context::default();
+        let node = context.create_node("test_publish")?;
+        let publisher = Publisher::<std_msgs::msg::String>::new(&node, "test", QOS_PROFILE_DEFAULT)?;
+        let message = std_msgs::msg::String::default();
+        message.data = "Hello world!".to_owned();
+        publisher.publish(&message)
+    }
+}
