@@ -118,3 +118,43 @@ impl Node {
         Ok(subscription)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::{Context, Node, RclError, QOS_PROFILE_DEFAULT};
+    use std_msgs;
+
+    #[test]
+    fn test_new_with_namespace() -> Result<(), RclError> {
+        let context = Context::default();
+        Node::new_with_namespace("Bob", "Testing", &context).map(|_x| ())
+    }
+
+    #[test]
+    fn test_new() -> Result<(), RclError> {
+        let context = Context::default();
+        Node::new("Bob", &context).map(|_x| ())
+    }
+
+    #[test]
+    fn test_create_subscription() -> Result<(), RclError> {
+        let context = Context::default();
+        let node = context.create_node("test_create_subscription")?;
+        let _subscription = node.create_subscription::<std_msgs::msg::String, _>(
+            "topic",
+            QOS_PROFILE_DEFAULT,
+            move |msg: &std_msgs::msg::String| {
+                println!("Got message: '{}'", msg.data());
+            },
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_create_publisher() -> Result<(), RclError> {
+        let context = Context::default();
+        let node = context.create_node("test_create_publisher")?;
+        let _publisher = node.create_publisher::<std_msgs::msg::String>("topic", QOS_PROFILE_DEFAULT)?;
+        Ok(())
+    }
+}
