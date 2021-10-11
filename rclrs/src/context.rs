@@ -12,6 +12,7 @@ use spin::{Mutex, MutexGuard};
 #[cfg(feature = "std")]
 use parking_lot::{Mutex, MutexGuard};
 
+#[derive(Debug)]
 pub struct ContextHandle(Mutex<rcl_context_t>);
 
 impl ContextHandle {
@@ -36,6 +37,7 @@ impl Drop for ContextHandle {
     }
 }
 
+#[derive(Debug)]
 pub struct Context {
     pub handle: Arc<ContextHandle>,
 }
@@ -80,4 +82,33 @@ impl Context {
     pub fn create_node(&self, node_name: &str) -> Result<Node, RclReturnCode> {
         Ok(Node::new(node_name, self)?)
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{Context, RclError};
+
+    #[test]
+    fn test_create_context() {
+        // If the context fails to be created, this will cause a panic
+        let created_context = Context::default();
+        println!("Context: {:?}", created_context);
+    }
+
+    #[test]
+    fn test_context_ok() {
+        let created_context = Context::default();
+        let ctxt_ok = created_context.ok();
+        match ctxt_ok {
+            Ok(is_ok) => assert!(is_ok),
+            Err(err_code) => panic!("<test_context_ok> RCL Error occured during test: {:?}", err_code),
+        }
+    }
+
+    #[test]
+    fn test_create_node() -> Result<(), RclError> {
+        let created_context = Context::default();
+        created_context.create_node("Bob").map(|_x| ())
+    }
+
 }
