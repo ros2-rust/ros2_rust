@@ -92,7 +92,7 @@ mod tests {
     fn test_create_context() {
         // If the context fails to be created, this will cause a panic
         let created_context = Context::default();
-        println!("Context: {:?}", created_context);
+        println!("<test_create_context> Created Context: {:?}", created_context);
     }
 
     #[test]
