@@ -87,7 +87,6 @@ impl Context {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{Context, RclError};
     use rclrs_common::error::RclError;
 
     #[test]
@@ -111,6 +110,16 @@ mod tests {
     fn test_create_node() -> Result<(), RclError> {
         let created_context = Context::default();
         created_context.create_node("Bob").map(|_x| ())
+    }
+
+    #[test]
+    fn text_context_init() {
+        let context = Context {
+            handle: Arc::new(ContextHandle(Mutex::new(unsafe {
+                rcl_get_zero_initialized_context()
+            }))),
+        };
+        context.init().unwrap();
     }
 
 }
