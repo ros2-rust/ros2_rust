@@ -130,3 +130,27 @@ pub fn spin_once<'node>(node: &'node Node, timeout: i64) -> Result<(), WaitSetEr
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rclrs_common::error::RclError;
+    use std_msgs;
+
+    fn test_spin_once() -> Result<(), WaitSetError> {
+        let context = Context::default();
+        let mut subscriber_node = context.create_node("minimal_subscriber")?;
+        let mut num_messages: usize = 0;
+        let _subscription = subscriber_node.create_subscription::<std_msgs::msg::String, _>(
+            "topic",
+            QOS_PROFILE_DEFAULT,
+            move |msg: &std_msgs::msg::String| {
+                println!("I heard: '{}'", msg.data);
+                num_messages += 1;
+                println!("(Got {} messages so far)", num_messages);
+            },
+        )?;
+
+       spin_once(&subscriber_node) 
+    }
+}
