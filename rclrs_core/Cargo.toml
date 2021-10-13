@@ -1,0 +1,11 @@
+[package]
+name = "rclrs_core"
+version = "0.1.0"
+authors = ["Jacob Hassold <jhassold@dcscorp.com>"]
+edition = "2018"
+
+[dependencies]
+libc = {version = "0.2", features = []}
+
+[build-dependencies]
+bindgen = "0.59.1"
