@@ -398,6 +398,9 @@ mod tests {
         assert_eq!(RclReturnCode::from(11), RclReturnCode::InvalidArgument);
     }
 
+    /////////////////////
+    // RclError checks //
+    /////////////////////
     #[test]
     fn test_already_init() {
         assert_eq!(RclError::try_from(100).unwrap(), RclError::AlreadyInit);
@@ -440,6 +443,9 @@ mod tests {
         assert_eq!(RclReturnCode::from(106), RclReturnCode::RclError(RclError::AlreadyShutdown));
     }
 
+    //////////////////////
+    // NodeError checks //
+    //////////////////////
     #[test]
     fn test_node_invalid() {
         assert_eq!(NodeError::try_from(200).unwrap(), NodeError::NodeInvalid);
@@ -464,11 +470,17 @@ mod tests {
         assert_eq!(RclReturnCode::from(203), RclReturnCode::NodeError(NodeError::NodeNameNonexistent));
     }
 
+    /////////////////////
+    // Publisher check //
+    /////////////////////
     #[test]
     fn test_publisher_invalid() {
         assert_eq!(RclReturnCode::from(300), RclReturnCode::PublisherInvalid);
     }
 
+    ////////////////////////////
+    // SubscriberError checks //
+    ////////////////////////////
     #[test]
     fn test_subscription_invalid() {
         assert_eq!(SubscriberError::try_from(400).unwrap(), SubscriberError::SubscriptionInvalid);
@@ -481,6 +493,9 @@ mod tests {
         assert_eq!(RclReturnCode::from(401), RclReturnCode::SubscriberError(SubscriberError::SubscriptionTakeFailed));
     }
 
+    ////////////////////////
+    // ClientError checks //
+    ////////////////////////
     #[test]
     fn test_client_invalid() {
         assert_eq!(ClientError::try_from(500).unwrap(), ClientError::ClientInvalid);
@@ -493,6 +508,9 @@ mod tests {
         assert_eq!(RclReturnCode::from(501), RclReturnCode::ClientError(ClientError::ClientTakeFailed));
     }
 
+    /////////////////////////
+    // ServiceError checks //
+    /////////////////////////
     #[test]
     fn test_service_invalid() {
         assert_eq!(ServiceError::try_from(600).unwrap(), ServiceError::ServiceInvalid);
@@ -505,6 +523,9 @@ mod tests {
         assert_eq!(RclReturnCode::from(601), RclReturnCode::ServiceError(ServiceError::ServiceTakeFailed));
     }
 
+    ///////////////////////
+    // TimerError checks //
+    ///////////////////////
     #[test]
     fn test_timer_invalid() {
         assert_eq!(TimerError::try_from(800).unwrap(), TimerError::TimerInvalid);
@@ -517,6 +538,9 @@ mod tests {
         assert_eq!(RclReturnCode::from(801), RclReturnCode::TimerError(TimerError::TimerCanceled));
     }
 
+    /////////////////////////
+    // WaitSetError checks //
+    /////////////////////////
     #[test]
     fn test_wait_set_invalid() {
         assert_eq!(WaitSetError::try_from(900).unwrap(), WaitSetError::WaitSetInvalid);
@@ -535,6 +559,9 @@ mod tests {
         assert_eq!(RclReturnCode::from(902), RclReturnCode::WaitSetError(WaitSetError::WaitSetFull));
     }
 
+    /////////////////////////
+    // ParsingError checks //
+    /////////////////////////
     #[test]
     fn test_invalid_remap_rule() {
         assert_eq!(ParsingError::try_from(1001).unwrap(), ParsingError::InvalidRemapRule);
@@ -565,6 +592,9 @@ mod tests {
         assert_eq!(RclReturnCode::from(1020), RclReturnCode::ParsingError(ParsingError::InvalidLogLevelRule));
     }
 
+    ///////////////////////
+    // EventError checks //
+    ///////////////////////
     #[test]
     fn test_event_invalid() {
         assert_eq!(EventError::try_from(2000).unwrap(), EventError::EventInvalid);
@@ -577,6 +607,9 @@ mod tests {
         assert_eq!(RclReturnCode::from(2001), RclReturnCode::EventError(EventError::EventTakeFailed));
     }
 
+    ///////////////////////////
+    // LifecycleError checks //
+    ///////////////////////////
     #[test]
     fn test_lifecycle_state_registered() {
         assert_eq!(LifecycleError::try_from(3000).unwrap(), LifecycleError::LifecycleStateRegistered);
@@ -589,6 +622,9 @@ mod tests {
         assert_eq!(RclReturnCode::from(3001), RclReturnCode::LifecycleError(LifecycleError::LifecycleStateNotRegistered));
     }
 
+    ////////////////////////
+    // UnknownError check //
+    ////////////////////////
     #[test]
     fn test_unknown_error() {
         assert_eq!(RclReturnCode::from(-42), RclReturnCode::UnknownError(-42));
