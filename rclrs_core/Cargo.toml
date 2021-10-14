@@ -9,3 +9,6 @@ libc = {version = "0.2", features = []}
 
 [build-dependencies]
 bindgen = "0.59.1"
+
+[profile.release]
+panic = 'abort'
