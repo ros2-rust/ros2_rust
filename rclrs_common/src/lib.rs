@@ -1,5 +1,7 @@
 #![no_std]
 
+use error::RclReturnCode;
+
 pub mod error {
     use core::{convert::TryFrom, fmt::{self, Display}};
 
@@ -469,6 +471,13 @@ pub mod error {
                 Self::LifecycleError(lifecycle_err) => write!(f, "RclReturnCode::{}", lifecycle_err),
                 Self::UnknownError(unknown_err) => write!(f, "RclReturnCode: Unknown error code -> `{}`", unknown_err)
             }
+        }
+    }
+
+    pub fn to_rcl_result(code: i32) -> Result<(), RclReturnCode> {
+        match RclReturnCode::from(code) {
+            RclReturnCode::Ok => Ok(()),
+            anything_else => Err(anything_else),
         }
     }
 }
