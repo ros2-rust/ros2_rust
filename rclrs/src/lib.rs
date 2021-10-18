@@ -1,8 +1,10 @@
+#![no_std]
 pub mod context;
 pub mod error;
 pub mod node;
 pub mod qos;
 pub mod wait;
+pub mod spinlock;
 
 mod rcl_bindings;
 
@@ -13,7 +15,7 @@ pub use self::qos::*;
 
 use self::rcl_bindings::*;
 use rclrs_common::error::WaitSetError;
-use std::ops::{Deref, DerefMut};
+use core::ops::{Deref, DerefMut};
 use wait::WaitSet;
 
 pub trait Handle<T> {
