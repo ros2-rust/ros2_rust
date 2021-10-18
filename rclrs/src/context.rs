@@ -1,25 +1,28 @@
+extern crate alloc;
+
 use crate::error::ToResult;
 use crate::rcl_bindings::*;
 use crate::Node;
-use parking_lot::{Mutex, MutexGuard};
+use crate::spinlock::SpinlockGuard;
+use alloc::sync::Arc;
+use alloc::vec::Vec;
+use lock_api::RawMutex;
+use crate::spinlock::Spinlock;
 use rclrs_common::error::RclError;
-use std::env;
-use std::ffi::CString;
-use std::os::raw::c_char;
-use std::sync::Arc;
+use cstr_core::{CString, c_char};
 
-pub struct ContextHandle(Mutex<rcl_context_t>);
+pub struct ContextHandle(Spinlock<rcl_context_t>);
 
 impl ContextHandle {
     pub fn get_mut(&mut self) -> &mut rcl_context_t {
         self.0.get_mut()
     }
 
-    pub fn lock(&self) -> MutexGuard<rcl_context_t> {
+    pub fn lock(&self) -> SpinlockGuard<rcl_context_t> {
         self.0.lock()
     }
 
-    pub fn try_lock(&self) -> Option<MutexGuard<rcl_context_t>> {
+    pub fn try_lock(&self) -> Option<SpinlockGuard<rcl_context_t>> {
         self.0.try_lock()
     }
 }
@@ -37,12 +40,12 @@ pub struct Context {
 }
 
 impl Context {
-    fn init(&self) -> Result<(), RclError> {
-        let args: Vec<CString> = env::args()
-            .filter_map(|arg| CString::new(arg).ok())
-            .collect();
+    fn init(&self, context_env_args: Vec<CString>) -> Result<(), RclError> {
+        // let args: Vec<CString> = env::args()
+        //     .filter_map(|arg| CString::new(arg).ok())
+        //     .collect();
 
-        let c_args: Vec<*const c_char> = args.iter().map(|arg| arg.as_ptr()).collect();
+        let c_args: Vec<*const c_char> = context_env_args.iter().map(|arg| arg.as_ptr()).collect();
         let handle = &mut *self.handle.lock();
 
         unsafe {
@@ -72,14 +75,14 @@ impl Context {
     }
 }
 
-impl Default for Context {
-    fn default() -> Self {
-        let context = Self {
-            handle: Arc::new(ContextHandle(Mutex::new(unsafe {
-                rcl_get_zero_initialized_context()
-            }))),
-        };
-        context.init().unwrap();
-        context
-    }
-}
+// impl Default for Context {
+//     fn default() -> Self {
+//         let context = Self {
+//             handle: Arc::new(ContextHandle(SpinlockGuard::new(unsafe {
+//                 rcl_get_zero_initialized_context()
+//             }))),
+//         };
+//         context.init().unwrap();
+//         context
+//     }
+// }
