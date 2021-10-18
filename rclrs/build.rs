@@ -6,6 +6,7 @@ use std::path::PathBuf;
 fn main() {
     let mut builder = bindgen::Builder::default()
         .header("src/rcl_wrapper.h")
+        .use_core()
         .derive_copy(false)
         .size_t_is_usize(true)
         .default_enum_style(bindgen::EnumVariation::Rust {
