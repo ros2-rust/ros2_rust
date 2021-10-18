@@ -1,7 +1,7 @@
 #![no_std]
 
 pub mod error {
-    use core::{convert::TryFrom, fmt::{self, Display, write}, num::dec2flt::parse};
+    use core::{convert::TryFrom, fmt::{self, Display}};
 
 
     /// RCL specific error codes start at 100
