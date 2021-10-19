@@ -1,30 +1,33 @@
+use alloc::{
+    sync::{Arc, Weak},
+    vec::Vec,
+};
+
 use crate::qos::QoSProfile;
 use crate::rcl_bindings::*;
-use crate::ToResult;
+use crate::spinlock::{Spinlock, SpinlockGuard};
+use crate::error::ToResult;
 use crate::{Context, ContextHandle};
-use rclrs_common::error::RclError;
-use std::ffi::CString;
-use std::sync::{Arc, Weak};
-
-use parking_lot::{Mutex, MutexGuard};
+use cstr_core::CString;
+use rclrs_common::error::RclReturnCode;
 
 pub mod publisher;
 pub use self::publisher::*;
 pub mod subscription;
 pub use self::subscription::*;
 
-pub struct NodeHandle(Mutex<rcl_node_t>);
+pub struct NodeHandle(Spinlock<rcl_node_t>);
 
 impl NodeHandle {
     pub fn get_mut(&mut self) -> &mut rcl_node_t {
         self.0.get_mut()
     }
 
-    pub fn lock(&self) -> MutexGuard<rcl_node_t> {
+    pub fn lock(&self) -> SpinlockGuard<rcl_node_t> {
         self.0.lock()
     }
 
-    pub fn try_lock(&self) -> Option<MutexGuard<rcl_node_t>> {
+    pub fn try_lock(&self) -> Option<SpinlockGuard<rcl_node_t>> {
         self.0.try_lock()
     }
 }
@@ -44,7 +47,7 @@ pub struct Node {
 
 impl Node {
     #[allow(clippy::new_ret_no_self)]
-    pub fn new<'ctxt>(node_name: &str, context: &Context) -> Result<Node, RclError> {
+    pub fn new<'ctxt>(node_name: &str, context: &Context) -> Result<Node, RclReturnCode> {
         Self::new_with_namespace(node_name, "", context)
     }
 
@@ -52,7 +55,7 @@ impl Node {
         node_name: &str,
         node_ns: &str,
         context: &Context,
-    ) -> Result<Node, RclError> {
+    ) -> Result<Node, RclReturnCode> {
         let raw_node_name = CString::new(node_name).unwrap();
         let raw_node_ns = CString::new(node_ns).unwrap();
 
@@ -71,12 +74,12 @@ impl Node {
             .ok()?;
         }
 
-        let handle = Arc::new(NodeHandle(Mutex::new(node_handle)));
+        let handle = Arc::new(NodeHandle(Spinlock::new(node_handle)));
 
         Ok(Node {
             handle,
             context: context.handle.clone(),
-            subscriptions: vec![],
+            subscriptions: alloc::vec![],
         })
     }
 
@@ -85,7 +88,7 @@ impl Node {
         &self,
         topic: &str,
         qos: QoSProfile,
-    ) -> Result<Publisher<T>, RclError>
+    ) -> Result<Publisher<T>, RclReturnCode>
     where
         T: rclrs_common::traits::MessageDefinition<T>,
     {
@@ -98,7 +101,7 @@ impl Node {
         topic: &str,
         qos: QoSProfile,
         callback: F,
-    ) -> Result<Arc<Subscription<T>>, RclError>
+    ) -> Result<Arc<Subscription<T>>, RclReturnCode>
     where
         T: rclrs_common::traits::MessageDefinition<T> + Default,
         F: FnMut(&T) + Sized + 'static,

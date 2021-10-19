@@ -1,10 +1,13 @@
 #![no_std]
+extern crate alloc;
+extern crate core_error;
+
 pub mod context;
 pub mod error;
 pub mod node;
 pub mod qos;
-pub mod wait;
 pub mod spinlock;
+pub mod wait;
 
 mod rcl_bindings;
 
@@ -14,9 +17,8 @@ pub use self::node::*;
 pub use self::qos::*;
 
 use self::rcl_bindings::*;
-use rclrs_common::error::WaitSetError;
 use core::ops::{Deref, DerefMut};
-use wait::WaitSet;
+use wait::{WaitSet, WaitSetErrorResponse};
 
 pub trait Handle<T> {
     type DerefT: Deref<Target = T>;
@@ -27,13 +29,12 @@ pub trait Handle<T> {
 }
 
 /// Wrapper around [`spin_once`]
-pub fn spin<'node>(node: &'node node::Node) -> Result<(), WaitSetError> {
+pub fn spin<'node>(node: &'node node::Node) -> Result<(), WaitSetErrorResponse> {
     while unsafe { rcl_context_is_valid(&mut *node.context.lock() as *mut _) } {
         if let Some(error) = spin_once(node, 500).err() {
             match error {
-                WaitSetError::DroppedSubscription | WaitSetError::RclError(RclError::Timeout) => {
-                    continue
-                }
+                WaitSetErrorResponse::DroppedSubscription
+                | WaitSetErrorResponse::ReturnCode(RclReturnCode::Timeout) => continue,
                 error => return Err(error),
             };
         }
@@ -79,7 +80,7 @@ pub fn spin<'node>(node: &'node node::Node) -> Result<(), WaitSetError> {
 ///         +--------------------+
 ///
 ///
-pub fn spin_once<'node>(node: &'node Node, timeout: i64) -> Result<(), WaitSetError> {
+pub fn spin_once<'node>(node: &'node Node, timeout: i64) -> Result<(), WaitSetErrorResponse> {
     let number_of_subscriptions = node.subscriptions.len();
     let number_of_guard_conditions = 0;
     let number_of_timers = 0;
@@ -102,7 +103,7 @@ pub fn spin_once<'node>(node: &'node Node, timeout: i64) -> Result<(), WaitSetEr
     for subscription in &node.subscriptions {
         match wait_set.add_subscription(subscription) {
             Ok(()) => (),
-            Err(WaitSetError::DroppedSubscription) => (),
+            Err(WaitSetErrorResponse::DroppedSubscription) => (),
             Err(err) => return Err(err),
         };
     }

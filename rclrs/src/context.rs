@@ -1,15 +1,12 @@
-extern crate alloc;
-
 use crate::error::ToResult;
 use crate::rcl_bindings::*;
-use crate::Node;
+use crate::spinlock::Spinlock;
 use crate::spinlock::SpinlockGuard;
+use crate::Node;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
-use lock_api::RawMutex;
-use crate::spinlock::Spinlock;
-use rclrs_common::error::RclError;
-use cstr_core::{CString, c_char};
+use cstr_core::{c_char, CString};
+use rclrs_common::error::RclReturnCode;
 
 pub struct ContextHandle(Spinlock<rcl_context_t>);
 
@@ -40,11 +37,7 @@ pub struct Context {
 }
 
 impl Context {
-    fn init(&self, context_env_args: Vec<CString>) -> Result<(), RclError> {
-        // let args: Vec<CString> = env::args()
-        //     .filter_map(|arg| CString::new(arg).ok())
-        //     .collect();
-
+    fn init(&self, context_env_args: Vec<CString>) -> Result<(), RclReturnCode> {
         let c_args: Vec<*const c_char> = context_env_args.iter().map(|arg| arg.as_ptr()).collect();
         let handle = &mut *self.handle.lock();
 
@@ -65,24 +58,22 @@ impl Context {
         Ok(())
     }
 
-    pub fn ok(&self) -> Result<bool, RclError> {
+    pub fn default(args: Vec<CString>) -> Self {
+        let context = Self {
+            handle: Arc::new(ContextHandle(Spinlock::new(unsafe {
+                rcl_get_zero_initialized_context()
+            }))),
+        };
+        context.init(args).unwrap(); // If we can't initialize the context, ROS 2 cannot function
+        context
+    }
+
+    pub fn ok(&self) -> Result<bool, RclReturnCode> {
         let handle = &mut *self.handle.lock();
         unsafe { Ok(rcl_context_is_valid(handle as *mut _)) }
     }
 
-    pub fn create_node(&self, node_name: &str) -> Result<Node, RclError> {
+    pub fn create_node(&self, node_name: &str) -> Result<Node, RclReturnCode> {
         Ok(Node::new(node_name, self)?)
     }
 }
-
-// impl Default for Context {
-//     fn default() -> Self {
-//         let context = Self {
-//             handle: Arc::new(ContextHandle(SpinlockGuard::new(unsafe {
-//                 rcl_get_zero_initialized_context()
-//             }))),
-//         };
-//         context.init().unwrap();
-//         context
-//     }
-// }

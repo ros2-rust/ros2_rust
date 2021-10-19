@@ -8,6 +8,8 @@ edition = "2018"
 libc = "0.2.43"
 lock_api = "0.4.5"
 cstr_core = "0.2"
+cty = "0.2"
+core-error = "0.0.0"
 
 [build-dependencies]
 bindgen = "0.59.1"

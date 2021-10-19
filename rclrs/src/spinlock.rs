@@ -17,7 +17,7 @@
 
 use core::sync::atomic::{AtomicBool, Ordering};
 
-use lock_api::{RawMutex, Mutex, MutexGuard, GuardSend};
+use lock_api::{GuardSend, Mutex, MutexGuard, RawMutex};
 
 pub struct RawSpinlock(AtomicBool);
 

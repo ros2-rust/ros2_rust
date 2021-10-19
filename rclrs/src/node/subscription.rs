@@ -1,17 +1,17 @@
-use crate::error::{RclError, ToResult};
+use crate::error::ToResult;
 use crate::qos::QoSProfile;
 use crate::rcl_bindings::*;
+use crate::spinlock::{Spinlock, SpinlockGuard};
 use crate::{Node, NodeHandle};
-use rclrs_common::error::to_rcl_result;
-use std::borrow::Borrow;
-use std::ffi::CString;
-use std::marker::PhantomData;
-use std::sync::Arc;
-
-use parking_lot::{Mutex, MutexGuard};
+use alloc::boxed::Box;
+use alloc::sync::Arc;
+use core::borrow::Borrow;
+use core::marker::PhantomData;
+use cstr_core::CString;
+use rclrs_common::error::{to_rcl_result, RclReturnCode, SubscriberErrorCode};
 
 pub struct SubscriptionHandle {
-    handle: Mutex<rcl_subscription_t>,
+    handle: Spinlock<rcl_subscription_t>,
     node_handle: Arc<NodeHandle>,
 }
 
@@ -24,11 +24,11 @@ impl SubscriptionHandle {
         self.handle.get_mut()
     }
 
-    pub fn lock(&self) -> MutexGuard<rcl_subscription_t> {
+    pub fn lock(&self) -> SpinlockGuard<rcl_subscription_t> {
         self.handle.lock()
     }
 
-    pub fn try_lock(&self) -> Option<MutexGuard<rcl_subscription_t>> {
+    pub fn try_lock(&self) -> Option<SpinlockGuard<rcl_subscription_t>> {
         self.handle.try_lock()
     }
 }
@@ -65,7 +65,7 @@ pub trait SubscriptionBase {
     /// +------v------+
     /// |  rmw_take   |
     /// +-------------+
-    fn take(&self, message: &mut dyn rclrs_common::traits::Message) -> Result<bool, RclError> {
+    fn take(&self, message: &mut dyn rclrs_common::traits::Message) -> Result<bool, RclReturnCode> {
         let handle = &mut *self.handle().lock();
         let message_handle = message.get_native_message();
 
@@ -73,8 +73,8 @@ pub trait SubscriptionBase {
             rcl_take(
                 handle as *const _,
                 message_handle as *mut _,
-                std::ptr::null_mut(),
-                std::ptr::null_mut(),
+                core::ptr::null_mut(),
+                core::ptr::null_mut(),
             )
         };
 
@@ -83,7 +83,9 @@ pub trait SubscriptionBase {
                 message.read_handle(message_handle);
                 Ok(true)
             }
-            Err(RclError::SubscriptionTakeFailed) => Ok(false),
+            Err(RclReturnCode::SubscriberError(SubscriberErrorCode::SubscriptionTakeFailed)) => {
+                Ok(false)
+            }
             Err(error) => Err(error.into()),
         };
 
@@ -100,7 +102,7 @@ where
 {
     pub handle: Arc<SubscriptionHandle>,
     // The callback's lifetime should last as long as we need it to
-    pub callback: Mutex<Box<dyn FnMut(&T) + 'static>>,
+    pub callback: Spinlock<Box<dyn FnMut(&T) + 'static>>,
     message: PhantomData<T>,
 }
 
@@ -108,7 +110,12 @@ impl<T> Subscription<T>
 where
     T: rclrs_common::traits::Message,
 {
-    pub fn new<F>(node: &Node, topic: &str, qos: QoSProfile, callback: F) -> Result<Self, RclError>
+    pub fn new<F>(
+        node: &Node,
+        topic: &str,
+        qos: QoSProfile,
+        callback: F,
+    ) -> Result<Self, RclReturnCode>
     where
         T: rclrs_common::traits::MessageDefinition<T>,
         F: FnMut(&T) + Sized + 'static,
@@ -132,26 +139,26 @@ where
         }
 
         let handle = Arc::new(SubscriptionHandle {
-            handle: Mutex::new(subscription_handle),
+            handle: Spinlock::new(subscription_handle),
             node_handle: node.handle.clone(),
         });
 
         Ok(Self {
             handle,
-            callback: Mutex::new(Box::new(callback)),
+            callback: Spinlock::new(Box::new(callback)),
             message: PhantomData,
         })
     }
 
-    pub fn take(&self, message: &mut T) -> Result<(), RclError> {
+    pub fn take(&self, message: &mut T) -> Result<(), RclReturnCode> {
         let handle = &mut *self.handle.lock();
         let message_handle = message.get_native_message();
         let ret = unsafe {
             rcl_take(
                 handle as *const _,
                 message_handle as *mut _,
-                std::ptr::null_mut(),
-                std::ptr::null_mut(),
+                core::ptr::null_mut(),
+                core::ptr::null_mut(),
             )
         };
         message.read_handle(message_handle);
@@ -162,7 +169,7 @@ where
     fn callback_ext(
         &self,
         message: Box<dyn rclrs_common::traits::Message>,
-    ) -> Result<(), RclError> {
+    ) -> Result<(), RclReturnCode> {
         let msg = message.downcast_ref::<T>().unwrap();
         (&mut *self.callback.lock())(msg);
         Ok(())
@@ -171,7 +178,7 @@ where
 
 impl<T> SubscriptionBase for Subscription<T>
 where
-    T: rclrs_common::traits::MessageDefinition<T> + std::default::Default,
+    T: rclrs_common::traits::MessageDefinition<T> + core::default::Default,
 {
     fn handle(&self) -> &SubscriptionHandle {
         self.handle.borrow()

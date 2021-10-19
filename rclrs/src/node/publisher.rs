@@ -2,16 +2,16 @@ use crate::error::ToResult;
 use crate::qos::QoSProfile;
 use crate::rcl_bindings::*;
 use crate::{Node, NodeHandle};
-use rclrs_common::error::RclError;
-use std::borrow::Borrow;
-use std::ffi::CString;
-use std::marker::PhantomData;
-use std::sync::Arc;
+use alloc::sync::Arc;
+use core::borrow::Borrow;
+use core::marker::PhantomData;
+use cstr_core::CString;
+use rclrs_common::error::RclReturnCode;
 
-use parking_lot::{Mutex, MutexGuard};
+use crate::spinlock::{Spinlock, SpinlockGuard};
 
 pub struct PublisherHandle {
-    handle: Mutex<rcl_publisher_t>,
+    handle: Spinlock<rcl_publisher_t>,
     node_handle: Arc<NodeHandle>,
 }
 
@@ -24,11 +24,11 @@ impl PublisherHandle {
         self.handle.get_mut()
     }
 
-    fn lock(&self) -> MutexGuard<rcl_publisher_t> {
+    fn lock(&self) -> SpinlockGuard<rcl_publisher_t> {
         self.handle.lock()
     }
 
-    fn try_lock(&self) -> Option<MutexGuard<rcl_publisher_t>> {
+    fn try_lock(&self) -> Option<SpinlockGuard<rcl_publisher_t>> {
         self.handle.try_lock()
     }
 }
@@ -56,7 +56,7 @@ impl<T> Publisher<T>
 where
     T: rclrs_common::traits::MessageDefinition<T>,
 {
-    pub fn new(node: &Node, topic: &str, qos: QoSProfile) -> Result<Self, RclError>
+    pub fn new(node: &Node, topic: &str, qos: QoSProfile) -> Result<Self, RclReturnCode>
     where
         T: rclrs_common::traits::MessageDefinition<T>,
     {
@@ -80,7 +80,7 @@ where
         }
 
         let handle = Arc::new(PublisherHandle {
-            handle: Mutex::new(publisher_handle),
+            handle: Spinlock::new(publisher_handle),
             node_handle: node.handle.clone(),
         });
 
@@ -90,14 +90,14 @@ where
         })
     }
 
-    pub fn publish(&self, message: &T) -> Result<(), RclError> {
+    pub fn publish(&self, message: &T) -> Result<(), RclReturnCode> {
         let native_message_ptr = message.get_native_message();
         let handle = &mut *self.handle.lock();
         let ret = unsafe {
             rcl_publish(
                 handle as *mut _,
                 native_message_ptr as *mut _,
-                std::ptr::null_mut(),
+                core::ptr::null_mut(),
             )
         };
         message.destroy_native_message(native_message_ptr);

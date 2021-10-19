@@ -1,9 +1,14 @@
 use anyhow::{Error, Result};
+use cstr_core::CString;
 use rclrs;
+use std::env;
 use std_msgs;
 
 fn main() -> Result<(), Error> {
-    let context = rclrs::Context::default();
+    let args: Vec<CString> = env::args()
+        .filter_map(|arg| CString::new(arg).ok())
+        .collect();
+    let context = rclrs::Context::default(args);
 
     let node = context.create_node("minimal_publisher")?;
 
