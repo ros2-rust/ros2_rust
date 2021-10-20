@@ -3,10 +3,10 @@ use alloc::{
     vec::Vec,
 };
 
+use crate::error::ToResult;
 use crate::qos::QoSProfile;
 use crate::rcl_bindings::*;
 use crate::spinlock::{Spinlock, SpinlockGuard};
-use crate::error::ToResult;
 use crate::{Context, ContextHandle};
 use cstr_core::CString;
 use rclrs_common::error::RclReturnCode;

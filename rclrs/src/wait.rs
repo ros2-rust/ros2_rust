@@ -22,7 +22,7 @@ use alloc::sync::Weak;
 use core::borrow::BorrowMut;
 use core::fmt::Display;
 use core_error::Error;
-use rclrs_common::error::{RclReturnCode, WaitSetErrorCode, to_rcl_result};
+use rclrs_common::error::{to_rcl_result, RclReturnCode, WaitSetErrorCode};
 
 #[derive(Debug)]
 pub enum WaitSetErrorResponse {
