@@ -9,6 +9,16 @@ fn main() {
         .use_core()
         .ctypes_prefix("cty")
         .derive_copy(false)
+        .allowlist_recursively(true)
+        .allowlist_type("rcl_.*")
+        .allowlist_type("rmw_.*")
+        .allowlist_type("rcutils_.*")
+        .allowlist_function("rcl_.*")
+        .allowlist_function("rmw_.*")
+        .allowlist_function("rcutils_.*")
+        .allowlist_var("rcl_.*")
+        .allowlist_var("rcl_.*")
+        .allowlist_var("rcutils_.*")
         .size_t_is_usize(true)
         .default_enum_style(bindgen::EnumVariation::Rust {
             non_exhaustive: false,
