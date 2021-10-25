@@ -16,3 +16,9 @@ path = "src/rclrs_publisher.rs"
 thiserror = "1"
 anyhow = {version = "1", features = ["backtrace"]}
 cstr_core = "0.2"
+rclrs = "*"
+rclrs_common = "*"
+
+[patch.crates-io]
+rclrs = {path = "../../install/rclrs/share/rclrs/rust"}
+rclrs_common = {path = "../../install/rclrs_common/share/rclrs_common/rust/"}
