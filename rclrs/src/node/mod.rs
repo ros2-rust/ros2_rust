@@ -6,7 +6,7 @@ use alloc::{
 use crate::error::ToResult;
 use crate::qos::QoSProfile;
 use crate::rcl_bindings::*;
-use crate::spinlock::{Spinlock, SpinlockGuard};
+
 use crate::{Context, ContextHandle};
 use cstr_core::CString;
 use rclrs_common::error::RclReturnCode;
@@ -16,18 +16,24 @@ pub use self::publisher::*;
 pub mod subscription;
 pub use self::subscription::*;
 
-pub struct NodeHandle(Spinlock<rcl_node_t>);
+#[cfg(not(feature = "std"))]
+use spin::{Mutex, MutexGuard};
+
+#[cfg(feature = "std")]
+use parking_lot::{Mutex, MutexGuard};
+
+pub struct NodeHandle(Mutex<rcl_node_t>);
 
 impl NodeHandle {
     pub fn get_mut(&mut self) -> &mut rcl_node_t {
         self.0.get_mut()
     }
 
-    pub fn lock(&self) -> SpinlockGuard<rcl_node_t> {
+    pub fn lock(&self) -> MutexGuard<rcl_node_t> {
         self.0.lock()
     }
 
-    pub fn try_lock(&self) -> Option<SpinlockGuard<rcl_node_t>> {
+    pub fn try_lock(&self) -> Option<MutexGuard<rcl_node_t>> {
         self.0.try_lock()
     }
 }
@@ -74,7 +80,7 @@ impl Node {
             .ok()?;
         }
 
-        let handle = Arc::new(NodeHandle(Spinlock::new(node_handle)));
+        let handle = Arc::new(NodeHandle(Mutex::new(node_handle)));
 
         Ok(Node {
             handle,

@@ -2,11 +2,20 @@
 extern crate alloc;
 extern crate core_error;
 
+#[cfg(feature = "std")]
+extern crate std;
+
+#[cfg(feature = "std")]
+extern crate parking_lot;
+
+#[cfg(not(feature = "std"))]
+extern crate spin;
+
 pub mod context;
 pub mod error;
 pub mod node;
 pub mod qos;
-pub mod spinlock;
+// pub mod spinlock;
 pub mod wait;
 
 mod rcl_bindings;

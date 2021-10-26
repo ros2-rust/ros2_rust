@@ -1,25 +1,29 @@
 use crate::error::ToResult;
 use crate::rcl_bindings::*;
-use crate::spinlock::Spinlock;
-use crate::spinlock::SpinlockGuard;
 use crate::Node;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 use cstr_core::{c_char, CString};
 use rclrs_common::error::RclReturnCode;
 
-pub struct ContextHandle(Spinlock<rcl_context_t>);
+#[cfg(not(feature = "std"))]
+use spin::{Mutex, MutexGuard};
+
+#[cfg(feature = "std")]
+use parking_lot::{Mutex, MutexGuard};
+
+pub struct ContextHandle(Mutex<rcl_context_t>);
 
 impl ContextHandle {
     pub fn get_mut(&mut self) -> &mut rcl_context_t {
         self.0.get_mut()
     }
 
-    pub fn lock(&self) -> SpinlockGuard<rcl_context_t> {
+    pub fn lock(&self) -> MutexGuard<rcl_context_t> {
         self.0.lock()
     }
 
-    pub fn try_lock(&self) -> Option<SpinlockGuard<rcl_context_t>> {
+    pub fn try_lock(&self) -> Option<MutexGuard<rcl_context_t>> {
         self.0.try_lock()
     }
 }
@@ -60,7 +64,7 @@ impl Context {
 
     pub fn default(args: Vec<CString>) -> Self {
         let context = Self {
-            handle: Arc::new(ContextHandle(Spinlock::new(unsafe {
+            handle: Arc::new(ContextHandle(Mutex::new(unsafe {
                 rcl_get_zero_initialized_context()
             }))),
         };

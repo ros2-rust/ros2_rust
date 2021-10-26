@@ -1,7 +1,6 @@
 use crate::error::ToResult;
 use crate::qos::QoSProfile;
 use crate::rcl_bindings::*;
-use crate::spinlock::{Spinlock, SpinlockGuard};
 use crate::{Node, NodeHandle};
 use alloc::boxed::Box;
 use alloc::sync::Arc;
@@ -10,8 +9,14 @@ use core::marker::PhantomData;
 use cstr_core::CString;
 use rclrs_common::error::{to_rcl_result, RclReturnCode, SubscriberErrorCode};
 
+#[cfg(not(feature = "std"))]
+use spin::{Mutex, MutexGuard};
+
+#[cfg(feature = "std")]
+use parking_lot::{Mutex, MutexGuard};
+
 pub struct SubscriptionHandle {
-    handle: Spinlock<rcl_subscription_t>,
+    handle: Mutex<rcl_subscription_t>,
     node_handle: Arc<NodeHandle>,
 }
 
@@ -24,11 +29,11 @@ impl SubscriptionHandle {
         self.handle.get_mut()
     }
 
-    pub fn lock(&self) -> SpinlockGuard<rcl_subscription_t> {
+    pub fn lock(&self) -> MutexGuard<rcl_subscription_t> {
         self.handle.lock()
     }
 
-    pub fn try_lock(&self) -> Option<SpinlockGuard<rcl_subscription_t>> {
+    pub fn try_lock(&self) -> Option<MutexGuard<rcl_subscription_t>> {
         self.handle.try_lock()
     }
 }
@@ -102,7 +107,7 @@ where
 {
     pub handle: Arc<SubscriptionHandle>,
     // The callback's lifetime should last as long as we need it to
-    pub callback: Spinlock<Box<dyn FnMut(&T) + 'static>>,
+    pub callback: Mutex<Box<dyn FnMut(&T) + 'static>>,
     message: PhantomData<T>,
 }
 
@@ -139,13 +144,13 @@ where
         }
 
         let handle = Arc::new(SubscriptionHandle {
-            handle: Spinlock::new(subscription_handle),
+            handle: Mutex::new(subscription_handle),
             node_handle: node.handle.clone(),
         });
 
         Ok(Self {
             handle,
-            callback: Spinlock::new(Box::new(callback)),
+            callback: Mutex::new(Box::new(callback)),
             message: PhantomData,
         })
     }

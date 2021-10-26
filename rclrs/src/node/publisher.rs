@@ -8,10 +8,14 @@ use core::marker::PhantomData;
 use cstr_core::CString;
 use rclrs_common::error::RclReturnCode;
 
-use crate::spinlock::{Spinlock, SpinlockGuard};
+#[cfg(not(feature = "std"))]
+use spin::{Mutex, MutexGuard};
+
+#[cfg(feature = "std")]
+use parking_lot::{Mutex, MutexGuard};
 
 pub struct PublisherHandle {
-    handle: Spinlock<rcl_publisher_t>,
+    handle: Mutex<rcl_publisher_t>,
     node_handle: Arc<NodeHandle>,
 }
 
@@ -24,11 +28,11 @@ impl PublisherHandle {
         self.handle.get_mut()
     }
 
-    fn lock(&self) -> SpinlockGuard<rcl_publisher_t> {
+    fn lock(&self) -> MutexGuard<rcl_publisher_t> {
         self.handle.lock()
     }
 
-    fn try_lock(&self) -> Option<SpinlockGuard<rcl_publisher_t>> {
+    fn try_lock(&self) -> Option<MutexGuard<rcl_publisher_t>> {
         self.handle.try_lock()
     }
 }
@@ -80,7 +84,7 @@ where
         }
 
         let handle = Arc::new(PublisherHandle {
-            handle: Spinlock::new(publisher_handle),
+            handle: Mutex::new(publisher_handle),
             node_handle: node.handle.clone(),
         });
 
