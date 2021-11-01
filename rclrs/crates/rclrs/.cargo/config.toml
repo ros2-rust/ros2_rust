@@ -1,0 +1,5 @@
+cargo-features = ["out-dir"]
+
+[build]
+rustflags = "-Z unstable-options"
+out-dir = "test"

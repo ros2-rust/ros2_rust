@@ -6,6 +6,10 @@ find_package(rclrs_common REQUIRED)
 find_package(rclrs REQUIRED)
 find_package(std_msgs REQUIRED)
 
+message("<rclrs_examples> BEGIN CMAKE")
+
+message ("std_msgs_LIBRARIES: ${std_msgs_LIBRARIES}")
+
 set(_native_libraries_dirs "")
 set(_found_dirs "")
 foreach(_native_library ${std_msgs_LIBRARIES})
@@ -16,14 +20,14 @@ foreach(_native_library ${std_msgs_LIBRARIES})
     endif()
 endforeach()
 
-set(_crates_dependencies "")
-set(_found_dependencies "")
-foreach(_crate_dependency ${std_msgs_CRATES})
-    if(NOT _crate_dependency IN_LIST _found_dependencies)
-        list(APPEND _found_dependencies ${_crate_dependency})
-        set(_crates_dependencies "${_crates_dependencies}\n[dependencies.std_msgs]\npath = '${_crate_dependency}'\n")
-    endif()
-endforeach()
+# set(_crates_dependencies "")
+# set(_found_dependencies "")
+# foreach(_crate_dependency ${std_msgs_CRATES})
+#     if(NOT _crate_dependency IN_LIST _found_dependencies)
+#         list(APPEND _found_dependencies ${_crate_dependency})
+#         set(_crates_dependencies "${_crates_dependencies}\n[dependencies.std_msgs]\npath = '${_crate_dependency}'\n")
+#     endif()
+# endforeach()
 
 include(ExternalProject)
 
@@ -41,14 +45,19 @@ ${_native_libraries_dirs}
 "
 )
 
-file(COPY "${CMAKE_SOURCE_DIR}/Cargo.toml" DESTINATION "${CMAKE_BINARY_DIR}/")
-file(APPEND "${CMAKE_BINARY_DIR}/Cargo.toml" "${_crates_dependencies}")
+# file(COPY "${CMAKE_SOURCE_DIR}/Cargo.toml" DESTINATION "${CMAKE_BINARY_DIR}/")
+# file(APPEND "${CMAKE_BINARY_DIR}/Cargo.toml" "${_crates_dependencies}")
+
+message("<rclrs_examples> TOML used: ${CMAKE_BINARY_DIR}/Cargo.toml")
+message("<rclrs_examples> _native_libraries_dirs: ${_native_libraries_dirs}")
+message("<rclrs_examples> _crates_dependencies: ${_crates_dependencies}")
 
 add_custom_command(
     OUTPUT
         ${CMAKE_BINARY_DIR}/ament_cargo/${PROJECT_NAME}/target/release/rclrs_publisher
         ${CMAKE_BINARY_DIR}/ament_cargo/${PROJECT_NAME}/target/release/rclrs_subscriber
-    COMMAND cargo build --release --manifest-path "${CMAKE_BINARY_DIR}/Cargo.toml"
+    # COMMAND cargo build --release --manifest-path "${CMAKE_BINARY_DIR}/Cargo.toml"
+    COMMAND cargo build --release --manifest-path ${CMAKE_SOURCE_DIR}/Cargo.toml
     DEPENDS
         ${CMAKE_BINARY_DIR}/src/rclrs_publisher.rs
         ${CMAKE_BINARY_DIR}/src/rclrs_subscriber.rs
@@ -68,3 +77,5 @@ install(FILES
     DESTINATION lib/${PROJECT_NAME}
 )
 ament_package()
+
+message("<rclrs_examples> CMAKE END")

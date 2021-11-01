@@ -182,6 +182,7 @@ set(_generated_rs_files ${_generated_msg_rs_files} ${_generated_srv_rs_files})
 
 set(_rsext_suffix "__rsext")
 foreach(_typesupport_impl ${_typesupport_impls})
+  message("<rosidl_generator_rs_generate_interfaces> _typesupport_impl: ${_typesupport_impl}")
   find_package(${_typesupport_impl} REQUIRED)
 
   set(_extension_compile_flags "")

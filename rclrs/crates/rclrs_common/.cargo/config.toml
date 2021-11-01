@@ -1,0 +1,7 @@
+cargo-features = ["out-dir"]
+
+# [unstable]
+# out-dir = "test"
+
+[build]
+out-dir = "../../../install/rclrs_common/share/rclrs_common"
