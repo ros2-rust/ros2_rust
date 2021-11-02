@@ -16,12 +16,14 @@ path = "src/rclrs_publisher.rs"
 thiserror = "1"
 anyhow = {version = "1", features = ["backtrace"]}
 cstr_core = "0.2"
-rclrs = {path = "../rclrs/crates/rclrs"}
-rclrs_common = {path = "../rclrs/crates/rclrs_common"}
 
-# [patch.crates-io]
-# rclrs = {path = "../rclrs/crates/rclrs"}
-# rclrs_common = {path = "../rclrs/crates/rclrs_common"}
+[dependencies.rclrs_common]
+version = "*"
+path = "/home/jhassold/rolling_ws/install/rclrs_common/share/rclrs_common/rust"
+
+[dependencies.rclrs]
+version = "*"
+path = "/home/jhassold/rolling_ws/install/rclrs/share/rclrs/rust"
 
 [dependencies.std_msgs]
 path = '/home/jhassold/rolling_ws/install/std_msgs/share/std_msgs/rust'

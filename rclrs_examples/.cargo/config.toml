@@ -1,3 +1,0 @@
-# [patch.crates-io]
-# rclrs = {path = "../rclrs/crates/rclrs"}
-# rclrs_common = {path = "../rclrs/crates/rclrs_common"}
