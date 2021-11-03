@@ -6,18 +6,6 @@ find_package(rclrs_common REQUIRED)
 find_package(rclrs REQUIRED)
 find_package(std_msgs REQUIRED)
 
-message("<rclrs_examples> BEGIN CMAKE")
-
-message ("std_msgs_LIBRARIES: ${std_msgs_LIBRARIES}")
-
-if(CMAKE_BUILD_TYPE STREQUAL "Release")
-    set(CARGO_RELEASE_FLAG "--release" CACHE INTERNAL)
-    set(TARGET_DIR "release" CACHE INTERNAL "")
-else()
-    set(CARGO_RELEASE_FLAG "" CACHE INTERNAL "")
-    set(TARGET_DIR "debug" CACHE INTERNAL "")
-endif()
-
 set(_native_libraries_dirs "")
 set(_found_dirs "")
 foreach(_native_library ${std_msgs_LIBRARIES})
@@ -28,52 +16,40 @@ foreach(_native_library ${std_msgs_LIBRARIES})
     endif()
 endforeach()
 
+set(_crates_dependencies "")
+set(_found_dependencies "")
+foreach(_crate_dependency ${std_msgs_CRATES})
+    if(NOT _crate_dependency IN_LIST _found_dependencies)
+        list(APPEND _found_dependencies ${_crate_dependency})
+        set(_crates_dependencies "${_crates_dependencies}\n std_msgs = {path = '${_crate_dependency}'}\n")
+    endif()
+endforeach()
 include(ExternalProject)
 
-configure_file(${CMAKE_SOURCE_DIR}/src/rclrs_publisher.rs ${CMAKE_BINARY_DIR}/src/rclrs_publisher.rs COPYONLY)
-configure_file(${CMAKE_SOURCE_DIR}/src/rclrs_subscriber.rs ${CMAKE_BINARY_DIR}/src/rclrs_subscriber.rs COPYONLY)
-
-file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/.cargo")
-file(WRITE "${CMAKE_BINARY_DIR}/.cargo/config"
-"\
+# Set up cargo configuration
+file(MAKE_DIRECTORY "${CMAKE_SOURCE_DIR}/.cargo")
+file(WRITE "${CMAKE_SOURCE_DIR}/.cargo/config.toml"
+"#This file is generated automatically, and should not be changed by hand\n\
 [build]\n\
-target-dir = 'ament_cargo/${PROJECT_NAME}/target'\n\
 rustflags = [\
 ${_native_libraries_dirs}
 ]\n\
+[patch.crates-io]\
+${_crates_dependencies}\
 "
 )
 
-file(COPY "${CMAKE_SOURCE_DIR}/Cargo.toml" DESTINATION "${CMAKE_BINARY_DIR}/")
-
-message("<rclrs_examples> _native_libraries_dirs: ${_native_libraries_dirs}")
-message("<rclrs_examples> _crates_dependencies: ${_crates_dependencies}")
-message("<rclrs_examples> CMAKE_BINARY_DIR: ${CMAKE_BINARY_DIR}")
-
-# add_custom_command(
-#     OUTPUT
-#         ${CMAKE_BINARY_DIR}/ament_cargo/${PROJECT_NAME}/target/${TARGET_DIR}/rclrs_publisher
-#         ${CMAKE_BINARY_DIR}/ament_cargo/${PROJECT_NAME}/target/${TARGET_DIR}/rclrs_subscriber
-#     COMMAND cargo build ${CARGO_RELEASE_FLAG} --manifest-path ${CMAKE_BINARY_DIR}/Cargo.toml
-#     DEPENDS
-#         ${CMAKE_BINARY_DIR}/src/rclrs_publisher.rs
-#         ${CMAKE_BINARY_DIR}/src/rclrs_subscriber.rs
-# )
-
+# Build examples
 add_custom_target(
     build_crate ALL
-    COMMAND cargo build ${CARGO_RELEASE_FLAG} --manifest-path ${CMAKE_BINARY_DIR}/Cargo.toml
-    # DEPENDS
-    #     ${CMAKE_BINARY_DIR}/ament_cargo/${PROJECT_NAME}/target/${TARGET_DIR}/rclrs_publisher
-    #     ${CMAKE_BINARY_DIR}/ament_cargo/${PROJECT_NAME}/target/${TARGET_DIR}/rclrs_subscriber
+    COMMAND cargo build $<$<NOT:$<CONFIG:Debug>>:--release> --manifest-path ${CMAKE_SOURCE_DIR}/Cargo.toml
 )
 
 install(FILES
-    ${CMAKE_BINARY_DIR}/ament_cargo/${PROJECT_NAME}/target/${TARGET_DIR}/rclrs_publisher
-    ${CMAKE_BINARY_DIR}/ament_cargo/${PROJECT_NAME}/target/${TARGET_DIR}/rclrs_subscriber
+    ${CMAKE_SOURCE_DIR}/target/$<$<NOT:$<CONFIG:Debug>>:release>$<$<CONFIG:Debug>:debug>/rclrs_publisher
+    ${CMAKE_SOURCE_DIR}/target/$<$<NOT:$<CONFIG:Debug>>:release>$<$<CONFIG:Debug>:debug>/rclrs_subscriber
     PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
     DESTINATION lib/${PROJECT_NAME}
 )
-ament_package()
 
-message("<rclrs_examples> CMAKE END")
+ament_package()

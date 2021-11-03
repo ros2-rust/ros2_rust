@@ -19,11 +19,12 @@ cstr_core = "0.2"
 
 [dependencies.rclrs_common]
 version = "*"
-path = "/home/jhassold/rolling_ws/install/rclrs_common/share/rclrs_common/rust"
+path = "../rclrs_common"
 
 [dependencies.rclrs]
 version = "*"
-path = "/home/jhassold/rolling_ws/install/rclrs/share/rclrs/rust"
+path = "../rclrs"
 
 [dependencies.std_msgs]
+version = "*"
 path = '/home/jhassold/rolling_ws/install/std_msgs/share/std_msgs/rust'
