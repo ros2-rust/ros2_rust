@@ -56,7 +56,10 @@ impl @(type_name) {
 @[for member in msg_spec.structure.members]@
 @[    if isinstance(member.type, Array)]@
 @[    elif isinstance(member.type, AbstractGenericString)]@
-    CString::new(self.@(get_rs_name(member.name)).clone()).unwrap().as_ptr(),
+    {let s = CString::new(self.@(get_rs_name(member.name)).clone()).unwrap();
+    let p = s.as_ptr();
+    std::mem::forget(s);
+    p},
 @[    elif isinstance(member.type, BasicType)]@
     self.@(get_rs_name(member.name)),
 @[    end if]@
