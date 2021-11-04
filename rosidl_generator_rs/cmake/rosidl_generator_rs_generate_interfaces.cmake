@@ -207,10 +207,13 @@ foreach(_typesupport_impl ${_typesupport_impls})
     ${rosidl_generate_interfaces_TARGET}__rosidl_generator_c
   )
 
-  # rosidl_target_interfaces(${_target_name}
-  #   ${rosidl_generate_interfaces_TARGET} rosidl_typesupport_c)
-  rosidl_get_typesupport_target(rust_typesupport_target ${rosidl_generate_interfaces_TARGET} rosidl_typesupport_c)
-  target_link_libraries(${_target_name} ${rust_typesupport_target})
+  if (NOT ${ROS_DISTRO} STREQUAL "rolling")
+    rosidl_target_interfaces(${_target_name}
+      ${rosidl_generate_interfaces_TARGET} rosidl_typesupport_c)
+  else()
+    rosidl_get_typesupport_target(rust_typesupport_target ${rosidl_generate_interfaces_TARGET} rosidl_typesupport_c)
+    target_link_libraries(${_target_name} ${rust_typesupport_target})
+  endif()
 
   target_include_directories(${_target_name}
     PUBLIC
