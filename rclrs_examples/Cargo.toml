@@ -27,4 +27,3 @@ path = "../rclrs"
 
 [dependencies.std_msgs]
 version = "*"
-path = '/home/jhassold/rolling_ws/install/std_msgs/share/std_msgs/rust'

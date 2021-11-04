@@ -21,7 +21,7 @@ set(_found_dependencies "")
 foreach(_crate_dependency ${std_msgs_CRATES})
     if(NOT _crate_dependency IN_LIST _found_dependencies)
         list(APPEND _found_dependencies ${_crate_dependency})
-        set(_crates_dependencies "${_crates_dependencies}\n std_msgs = {path = '${_crate_dependency}'}\n")
+        set(_crates_dependencies "${_crates_dependencies}\nstd_msgs = {path = '${_crate_dependency}'}\n")
     endif()
 endforeach()
 include(ExternalProject)
@@ -33,7 +33,7 @@ file(WRITE "${CMAKE_SOURCE_DIR}/.cargo/config.toml"
 [build]\n\
 rustflags = [\
 ${_native_libraries_dirs}
-]\n\
+]\n\n\
 [patch.crates-io]\
 ${_crates_dependencies}\
 "
@@ -42,7 +42,8 @@ ${_crates_dependencies}\
 # Build examples
 add_custom_target(
     build_crate ALL
-    COMMAND cargo build $<$<NOT:$<CONFIG:Debug>>:--release> --manifest-path ${CMAKE_SOURCE_DIR}/Cargo.toml
+    COMMAND cargo build $<$<NOT:$<CONFIG:Debug>>:--release>
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
 )
 
 install(FILES

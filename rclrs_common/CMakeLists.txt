@@ -9,7 +9,8 @@ ament_export_crates(${CMAKE_SOURCE_DIR})
 # Build library
 add_custom_target(
   build_crate ALL
-  COMMAND cargo build $<$<NOT:$<CONFIG:Debug>>:--release> --manifest-path ${CMAKE_SOURCE_DIR}/Cargo.toml
+  COMMAND cargo build $<$<NOT:$<CONFIG:Debug>>:--release>
+  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
 )
 
 install(FILES
