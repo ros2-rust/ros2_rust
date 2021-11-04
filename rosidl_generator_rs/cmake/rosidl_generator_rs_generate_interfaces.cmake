@@ -207,7 +207,7 @@ foreach(_typesupport_impl ${_typesupport_impls})
     ${rosidl_generate_interfaces_TARGET}__rosidl_generator_c
   )
 
-  if (NOT ${ROS_DISTRO} STREQUAL "rolling")
+  if (NOT $ENV{ROS_DISTRO} STREQUAL "rolling")
     rosidl_target_interfaces(${_target_name}
       ${rosidl_generate_interfaces_TARGET} rosidl_typesupport_c)
   else()
