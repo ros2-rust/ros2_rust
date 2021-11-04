@@ -15,14 +15,39 @@
 // DISTRIBUTION A. Approved for public release; distribution unlimited.
 // OPSEC #4584.
 
-use std::borrow::BorrowMut;
-use std::sync::Weak;
-
-use crate::{error::*, SubscriptionBase};
-
 use crate::rcl_bindings::*;
+use crate::SubscriptionBase;
 
-use rclrs_common::error::WaitSetError;
+use alloc::sync::Weak;
+use core::borrow::BorrowMut;
+use core::fmt::Display;
+use core_error::Error;
+use rclrs_common::error::{to_rcl_result, RclReturnCode, WaitSetErrorCode};
+
+#[derive(Debug)]
+pub enum WaitSetErrorResponse {
+    DroppedSubscription,
+    ReturnCode(RclReturnCode),
+}
+
+impl Display for WaitSetErrorResponse {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Self::DroppedSubscription => {
+                write!(f, "WaitSet: Attempted to access dropped subscription!")
+            }
+            Self::ReturnCode(code) => write!(f, "WaitSet: Operation returned Rcl error - {}", code),
+        }
+    }
+}
+
+impl From<RclReturnCode> for WaitSetErrorResponse {
+    fn from(code: RclReturnCode) -> Self {
+        Self::ReturnCode(code)
+    }
+}
+
+impl Error for WaitSetErrorResponse {}
 
 pub struct WaitSet {
     pub wait_set: rcl_wait_set_t,
@@ -42,7 +67,7 @@ impl WaitSet {
         number_of_services: usize,
         number_of_events: usize,
         context: &mut rcl_context_t,
-    ) -> Result<Self, WaitSetError> {
+    ) -> Result<Self, WaitSetErrorResponse> {
         let mut waitset = Self {
             wait_set: unsafe { rcl_get_zero_initialized_wait_set() },
             initialized: false,
@@ -65,7 +90,7 @@ impl WaitSet {
                 }
                 Err(err) => {
                     waitset.initialized = false;
-                    Err(WaitSetError::RclError(err))
+                    Err(WaitSetErrorResponse::ReturnCode(err))
                 }
             }
         }
@@ -77,15 +102,17 @@ impl WaitSet {
     /// - `RclError::InvalidArgument` if any arguments are invalid.
     /// - `RclError::WaitSetInvalid` if the WaitSet is already zero-initialized.
     /// - `RclError::Error` for an unspecified error
-    pub fn clear(&mut self) -> Result<(), WaitSetError> {
+    pub fn clear(&mut self) -> Result<(), WaitSetErrorResponse> {
         if !self.initialized {
-            return Err(WaitSetError::RclError(RclError::WaitSetInvalid));
+            return Err(WaitSetErrorResponse::ReturnCode(
+                RclReturnCode::WaitSetError(WaitSetErrorCode::WaitSetInvalid),
+            ));
         }
         unsafe {
             // Whether or not we successfully clear, this WaitSet will count as uninitialized
             self.initialized = false;
             to_rcl_result(rcl_wait_set_clear(self.wait_set.borrow_mut() as *mut _))
-                .map_err(WaitSetError::RclError)
+                .map_err(WaitSetErrorResponse::ReturnCode)
         }
     }
 
@@ -97,19 +124,19 @@ impl WaitSet {
     pub fn add_subscription(
         &mut self,
         subscription: &Weak<dyn SubscriptionBase>,
-    ) -> Result<(), WaitSetError> {
+    ) -> Result<(), WaitSetErrorResponse> {
         if let Some(subscription) = subscription.upgrade() {
             let subscription_handle = &mut *subscription.handle().lock();
             unsafe {
                 return to_rcl_result(rcl_wait_set_add_subscription(
                     self.wait_set.borrow_mut() as *mut _,
                     subscription_handle as *const _,
-                    std::ptr::null_mut(),
+                    core::ptr::null_mut(),
                 ))
-                .map_err(WaitSetError::RclError);
+                .map_err(WaitSetErrorResponse::ReturnCode);
             }
         } else {
-            Err(WaitSetError::DroppedSubscription)
+            Err(WaitSetErrorResponse::DroppedSubscription)
         }
     }
 
@@ -161,11 +188,8 @@ impl WaitSet {
     /// - `RclError::WaitSetEmpty` if the wait set contains no items
     /// - `RclError::Timeout` if the timeout expired before something was ready
     /// - `RclError::Error` for an unspecified error
-    pub fn wait(&mut self, timeout: i64) -> Result<(), WaitSetError> {
-        unsafe {
-            to_rcl_result(rcl_wait(self.wait_set.borrow_mut() as *mut _, timeout))
-                .map_err(WaitSetError::RclError)
-        }
+    pub fn wait(&mut self, timeout: i64) -> Result<(), RclReturnCode> {
+        unsafe { to_rcl_result(rcl_wait(self.wait_set.borrow_mut() as *mut _, timeout)) }
     }
 }
 

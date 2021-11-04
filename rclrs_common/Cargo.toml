@@ -6,5 +6,5 @@ edition = "2018"
 
 [dependencies]
 libc = "0.2"
-downcast = "0.10"
-thiserror = "1"
+downcast = {version = "0.10", default-features = false}
+core-error = "0.0.0"

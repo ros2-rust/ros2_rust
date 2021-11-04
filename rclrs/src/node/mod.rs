@@ -1,17 +1,26 @@
+use alloc::{
+    sync::{Arc, Weak},
+    vec::Vec,
+};
+
+use crate::error::ToResult;
 use crate::qos::QoSProfile;
 use crate::rcl_bindings::*;
-use crate::ToResult;
-use crate::{Context, ContextHandle};
-use rclrs_common::error::RclError;
-use std::ffi::CString;
-use std::sync::{Arc, Weak};
 
-use parking_lot::{Mutex, MutexGuard};
+use crate::{Context, ContextHandle};
+use cstr_core::CString;
+use rclrs_common::error::RclReturnCode;
 
 pub mod publisher;
 pub use self::publisher::*;
 pub mod subscription;
 pub use self::subscription::*;
+
+#[cfg(not(feature = "std"))]
+use spin::{Mutex, MutexGuard};
+
+#[cfg(feature = "std")]
+use parking_lot::{Mutex, MutexGuard};
 
 pub struct NodeHandle(Mutex<rcl_node_t>);
 
@@ -44,7 +53,7 @@ pub struct Node {
 
 impl Node {
     #[allow(clippy::new_ret_no_self)]
-    pub fn new<'ctxt>(node_name: &str, context: &Context) -> Result<Node, RclError> {
+    pub fn new<'ctxt>(node_name: &str, context: &Context) -> Result<Node, RclReturnCode> {
         Self::new_with_namespace(node_name, "", context)
     }
 
@@ -52,7 +61,7 @@ impl Node {
         node_name: &str,
         node_ns: &str,
         context: &Context,
-    ) -> Result<Node, RclError> {
+    ) -> Result<Node, RclReturnCode> {
         let raw_node_name = CString::new(node_name).unwrap();
         let raw_node_ns = CString::new(node_ns).unwrap();
 
@@ -76,7 +85,7 @@ impl Node {
         Ok(Node {
             handle,
             context: context.handle.clone(),
-            subscriptions: vec![],
+            subscriptions: alloc::vec![],
         })
     }
 
@@ -85,7 +94,7 @@ impl Node {
         &self,
         topic: &str,
         qos: QoSProfile,
-    ) -> Result<Publisher<T>, RclError>
+    ) -> Result<Publisher<T>, RclReturnCode>
     where
         T: rclrs_common::traits::MessageDefinition<T>,
     {
@@ -98,7 +107,7 @@ impl Node {
         topic: &str,
         qos: QoSProfile,
         callback: F,
-    ) -> Result<Arc<Subscription<T>>, RclError>
+    ) -> Result<Arc<Subscription<T>>, RclReturnCode>
     where
         T: rclrs_common::traits::MessageDefinition<T> + Default,
         F: FnMut(&T) + Sized + 'static,
