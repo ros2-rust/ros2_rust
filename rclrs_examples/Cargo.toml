@@ -17,13 +17,13 @@ thiserror = "1"
 anyhow = {version = "1", features = ["backtrace"]}
 cstr_core = "0.2"
 
-[dependencies.rclrs_common]
-version = "*"
-path = "../rclrs_common"
-
 [dependencies.rclrs]
 version = "*"
 path = "../rclrs"
+
+[dependencies.rclrs_msg_utilities]
+version = "*"
+path = "../rclrs_msg_utilities"
 
 [dependencies.std_msgs]
 version = "*"

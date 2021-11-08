@@ -2,8 +2,8 @@ cmake_minimum_required(VERSION 3.5)
 project(rclrs_examples NONE)
 
 find_package(ament_cmake REQUIRED)
-find_package(rclrs_common REQUIRED)
 find_package(rclrs REQUIRED)
+find_package(rclrs_msg_utilities REQUIRED)
 find_package(std_msgs REQUIRED)
 
 set(_native_libraries_dirs "")

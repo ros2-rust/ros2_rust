@@ -15,7 +15,7 @@
 find_package(rmw_implementation_cmake REQUIRED)
 find_package(rmw REQUIRED)
 find_package(ament_cmake_export_crates REQUIRED)
-find_package(rclrs_common REQUIRED)
+find_package(rclrs_msg_utilities REQUIRED)
 
 if(NOT WIN32)
   if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
@@ -143,10 +143,10 @@ set(_target_suffix "__rs")
 
 set(_crate_deps "")
 set(CRATES_DEPENDENCIES "")
-find_package(rclrs_common REQUIRED)
-foreach(_crate_dep ${rclrs_common_CRATES})
+find_package(rclrs_msg_utilities REQUIRED)
+foreach(_crate_dep ${rclrs_msg_utilities_CRATES})
   list(APPEND _crate_deps "${_crate_dep}")
-  set(CRATES_DEPENDENCIES "${CRATES_DEPENDENCIES}\nrclrs_common = { path = '${rclrs_common_CRATES}' }")
+  set(CRATES_DEPENDENCIES "${CRATES_DEPENDENCIES}\nrclrs_msg_utilities = { path = '${rclrs_msg_utilities_CRATES}' }")
 endforeach()
 
 foreach(_pkg_name ${rosidl_generate_interfaces_DEPENDENCY_PACKAGE_NAMES})
@@ -182,7 +182,7 @@ set(_generated_rs_files ${_generated_msg_rs_files} ${_generated_srv_rs_files})
 
 set(_rsext_suffix "__rsext")
 foreach(_typesupport_impl ${_typesupport_impls})
-  message("<rosidl_generator_rs_generate_interfaces> _typesupport_impl: ${_typesupport_impl}")
+  # message("<rosidl_generator_rs_generate_interfaces> _typesupport_impl: ${_typesupport_impl}")
   find_package(${_typesupport_impl} REQUIRED)
 
   set(_extension_compile_flags "")

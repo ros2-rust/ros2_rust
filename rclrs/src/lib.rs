@@ -1,6 +1,8 @@
 #![no_std]
 extern crate alloc;
 extern crate core_error;
+extern crate downcast;
+extern crate rclrs_msg_utilities;
 
 #[cfg(feature = "std")]
 extern crate std;
@@ -15,7 +17,6 @@ pub mod context;
 pub mod error;
 pub mod node;
 pub mod qos;
-// pub mod spinlock;
 pub mod wait;
 
 mod rcl_bindings;

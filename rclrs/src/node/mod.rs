@@ -3,13 +3,13 @@ use alloc::{
     vec::Vec,
 };
 
-use crate::error::ToResult;
+use crate::error::{RclReturnCode, ToResult};
 use crate::qos::QoSProfile;
 use crate::rcl_bindings::*;
+use rclrs_msg_utilities::traits::MessageDefinition;
 
 use crate::{Context, ContextHandle};
 use cstr_core::CString;
-use rclrs_common::error::RclReturnCode;
 
 pub mod publisher;
 pub use self::publisher::*;
@@ -96,7 +96,7 @@ impl Node {
         qos: QoSProfile,
     ) -> Result<Publisher<T>, RclReturnCode>
     where
-        T: rclrs_common::traits::MessageDefinition<T>,
+        T: MessageDefinition<T>,
     {
         Publisher::<T>::new(self, topic, qos)
     }
@@ -109,7 +109,7 @@ impl Node {
         callback: F,
     ) -> Result<Arc<Subscription<T>>, RclReturnCode>
     where
-        T: rclrs_common::traits::MessageDefinition<T> + Default,
+        T: MessageDefinition<T> + Default,
         F: FnMut(&T) + Sized + 'static,
     {
         let subscription = Arc::new(Subscription::<T>::new(self, topic, qos, callback)?);

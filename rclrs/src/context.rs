@@ -1,10 +1,9 @@
-use crate::error::ToResult;
+use crate::error::{RclReturnCode, ToResult};
 use crate::rcl_bindings::*;
 use crate::Node;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 use cstr_core::{c_char, CString};
-use rclrs_common::error::RclReturnCode;
 
 #[cfg(not(feature = "std"))]
 use spin::{Mutex, MutexGuard};
