@@ -19,10 +19,10 @@ install(FILES
   DESTINATION lib/${PROJECT_NAME}
 )
 
+if (BUILD_TESTING)
 add_test(NAME rclrs_common_test
   COMMAND cargo test
   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
-
-ament_export_crates("share/${PROJECT_NAME}/rust")
+endif()
 
 ament_package()

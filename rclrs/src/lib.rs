@@ -134,11 +134,16 @@ pub fn spin_once<'node>(node: &'node Node, timeout: i64) -> Result<(), WaitSetEr
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rclrs_common::error::RclError;
+    use alloc::vec::Vec;
+    use cstr_core::CString;
+    use std::{env, println};
     use std_msgs;
 
-    fn test_spin_once() -> Result<(), WaitSetError> {
-        let context = Context::default();
+    fn test_spin_once() -> Result<(), WaitSetErrorResponse> {
+        let args: Vec<CString> = env::args()
+            .filter_map(|arg| CString::new(arg).ok())
+            .collect();
+        let context = Context::default(args);
         let mut subscriber_node = context.create_node("minimal_subscriber")?;
         let mut num_messages: usize = 0;
         let _subscription = subscriber_node.create_subscription::<std_msgs::msg::String, _>(
@@ -151,6 +156,6 @@ mod tests {
             },
         )?;
 
-       spin_once(&subscriber_node) 
+       spin_once(&subscriber_node, 500)
     }
 }

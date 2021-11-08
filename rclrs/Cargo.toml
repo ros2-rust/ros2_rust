@@ -23,6 +23,9 @@ path = "../rclrs_common"
 [build-dependencies]
 bindgen = "0.59.1"
 
+[dev-dependencies.std_msgs]
+version = "*"
+
 [features]
 default = ["std"]
 std = ["parking_lot"]

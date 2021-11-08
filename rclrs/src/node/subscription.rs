@@ -202,12 +202,22 @@ where
 mod tests {
     use super::*;
     use crate::{Context, QOS_PROFILE_DEFAULT, Subscription};
-    use rclrs_common::error::RclError;
+    use alloc::vec::Vec;
+    use rclrs_common::error::RclReturnCode;
     use std_msgs;
+    use std::{env, println};
+
+    fn default_context() -> Context {
+        let args: Vec<CString> = env::args()
+            .filter_map(|arg| CString::new(arg).ok())
+            .collect();
+        println!("<test_publisher> Context args: {:?}", args);
+        Context::default(args)
+    }
 
     #[test]
-    fn test_new_subscriber() -> Result<(), RclError> {
-        let context = Context::default();
+    fn test_new_subscriber() -> Result<(), RclReturnCode> {
+        let context = default_context();
         let node = context.create_node("test_new_subscriber")?;
         let _subscriber = Subscription::<std_msgs::msg::String>::new(
             &node,

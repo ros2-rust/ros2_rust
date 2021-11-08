@@ -113,22 +113,32 @@ where
 mod tests {
     use super::*;
     use crate::{Context, Publisher, QOS_PROFILE_DEFAULT};
-    use rclrs_common::error::RclError;
+    use alloc::{borrow::ToOwned, vec::Vec};
+    use rclrs_common::error::RclReturnCode;
     use std_msgs;
+    use std::{env, println};
+
+    fn default_context() -> Context {
+        let args: Vec<CString> = env::args()
+            .filter_map(|arg| CString::new(arg).ok())
+            .collect();
+        println!("<test_publisher> Context args: {:?}", args);
+        Context::default(args)
+    }
 
     #[test]
-    fn test_new_publisher() -> Result<(), RclError> {
-        let context = Context::default();
+    fn test_new_publisher() -> Result<(), RclReturnCode> {
+        let context = default_context();
         let node = context.create_node( "test_new_publisher")?;
         Publisher::<std_msgs::msg::String>::new(&node, "test", QOS_PROFILE_DEFAULT).map(|_x| ())
     }
 
     #[test]
-    fn test_publish() -> Result<(), RclError> {
-        let context = Context::default();
+    fn test_publish() -> Result<(), RclReturnCode> {
+        let context = default_context();
         let node = context.create_node("test_publish")?;
         let publisher = Publisher::<std_msgs::msg::String>::new(&node, "test", QOS_PROFILE_DEFAULT)?;
-        let message = std_msgs::msg::String::default();
+        let mut message = std_msgs::msg::String::default();
         message.data = "Hello world!".to_owned();
         publisher.publish(&message)
     }

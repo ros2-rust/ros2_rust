@@ -86,19 +86,29 @@ impl Context {
 
 #[cfg(test)]
 mod tests {
+
     use super::*;
-    use rclrs_common::error::RclError;
+    use std::{env, println};
+
+    fn default_context() -> Context {
+        let args: Vec<CString> = env::args()
+            .filter_map(|arg| CString::new(arg).ok())
+            .collect();
+        println!("<test_create_context> Context args: {:?}", args);
+        Context::default(args)
+    }
 
     #[test]
     fn test_create_context() {
         // If the context fails to be created, this will cause a panic
-        let created_context = Context::default();
+        let created_context = default_context();
         println!("<test_create_context> Created Context: {:?}", created_context);
     }
 
     #[test]
     fn test_context_ok() {
-        let created_context = Context::default();
+        // If the context fails to be created, this will cause a panic
+        let created_context = default_context();
         let ctxt_ok = created_context.ok();
         match ctxt_ok {
             Ok(is_ok) => assert!(is_ok),
@@ -107,19 +117,24 @@ mod tests {
     }
 
     #[test]
-    fn test_create_node() -> Result<(), RclError> {
-        let created_context = Context::default();
+    fn test_create_node() -> Result<(), RclReturnCode> {
+        // If the context fails to be created, this will cause a panic
+        let created_context = default_context();
         created_context.create_node("Bob").map(|_x| ())
     }
 
     #[test]
     fn text_context_init() {
+        // If the context fails to be created, this will cause a panic
+        let args: Vec<CString> = env::args()
+            .filter_map(|arg| CString::new(arg).ok())
+            .collect();
         let context = Context {
             handle: Arc::new(ContextHandle(Mutex::new(unsafe {
                 rcl_get_zero_initialized_context()
             }))),
         };
-        context.init().unwrap();
+        context.init(args).unwrap();
     }
 
 }

@@ -14,6 +14,7 @@
   <build_depend>rcl</build_depend>
   <build_depend>rcl_interfaces</build_depend>
   <build_depend>rclrs_common</build_depend>
+  <test_depend>std_msgs</test_depend>
 
   <export>
     <build_type>ament_cmake</build_type>
