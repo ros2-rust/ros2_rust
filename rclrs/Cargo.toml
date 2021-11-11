@@ -19,7 +19,6 @@ downcast = "0.10.0"
 
 [dependencies.rclrs_msg_utilities]
 version = "*"
-path = "../rclrs_msg_utilities"
 
 [build-dependencies]
 bindgen = "0.59.1"

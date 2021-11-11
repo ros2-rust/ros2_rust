@@ -3,8 +3,13 @@ project(rclrs NONE)
 
 find_package(ament_cmake REQUIRED)
 find_package(ament_cmake_export_crates REQUIRED)
+find_package(rclrs_crate_config_generator REQUIRED)
+find_package(rclrs_msg_utilities REQUIRED)
 
 ament_export_crates(${CMAKE_SOURCE_DIR})
+
+set(ROS_CRATES rclrs_msg_utilities)
+rclrs_gen_crate_config(${ROS_CRATES})
 
 # Build library
 add_custom_target(

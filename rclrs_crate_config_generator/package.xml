@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<?xml-model
+   href="http://download.ros.org/schema/package_format3.xsd"
+   schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>rclrs_crate_config_generator</name>
+  <version>0.0.1</version>
+  <description>Generate a Cargo config.toml file for a ROS 2 Rust package (for native libraries and package patches)</description>
+  <maintainer email="jhassold@dcscorp.com">Jacob Hassold</maintainer>
+  <license>Apache License 2.0</license>
+  <author email="jhassold@dcscorp.com">Jacob Hassold</author>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <buildtool_export_depend>ament_cmake_core</buildtool_export_depend>
+
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

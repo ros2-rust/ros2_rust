@@ -2,42 +2,13 @@ cmake_minimum_required(VERSION 3.5)
 project(rclrs_examples NONE)
 
 find_package(ament_cmake REQUIRED)
+find_package(rclrs_crate_config_generator REQUIRED)
 find_package(rclrs REQUIRED)
 find_package(rclrs_msg_utilities REQUIRED)
 find_package(std_msgs REQUIRED)
 
-set(_native_libraries_dirs "")
-set(_found_dirs "")
-foreach(_native_library ${std_msgs_LIBRARIES})
-    get_filename_component(_native_library_dir ${_native_library} DIRECTORY)
-    if((NOT _native_library_dir STREQUAL "") AND (NOT _native_library_dir IN_LIST _found_dirs))
-        list(APPEND _found_dirs ${_native_library_dir})
-        set(_native_libraries_dirs "${_native_libraries_dirs}\n'-L native=${_native_library_dir}',")
-    endif()
-endforeach()
-
-set(_crates_dependencies "")
-set(_found_dependencies "")
-foreach(_crate_dependency ${std_msgs_CRATES})
-    if(NOT _crate_dependency IN_LIST _found_dependencies)
-        list(APPEND _found_dependencies ${_crate_dependency})
-        set(_crates_dependencies "${_crates_dependencies}\nstd_msgs = {path = '${_crate_dependency}'}\n")
-    endif()
-endforeach()
-include(ExternalProject)
-
-# Set up cargo configuration
-file(MAKE_DIRECTORY "${CMAKE_SOURCE_DIR}/.cargo")
-file(WRITE "${CMAKE_SOURCE_DIR}/.cargo/config.toml"
-"#This file is generated automatically, and should not be changed by hand\n\
-[build]\n\
-rustflags = [\
-${_native_libraries_dirs}
-]\n\n\
-[patch.crates-io]\
-${_crates_dependencies}\
-"
-)
+set(ROS_CRATES std_msgs rclrs rclrs_msg_utilities)
+rclrs_gen_crate_config("${ROS_CRATES}")
 
 # Build examples
 add_custom_target(
