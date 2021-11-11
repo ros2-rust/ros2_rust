@@ -1,11 +1,14 @@
 <?xml version="1.0"?>
-<package format="2">
+<?xml-model
+   href="http://download.ros.org/schema/package_format3.xsd"
+   schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
   <name>ament_cmake_export_crates</name>
   <version>0.0.3</version>
   <description>The ability to export Rust crates to downstream packages in the ament buildsystem in CMake.</description>
-  <author email="esteve@apache.org">Esteve Fernandez</author>
   <maintainer email="esteve@apache.org">Esteve Fernandez</maintainer>
   <license>Apache License 2.0</license>
+  <author email="esteve@apache.org">Esteve Fernandez</author>
 
   <buildtool_depend>ament_cmake_core</buildtool_depend>
 
