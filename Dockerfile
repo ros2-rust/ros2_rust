@@ -21,6 +21,7 @@ FROM $FROM_IMAGE AS cacher
 
 # clone overlay source
 ARG OVERLAY_WS
+ARG REPOS_FILE
 WORKDIR $OVERLAY_WS/src
 COPY ./${REPOS_FILE} ../
 RUN vcs import ./ < ../${REPOS_FILE} && \
