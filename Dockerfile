@@ -21,6 +21,7 @@ FROM $FROM_IMAGE AS cacher
 
 # clone overlay source
 ARG OVERLAY_WS
+ARG REPOS_FILE
 WORKDIR $OVERLAY_WS/src
 COPY ./${REPOS_FILE} ../
 RUN vcs import ./ < ../${REPOS_FILE} && \
@@ -53,7 +54,7 @@ RUN apt-get update && apt-get install -q -y \
 ENV RUSTUP_HOME=/usr/local/rustup \
     CARGO_HOME=/usr/local/cargo \
     PATH=/usr/local/cargo/bin:$PATH \
-    RUST_VERSION=1.47.0
+    RUST_VERSION=1.49.0
 RUN set -eux; \
     wget -O rustup-init "https://sh.rustup.rs"; \
     chmod +x rustup-init; \
