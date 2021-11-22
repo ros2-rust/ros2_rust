@@ -1,19 +1,22 @@
 <?xml version="1.0"?>
-<package format="2">
+<?xml-model
+   href="http://download.ros.org/schema/package_format3.xsd"
+   schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
   <name>rclrs</name>
   <version>0.0.3</version>
   <description>Package containing the Rust client.</description>
-  <author email="esteve@apache.org">Esteve Fernandez</author>
   <maintainer email="esteve@apache.org">Esteve Fernandez</maintainer>
   <license>Apache License 2.0</license>
+  <author email="esteve@apache.org">Esteve Fernandez</author>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
   <buildtool_depend>ament_cmake_export_crates</buildtool_depend>
+  <buildtool_depend>rclrs_crate_config_generator</buildtool_depend>
 
-  <build_depend>builtin_interfaces</build_depend>
+  <build_depend>rclrs_msg_utilities</build_depend>
   <build_depend>rcl</build_depend>
   <build_depend>rcl_interfaces</build_depend>
-  <build_depend>rclrs_common</build_depend>
 
   <export>
     <build_type>ament_cmake</build_type>

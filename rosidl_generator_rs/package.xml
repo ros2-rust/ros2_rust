@@ -1,22 +1,22 @@
 <?xml version="1.0"?>
-<?xml-model href="http://download.ros.org/schema/package_format2.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>rosidl_generator_rs</name>
-  <version>0.0.3</version>
+  <version>0.0.4</version>
   <description>Generate the ROS interfaces in Rust.</description>
-  <author email="esteve@apache.org">Esteve Fernandez</author>
   <maintainer email="esteve@apache.org">Esteve Fernandez</maintainer>
   <license>Apache License 2.0</license>
+  <author email="esteve@apache.org">Esteve Fernandez</author>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
   <buildtool_depend>ament_cmake_export_crates</buildtool_depend>
-  <buildtool_depend>rclrs_common</buildtool_depend>
+  <buildtool_depend>rclrs_msg_utilities</buildtool_depend>
 
   <buildtool_export_depend>ament_cmake</buildtool_export_depend>
   <buildtool_export_depend>ament_cmake_export_crates</buildtool_export_depend>
   <buildtool_export_depend>rosidl_cmake</buildtool_export_depend>
-  <buildtool_export_depend>rclrs_common</buildtool_export_depend>
+  <buildtool_export_depend>rclrs_msg_utilities</buildtool_export_depend>
   <buildtool_export_depend>rosidl_typesupport_c</buildtool_export_depend>
   <buildtool_export_depend>rosidl_typesupport_interface</buildtool_export_depend>
 

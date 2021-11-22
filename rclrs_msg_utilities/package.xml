@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<?xml-model
+   href="http://download.ros.org/schema/package_format3.xsd"
+   schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>rclrs_msg_utilities</name>
+  <version>0.0.1</version>
+  <description>Message generation code shared by Rust projects in ROS 2</description>
+  <maintainer email="jhassold@dcscorp.com">Jacob Hassold</maintainer>
+  <license>Apache License 2.0</license>
+  <author email="jhassold@dcscorp.com">Jacob Hassold</author>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <buildtool_depend>ament_cmake_export_crates</buildtool_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

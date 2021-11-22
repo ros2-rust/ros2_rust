@@ -1,12 +1,12 @@
-use crate::error::ToResult;
+use crate::error::{RclReturnCode, ToResult};
 use crate::qos::QoSProfile;
 use crate::rcl_bindings::*;
 use crate::{Node, NodeHandle};
+use rclrs_msg_utilities::traits::MessageDefinition;
 use alloc::sync::Arc;
 use core::borrow::Borrow;
 use core::marker::PhantomData;
 use cstr_core::CString;
-use rclrs_common::error::RclReturnCode;
 
 #[cfg(not(feature = "std"))]
 use spin::{Mutex, MutexGuard};
@@ -50,7 +50,7 @@ impl Drop for PublisherHandle {
 /// Main class responsible for publishing data to ROS topics
 pub struct Publisher<T>
 where
-    T: rclrs_common::traits::MessageDefinition<T>,
+    T: MessageDefinition<T>,
 {
     pub handle: Arc<PublisherHandle>,
     message: PhantomData<T>,
@@ -58,11 +58,11 @@ where
 
 impl<T> Publisher<T>
 where
-    T: rclrs_common::traits::MessageDefinition<T>,
+    T: MessageDefinition<T>,
 {
     pub fn new(node: &Node, topic: &str, qos: QoSProfile) -> Result<Self, RclReturnCode>
     where
-        T: rclrs_common::traits::MessageDefinition<T>,
+        T: MessageDefinition<T>,
     {
         let mut publisher_handle = unsafe { rcl_get_zero_initialized_publisher() };
         let type_support = T::get_type_support() as *const rosidl_message_type_support_t;

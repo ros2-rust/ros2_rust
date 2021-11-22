@@ -1,4 +1,4 @@
-extern crate rclrs_common;
+extern crate rclrs_msg_utilities;
 extern crate libc;
 
 @[if len(msg_specs) > 0]@

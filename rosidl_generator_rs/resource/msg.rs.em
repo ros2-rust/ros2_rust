@@ -1,6 +1,6 @@
 use libc::c_char;
 use libc::uintptr_t;
-use rclrs_common;
+use rclrs_msg_utilities;
 use std::ffi::CString;
 use std::ffi::CStr;
 
@@ -56,7 +56,10 @@ impl @(type_name) {
 @[for member in msg_spec.structure.members]@
 @[    if isinstance(member.type, Array)]@
 @[    elif isinstance(member.type, AbstractGenericString)]@
-    CString::new(self.@(get_rs_name(member.name)).clone()).unwrap().as_ptr(),
+    {let s = CString::new(self.@(get_rs_name(member.name)).clone()).unwrap();
+    let p = s.as_ptr();
+    std::mem::forget(s);
+    p},
 @[    elif isinstance(member.type, BasicType)]@
     self.@(get_rs_name(member.name)),
 @[    end if]@
@@ -89,7 +92,7 @@ impl @(type_name) {
   }
 }
 
-impl rclrs_common::traits::Message for @(type_name) {
+impl rclrs_msg_utilities::traits::Message for @(type_name) {
   fn get_native_message(&self) -> uintptr_t {
     return self.get_native_message();
   }
@@ -103,7 +106,7 @@ impl rclrs_common::traits::Message for @(type_name) {
   }
 }
 
-impl rclrs_common::traits::MessageDefinition<@(type_name)> for @(type_name) {
+impl rclrs_msg_utilities::traits::MessageDefinition<@(type_name)> for @(type_name) {
   fn get_type_support() -> uintptr_t {
     return unsafe { @(package_name)_@(subfolder)_@(convert_camel_case_to_lower_case_underscore(type_name))_get_type_support() };
   }

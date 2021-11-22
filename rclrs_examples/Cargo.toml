@@ -16,3 +16,12 @@ path = "src/rclrs_publisher.rs"
 thiserror = "1"
 anyhow = {version = "1", features = ["backtrace"]}
 cstr_core = "0.2"
+
+[dependencies.rclrs]
+version = "*"
+
+[dependencies.rclrs_msg_utilities]
+version = "*"
+
+[dependencies.std_msgs]
+version = "*"
