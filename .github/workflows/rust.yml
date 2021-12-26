@@ -14,22 +14,34 @@ jobs:
     strategy:
       matrix:
         ros_distro: [rolling, foxy, galactic]
+        include:
+          # Foxy Fitzroy (June 2020 - May 2023)
+          - docker_image: rostooling/setup-ros-docker:ubuntu-focal-ros-foxy-ros-base-latest
+            ros_distribution: foxy
+            ros_version: 2
+          # Galactic Geochelone (May 2021 - November 2022)
+          - docker_image: rostooling/setup-ros-docker:ubuntu-focal-ros-galactic-ros-base-latest
+            ros_distribution: galactic
+            ros_version: 2
+          # Rolling Ridley  (June 2020 - Present)
+          - docker_image: rostooling/setup-ros-docker:ubuntu-focal-ros-rolling-ros-base-latest
+            ros_distribution: rolling
+            ros_version: 2
     runs-on: ubuntu-latest
-    container: ros:${{ matrix.ros_distro }}
-
+    container:
+      image: ${{ matrix.docker_image }}
     steps:
     - uses: actions/checkout@v2
 
-    - name: Install APT dependencies
+    - name: Search packages in this repository
+      id: list_packages
       run: |
-        sudo apt-get update
-        sudo apt-get install -y \
-          clang \
-          curl \
-          libclang-dev \
-          llvm-dev \
-          python3-colcon-common-extensions \
-          python3-vcstool
+        echo ::set-output name=package_list::$(colcon list --names-only)
+
+    - name: Setup ROS environment
+      uses: ros-tooling/setup-ros@v0.2
+      with:
+        required-ros-distributions: ${{ matrix.ros_distro }}
 
     - name: Setup Rust
       uses: actions-rs/toolchain@v1
@@ -39,29 +51,9 @@ jobs:
         override: true
         components: clippy, rustfmt
 
-    - name: Setup workspace
-      run: |
-          mkdir -p ~/ros2_rust_ws/src
-          cd ~/ros2_rust_ws
-          cp -av ${GITHUB_WORKSPACE}/ros2_rust_${{ matrix.ros_distro }}.repos .
-          vcs import src < ros2_rust_${{ matrix.ros_distro }}.repos
-          mkdir -p ~/ros2_rust_ws/src/ros2_rust
-          cp -av ${GITHUB_WORKSPACE} ~/ros2_rust_ws/src/ros2_rust/ros2_rust
-
-    - name: Install ROS dependencies
-      run: |
-          cd ~/ros2_rust_ws
-          rosdep update && rosdep install -y --from src --ignore-src
-
-    - name: Build ros2-rust (Linux)
-      run: |
-          . /opt/ros/${{ matrix.ros_distro }}/setup.sh
-          cd ~/ros2_rust_ws
-          colcon build --packages-skip test_msgs
-
-    - name: Test ros2-rust (Linux)
-      run: |
-          cd ~/ros2_rust_ws
-          . install/setup.sh
-          colcon test --packages-select rclrs rclrs_common rclrs_examples rosidl_generator_rs
-          colcon test-result --verbose
+    - name: build and test
+      uses: ros-tooling/action-ros-ci@v0.2
+      with:
+        package-name: ${{ steps.list_packages.outputs.package_list }}
+        target-ros2-distro: ${{ matrix.ros_distro }}
+        vcs-repo-file-url: ros2_rust_${{ matrix.ros_distro }}.repos
