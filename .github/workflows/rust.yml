@@ -32,8 +32,12 @@ jobs:
           python3-vcstool
 
     - name: Setup Rust
-      run: |
-        curl https://sh.rustup.rs -sSf | sh -s -- --profile minimal -y
+      uses: actions-rs/toolchain@v1
+      with:
+        profile: minimal
+        toolchain: stable
+        override: true
+        components: clippy, rustfmt
 
     - name: Setup workspace
       run: |
@@ -52,13 +56,11 @@ jobs:
     - name: Build ros2-rust (Linux)
       run: |
           . /opt/ros/${{ matrix.ros_distro }}/setup.sh
-          . ~/.cargo/env
           cd ~/ros2_rust_ws
           colcon build --packages-skip test_msgs
 
     - name: Test ros2-rust (Linux)
       run: |
-          . ~/.cargo/env
           cd ~/ros2_rust_ws
           . install/setup.sh
           colcon test --packages-select rclrs rclrs_common rclrs_examples rosidl_generator_rs
