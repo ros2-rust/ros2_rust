@@ -11,7 +11,7 @@ fn generate_clang_include_arg(ament_prefix_path: &str) -> Option<String> {
             // If the path exists, there should be a directory name. Otherwise, abort
             let project_name = ament_prefix_path.file_name().unwrap();
             let nested_project_include_path = include_dir.join(Path::new(project_name));
-            println!("Nested project include path: {}", nested_project_include_path.to_str().unwrap());
+            println!("\nNested project include path: {}", nested_project_include_path.to_str().unwrap());
             if nested_project_include_path.exists() {
                 println!("Nested path exists!");
                 // The path was created from only `str` objects, this should be safe to do
@@ -43,7 +43,7 @@ fn main() {
         .allowlist_function("rmw_.*")
         .allowlist_function("rcutils_.*")
         .allowlist_var("rcl_.*")
-        .allowlist_var("rcl_.*")
+        .allowlist_var("rmw_.*")
         .allowlist_var("rcutils_.*")
         .size_t_is_usize(true)
         .default_enum_style(bindgen::EnumVariation::Rust {
@@ -56,24 +56,9 @@ fn main() {
     if let Ok(ament_prefix_paths) = ament_prefix_var {
         for ament_prefix_path in ament_prefix_paths.split(':') {
             if let Some(clang_arg) = generate_clang_include_arg(ament_prefix_path) {
-                println!("Generated clang_arg: {}", clang_arg);
+                println!("Generated clang_arg: {}\n", clang_arg);
                 builder = builder.clang_arg(clang_arg);
             }
-            // let project_name = ament_prefix_path.rsplit('/').next().unwrap();
-            // println!("Project name: {}", project_name);
-            // if project_name == "rcl" {
-            //     let clang_arg = format!("-I{}/include/{}", ament_prefix_path, project_name);
-            //     println!("Clang Arg: {}", clang_arg);
-            //     builder = builder.clang_arg(clang_arg);
-            // } else {
-            //     let clang_arg = format!("-I{}/include", ament_prefix_path);
-            //     println!("Clang Arg: {}", clang_arg);
-            //     builder = builder.clang_arg(clang_arg);
-            // }
-            // let clang_arg = format!("-I{}/include/{}", ament_prefix_path, project_name);
-            // builder = builder.clang_arg(clang_arg);
-            // builder = builder.clang_arg(format!("-I{}/include", ament_prefix_path));
-            // The path was created from only `str` objects, this should be safe to do
             println!("cargo:rustc-link-search=native={}/lib", ament_prefix_path);
         }
     }
