@@ -26,7 +26,6 @@ What's missing?
 ---------------
 
 Lots of things!
-- An ament build type for Cargo. The current examples use CMake to install and build the binaries... and it's really ugly.
 - Component nodes
 - Clients and services
 - Tests
@@ -34,42 +33,33 @@ Lots of things!
 
 ### Limitations
 
-- messages are deep-copied and this can be terribly inefficient for big messages like images; the current solution leverages C typesupport implementations and might benefits from a direct serialization/deserialization
-- the current solution for crates export with CMake is not very robust
+- messages are deep-copied and this can be terribly inefficient for big messages like images; the current solution leverages C typesupport implementations and might benefit from a direct serialization/deserialization
 - `rclrs` interface is very limited for now and might not be so much idiomatic yet, any help and suggestion on the interface would be greatly appreciated
 - due to the current ROS2 support of non-default clients, packages containing definitions of messages used in Rust crates must be present in the current workspace; otherwise message crates generation won't be triggered
 
 Sounds great, how can I try this out?
 -------------------------------------
 
-You can build and run the example using the included Dockerfile: 
+The following steps were last tested on Ubuntu 20.04. Here, the Foxy distribution of ROS 2 is used, but newer distributions can be used by simply replacing 'foxy' with the distribution name.
 
 ```
-git clone https://github.com/ros2-rust/ros2_rust.git
-docker build --tag ros2:rust .
-docker run -it --rm ros2:rust
-ros2 run rclrs_examples rclrs_publisher &
-ros2 run rclrs_examples rclrs_subscriber
-
-```
-
-Or do so manually as summarized in the steps below:
-
-> The following steps were last tested on Ubuntu 20.04.
-
-```
-# first, install vcstool from PyPI or apt:
+# First, make sure to have ROS 2 and vcstool installed:
 # sudo apt install ros-foxy-desktop ros-foxy-test-interface-files python3-vcstool libclang-dev clang
+# vcstool can alternatively be installed from PyPI:
 # pip install vcstool
 
-mkdir -p ~/ros2_rust_ws/src/ros2-rust
-cd ~/ros2_rust_ws/src/ros2-rust
-git clone https://github.com/ros2-rust/ros2_rust.git
-cd ../../
-vcs import src < src/ros2-rust/ros2_rust/ros2_rust_foxy.repos
+# In your workspace directory (ideally an empty one), run 
+mkdir src
+git clone https://github.com/ros2-rust/ros2_rust.git src/ros2_rust.git
+vcs import src < src/ros2-rust/ros2_rust_foxy.repos
 source /opt/ros/foxy/setup.sh
-colcon build
+colcon build --install-base install_colcon --packages-up-to colcon-ros-cargo
+
+source install_colcon/setup.bash
+colcon build --packages-up-to rclrs_examples
 ```
+
+It's normal to see a `Some selected packages are already built in one or more underlay workspace` warning. This is because the standard message definitions that are part of ROS 2 need to be regenerated in order to create Rust bindings.
 
 Now you can just run a bunch of examples.
 
@@ -78,17 +68,19 @@ Now you can just run a bunch of examples.
 Publisher:
 
 ```
-. ./install/setup.sh
-
+# Do this in a new terminal
+source ./install/setup.sh
 ros2 run rclrs_examples rclrs_publisher
 ```
 
 Subscriber:
 
 ```
-. ./install/setup.sh
-
+# Do this in a new terminal
+source ./install/setup.sh
 ros2 run rclrs_examples rclrs_subscriber
 ```
 
 Enjoy!
+
+If something goes very wrong and you want to start fresh, make sure to delete all `install*`, `build*` and `.cargo` directories. Also, make sure your terminal does not have any install sourced (check with `echo $AMENT_PREFIX_PATH`, which should be empty).

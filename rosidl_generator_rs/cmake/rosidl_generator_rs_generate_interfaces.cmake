@@ -14,8 +14,6 @@
 
 find_package(rmw_implementation_cmake REQUIRED)
 find_package(rmw REQUIRED)
-find_package(ament_cmake_export_crates REQUIRED)
-find_package(rclrs_msg_utilities REQUIRED)
 
 if(NOT WIN32)
   if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
@@ -141,21 +139,12 @@ file(MAKE_DIRECTORY "${_output_path}")
 
 set(_target_suffix "__rs")
 
-set(_crate_deps "")
-set(CRATES_DEPENDENCIES "")
-find_package(rclrs_msg_utilities REQUIRED)
-foreach(_crate_dep ${rclrs_msg_utilities_CRATES})
-  list(APPEND _crate_deps "${_crate_dep}")
-  set(CRATES_DEPENDENCIES "${CRATES_DEPENDENCIES}\nrclrs_msg_utilities = { path = '${rclrs_msg_utilities_CRATES}' }")
-endforeach()
-
+set(CRATES_DEPENDENCIES "rclrs_msg_utilities = \"*\"")
 foreach(_pkg_name ${rosidl_generate_interfaces_DEPENDENCY_PACKAGE_NAMES})
   find_package(${_pkg_name} REQUIRED)
-  foreach(_crate_dep ${${_pkg_name}_CRATES})
-    list(APPEND _crate_deps "${_crate_dep}")
-    set(CRATES_DEPENDENCIES "${CRATES_DEPENDENCIES}\n${_pkg_name} = { path = '${_crate_dep}' }")
-  endforeach()
+  set(CRATES_DEPENDENCIES "${CRATES_DEPENDENCIES}\n${_pkg_name} = \"*\"")
 endforeach()
+ament_index_register_resource("rust_packages")
 
 
 # needed to avoid multiple calls to the Rust generator trick copied from
@@ -182,7 +171,6 @@ set(_generated_rs_files ${_generated_msg_rs_files} ${_generated_srv_rs_files})
 
 set(_rsext_suffix "__rsext")
 foreach(_typesupport_impl ${_typesupport_impls})
-  # message("<rosidl_generator_rs_generate_interfaces> _typesupport_impl: ${_typesupport_impl}")
   find_package(${_typesupport_impl} REQUIRED)
 
   set(_extension_compile_flags "")
@@ -245,10 +233,6 @@ foreach(_typesupport_impl ${_typesupport_impls})
       DIRECTORY "${_output_path}/rust"
       DESTINATION "share/${PROJECT_NAME}"
     )
-    ament_export_crates("share/${PROJECT_NAME}/rust")
-    # install("${PROJECT_NAME}/lib.rs" "share/${PROJECT_NAME}/rust/src")
-    # install("${PROJECT_NAME}/msg.rs" "share/${PROJECT_NAME}/rust/src")
-    # install("${PROJECT_NAME}/srv.rs" "share/${PROJECT_NAME}/rust/src")
     install(TARGETS ${_target_name}
       ARCHIVE DESTINATION lib
       LIBRARY DESTINATION lib

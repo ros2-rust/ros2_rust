@@ -154,7 +154,7 @@ def get_rs_name(name):
         'abstract', 'become', 'box', 'do', 'final', 'macro', 'override', 'priv', 'typeof', 'unsized', 'virtual',
         'yield', 'try'
     ]
-    # If the field name is a reserved keyword in rust append an underscore
+    # If the field name is a reserved keyword in Rust append an underscore
     return name if not name in keywords else name + '_'
 
 def escape_string(s):

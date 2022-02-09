@@ -11,8 +11,11 @@ repositories:
     type: git
     url: https://github.com/ros2/rosidl_defaults.git
     version: galactic
-  # ros2-rust/ros2_rust:
-  #   type: git
-  #   url: https://github.com/ros2-rust/ros2_rust.git
-  #   version: master
-
+  colcon/colcon-cargo:
+    type: git
+    url: https://github.com/colcon/colcon-cargo
+    version: master
+  colcon/colcon-ros-cargo:
+    type: git
+    url: https://github.com/colcon/colcon-ros-cargo
+    version: v1
