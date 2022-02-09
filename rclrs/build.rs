@@ -1,30 +1,40 @@
 extern crate bindgen;
 
 use std::env;
-use std::path::{PathBuf, Path};
+use std::path::{Path, PathBuf};
 
-fn generate_clang_include_arg(ament_prefix_path: &str) -> Vec<String> {
+fn generate_clang_include_arg(ament_prefix_path: &str) -> Option<Vec<String>> {
     let ament_prefix_path = Path::new(ament_prefix_path);
     if ament_prefix_path.exists() && ament_prefix_path.is_dir() {
         let include_dir = ament_prefix_path.join(Path::new("include"));
         if include_dir.exists() {
-            let mut flags = Vec::<String>::new();
-            flags.push(format!("-I{}", include_dir.to_str().unwrap()));
             // If the path exists, there should be a directory name. Otherwise, abort
             let project_name = ament_prefix_path.file_name().unwrap();
+
+            // Always include top-level include dir
+            let mut clang_flags = Vec::<String>::new();
+            clang_flags.push(format!("-I{}", include_dir.to_str().unwrap()));
+            
+            // Generate potential include path
             let nested_project_include_path = include_dir.join(Path::new(project_name));
-            println!("\nNested project include path: {}", nested_project_include_path.to_str().unwrap());
+            println!(
+                "\nNested project include path: {}",
+                nested_project_include_path.to_str().unwrap()
+            );
+
             if nested_project_include_path.exists() {
                 println!("Nested path exists!");
                 // The path was created from only `str` objects, this should be safe to do
-                flags.push(format!("-I{}", nested_project_include_path.to_str().unwrap()));
-            }
+                let generated_arg = format!("-I{}", nested_project_include_path.to_str().unwrap());
+                println!("Generated clang_arg: {}\n", generated_arg);
+                clang_flags.push(generated_arg)
+            } 
 
-            return flags;
+            return Some(clang_flags);
         }
     }
 
-    return Vec::<String>::new();
+    None
 }
 
 fn main() {
@@ -53,9 +63,8 @@ fn main() {
 
     if let Ok(ament_prefix_paths) = ament_prefix_var {
         for ament_prefix_path in ament_prefix_paths.split(':') {
-            for clang_arg in generate_clang_include_arg(ament_prefix_path) {
-                println!("Generated clang_arg: {}\n", clang_arg);
-                builder = builder.clang_arg(clang_arg);
+            if let Some(clang_args) = generate_clang_include_arg(ament_prefix_path) {
+                builder = builder.clang_args(clang_args);
             }
             println!("cargo:rustc-link-search=native={}/lib", ament_prefix_path);
         }
