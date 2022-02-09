@@ -3,11 +3,13 @@ extern crate bindgen;
 use std::env;
 use std::path::{PathBuf, Path};
 
-fn generate_clang_include_arg(ament_prefix_path: &str) -> Option<String> {
+fn generate_clang_include_arg(ament_prefix_path: &str) -> Vec<String> {
     let ament_prefix_path = Path::new(ament_prefix_path);
     if ament_prefix_path.exists() && ament_prefix_path.is_dir() {
         let include_dir = ament_prefix_path.join(Path::new("include"));
         if include_dir.exists() {
+            let mut flags = Vec::<String>::new();
+            flags.push(format!("-I{}", include_dir.to_str().unwrap()));
             // If the path exists, there should be a directory name. Otherwise, abort
             let project_name = ament_prefix_path.file_name().unwrap();
             let nested_project_include_path = include_dir.join(Path::new(project_name));
@@ -15,18 +17,14 @@ fn generate_clang_include_arg(ament_prefix_path: &str) -> Option<String> {
             if nested_project_include_path.exists() {
                 println!("Nested path exists!");
                 // The path was created from only `str` objects, this should be safe to do
-                let clang_arg = format!("-I{}", nested_project_include_path.to_str().unwrap());
-                return Some(clang_arg.to_owned());
-            } else {
-                println!("Nested path does not exist...");
-                // The path was created from only `str` objects, this should be safe to do
-                let clang_arg = format!("-I{}", include_dir.to_str().unwrap());
-                return Some(clang_arg.to_owned());
+                flags.push(format!("-I{}", nested_project_include_path.to_str().unwrap()));
             }
+
+            return flags;
         }
     }
 
-    None
+    return Vec::<String>::new();
 }
 
 fn main() {
@@ -55,7 +53,7 @@ fn main() {
 
     if let Ok(ament_prefix_paths) = ament_prefix_var {
         for ament_prefix_path in ament_prefix_paths.split(':') {
-            if let Some(clang_arg) = generate_clang_include_arg(ament_prefix_path) {
+            for clang_arg in generate_clang_include_arg(ament_prefix_path) {
                 println!("Generated clang_arg: {}\n", clang_arg);
                 builder = builder.clang_arg(clang_arg);
             }
