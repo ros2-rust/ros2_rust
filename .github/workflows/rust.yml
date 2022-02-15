@@ -51,6 +51,11 @@ jobs:
         override: true
         components: clippy, rustfmt
 
+    - name: Install colcon-cargo and colcon-ros-cargo
+      run: |
+        pip install git+https://github.com/colcon/colcon-cargo.git
+        pip install git+https://github.com/colcon/colcon-ros-cargo.git@v1
+
     - name: build and test
       uses: ros-tooling/action-ros-ci@v0.2
       with:
