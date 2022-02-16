@@ -56,6 +56,10 @@ jobs:
         sudo pip3 install git+https://github.com/colcon/colcon-cargo.git
         sudo pip3 install git+https://github.com/colcon/colcon-ros-cargo.git@v1
 
+    - name: Install cargo-ament-build
+      run: |
+        cargo install cargo-ament-build
+
     - name: build and test
       uses: ros-tooling/action-ros-ci@v0.2
       with:
