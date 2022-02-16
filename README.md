@@ -43,19 +43,19 @@ Sounds great, how can I try this out?
 The following steps were last tested on Ubuntu 20.04. Here, the Foxy distribution of ROS 2 is used, but newer distributions can be used by simply replacing 'foxy' with the distribution name.
 
 ```
-# First, make sure to have ROS 2 and vcstool installed:
+# First, make sure to have ROS 2 and vcstool installed (alternatively, install vcstool with pip):
 # sudo apt install ros-foxy-desktop ros-foxy-test-interface-files python3-vcstool libclang-dev clang
-# vcstool can alternatively be installed from PyPI:
-# pip install vcstool
+# Install the colcon-cargo and colcon-ros-cargo plugins
+pip install git+https://github.com/colcon/colcon-cargo.git
+pip install git+https://github.com/colcon/colcon-ros-cargo.git@v1
+# Install the cargo-ament-build plugin
+cargo install cargo-ament-build
 
 # In your workspace directory (ideally an empty one), run 
 mkdir src
-git clone https://github.com/ros2-rust/ros2_rust.git src/ros2_rust.git
-vcs import src < src/ros2-rust/ros2_rust_foxy.repos
-source /opt/ros/foxy/setup.sh
-colcon build --install-base install_colcon --packages-up-to colcon-ros-cargo
-
-source install_colcon/setup.bash
+git clone https://github.com/ros2-rust/ros2_rust.git src/ros2_rust
+vcs import src < src/ros2_rust/ros2_rust_foxy.repos
+. /opt/ros/foxy/setup.sh
 colcon build --packages-up-to rclrs_examples
 ```
 
@@ -69,7 +69,7 @@ Publisher:
 
 ```
 # Do this in a new terminal
-source ./install/setup.sh
+. ./install/setup.sh
 ros2 run rclrs_examples rclrs_publisher
 ```
 
@@ -77,7 +77,7 @@ Subscriber:
 
 ```
 # Do this in a new terminal
-source ./install/setup.sh
+. ./install/setup.sh
 ros2 run rclrs_examples rclrs_subscriber
 ```
 
