@@ -9,8 +9,6 @@
   <maintainer email="esteve@apache.org">Esteve Fernandez</maintainer>
   <license>Apache License 2.0</license>
 
-  <buildtool_depend>colcon-ros-cargo</buildtool_depend>
-
   <buildtool_depend>rosidl_default_generators</buildtool_depend>
   <buildtool_depend>rosidl_generator_rs</buildtool_depend>
 

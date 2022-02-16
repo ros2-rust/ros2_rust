@@ -10,8 +10,6 @@
   <license>Apache License 2.0</license>
   <author email="jhassold@dcscorp.com">Jacob Hassold</author>
 
-  <buildtool_depend>colcon-ros-cargo</buildtool_depend>
-
   <export>
     <build_type>ament_cargo</build_type>
   </export>
