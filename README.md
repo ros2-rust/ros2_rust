@@ -47,7 +47,7 @@ The following steps were last tested on Ubuntu 20.04. Here, the Foxy distributio
 # sudo apt install ros-foxy-desktop ros-foxy-test-interface-files python3-vcstool libclang-dev clang
 # Install the colcon-cargo and colcon-ros-cargo plugins
 pip install git+https://github.com/colcon/colcon-cargo.git
-pip install git+https://github.com/colcon/colcon-ros-cargo.git@v1
+pip install git+https://github.com/colcon/colcon-ros-cargo.git
 # Install the cargo-ament-build plugin
 cargo install cargo-ament-build
 
