@@ -55,8 +55,7 @@ jobs:
     - name: Install colcon-cargo and colcon-ros-cargo
       run: |
         sudo pip3 install git+https://github.com/colcon/colcon-cargo.git
-        sudo pip3 install git+https://github.com/colcon/colcon-ros-cargo.git@v1
-        colcon list
+        sudo pip3 install git+https://github.com/colcon/colcon-ros-cargo.git
 
     - name: Install cargo-ament-build
       run: |
