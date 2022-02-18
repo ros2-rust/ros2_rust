@@ -10,15 +10,10 @@
   <license>Apache License 2.0</license>
   <author email="esteve@apache.org">Esteve Fernandez</author>
 
-  <buildtool_depend>ament_cmake</buildtool_depend>
-  <buildtool_depend>ament_cmake_export_crates</buildtool_depend>
-  <buildtool_depend>rclrs_crate_config_generator</buildtool_depend>
-
   <build_depend>rclrs_msg_utilities</build_depend>
   <build_depend>rcl</build_depend>
-  <build_depend>rcl_interfaces</build_depend>
 
   <export>
-    <build_type>ament_cmake</build_type>
+    <build_type>ament_cargo</build_type>
   </export>
 </package>
