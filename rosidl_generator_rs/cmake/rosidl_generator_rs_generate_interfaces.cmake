@@ -36,13 +36,8 @@ set(_output_path
 set(_generated_extension_files "")
 set(_generated_common_rs_files "")
 
-set(_generated_c_files "")
-set(_generated_rs_files "")
-
 set(_generated_msg_rs_files "")
-set(_generated_msg_c_files "")
 set(_generated_srv_rs_files "")
-set(_generated_srv_c_files "")
 
 set(_has_msg FALSE)
 set(_has_srv FALSE)
@@ -162,12 +157,8 @@ set_property(
   ${_generated_extension_files}
   ${_generated_common_rs_files}
   ${_generated_msg_rs_files}
-  ${_generated_msg_c_files}
   ${_generated_srv_rs_files}
   PROPERTY GENERATED 1)
-
-set(_type_support_by_generated_c_files ${_type_support_by_generated_msg_c_files} ${_type_support_by_generated_srv_c_files})
-set(_generated_rs_files ${_generated_msg_rs_files} ${_generated_srv_rs_files})
 
 set(_rsext_suffix "__rsext")
 foreach(_typesupport_impl ${_typesupport_impls})

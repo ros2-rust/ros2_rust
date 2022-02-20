@@ -17,11 +17,24 @@ from rosidl_parser.definition import Array
 type_name = msg_spec.structure.namespaced_type.name
 }@
 
-#[derive(Default)]
 pub struct @(type_name) {
 @[for member in msg_spec.structure.members]@
     pub @(get_rs_name(member.name)): @(get_rs_type(member.type).replace(package_name, 'crate')),
 @[end for]@
+}
+
+impl Default for @(type_name) {
+  fn default() -> Self {
+    Self {
+@[for member in msg_spec.structure.members]@
+@[    if isinstance(member.type, Array) and member.type.has_maximum_size() and isinstance(member.type.value_type, BasicType)]@
+    @(get_rs_name(member.name)): [Default::default(); @(member.type.size)],
+@[    else]@
+    @(get_rs_name(member.name)): Default::default(),
+@[    end if]@
+@[end for]@
+    }
+  }
 }
 
 #[link(name = "@(package_name)__rosidl_typesupport_c__rsext")]
@@ -30,7 +43,9 @@ extern "C" {
 
     fn @(package_name)_@(subfolder)_@(convert_camel_case_to_lower_case_underscore(type_name))_get_native_message(
 @[for member in msg_spec.structure.members]@
-@[    if isinstance(member.type, AbstractGenericString)]@
+@[    if isinstance(member.type, Array) and member.type.has_maximum_size() and isinstance(member.type.value_type, BasicType)]@
+    @(get_rs_name(member.name)): *const @(get_rs_type(member.type.value_type)),
+@[    elif isinstance(member.type, AbstractGenericString)]@
     @(get_rs_name(member.name)): *const c_char,
 @[    elif isinstance(member.type, BasicType)]@
     @(get_rs_name(member.name)): @(get_rs_type(member.type)),
@@ -41,7 +56,8 @@ extern "C" {
     fn @(package_name)_@(subfolder)_@(convert_camel_case_to_lower_case_underscore(type_name))_destroy_native_message(message_handle: uintptr_t) -> ();
 
 @[for member in msg_spec.structure.members]@
-@[    if isinstance(member.type, Array)]@
+@[    if isinstance(member.type, Array) and member.type.has_maximum_size() and isinstance(member.type.value_type, BasicType)]@
+    fn @(package_name)_@(subfolder)_@(convert_camel_case_to_lower_case_underscore(type_name))_@(member.name)_read_handle(message_handle: uintptr_t) -> *const @(get_rs_type(member.type.value_type));
 @[    elif isinstance(member.type, AbstractGenericString)]@
     fn @(package_name)_@(subfolder)_@(convert_camel_case_to_lower_case_underscore(type_name))_@(member.name)_read_handle(message_handle: uintptr_t) -> *const c_char;
 @[    elif isinstance(member.type, BasicType)]@
@@ -54,7 +70,8 @@ impl @(type_name) {
   fn get_native_message(&self) -> uintptr_t {
     return unsafe { @(package_name)_@(subfolder)_@(convert_camel_case_to_lower_case_underscore(type_name))_get_native_message(
 @[for member in msg_spec.structure.members]@
-@[    if isinstance(member.type, Array)]@
+@[    if isinstance(member.type, Array) and member.type.has_maximum_size() and isinstance(member.type.value_type, BasicType)]@
+        &self.@(get_rs_name(member.name)) as *const @(get_rs_type(member.type.value_type)),
 @[    elif isinstance(member.type, AbstractGenericString)]@
     {let s = CString::new(self.@(get_rs_name(member.name)).clone()).unwrap();
     let p = s.as_ptr();
@@ -78,7 +95,9 @@ impl @(type_name) {
     unsafe {
       {
 @[for member in msg_spec.structure.members]@
-@[    if isinstance(member.type, Array)]@
+@[    if isinstance(member.type, Array) and member.type.has_maximum_size() and isinstance(member.type.value_type, BasicType)]@
+      let ptr = @(package_name)_@(subfolder)_@(convert_camel_case_to_lower_case_underscore(type_name))_@(member.name)_read_handle(_message_handle);
+      std::ptr::copy(ptr, self.@(get_rs_name(member.name)).as_mut_ptr(), @(member.type.size));
 @[    elif isinstance(member.type, AbstractGenericString)]@
       let ptr = @(package_name)_@(subfolder)_@(convert_camel_case_to_lower_case_underscore(type_name))_@(member.name)_read_handle(_message_handle);
       self.@(get_rs_name(member.name)) = CStr::from_ptr(ptr).to_string_lossy().into_owned();

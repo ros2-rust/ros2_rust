@@ -1,1 +1,0 @@
-uint32 empty_uint32

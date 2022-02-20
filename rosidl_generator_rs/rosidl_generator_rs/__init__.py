@@ -269,7 +269,7 @@ def get_builtin_rs_type(type_, package_name=None):
     elif isinstance(type_, AbstractGenericString):
         return 'std::string::String'
     elif isinstance(type_, Array):
-        return '[{}; {}]'.format(get_rs_type(type_.value_type), 32 if type_.size <= 32 else 32)
+        return '[{}; {}]'.format(get_rs_type(type_.value_type), type_.size)
     elif isinstance(type_, AbstractSequence):
         return 'Vec<{}>'.format(get_rs_type(type_.value_type))
 
@@ -319,6 +319,12 @@ def get_builtin_c_type(type_):
 
 
 def get_c_type(type_, subfolder='msg'):
+    if isinstance(type_, Array):
+        return 'const {} *'.format(get_c_type(type_.value_type))
+    # elif isinstance(type_, NamespacedType):
+    #     components = [ns.value for ns in type_.namespaces] + [type_.name]
+    #     return '__'.join(components)
+
     if not isinstance(type_, BasicType) and not isinstance(type_, AbstractGenericString):
         return 'uintptr_t'
 
