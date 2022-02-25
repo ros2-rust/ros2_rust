@@ -2,11 +2,11 @@ use crate::error::{RclReturnCode, ToResult};
 use crate::qos::QoSProfile;
 use crate::rcl_bindings::*;
 use crate::{Node, NodeHandle};
-use rclrs_msg_utilities::traits::MessageDefinition;
 use alloc::sync::Arc;
 use core::borrow::Borrow;
 use core::marker::PhantomData;
 use cstr_core::CString;
+use rclrs_msg_utilities::traits::MessageDefinition;
 
 #[cfg(not(feature = "std"))]
 use spin::{Mutex, MutexGuard};
