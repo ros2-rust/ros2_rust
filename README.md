@@ -40,7 +40,7 @@ Lots of things!
 Sounds great, how can I try this out?
 -------------------------------------
 
-The following steps were last tested on Ubuntu 20.04. Here, the Foxy distribution of ROS 2 is used, but newer distributions can be used by simply replacing 'foxy' with the distribution name.
+Here, the Foxy distribution of ROS 2 is used, but newer distributions can be used by simply replacing 'foxy' with the distribution name.
 
 ```
 # First, make sure to have ROS 2 and vcstool installed (alternatively, install vcstool with pip):
@@ -61,9 +61,27 @@ colcon build --packages-up-to rclrs_examples
 
 It's normal to see a `Some selected packages are already built in one or more underlay workspace` warning. This is because the standard message definitions that are part of ROS 2 need to be regenerated in order to create Rust bindings.
 
-Now you can just run a bunch of examples.
+### Building with `cargo`
+As an alternative to `colcon`, Rust packages can be built with pure `cargo`.
 
-### Publisher and subscriber
+However, this will not work out of the box, since the `Cargo.toml` files contain dependencies like `rclrs = "*"`, even though `rclrs` is not published on crates.io. This is intentional and follows ROS 2's principle for packages to reference their dependencies only with their name, and not with their path. At build-time, these dependencies are resolved to a path to the local package by `colcon`, and written into `.cargo/config.toml`. Therefore, the package in question should once be built with `colcon` initially, and after that `cargo` will be able to use the `.cargo/config.toml` file to find all dependencies.
+
+A second catch is that `cargo` message packages link against native libraries. A convenient way to ensure that they are found is to also source the setup script produced by `colcon`.
+
+As an example, here is how to build `rclcrs_examples` with `cargo`:
+
+```
+# Initial build of the package with colcon
+# Compare .cargo/config.toml with and without the --lookup-in-workspace flag to see its effect
+colcon build --packages-up-to rclrs_examples --lookup-in-workspace
+# Source the install directory
+. install/setup.bash
+cd rclrs_examples
+# Run cargo build, or cargo check, cargo doc, etc.
+cargo build
+```
+
+### Running the publisher and subscriber
 
 Publisher:
 
