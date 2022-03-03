@@ -25,11 +25,6 @@ fn main() {
             non_exhaustive: false,
         });
 
-    for (k, v) in env::vars() {
-        println!("{}={}", k, v)
-    }
-    println!("\n");
-
     let ament_prefix_var_name = "AMENT_PREFIX_PATH";
     let ament_prefix_var = env::var(ament_prefix_var_name);
 
