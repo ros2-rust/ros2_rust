@@ -144,7 +144,6 @@ pub enum ClientErrorCode {
     ClientInvalid = 500,
     /// Failed to take a response from the client
     ClientTakeFailed = 501,
-
 }
 impl TryFrom<i32> for ClientErrorCode {
     type Error = i32;
@@ -374,9 +373,7 @@ impl TryFrom<i32> for LifecycleErrorCode {
     type Error = i32;
     fn try_from(value: i32) -> Result<Self, Self::Error> {
         match value {
-            x if x == Self::LifecycleStateRegistered as i32 => {
-                Ok(Self::LifecycleStateRegistered)
-            }
+            x if x == Self::LifecycleStateRegistered as i32 => Ok(Self::LifecycleStateRegistered),
             x if x == Self::LifecycleStateNotRegistered as i32 => {
                 Ok(Self::LifecycleStateNotRegistered)
             }
@@ -599,7 +596,6 @@ pub fn to_rcl_result(code: i32) -> Result<(), RclReturnCode> {
         anything_else => Err(anything_else),
     }
 }
-
 
 pub(crate) trait ToResult {
     fn ok(&self) -> Result<(), RclReturnCode>;
