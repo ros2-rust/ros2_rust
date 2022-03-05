@@ -6,7 +6,7 @@ use alloc::sync::Arc;
 use core::borrow::Borrow;
 use core::marker::PhantomData;
 use cstr_core::CString;
-use rclrs_msg_utilities::traits::MessageDefinition;
+use rosidl_runtime_rs::{Message, RmwMessage};
 
 #[cfg(not(feature = "std"))]
 use spin::{Mutex, MutexGuard};
@@ -50,7 +50,7 @@ impl Drop for PublisherHandle {
 /// Main class responsible for publishing data to ROS topics
 pub struct Publisher<T>
 where
-    T: MessageDefinition<T>,
+    T: Message,
 {
     pub handle: Arc<PublisherHandle>,
     message: PhantomData<T>,
@@ -58,14 +58,15 @@ where
 
 impl<T> Publisher<T>
 where
-    T: MessageDefinition<T>,
+    T: Message,
 {
     pub fn new(node: &Node, topic: &str, qos: QoSProfile) -> Result<Self, RclReturnCode>
     where
-        T: MessageDefinition<T>,
+        T: Message,
     {
         let mut publisher_handle = unsafe { rcl_get_zero_initialized_publisher() };
-        let type_support = T::get_type_support() as *const rosidl_message_type_support_t;
+        let type_support =
+            <T as Message>::RmwMsg::get_type_support() as *const rosidl_message_type_support_t;
         let topic_c_string = CString::new(topic).unwrap();
         let node_handle = &mut *node.handle.lock();
 
@@ -94,17 +95,16 @@ where
         })
     }
 
-    pub fn publish(&self, message: &T) -> Result<(), RclReturnCode> {
-        let native_message_ptr = message.get_native_message();
+    pub fn publish(&self, message: T) -> Result<(), RclReturnCode> {
         let handle = &mut *self.handle.lock();
+        let mut rmw_message = message.into_rmw_message();
         let ret = unsafe {
             rcl_publish(
                 handle as *mut _,
-                native_message_ptr as *mut _,
+                &mut rmw_message as *mut <T as Message>::RmwMsg as *mut _,
                 core::ptr::null_mut(),
             )
         };
-        message.destroy_native_message(native_message_ptr);
         ret.ok()
     }
 }

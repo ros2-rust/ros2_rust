@@ -1,1 +1,0 @@
-uint64 empty_uint64

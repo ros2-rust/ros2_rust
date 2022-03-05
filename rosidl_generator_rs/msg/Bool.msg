@@ -1,1 +1,0 @@
-bool empty_bool

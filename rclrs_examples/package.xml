@@ -14,13 +14,17 @@
 
   <build_depend>example_interfaces</build_depend>
   <build_depend>rclrs</build_depend>
-  <build_depend>rclrs_msg_utilities</build_depend>
+  <build_depend>rosidl_runtime_rs</build_depend>
   <build_depend>std_msgs</build_depend>
+  <build_depend>rclrs_example_msgs</build_depend>
+  <build_depend>geometry_msgs</build_depend>
 
   <exec_depend>rosidl_generator_rs</exec_depend>
   <exec_depend>rclrs</exec_depend>
-  <exec_depend>rclrs_msg_utilities</exec_depend>
+  <exec_depend>rosidl_runtime_rs</exec_depend>
   <exec_depend>std_msgs</exec_depend>
+  <exec_depend>rclrs_example_msgs</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
 
   <export>
     <build_type>ament_cargo</build_type>

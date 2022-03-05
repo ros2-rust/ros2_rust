@@ -3,13 +3,16 @@
    href="http://download.ros.org/schema/package_format3.xsd"
    schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>rclrs_msg_utilities</name>
+  <name>rosidl_runtime_rs</name>
   <version>0.0.1</version>
   <description>Message generation code shared by Rust projects in ROS 2</description>
   <maintainer email="jhassold@dcscorp.com">Jacob Hassold</maintainer>
+  <maintainer email="nnmmgit@gmail.com">Nikolai Morin</maintainer>
   <license>Apache License 2.0</license>
   <author email="jhassold@dcscorp.com">Jacob Hassold</author>
+  <author email="nnmmgit@gmail.com">Nikolai Morin</author>
 
+  <depend>rosidl_runtime_c</depend>
   <export>
     <build_type>ament_cargo</build_type>
   </export>

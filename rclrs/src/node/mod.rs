@@ -6,9 +6,10 @@ use alloc::{
 use crate::error::{RclReturnCode, ToResult};
 use crate::qos::QoSProfile;
 use crate::rcl_bindings::*;
-use rclrs_msg_utilities::traits::MessageDefinition;
-
 use crate::{Context, ContextHandle};
+
+use rosidl_runtime_rs::Message;
+
 use cstr_core::CString;
 
 pub mod publisher;
@@ -96,7 +97,7 @@ impl Node {
         qos: QoSProfile,
     ) -> Result<Publisher<T>, RclReturnCode>
     where
-        T: MessageDefinition<T>,
+        T: Message,
     {
         Publisher::<T>::new(self, topic, qos)
     }
@@ -109,7 +110,7 @@ impl Node {
         callback: F,
     ) -> Result<Arc<Subscription<T>>, RclReturnCode>
     where
-        T: MessageDefinition<T> + Default,
+        T: Message + 'static,
         F: FnMut(&T) + Sized + 'static,
     {
         let subscription = Arc::new(Subscription::<T>::new(self, topic, qos, callback)?);
