@@ -264,6 +264,29 @@ where
     }
 }
 
+impl <T: Default + SequenceAlloc> Sequence<T> {
+    /// Internal function for the sequence_copy impl. To be removed when rosidl#650 is backported.
+    /// 
+    /// This function is not available in Rolling since Rolling should use rcutils_allocator_t.
+    #[cfg(not(ros_distro = "rolling"))]
+    pub fn resize_to_at_least(&mut self, len: usize) {
+        let allocation_size = std::mem::size_of::<Self>() * len;
+        if self.capacity < len {
+            let data = unsafe { libc::realloc(self.data as *mut _, allocation_size) } as *mut T;
+            if data.is_null() {
+                panic!("realloc failed");
+            }
+            // Initialize the new memory
+            for i in self.capacity..len {
+                unsafe { data.add(i).write(T::default()); }
+            }
+            self.data = data;
+            self.size = len;
+            self.capacity = len;
+        }
+    }
+}
+
 // ========================= impl for BoundedSequence =========================
 
 impl<T: Debug + SequenceAlloc, const N: usize> Debug for BoundedSequence<T, N> {
@@ -486,6 +509,7 @@ macro_rules! sequence_alloc_impl {
         extern "C" {
             fn $init_func(seq: *mut Sequence<$rust_type>, size: libc::size_t) -> bool;
             fn $fini_func(seq: *mut Sequence<$rust_type>);
+            #[cfg(ros_distro = "rolling")]
             fn $copy_func(
                 in_seq: *const Sequence<$rust_type>,
                 out_seq: *mut Sequence<$rust_type>,
@@ -509,7 +533,28 @@ macro_rules! sequence_alloc_impl {
             }
             fn sequence_copy(in_seq: &Sequence<Self>, out_seq: &mut Sequence<Self>) -> bool {
                 // SAFETY: There are no special preconditions to the sequence_copy function.
-                unsafe { $copy_func(in_seq as *const _, out_seq as *mut _) }
+                #[cfg(ros_distro = "rolling")]
+                unsafe {
+                    $copy_func(in_seq as *const _, out_seq as *mut _)
+                }
+
+                #[cfg(not(ros_distro = "rolling"))]
+                {
+                    let allocation_size = std::mem::size_of::<Self>() * in_seq.size;
+                    if out_seq.capacity < in_seq.size {
+                        let data = unsafe { libc::realloc(out_seq.data as *mut _, allocation_size) };
+                        if data.is_null() {
+                            return false;
+                        }
+                        out_seq.data = data as *mut _;
+                        out_seq.capacity = in_seq.size;
+                    }
+                    unsafe {
+                        libc::memcpy(out_seq.data as *mut _, in_seq.data as *const _, allocation_size);
+                    }
+                    out_seq.size = in_seq.size;
+                    true
+                }
             }
         }
     };

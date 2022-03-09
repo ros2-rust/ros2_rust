@@ -118,6 +118,7 @@ macro_rules! string_impl {
             fn $assignn(s: *mut $string, value: *const $char_type, n: libc::size_t) -> bool;
             fn $sequence_init(seq: *mut Sequence<$string>, size: libc::size_t) -> bool;
             fn $sequence_fini(seq: *mut Sequence<$string>);
+            #[cfg(ros_distro = "rolling")]
             fn $sequence_copy(
                 in_seq: *const Sequence<$string>,
                 out_seq: *mut Sequence<$string>,
@@ -228,7 +229,16 @@ macro_rules! string_impl {
             }
             fn sequence_copy(in_seq: &Sequence<Self>, out_seq: &mut Sequence<Self>) -> bool {
                 // SAFETY: There are no special preconditions to the sequence_copy function.
-                unsafe { $sequence_copy(in_seq as *const _, out_seq as *mut _) }
+                #[cfg(ros_distro = "rolling")]
+                unsafe {
+                    $sequence_copy(in_seq as *const _, out_seq as *mut _)
+                }
+                #[cfg(not(ros_distro = "rolling"))]
+                {
+                    out_seq.resize_to_at_least(in_seq.len());
+                    out_seq.clone_from_slice(in_seq.as_slice());
+                    true
+                }
             }
         }
     };
@@ -349,11 +359,11 @@ impl<const N: usize> SequenceAlloc for BoundedString<N> {
         unsafe { rosidl_runtime_c__String__Sequence__fini(seq as *mut Sequence<Self> as *mut _) }
     }
     fn sequence_copy(in_seq: &Sequence<Self>, out_seq: &mut Sequence<Self>) -> bool {
-        // SAFETY: There are no special preconditions to the rosidl_runtime_c__String__Sequence__copy function.
+        // SAFETY: Transmute of a transparent type to the inner type is fine
         unsafe {
-            rosidl_runtime_c__String__Sequence__copy(
-                in_seq as *const Sequence<Self> as *const _,
-                out_seq as *mut Sequence<Self> as *mut _,
+            <String as SequenceAlloc>::sequence_copy(
+                std::mem::transmute::<&Sequence<Self>, &Sequence<String>>(in_seq),
+                std::mem::transmute::<&mut Sequence<Self>, &mut Sequence<String>>(out_seq),
             )
         }
     }
@@ -415,11 +425,11 @@ impl<const N: usize> SequenceAlloc for BoundedWString<N> {
         unsafe { rosidl_runtime_c__U16String__Sequence__fini(seq as *mut Sequence<Self> as *mut _) }
     }
     fn sequence_copy(in_seq: &Sequence<Self>, out_seq: &mut Sequence<Self>) -> bool {
-        // SAFETY: There are no special preconditions to the rosidl_runtime_c__U16String__Sequence__copy function.
+        // SAFETY: Transmute of a transparent type to the inner type is fine
         unsafe {
-            rosidl_runtime_c__U16String__Sequence__copy(
-                in_seq as *const Sequence<Self> as *const _,
-                out_seq as *mut Sequence<Self> as *mut _,
+            <WString as SequenceAlloc>::sequence_copy(
+                std::mem::transmute::<&Sequence<Self>, &Sequence<WString>>(in_seq),
+                std::mem::transmute::<&mut Sequence<Self>, &mut Sequence<WString>>(out_seq),
             )
         }
     }
