@@ -3,7 +3,8 @@ use crate::qos::QoSProfile;
 use crate::rcl_bindings::*;
 use crate::{Node, NodeHandle};
 use alloc::sync::Arc;
-use core::borrow::Borrow;
+use core::borrow::{Borrow};
+use std::borrow::Cow;
 use core::marker::PhantomData;
 use cstr_core::CString;
 use rosidl_runtime_rs::{Message, RmwMessage};
@@ -96,12 +97,20 @@ where
     }
 
     pub fn publish(&self, message: T) -> Result<(), RclReturnCode> {
+        self.publish_cow(Cow::Owned(message))
+    }
+
+    pub fn publish_ref(&self, message: &T) -> Result<(), RclReturnCode> {
+        self.publish_cow(Cow::Borrowed(message))
+    }
+
+    fn publish_cow(&self, message: Cow<'_, T>) -> Result<(), RclReturnCode> {
+        let rmw_message = T::into_rmw_message(message);
         let handle = &mut *self.handle.lock();
-        let mut rmw_message = message.into_rmw_message();
         let ret = unsafe {
             rcl_publish(
                 handle as *mut _,
-                &mut rmw_message as *mut <T as Message>::RmwMsg as *mut _,
+                rmw_message.as_ref() as *const <T as Message>::RmwMsg as *mut _,
                 core::ptr::null_mut(),
             )
         };

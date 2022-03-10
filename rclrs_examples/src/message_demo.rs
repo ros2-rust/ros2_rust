@@ -59,7 +59,7 @@ fn check_default_values() {
 
     // The default instance for the idiomatic type also has the defaults set
     assert_eq!(
-        rclrs_example_msgs::msg::VariousTypes::default().into_rmw_message(),
+        rclrs_example_msgs::msg::VariousTypes::default().into_owned_rmw_message(),
         msg
     );
 }

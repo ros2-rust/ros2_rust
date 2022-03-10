@@ -15,6 +15,7 @@
 // DISTRIBUTION A. Approved for public release; distribution unlimited.
 // OPSEC #4584.
 //
+use std::borrow::Cow;
 use std::fmt::Debug;
 
 /// Internal trait that connects a particular `Sequence<T>` instance to generated C functions
@@ -126,8 +127,12 @@ pub trait Message: Clone + Debug + Default {
     type RmwMsg: RmwMessage;
 
     /// Converts the idiomatic message into a RMW-compatible message.
-    fn into_rmw_message(self) -> Self::RmwMsg;
+    fn into_rmw_message<'a>(msg_cow: Cow<'a, Self>) -> Cow<'a, Self::RmwMsg>;
 
     /// Converts the RMW-compatible message into an idiomatic message.
     fn from_rmw_message(msg: Self::RmwMsg) -> Self;
+
+    fn into_owned_rmw_message(self) -> Self::RmwMsg {
+        Self::into_rmw_message(Cow::Owned(self)).into_owned()
+    }
 }

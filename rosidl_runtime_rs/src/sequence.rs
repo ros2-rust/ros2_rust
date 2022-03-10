@@ -264,9 +264,9 @@ where
     }
 }
 
-impl <T: Default + SequenceAlloc> Sequence<T> {
+impl<T: Default + SequenceAlloc> Sequence<T> {
     /// Internal function for the sequence_copy impl. To be removed when rosidl#650 is backported.
-    /// 
+    ///
     /// This function is not available in Rolling since Rolling should use rcutils_allocator_t.
     #[cfg(not(ros_distro = "rolling"))]
     pub fn resize_to_at_least(&mut self, len: usize) {
@@ -278,7 +278,9 @@ impl <T: Default + SequenceAlloc> Sequence<T> {
             }
             // Initialize the new memory
             for i in self.capacity..len {
-                unsafe { data.add(i).write(T::default()); }
+                unsafe {
+                    data.add(i).write(T::default());
+                }
             }
             self.data = data;
             self.size = len;
@@ -542,7 +544,8 @@ macro_rules! sequence_alloc_impl {
                 {
                     let allocation_size = std::mem::size_of::<Self>() * in_seq.size;
                     if out_seq.capacity < in_seq.size {
-                        let data = unsafe { libc::realloc(out_seq.data as *mut _, allocation_size) };
+                        let data =
+                            unsafe { libc::realloc(out_seq.data as *mut _, allocation_size) };
                         if data.is_null() {
                             return false;
                         }
@@ -550,7 +553,11 @@ macro_rules! sequence_alloc_impl {
                         out_seq.capacity = in_seq.size;
                     }
                     unsafe {
-                        libc::memcpy(out_seq.data as *mut _, in_seq.data as *const _, allocation_size);
+                        libc::memcpy(
+                            out_seq.data as *mut _,
+                            in_seq.data as *const _,
+                            allocation_size,
+                        );
                     }
                     out_seq.size = in_seq.size;
                     true
