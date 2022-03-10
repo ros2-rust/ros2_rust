@@ -122,7 +122,7 @@ pub trait RmwMessage: Clone + Debug + Default {
 ///  problem, since nothing is allocated this way.
 /// The `Drop` impl for any sequence or string will call `fini()`.
 
-pub trait Message: Clone + Debug + Default {
+pub trait Message: Clone + Debug + Default + 'static {
     /// The corresponding RMW-compatible message type.
     type RmwMsg: RmwMessage;
 

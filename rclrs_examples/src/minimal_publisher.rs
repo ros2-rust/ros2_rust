@@ -22,7 +22,7 @@ fn main() -> Result<(), Error> {
     while context.ok()? {
         message.data = format!("Hello, world! {}", publish_count);
         println!("Publishing: [{}]", message.data);
-        publisher.publish(message.clone())?;
+        publisher.publish(&message)?;
         publish_count += 1;
         std::thread::sleep(std::time::Duration::from_millis(500));
     }

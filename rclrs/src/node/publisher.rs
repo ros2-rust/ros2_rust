@@ -3,11 +3,10 @@ use crate::qos::QoSProfile;
 use crate::rcl_bindings::*;
 use crate::{Node, NodeHandle};
 use alloc::sync::Arc;
-use core::borrow::{Borrow};
-use std::borrow::Cow;
 use core::marker::PhantomData;
 use cstr_core::CString;
 use rosidl_runtime_rs::{Message, RmwMessage};
+use std::borrow::{Borrow, Cow};
 
 #[cfg(not(feature = "std"))]
 use spin::{Mutex, MutexGuard};
@@ -96,16 +95,23 @@ where
         })
     }
 
-    pub fn publish(&self, message: T) -> Result<(), RclReturnCode> {
-        self.publish_cow(Cow::Owned(message))
-    }
-
-    pub fn publish_ref(&self, message: &T) -> Result<(), RclReturnCode> {
-        self.publish_cow(Cow::Borrowed(message))
-    }
-
-    fn publish_cow(&self, message: Cow<'_, T>) -> Result<(), RclReturnCode> {
-        let rmw_message = T::into_rmw_message(message);
+    /// Publishes a message.
+    ///
+    /// The [`OwnedOrBorrowedMessage`] trait is implemented by any
+    /// [`Message`] as well as any reference to a `Message`.
+    ///
+    /// The reason for allowing owned messages is that publishing owned messages can be more
+    /// efficient in the case of idiomatic messages[^note].
+    ///
+    /// [^note]: See the [`Message`] trait for an explanation of "idiomatic".
+    ///
+    /// Hence, when a message will not be needed anymore after publishing, pass it by value.
+    /// When a message will be needed again after publishing, pass it by reference, instead of cloning and passing by value.
+    pub fn publish<'a, M: OwnedOrBorrowedMessage<'a, T>>(
+        &self,
+        message: M,
+    ) -> Result<(), RclReturnCode> {
+        let rmw_message = T::into_rmw_message(message.into_cow());
         let handle = &mut *self.handle.lock();
         let ret = unsafe {
             rcl_publish(
@@ -115,5 +121,22 @@ where
             )
         };
         ret.ok()
+    }
+}
+
+/// Convenience trait for ['Publisher::publish`].
+pub trait OwnedOrBorrowedMessage<'a, T: Message> {
+    fn into_cow(self) -> Cow<'a, T>;
+}
+
+impl<'a, T: Message> OwnedOrBorrowedMessage<'a, T> for T {
+    fn into_cow(self) -> Cow<'a, T> {
+        Cow::Owned(self)
+    }
+}
+
+impl<'a, T: Message> OwnedOrBorrowedMessage<'a, T> for &'a T {
+    fn into_cow(self) -> Cow<'a, T> {
+        Cow::Borrowed(self)
     }
 }
