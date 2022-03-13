@@ -179,11 +179,6 @@ install(
   DESTINATION share/${PROJECT_NAME}/rust/
 )
 
-install(
-  FILES "${rosidl_generator_rs_TEMPLATE_DIR}/build.rs"
-  DESTINATION share/${PROJECT_NAME}/rust/
-)
-
 if(BUILD_TESTING AND rosidl_generate_interfaces_ADD_LINTER_TESTS)
   if(
     NOT _generated_msg_rs_files STREQUAL "" OR

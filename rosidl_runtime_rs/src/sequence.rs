@@ -265,19 +265,18 @@ where
 }
 
 impl<T: Default + SequenceAlloc> Sequence<T> {
-    /// Internal function for the sequence_copy impl. To be removed when rosidl#650 is backported.
-    ///
-    /// This function is not available in Rolling since Rolling should use rcutils_allocator_t.
-    #[cfg(not(ros_distro = "rolling"))]
+    /// Internal function for the sequence_copy impl. To be removed when rosidl#650 is backported and released.
     pub fn resize_to_at_least(&mut self, len: usize) {
         let allocation_size = std::mem::size_of::<Self>() * len;
         if self.capacity < len {
+            // SAFETY: The memory in self.data is owned by C.
             let data = unsafe { libc::realloc(self.data as *mut _, allocation_size) } as *mut T;
             if data.is_null() {
                 panic!("realloc failed");
             }
             // Initialize the new memory
             for i in self.capacity..len {
+                // SAFETY: i is in bounds, and write() is appropriate for initializing uninitialized memory
                 unsafe {
                     data.add(i).write(T::default());
                 }
@@ -505,17 +504,12 @@ impl Display for SequenceExceedsBoundsError {
 
 impl std::error::Error for SequenceExceedsBoundsError {}
 
-macro_rules! sequence_alloc_impl {
+macro_rules! impl_sequence_alloc_for_primitive_type {
     ($rust_type:ty, $init_func:ident, $fini_func:ident, $copy_func:ident) => {
         #[link(name = "rosidl_runtime_c")]
         extern "C" {
             fn $init_func(seq: *mut Sequence<$rust_type>, size: libc::size_t) -> bool;
             fn $fini_func(seq: *mut Sequence<$rust_type>);
-            #[cfg(ros_distro = "rolling")]
-            fn $copy_func(
-                in_seq: *const Sequence<$rust_type>,
-                out_seq: *mut Sequence<$rust_type>,
-            ) -> bool;
         }
 
         impl SequenceAlloc for $rust_type {
@@ -534,34 +528,27 @@ macro_rules! sequence_alloc_impl {
                 unsafe { $fini_func(seq as *mut _) }
             }
             fn sequence_copy(in_seq: &Sequence<Self>, out_seq: &mut Sequence<Self>) -> bool {
-                // SAFETY: There are no special preconditions to the sequence_copy function.
-                #[cfg(ros_distro = "rolling")]
+                let allocation_size = std::mem::size_of::<Self>() * in_seq.size;
+                if out_seq.capacity < in_seq.size {
+                    // SAFETY: The memory in out_seq.data is owned by C.
+                    let data =
+                        unsafe { libc::realloc(out_seq.data as *mut _, allocation_size) };
+                    if data.is_null() {
+                        return false;
+                    }
+                    out_seq.data = data as *mut _;
+                    out_seq.capacity = in_seq.size;
+                }
+                // SAFETY: The memory areas don't overlap.
                 unsafe {
-                    $copy_func(in_seq as *const _, out_seq as *mut _)
+                    libc::memcpy(
+                        out_seq.data as *mut _,
+                        in_seq.data as *const _,
+                        allocation_size,
+                    );
                 }
-
-                #[cfg(not(ros_distro = "rolling"))]
-                {
-                    let allocation_size = std::mem::size_of::<Self>() * in_seq.size;
-                    if out_seq.capacity < in_seq.size {
-                        let data =
-                            unsafe { libc::realloc(out_seq.data as *mut _, allocation_size) };
-                        if data.is_null() {
-                            return false;
-                        }
-                        out_seq.data = data as *mut _;
-                        out_seq.capacity = in_seq.size;
-                    }
-                    unsafe {
-                        libc::memcpy(
-                            out_seq.data as *mut _,
-                            in_seq.data as *const _,
-                            allocation_size,
-                        );
-                    }
-                    out_seq.size = in_seq.size;
-                    true
-                }
+                out_seq.size = in_seq.size;
+                true
             }
         }
     };
@@ -571,67 +558,67 @@ macro_rules! sequence_alloc_impl {
 //
 // See https://github.com/ros2/rosidl/blob/master/rosidl_runtime_c/include/rosidl_runtime_c/primitives_sequence.h
 // Long double isn't available in Rust, so it is skipped.
-sequence_alloc_impl!(
+impl_sequence_alloc_for_primitive_type!(
     f32,
     rosidl_runtime_c__float__Sequence__init,
     rosidl_runtime_c__float__Sequence__fini,
     rosidl_runtime_c__float__Sequence__copy
 );
-sequence_alloc_impl!(
+impl_sequence_alloc_for_primitive_type!(
     f64,
     rosidl_runtime_c__double__Sequence__init,
     rosidl_runtime_c__double__Sequence__fini,
     rosidl_runtime_c__double__Sequence__copy
 );
-sequence_alloc_impl!(
+impl_sequence_alloc_for_primitive_type!(
     bool,
     rosidl_runtime_c__boolean__Sequence__init,
     rosidl_runtime_c__boolean__Sequence__fini,
     rosidl_runtime_c__boolean__Sequence__copy
 );
-sequence_alloc_impl!(
+impl_sequence_alloc_for_primitive_type!(
     u8,
     rosidl_runtime_c__uint8__Sequence__init,
     rosidl_runtime_c__uint8__Sequence__fini,
     rosidl_runtime_c__uint8__Sequence__copy
 );
-sequence_alloc_impl!(
+impl_sequence_alloc_for_primitive_type!(
     i8,
     rosidl_runtime_c__int8__Sequence__init,
     rosidl_runtime_c__int8__Sequence__fini,
     rosidl_runtime_c__int8__Sequence__copy
 );
-sequence_alloc_impl!(
+impl_sequence_alloc_for_primitive_type!(
     u16,
     rosidl_runtime_c__uint16__Sequence__init,
     rosidl_runtime_c__uint16__Sequence__fini,
     rosidl_runtime_c__uint16__Sequence__copy
 );
-sequence_alloc_impl!(
+impl_sequence_alloc_for_primitive_type!(
     i16,
     rosidl_runtime_c__int16__Sequence__init,
     rosidl_runtime_c__int16__Sequence__fini,
     rosidl_runtime_c__int16__Sequence__copy
 );
-sequence_alloc_impl!(
+impl_sequence_alloc_for_primitive_type!(
     u32,
     rosidl_runtime_c__uint32__Sequence__init,
     rosidl_runtime_c__uint32__Sequence__fini,
     rosidl_runtime_c__uint32__Sequence__copy
 );
-sequence_alloc_impl!(
+impl_sequence_alloc_for_primitive_type!(
     i32,
     rosidl_runtime_c__int32__Sequence__init,
     rosidl_runtime_c__int32__Sequence__fini,
     rosidl_runtime_c__int32__Sequence__copy
 );
-sequence_alloc_impl!(
+impl_sequence_alloc_for_primitive_type!(
     u64,
     rosidl_runtime_c__uint64__Sequence__init,
     rosidl_runtime_c__uint64__Sequence__fini,
     rosidl_runtime_c__uint64__Sequence__copy
 );
-sequence_alloc_impl!(
+impl_sequence_alloc_for_primitive_type!(
     i64,
     rosidl_runtime_c__int64__Sequence__init,
     rosidl_runtime_c__int64__Sequence__fini,

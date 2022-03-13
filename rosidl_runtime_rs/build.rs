@@ -2,7 +2,6 @@ use std::env;
 use std::path::Path;
 
 const AMENT_PREFIX_PATH: &str = "AMENT_PREFIX_PATH";
-const ROS_DISTRO: &str = "ROS_DISTRO";
 
 fn get_env_var_or_abort(env_var: &'static str) -> String {
     if let Ok(value) = env::var(env_var) {
@@ -21,7 +20,4 @@ fn main() {
         let library_path = Path::new(ament_prefix_path).join("lib");
         println!("cargo:rustc-link-search=native={}", library_path.display());
     }
-
-    let distro = get_env_var_or_abort(ROS_DISTRO);
-    println!("cargo:rustc-cfg=ros_distro=\"{}\"", distro);
 }
