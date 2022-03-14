@@ -56,6 +56,14 @@ jobs:
         sudo pip3 install git+https://github.com/colcon/colcon-cargo.git
         sudo pip3 install git+https://github.com/colcon/colcon-ros-cargo.git
 
+    - name: Check formatting of Rust packages
+      run: |
+        for path in $(colcon list | awk '$3 == "(ament_cargo)" { print $2 }'); do
+        cd $path
+        cargo fmt -- --check
+        cd -
+        done
+
     - name: Install cargo-ament-build
       run: |
         cargo install cargo-ament-build
