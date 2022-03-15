@@ -17,18 +17,16 @@
 
 #![no_std]
 
-
 // use downcast::{downcast, downcast_methods, downcast_methods_core, impl_downcast, Any};
 
 // #[cfg(feature = "std")]
 // use downcast::downcast_methods_std;
 
-
 pub mod traits {
     extern crate downcast_rs;
     extern crate libc;
 
-    use downcast_rs::{Downcast, impl_downcast};
+    use downcast_rs::{impl_downcast, Downcast};
 
     use libc::uintptr_t;
 
@@ -45,5 +43,4 @@ pub mod traits {
         fn static_get_native_message(message: &T) -> uintptr_t;
         fn static_destroy_native_message(message_handle: uintptr_t);
     }
-
 }
