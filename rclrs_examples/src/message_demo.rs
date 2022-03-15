@@ -58,8 +58,12 @@ fn check_default_values() {
     assert_eq!(msg.nested_seq_unbounded, seq![]);
 
     // The default instance for the idiomatic type also has the defaults set
+    let idiomatic_msg = rclrs_example_msgs::msg::VariousTypes::default();
     assert_eq!(
-        rclrs_example_msgs::msg::VariousTypes::default().into_owned_rmw_message(),
+        rclrs_example_msgs::msg::VariousTypes::into_rmw_message(std::borrow::Cow::Owned(
+            idiomatic_msg
+        ))
+        .into_owned(),
         msg
     );
 }

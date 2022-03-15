@@ -122,7 +122,7 @@ impl rosidl_runtime_rs::Message for @(type_name) {
           .map(|elem| elem.as_str().into()),
 @[        elif isinstance(member.type.value_type, NamedType) or isinstance(member.type.value_type, NamespacedType)]@
         @(get_rs_name(member.name)): msg.@(get_rs_name(member.name))
-          .map(|elem| elem.into_owned_rmw_message()),
+          .map(|elem| @(get_idiomatic_rs_type(member.type.value_type))::into_rmw_message(std::borrow::Cow::Owned(elem)).into_owned()),
 @[        else]@
         @(get_rs_name(member.name)): msg.@(get_rs_name(member.name)).clone(),
 @[        end if]@
@@ -143,7 +143,7 @@ impl rosidl_runtime_rs::Message for @(type_name) {
 @[        elif isinstance(member.type.value_type, NamedType) or isinstance(member.type.value_type, NamespacedType)]@
         @(get_rs_name(member.name)): msg.@(get_rs_name(member.name))
           .into_iter()
-          .map(|elem| elem.into_owned_rmw_message())
+          .map(|elem| @(get_idiomatic_rs_type(member.type.value_type))::into_rmw_message(std::borrow::Cow::Owned(elem)).into_owned())
           .collect(),
 @[        else]@
         @(get_rs_name(member.name)): msg.@(get_rs_name(member.name)).into(),
@@ -152,7 +152,7 @@ impl rosidl_runtime_rs::Message for @(type_name) {
 @#
 @#    == NamedType + NamespacedType ==
 @[    elif isinstance(member.type, NamedType) or isinstance(member.type, NamespacedType)]@
-        @(get_rs_name(member.name)): msg.@(get_rs_name(member.name)).into_owned_rmw_message(),
+        @(get_rs_name(member.name)): @(get_idiomatic_rs_type(member.type))::into_rmw_message(std::borrow::Cow::Owned(msg.@(get_rs_name(member.name)))).into_owned(),
 @#
 @#
 @#    == Bounded and basic types ==

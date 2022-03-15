@@ -97,7 +97,7 @@ where
 
     /// Publishes a message.
     ///
-    /// The [`OwnedOrBorrowedMessage`] trait is implemented by any
+    /// The [`MessageCow`] trait is implemented by any
     /// [`Message`] as well as any reference to a `Message`.
     ///
     /// The reason for allowing owned messages is that publishing owned messages can be more
@@ -107,7 +107,7 @@ where
     ///
     /// Hence, when a message will not be needed anymore after publishing, pass it by value.
     /// When a message will be needed again after publishing, pass it by reference, instead of cloning and passing by value.
-    pub fn publish<'a, M: OwnedOrBorrowedMessage<'a, T>>(
+    pub fn publish<'a, M: MessageCow<'a, T>>(
         &self,
         message: M,
     ) -> Result<(), RclReturnCode> {
@@ -124,18 +124,18 @@ where
     }
 }
 
-/// Convenience trait for ['Publisher::publish`].
-pub trait OwnedOrBorrowedMessage<'a, T: Message> {
+/// Convenience trait for [`Publisher::publish`].
+pub trait MessageCow<'a, T: Message> {
     fn into_cow(self) -> Cow<'a, T>;
 }
 
-impl<'a, T: Message> OwnedOrBorrowedMessage<'a, T> for T {
+impl<'a, T: Message> MessageCow<'a, T> for T {
     fn into_cow(self) -> Cow<'a, T> {
         Cow::Owned(self)
     }
 }
 
-impl<'a, T: Message> OwnedOrBorrowedMessage<'a, T> for &'a T {
+impl<'a, T: Message> MessageCow<'a, T> for &'a T {
     fn into_cow(self) -> Cow<'a, T> {
         Cow::Borrowed(self)
     }
