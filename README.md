@@ -33,9 +33,8 @@ Lots of things!
 
 ### Limitations
 
-- messages are deep-copied and this can be terribly inefficient for big messages like images; the current solution leverages C typesupport implementations and might benefit from a direct serialization/deserialization
-- `rclrs` interface is very limited for now and might not be so much idiomatic yet, any help and suggestion on the interface would be greatly appreciated
-- due to the current ROS2 support of non-default clients, packages containing definitions of messages used in Rust crates must be present in the current workspace; otherwise message crates generation won't be triggered
+- The `rclrs` interface is very limited for now and might not be idiomatic yet, any help and suggestion on the interface would be greatly appreciated
+- Due to the current ROS2 support of non-default clients, packages containing definitions of messages used in Rust crates must be present in the current workspace; otherwise message crates generation won't be triggered
 
 Sounds great, how can I try this out?
 -------------------------------------
@@ -46,8 +45,7 @@ Here, the Foxy distribution of ROS 2 is used, but newer distributions can be use
 # First, make sure to have ROS 2 and vcstool installed (alternatively, install vcstool with pip):
 # sudo apt install ros-foxy-desktop ros-foxy-test-interface-files python3-vcstool libclang-dev clang
 # Install the colcon-cargo and colcon-ros-cargo plugins
-pip install git+https://github.com/colcon/colcon-cargo.git
-pip install git+https://github.com/colcon/colcon-ros-cargo.git
+pip install git+https://github.com/colcon/colcon-cargo.git git+https://github.com/colcon/colcon-ros-cargo.git
 # Install the cargo-ament-build plugin
 cargo install cargo-ament-build
 
@@ -80,8 +78,6 @@ cd rclrs_examples
 # Run cargo build, or cargo check, cargo doc, etc.
 cargo build
 ```
-
-There is currently an [issue](https://github.com/ros2-rust/ros2_rust/issues/79) being investigated where this doesn't work with some packages. See the issue for a workaround.
 
 ### Running the publisher and subscriber
 

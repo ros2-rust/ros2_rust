@@ -2,7 +2,7 @@
 extern crate alloc;
 extern crate core_error;
 extern crate downcast;
-extern crate rclrs_msg_utilities;
+extern crate rosidl_runtime_rs;
 
 #[cfg(feature = "std")]
 extern crate std;
@@ -121,11 +121,7 @@ pub fn spin_once<'node>(node: &'node Node, timeout: i64) -> Result<(), WaitSetEr
     wait_set.wait(timeout)?;
     for subscription in &node.subscriptions {
         if let Some(subscription) = subscription.upgrade() {
-            let mut message = subscription.create_message();
-            let result = subscription.take(&mut *message).unwrap();
-            if result {
-                subscription.callback_fn(message);
-            }
+            subscription.execute()?;
         }
     }
 

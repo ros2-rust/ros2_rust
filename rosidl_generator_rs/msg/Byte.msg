@@ -1,1 +1,0 @@
-byte empty_byte

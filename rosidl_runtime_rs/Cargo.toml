@@ -1,0 +1,15 @@
+[package]
+name = "rosidl_runtime_rs"
+version = "0.1.0"
+authors = ["Jacob Hassold <jhassold@dcscorp.com>", "Nikolai Morin <nnmmgit@gmail.com>"]
+edition = "2021"
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+downcast-rs = "1.2.0"
+libc = "0.2"
+
+[dev-dependencies]
+quickcheck = "1"

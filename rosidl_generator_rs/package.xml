@@ -10,11 +10,11 @@
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
-  <buildtool_depend>rclrs_msg_utilities</buildtool_depend>
+  <buildtool_depend>rosidl_runtime_rs</buildtool_depend>
 
   <buildtool_export_depend>ament_cmake</buildtool_export_depend>
   <buildtool_export_depend>rosidl_cmake</buildtool_export_depend>
-  <buildtool_export_depend>rclrs_msg_utilities</buildtool_export_depend>
+  <buildtool_export_depend>rosidl_runtime_rs</buildtool_export_depend>
   <buildtool_export_depend>rosidl_typesupport_c</buildtool_export_depend>
   <buildtool_export_depend>rosidl_typesupport_interface</buildtool_export_depend>
 

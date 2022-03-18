@@ -36,13 +36,8 @@ set(_output_path
 set(_generated_extension_files "")
 set(_generated_common_rs_files "")
 
-set(_generated_c_files "")
-set(_generated_rs_files "")
-
 set(_generated_msg_rs_files "")
-set(_generated_msg_c_files "")
 set(_generated_srv_rs_files "")
-set(_generated_srv_c_files "")
 
 set(_has_msg FALSE)
 set(_has_srv FALSE)
@@ -110,8 +105,6 @@ endforeach()
 set(target_dependencies
   "${rosidl_generator_rs_BIN}"
   ${rosidl_generator_rs_GENERATOR_FILES}
-  "${rosidl_generator_rs_TEMPLATE_DIR}/msg.c.em"
-  "${rosidl_generator_rs_TEMPLATE_DIR}/srv.c.em"
   "${rosidl_generator_rs_TEMPLATE_DIR}/msg.rs.em"
   "${rosidl_generator_rs_TEMPLATE_DIR}/srv.rs.em"
   ${rosidl_generate_interfaces_ABS_IDL_FILES}
@@ -139,7 +132,7 @@ file(MAKE_DIRECTORY "${_output_path}")
 
 set(_target_suffix "__rs")
 
-set(CRATES_DEPENDENCIES "rclrs_msg_utilities = \"*\"")
+set(CRATES_DEPENDENCIES "rosidl_runtime_rs = \"*\"")
 foreach(_pkg_name ${rosidl_generate_interfaces_DEPENDENCY_PACKAGE_NAMES})
   find_package(${_pkg_name} REQUIRED)
   set(CRATES_DEPENDENCIES "${CRATES_DEPENDENCIES}\n${_pkg_name} = \"*\"")
@@ -162,117 +155,35 @@ set_property(
   ${_generated_extension_files}
   ${_generated_common_rs_files}
   ${_generated_msg_rs_files}
-  ${_generated_msg_c_files}
   ${_generated_srv_rs_files}
   PROPERTY GENERATED 1)
-
-set(_type_support_by_generated_c_files ${_type_support_by_generated_msg_c_files} ${_type_support_by_generated_srv_c_files})
-set(_generated_rs_files ${_generated_msg_rs_files} ${_generated_srv_rs_files})
 
 set(_rsext_suffix "__rsext")
 foreach(_typesupport_impl ${_typesupport_impls})
   find_package(${_typesupport_impl} REQUIRED)
-
-  set(_extension_compile_flags "")
-  if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-    set(_extension_compile_flags -Wall -Wextra)
-  endif()
-
-  set(_target_name "${PROJECT_NAME}__${_typesupport_impl}${_rsext_suffix}")
-
-  add_library(${_target_name} SHARED
-    ${_generated_extension_${_typesupport_impl}_files}
-  )
-  add_dependencies(
-    ${_target_name}
-    ${rosidl_generate_interfaces_TARGET}${_target_suffix}
-    ${rosidl_generate_interfaces_TARGET}__rosidl_typesupport_c
-  )
-
-  target_link_libraries(
-    ${_target_name}
-    ${PROJECT_NAME}__${_typesupport_impl}
-    ${rosidl_generate_interfaces_TARGET}__rosidl_generator_c
-  )
-
-  if (NOT $ENV{ROS_DISTRO} STREQUAL "rolling")
-    rosidl_target_interfaces(${_target_name}
-      ${rosidl_generate_interfaces_TARGET} rosidl_typesupport_c)
-  else()
-    rosidl_get_typesupport_target(rust_typesupport_target ${rosidl_generate_interfaces_TARGET} rosidl_typesupport_c)
-    target_link_libraries(${_target_name} ${rust_typesupport_target})
-  endif()
-
-  target_include_directories(${_target_name}
-    PUBLIC
-    ${CMAKE_CURRENT_BINARY_DIR}/rosidl_generator_c
-    ${CMAKE_CURRENT_BINARY_DIR}/rosidl_generator_rs
-  )
-
-  ament_target_dependencies(${_target_name}
-    "rosidl_runtime_c"
-    "rosidl_typesupport_c"
-    "rosidl_typesupport_interface"
-  )
-  foreach(_pkg_name ${rosidl_generate_interfaces_DEPENDENCY_PACKAGE_NAMES})
-    ament_target_dependencies(${_target_name}
-      ${_pkg_name}
-    )
-  endforeach()
-
-  add_dependencies(${_target_name}
-    ${rosidl_generate_interfaces_TARGET}__${_typesupport_impl}
-  )
-  ament_target_dependencies(${_target_name}
-    "rosidl_runtime_c"
-    "rosidl_generator_rs"
-  )
 
   if(NOT rosidl_generate_interfaces_SKIP_INSTALL)
     install(
       DIRECTORY "${_output_path}/rust"
       DESTINATION "share/${PROJECT_NAME}"
     )
-    install(TARGETS ${_target_name}
-      ARCHIVE DESTINATION lib
-      LIBRARY DESTINATION lib
-    )
-
-    configure_file("${rosidl_generator_rs_TEMPLATE_DIR}/Cargo.toml.in"
-      "share/${PROJECT_NAME}/rust/Cargo.toml"
-      @ONLY)
-
-    install(
-      FILES "${CMAKE_CURRENT_BINARY_DIR}/share/${PROJECT_NAME}/rust/Cargo.toml"
-      DESTINATION share/${PROJECT_NAME}/rust/
-    )
   endif()
 endforeach()
+
+configure_file("${rosidl_generator_rs_TEMPLATE_DIR}/Cargo.toml.in"
+  "share/${PROJECT_NAME}/rust/Cargo.toml"
+  @ONLY)
+
+install(
+  FILES "${CMAKE_CURRENT_BINARY_DIR}/share/${PROJECT_NAME}/rust/Cargo.toml"
+  DESTINATION share/${PROJECT_NAME}/rust/
+)
 
 if(BUILD_TESTING AND rosidl_generate_interfaces_ADD_LINTER_TESTS)
   if(
     NOT _generated_msg_rs_files STREQUAL "" OR
     NOT _generated_srv_rs_files STREQUAL ""
   )
-    find_package(ament_cmake_cppcheck REQUIRED)
-    ament_cppcheck(
-      TESTNAME "cppcheck_rosidl_generated_rs"
-      "${_output_path}")
-
-    find_package(ament_cmake_cpplint REQUIRED)
-    get_filename_component(_cpplint_root "${_output_path}" DIRECTORY)
-    ament_cpplint(
-      TESTNAME "cpplint_rosidl_generated_rs"
-      # the generated code might contain longer lines for templated types
-      MAX_LINE_LENGTH 999
-      ROOT "${_cpplint_root}"
-      "${_output_path}")
-
-    find_package(ament_cmake_uncrustify REQUIRED)
-    ament_uncrustify(
-      TESTNAME "uncrustify_rosidl_generated_rs"
-      # the generated code might contain longer lines for templated types
-      MAX_LINE_LENGTH 999
-      "${_output_path}")
+  # TODO(esteve): add linters for Rust files
   endif()
 endif()

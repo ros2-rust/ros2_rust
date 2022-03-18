@@ -14,6 +14,9 @@
 
 import os
 import pathlib
+import subprocess
+
+from pathlib import Path
 
 from rosidl_cmake import convert_camel_case_to_lower_case_underscore
 from rosidl_cmake import expand_template
@@ -24,15 +27,22 @@ from rosidl_cmake import read_generator_arguments
 from rosidl_parser.definition import AbstractGenericString
 from rosidl_parser.definition import AbstractNestedType
 from rosidl_parser.definition import AbstractSequence
-from rosidl_parser.definition import BoundedSequence
+from rosidl_parser.definition import AbstractString
+from rosidl_parser.definition import AbstractWString
 from rosidl_parser.definition import Array
-from rosidl_parser.definition import BasicType
 from rosidl_parser.definition import BASIC_TYPES
+from rosidl_parser.definition import BasicType
+from rosidl_parser.definition import BoundedSequence
+from rosidl_parser.definition import BoundedString
+from rosidl_parser.definition import BoundedWString
 from rosidl_parser.definition import IdlContent
 from rosidl_parser.definition import IdlLocator
 from rosidl_parser.definition import Message
 from rosidl_parser.definition import NamespacedType
 from rosidl_parser.definition import Service
+from rosidl_parser.definition import UnboundedSequence
+from rosidl_parser.definition import UnboundedString
+from rosidl_parser.definition import UnboundedWString
 
 from rosidl_parser.parser import parse_idl_file
 
@@ -49,6 +59,7 @@ def generate_rs(generator_arguments_file, typesupport_impls):
     # expand init modules for each directory
     modules = {}
     idl_content = IdlContent()
+    (Path(args['output_dir']) / 'rust/src/bindings').mkdir(parents=True, exist_ok=True)
     for idl_tuple in args.get('idl_tuples', []):
         idl_parts = idl_tuple.rsplit(':', 1)
         assert len(idl_parts) == 2
@@ -64,19 +75,13 @@ def generate_rs(generator_arguments_file, typesupport_impls):
     typesupport_impls = typesupport_impls.split(';')
 
     template_dir = args['template_dir']
-    type_support_impl_by_filename = {
-        '%s_rs.ep.{0}.c'.format(impl): impl
-        for impl in typesupport_impls
-    }
 
     mapping_msgs = {
         os.path.join(template_dir, 'msg.rs.em'): ['rust/src/%s.rs'],
-        os.path.join(template_dir, 'msg.c.em'): type_support_impl_by_filename.keys(),
     }
 
     mapping_srvs = {
         os.path.join(template_dir, 'srv.rs.em'): ['rust/src/%s.rs'],
-        os.path.join(template_dir, 'srv.c.em'): type_support_impl_by_filename.keys(),
     }
 
     # Ensure the required templates exist
@@ -88,21 +93,21 @@ def generate_rs(generator_arguments_file, typesupport_impls):
             'Services template file %s not found' % template_file
 
     data = {
-        'get_c_type': get_c_type,
-        'get_rs_type': get_rs_type,
+        'get_rmw_rs_type': make_get_rmw_rs_type(args['package_name']),
         'get_rs_name': get_rs_name,
+        'get_idiomatic_rs_type': make_get_idiomatic_rs_type(args['package_name']),
         'constant_value_to_rs': constant_value_to_rs,
         'value_to_rs': value_to_rs,
         'convert_camel_case_to_lower_case_underscore':
         convert_camel_case_to_lower_case_underscore,
         'convert_lower_case_underscore_to_camel_case':
         convert_lower_case_underscore_to_camel_case,
-        'get_builtin_rs_type': get_builtin_rs_type,
         'msg_specs': [],
         'srv_specs': [],
         'package_name': args['package_name'],
         'typesupport_impls': typesupport_impls,
     }
+
     latest_target_timestamp = get_newest_modification_time(
         args['target_dependencies'])
 
@@ -237,89 +242,88 @@ def constant_value_to_rs(type_, value):
 
     assert False, "unknown constant type '%s'" % type_
 
+# Type hierarchy:
+# 
+# AbstractType
+# - AbstractNestableType
+#   - AbstractGenericString
+#     - AbstractString
+#       - BoundedString
+#       - UnboundedString
+#     - AbstractWString
+#       - BoundedWString
+#       - UnboundedWString
+#   - BasicType
+#   - NamedType
+#   - NamespacedType
+# - AbstractNestedType
+#   - Array
+#   - AbstractSequence
+#     - BoundedSequence
+#     - UnboundedSequence
 
-def get_builtin_rs_type(type_, package_name=None):
-    if isinstance(type_, BasicType):
-        if type_.typename == 'boolean':
-            return 'bool'
-        elif type_.typename in ['byte', 'octet']:
-            return 'u8'
-        elif type_.typename == 'char':
-            return 'u8'
-        elif type_.typename in ['float']:
-            return 'f32'
-        elif type_.typename in ['double', 'long double']:
-            return 'f64'
-        elif type_.typename == 'int8':
-            return 'i8'
-        elif type_.typename == 'uint8':
-            return 'u8'
-        elif type_.typename == 'int16':
-            return 'i16'
-        elif type_.typename == 'uint16':
-            return 'u16'
-        elif type_.typename == 'int32':
-            return 'i32'
-        elif type_.typename == 'uint32':
-            return 'u32'
-        elif type_.typename == 'int64':
-            return 'i64'
-        elif type_.typename == 'uint64':
-            return 'u64'
-    elif isinstance(type_, AbstractGenericString):
-        return 'std::string::String'
-    elif isinstance(type_, Array):
-        return '[{}; {}]'.format(get_rs_type(type_.value_type), 32 if type_.size <= 32 else 32)
-    elif isinstance(type_, AbstractSequence):
-        return 'Vec<{}>'.format(get_rs_type(type_.value_type))
+def make_get_idiomatic_rs_type(package_name):
+    get_rmw_rs_type = make_get_rmw_rs_type(package_name)
+    def get_idiomatic_rs_type(type_):
+        if isinstance(type_, UnboundedString) or isinstance(type_, UnboundedWString):
+            return 'std::string::String'
+        elif isinstance(type_, UnboundedSequence):
+            return 'Vec::<{}>'.format(get_idiomatic_rs_type(type_.value_type))
+        elif isinstance(type_, NamespacedType):
+            return '::'.join(type_.namespaced_name()).replace(package_name, 'crate')
+        elif isinstance(type_, Array):
+            return '[{}; {}]'.format(get_idiomatic_rs_type(type_.value_type), type_.size)
+        else:
+            return get_rmw_rs_type(type_)
+    return get_idiomatic_rs_type
 
-    assert False, "unknown type '%s'" % type_.typename
+def make_get_rmw_rs_type(package_name):
+    def get_rmw_rs_type(type_):
+        if isinstance(type_, NamespacedType):
+            parts = list(type_.namespaced_name())
+            parts.insert(-1, 'rmw')
+            return '::'.join(parts).replace(package_name, 'crate')
+        elif isinstance(type_, BasicType):
+            if type_.typename == 'boolean':
+                return 'bool'
+            elif type_.typename in ['byte', 'octet']:
+                return 'u8'
+            elif type_.typename == 'char':
+                return 'u8'
+            elif type_.typename == 'float':
+                return 'f32'
+            elif type_.typename == 'double':
+                return 'f64'
+            elif type_.typename == 'int8':
+                return 'i8'
+            elif type_.typename == 'uint8':
+                return 'u8'
+            elif type_.typename == 'int16':
+                return 'i16'
+            elif type_.typename == 'uint16':
+                return 'u16'
+            elif type_.typename == 'int32':
+                return 'i32'
+            elif type_.typename == 'uint32':
+                return 'u32'
+            elif type_.typename == 'int64':
+                return 'i64'
+            elif type_.typename == 'uint64':
+                return 'u64'
+        elif isinstance(type_, UnboundedString):
+            return 'rosidl_runtime_rs::String'
+        elif isinstance(type_, UnboundedWString):
+            return 'rosidl_runtime_rs::WString'
+        elif isinstance(type_, BoundedString):
+            return 'rosidl_runtime_rs::BoundedString<{}>'.format(type_.maximum_size)
+        elif isinstance(type_, BoundedWString):
+            return 'rosidl_runtime_rs::BoundedWString<{}>'.format(type_.maximum_size)
+        elif isinstance(type_, Array):
+            return '[{}; {}]'.format(get_rmw_rs_type(type_.value_type), type_.size)
+        elif isinstance(type_, UnboundedSequence):
+            return 'rosidl_runtime_rs::Sequence<{}>'.format(get_rmw_rs_type(type_.value_type))
+        elif isinstance(type_, BoundedSequence):
+            return 'rosidl_runtime_rs::BoundedSequence<{}, {}>'.format(get_rmw_rs_type(type_.value_type), type_.maximum_size)
 
-
-def get_rs_type(type_):
-    if isinstance(type_, NamespacedType):
-        return '::'.join(type_.namespaced_name())
-
-    return get_builtin_rs_type(type_)
-
-
-def get_builtin_c_type(type_):
-
-    if isinstance(type_, BasicType):
-        if type_.typename == 'boolean':
-            return 'bool'
-        if type_.typename in ['byte', 'octet']:
-            return 'uint8_t'
-        if type_.typename == 'char':
-            return 'char'
-        if type_.typename in ['float']:
-            return 'float'
-        if type_.typename in ['double', 'long double']:
-            return 'double'
-        if type_.typename == 'int8':
-            return 'int8_t'
-        if type_.typename == 'uint8':
-            return 'uint8_t'
-        if type_.typename == 'int16':
-            return 'int16_t'
-        if type_.typename == 'uint16':
-            return 'uint16_t'
-        if type_.typename == 'int32':
-            return 'int32_t'
-        if type_.typename == 'uint32':
-            return 'uint32_t'
-        if type_.typename == 'int64':
-            return 'int64_t'
-        if type_.typename == 'uint64':
-            return 'uint64_t'
-    elif isinstance(type_, AbstractGenericString):
-        return 'const char *'
-
-    assert False, "unknown type '%s'" % type_.typename
-
-
-def get_c_type(type_, subfolder='msg'):
-    if not isinstance(type_, BasicType) and not isinstance(type_, AbstractGenericString):
-        return 'uintptr_t'
-
-    return get_builtin_c_type(type_)
+        assert False, "unknown type '%s'" % type_.typename
+    return get_rmw_rs_type

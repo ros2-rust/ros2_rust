@@ -2,15 +2,19 @@
 name = "rclrs_examples"
 version = "0.1.0"
 authors = ["Esteve Fernandez <esteve@apache.org>"]
-edition = "2018"
+edition = "2021"
 
 [[bin]]
-name = "rclrs_subscriber"
-path = "src/rclrs_subscriber.rs"
+name = "minimal_subscriber"
+path = "src/minimal_subscriber.rs"
 
 [[bin]]
-name = "rclrs_publisher"
-path = "src/rclrs_publisher.rs"
+name = "minimal_publisher"
+path = "src/minimal_publisher.rs"
+
+[[bin]]
+name = "message_demo"
+path = "src/message_demo.rs"
 
 [dependencies]
 thiserror = "1"
@@ -20,8 +24,14 @@ cstr_core = "0.2"
 [dependencies.rclrs]
 version = "*"
 
-[dependencies.rclrs_msg_utilities]
+[dependencies.rosidl_runtime_rs]
 version = "*"
 
 [dependencies.std_msgs]
+version = "*"
+
+[dependencies.geometry_msgs]
+version = "*"
+
+[dependencies.rclrs_example_msgs]
 version = "*"
