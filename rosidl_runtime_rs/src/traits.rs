@@ -134,7 +134,7 @@ pub trait Message: Clone + Debug + Default + 'static {
     /// If this function receives a borrowed message that is already RMW-compatible, it should
     /// directly return that borrowed message.
     /// This is why the return type is also `Cow`.
-    fn into_rmw_message<'a>(msg_cow: Cow<'a, Self>) -> Cow<'a, Self::RmwMsg>;
+    fn into_rmw_message(msg_cow: Cow<'_, Self>) -> Cow<'_, Self::RmwMsg>;
 
     /// Converts the RMW-compatible message into an idiomatic message.
     fn from_rmw_message(msg: Self::RmwMsg) -> Self;

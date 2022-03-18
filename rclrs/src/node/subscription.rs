@@ -21,20 +21,8 @@ pub struct SubscriptionHandle {
 }
 
 impl SubscriptionHandle {
-    fn node_handle(&self) -> &NodeHandle {
-        self.node_handle.borrow()
-    }
-
-    pub fn get_mut(&mut self) -> &mut rcl_subscription_t {
-        self.handle.get_mut()
-    }
-
     pub fn lock(&self) -> MutexGuard<rcl_subscription_t> {
         self.handle.lock()
-    }
-
-    pub fn try_lock(&self) -> Option<MutexGuard<rcl_subscription_t>> {
-        self.handle.try_lock()
     }
 }
 

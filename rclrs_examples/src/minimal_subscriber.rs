@@ -2,8 +2,6 @@ use std::env;
 
 use anyhow::{Error, Result};
 use cstr_core::CString;
-use rclrs;
-use std_msgs;
 
 fn main() -> Result<(), Error> {
     let args: Vec<CString> = env::args()
