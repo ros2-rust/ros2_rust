@@ -57,7 +57,7 @@ pub struct WString {
 ///
 /// The same as [`String`], but it cannot be constructed from a string that is too large.
 /// The length is measured as the number of Unicode scalar values, not bytes.
-/// 
+///
 /// # Example
 ///
 /// ```

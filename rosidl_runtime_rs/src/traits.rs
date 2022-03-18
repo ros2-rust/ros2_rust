@@ -130,7 +130,7 @@ pub trait Message: Clone + Debug + Default + 'static {
     ///
     /// If the idiomatic message is owned, a slightly more efficient conversion is possible.
     /// This is why the function takes a `Cow`.
-    /// 
+    ///
     /// If this function receives a borrowed message that is already RMW-compatible, it should
     /// directly return that borrowed message.
     /// This is why the return type is also `Cow`.

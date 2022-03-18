@@ -531,8 +531,7 @@ macro_rules! impl_sequence_alloc_for_primitive_type {
                 let allocation_size = std::mem::size_of::<Self>() * in_seq.size;
                 if out_seq.capacity < in_seq.size {
                     // SAFETY: The memory in out_seq.data is owned by C.
-                    let data =
-                        unsafe { libc::realloc(out_seq.data as *mut _, allocation_size) };
+                    let data = unsafe { libc::realloc(out_seq.data as *mut _, allocation_size) };
                     if data.is_null() {
                         return false;
                     }
