@@ -5,20 +5,22 @@ Work is coordinated in the [Matrix chat](https://matrix.to/#/+rosorg-rust:matrix
 
 There are also occasional ROS 2 Rust WG meetings that are announced on the [ROS discourse forum](https://discourse.ros.org/).
 
+
 ## Coding guidelines
-Aim for well documented and tested code.
+This section is not comprehensive, and conventions from the broader Rust community should be followed.
 
-Use declarative sentences, not imperative sentences, for documenting functions. For instance, `Creates a by-value iterator.`, not `Create a by-value iterator`. 
+Use `cargo clippy` to check that code is idiomatic.
 
-Use `cargo clippy` to help with writing idiomatic code.
+For documenting functions, use declarative sentences, not imperative sentences. For instance, `Creates a by-value iterator.` should be used instead of `Create a by-value iterator.`.
 
 ### Unsafe code
+Keep `unsafe` blocks as small as possible.
 Annotate every `unsafe` block with a `// SAFETY:` comment explaining why its safety preconditions are met.
 
 ### Formatting
 Use `cargo fmt` to format code.
 
-Put a struct's definition first, then its trait impls in alphabetical order, then its inherent impls. When there are several structs in one file, one possibility is to put all struct definitions at the top of the file, like this:
+Put a `struct`'s definition first, then its trait `impl`s in alphabetical order, then its inherent `impl`s. When there are several `struct`s in one file, one possibility is to put all `struct` definitions at the top of the file, like this:
 - `struct A {…}`
 - `struct B {…}`
 - `impl Bar for A {…}`
@@ -28,4 +30,20 @@ Put a struct's definition first, then its trait impls in alphabetical order, the
 - `impl Foo for B {…}`
 - `impl B {…}`
 
-Try to not exceed a line length of 100 characters.
+Try to not exceed a line length of 100 characters for comments.
+
+
+## License
+Any contribution that you make to this repository will
+be under the Apache 2 License, as dictated by that
+[license](http://www.apache.org/licenses/LICENSE-2.0.html):
+
+~~~
+5. Submission of Contributions. Unless You explicitly state otherwise,
+   any Contribution intentionally submitted for inclusion in the Work
+   by You to the Licensor shall be under the terms and conditions of
+   this License, without any additional terms or conditions.
+   Notwithstanding the above, nothing herein shall supersede or modify
+   the terms of any separate license agreement you may have executed
+   with Licensor regarding such Contributions.
+~~~
