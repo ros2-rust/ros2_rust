@@ -169,7 +169,6 @@ mod tests {
     use super::*;
     use crate::{Context, Publisher, QOS_PROFILE_DEFAULT};
     use alloc::{borrow::ToOwned, vec::Vec};
-    use rclrs_common::error::RclReturnCode;
     use std::{env, println};
     use std_msgs;
 
@@ -194,8 +193,7 @@ mod tests {
         let node = context.create_node("test_publish")?;
         let publisher =
             Publisher::<std_msgs::msg::String>::new(&node, "test", QOS_PROFILE_DEFAULT)?;
-        let mut message = std_msgs::msg::String::default();
-        message.data = "Hello world!".to_owned();
+        let message = std_msgs::msg::String { data: "Hello world!".to_owned() };
         publisher.publish(&message)
     }
 }

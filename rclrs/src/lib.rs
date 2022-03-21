@@ -84,8 +84,8 @@ mod tests {
     use alloc::vec::Vec;
     use cstr_core::CString;
     use std::{env, println};
-    use std_msgs;
 
+    #[test]
     fn test_spin_once() -> Result<(), WaitSetErrorResponse> {
         let args: Vec<CString> = env::args()
             .filter_map(|arg| CString::new(arg).ok())
