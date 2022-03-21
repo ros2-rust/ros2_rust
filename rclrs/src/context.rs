@@ -11,6 +11,7 @@ use spin::{Mutex, MutexGuard};
 #[cfg(feature = "std")]
 use parking_lot::{Mutex, MutexGuard};
 
+#[derive(Debug)]
 pub(crate) struct ContextHandle(Mutex<rcl_context_t>);
 
 impl ContextHandle {
@@ -31,6 +32,7 @@ impl Drop for ContextHandle {
     }
 }
 
+#[derive(Debug)]
 pub struct Context {
     pub(crate) handle: Arc<ContextHandle>,
 }
@@ -76,3 +78,57 @@ impl Context {
         Node::new(node_name, self)
     }
 }
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+    use std::{env, println};
+
+    fn default_context() -> Context {
+        let args: Vec<CString> = env::args()
+            .filter_map(|arg| CString::new(arg).ok())
+            .collect();
+        println!("<test_create_context> Context args: {:?}", args);
+        Context::default(args)
+    }
+
+    #[test]
+    fn test_create_context() {
+        // If the context fails to be created, this will cause a panic
+        let created_context = default_context();
+        println!("<test_create_context> Created Context: {:?}", created_context);
+    }
+
+    #[test]
+    fn test_context_ok() {
+        // If the context fails to be created, this will cause a panic
+        let created_context = default_context();
+        let ctxt_ok = created_context.ok();
+        match ctxt_ok {
+            Ok(is_ok) => assert!(is_ok),
+            Err(err_code) => panic!("<test_context_ok> RCL Error occured during test: {:?}", err_code),
+        }
+    }
+
+    #[test]
+    fn test_create_node() -> Result<(), RclReturnCode> {
+        // If the context fails to be created, this will cause a panic
+        let created_context = default_context();
+        created_context.create_node("Bob").map(|_x| ())
+    }
+
+    #[test]
+    fn text_context_init() {
+        // If the context fails to be created, this will cause a panic
+        let args: Vec<CString> = env::args()
+            .filter_map(|arg| CString::new(arg).ok())
+            .collect();
+        let context = Context {
+            handle: Arc::new(ContextHandle(Mutex::new(unsafe {
+                rcl_get_zero_initialized_context()
+            }))),
+        };
+        context.init(args).unwrap();
+    }
+} 
