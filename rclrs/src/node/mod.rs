@@ -26,22 +26,14 @@ use parking_lot::{Mutex, MutexGuard};
 pub struct NodeHandle(Mutex<rcl_node_t>);
 
 impl NodeHandle {
-    pub fn get_mut(&mut self) -> &mut rcl_node_t {
-        self.0.get_mut()
-    }
-
     pub fn lock(&self) -> MutexGuard<rcl_node_t> {
         self.0.lock()
-    }
-
-    pub fn try_lock(&self) -> Option<MutexGuard<rcl_node_t>> {
-        self.0.try_lock()
     }
 }
 
 impl Drop for NodeHandle {
     fn drop(&mut self) {
-        let handle = &mut *self.get_mut();
+        let handle = &mut *self.0.get_mut();
         unsafe { rcl_node_fini(handle as *mut _).unwrap() };
     }
 }
@@ -54,11 +46,11 @@ pub struct Node {
 
 impl Node {
     #[allow(clippy::new_ret_no_self)]
-    pub fn new<'ctxt>(node_name: &str, context: &Context) -> Result<Node, RclReturnCode> {
+    pub fn new(node_name: &str, context: &Context) -> Result<Node, RclReturnCode> {
         Self::new_with_namespace(node_name, "", context)
     }
 
-    pub fn new_with_namespace<'ctxt>(
+    pub fn new_with_namespace(
         node_name: &str,
         node_ns: &str,
         context: &Context,

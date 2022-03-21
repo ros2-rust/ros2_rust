@@ -11,7 +11,7 @@ use spin::{Mutex, MutexGuard};
 #[cfg(feature = "std")]
 use parking_lot::{Mutex, MutexGuard};
 
-pub struct ContextHandle(Mutex<rcl_context_t>);
+pub(crate) struct ContextHandle(Mutex<rcl_context_t>);
 
 impl ContextHandle {
     pub fn get_mut(&mut self) -> &mut rcl_context_t {
@@ -20,10 +20,6 @@ impl ContextHandle {
 
     pub fn lock(&self) -> MutexGuard<rcl_context_t> {
         self.0.lock()
-    }
-
-    pub fn try_lock(&self) -> Option<MutexGuard<rcl_context_t>> {
-        self.0.try_lock()
     }
 }
 
@@ -36,7 +32,7 @@ impl Drop for ContextHandle {
 }
 
 pub struct Context {
-    pub handle: Arc<ContextHandle>,
+    pub(crate) handle: Arc<ContextHandle>,
 }
 
 impl Context {
@@ -77,6 +73,6 @@ impl Context {
     }
 
     pub fn create_node(&self, node_name: &str) -> Result<Node, RclReturnCode> {
-        Ok(Node::new(node_name, self)?)
+        Node::new(node_name, self)
     }
 }

@@ -27,19 +27,10 @@ pub use self::node::*;
 pub use self::qos::*;
 
 use self::rcl_bindings::*;
-use core::ops::{Deref, DerefMut};
 use wait::{WaitSet, WaitSetErrorResponse};
 
-pub trait Handle<T> {
-    type DerefT: Deref<Target = T>;
-    type DerefMutT: DerefMut<Target = T>;
-
-    fn get(self) -> Self::DerefT;
-    fn get_mut(self) -> Self::DerefMutT;
-}
-
 /// Wrapper around [`spin_once`]
-pub fn spin<'node>(node: &'node node::Node) -> Result<(), WaitSetErrorResponse> {
+pub fn spin(node: &node::Node) -> Result<(), WaitSetErrorResponse> {
     while unsafe { rcl_context_is_valid(&mut *node.context.lock() as *mut _) } {
         if let Some(error) = spin_once(node, 500).err() {
             match error {
@@ -90,7 +81,7 @@ pub fn spin<'node>(node: &'node node::Node) -> Result<(), WaitSetErrorResponse> 
 ///         +--------------------+
 ///
 ///
-pub fn spin_once<'node>(node: &'node Node, timeout: i64) -> Result<(), WaitSetErrorResponse> {
+pub fn spin_once(node: &Node, timeout: i64) -> Result<(), WaitSetErrorResponse> {
     let number_of_subscriptions = node.subscriptions.len();
     let number_of_guard_conditions = 0;
     let number_of_timers = 0;

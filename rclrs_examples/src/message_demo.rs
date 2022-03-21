@@ -7,7 +7,7 @@ use rosidl_runtime_rs::{seq, BoundedSequence, Message, Sequence};
 
 fn check_default_values() {
     let msg = rclrs_example_msgs::msg::rmw::VariousTypes::default();
-    assert_eq!(msg.bool_member, true);
+    assert!(msg.bool_member);
     assert_eq!(msg.int8_member, 1i8);
     assert_eq!(msg.uint8_member, 2u8);
     assert_eq!(msg.byte_member, 3u8);

@@ -68,9 +68,21 @@ jobs:
       run: |
         cargo install cargo-ament-build
 
-    - name: build and test
+    - name: Build and test
+      id: build
       uses: ros-tooling/action-ros-ci@v0.2
       with:
         package-name: ${{ steps.list_packages.outputs.package_list }}
         target-ros2-distro: ${{ matrix.ros_distro }}
         vcs-repo-file-url: ros2_rust_${{ matrix.ros_distro }}.repos
+
+    - name: Run clippy on Rust packages
+      run: |
+        cd ${{ steps.build.outputs.ros-workspace-directory-name }}
+        . /opt/ros/${{ matrix.ros_distro }}/setup.sh
+        for path in $(colcon list | awk '$3 == "(ament_cargo)" { print $2 }'); do
+        cd $path
+        echo "Checking $path"
+        cargo clippy -- -D warnings
+        cd -
+        done

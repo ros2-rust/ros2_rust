@@ -6,7 +6,7 @@ use alloc::sync::Arc;
 use core::marker::PhantomData;
 use cstr_core::CString;
 use rosidl_runtime_rs::{Message, RmwMessage};
-use std::borrow::{Borrow, Cow};
+use std::borrow::Cow;
 
 #[cfg(not(feature = "std"))]
 use spin::{Mutex, MutexGuard};
@@ -14,26 +14,14 @@ use spin::{Mutex, MutexGuard};
 #[cfg(feature = "std")]
 use parking_lot::{Mutex, MutexGuard};
 
-pub struct PublisherHandle {
+pub(crate) struct PublisherHandle {
     handle: Mutex<rcl_publisher_t>,
     node_handle: Arc<NodeHandle>,
 }
 
 impl PublisherHandle {
-    fn node_handle(&self) -> &NodeHandle {
-        self.node_handle.borrow()
-    }
-
-    fn get_mut(&mut self) -> &mut rcl_publisher_t {
-        self.handle.get_mut()
-    }
-
     fn lock(&self) -> MutexGuard<rcl_publisher_t> {
         self.handle.lock()
-    }
-
-    fn try_lock(&self) -> Option<MutexGuard<rcl_publisher_t>> {
-        self.handle.try_lock()
     }
 }
 
@@ -52,7 +40,7 @@ pub struct Publisher<T>
 where
     T: Message,
 {
-    pub handle: Arc<PublisherHandle>,
+    pub(crate) handle: Arc<PublisherHandle>,
     message: PhantomData<T>,
 }
 

@@ -24,7 +24,7 @@ extern "C" {
 extern "C" {
     fn @(package_name)__@(subfolder)__@(type_name)__init(msg: *mut @(type_name)) -> bool;
     fn @(package_name)__@(subfolder)__@(type_name)__Sequence__init(seq: *mut rosidl_runtime_rs::Sequence<@(type_name)>, size: libc::size_t) -> bool;
-    fn @(package_name)__@(subfolder)__@(type_name)__Sequence__fini(seq: *mut rosidl_runtime_rs::Sequence<@(type_name)>) -> ();
+    fn @(package_name)__@(subfolder)__@(type_name)__Sequence__fini(seq: *mut rosidl_runtime_rs::Sequence<@(type_name)>);
 }
 
 @# Drop is not needed, since the default drop glue does the same as fini here:
@@ -70,13 +70,13 @@ impl rosidl_runtime_rs::SequenceAlloc for @(type_name) {
 
 impl rosidl_runtime_rs::Message for @(type_name) {
   type RmwMsg = Self;
-  fn into_rmw_message<'a>(msg_cow: std::borrow::Cow<'a, Self>) -> std::borrow::Cow<'a, Self::RmwMsg> { msg_cow }
+  fn into_rmw_message(msg_cow: std::borrow::Cow<'_, Self>) -> std::borrow::Cow<'_, Self::RmwMsg> { msg_cow }
   fn from_rmw_message(msg: Self::RmwMsg) -> Self { msg }
 }
 
 impl rosidl_runtime_rs::RmwMessage for @(type_name) where Self: Sized {
   fn get_type_support() -> libc::uintptr_t {
-    return unsafe { rosidl_typesupport_c__get_message_type_support_handle__@(package_name)__@(subfolder)__@(type_name)() };
+    unsafe { rosidl_typesupport_c__get_message_type_support_handle__@(package_name)__@(subfolder)__@(type_name)() }
   }
 }
 
@@ -109,7 +109,7 @@ impl Default for @(type_name) {
 impl rosidl_runtime_rs::Message for @(type_name) {
   type RmwMsg = crate::msg::rmw::@(type_name);
 
-  fn into_rmw_message<'a>(msg_cow: std::borrow::Cow<'a, Self>) -> std::borrow::Cow<'a, Self::RmwMsg> {
+  fn into_rmw_message(msg_cow: std::borrow::Cow<'_, Self>) -> std::borrow::Cow<'_, Self::RmwMsg> {
     match msg_cow {
       std::borrow::Cow::Owned(msg) => std::borrow::Cow::Owned(Self::RmwMsg {
 @[for member in msg_spec.structure.members]@
@@ -123,6 +123,8 @@ impl rosidl_runtime_rs::Message for @(type_name) {
 @[        elif isinstance(member.type.value_type, NamedType) or isinstance(member.type.value_type, NamespacedType)]@
         @(get_rs_name(member.name)): msg.@(get_rs_name(member.name))
           .map(|elem| @(get_idiomatic_rs_type(member.type.value_type))::into_rmw_message(std::borrow::Cow::Owned(elem)).into_owned()),
+@[        elif isinstance(member.type.value_type, BasicType)]@
+        @(get_rs_name(member.name)): msg.@(get_rs_name(member.name)),
 @[        else]@
         @(get_rs_name(member.name)): msg.@(get_rs_name(member.name)).clone(),
 @[        end if]@
@@ -181,6 +183,8 @@ impl rosidl_runtime_rs::Message for @(type_name) {
           .collect::<Vec<_>>()
           .try_into()
           .unwrap(),
+@[        elif isinstance(member.type.value_type, BasicType)]@
+        @(get_rs_name(member.name)): msg.@(get_rs_name(member.name)),
 @[        else]@
         @(get_rs_name(member.name)): msg.@(get_rs_name(member.name)).clone(),
 @[        end if]@
@@ -239,7 +243,7 @@ impl rosidl_runtime_rs::Message for @(type_name) {
         .map(|elem| elem.to_string()),
 @[        elif isinstance(member.type.value_type, NamedType) or isinstance(member.type.value_type, NamespacedType)]@
       @(get_rs_name(member.name)): msg.@(get_rs_name(member.name))
-        .map(|elem| @(get_idiomatic_rs_type(member.type.value_type))::from_rmw_message(elem)),
+        .map(@(get_idiomatic_rs_type(member.type.value_type))::from_rmw_message),
 @[        else]@
       @(get_rs_name(member.name)): msg.@(get_rs_name(member.name)),
 @[        end if]@
@@ -252,7 +256,7 @@ impl rosidl_runtime_rs::Message for @(type_name) {
 @[        if isinstance(member.type.value_type, UnboundedString) or isinstance(member.type, UnboundedWString)]@
           .map(|elem| elem.to_string())
 @[        elif isinstance(member.type.value_type, NamedType) or isinstance(member.type.value_type, NamespacedType)]@
-          .map(|elem| @(get_idiomatic_rs_type(member.type.value_type))::from_rmw_message(elem))
+          .map(@(get_idiomatic_rs_type(member.type.value_type))::from_rmw_message)
 @[        end if]@
           .collect(),
 @#
