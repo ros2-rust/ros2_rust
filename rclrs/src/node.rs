@@ -292,8 +292,8 @@ mod tests {
     use super::*;
     use crate::{Context, Node, QOS_PROFILE_DEFAULT};
     use rclrs_common::error::RclReturnCode;
-    use std_msgs;
     use std::{env, println};
+    use std_msgs;
 
     fn default_context() -> Context {
         let args: Vec<CString> = env::args()
@@ -333,7 +333,8 @@ mod tests {
     fn test_create_publisher() -> Result<(), RclReturnCode> {
         let context = default_context();
         let node = context.create_node("test_create_publisher")?;
-        let _publisher = node.create_publisher::<std_msgs::msg::String>("topic", QOS_PROFILE_DEFAULT)?;
+        let _publisher =
+            node.create_publisher::<std_msgs::msg::String>("topic", QOS_PROFILE_DEFAULT)?;
         Ok(())
     }
 }

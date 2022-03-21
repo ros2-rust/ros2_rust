@@ -177,7 +177,10 @@ mod tests {
     fn test_create_context() {
         // If the context fails to be created, this will cause a panic
         let created_context = default_context();
-        println!("<test_create_context> Created Context: {:?}", created_context);
+        println!(
+            "<test_create_context> Created Context: {:?}",
+            created_context
+        );
     }
 
     #[test]
@@ -187,7 +190,10 @@ mod tests {
         let ctxt_ok = created_context.ok();
         match ctxt_ok {
             Ok(is_ok) => assert!(is_ok),
-            Err(err_code) => panic!("<test_context_ok> RCL Error occured during test: {:?}", err_code),
+            Err(err_code) => panic!(
+                "<test_context_ok> RCL Error occured during test: {:?}",
+                err_code
+            ),
         }
     }
 
@@ -211,4 +217,4 @@ mod tests {
         };
         context.init(args).unwrap();
     }
-} 
+}

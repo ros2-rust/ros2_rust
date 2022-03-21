@@ -103,6 +103,6 @@ mod tests {
             },
         )?;
 
-       spin_once(&subscriber_node, 500)
+        spin_once(&subscriber_node, 500)
     }
 }
