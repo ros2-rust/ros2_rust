@@ -77,3 +77,32 @@ pub fn spin(node: &Node) -> Result<(), RclrsError> {
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloc::vec::Vec;
+    use cstr_core::CString;
+    use std::{env, println};
+    use std_msgs;
+
+    fn test_spin_once() -> Result<(), WaitSetErrorResponse> {
+        let args: Vec<CString> = env::args()
+            .filter_map(|arg| CString::new(arg).ok())
+            .collect();
+        let context = Context::default(args);
+        let mut subscriber_node = context.create_node("minimal_subscriber")?;
+        let mut num_messages: usize = 0;
+        let _subscription = subscriber_node.create_subscription::<std_msgs::msg::String, _>(
+            "topic",
+            QOS_PROFILE_DEFAULT,
+            move |msg: &std_msgs::msg::String| {
+                println!("I heard: '{}'", msg.data);
+                num_messages += 1;
+                println!("(Got {} messages so far)", num_messages);
+            },
+        )?;
+
+       spin_once(&subscriber_node, 500)
+    }
+}
