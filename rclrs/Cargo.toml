@@ -20,6 +20,9 @@ downcast = "0.10.0"
 [dependencies.rosidl_runtime_rs]
 version = "*"
 
+[dev-dependencies.std_msgs]
+version = "*"
+
 [build-dependencies]
 bindgen = "0.59.1"
 

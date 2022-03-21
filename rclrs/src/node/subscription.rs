@@ -150,7 +150,6 @@ mod tests {
     use super::*;
     use crate::{Context, Subscription, QOS_PROFILE_DEFAULT};
     use alloc::vec::Vec;
-    use rclrs_common::error::RclReturnCode;
     use std::{env, println};
     use std_msgs;
 
