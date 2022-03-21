@@ -148,11 +148,11 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{Context, QOS_PROFILE_DEFAULT, Subscription};
+    use crate::{Context, Subscription, QOS_PROFILE_DEFAULT};
     use alloc::vec::Vec;
     use rclrs_common::error::RclReturnCode;
-    use std_msgs;
     use std::{env, println};
+    use std_msgs;
 
     fn default_context() -> Context {
         let args: Vec<CString> = env::args()
@@ -172,7 +172,7 @@ mod tests {
             QOS_PROFILE_DEFAULT,
             move |msg: &std_msgs::msg::String| {
                 println!("Recieved message: '{}'", msg.data);
-            }
+            },
         )?;
         Ok(())
     }

@@ -132,8 +132,8 @@ mod tests {
     use crate::{Context, Publisher, QOS_PROFILE_DEFAULT};
     use alloc::{borrow::ToOwned, vec::Vec};
     use rclrs_common::error::RclReturnCode;
-    use std_msgs;
     use std::{env, println};
+    use std_msgs;
 
     fn default_context() -> Context {
         let args: Vec<CString> = env::args()
@@ -146,7 +146,7 @@ mod tests {
     #[test]
     fn test_new_publisher() -> Result<(), RclReturnCode> {
         let context = default_context();
-        let node = context.create_node( "test_new_publisher")?;
+        let node = context.create_node("test_new_publisher")?;
         Publisher::<std_msgs::msg::String>::new(&node, "test", QOS_PROFILE_DEFAULT).map(|_x| ())
     }
 
@@ -154,7 +154,8 @@ mod tests {
     fn test_publish() -> Result<(), RclReturnCode> {
         let context = default_context();
         let node = context.create_node("test_publish")?;
-        let publisher = Publisher::<std_msgs::msg::String>::new(&node, "test", QOS_PROFILE_DEFAULT)?;
+        let publisher =
+            Publisher::<std_msgs::msg::String>::new(&node, "test", QOS_PROFILE_DEFAULT)?;
         let mut message = std_msgs::msg::String::default();
         message.data = "Hello world!".to_owned();
         publisher.publish(&message)
