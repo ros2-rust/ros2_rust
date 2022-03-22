@@ -1,4 +1,5 @@
 #[allow(dead_code)]
+#[allow(deref_nullptr)]
 
 /// namespace and entry point for the RCL FFI bindings
 mod rcl_bindings {
