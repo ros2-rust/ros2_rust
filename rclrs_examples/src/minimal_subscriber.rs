@@ -1,13 +1,9 @@
 use std::env;
 
 use anyhow::{Error, Result};
-use cstr_core::CString;
 
 fn main() -> Result<(), Error> {
-    let args: Vec<CString> = env::args()
-        .filter_map(|arg| CString::new(arg).ok())
-        .collect();
-    let context = rclrs::Context::default(args);
+    let context = rclrs::Context::new(env::args()).unwrap();
 
     let mut node = context.create_node("minimal_subscriber")?;
 

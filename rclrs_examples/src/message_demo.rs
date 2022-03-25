@@ -1,5 +1,4 @@
 use anyhow::{Error, Result};
-use cstr_core::CString;
 use std::convert::TryInto;
 use std::env;
 
@@ -113,10 +112,7 @@ fn demonstrate_sequences() {
 fn demonstrate_pubsub() -> Result<(), Error> {
     println!("================== Interoperability demo ==================");
     // Demonstrate interoperability between idiomatic and RMW-compatible message types
-    let args: Vec<CString> = env::args()
-        .filter_map(|arg| CString::new(arg).ok())
-        .collect();
-    let context = rclrs::Context::default(args);
+    let context = rclrs::Context::new(env::args()).unwrap();
     let mut node = context.create_node("message_demo")?;
 
     let idiomatic_publisher = node.create_publisher::<rclrs_example_msgs::msg::VariousTypes>(

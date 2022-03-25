@@ -6,7 +6,7 @@ use alloc::{
 use crate::error::{RclReturnCode, ToResult};
 use crate::qos::QoSProfile;
 use crate::rcl_bindings::*;
-use crate::{Context, ContextHandle};
+use crate::Context;
 
 use rosidl_runtime_rs::Message;
 
@@ -40,7 +40,7 @@ impl Drop for NodeHandle {
 
 pub struct Node {
     handle: Arc<NodeHandle>,
-    pub(crate) context: Arc<ContextHandle>,
+    pub(crate) context: Arc<Mutex<rcl_context_t>>,
     pub(crate) subscriptions: Vec<Weak<dyn SubscriptionBase>>,
 }
 
