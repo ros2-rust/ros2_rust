@@ -17,7 +17,6 @@ name = "message_demo"
 path = "src/message_demo.rs"
 
 [dependencies]
-thiserror = "1"
 anyhow = {version = "1", features = ["backtrace"]}
 cstr_core = "0.2"
 
@@ -28,9 +27,6 @@ version = "*"
 version = "*"
 
 [dependencies.std_msgs]
-version = "*"
-
-[dependencies.geometry_msgs]
 version = "*"
 
 [dependencies.rclrs_example_msgs]
