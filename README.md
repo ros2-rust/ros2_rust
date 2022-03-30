@@ -60,6 +60,9 @@ colcon build --packages-up-to rclrs_examples
 
 It's normal to see a `Some selected packages are already built in one or more underlay workspace` warning. This is because the standard message definitions that are part of ROS 2 need to be regenerated in order to create Rust bindings.
 
+If something goes very wrong and you want to start fresh, make sure to delete all `install*`, `build*` and `.cargo` directories. Also, make sure your terminal does not have any install sourced (check with `echo $AMENT_PREFIX_PATH`, which should be empty).
+
+
 ### Building with `cargo`
 As an alternative to `colcon`, Rust packages can be built with pure `cargo`.
 
@@ -74,7 +77,7 @@ As an example, here is how to build `rclcrs_examples` with `cargo`:
 # Compare .cargo/config.toml with and without the --lookup-in-workspace flag to see its effect
 colcon build --packages-up-to rclrs_examples --lookup-in-workspace
 # Source the install directory
-. install/setup.bash
+. install/setup.sh
 cd rclrs_examples
 # Run cargo build, or cargo check, cargo doc, etc.
 cargo build
@@ -99,5 +102,3 @@ ros2 run rclrs_examples rclrs_subscriber
 ```
 
 Enjoy!
-
-If something goes very wrong and you want to start fresh, make sure to delete all `install*`, `build*` and `.cargo` directories. Also, make sure your terminal does not have any install sourced (check with `echo $AMENT_PREFIX_PATH`, which should be empty).
