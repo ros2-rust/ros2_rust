@@ -26,6 +26,18 @@ impl Drop for rcl_context_t {
     }
 }
 
+/// Shared state between nodes and similar entities.
+///
+/// It is possible, but not usually necessary, to have several contexts in an application.
+///
+/// Ownership of the context is shared by the `Context` itself and all nodes created from it.
+///
+/// # Details
+/// A context stores, among other things
+/// - command line arguments (used for e.g. name remapping)
+/// - middleware-specific data, e.g. the domain participant in DDS
+/// - the allocator used (left as the default by `rclrs`)
+///
 pub struct Context {
     pub(crate) handle: Arc<Mutex<rcl_context_t>>,
 }
@@ -92,6 +104,19 @@ impl Context {
         Ok(context)
     }
 
+    /// Creates a node.
+    ///
+    /// Convenience function equivalent to [`Node::new`][1].
+    ///
+    /// [1]: crate::Node::new
+    ///
+    /// # Example
+    /// ```
+    /// # use rclrs::Context;
+    /// let ctx = Context::new([]).unwrap();
+    /// let node = ctx.create_node("my_node");
+    /// assert!(node.is_ok());
+    /// ```
     pub fn create_node(&self, node_name: &str) -> Result<Node, RclReturnCode> {
         Node::new(node_name, self)
     }

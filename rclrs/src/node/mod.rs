@@ -12,9 +12,9 @@ use rosidl_runtime_rs::Message;
 
 use cstr_core::CString;
 
-pub mod publisher;
+mod publisher;
+mod subscription;
 pub use self::publisher::*;
-pub mod subscription;
 pub use self::subscription::*;
 
 #[cfg(not(feature = "std"))]
@@ -30,6 +30,12 @@ impl Drop for rcl_node_t {
     }
 }
 
+/// A processing unit that can communicate with other nodes.
+///
+/// Nodes are a core concept in ROS 2. Refer to the official ["Understanding ROS 2 nodes"][1]
+/// tutorial for an introduction.
+///
+/// [1]: https://docs.ros.org/en/foxy/Tutorials/Understanding-ROS2-Nodes.html
 pub struct Node {
     handle: Arc<Mutex<rcl_node_t>>,
     pub(crate) context: Arc<Mutex<rcl_context_t>>,
@@ -42,6 +48,10 @@ impl Node {
         Self::new_with_namespace(node_name, "", context)
     }
 
+    /// Creates a new node in a namespace.
+    ///
+    /// A namespace without a leading forward slash is automatically changed to have a leading
+    /// forward slash.
     pub fn new_with_namespace(
         node_name: &str,
         node_ns: &str,

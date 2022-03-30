@@ -36,7 +36,16 @@ impl Drop for PublisherHandle {
     }
 }
 
-/// Main class responsible for publishing data to ROS topics
+/// Struct for sending messages of type `T`.
+///
+/// Multiple publishers can be created for the same topic, in different nodes or the same node.
+///
+/// The underlying RMW will decide on the concrete delivery mechanism (network stack, shared
+/// memory, or intraprocess).
+///
+/// Sending messages does not require calling [`spin`][1] on the publisher's node.
+///
+/// [1]: crate::spin
 pub struct Publisher<T>
 where
     T: Message,
@@ -49,6 +58,10 @@ impl<T> Publisher<T>
 where
     T: Message,
 {
+    /// Creates a new `Publisher`.
+    ///
+    /// # Panics
+    /// When the topic contains interior null bytes.
     pub fn new(node: &Node, topic: &str, qos: QoSProfile) -> Result<Self, RclReturnCode>
     where
         T: Message,
