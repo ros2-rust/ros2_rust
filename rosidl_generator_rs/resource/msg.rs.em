@@ -10,6 +10,8 @@ from rosidl_parser.definition import UnboundedString
 from rosidl_parser.definition import UnboundedWString
 }@
 pub mod rmw {
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
   @[for subfolder, msg_spec in msg_specs]@
 @{
 type_name = msg_spec.structure.namespaced_type.name
@@ -31,6 +33,7 @@ extern "C" {
 @# it just calls the drop/fini functions of all fields
 // Corresponds to @(package_name)__@(subfolder)__@(type_name)
 #[repr(C)]
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Clone, Debug, PartialEq, PartialOrd)]
 pub struct @(type_name) {
 @[for member in msg_spec.structure.members]@
@@ -87,11 +90,14 @@ impl rosidl_runtime_rs::RmwMessage for @(type_name) where Self: Sized {
 @# ############ Idiomatic message types ############
 @# #################################################
 @# These types use standard Rust containers where possible.
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
 @[for subfolder, msg_spec in msg_specs]@
 @{
 type_name = msg_spec.structure.namespaced_type.name
 }@
 
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Clone, Debug, PartialEq, PartialOrd)]
 pub struct @(type_name) {
 @[for member in msg_spec.structure.members]@

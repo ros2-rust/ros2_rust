@@ -4,6 +4,9 @@ use std::hash::{Hash, Hasher};
 use std::iter::{Extend, FromIterator, FusedIterator};
 use std::ops::{Deref, DerefMut};
 
+#[cfg(feature = "serde")]
+mod serde;
+
 use crate::traits::SequenceAlloc;
 
 /// An unbounded sequence.
@@ -674,7 +677,20 @@ macro_rules! seq {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use quickcheck::quickcheck;
+    use quickcheck::{quickcheck, Arbitrary, Gen};
+
+    impl<T: Arbitrary + SequenceAlloc> Arbitrary for Sequence<T> {
+        fn arbitrary(g: &mut Gen) -> Self {
+            Vec::arbitrary(g).into()
+        }
+    }
+
+    impl<T: Arbitrary + SequenceAlloc> Arbitrary for BoundedSequence<T, 256> {
+        fn arbitrary(g: &mut Gen) -> Self {
+            let len = u8::arbitrary(g);
+            (0..len).map(|_| T::arbitrary(g)).collect()
+        }
+    }
 
     quickcheck! {
         fn test_extend(xs: Vec<i32>, ys: Vec<i32>) -> bool {
