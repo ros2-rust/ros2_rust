@@ -102,8 +102,8 @@ impl Node {
         callback: F,
     ) -> Result<Arc<Subscription<T>>, RclReturnCode>
     where
-        T: Message + 'static,
-        F: FnMut(&T) + Sized + 'static,
+        T: Message,
+        F: FnMut(T) + Sized + 'static,
     {
         let subscription = Arc::new(Subscription::<T>::new(self, topic, qos, callback)?);
         self.subscriptions
