@@ -18,7 +18,6 @@ path = "src/message_demo.rs"
 
 [dependencies]
 anyhow = {version = "1", features = ["backtrace"]}
-cstr_core = "0.2"
 
 [dependencies.rclrs]
 version = "*"

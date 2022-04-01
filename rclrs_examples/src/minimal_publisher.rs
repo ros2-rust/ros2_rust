@@ -1,12 +1,8 @@
 use anyhow::{Error, Result};
-use cstr_core::CString;
 use std::env;
 
 fn main() -> Result<(), Error> {
-    let args: Vec<CString> = env::args()
-        .filter_map(|arg| CString::new(arg).ok())
-        .collect();
-    let context = rclrs::Context::default(args);
+    let context = rclrs::Context::new(env::args()).unwrap();
 
     let node = context.create_node("minimal_publisher")?;
 
@@ -17,13 +13,12 @@ fn main() -> Result<(), Error> {
 
     let mut publish_count: u32 = 1;
 
-    while context.ok()? {
+    while context.ok() {
         message.data = format!("Hello, world! {}", publish_count);
         println!("Publishing: [{}]", message.data);
         publisher.publish(&message)?;
         publish_count += 1;
         std::thread::sleep(std::time::Duration::from_millis(500));
     }
-
     Ok(())
 }
