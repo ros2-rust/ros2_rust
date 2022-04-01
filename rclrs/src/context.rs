@@ -96,9 +96,15 @@ impl Context {
         Node::new(node_name, self)
     }
 
-    pub fn ok(&self) -> Result<bool, RclReturnCode> {
+    /// Checks if the context is still valid.
+    ///
+    /// This will return `false` when a signal has caused the context to shut down (currently
+    /// unimplemented).
+    pub fn ok(&self) -> bool {
         // This will currently always return true, but once we have a signal handler, the signal
         // handler could call `rcl_shutdown()`, hence making the context invalid.
-        true
+        let handle = &mut *self.handle.lock();
+        // SAFETY: No preconditions for this function.
+        unsafe { rcl_context_is_valid(handle as *mut _) }
     }
 }
