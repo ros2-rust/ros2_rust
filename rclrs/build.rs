@@ -22,6 +22,7 @@ fn main() {
         .allowlist_var("rcl_.*")
         .allowlist_var("rmw_.*")
         .allowlist_var("rcutils_.*")
+        .layout_tests(false)
         .size_t_is_usize(true)
         .default_enum_style(bindgen::EnumVariation::Rust {
             non_exhaustive: false,
