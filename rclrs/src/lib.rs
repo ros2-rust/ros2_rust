@@ -81,7 +81,7 @@ pub fn spin(node: &node::Node) -> Result<(), WaitSetErrorResponse> {
 ///         +--------------------+
 ///
 ///
-pub fn spin_once(node: &Node, timeout: i64) -> Result<(), WaitSetErrorResponse> {
+pub fn spin_once(node: &Node, timeout_ns: i64) -> Result<(), WaitSetErrorResponse> {
     let number_of_subscriptions = node.subscriptions.len();
     let number_of_guard_conditions = 0;
     let number_of_timers = 0;
@@ -109,9 +109,16 @@ pub fn spin_once(node: &Node, timeout: i64) -> Result<(), WaitSetErrorResponse> 
         };
     }
 
-    wait_set.wait(timeout)?;
-    for subscription in &node.subscriptions {
-        if let Some(subscription) = subscription.upgrade() {
+    wait_set.wait(timeout_ns)?;
+    for (i, sub) in node.subscriptions.iter().enumerate() {
+        // SAFETY: The `subscriptions` entry is an array of pointers, this dereferencing is
+        // equivalent to
+        // https://github.com/ros2/rcl/blob/35a31b00a12f259d492bf53c0701003bd7f1745c/rcl/include/rcl/wait.h#L419
+        let wait_set_entry = unsafe { *wait_set.handle.subscriptions.add(i) };
+        if wait_set_entry.is_null() {
+            continue;
+        }
+        if let Some(subscription) = sub.upgrade() {
             subscription.execute()?;
         }
     }
