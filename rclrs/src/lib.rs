@@ -112,7 +112,11 @@ pub fn spin_once(node: &Node, timeout: i64) -> Result<(), WaitSetErrorResponse> 
     wait_set.wait(timeout)?;
     for subscription in &node.subscriptions {
         if let Some(subscription) = subscription.upgrade() {
-            subscription.execute()?;
+            let mut message = subscription.create_message();
+            let result = subscription.take(&mut *message).unwrap();
+            if result {
+                subscription.callback_fn(message);
+            }
         }
     }
 

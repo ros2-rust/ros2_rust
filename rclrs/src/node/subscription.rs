@@ -139,8 +139,10 @@ where
     }
 
     fn execute(&self) -> Result<(), RclReturnCode> {
-        let msg = self.take()?;
-        (&mut *self.callback.lock())(&msg);
+        let msg = self.take();
+        if msg {
+            (&mut *self.callback.lock())(&msg);
+        }
         Ok(())
     }
 }
