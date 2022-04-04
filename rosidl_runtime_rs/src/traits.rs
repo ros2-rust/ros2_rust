@@ -1,3 +1,4 @@
+#![warn(missing_docs)]
 // Copyright 2020 DCS Corporation, All Rights Reserved.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -142,4 +143,18 @@ pub trait Message: Clone + Debug + Default + 'static + Send + Sync {
 
     /// Converts the RMW-native message into an idiomatic message.
     fn from_rmw_message(msg: Self::RmwMsg) -> Self;
+}
+
+pub trait RmwService {
+    type Request: RmwMessage;
+    type Response: RmwMessage;
+
+    fn get_type_support() -> libc::uintptr_t;
+}
+
+pub trait Service {
+    type Request: Message;
+    type Response: Message;
+
+    fn get_type_support() -> libc::uintptr_t;
 }

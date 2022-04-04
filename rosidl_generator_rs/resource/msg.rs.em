@@ -108,12 +108,12 @@ pub struct @(type_name) {
 impl Default for @(type_name) {
   fn default() -> Self {
 @#  This has the benefit of automatically setting the right default values
-    <Self as rosidl_runtime_rs::Message>::from_rmw_message(crate::msg::rmw::@(type_name)::default())
+    <Self as rosidl_runtime_rs::Message>::from_rmw_message(crate::@(subfolder)::rmw::@(type_name)::default())
   }
 }
 
 impl rosidl_runtime_rs::Message for @(type_name) {
-  type RmwMsg = crate::msg::rmw::@(type_name);
+  type RmwMsg = crate::@(subfolder)::rmw::@(type_name);
 
   fn into_rmw_message(msg_cow: std::borrow::Cow<'_, Self>) -> std::borrow::Cow<'_, Self::RmwMsg> {
     match msg_cow {
