@@ -18,11 +18,24 @@
 use crate::rcl_bindings::*;
 use crate::SubscriptionBase;
 
-use crate::error::{to_rcl_result, RclReturnCode, WaitSetErrorCode};
+use crate::error::{to_rcl_result, RclReturnCode, ToResult};
 use alloc::sync::Weak;
-use core::borrow::BorrowMut;
 use core::fmt::Display;
 use core_error::Error;
+
+pub struct WaitSet {
+    pub(crate) handle: rcl_wait_set_t,
+}
+
+impl Drop for rcl_wait_set_t {
+    fn drop(&mut self) {
+        // SAFETY: No preconditions for this function (besides passing in a valid wait set).
+        let rc = unsafe { rcl_wait_set_fini(self as *mut _) };
+        if let Err(e) = to_rcl_result(rc) {
+            panic!("Unable to release WaitSet. {:?}", e)
+        }
+    }
+}
 
 #[derive(Debug)]
 pub enum WaitSetErrorResponse {
@@ -49,16 +62,8 @@ impl From<RclReturnCode> for WaitSetErrorResponse {
 
 impl Error for WaitSetErrorResponse {}
 
-pub struct WaitSet {
-    pub wait_set: rcl_wait_set_t,
-    initialized: bool,
-}
-
 impl WaitSet {
     /// Creates and initializes a new WaitSet object.
-    ///
-    /// Under the hood, this calls `rcl_get_zero_initialized_wait_set()`, and stores it
-    /// within the WaitSet struct, while also noting that the returned value is uninitialized.
     pub fn new(
         number_of_subscriptions: usize,
         number_of_guard_conditions: usize,
@@ -68,32 +73,28 @@ impl WaitSet {
         number_of_events: usize,
         context: &mut rcl_context_t,
     ) -> Result<Self, WaitSetErrorResponse> {
-        let mut waitset = Self {
-            wait_set: unsafe { rcl_get_zero_initialized_wait_set() },
-            initialized: false,
-        };
-        unsafe {
-            match to_rcl_result(rcl_wait_set_init(
-                waitset.wait_set.borrow_mut() as *mut _,
+        let rcl_wait_set = unsafe {
+            // SAFETY: Getting a zero-initialized value is always safe
+            let mut rcl_wait_set = rcl_get_zero_initialized_wait_set();
+            // SAFETY: We're passing in a zero-initialized wait set and a valid context.
+            // There are no other preconditions.
+            rcl_wait_set_init(
+                &mut rcl_wait_set as *mut _,
                 number_of_subscriptions,
                 number_of_guard_conditions,
                 number_of_timers,
                 number_of_clients,
                 number_of_services,
                 number_of_events,
-                context,
+                context as *mut _,
                 rcutils_get_default_allocator(),
-            )) {
-                Ok(()) => {
-                    waitset.initialized = true;
-                    Ok(waitset)
-                }
-                Err(err) => {
-                    waitset.initialized = false;
-                    Err(WaitSetErrorResponse::ReturnCode(err))
-                }
-            }
-        }
+            )
+            .ok()?;
+            rcl_wait_set
+        };
+        Ok(Self {
+            handle: rcl_wait_set,
+        })
     }
 
     /// Removes (sets to NULL) all entities in the WaitSet
@@ -103,15 +104,8 @@ impl WaitSet {
     /// - `RclError::WaitSetInvalid` if the WaitSet is already zero-initialized.
     /// - `RclError::Error` for an unspecified error
     pub fn clear(&mut self) -> Result<(), WaitSetErrorResponse> {
-        if !self.initialized {
-            return Err(WaitSetErrorResponse::ReturnCode(
-                RclReturnCode::WaitSetError(WaitSetErrorCode::WaitSetInvalid),
-            ));
-        }
         unsafe {
-            // Whether or not we successfully clear, this WaitSet will count as uninitialized
-            self.initialized = false;
-            to_rcl_result(rcl_wait_set_clear(self.wait_set.borrow_mut() as *mut _))
+            to_rcl_result(rcl_wait_set_clear(&mut self.handle as *mut _))
                 .map_err(WaitSetErrorResponse::ReturnCode)
         }
     }
@@ -128,12 +122,12 @@ impl WaitSet {
         if let Some(subscription) = subscription.upgrade() {
             let subscription_handle = &mut *subscription.handle().lock();
             unsafe {
-                return to_rcl_result(rcl_wait_set_add_subscription(
-                    self.wait_set.borrow_mut() as *mut _,
+                to_rcl_result(rcl_wait_set_add_subscription(
+                    &mut self.handle as *mut _,
                     subscription_handle as *const _,
                     core::ptr::null_mut(),
                 ))
-                .map_err(WaitSetErrorResponse::ReturnCode);
+                .map_err(WaitSetErrorResponse::ReturnCode)
             }
         } else {
             Err(WaitSetErrorResponse::DroppedSubscription)
@@ -189,24 +183,6 @@ impl WaitSet {
     /// - `RclError::Timeout` if the timeout expired before something was ready
     /// - `RclError::Error` for an unspecified error
     pub fn wait(&mut self, timeout: i64) -> Result<(), RclReturnCode> {
-        unsafe { to_rcl_result(rcl_wait(self.wait_set.borrow_mut() as *mut _, timeout)) }
-    }
-}
-
-impl Drop for WaitSet {
-    /// Drops the WaitSet, and clears the memory
-    ///
-    /// # Panics
-    /// A panic is raised if `rcl` is unable to release the waitset for any reason.
-    fn drop(&mut self) {
-        let handle = &mut *self.wait_set.borrow_mut();
-        unsafe {
-            match to_rcl_result(rcl_wait_set_fini(handle as *mut _)) {
-                Ok(()) => (),
-                Err(err) => {
-                    panic!("Unable to release WaitSet!! {:?}", err)
-                }
-            }
-        }
+        unsafe { to_rcl_result(rcl_wait(&mut self.handle as *mut _, timeout)) }
     }
 }

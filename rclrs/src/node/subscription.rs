@@ -1,4 +1,4 @@
-use crate::error::ToResult;
+use crate::error::{SubscriberErrorCode, ToResult};
 use crate::qos::QoSProfile;
 use crate::{rcl_bindings::*, RclReturnCode};
 use crate::{Node, NodeHandle};
@@ -139,7 +139,15 @@ where
     }
 
     fn execute(&self) -> Result<(), RclReturnCode> {
-        let msg = self.take()?;
+        let msg = match self.take() {
+            Ok(msg) => msg,
+            Err(RclReturnCode::SubscriberError(SubscriberErrorCode::SubscriptionTakeFailed)) => {
+                // Spurious wakeup – this may happen even when a waitset indicated that this
+                // subscription was ready, so it shouldn't be an error.
+                return Ok(());
+            }
+            Err(e) => return Err(e),
+        };
         (&mut *self.callback.lock())(&msg);
         Ok(())
     }
