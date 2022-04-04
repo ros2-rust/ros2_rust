@@ -141,7 +141,11 @@ where
     fn execute(&self) -> Result<(), RclReturnCode> {
         let msg = match self.take() {
             Ok(msg) => msg,
-            Err(RclReturnCode::SubscriberError(SubscriberErrorCode::SubscriptionTakeFailed)) => return Ok(()),
+            Err(RclReturnCode::SubscriberError(SubscriberErrorCode::SubscriptionTakeFailed)) => {
+                // Spurious wakeup – this may happen even when a waitset indicated that this
+                // subscription was ready, so it shouldn't be an error.
+                return Ok(());
+            }
             Err(e) => return Err(e),
         };
         (&mut *self.callback.lock())(&msg);
