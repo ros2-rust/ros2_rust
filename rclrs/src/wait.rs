@@ -19,9 +19,6 @@ use crate::rcl_bindings::*;
 use crate::SubscriptionBase;
 
 use crate::error::{to_rcl_result, RclReturnCode, ToResult};
-use alloc::sync::Weak;
-use core::fmt::Display;
-use core_error::Error;
 
 pub struct WaitSet {
     pub(crate) handle: rcl_wait_set_t,
@@ -37,31 +34,6 @@ impl Drop for rcl_wait_set_t {
     }
 }
 
-#[derive(Debug)]
-pub enum WaitSetErrorResponse {
-    DroppedSubscription,
-    ReturnCode(RclReturnCode),
-}
-
-impl Display for WaitSetErrorResponse {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        match self {
-            Self::DroppedSubscription => {
-                write!(f, "WaitSet: Attempted to access dropped subscription!")
-            }
-            Self::ReturnCode(code) => write!(f, "WaitSet: Operation returned Rcl error - {}", code),
-        }
-    }
-}
-
-impl From<RclReturnCode> for WaitSetErrorResponse {
-    fn from(code: RclReturnCode) -> Self {
-        Self::ReturnCode(code)
-    }
-}
-
-impl Error for WaitSetErrorResponse {}
-
 impl WaitSet {
     /// Creates and initializes a new WaitSet object.
     pub fn new(
@@ -72,7 +44,7 @@ impl WaitSet {
         number_of_services: usize,
         number_of_events: usize,
         context: &mut rcl_context_t,
-    ) -> Result<Self, WaitSetErrorResponse> {
+    ) -> Result<Self, RclReturnCode> {
         let rcl_wait_set = unsafe {
             // SAFETY: Getting a zero-initialized value is always safe
             let mut rcl_wait_set = rcl_get_zero_initialized_wait_set();
@@ -103,11 +75,8 @@ impl WaitSet {
     /// - `RclError::InvalidArgument` if any arguments are invalid.
     /// - `RclError::WaitSetInvalid` if the WaitSet is already zero-initialized.
     /// - `RclError::Error` for an unspecified error
-    pub fn clear(&mut self) -> Result<(), WaitSetErrorResponse> {
-        unsafe {
-            to_rcl_result(rcl_wait_set_clear(&mut self.handle as *mut _))
-                .map_err(WaitSetErrorResponse::ReturnCode)
-        }
+    pub fn clear(&mut self) -> Result<(), RclReturnCode> {
+        unsafe { to_rcl_result(rcl_wait_set_clear(&mut self.handle as *mut _)) }
     }
 
     /// Adds a subscription to the WaitSet
@@ -117,20 +86,15 @@ impl WaitSet {
     /// - `WaitSetError::RclError` for any `rcl` errors that occur during the process
     pub fn add_subscription(
         &mut self,
-        subscription: &Weak<dyn SubscriptionBase>,
-    ) -> Result<(), WaitSetErrorResponse> {
-        if let Some(subscription) = subscription.upgrade() {
-            let subscription_handle = &mut *subscription.handle().lock();
-            unsafe {
-                to_rcl_result(rcl_wait_set_add_subscription(
-                    &mut self.handle as *mut _,
-                    subscription_handle as *const _,
-                    core::ptr::null_mut(),
-                ))
-                .map_err(WaitSetErrorResponse::ReturnCode)
-            }
-        } else {
-            Err(WaitSetErrorResponse::DroppedSubscription)
+        subscription: &dyn SubscriptionBase,
+    ) -> Result<(), RclReturnCode> {
+        let subscription_handle = &*subscription.handle().lock();
+        unsafe {
+            to_rcl_result(rcl_wait_set_add_subscription(
+                &mut self.handle as *mut _,
+                subscription_handle as *const _,
+                core::ptr::null_mut(),
+            ))
         }
     }
 
