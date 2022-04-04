@@ -122,10 +122,10 @@ where
     }
 
     /// Fetches a new message.
-    /// 
+    ///
     /// When there is no new message, this will return a
     /// [`SubscriptionTakeFailed`][1] wrapped in an [`RclReturnCode`][2].
-    /// 
+    ///
     /// [1]: crate::SubscriberErrorCode
     /// [2]: crate::RclReturnCode
     //
