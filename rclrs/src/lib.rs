@@ -100,18 +100,18 @@ pub fn spin_once(node: &Node, timeout_ns: i64) -> Result<(), RclReturnCode> {
     )?;
 
     let live_subscriptions = node.live_subscriptions();
-    for sub in &live_subscriptions {
-        wait_set.add_subscription(&**sub)?;
+    for live_subscription in &live_subscriptions {
+        wait_set.add_subscription(&**live_subscription)?;
     }
 
     wait_set.wait(timeout_ns)?;
-    for (i, sub) in live_subscriptions.iter().enumerate() {
+    for (i, live_subscription) in live_subscriptions.iter().enumerate() {
         // SAFETY: The `subscriptions` entry is an array of pointers, this dereferencing is
         // equivalent to
         // https://github.com/ros2/rcl/blob/35a31b00a12f259d492bf53c0701003bd7f1745c/rcl/include/rcl/wait.h#L419
         let wait_set_entry = unsafe { *wait_set.handle.subscriptions.add(i) };
         if wait_set_entry.is_null() {
-            sub.execute()?;
+            live_subscription.execute()?;
         }
     }
 

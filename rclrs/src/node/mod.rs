@@ -113,11 +113,9 @@ impl Node {
 
     /// Returns the subscriptions that have not been dropped yet.
     pub(crate) fn live_subscriptions(&self) -> Vec<Arc<dyn SubscriptionBase>> {
-        let live_subs = self
-            .subscriptions
+        self.subscriptions
             .iter()
             .filter_map(Weak::upgrade)
-            .collect();
-        live_subs
+            .collect()
     }
 }
