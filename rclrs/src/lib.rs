@@ -27,15 +27,15 @@ pub use self::node::*;
 pub use self::qos::*;
 
 use self::rcl_bindings::*;
-use wait::{WaitSet, WaitSetErrorResponse};
+
+use wait::WaitSet;
 
 /// Wrapper around [`spin_once`]
-pub fn spin(node: &node::Node) -> Result<(), WaitSetErrorResponse> {
+pub fn spin(node: &node::Node) -> Result<(), RclReturnCode> {
     while unsafe { rcl_context_is_valid(&mut *node.context.lock() as *mut _) } {
         if let Some(error) = spin_once(node, 500).err() {
             match error {
-                WaitSetErrorResponse::DroppedSubscription
-                | WaitSetErrorResponse::ReturnCode(RclReturnCode::Timeout) => continue,
+                RclReturnCode::Timeout => continue,
                 error => return Err(error),
             };
         }
@@ -81,15 +81,13 @@ pub fn spin(node: &node::Node) -> Result<(), WaitSetErrorResponse> {
 ///         +--------------------+
 ///
 ///
-pub fn spin_once(node: &Node, timeout_ns: i64) -> Result<(), WaitSetErrorResponse> {
+pub fn spin_once(node: &Node, timeout_ns: i64) -> Result<(), RclReturnCode> {
     let number_of_subscriptions = node.subscriptions.len();
     let number_of_guard_conditions = 0;
     let number_of_timers = 0;
     let number_of_clients = 0;
     let number_of_services = 0;
     let number_of_events = 0;
-
-    let context = &mut *node.context.lock();
 
     let mut wait_set = WaitSet::new(
         number_of_subscriptions,
@@ -98,28 +96,22 @@ pub fn spin_once(node: &Node, timeout_ns: i64) -> Result<(), WaitSetErrorRespons
         number_of_clients,
         number_of_services,
         number_of_events,
-        context,
+        &mut *node.context.lock(),
     )?;
 
-    for subscription in &node.subscriptions {
-        match wait_set.add_subscription(subscription) {
-            Ok(()) => (),
-            Err(WaitSetErrorResponse::DroppedSubscription) => (),
-            Err(err) => return Err(err),
-        };
+    let live_subscriptions = node.live_subscriptions();
+    for live_subscription in &live_subscriptions {
+        wait_set.add_subscription(&**live_subscription)?;
     }
 
     wait_set.wait(timeout_ns)?;
-    for (i, sub) in node.subscriptions.iter().enumerate() {
+    for (i, live_subscription) in live_subscriptions.iter().enumerate() {
         // SAFETY: The `subscriptions` entry is an array of pointers, this dereferencing is
         // equivalent to
         // https://github.com/ros2/rcl/blob/35a31b00a12f259d492bf53c0701003bd7f1745c/rcl/include/rcl/wait.h#L419
         let wait_set_entry = unsafe { *wait_set.handle.subscriptions.add(i) };
         if wait_set_entry.is_null() {
-            continue;
-        }
-        if let Some(subscription) = sub.upgrade() {
-            subscription.execute()?;
+            live_subscription.execute()?;
         }
     }
 

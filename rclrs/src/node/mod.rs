@@ -110,4 +110,12 @@ impl Node {
             .push(Arc::downgrade(&subscription) as Weak<dyn SubscriptionBase>);
         Ok(subscription)
     }
+
+    /// Returns the subscriptions that have not been dropped yet.
+    pub(crate) fn live_subscriptions(&self) -> Vec<Arc<dyn SubscriptionBase>> {
+        self.subscriptions
+            .iter()
+            .filter_map(Weak::upgrade)
+            .collect()
+    }
 }
