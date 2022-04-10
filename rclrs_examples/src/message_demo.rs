@@ -140,10 +140,10 @@ fn demonstrate_pubsub() -> Result<(), Error> {
         )?;
     println!("Sending idiomatic message.");
     idiomatic_publisher.publish(rclrs_example_msgs::msg::VariousTypes::default())?;
-    rclrs::spin_once(&node, 500)?;
+    context.spin_once(&node, None)?;
     println!("Sending RMW-compatible message.");
     direct_publisher.publish(rclrs_example_msgs::msg::rmw::VariousTypes::default())?;
-    rclrs::spin_once(&node, 500)?;
+    context.spin_once(&node, None)?;
 
     Ok(())
 }
