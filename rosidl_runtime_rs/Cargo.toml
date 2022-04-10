@@ -1,6 +1,6 @@
 [package]
 name = "rosidl_runtime_rs"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Jacob Hassold <jhassold@dcscorp.com>", "Nikolai Morin <nnmmgit@gmail.com>"]
 edition = "2021"
 
