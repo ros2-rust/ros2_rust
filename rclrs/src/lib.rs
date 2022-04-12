@@ -15,6 +15,7 @@ extern crate spin;
 
 pub mod context;
 pub mod error;
+pub mod executor;
 pub mod node;
 pub mod qos;
 pub mod wait;
@@ -23,6 +24,7 @@ mod rcl_bindings;
 
 pub use self::context::*;
 pub use self::error::*;
+pub use self::executor::*;
 pub use self::node::*;
 pub use self::qos::*;
 pub use self::wait::*;

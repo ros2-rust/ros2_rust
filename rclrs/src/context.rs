@@ -1,9 +1,8 @@
 use crate::rcl_bindings::*;
-use crate::{Node, RclReturnCode, ToResult, WaitSet};
+use crate::{Node, RclReturnCode, ToResult};
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 use std::string::String;
-use std::time::Duration;
 
 #[cfg(not(feature = "std"))]
 use cstr_core::{c_char, CString};
@@ -106,47 +105,5 @@ impl Context {
         let handle = &mut *self.handle.lock();
         // SAFETY: No preconditions for this function.
         unsafe { rcl_context_is_valid(handle as *mut _) }
-    }
-
-    /// Polls the node for new messages and executes the corresponding callbacks.
-    ///
-    /// See [`WaitSet::wait`] for the meaning of the `timeout` parameter.
-    ///
-    /// This may under some circumstances return
-    /// [`SubscriptionTakeFailed`][1] when the wait set spuriously wakes up.
-    /// This can usually be ignored.
-    ///
-    /// [1]: crate::SubscriberErrorCode
-    pub fn spin_once(&self, node: &Node, timeout: Option<Duration>) -> Result<(), RclReturnCode> {
-        let live_subscriptions = node.live_subscriptions();
-
-        let mut wait_set = WaitSet::new(live_subscriptions.len(), self)?;
-
-        for live_subscription in &live_subscriptions {
-            wait_set.add_subscription(live_subscription.clone())?;
-        }
-
-        let ready_entities = wait_set.wait(timeout)?;
-        for ready_subscription in ready_entities.subscriptions {
-            ready_subscription.execute()?;
-        }
-
-        Ok(())
-    }
-
-    /// Convenience function for calling [`Context::spin_once`] in a loop.
-    ///
-    /// This function additionally checks that the context is still valid.
-    pub fn spin(&self, node: &Node) -> Result<(), RclReturnCode> {
-        while unsafe { rcl_context_is_valid(&mut *node.context.lock() as *mut _) } {
-            if let Some(error) = self.spin_once(node, None).err() {
-                match error {
-                    RclReturnCode::Timeout => continue,
-                    error => return Err(error),
-                };
-            }
-        }
-
-        Ok(())
     }
 }
