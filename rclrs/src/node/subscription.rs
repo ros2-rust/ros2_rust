@@ -50,7 +50,7 @@ where
 {
     pub handle: Arc<SubscriptionHandle>,
     // The callback's lifetime should last as long as we need it to
-    pub callback: Mutex<Box<dyn FnMut(&T) + 'static>>,
+    pub callback: Mutex<Box<dyn FnMut(T) + 'static>>,
     message: PhantomData<T>,
 }
 
@@ -66,7 +66,7 @@ where
     ) -> Result<Self, RclReturnCode>
     where
         T: Message,
-        F: FnMut(&T) + Sized + 'static,
+        F: FnMut(T) + Sized + 'static,
     {
         let mut subscription_handle = unsafe { rcl_get_zero_initialized_subscription() };
         let type_support =
@@ -148,7 +148,7 @@ where
             }
             Err(e) => return Err(e),
         };
-        (*self.callback.lock())(&msg);
+        (*self.callback.lock())(msg);
         Ok(())
     }
 }

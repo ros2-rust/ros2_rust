@@ -128,13 +128,13 @@ fn demonstrate_pubsub() -> Result<(), Error> {
         .create_subscription::<rclrs_example_msgs::msg::VariousTypes, _>(
             "topic",
             rclrs::QOS_PROFILE_DEFAULT,
-            move |_msg: &rclrs_example_msgs::msg::VariousTypes| println!("Got idiomatic message!"),
+            move |_msg: rclrs_example_msgs::msg::VariousTypes| println!("Got idiomatic message!"),
         )?;
     let _direct_subscription = node
         .create_subscription::<rclrs_example_msgs::msg::rmw::VariousTypes, _>(
             "topic",
             rclrs::QOS_PROFILE_DEFAULT,
-            move |_msg: &rclrs_example_msgs::msg::rmw::VariousTypes| {
+            move |_msg: rclrs_example_msgs::msg::rmw::VariousTypes| {
                 println!("Got RMW-compatible message!")
             },
         )?;
