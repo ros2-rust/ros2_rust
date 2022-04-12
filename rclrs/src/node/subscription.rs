@@ -148,7 +148,7 @@ where
             }
             Err(e) => return Err(e),
         };
-        (&mut *self.callback.lock())(&msg);
+        (*self.callback.lock())(&msg);
         Ok(())
     }
 }

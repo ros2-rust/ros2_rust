@@ -1,6 +1,5 @@
-use crate::error::{RclReturnCode, ToResult};
 use crate::rcl_bindings::*;
-use crate::Node;
+use crate::{Node, RclReturnCode, ToResult};
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 use std::string::String;
