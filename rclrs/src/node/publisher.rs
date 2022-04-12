@@ -1,7 +1,7 @@
 use crate::error::{RclReturnCode, ToResult};
 use crate::qos::QoSProfile;
 use crate::rcl_bindings::*;
-use crate::{Node, NodeHandle};
+use crate::Node;
 use alloc::sync::Arc;
 use core::marker::PhantomData;
 use cstr_core::CString;
@@ -16,7 +16,7 @@ use parking_lot::{Mutex, MutexGuard};
 
 pub(crate) struct PublisherHandle {
     handle: Mutex<rcl_publisher_t>,
-    node_handle: Arc<NodeHandle>,
+    node_handle: Arc<Mutex<rcl_node_t>>,
 }
 
 impl PublisherHandle {
