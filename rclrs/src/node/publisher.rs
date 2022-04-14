@@ -115,6 +115,10 @@ where
     ///
     /// Hence, when a message will not be needed anymore after publishing, pass it by value.
     /// When a message will be needed again after publishing, pass it by reference, instead of cloning and passing by value.
+    ///
+    /// Calling `publish()` is a potentially blocking call, see [this issue][1] for details.
+    ///
+    /// [1]: https://github.com/ros2/ros2/issues/255
     pub fn publish<'a, M: MessageCow<'a, T>>(&self, message: M) -> Result<(), RclReturnCode> {
         let rmw_message = T::into_rmw_message(message.into_cow());
         let handle = &mut *self.handle.lock();
