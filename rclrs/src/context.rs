@@ -18,6 +18,7 @@ use std::ffi::CString;
 
 impl Drop for rcl_context_t {
     fn drop(&mut self) {
+        // SAFETY: These functions have no preconditions besides a valid/initialized handle
         unsafe {
             rcl_shutdown(self as *mut _);
             rcl_context_fini(self as *mut _);

@@ -29,6 +29,7 @@ impl Drop for PublisherHandle {
     fn drop(&mut self) {
         let handle = self.handle.get_mut();
         let node_handle = &mut *self.node_handle.lock();
+        // SAFETY: No preconditions for this function (besides the arguments being valid).
         unsafe {
             rcl_publisher_fini(handle as *mut _, node_handle as *mut _);
         }
@@ -52,16 +53,22 @@ where
     where
         T: Message,
     {
+        // SAFETY: Getting a zero-initialized value is always safe.
         let mut publisher_handle = unsafe { rcl_get_zero_initialized_publisher() };
         let type_support =
             <T as Message>::RmwMsg::get_type_support() as *const rosidl_message_type_support_t;
         let topic_c_string = CString::new(topic).unwrap();
         let node_handle = &mut *node.handle.lock();
 
+        // SAFETY: No preconditions for this function.
+        let mut publisher_options = unsafe { rcl_publisher_get_default_options() };
+        publisher_options.qos = qos.into();
         unsafe {
-            let mut publisher_options = rcl_publisher_get_default_options();
-            publisher_options.qos = qos.into();
-
+            // SAFETY: The publisher handle is zero-initialized as expected by this function.
+            // The node handle is kept alive because it is co-owned by the subscription.
+            // The topic name and the options are copied by this function, so they can be dropped
+            // afterwards.
+            // TODO: type support?
             rcl_publisher_init(
                 &mut publisher_handle as *mut _,
                 node_handle as *mut _,
@@ -99,6 +106,9 @@ where
         let rmw_message = T::into_rmw_message(message.into_cow());
         let handle = &mut *self.handle.lock();
         let ret = unsafe {
+            // SAFETY: The message type is guaranteed to match the publisher type by the type system.
+            // The message does not need to be valid beyond the duration of this function call.
+            // The third argument is explictly allowed to be NULL.
             rcl_publish(
                 handle as *mut _,
                 rmw_message.as_ref() as *const <T as Message>::RmwMsg as *mut _,

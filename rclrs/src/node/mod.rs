@@ -49,11 +49,17 @@ impl Node {
         let raw_node_name = CString::new(node_name).unwrap();
         let raw_node_ns = CString::new(node_ns).unwrap();
 
+        // SAFETY: Getting a zero-initialized value is always safe.
         let mut node_handle = unsafe { rcl_get_zero_initialized_node() };
         let context_handle = &mut *context.handle.lock();
 
         unsafe {
+            // SAFETY: No preconditions for this function.
             let node_options = rcl_node_get_default_options();
+            // SAFETY: The node handle is zero-initialized as expected by this function.
+            // The strings and node optinos are copied by this function, so we don't need
+            // to keep them alive.
+            // The context handle is kept alive because it is co-owned by the node.
             rcl_node_init(
                 &mut node_handle as *mut _,
                 raw_node_name.as_ptr(),
