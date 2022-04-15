@@ -25,6 +25,7 @@ use parking_lot::Mutex;
 
 impl Drop for rcl_node_t {
     fn drop(&mut self) {
+        // SAFETY: There are no preconditions for this function
         unsafe { rcl_node_fini(self as *mut _).unwrap() };
     }
 }
