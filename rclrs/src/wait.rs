@@ -170,7 +170,7 @@ impl WaitSet {
             // equivalent to
             // https://github.com/ros2/rcl/blob/35a31b00a12f259d492bf53c0701003bd7f1745c/rcl/include/rcl/wait.h#L419
             let wait_set_entry = unsafe { *self.handle.subscriptions.add(i) };
-            if wait_set_entry.is_null() {
+            if !wait_set_entry.is_null() {
                 ready_entities.subscriptions.push(subscription.clone());
             }
         }
