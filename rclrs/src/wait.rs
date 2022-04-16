@@ -38,6 +38,7 @@ pub struct WaitSet {
 
 /// A list of entities that are ready, returned by [`WaitSet::wait`].
 pub struct ReadyEntities {
+    /// A list of subscriptions that have potentially received messages.
     pub subscriptions: Vec<Arc<dyn SubscriptionBase>>,
 }
 

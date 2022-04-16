@@ -1,4 +1,5 @@
 #![no_std]
+#![warn(missing_docs)]
 //! Rust client library for ROS2.
 //!
 //! For getting started, see the [README][1].

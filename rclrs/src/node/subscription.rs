@@ -40,7 +40,9 @@ impl Drop for SubscriptionHandle {
 
 /// Trait to be implemented by concrete [`Subscription`]s.
 pub trait SubscriptionBase {
+    /// Internal function to get a reference to the `rcl` handle.
     fn handle(&self) -> &SubscriptionHandle;
+    /// Tries to take a new message and run the callback with it.
     fn execute(&self) -> Result<(), RclReturnCode>;
 }
 
@@ -60,7 +62,7 @@ where
     T: Message,
 {
     pub(crate) handle: Arc<SubscriptionHandle>,
-    // The callback's lifetime should last as long as we need it to
+    /// The callback function that runs when a message was received.
     pub callback: Mutex<Box<dyn FnMut(T) + 'static>>,
     message: PhantomData<T>,
 }

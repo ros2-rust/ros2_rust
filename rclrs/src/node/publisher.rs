@@ -138,6 +138,7 @@ where
 
 /// Convenience trait for [`Publisher::publish`].
 pub trait MessageCow<'a, T: Message> {
+    /// Wrap the owned or borrowed message in a `Cow`.
     fn into_cow(self) -> Cow<'a, T>;
 }
 

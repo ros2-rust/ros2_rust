@@ -27,9 +27,15 @@ pub enum QoSHistoryPolicy {
     /// Use the default policy of the RMW layer.
     ///
     /// If the default policy is `KeepAll`, the depth will be ignored.
-    SystemDefault { depth: u32 },
+    SystemDefault {
+        /// The length of the publisher/subscription queue.
+        depth: u32,
+    },
     /// Keep only the `depth` most recent messages.
-    KeepLast { depth: u32 },
+    KeepLast {
+        /// The length of the publisher/subscription queue.
+        depth: u32,
+    },
     /// Keep all messages, at least until other resource limits are exceeded.
     KeepAll,
 }
@@ -141,8 +147,11 @@ pub enum QoSDuration {
 /// [1]: https://docs.ros.org/en/rolling/Concepts/About-Quality-of-Service-Settings.html
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub struct QoSProfile {
+    /// The history policy.
     pub history: QoSHistoryPolicy,
+    /// The reliability policy.
     pub reliability: QoSReliabilityPolicy,
+    /// The durability policy.
     pub durability: QoSDurabilityPolicy,
     /// The period at which messages are expected to be sent/received.
     ///
@@ -152,6 +161,7 @@ pub struct QoSProfile {
     ///
     /// If this is `Infinite`, messages do not expire.
     pub lifespan: QoSDuration,
+    /// The liveliness policy.
     pub liveliness: QoSLivelinessPolicy,
     /// The time within which the RMW publisher must show that it is alive.
     ///

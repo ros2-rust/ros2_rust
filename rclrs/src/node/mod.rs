@@ -39,7 +39,7 @@ impl Drop for rcl_node_t {
 /// That means that even after the node itself is dropped, it will continue to exist and be
 /// displayed by e.g. `ros2 topic` as long as its publishers and subscriptions are not dropped.
 ///
-/// [1]: https://docs.ros.org/en/foxy/Tutorials/Understanding-ROS2-Nodes.html
+/// [1]: https://docs.ros.org/en/rolling/Tutorials/Understanding-ROS2-Nodes.html
 pub struct Node {
     handle: Arc<Mutex<rcl_node_t>>,
     pub(crate) context: Arc<Mutex<rcl_context_t>>,
