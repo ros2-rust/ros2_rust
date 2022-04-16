@@ -1,5 +1,7 @@
 use crate::rcl_bindings::*;
 
+use std::time::Duration;
+
 /// The `HISTORY` DDS QoS policy.
 ///
 /// A subscription internally maintains a queue of messages (called "samples" in DDS) that have not been processed yet
@@ -77,6 +79,43 @@ pub enum QoSDurabilityPolicy {
     Volatile = 2,
 }
 
+/// The `LIVELINESS` DDS QoS policy.
+///
+/// This policy describes a publisher's reporting policy for its alive status.
+/// For a subscription, these are its requirements for its topic's publishers.
+///
+/// # Compatibility
+/// | Publisher | Subscription | Compatible |
+/// | -- | -- | -- |
+/// | Automatic | Automatic | yes |
+/// | Automatic | ManualByTopic | no |
+/// | ManualByTopic | Automatic | yes |
+/// | ManualByTopic | ManualByTopic | yes |
+///
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+pub enum QoSLivelinessPolicy {
+    /// Use the default policy of the RMW layer.
+    SystemDefault = 0,
+    /// The signal that establishes that a topic is alive comes from the ROS `rmw` layer.
+    Automatic = 1,
+    /// The signal that establishes that a topic is alive is sent explicitly. Only publishing a message
+    /// on the topic or an explicit signal from the application to assert liveliness on the topic
+    /// will mark the topic as being alive.
+    ManualByTopic = 3,
+}
+
+/// A duration that can take two special values: System default and infinite.
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+pub enum QoSDuration {
+    /// This will use the RMW implementation's default value,
+    /// which may or may not be infinite.
+    SystemDefault,
+    /// This will act as an infinite duration.
+    Infinite,
+    /// A specific duration.
+    Custom(Duration),
+}
+
 /// A Quality of Service profile.
 ///
 /// See [docs.ros.org][1] on Quality of Service settings in general.
@@ -100,6 +139,19 @@ pub struct QoSProfile {
     pub history: QoSHistoryPolicy,
     pub reliability: QoSReliabilityPolicy,
     pub durability: QoSDurabilityPolicy,
+    /// The period at which messages are expected to be sent/received.
+    ///
+    /// If this is `Infinite`, messages never miss a deadline expectation.
+    pub deadline: QoSDuration,
+    /// The age at which messages are considered expired and no longer valid.
+    ///
+    /// If this is `Infinite`, messages do not expire.
+    pub lifespan: QoSDuration,
+    pub liveliness: QoSLivelinessPolicy,
+    /// The time within which the RMW publisher must show that it is alive.
+    ///
+    /// If this is `Infinite`, liveliness is not enforced.
+    pub liveliness_lease_duration: QoSDuration,
     /// If true, any ROS specific namespacing conventions will be circumvented.
     ///
     /// In the case of DDS and topics, for example, this means the typical
@@ -123,11 +175,11 @@ impl From<QoSProfile> for rmw_qos_profile_t {
             },
             reliability: qos.reliability.into(),
             durability: qos.durability.into(),
+            deadline: qos.deadline.into(),
+            lifespan: qos.lifespan.into(),
+            liveliness: qos.liveliness.into(),
+            liveliness_lease_duration: qos.liveliness_lease_duration.into(),
             avoid_ros_namespace_conventions: qos.avoid_ros_namespace_conventions,
-            deadline: rmw_time_t { sec: 0, nsec: 0 },
-            lifespan: rmw_time_t { sec: 0, nsec: 0 },
-            liveliness_lease_duration: rmw_time_t { sec: 0, nsec: 0 },
-            liveliness: rmw_qos_liveliness_policy_t::RMW_QOS_POLICY_LIVELINESS_SYSTEM_DEFAULT,
         }
     }
 }
@@ -178,10 +230,51 @@ impl From<QoSDurabilityPolicy> for rmw_qos_durability_policy_t {
     }
 }
 
+impl From<QoSLivelinessPolicy> for rmw_qos_liveliness_policy_t {
+    fn from(policy: QoSLivelinessPolicy) -> Self {
+        match policy {
+            QoSLivelinessPolicy::SystemDefault => {
+                rmw_qos_liveliness_policy_t::RMW_QOS_POLICY_LIVELINESS_SYSTEM_DEFAULT
+            }
+            QoSLivelinessPolicy::Automatic => {
+                rmw_qos_liveliness_policy_t::RMW_QOS_POLICY_LIVELINESS_AUTOMATIC
+            }
+            QoSLivelinessPolicy::ManualByTopic => {
+                rmw_qos_liveliness_policy_t::RMW_QOS_POLICY_LIVELINESS_MANUAL_BY_TOPIC
+            }
+        }
+    }
+}
+
+impl From<QoSDuration> for rmw_time_t {
+    fn from(duration: QoSDuration) -> Self {
+        match duration {
+            QoSDuration::Custom(dt) => {
+                let nonzero_dt = dt.max(Duration::from_nanos(1));
+                Self {
+                    sec: nonzero_dt.as_secs(),
+                    nsec: u64::from(nonzero_dt.subsec_nanos()),
+                }
+            }
+            // See RMW_DURATION_DEFAULT
+            QoSDuration::SystemDefault => Self { sec: 0, nsec: 0 },
+            // See RMW_DURATION_INFINITE
+            QoSDuration::Infinite => Self {
+                sec: 9223372036,
+                nsec: 854775807,
+            },
+        }
+    }
+}
+
 pub const QOS_PROFILE_SENSOR_DATA: QoSProfile = QoSProfile {
     history: QoSHistoryPolicy::KeepLast { depth: 5 },
     reliability: QoSReliabilityPolicy::BestEffort,
     durability: QoSDurabilityPolicy::Volatile,
+    deadline: QoSDuration::SystemDefault,
+    lifespan: QoSDuration::SystemDefault,
+    liveliness: QoSLivelinessPolicy::SystemDefault,
+    liveliness_lease_duration: QoSDuration::SystemDefault,
     avoid_ros_namespace_conventions: false,
 };
 
@@ -189,6 +282,10 @@ pub const QOS_PROFILE_PARAMETERS: QoSProfile = QoSProfile {
     history: QoSHistoryPolicy::KeepLast { depth: 1000 },
     reliability: QoSReliabilityPolicy::Reliable,
     durability: QoSDurabilityPolicy::Volatile,
+    deadline: QoSDuration::SystemDefault,
+    lifespan: QoSDuration::SystemDefault,
+    liveliness: QoSLivelinessPolicy::SystemDefault,
+    liveliness_lease_duration: QoSDuration::SystemDefault,
     avoid_ros_namespace_conventions: false,
 };
 
@@ -196,6 +293,10 @@ pub const QOS_PROFILE_DEFAULT: QoSProfile = QoSProfile {
     history: QoSHistoryPolicy::KeepLast { depth: 10 },
     reliability: QoSReliabilityPolicy::Reliable,
     durability: QoSDurabilityPolicy::Volatile,
+    deadline: QoSDuration::SystemDefault,
+    lifespan: QoSDuration::SystemDefault,
+    liveliness: QoSLivelinessPolicy::SystemDefault,
+    liveliness_lease_duration: QoSDuration::SystemDefault,
     avoid_ros_namespace_conventions: false,
 };
 
@@ -203,6 +304,10 @@ pub const QOS_PROFILE_SERVICES_DEFAULT: QoSProfile = QoSProfile {
     history: QoSHistoryPolicy::KeepLast { depth: 10 },
     reliability: QoSReliabilityPolicy::Reliable,
     durability: QoSDurabilityPolicy::Volatile,
+    deadline: QoSDuration::SystemDefault,
+    lifespan: QoSDuration::SystemDefault,
+    liveliness: QoSLivelinessPolicy::SystemDefault,
+    liveliness_lease_duration: QoSDuration::SystemDefault,
     avoid_ros_namespace_conventions: false,
 };
 
@@ -210,6 +315,10 @@ pub const QOS_PROFILE_PARAMETER_EVENTS: QoSProfile = QoSProfile {
     history: QoSHistoryPolicy::KeepAll,
     reliability: QoSReliabilityPolicy::Reliable,
     durability: QoSDurabilityPolicy::Volatile,
+    deadline: QoSDuration::SystemDefault,
+    lifespan: QoSDuration::SystemDefault,
+    liveliness: QoSLivelinessPolicy::SystemDefault,
+    liveliness_lease_duration: QoSDuration::SystemDefault,
     avoid_ros_namespace_conventions: false,
 };
 
@@ -217,5 +326,9 @@ pub const QOS_PROFILE_SYSTEM_DEFAULT: QoSProfile = QoSProfile {
     history: QoSHistoryPolicy::SystemDefault { depth: 0 },
     reliability: QoSReliabilityPolicy::SystemDefault,
     durability: QoSDurabilityPolicy::SystemDefault,
+    deadline: QoSDuration::SystemDefault,
+    lifespan: QoSDuration::SystemDefault,
+    liveliness: QoSLivelinessPolicy::SystemDefault,
+    liveliness_lease_duration: QoSDuration::SystemDefault,
     avoid_ros_namespace_conventions: false,
 };
