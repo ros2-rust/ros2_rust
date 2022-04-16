@@ -150,7 +150,7 @@ impl WaitSet {
     /// [1]: std::time::Duration::ZERO
     pub fn wait(&mut self, timeout: Option<Duration>) -> Result<ReadyEntities, RclReturnCode> {
         let timeout_ns = match timeout.map(|d| d.as_nanos()) {
-            None => 0,
+            None => -1,
             Some(ns) if ns <= i64::MAX as u128 => ns as i64,
             _ => {
                 return Err(RclReturnCode::InvalidArgument);
