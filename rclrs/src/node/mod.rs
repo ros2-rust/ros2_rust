@@ -25,7 +25,7 @@ use parking_lot::Mutex;
 
 impl Drop for rcl_node_t {
     fn drop(&mut self) {
-        // SAFETY: There are no preconditions for this function
+        // SAFETY: No preconditions for this function
         unsafe { rcl_node_fini(self as *mut _).unwrap() };
     }
 }
@@ -58,7 +58,7 @@ impl Node {
             // SAFETY: No preconditions for this function.
             let node_options = rcl_node_get_default_options();
             // SAFETY: The node handle is zero-initialized as expected by this function.
-            // The strings and node optinos are copied by this function, so we don't need
+            // The strings and node options are copied by this function, so we don't need
             // to keep them alive.
             // The context handle is kept alive because it is co-owned by the node.
             rcl_node_init(
