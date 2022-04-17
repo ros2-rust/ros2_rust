@@ -1,6 +1,6 @@
 [package]
 name = "rclrs"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Esteve Fernandez <esteve@apache.org>"]
 edition = "2021"
 
