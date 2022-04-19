@@ -13,8 +13,7 @@ lock_api = "0.4.5"
 cstr_core = "0.2"
 cty = "0.2"
 core-error = "0.0.0"
-parking_lot = {version = "0.11.2", optional = true}
-spin = "0.9.2"
+parking_lot = "0.11.2"
 downcast = "0.10.0"
 
 [dependencies.rosidl_runtime_rs]
@@ -22,7 +21,3 @@ version = "*"
 
 [build-dependencies]
 bindgen = "0.59.1"
-
-[features]
-default = ["std"]
-std = ["parking_lot"]

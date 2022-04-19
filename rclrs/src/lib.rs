@@ -1,4 +1,3 @@
-#![no_std]
 #![warn(missing_docs)]
 //! Rust client library for ROS2.
 //!
@@ -9,23 +8,17 @@
 extern crate alloc;
 extern crate core_error;
 extern crate downcast;
+extern crate parking_lot;
 extern crate rosidl_runtime_rs;
-
-#[cfg(feature = "std")]
 extern crate std;
 
-#[cfg(feature = "std")]
-extern crate parking_lot;
+pub mod context;
+pub mod error;
+pub mod node;
+pub mod qos;
+pub mod wait;
 
-#[cfg(not(feature = "std"))]
-extern crate spin;
-
-mod context;
-mod error;
-mod node;
-mod qos;
 mod rcl_bindings;
-mod wait;
 
 pub use context::*;
 pub use error::*;

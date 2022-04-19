@@ -9,10 +9,6 @@ use core::marker::PhantomData;
 use cstr_core::CString;
 use rosidl_runtime_rs::{Message, RmwMessage};
 
-#[cfg(not(feature = "std"))]
-use spin::{Mutex, MutexGuard};
-
-#[cfg(feature = "std")]
 use parking_lot::{Mutex, MutexGuard};
 
 /// Internal struct used by subscriptions.

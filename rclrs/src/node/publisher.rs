@@ -8,10 +8,6 @@ use cstr_core::CString;
 use rosidl_runtime_rs::{Message, RmwMessage};
 use std::borrow::Cow;
 
-#[cfg(not(feature = "std"))]
-use spin::{Mutex, MutexGuard};
-
-#[cfg(feature = "std")]
 use parking_lot::{Mutex, MutexGuard};
 
 pub(crate) struct PublisherHandle {

@@ -17,11 +17,7 @@ mod subscription;
 pub use self::publisher::*;
 pub use self::subscription::*;
 
-#[cfg(not(feature = "std"))]
-use spin::Mutex;
-
-#[cfg(feature = "std")]
-use parking_lot::Mutex;
+use parking_lot::{Mutex, MutexGuard};
 
 impl Drop for rcl_node_t {
     fn drop(&mut self) {
