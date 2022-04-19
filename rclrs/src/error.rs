@@ -613,7 +613,7 @@ impl ToResult for rcl_ret_t {
 
 #[cfg(test)]
 mod tests {
-    use core::convert::TryFrom;
+    use std::convert::TryFrom;
 
     use crate::error::{
         ClientErrorCode, EventErrorCode, LifecycleErrorCode, NodeErrorCode, ParsingErrorCode,

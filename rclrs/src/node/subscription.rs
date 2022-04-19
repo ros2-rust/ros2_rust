@@ -154,8 +154,8 @@ where
             rcl_take(
                 handle as *const _,
                 &mut rmw_message as *mut <T as Message>::RmwMsg as *mut _,
-                core::ptr::null_mut(),
-                core::ptr::null_mut(),
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
             )
         };
         ret.ok()?;

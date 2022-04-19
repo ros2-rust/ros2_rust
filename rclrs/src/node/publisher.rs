@@ -127,7 +127,7 @@ where
             rcl_publish(
                 handle as *mut _,
                 rmw_message.as_ref() as *const <T as Message>::RmwMsg as *mut _,
-                core::ptr::null_mut(),
+                std::ptr::null_mut(),
             )
         };
         ret.ok()

@@ -10,7 +10,6 @@ path = "src/lib.rs"
 [dependencies]
 libc = "0.2.43"
 parking_lot = "0.11.2"
-downcast = "0.10.0"
 
 [dependencies.rosidl_runtime_rs]
 version = "*"
