@@ -282,7 +282,9 @@ impl From<QoSDuration> for rmw_time_t {
     }
 }
 
-/// Equivalent to `rmw_qos_profile_sensor_data`.
+/// Equivalent to `rmw_qos_profile_sensor_data` from the [`rmw` package][1].
+///
+/// [1]: https://github.com/ros2/rmw/blob/master/rmw/include/rmw/qos_profiles.h
 pub const QOS_PROFILE_SENSOR_DATA: QoSProfile = QoSProfile {
     history: QoSHistoryPolicy::KeepLast { depth: 5 },
     reliability: QoSReliabilityPolicy::BestEffort,
@@ -294,7 +296,9 @@ pub const QOS_PROFILE_SENSOR_DATA: QoSProfile = QoSProfile {
     avoid_ros_namespace_conventions: false,
 };
 
-/// Equivalent to `rmw_qos_profile_parameters`.
+/// Equivalent to `rmw_qos_profile_parameters` from the [`rmw` package][1].
+///
+/// [1]: https://github.com/ros2/rmw/blob/master/rmw/include/rmw/qos_profiles.h
 pub const QOS_PROFILE_PARAMETERS: QoSProfile = QoSProfile {
     history: QoSHistoryPolicy::KeepLast { depth: 1000 },
     reliability: QoSReliabilityPolicy::Reliable,
@@ -306,7 +310,9 @@ pub const QOS_PROFILE_PARAMETERS: QoSProfile = QoSProfile {
     avoid_ros_namespace_conventions: false,
 };
 
-/// Equivalent to `rmw_qos_profile_default`.
+/// Equivalent to `rmw_qos_profile_default` from the [`rmw` package][1].
+///
+/// [1]: https://github.com/ros2/rmw/blob/master/rmw/include/rmw/qos_profiles.h
 pub const QOS_PROFILE_DEFAULT: QoSProfile = QoSProfile {
     history: QoSHistoryPolicy::KeepLast { depth: 10 },
     reliability: QoSReliabilityPolicy::Reliable,
@@ -318,7 +324,9 @@ pub const QOS_PROFILE_DEFAULT: QoSProfile = QoSProfile {
     avoid_ros_namespace_conventions: false,
 };
 
-/// Equivalent to `rmw_qos_profile_services_default`.
+/// Equivalent to `rmw_qos_profile_services_default` from the [`rmw` package][1].
+///
+/// [1]: https://github.com/ros2/rmw/blob/master/rmw/include/rmw/qos_profiles.h
 pub const QOS_PROFILE_SERVICES_DEFAULT: QoSProfile = QoSProfile {
     history: QoSHistoryPolicy::KeepLast { depth: 10 },
     reliability: QoSReliabilityPolicy::Reliable,
@@ -330,7 +338,9 @@ pub const QOS_PROFILE_SERVICES_DEFAULT: QoSProfile = QoSProfile {
     avoid_ros_namespace_conventions: false,
 };
 
-/// Equivalent to `rmw_qos_profile_parameter_events`.
+/// Equivalent to `rmw_qos_profile_parameter_events` from the [`rmw` package][1].
+///
+/// [1]: https://github.com/ros2/rmw/blob/master/rmw/include/rmw/qos_profiles.h
 pub const QOS_PROFILE_PARAMETER_EVENTS: QoSProfile = QoSProfile {
     history: QoSHistoryPolicy::KeepAll,
     reliability: QoSReliabilityPolicy::Reliable,
@@ -342,7 +352,9 @@ pub const QOS_PROFILE_PARAMETER_EVENTS: QoSProfile = QoSProfile {
     avoid_ros_namespace_conventions: false,
 };
 
-/// Equivalent to `rmw_qos_profile_system_default`.
+/// Equivalent to `rmw_qos_profile_system_default` from the [`rmw` package][1].
+///
+/// [1]: https://github.com/ros2/rmw/blob/master/rmw/include/rmw/qos_profiles.h
 pub const QOS_PROFILE_SYSTEM_DEFAULT: QoSProfile = QoSProfile {
     history: QoSHistoryPolicy::SystemDefault { depth: 0 },
     reliability: QoSReliabilityPolicy::SystemDefault,
