@@ -18,28 +18,19 @@ pub mod subscription;
 pub use self::subscription::*;
 
 #[cfg(not(feature = "std"))]
-use spin::{Mutex, MutexGuard};
+use spin::Mutex;
 
 #[cfg(feature = "std")]
-use parking_lot::{Mutex, MutexGuard};
+use parking_lot::Mutex;
 
-pub struct NodeHandle(Mutex<rcl_node_t>);
-
-impl NodeHandle {
-    pub fn lock(&self) -> MutexGuard<rcl_node_t> {
-        self.0.lock()
-    }
-}
-
-impl Drop for NodeHandle {
+impl Drop for rcl_node_t {
     fn drop(&mut self) {
-        let handle = &mut *self.0.get_mut();
-        unsafe { rcl_node_fini(handle as *mut _).unwrap() };
+        unsafe { rcl_node_fini(self as *mut _).unwrap() };
     }
 }
 
 pub struct Node {
-    handle: Arc<NodeHandle>,
+    handle: Arc<Mutex<rcl_node_t>>,
     pub(crate) context: Arc<Mutex<rcl_context_t>>,
     pub(crate) subscriptions: Vec<Weak<dyn SubscriptionBase>>,
 }
@@ -73,7 +64,7 @@ impl Node {
             .ok()?;
         }
 
-        let handle = Arc::new(NodeHandle(Mutex::new(node_handle)));
+        let handle = Arc::new(Mutex::new(node_handle));
 
         Ok(Node {
             handle,

@@ -1,7 +1,7 @@
 use crate::error::{SubscriberErrorCode, ToResult};
 use crate::qos::QoSProfile;
+use crate::Node;
 use crate::{rcl_bindings::*, RclReturnCode};
-use crate::{Node, NodeHandle};
 use alloc::boxed::Box;
 use alloc::sync::Arc;
 use core::borrow::Borrow;
@@ -17,7 +17,7 @@ use parking_lot::{Mutex, MutexGuard};
 
 pub struct SubscriptionHandle {
     handle: Mutex<rcl_subscription_t>,
-    node_handle: Arc<NodeHandle>,
+    node_handle: Arc<Mutex<rcl_node_t>>,
 }
 
 impl SubscriptionHandle {
