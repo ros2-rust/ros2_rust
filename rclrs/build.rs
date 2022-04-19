@@ -9,8 +9,6 @@ const AMENT_PREFIX_PATH: &str = "AMENT_PREFIX_PATH";
 fn main() {
     let mut builder = bindgen::Builder::default()
         .header("src/rcl_wrapper.h")
-        .use_core()
-        .ctypes_prefix("cty")
         .derive_copy(false)
         .allowlist_recursively(true)
         .allowlist_type("rcl_.*")
