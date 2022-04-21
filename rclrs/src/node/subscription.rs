@@ -2,17 +2,15 @@ use crate::error::{SubscriberErrorCode, ToResult};
 use crate::qos::QoSProfile;
 use crate::Node;
 use crate::{rcl_bindings::*, RclReturnCode};
-use alloc::boxed::Box;
-use alloc::sync::Arc;
-use core::borrow::Borrow;
-use core::marker::PhantomData;
-use cstr_core::CString;
+
+use std::borrow::Borrow;
+use std::boxed::Box;
+use std::ffi::CString;
+use std::marker::PhantomData;
+use std::sync::Arc;
+
 use rosidl_runtime_rs::{Message, RmwMessage};
 
-#[cfg(not(feature = "std"))]
-use spin::{Mutex, MutexGuard};
-
-#[cfg(feature = "std")]
 use parking_lot::{Mutex, MutexGuard};
 
 /// Internal struct used by subscriptions.
@@ -156,8 +154,8 @@ where
             rcl_take(
                 handle as *const _,
                 &mut rmw_message as *mut <T as Message>::RmwMsg as *mut _,
-                core::ptr::null_mut(),
-                core::ptr::null_mut(),
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
             )
         };
         ret.ok()?;

@@ -118,7 +118,7 @@ impl WaitSet {
             rcl_wait_set_add_subscription(
                 &mut self.handle as *mut _,
                 &*subscription.handle().lock() as *const _,
-                core::ptr::null_mut(),
+                std::ptr::null_mut(),
             )
         }
         .ok()?;

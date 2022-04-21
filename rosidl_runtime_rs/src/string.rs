@@ -1,5 +1,4 @@
 use std::cmp::Ordering;
-use std::convert::TryFrom;
 use std::ffi::CStr;
 use std::fmt::{self, Debug, Display};
 use std::hash::{Hash, Hasher};
@@ -62,7 +61,6 @@ pub struct WString {
 ///
 /// ```
 /// # use rosidl_runtime_rs::BoundedString;
-/// # use std::convert::TryFrom;
 /// let mut maybe_str = BoundedString::<3>::try_from("noo!");
 /// assert!(maybe_str.is_err());
 /// maybe_str = BoundedString::<3>::try_from("ok!");
@@ -85,7 +83,6 @@ pub struct BoundedString<const N: usize> {
 ///
 /// ```
 /// # use rosidl_runtime_rs::BoundedWString;
-/// # use std::convert::TryFrom;
 /// let mut maybe_wstr = BoundedWString::<3>::try_from("noo!");
 /// assert!(maybe_wstr.is_err());
 /// maybe_wstr = BoundedWString::<3>::try_from("ok!");

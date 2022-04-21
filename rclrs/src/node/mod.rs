@@ -1,27 +1,20 @@
-use alloc::{
-    sync::{Arc, Weak},
-    vec::Vec,
-};
-
 use crate::error::{RclReturnCode, ToResult};
 use crate::qos::QoSProfile;
 use crate::rcl_bindings::*;
 use crate::Context;
-
-use rosidl_runtime_rs::Message;
-
-use cstr_core::CString;
 
 mod publisher;
 mod subscription;
 pub use self::publisher::*;
 pub use self::subscription::*;
 
-#[cfg(not(feature = "std"))]
-use spin::Mutex;
+use std::ffi::CString;
+use std::sync::{Arc, Weak};
+use std::vec::Vec;
 
-#[cfg(feature = "std")]
 use parking_lot::Mutex;
+
+use rosidl_runtime_rs::Message;
 
 impl Drop for rcl_node_t {
     fn drop(&mut self) {
@@ -91,7 +84,7 @@ impl Node {
         Ok(Node {
             handle,
             context: context.handle.clone(),
-            subscriptions: alloc::vec![],
+            subscriptions: std::vec![],
         })
     }
 

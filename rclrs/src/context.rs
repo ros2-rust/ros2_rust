@@ -1,20 +1,13 @@
 use crate::rcl_bindings::*;
 use crate::{Node, RclReturnCode, ToResult};
-use alloc::sync::Arc;
-use alloc::vec::Vec;
-use std::string::String;
 
-#[cfg(not(feature = "std"))]
-use cstr_core::{c_char, CString};
-#[cfg(not(feature = "std"))]
-use spin::Mutex;
-
-#[cfg(feature = "std")]
-use cty::c_char;
-#[cfg(feature = "std")]
-use parking_lot::Mutex;
-#[cfg(feature = "std")]
 use std::ffi::CString;
+use std::os::raw::c_char;
+use std::string::String;
+use std::sync::Arc;
+use std::vec::Vec;
+
+use parking_lot::Mutex;
 
 impl Drop for rcl_context_t {
     fn drop(&mut self) {

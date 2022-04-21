@@ -1,9 +1,6 @@
 use crate::rcl_bindings::*;
-use core::{
-    convert::TryFrom,
-    fmt::{self, Display},
-};
-use core_error::{self, Error};
+use std::error::Error;
+use std::fmt::{self, Display};
 
 /// RCL specific error codes.
 ///
@@ -615,8 +612,6 @@ impl ToResult for rcl_ret_t {
 
 #[cfg(test)]
 mod tests {
-    use core::convert::TryFrom;
-
     use crate::error::{
         ClientErrorCode, EventErrorCode, LifecycleErrorCode, NodeErrorCode, ParsingErrorCode,
         RclErrorCode, RclReturnCode, ServiceErrorCode, SubscriberErrorCode, TimerErrorCode,
