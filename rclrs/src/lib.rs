@@ -1,4 +1,11 @@
 #![no_std]
+#![warn(missing_docs)]
+//! Rust client library for ROS2.
+//!
+//! For getting started, see the [README][1].
+//!
+//! [1]: https://github.com/ros2-rust/ros2_rust/blob/master/README.md
+
 extern crate alloc;
 extern crate core_error;
 extern crate downcast;
@@ -13,19 +20,18 @@ extern crate parking_lot;
 #[cfg(not(feature = "std"))]
 extern crate spin;
 
-pub mod context;
-pub mod error;
-pub mod node;
-pub mod qos;
-pub mod wait;
-
+mod context;
+mod error;
+mod node;
+mod qos;
 mod rcl_bindings;
+mod wait;
 
-pub use self::context::*;
-pub use self::error::*;
-pub use self::node::*;
-pub use self::qos::*;
-pub use self::wait::*;
+pub use context::*;
+pub use error::*;
+pub use node::*;
+pub use qos::*;
+pub use wait::*;
 
 use rcl_bindings::rcl_context_is_valid;
 use std::time::Duration;
@@ -58,7 +64,7 @@ pub fn spin_once(node: &Node, timeout: Option<Duration>) -> Result<(), RclReturn
     Ok(())
 }
 
-/// Convenience function for calling [`Context::spin_once`] in a loop.
+/// Convenience function for calling [`spin_once`] in a loop.
 ///
 /// This function additionally checks that the context is still valid.
 pub fn spin(node: &Node) -> Result<(), RclReturnCode> {

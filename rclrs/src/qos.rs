@@ -4,10 +4,15 @@ use std::time::Duration;
 
 /// The `HISTORY` DDS QoS policy.
 ///
-/// A subscription internally maintains a queue of messages (called "samples" in DDS) that have not been processed yet
-/// by the application, and likewise a publisher internally maintains a queue.
+/// A subscription internally maintains a queue of messages (called "samples" in DDS) that have not
+/// been processed yet by the application, and likewise a publisher internally maintains a queue.
 ///
-/// If the history policy is `KeepAll`, this queue is unbounded, and if it is `KeepLast`, it is bounded and old values are discarded when the queue is overfull.
+/// If the history policy is `KeepAll`, this queue is unbounded, and if it is `KeepLast`, it is
+/// bounded and old values are discarded when the queue is overfull.
+///
+/// The `rmw` layer may not be able to handle very large queue depths, e.g. greater than
+/// `i32::MAX`.
+/// In this case, the functions taking the QoS profile as an argument will return an error.
 ///
 /// # Compatibility
 /// | Publisher | Subscription | Compatible |
@@ -22,9 +27,15 @@ pub enum QoSHistoryPolicy {
     /// Use the default policy of the RMW layer.
     ///
     /// If the default policy is `KeepAll`, the depth will be ignored.
-    SystemDefault { depth: u32 },
+    SystemDefault {
+        /// The length of the publisher/subscription queue.
+        depth: u32,
+    },
     /// Keep only the `depth` most recent messages.
-    KeepLast { depth: u32 },
+    KeepLast {
+        /// The length of the publisher/subscription queue.
+        depth: u32,
+    },
     /// Keep all messages, at least until other resource limits are exceeded.
     KeepAll,
 }
@@ -32,7 +43,7 @@ pub enum QoSHistoryPolicy {
 /// The `RELIABILITY` DDS QoS policy.
 ///
 /// This policy determines whether delivery between a publisher and a subscription will be retried
-/// until successful, or whether it messages may be lost in a trade off for better performance.
+/// until successful, or whether messages may be lost in a trade off for better performance.
 ///
 /// # Compatibility
 /// | Publisher | Subscription | Compatible | Behavior |
@@ -136,8 +147,11 @@ pub enum QoSDuration {
 /// [1]: https://docs.ros.org/en/rolling/Concepts/About-Quality-of-Service-Settings.html
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub struct QoSProfile {
+    /// The history policy.
     pub history: QoSHistoryPolicy,
+    /// The reliability policy.
     pub reliability: QoSReliabilityPolicy,
+    /// The durability policy.
     pub durability: QoSDurabilityPolicy,
     /// The period at which messages are expected to be sent/received.
     ///
@@ -147,6 +161,7 @@ pub struct QoSProfile {
     ///
     /// If this is `Infinite`, messages do not expire.
     pub lifespan: QoSDuration,
+    /// The liveliness policy.
     pub liveliness: QoSLivelinessPolicy,
     /// The time within which the RMW publisher must show that it is alive.
     ///
@@ -267,6 +282,9 @@ impl From<QoSDuration> for rmw_time_t {
     }
 }
 
+/// Equivalent to `rmw_qos_profile_sensor_data` from the [`rmw` package][1].
+///
+/// [1]: https://github.com/ros2/rmw/blob/master/rmw/include/rmw/qos_profiles.h
 pub const QOS_PROFILE_SENSOR_DATA: QoSProfile = QoSProfile {
     history: QoSHistoryPolicy::KeepLast { depth: 5 },
     reliability: QoSReliabilityPolicy::BestEffort,
@@ -278,6 +296,9 @@ pub const QOS_PROFILE_SENSOR_DATA: QoSProfile = QoSProfile {
     avoid_ros_namespace_conventions: false,
 };
 
+/// Equivalent to `rmw_qos_profile_parameters` from the [`rmw` package][1].
+///
+/// [1]: https://github.com/ros2/rmw/blob/master/rmw/include/rmw/qos_profiles.h
 pub const QOS_PROFILE_PARAMETERS: QoSProfile = QoSProfile {
     history: QoSHistoryPolicy::KeepLast { depth: 1000 },
     reliability: QoSReliabilityPolicy::Reliable,
@@ -289,6 +310,9 @@ pub const QOS_PROFILE_PARAMETERS: QoSProfile = QoSProfile {
     avoid_ros_namespace_conventions: false,
 };
 
+/// Equivalent to `rmw_qos_profile_default` from the [`rmw` package][1].
+///
+/// [1]: https://github.com/ros2/rmw/blob/master/rmw/include/rmw/qos_profiles.h
 pub const QOS_PROFILE_DEFAULT: QoSProfile = QoSProfile {
     history: QoSHistoryPolicy::KeepLast { depth: 10 },
     reliability: QoSReliabilityPolicy::Reliable,
@@ -300,6 +324,9 @@ pub const QOS_PROFILE_DEFAULT: QoSProfile = QoSProfile {
     avoid_ros_namespace_conventions: false,
 };
 
+/// Equivalent to `rmw_qos_profile_services_default` from the [`rmw` package][1].
+///
+/// [1]: https://github.com/ros2/rmw/blob/master/rmw/include/rmw/qos_profiles.h
 pub const QOS_PROFILE_SERVICES_DEFAULT: QoSProfile = QoSProfile {
     history: QoSHistoryPolicy::KeepLast { depth: 10 },
     reliability: QoSReliabilityPolicy::Reliable,
@@ -311,6 +338,9 @@ pub const QOS_PROFILE_SERVICES_DEFAULT: QoSProfile = QoSProfile {
     avoid_ros_namespace_conventions: false,
 };
 
+/// Equivalent to `rmw_qos_profile_parameter_events` from the [`rmw` package][1].
+///
+/// [1]: https://github.com/ros2/rmw/blob/master/rmw/include/rmw/qos_profiles.h
 pub const QOS_PROFILE_PARAMETER_EVENTS: QoSProfile = QoSProfile {
     history: QoSHistoryPolicy::KeepAll,
     reliability: QoSReliabilityPolicy::Reliable,
@@ -322,6 +352,9 @@ pub const QOS_PROFILE_PARAMETER_EVENTS: QoSProfile = QoSProfile {
     avoid_ros_namespace_conventions: false,
 };
 
+/// Equivalent to `rmw_qos_profile_system_default` from the [`rmw` package][1].
+///
+/// [1]: https://github.com/ros2/rmw/blob/master/rmw/include/rmw/qos_profiles.h
 pub const QOS_PROFILE_SYSTEM_DEFAULT: QoSProfile = QoSProfile {
     history: QoSHistoryPolicy::SystemDefault { depth: 0 },
     reliability: QoSReliabilityPolicy::SystemDefault,

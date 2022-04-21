@@ -15,13 +15,14 @@ use spin::{Mutex, MutexGuard};
 #[cfg(feature = "std")]
 use parking_lot::{Mutex, MutexGuard};
 
+/// Internal struct used by subscriptions.
 pub struct SubscriptionHandle {
     handle: Mutex<rcl_subscription_t>,
     node_handle: Arc<Mutex<rcl_node_t>>,
 }
 
 impl SubscriptionHandle {
-    pub fn lock(&self) -> MutexGuard<rcl_subscription_t> {
+    pub(crate) fn lock(&self) -> MutexGuard<rcl_subscription_t> {
         self.handle.lock()
     }
 }
@@ -37,20 +38,31 @@ impl Drop for SubscriptionHandle {
     }
 }
 
-/// Trait to be implemented by concrete Subscriber structs
-/// See [`Subscription<T>`] for an example
+/// Trait to be implemented by concrete [`Subscription`]s.
 pub trait SubscriptionBase {
+    /// Internal function to get a reference to the `rcl` handle.
     fn handle(&self) -> &SubscriptionHandle;
+    /// Tries to take a new message and run the callback with it.
     fn execute(&self) -> Result<(), RclReturnCode>;
 }
 
-/// Main class responsible for subscribing to topics and receiving data over IPC in ROS
+/// Struct for receiving messages of type `T`.
+///
+/// There can be multiple subscriptions for the same topic, in different nodes or the same node.
+///
+/// Receiving messages requires calling [`spin_once`][1] or [`spin`][2] on the subscription's node.
+///
+/// When a subscription is created, it may take some time to get "matched" with a corresponding
+/// publisher.
+///
+/// [1]: crate::spin_once
+/// [2]: crate::spin
 pub struct Subscription<T>
 where
     T: Message,
 {
-    pub handle: Arc<SubscriptionHandle>,
-    // The callback's lifetime should last as long as we need it to
+    pub(crate) handle: Arc<SubscriptionHandle>,
+    /// The callback function that runs when a message was received.
     pub callback: Mutex<Box<dyn FnMut(T) + 'static>>,
     message: PhantomData<T>,
 }
@@ -59,6 +71,10 @@ impl<T> Subscription<T>
 where
     T: Message,
 {
+    /// Creates a new subscription.
+    ///
+    /// # Panics
+    /// When the topic contains interior null bytes.
     pub fn new<F>(
         node: &Node,
         topic: &str,
@@ -107,21 +123,29 @@ where
         })
     }
 
-    /// Ask RMW for the data
+    /// Fetches a new message.
     ///
-    /// +-------------+
-    /// | rclrs::take |
-    /// +------+------+
-    ///        |
-    ///        |
-    /// +------v------+
-    /// |  rcl_take   |
-    /// +------+------+
-    ///        |
-    ///        |
-    /// +------v------+
-    /// |  rmw_take   |
-    /// +-------------+
+    /// When there is no new message, this will return a
+    /// [`SubscriptionTakeFailed`][1] wrapped in an [`RclReturnCode`][2].
+    ///
+    /// [1]: crate::SubscriberErrorCode
+    /// [2]: crate::RclReturnCode
+    //
+    // ```text
+    // +-------------+
+    // | rclrs::take |
+    // +------+------+
+    //        |
+    //        |
+    // +------v------+
+    // |  rcl_take   |
+    // +------+------+
+    //        |
+    //        |
+    // +------v------+
+    // |  rmw_take   |
+    // +-------------+
+    // ```
     pub fn take(&self) -> Result<T, RclReturnCode> {
         let mut rmw_message = <T as Message>::RmwMsg::default();
         let handle = &mut *self.handle.lock();

@@ -12,9 +12,9 @@ use rosidl_runtime_rs::Message;
 
 use cstr_core::CString;
 
-pub mod publisher;
+mod publisher;
+mod subscription;
 pub use self::publisher::*;
-pub mod subscription;
 pub use self::subscription::*;
 
 #[cfg(not(feature = "std"))]
@@ -30,6 +30,16 @@ impl Drop for rcl_node_t {
     }
 }
 
+/// A processing unit that can communicate with other nodes.
+///
+/// Nodes are a core concept in ROS 2. Refer to the official ["Understanding ROS 2 nodes"][1]
+/// tutorial for an introduction.
+///
+/// Ownership of the node is shared with all [`Publisher`]s and [`Subscription`]s created from it.
+/// That means that even after the node itself is dropped, it will continue to exist and be
+/// displayed by e.g. `ros2 topic` as long as its publishers and subscriptions are not dropped.
+///
+/// [1]: https://docs.ros.org/en/rolling/Tutorials/Understanding-ROS2-Nodes.html
 pub struct Node {
     handle: Arc<Mutex<rcl_node_t>>,
     pub(crate) context: Arc<Mutex<rcl_context_t>>,
@@ -37,11 +47,16 @@ pub struct Node {
 }
 
 impl Node {
+    /// Creates a new node in the empty namespace.
     #[allow(clippy::new_ret_no_self)]
     pub fn new(node_name: &str, context: &Context) -> Result<Node, RclReturnCode> {
         Self::new_with_namespace(node_name, "", context)
     }
 
+    /// Creates a new node in a namespace.
+    ///
+    /// A namespace without a leading forward slash is automatically changed to have a leading
+    /// forward slash.
     pub fn new_with_namespace(
         node_name: &str,
         node_ns: &str,
@@ -80,6 +95,9 @@ impl Node {
         })
     }
 
+    /// Creates a [`Publisher`][1].
+    ///
+    /// [1]: crate::Publisher
     // TODO: make publisher's lifetime depend on node's lifetime
     pub fn create_publisher<T>(
         &self,
@@ -92,6 +110,9 @@ impl Node {
         Publisher::<T>::new(self, topic, qos)
     }
 
+    /// Creates a [`Subscription`][1].
+    ///
+    /// [1]: crate::Subscription
     // TODO: make subscription's lifetime depend on node's lifetime
     pub fn create_subscription<T, F>(
         &mut self,

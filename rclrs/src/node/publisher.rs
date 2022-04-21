@@ -36,7 +36,16 @@ impl Drop for PublisherHandle {
     }
 }
 
-/// Main class responsible for publishing data to ROS topics
+/// Struct for sending messages of type `T`.
+///
+/// Multiple publishers can be created for the same topic, in different nodes or the same node.
+///
+/// The underlying RMW will decide on the concrete delivery mechanism (network stack, shared
+/// memory, or intraprocess).
+///
+/// Sending messages does not require calling [`spin`][1] on the publisher's node.
+///
+/// [1]: crate::spin
 pub struct Publisher<T>
 where
     T: Message,
@@ -49,6 +58,10 @@ impl<T> Publisher<T>
 where
     T: Message,
 {
+    /// Creates a new `Publisher`.
+    ///
+    /// # Panics
+    /// When the topic contains interior null bytes.
     pub fn new(node: &Node, topic: &str, qos: QoSProfile) -> Result<Self, RclReturnCode>
     where
         T: Message,
@@ -102,6 +115,10 @@ where
     ///
     /// Hence, when a message will not be needed anymore after publishing, pass it by value.
     /// When a message will be needed again after publishing, pass it by reference, instead of cloning and passing by value.
+    ///
+    /// Calling `publish()` is a potentially blocking call, see [this issue][1] for details.
+    ///
+    /// [1]: https://github.com/ros2/ros2/issues/255
     pub fn publish<'a, M: MessageCow<'a, T>>(&self, message: M) -> Result<(), RclReturnCode> {
         let rmw_message = T::into_rmw_message(message.into_cow());
         let handle = &mut *self.handle.lock();
@@ -121,6 +138,7 @@ where
 
 /// Convenience trait for [`Publisher::publish`].
 pub trait MessageCow<'a, T: Message> {
+    /// Wrap the owned or borrowed message in a `Cow`.
     fn into_cow(self) -> Cow<'a, T>;
 }
 
