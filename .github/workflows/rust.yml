@@ -89,4 +89,8 @@ jobs:
 
     - name: Rustdoc check
       run: |
-        cargo rustdoc -- -D warnings
+        cd rclrs && cargo rustdoc -- -D warnings
+        cd .. && cd rclrs_example_msgs && cargo rustdoc -- -D warnings
+        cd .. && cd rosidl_generator_rs && cargo rustdoc -- -D warnings
+        cd .. && cd rclrs_examples && cargo rustdoc -- -D warnings
+        cd .. && cd rosidl_runtime_rs && cargo rustdoc -- -D warnings
