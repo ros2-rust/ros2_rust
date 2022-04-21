@@ -3,7 +3,7 @@ use crate::qos::QoSProfile;
 use crate::rcl_bindings::*;
 use crate::Context;
 
-pub mod publisher;
+mod publisher;
 mod subscription;
 pub use self::publisher::*;
 pub use self::subscription::*;

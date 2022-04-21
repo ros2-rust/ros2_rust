@@ -9,11 +9,11 @@ extern crate parking_lot;
 extern crate rosidl_runtime_rs;
 extern crate std;
 
-pub mod context;
-pub mod error;
-pub mod node;
-pub mod qos;
-pub mod wait;
+mod context;
+mod error;
+mod node;
+mod qos;
+mod wait;
 
 mod rcl_bindings;
 
