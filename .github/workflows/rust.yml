@@ -86,3 +86,7 @@ jobs:
         cargo clippy -- -D warnings
         cd -
         done
+
+    - name: Rustdoc check
+      run: |
+        cargo rustdoc -- -D warnings
