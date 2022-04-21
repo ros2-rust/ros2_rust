@@ -89,8 +89,8 @@ jobs:
 
     - name: Rustdoc check
       run: |
-        cd rclrs && cargo rustdoc -- -D warnings
-        cd .. && cd rclrs_example_msgs && cargo rustdoc -- -D warnings
-        cd .. && cd rosidl_generator_rs && cargo rustdoc -- -D warnings
-        cd .. && cd rclrs_examples && cargo rustdoc -- -D warnings
-        cd .. && cd rosidl_runtime_rs && cargo rustdoc -- -D warnings
+        for path in $(colcon list | awk '{ print $2 }'); do
+        cd $path
+        cargo rustdoc -- -D warnings
+        cd -
+        done
