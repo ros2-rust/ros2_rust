@@ -1,5 +1,4 @@
 use crate::rcl_bindings::*;
-use std::convert::TryFrom;
 use std::error::Error;
 use std::fmt::{self, Display};
 
@@ -613,8 +612,6 @@ impl ToResult for rcl_ret_t {
 
 #[cfg(test)]
 mod tests {
-    use std::convert::TryFrom;
-
     use crate::error::{
         ClientErrorCode, EventErrorCode, LifecycleErrorCode, NodeErrorCode, ParsingErrorCode,
         RclErrorCode, RclReturnCode, ServiceErrorCode, SubscriberErrorCode, TimerErrorCode,
