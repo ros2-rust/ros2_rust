@@ -1,13 +1,9 @@
 #![warn(missing_docs)]
-//! Rust client library for ROS2.
+//! Rust client library for ROS 2.
 //!
 //! For getting started, see the [README][1].
 //!
 //! [1]: https://github.com/ros2-rust/ros2_rust/blob/master/README.md
-
-extern crate parking_lot;
-extern crate rosidl_runtime_rs;
-extern crate std;
 
 mod context;
 mod error;
