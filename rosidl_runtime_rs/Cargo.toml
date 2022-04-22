@@ -7,8 +7,12 @@ edition = "2021"
 [lib]
 path = "src/lib.rs"
 
+# Please keep the list of dependencies alphabetically sorted,
+# and also state why each dependency is needed.
 [dependencies]
+# Needed for FFI
 libc = "0.2"
 
 [dev-dependencies]
+# Needed for writing property tests
 quickcheck = "1"
