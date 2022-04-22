@@ -89,7 +89,7 @@ jobs:
 
     - name: Rustdoc check
       run: |
-        for path in $(colcon list | awk '{ print $2 }'); do
+        for path in $(colcon list | awk '$3 == "(ament_cargo)" { print $2 }'); do
         cd $path
         cargo rustdoc -- -D warnings
         cd -
