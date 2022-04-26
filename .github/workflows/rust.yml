@@ -91,7 +91,7 @@ jobs:
       run: |
         cd ${{ steps.build.outputs.ros-workspace-directory-name }}
         . /opt/ros/${{ matrix.ros_distro }}/setup.sh
-        for path in $(colcon list | awk '$3 == "(ament_cargo)" { print $2 }'); do
+        for path in $(colcon list | awk '$3 == "(ament_cargo)" { print $2 }' | sed -n 'p;n'); do
         cd $path
         cargo rustdoc -- -D warnings
         cd -
