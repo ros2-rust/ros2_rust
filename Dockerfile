@@ -1,103 +1,25 @@
-# This dockerfile can be configured via --build-arg
-# Build context must be the /ros2_rust root folder for COPY.
-# Example build command:
-# export OVERLAY_MIXINS="debug ccache coverage"
-# export RUN_TESTS="true"
-# docker build -t nav2:latest \
-#   --build-arg OVERLAY_MIXINS \
-#   --build-arg RUN_TESTS 
-#   --pull ./
-#
-# If you prefer to use Rolling, just add the following build args:
-# --build-arg FROM_IMAGE=ros:rolling
-# --build-arg REPOS_FILE=ros2_rust_rolling.repos
-
-ARG FROM_IMAGE=ros:foxy
-ARG OVERLAY_WS=/opt/overlay_ws
-ARG REPOS_FILE=ros2_rust_foxy.repos
-
-# multi-stage for caching
-FROM $FROM_IMAGE AS cacher
-
-# clone overlay source
-ARG OVERLAY_WS
-ARG REPOS_FILE
-WORKDIR $OVERLAY_WS/src
-COPY ./${REPOS_FILE} ../
-RUN vcs import ./ < ../${REPOS_FILE} && \
-    find ./ -name ".git" | xargs rm -rf
-COPY ./ ./ros2-rust/ros2_rust
-
-# copy manifests for caching
-WORKDIR /opt
-RUN mkdir -p /tmp/opt && \
-    find ./ -name "package.xml" | \
-      xargs cp --parents -t /tmp/opt && \
-    find ./ -name "COLCON_IGNORE" | \
-      xargs cp --parents -t /tmp/opt || true
-
-# multi-stage for building
-FROM $FROM_IMAGE AS builder
+FROM ros:foxy as base
 ARG DEBIAN_FRONTEND=noninteractive
 
-# install CI dependencies
-RUN apt-get update && apt-get install -q -y \
-        ccache \
-        clang \
-        lcov \
-        libclang-dev \
-        llvm-dev \
-        wget \
+# Install dependencies
+RUN apt-get update && apt-get install -y \
+    clang \
+    curl \
+    git \
+    libclang-dev \
+    tmux \
+    python3-pip \
     && rm -rf /var/lib/apt/lists/*
 
-# install rust dependencies
-ENV RUSTUP_HOME=/usr/local/rustup \
-    CARGO_HOME=/usr/local/cargo \
-    PATH=/usr/local/cargo/bin:$PATH \
-    RUST_VERSION=1.58.0
-RUN set -eux; \
-    wget -O rustup-init "https://sh.rustup.rs"; \
-    chmod +x rustup-init; \
-    ./rustup-init -y \
-      --no-modify-path \
-      --default-toolchain $RUST_VERSION; \
-    rm rustup-init; \
-    chmod -R a+w $RUSTUP_HOME $CARGO_HOME; \
-    rustup --version; \
-    cargo --version; \
-    rustc --version;
+# Install Rust and the cargo-ament-build plugin
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- --default-toolchain 1.59.0 -y
+ENV PATH=/root/.cargo/bin:$PATH
+RUN cargo install cargo-ament-build
 
-# install overlay dependencies
-ARG OVERLAY_WS
-WORKDIR $OVERLAY_WS
-COPY --from=cacher /tmp/$OVERLAY_WS ./
-RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
-    apt-get update && rosdep install -q -y \
-      --from-paths src \
-      --ignore-src \
-    && rm -rf /var/lib/apt/lists/*
+RUN pip install --upgrade pytest 
 
-# build overlay source
-COPY --from=cacher $OVERLAY_WS ./
-ARG OVERLAY_MIXINS="release ccache"
-RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
-    colcon build \
-      --symlink-install \
-      --mixin $OVERLAY_MIXINS \
-    || ([ -z "$FAIL_ON_BUILD_FAILURE" ] || exit 1)
+# Install the colcon-cargo and colcon-ros-cargo plugins
+RUN pip install git+https://github.com/colcon/colcon-cargo.git git+https://github.com/colcon/colcon-ros-cargo.git
 
-# source overlay from entrypoint
-ENV OVERLAY_WS $OVERLAY_WS
-RUN sed --in-place \
-      's|^source .*|source "$OVERLAY_WS/install/setup.bash"|' \
-      /ros_entrypoint.sh
-
-# test overlay build
-ARG RUN_TESTS
-ARG FAIL_ON_TEST_FAILURE=True
-RUN if [ -n "$RUN_TESTS" ]; then \
-        . install/setup.sh && \
-        colcon test && \
-        colcon test-result \
-          || ([ -z "$FAIL_ON_TEST_FAILURE" ] || exit 1) \
-    fi
+RUN mkdir -p /workspace && echo "Did you forget to mount the repository into the Docker container?" > /workspace/HELLO.txt
+WORKDIR /workspace
