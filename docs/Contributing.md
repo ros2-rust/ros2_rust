@@ -1,4 +1,4 @@
-# Contributing
+# Contributing to `ros2_rust`
 Contributions to `ros2_rust` are very welcome!
 
 Work is coordinated in the [Matrix chat](https://matrix.to/#/+rosorg-rust:matrix.org). It's a good idea to check in with the other contributors there before starting development on a new feature.
@@ -11,7 +11,9 @@ This section is not comprehensive, and conventions from the broader Rust communi
 
 Use `cargo clippy` to check that code is idiomatic.
 
-For documenting functions, use declarative sentences, not imperative sentences. For instance, `Creates a by-value iterator.` should be used instead of `Create a by-value iterator.`.
+For documenting functions, use declarative sentences, not imperative sentences. For instance, `Creates a by-value iterator.` should be used instead of `Create a by-value iterator.`. Use a period at the end of every phrase, even the "brief" description.
+
+Document any panics that might happen in a function, and where it makes sense, also document the errors that may be returned by a function.
 
 ### Unsafe code
 Keep `unsafe` blocks as small as possible.
@@ -32,6 +34,21 @@ Put a `struct`'s definition first, then its trait `impl`s in alphabetical order,
 
 Try to not exceed a line length of 100 characters for comments.
 
+### Error messages
+Error messages should
+- be capitalized
+- not have punctuation at the end
+- not include an "Error:" prefix or similar
+
+### Tests
+Prefer using `quickcheck` tests and doctests where they make sense.
+
+Avoid writing tests that simply restate the definition of a function. E.g. for `fn square(x: i32) { x*x }` do not write a test that asserts `square(3) == 3*3`.
+
+### Wrapping `rcl` functions
+Functions from `rcl` can typically return error codes. This does not necessarily mean that the `rclrs` function using it must return `Result`. If the error conditions can be determined, from reading `rcl` comments and source code, to never occur, the return code doesn't need to be propagated but only `debug_assert!`ed to be ok. This assert guards against `rcl` introducing a new error condition in the future.
+
+An example would be a function that only returns an error when the pointer we pass in is null or points to an uninitialized object. If we obtain the pointer from a reference, it can't be null, and if the object that is referenced is guaranteed to be initialized, there is no need to return a `Result`.
 
 ## License
 Any contribution that you make to this repository will
