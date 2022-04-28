@@ -45,7 +45,7 @@ pub struct ReadyEntities {
 impl Drop for rcl_wait_set_t {
     fn drop(&mut self) {
         // SAFETY: No preconditions for this function (besides passing in a valid wait set).
-        let rc = unsafe { rcl_wait_set_fini(self as *mut _) };
+        let rc = unsafe { rcl_wait_set_fini(self) };
         if let Err(e) = to_rcl_result(rc) {
             panic!("Unable to release WaitSet. {:?}", e)
         }
@@ -64,14 +64,14 @@ impl WaitSet {
             // SAFETY: We're passing in a zero-initialized wait set and a valid context.
             // There are no other preconditions.
             rcl_wait_set_init(
-                &mut rcl_wait_set as *mut _,
+                &mut rcl_wait_set,
                 number_of_subscriptions,
                 0,
                 0,
                 0,
                 0,
                 0,
-                &mut *context.handle.lock() as *mut _,
+                &mut *context.handle.lock(),
                 rcutils_get_default_allocator(),
             )
             .ok()?;
@@ -94,7 +94,7 @@ impl WaitSet {
         // valid, which it always is in our case. Hence, only debug_assert instead of returning
         // Result.
         // SAFETY: No preconditions for this function (besides passing in a valid wait set).
-        let ret = unsafe { rcl_wait_set_clear(&mut self.handle as *mut _) };
+        let ret = unsafe { rcl_wait_set_clear(&mut self.handle) };
         debug_assert_eq!(ret, 0);
     }
 
@@ -116,8 +116,8 @@ impl WaitSet {
             // for as long as the wait set exists, because it's stored in self.subscriptions.
             // Passing in a null pointer for the third argument is explicitly allowed.
             rcl_wait_set_add_subscription(
-                &mut self.handle as *mut _,
-                &*subscription.handle().lock() as *const _,
+                &mut self.handle,
+                &*subscription.handle().lock(),
                 std::ptr::null_mut(),
             )
         }
@@ -162,7 +162,7 @@ impl WaitSet {
         // We cannot currently guarantee that the wait sets may not share content, but it is
         // mentioned in the doc comment for `add_subscription`.
         // Also, the handle is obviously valid.
-        unsafe { rcl_wait(&mut self.handle as *mut _, timeout_ns) }.ok()?;
+        unsafe { rcl_wait(&mut self.handle, timeout_ns) }.ok()?;
         let mut ready_entities = ReadyEntities {
             subscriptions: Vec::new(),
         };

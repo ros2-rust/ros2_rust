@@ -81,11 +81,11 @@ where
             // afterwards.
             // TODO: type support?
             rcl_publisher_init(
-                &mut publisher_handle as *mut _,
-                node_handle as *mut _,
+                &mut publisher_handle,
+                node_handle,
                 type_support,
                 topic_c_string.as_ptr(),
-                &publisher_options as *const _,
+                &publisher_options,
             )
             .ok()?;
         }
@@ -125,7 +125,7 @@ where
             // The message does not need to be valid beyond the duration of this function call.
             // The third argument is explictly allowed to be NULL.
             rcl_publish(
-                handle as *mut _,
+                handle,
                 rmw_message.as_ref() as *const <T as Message>::RmwMsg as *mut _,
                 std::ptr::null_mut(),
             )
