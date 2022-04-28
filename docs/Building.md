@@ -7,11 +7,27 @@ In this guide, the Foxy distribution of ROS 2 is used, but newer distributions c
 
 ## Environment setup
 
-Building `rclrs` requires a standard [ROS 2 installation](https://docs.ros.org/en/foxy/Installation.html), and a few Rust-specific extensions.
+Building `rclrs` requires a standard [ROS 2 installation](https://docs.ros.org/en/foxy/Installation.html), and a few extensions.
 These extensions are: `colcon-cargo`, `colcon-ros-cargo`, `cargo-ament-build`. The former two are `colcon` plugins, and the latter is a `cargo` plugin.
 
-It is recommended to use the premade Docker image that contains all the necessary dependencies.
-If you do not want to use Docker, see the `Dockerfile` in the `ros2_rust` repo for how dependencies can be installed.
+The `libclang` library is also required for automatically generating FFI bindings with `bindgen`. See the [`bindgen` docs](https://rust-lang.github.io/rust-bindgen/requirements.html) on how to install it. As a side note, on Ubuntu the `clang` package is not required, only the `libclang-dev` package.
+
+The `python3-vcstool` package is used in [importing auxiliary repositories](#importing-repositories). It can also be installed through `pip` instead of `apt`.
+
+You can use the [premade Docker image](#using-the-docker-image) that contains all these dependencies.
+
+Otherwise, to sum up, here is how you would install the dependencies on Ubuntu:
+
+<!--- These steps should be kept in sync with README.md --->
+```shell
+# Install Rust, e.g. as described in https://rustup.rs/
+# Install ROS 2 as described in https://docs.ros.org/en/foxy/Installation.html
+# Assuming you installed the minimal version of ROS 2, you need these additional packages:
+sudo apt install -y git libclang-dev python3-pip python3-vcstool # libclang-dev is required by bindgen
+# Install these plugins for cargo and colcon:
+cargo install cargo-ament-build
+pip install git+https://github.com/colcon/colcon-cargo.git git+https://github.com/colcon/colcon-ros-cargo.git
+```
 
 
 ### Choosing a workspace directory and cloning `ros2_rust`
@@ -28,7 +44,7 @@ mkdir src
 git clone https://github.com/ros2-rust/ros2_rust.git src/ros2_rust
 ```
 
-*Note: Once `rclrs` is published on crates.io, it's not technically needed anymore to clone the `ros2_rust` repo, and this section should be adapted to reflect that.*
+*Note: Once `rclrs` is published on crates.io, it's not technically needed anymore to clone the `ros2_rust` repo, and this section will be modified to reflect that.*
 
 ### Using the Docker image
 

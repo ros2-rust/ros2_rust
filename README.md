@@ -19,39 +19,39 @@ The current set of features include:
 - Support for publishers and subscriptions
 - Tunable QoS settings
 
-Lots of things are still missing however, see the [issue list](https://github.com/ros2-rust/ros2_rust/issues) for an overview.
+Lots of things are still missing however, see the [issue list](https://github.com/ros2-rust/ros2_rust/issues) for an overview. You are very welcome to [contribute](docs/Contributing.md)!
 
-The client library is still rapidly evolving, and there are no stability guarantees.
+Since the client library is still rapidly evolving, there are no stability guarantees for the moment.
 
 Sounds great, how can I try this out?
 -------------------------------------
 
-In a nutshell, the steps to get started are:
+Here are the steps for building the `ros2_rust` examples in a vanilla Ubuntu Focal installation. See the [in-depth guide for building `ros2_rust` packages](docs/Building.md) for more details and options, including a Docker-based setup.
 
+<!--- These steps should be kept in sync with docs/Building.md --->
 ```shell
+# Install Rust, e.g. as described in https://rustup.rs/
+# Install ROS 2 as described in https://docs.ros.org/en/foxy/Installation.html
+# Assuming you installed the minimal version of ROS 2, you need these additional packages:
+sudo apt install -y git libclang-dev python3-pip python3-vcstool # libclang-dev is required by bindgen
+# Install these plugins for cargo and colcon:
+cargo install cargo-ament-build
+pip install git+https://github.com/colcon/colcon-cargo.git git+https://github.com/colcon/colcon-ros-cargo.git
+
 mkdir -p workspace/src && cd workspace
 git clone https://github.com/ros2-rust/ros2_rust.git src/ros2_rust
-docker build -t ros2_rust_dev - < src/ros2_rust/Dockerfile
-docker run --rm -it --volume $(pwd):/workspace ros2_rust_dev /bin/bash
-# The following steps are executed in Docker
 vcs import src < src/ros2_rust/ros2_rust_foxy.repos
-tmux
+. /opt/ros/foxy/setup.sh
 colcon build
 ```
 
 Then, to run the minimal pub-sub example, do this:
 
 ```shell
-# In a new terminal (tmux window) inside Docker
+# In a new terminal (or tmux window)
 . ./install/setup.sh
 ros2 run rclrs_examples minimal_publisher
-# In a new terminal (tmux window) inside Docker
+# In a new terminal (or tmux window)
 . ./install/setup.sh
 ros2 run examples_rclrs_minimal_pub_sub minimal_subscriber
 ```
-
-For an actual guide, see the following documents:
-- [Building `ros2_rust` packages](docs/Building.md)
-- [Contributing to `ros2_rust`](docs/Contributing.md)
-
-Let us know if you build something cool with `ros2_rust`!
