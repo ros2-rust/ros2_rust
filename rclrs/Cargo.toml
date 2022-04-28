@@ -7,12 +7,16 @@ edition = "2021"
 [lib]
 path = "src/lib.rs"
 
+# Please keep the list of dependencies alphabetically sorted,
+# and also state why each dependency is needed.
 [dependencies]
+# Needed for FFI
 libc = "0.2.43"
+# Provides better concurrency primitives than std
 parking_lot = "0.11.2"
-
-[dependencies.rosidl_runtime_rs]
-version = "*"
+# Needed for the Message trait, among others
+rosidl_runtime_rs = "*"
 
 [build-dependencies]
+# Needed for FFI
 bindgen = "0.59.1"
