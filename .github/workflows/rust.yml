@@ -27,6 +27,10 @@ jobs:
           # Rolling Ridley  (June 2020 - Present)
           docker_image: rostooling/setup-ros-docker:ubuntu-focal-ros-rolling-ros-base-latest
           ros_distro: rolling
+        - os: macos-latest
+          # Rolling Ridley  (June 2020 - Present)
+          docker_image:
+          ros_distro: rolling
     runs-on: ${{ matrix.os }}
     continue-on-error: ${{ matrix.ros_distribution == 'rolling' }}
     container:
