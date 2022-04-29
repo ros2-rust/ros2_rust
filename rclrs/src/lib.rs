@@ -54,9 +54,15 @@ pub fn spin_once(node: &Node, timeout: Option<Duration>) -> Result<(), RclReturn
 ///
 /// This function additionally checks that the context is still valid.
 pub fn spin(node: &Node) -> Result<(), RclReturnCode> {
+    // The context_is_valid functions exists only to abstract away ROS distro differences
+    #[cfg(distro = "foxy")]
     // SAFETY: No preconditions for this function.
-    // The mutability of the argument has changed between ROS 2 versions, hence the extra `as _`
-    while unsafe { rcl_context_is_valid(&mut *node.context.lock() as _) } {
+    let context_is_valid = || unsafe { rcl_context_is_valid(&mut *node.context.lock()) };
+    #[cfg(not(distro = "foxy"))]
+    // SAFETY: No preconditions for this function.
+    let context_is_valid = || unsafe { rcl_context_is_valid(&*node.context.lock()) };
+
+    while context_is_valid() {
         if let Some(error) = spin_once(node, None).err() {
             match error {
                 RclReturnCode::Timeout => continue,
