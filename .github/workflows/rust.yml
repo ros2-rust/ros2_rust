@@ -34,8 +34,7 @@ jobs:
             ros_distro: rolling
     runs-on: ${{ matrix.os }}
     continue-on-error: ${{ matrix.ros_distribution == 'rolling' }}
-    container:
-      image: ${{ matrix.docker_image }}
+    container: ${{ matrix.docker_image }}
     steps:
     - uses: actions/checkout@v2
 
