@@ -55,7 +55,8 @@ pub fn spin_once(node: &Node, timeout: Option<Duration>) -> Result<(), RclReturn
 /// This function additionally checks that the context is still valid.
 pub fn spin(node: &Node) -> Result<(), RclReturnCode> {
     // SAFETY: No preconditions for this function.
-    while unsafe { rcl_context_is_valid(&*node.context.lock()) } {
+    // The mutability of the argument has changed between ROS 2 versions, hence the extra `as _`
+    while unsafe { rcl_context_is_valid(&mut *node.context.lock() as _) } {
         if let Some(error) = spin_once(node, None).err() {
             match error {
                 RclReturnCode::Timeout => continue,
