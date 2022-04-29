@@ -80,6 +80,10 @@ jobs:
       run: |
         cargo install --debug cargo-ament-build
 
+    - name: Source ROS distro
+      run: |
+        . /opt/ros/${{ matrix.ros_distro }}/setup.sh
+
     - name: Build and test
       id: build
       uses: ros-tooling/action-ros-ci@v0.2
