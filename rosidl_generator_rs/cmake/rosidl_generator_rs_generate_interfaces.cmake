@@ -133,10 +133,13 @@ file(MAKE_DIRECTORY "${_output_path}")
 set(_target_suffix "__rs")
 
 set(CRATES_DEPENDENCIES "rosidl_runtime_rs = \"*\"")
+set(SERDE_FEATURES "[\"dep:serde\", \"rosidl_runtime_rs/serde\"")
 foreach(_pkg_name ${rosidl_generate_interfaces_DEPENDENCY_PACKAGE_NAMES})
   find_package(${_pkg_name} REQUIRED)
   set(CRATES_DEPENDENCIES "${CRATES_DEPENDENCIES}\n${_pkg_name} = \"*\"")
+  set(SERDE_FEATURES "${SERDE_FEATURES}, \"${_pkg_name}/serde\"")
 endforeach()
+  set(SERDE_FEATURES "${SERDE_FEATURES}]")
 ament_index_register_resource("rust_packages")
 
 

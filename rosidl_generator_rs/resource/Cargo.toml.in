@@ -5,4 +5,8 @@ edition = "2021"
 
 [dependencies]
 libc = "0.2"
+serde = { version = "1", optional = true, features = ["derive"] }
 @CRATES_DEPENDENCIES@
+
+[features]
+serde = @SERDE_FEATURES@
