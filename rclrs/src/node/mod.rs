@@ -20,7 +20,7 @@ use rosidl_runtime_rs::Message;
 impl Drop for rcl_node_t {
     fn drop(&mut self) {
         // SAFETY: No preconditions for this function
-        unsafe { rcl_node_fini(self as *mut _).unwrap() };
+        unsafe { rcl_node_fini(self).unwrap() };
     }
 }
 
@@ -71,11 +71,11 @@ impl Node {
             // to keep them alive.
             // The context handle is kept alive because it is co-owned by the node.
             rcl_node_init(
-                &mut node_handle as *mut _,
+                &mut node_handle,
                 raw_node_name.as_ptr(),
                 raw_node_ns.as_ptr(),
-                context_handle as *mut _,
-                &node_options as *const _,
+                context_handle,
+                &node_options,
             )
             .ok()?;
         }

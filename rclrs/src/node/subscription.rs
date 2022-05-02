@@ -31,7 +31,7 @@ impl Drop for SubscriptionHandle {
         let node_handle = &mut *self.node_handle.lock();
         // SAFETY: No preconditions for this function (besides the arguments being valid).
         unsafe {
-            rcl_subscription_fini(handle as *mut _, node_handle as *mut _);
+            rcl_subscription_fini(handle, node_handle);
         }
     }
 }
@@ -100,11 +100,11 @@ where
             // afterwards.
             // TODO: type support?
             rcl_subscription_init(
-                &mut subscription_handle as *mut _,
-                node_handle as *mut _,
+                &mut subscription_handle,
+                node_handle,
                 type_support,
                 topic_c_string.as_ptr(),
-                &subscription_options as *const _,
+                &subscription_options,
             )
             .ok()?;
         }
@@ -152,7 +152,7 @@ where
             // beyond the function call.
             // The latter two pointers are explicitly allowed to be NULL.
             rcl_take(
-                handle as *const _,
+                handle,
                 &mut rmw_message as *mut <T as Message>::RmwMsg as *mut _,
                 std::ptr::null_mut(),
                 std::ptr::null_mut(),

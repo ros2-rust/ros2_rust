@@ -13,8 +13,8 @@ impl Drop for rcl_context_t {
     fn drop(&mut self) {
         // SAFETY: These functions have no preconditions besides a valid/initialized handle
         unsafe {
-            rcl_shutdown(self as *mut _);
-            rcl_context_fini(self as *mut _);
+            rcl_shutdown(self);
+            rcl_context_fini(self);
         }
     }
 }
@@ -74,7 +74,7 @@ impl Context {
                 let mut init_options = rcl_get_zero_initialized_init_options();
                 // SAFETY: Passing in a zero-initialized value is expected.
                 // In the case where this returns not ok, there's nothing to clean up.
-                rcl_init_options_init(&mut init_options as *mut _, allocator).ok()?;
+                rcl_init_options_init(&mut init_options, allocator).ok()?;
                 // SAFETY: This function does not store the ephemeral init_options and c_args
                 // pointers. Passing in a zero-initialized handle is expected.
                 let ret = rcl_init(
@@ -84,12 +84,12 @@ impl Context {
                     } else {
                         c_args.as_ptr()
                     },
-                    &init_options as *const _,
-                    handle as *mut _,
+                    &init_options,
+                    handle,
                 );
                 // SAFETY: It's safe to pass in an initialized object.
                 // Early return will not leak memory, because this is the last fini function.
-                rcl_init_options_fini(&mut init_options as *mut _).ok()?;
+                rcl_init_options_fini(&mut init_options).ok()?;
                 // Move the check after the last fini()
                 ret.ok()?;
             }
@@ -144,6 +144,6 @@ impl Context {
         // handler could call `rcl_shutdown()`, hence making the context invalid.
         let handle = &mut *self.handle.lock();
         // SAFETY: No preconditions for this function.
-        unsafe { rcl_context_is_valid(handle as *mut _) }
+        unsafe { rcl_context_is_valid(handle) }
     }
 }
