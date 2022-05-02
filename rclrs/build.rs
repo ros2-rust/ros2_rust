@@ -17,8 +17,8 @@ fn get_env_var_or_abort(env_var: &'static str) -> String {
 }
 
 fn main() {
-    let distro = get_env_var_or_abort(ROS_DISTRO);
-    println!("cargo:rustc-cfg=distro=\"{distro}\"");
+    let ros_distro = get_env_var_or_abort(ROS_DISTRO);
+    println!("cargo:rustc-cfg=ros_distro=\"{ros_distro}\"");
 
     let mut builder = bindgen::Builder::default()
         .header("src/rcl_wrapper.h")
