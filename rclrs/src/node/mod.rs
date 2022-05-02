@@ -8,10 +8,11 @@ mod subscription;
 pub use self::publisher::*;
 pub use self::subscription::*;
 
-use std::ffi::CString;
+use std::ffi::{CStr, CString};
 use std::sync::{Arc, Weak};
 use std::vec::Vec;
 
+use libc::c_char;
 use parking_lot::Mutex;
 
 use rosidl_runtime_rs::Message;
@@ -43,7 +44,7 @@ impl Node {
     /// Creates a new node in the empty namespace.
     #[allow(clippy::new_ret_no_self)]
     pub fn new(node_name: &str, context: &Context) -> Result<Node, RclReturnCode> {
-        Self::new_with_namespace(node_name, "", context)
+        Self::new_with_namespace("", node_name, context)
     }
 
     /// Creates a new node in a namespace.
@@ -51,8 +52,8 @@ impl Node {
     /// A namespace without a leading forward slash is automatically changed to have a leading
     /// forward slash.
     pub fn new_with_namespace(
-        node_name: &str,
         node_ns: &str,
+        node_name: &str,
         context: &Context,
     ) -> Result<Node, RclReturnCode> {
         let raw_node_name = CString::new(node_name).unwrap();
@@ -86,6 +87,87 @@ impl Node {
             context: context.handle.clone(),
             subscriptions: std::vec![],
         })
+    }
+
+    /// Returns the name of the node.
+    ///
+    /// This returns the name after remapping, so it is not necessarily the same as the name that
+    /// was used when creating the node.
+    ///
+    /// # Example
+    /// ```
+    /// # use rclrs::{Context, RclReturnCode};
+    /// // Without remapping
+    /// let context = Context::new([])?;
+    /// let node = context.create_node("my_node")?;
+    /// assert_eq!(node.name(), String::from("my_node"));
+    /// // With remapping
+    /// let remapping = ["--ros-args", "-r", "__node:=your_node"].map(String::from);
+    /// let context_r = Context::new(remapping)?;
+    /// let node_r = context_r.create_node("my_node")?;
+    /// assert_eq!(node_r.name(), String::from("your_node"));
+    /// # Ok::<(), RclReturnCode>(())
+    /// ```
+    pub fn name(&self) -> String {
+        self.get_string(rcl_node_get_name)
+    }
+
+    /// Returns the namespace of the node.
+    ///
+    /// This returns the namespace after remapping, so it is not necessarily the same as the
+    /// namespace that was used when creating the node.
+    ///
+    /// # Example
+    /// ```
+    /// # use rclrs::{Context, RclReturnCode};
+    /// // Without remapping
+    /// let context = Context::new([])?;
+    /// let node = context.create_node_with_namespace("/my/namespace", "my_node")?;
+    /// assert_eq!(node.namespace(), String::from("/my/namespace"));
+    /// // With remapping
+    /// let remapping = ["--ros-args", "-r", "__ns:=/your_namespace"].map(String::from);
+    /// let context_r = Context::new(remapping)?;
+    /// let node_r = context_r.create_node("my_node")?;
+    /// assert_eq!(node_r.namespace(), String::from("/your_namespace"));
+    /// # Ok::<(), RclReturnCode>(())
+    /// ```
+    pub fn namespace(&self) -> String {
+        self.get_string(rcl_node_get_namespace)
+    }
+
+    /// Returns the fully qualified name of the node.
+    ///
+    /// The fully qualified name of the node is the node namespace combined with the node name.
+    /// It is subject to the remappings shown in [`Node::name`] and [`Node::namespace`].
+    ///
+    /// # Example
+    /// ```
+    /// # use rclrs::{Context, RclReturnCode};
+    /// let context = Context::new([])?;
+    /// let node = context.create_node_with_namespace("/my/namespace", "my_node")?;
+    /// assert_eq!(node.fully_qualified_name(), String::from("/my/namespace/my_node"));
+    /// # Ok::<(), RclReturnCode>(())
+    /// ```
+    pub fn fully_qualified_name(&self) -> String {
+        self.get_string(rcl_node_get_fully_qualified_name)
+    }
+
+    fn get_string(
+        &self,
+        getter: unsafe extern "C" fn(*const rcl_node_t) -> *const c_char,
+    ) -> String {
+        let char_ptr = unsafe {
+            // SAFETY: The node handle is valid.
+            getter(&*self.handle.lock())
+        };
+        debug_assert!(!char_ptr.is_null());
+        let cstr = unsafe {
+            // SAFETY: The returned CStr is immediately converted to an owned string,
+            // so the lifetime is no issue. The ptr is valid as per the documentation
+            // of rcl_node_get_name.
+            CStr::from_ptr(char_ptr)
+        };
+        cstr.to_string_lossy().into_owned()
     }
 
     /// Creates a [`Publisher`][1].

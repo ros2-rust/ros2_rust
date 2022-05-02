@@ -114,6 +114,27 @@ impl Context {
         Node::new(node_name, self)
     }
 
+    /// Creates a node in a namespace.
+    ///
+    /// Convenience function equivalent to [`Node::new_with_namespace`][1].
+    ///
+    /// [1]: crate::Node::new_with_namespace
+    ///
+    /// # Example
+    /// ```
+    /// # use rclrs::Context;
+    /// let ctx = Context::new([]).unwrap();
+    /// let node = ctx.create_node_with_namespace("/my/nested/namespace", "my_node");
+    /// assert!(node.is_ok());
+    /// ```
+    pub fn create_node_with_namespace(
+        &self,
+        node_namespace: &str,
+        node_name: &str,
+    ) -> Result<Node, RclReturnCode> {
+        Node::new_with_namespace(node_namespace, node_name, self)
+    }
+
     /// Checks if the context is still valid.
     ///
     /// This will return `false` when a signal has caused the context to shut down (currently
