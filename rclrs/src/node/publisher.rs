@@ -1,4 +1,4 @@
-use crate::error::{RclReturnCode, ToResult};
+use crate::error::{RclrsError, ToResult};
 use crate::qos::QoSProfile;
 use crate::rcl_bindings::*;
 use crate::Node;
@@ -62,7 +62,7 @@ where
     ///
     /// # Panics
     /// When the topic contains interior null bytes.
-    pub fn new(node: &Node, topic: &str, qos: QoSProfile) -> Result<Self, RclReturnCode>
+    pub fn new(node: &Node, topic: &str, qos: QoSProfile) -> Result<Self, RclrsError>
     where
         T: Message,
     {
@@ -119,7 +119,7 @@ where
     /// Calling `publish()` is a potentially blocking call, see [this issue][1] for details.
     ///
     /// [1]: https://github.com/ros2/ros2/issues/255
-    pub fn publish<'a, M: MessageCow<'a, T>>(&self, message: M) -> Result<(), RclReturnCode> {
+    pub fn publish<'a, M: MessageCow<'a, T>>(&self, message: M) -> Result<(), RclrsError> {
         let rmw_message = T::into_rmw_message(message.into_cow());
         let handle = &mut *self.handle.lock();
         let ret = unsafe {

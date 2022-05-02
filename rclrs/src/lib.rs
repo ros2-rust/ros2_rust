@@ -31,7 +31,7 @@ use std::time::Duration;
 /// This can usually be ignored.
 ///
 /// [1]: crate::SubscriberErrorCode
-pub fn spin_once(node: &Node, timeout: Option<Duration>) -> Result<(), RclReturnCode> {
+pub fn spin_once(node: &Node, timeout: Option<Duration>) -> Result<(), RclrsError> {
     let live_subscriptions = node.live_subscriptions();
     let ctx = Context {
         handle: node.context.clone(),
@@ -53,7 +53,7 @@ pub fn spin_once(node: &Node, timeout: Option<Duration>) -> Result<(), RclReturn
 /// Convenience function for calling [`spin_once`] in a loop.
 ///
 /// This function additionally checks that the context is still valid.
-pub fn spin(node: &Node) -> Result<(), RclReturnCode> {
+pub fn spin(node: &Node) -> Result<(), RclrsError> {
     // The context_is_valid functions exists only to abstract away ROS distro differences
     #[cfg(ros_distro = "foxy")]
     // SAFETY: No preconditions for this function.
@@ -64,9 +64,9 @@ pub fn spin(node: &Node) -> Result<(), RclReturnCode> {
 
     while context_is_valid() {
         if let Some(error) = spin_once(node, None).err() {
-            match error {
+            match error.code {
                 RclReturnCode::Timeout => continue,
-                error => return Err(error),
+                _ => return Err(error),
             };
         }
     }
