@@ -11,9 +11,12 @@ This section is not comprehensive, and conventions from the broader Rust communi
 
 Use `cargo clippy` to check that code is idiomatic.
 
+### Documentation
 For documenting functions, use declarative sentences, not imperative sentences. For instance, `Creates a by-value iterator.` should be used instead of `Create a by-value iterator.`. Use a period at the end of every phrase, even the "brief" description.
 
 Document any panics that might happen in a function, and where it makes sense, also document the errors that may be returned by a function.
+
+When linking to documents from the ROS 2 ecosystem, always use the a link that redirects to the latest version, or a link to the Rolling version.
 
 ### Unsafe code
 Keep `unsafe` blocks as small as possible.
