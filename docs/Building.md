@@ -226,7 +226,7 @@ Source the ROS 2 installation and try again.
 
 ### Failed to resolve patches
 
-When you've deleted your `install` directory but not your `.cargo` directory, you'll get this error:
+If you've deleted your `install` directory but not your `.cargo` directory, you'll get this error:
 
 > error: failed to resolve patches for `https://github.com/rust-lang/crates.io-index`
 
