@@ -77,28 +77,34 @@ pub fn spin(node: &Node) -> Result<(), RclReturnCode> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alloc::vec::Vec;
-    use cstr_core::CString;
-    use std::{env, println};
+    use std::sync::{Arc, Mutex};
+    use std::time::Duration;
 
     #[test]
-    fn test_spin_once() -> Result<(), WaitSetErrorResponse> {
-        let args: Vec<CString> = env::args()
-            .filter_map(|arg| CString::new(arg).ok())
-            .collect();
-        let context = Context::default(args);
+    fn test_spin_once() -> Result<(), RclReturnCode> {
+        let context = Context::new(vec![]).unwrap();
         let mut subscriber_node = context.create_node("minimal_subscriber")?;
-        let mut num_messages: usize = 0;
+        let num_messages = Arc::new(Mutex::new(0));
+        let receiver = num_messages.clone();
+        let publisher = subscriber_node
+            .create_publisher::<std_msgs::msg::String>("topic", QOS_PROFILE_DEFAULT)?;
         let _subscription = subscriber_node.create_subscription::<std_msgs::msg::String, _>(
             "topic",
             QOS_PROFILE_DEFAULT,
-            move |msg: &std_msgs::msg::String| {
-                println!("I heard: '{}'", msg.data);
-                num_messages += 1;
-                println!("(Got {} messages so far)", num_messages);
+            move |_: std_msgs::msg::String| {
+                let mut num_messages = receiver.lock().unwrap();
+                *num_messages += 1;
             },
         )?;
 
-        spin_once(&subscriber_node, 500)
+        let message = std_msgs::msg::String {
+            data: String::from("Hello World"),
+        };
+        publisher.publish(message)?;
+        spin_once(&subscriber_node, Some(Duration::from_millis(500)))?;
+
+        assert_eq!(*num_messages.lock().unwrap(), 1);
+
+        Ok(())
     }
 }

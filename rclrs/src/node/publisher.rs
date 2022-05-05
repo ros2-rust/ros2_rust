@@ -156,29 +156,28 @@ impl<'a, T: Message> MessageCow<'a, T> for &'a T {
 mod tests {
     use super::*;
     use crate::{Context, Publisher, QOS_PROFILE_DEFAULT};
-    use alloc::{borrow::ToOwned, vec::Vec};
-    use std::{env, println};
-    use std_msgs;
 
-    fn default_context() -> Context {
-        let args: Vec<CString> = env::args()
-            .filter_map(|arg| CString::new(arg).ok())
-            .collect();
-        println!("<test_publisher> Context args: {:?}", args);
-        Context::default(args)
+    fn create_fixture(name: &str) -> (Context, Node) {
+        let context =
+            Context::new(vec![]).expect("Context instantiation is expected to be success");
+        let node = context
+            .create_node(name)
+            .expect("Node instantiation is expected to be success");
+
+        (context, node)
     }
 
     #[test]
     fn test_new_publisher() -> Result<(), RclReturnCode> {
-        let context = default_context();
-        let node = context.create_node("test_new_publisher")?;
-        Publisher::<std_msgs::msg::String>::new(&node, "test", QOS_PROFILE_DEFAULT).map(|_x| ())
+        let (_, node) = create_fixture("test_new_publisher");
+        let _ = Publisher::<std_msgs::msg::String>::new(&node, "test", QOS_PROFILE_DEFAULT)?;
+
+        Ok(())
     }
 
     #[test]
-    fn test_publish() -> Result<(), RclReturnCode> {
-        let context = default_context();
-        let node = context.create_node("test_publish")?;
+    fn test_publish_message() -> Result<(), RclReturnCode> {
+        let (_, node) = create_fixture("test_publish_message");
         let publisher =
             Publisher::<std_msgs::msg::String>::new(&node, "test", QOS_PROFILE_DEFAULT)?;
         let message = std_msgs::msg::String {
