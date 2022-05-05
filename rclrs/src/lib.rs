@@ -85,15 +85,20 @@ mod tests {
         let context = Context::new(vec![]).unwrap();
         let mut subscriber_node = context.create_node("minimal_subscriber")?;
         let num_messages = Arc::new(Mutex::new(0));
-        let receiver = num_messages.clone();
+        let received_msg = Arc::new(Mutex::new(String::new()));
+        let n = num_messages.clone();
+        let m = received_msg.clone();
         let publisher = subscriber_node
             .create_publisher::<std_msgs::msg::String>("topic", QOS_PROFILE_DEFAULT)?;
         let _subscription = subscriber_node.create_subscription::<std_msgs::msg::String, _>(
             "topic",
             QOS_PROFILE_DEFAULT,
-            move |_: std_msgs::msg::String| {
-                let mut num_messages = receiver.lock().unwrap();
+            move |msg: std_msgs::msg::String| {
+                let mut num_messages = n.lock().unwrap();
+                let mut received_msg = m.lock().unwrap();
+
                 *num_messages += 1;
+                *received_msg = msg.data;
             },
         )?;
 
@@ -104,6 +109,7 @@ mod tests {
         spin_once(&subscriber_node, Some(Duration::from_millis(500)))?;
 
         assert_eq!(*num_messages.lock().unwrap(), 1);
+        assert_eq!(&*received_msg.lock().unwrap().as_str(), "Hello World");
 
         Ok(())
     }
