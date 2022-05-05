@@ -1,5 +1,4 @@
 use anyhow::{Error, Result};
-use cstr_core::CString;
 use std::convert::TryInto;
 use std::env;
 
@@ -113,10 +112,7 @@ fn demonstrate_sequences() {
 fn demonstrate_pubsub() -> Result<(), Error> {
     println!("================== Interoperability demo ==================");
     // Demonstrate interoperability between idiomatic and RMW-compatible message types
-    let args: Vec<CString> = env::args()
-        .filter_map(|arg| CString::new(arg).ok())
-        .collect();
-    let context = rclrs::Context::default(args);
+    let context = rclrs::Context::new(env::args())?;
     let mut node = context.create_node("message_demo")?;
 
     let idiomatic_publisher = node.create_publisher::<rclrs_example_msgs::msg::VariousTypes>(
@@ -132,22 +128,22 @@ fn demonstrate_pubsub() -> Result<(), Error> {
         .create_subscription::<rclrs_example_msgs::msg::VariousTypes, _>(
             "topic",
             rclrs::QOS_PROFILE_DEFAULT,
-            move |_msg: &rclrs_example_msgs::msg::VariousTypes| println!("Got idiomatic message!"),
+            move |_msg: rclrs_example_msgs::msg::VariousTypes| println!("Got idiomatic message!"),
         )?;
     let _direct_subscription = node
         .create_subscription::<rclrs_example_msgs::msg::rmw::VariousTypes, _>(
             "topic",
             rclrs::QOS_PROFILE_DEFAULT,
-            move |_msg: &rclrs_example_msgs::msg::rmw::VariousTypes| {
+            move |_msg: rclrs_example_msgs::msg::rmw::VariousTypes| {
                 println!("Got RMW-compatible message!")
             },
         )?;
     println!("Sending idiomatic message.");
     idiomatic_publisher.publish(rclrs_example_msgs::msg::VariousTypes::default())?;
-    rclrs::spin_once(&node, 500)?;
+    rclrs::spin_once(&node, None)?;
     println!("Sending RMW-compatible message.");
     direct_publisher.publish(rclrs_example_msgs::msg::rmw::VariousTypes::default())?;
-    rclrs::spin_once(&node, 500)?;
+    rclrs::spin_once(&node, None)?;
 
     Ok(())
 }

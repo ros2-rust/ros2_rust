@@ -67,6 +67,7 @@ endforeach()
 
 list(APPEND _generated_common_rs_files
   "${_output_path}/rust/src/lib.rs"
+  "${_output_path}/rust/Cargo.toml"
 )
 
 if(${_has_msg})
@@ -132,11 +133,6 @@ file(MAKE_DIRECTORY "${_output_path}")
 
 set(_target_suffix "__rs")
 
-set(CRATES_DEPENDENCIES "rosidl_runtime_rs = \"*\"")
-foreach(_pkg_name ${rosidl_generate_interfaces_DEPENDENCY_PACKAGE_NAMES})
-  find_package(${_pkg_name} REQUIRED)
-  set(CRATES_DEPENDENCIES "${CRATES_DEPENDENCIES}\n${_pkg_name} = \"*\"")
-endforeach()
 ament_index_register_resource("rust_packages")
 
 
@@ -169,15 +165,6 @@ foreach(_typesupport_impl ${_typesupport_impls})
     )
   endif()
 endforeach()
-
-configure_file("${rosidl_generator_rs_TEMPLATE_DIR}/Cargo.toml.in"
-  "share/${PROJECT_NAME}/rust/Cargo.toml"
-  @ONLY)
-
-install(
-  FILES "${CMAKE_CURRENT_BINARY_DIR}/share/${PROJECT_NAME}/rust/Cargo.toml"
-  DESTINATION share/${PROJECT_NAME}/rust/
-)
 
 if(BUILD_TESTING AND rosidl_generate_interfaces_ADD_LINTER_TESTS)
   if(

@@ -1,15 +1,24 @@
 [package]
 name = "rosidl_runtime_rs"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Jacob Hassold <jhassold@dcscorp.com>", "Nikolai Morin <nnmmgit@gmail.com>"]
 edition = "2021"
 
 [lib]
 path = "src/lib.rs"
 
+# Please keep the list of dependencies alphabetically sorted,
+# and also state why each dependency is needed.
 [dependencies]
-downcast-rs = "1.2.0"
+# Needed for FFI
 libc = "0.2"
+# Optional dependency for making it possible to convert messages to and from
+# formats such as JSON, YAML, Pickle, etc.
+serde = { version = "1", optional = true }
 
 [dev-dependencies]
+# Needed for writing property tests
 quickcheck = "1"
+# Needed for testing serde support
+serde_json = "1"
+

@@ -1,31 +1,25 @@
 [package]
 name = "rclrs"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Esteve Fernandez <esteve@apache.org>"]
 edition = "2021"
 
 [lib]
 path = "src/lib.rs"
 
+# Please keep the list of dependencies alphabetically sorted,
+# and also state why each dependency is needed.
 [dependencies]
+# Needed for FFI
 libc = "0.2.43"
-lock_api = "0.4.5"
-cstr_core = "0.2"
-cty = "0.2"
-core-error = "0.0.0"
-parking_lot = {version = "0.11.2", optional = true}
-spin = "0.9.2"
-downcast = "0.10.0"
-
-[dependencies.rosidl_runtime_rs]
-version = "*"
+# Provides better concurrency primitives than std
+parking_lot = "0.11.2"
+# Needed for the Message trait, among others
+rosidl_runtime_rs = "*"
 
 [dev-dependencies.std_msgs]
 version = "*"
 
 [build-dependencies]
+# Needed for FFI
 bindgen = "0.59.1"
-
-[features]
-default = ["std"]
-std = ["parking_lot"]

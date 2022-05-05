@@ -1,9 +1,11 @@
 use std::cmp::Ordering;
-use std::convert::TryFrom;
 use std::ffi::CStr;
 use std::fmt::{self, Debug, Display};
 use std::hash::{Hash, Hasher};
 use std::ops::{Deref, DerefMut};
+
+#[cfg(feature = "serde")]
+mod serde;
 
 use crate::sequence::Sequence;
 use crate::traits::SequenceAlloc;
@@ -62,7 +64,6 @@ pub struct WString {
 ///
 /// ```
 /// # use rosidl_runtime_rs::BoundedString;
-/// # use std::convert::TryFrom;
 /// let mut maybe_str = BoundedString::<3>::try_from("noo!");
 /// assert!(maybe_str.is_err());
 /// maybe_str = BoundedString::<3>::try_from("ok!");
@@ -85,7 +86,6 @@ pub struct BoundedString<const N: usize> {
 ///
 /// ```
 /// # use rosidl_runtime_rs::BoundedWString;
-/// # use std::convert::TryFrom;
 /// let mut maybe_wstr = BoundedWString::<3>::try_from("noo!");
 /// assert!(maybe_wstr.is_err());
 /// maybe_wstr = BoundedWString::<3>::try_from("ok!");
@@ -452,3 +452,37 @@ impl Display for StringExceedsBoundsError {
 }
 
 impl std::error::Error for StringExceedsBoundsError {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use quickcheck::{Arbitrary, Gen};
+
+    impl Arbitrary for String {
+        fn arbitrary(g: &mut Gen) -> Self {
+            std::string::String::arbitrary(g).as_str().into()
+        }
+    }
+
+    impl Arbitrary for WString {
+        fn arbitrary(g: &mut Gen) -> Self {
+            std::string::String::arbitrary(g).as_str().into()
+        }
+    }
+
+    impl Arbitrary for BoundedString<256> {
+        fn arbitrary(g: &mut Gen) -> Self {
+            let len = u8::arbitrary(g);
+            let s: std::string::String = (0..len).map(|_| char::arbitrary(g)).collect();
+            s.as_str().try_into().unwrap()
+        }
+    }
+
+    impl Arbitrary for BoundedWString<256> {
+        fn arbitrary(g: &mut Gen) -> Self {
+            let len = u8::arbitrary(g);
+            let s: std::string::String = (0..len).map(|_| char::arbitrary(g)).collect();
+            s.as_str().try_into().unwrap()
+        }
+    }
+}

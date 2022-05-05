@@ -1,6 +1,6 @@
 [package]
 name = "rclrs_examples"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Esteve Fernandez <esteve@apache.org>"]
 edition = "2021"
 
@@ -17,9 +17,7 @@ name = "message_demo"
 path = "src/message_demo.rs"
 
 [dependencies]
-thiserror = "1"
 anyhow = {version = "1", features = ["backtrace"]}
-cstr_core = "0.2"
 
 [dependencies.rclrs]
 version = "*"
@@ -28,9 +26,6 @@ version = "*"
 version = "*"
 
 [dependencies.std_msgs]
-version = "*"
-
-[dependencies.geometry_msgs]
 version = "*"
 
 [dependencies.rclrs_example_msgs]
