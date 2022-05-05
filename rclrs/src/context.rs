@@ -1,30 +1,36 @@
 use crate::rcl_bindings::*;
 use crate::{Node, RclReturnCode, ToResult};
-use alloc::sync::Arc;
-use alloc::vec::Vec;
-use std::string::String;
 
-#[cfg(not(feature = "std"))]
-use cstr_core::{c_char, CString};
-#[cfg(not(feature = "std"))]
-use spin::Mutex;
-
-#[cfg(feature = "std")]
-use cty::c_char;
-#[cfg(feature = "std")]
-use parking_lot::Mutex;
-#[cfg(feature = "std")]
 use std::ffi::CString;
+use std::os::raw::c_char;
+use std::string::String;
+use std::sync::Arc;
+use std::vec::Vec;
+
+use parking_lot::Mutex;
 
 impl Drop for rcl_context_t {
     fn drop(&mut self) {
+        // SAFETY: These functions have no preconditions besides a valid/initialized handle
         unsafe {
-            rcl_shutdown(self as *mut _);
-            rcl_context_fini(self as *mut _);
+            rcl_shutdown(self);
+            rcl_context_fini(self);
         }
     }
 }
 
+/// Shared state between nodes and similar entities.
+///
+/// It is possible, but not usually necessary, to have several contexts in an application.
+///
+/// Ownership of the context is shared by the `Context` itself and all nodes created from it.
+///
+/// # Details
+/// A context stores, among other things
+/// - command line arguments (used for e.g. name remapping)
+/// - middleware-specific data, e.g. the domain participant in DDS
+/// - the allocator used (left as the default by `rclrs`)
+///
 pub struct Context {
     pub(crate) handle: Arc<Mutex<rcl_context_t>>,
 }
@@ -68,7 +74,7 @@ impl Context {
                 let mut init_options = rcl_get_zero_initialized_init_options();
                 // SAFETY: Passing in a zero-initialized value is expected.
                 // In the case where this returns not ok, there's nothing to clean up.
-                rcl_init_options_init(&mut init_options as *mut _, allocator).ok()?;
+                rcl_init_options_init(&mut init_options, allocator).ok()?;
                 // SAFETY: This function does not store the ephemeral init_options and c_args
                 // pointers. Passing in a zero-initialized handle is expected.
                 let ret = rcl_init(
@@ -78,12 +84,12 @@ impl Context {
                     } else {
                         c_args.as_ptr()
                     },
-                    &init_options as *const _,
-                    handle as *mut _,
+                    &init_options,
+                    handle,
                 );
                 // SAFETY: It's safe to pass in an initialized object.
                 // Early return will not leak memory, because this is the last fini function.
-                rcl_init_options_fini(&mut init_options as *mut _).ok()?;
+                rcl_init_options_fini(&mut init_options).ok()?;
                 // Move the check after the last fini()
                 ret.ok()?;
             }
@@ -91,8 +97,42 @@ impl Context {
         Ok(context)
     }
 
+    /// Creates a node.
+    ///
+    /// Convenience function equivalent to [`Node::new`][1].
+    ///
+    /// [1]: crate::Node::new
+    ///
+    /// # Example
+    /// ```
+    /// # use rclrs::Context;
+    /// let ctx = Context::new([]).unwrap();
+    /// let node = ctx.create_node("my_node");
+    /// assert!(node.is_ok());
+    /// ```
     pub fn create_node(&self, node_name: &str) -> Result<Node, RclReturnCode> {
         Node::new(node_name, self)
+    }
+
+    /// Creates a node in a namespace.
+    ///
+    /// Convenience function equivalent to [`Node::new_with_namespace`][1].
+    ///
+    /// [1]: crate::Node::new_with_namespace
+    ///
+    /// # Example
+    /// ```
+    /// # use rclrs::Context;
+    /// let ctx = Context::new([]).unwrap();
+    /// let node = ctx.create_node_with_namespace("/my/nested/namespace", "my_node");
+    /// assert!(node.is_ok());
+    /// ```
+    pub fn create_node_with_namespace(
+        &self,
+        node_namespace: &str,
+        node_name: &str,
+    ) -> Result<Node, RclReturnCode> {
+        Node::new_with_namespace(node_namespace, node_name, self)
     }
 
     /// Checks if the context is still valid.
@@ -104,6 +144,6 @@ impl Context {
         // handler could call `rcl_shutdown()`, hence making the context invalid.
         let handle = &mut *self.handle.lock();
         // SAFETY: No preconditions for this function.
-        unsafe { rcl_context_is_valid(handle as *mut _) }
+        unsafe { rcl_context_is_valid(handle) }
     }
 }

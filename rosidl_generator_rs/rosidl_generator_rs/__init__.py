@@ -59,7 +59,16 @@ def generate_rs(generator_arguments_file, typesupport_impls):
     # expand init modules for each directory
     modules = {}
     idl_content = IdlContent()
-    (Path(args['output_dir']) / 'rust/src/bindings').mkdir(parents=True, exist_ok=True)
+    dependency_packages = set()
+
+    (Path(args['output_dir']) / 'rust/src').mkdir(parents=True, exist_ok=True)
+
+    for dep_tuple in args.get('ros_interface_dependencies', []):
+        dep_parts = dep_tuple.rsplit(':', 1)
+        assert len(dep_parts) == 2
+        if dep_parts[0] != package_name:
+            dependency_packages.add(dep_parts[0])
+
     for idl_tuple in args.get('idl_tuples', []):
         idl_parts = idl_tuple.rsplit(':', 1)
         assert len(idl_parts) == 2
@@ -143,6 +152,16 @@ def generate_rs(generator_arguments_file, typesupport_impls):
         os.path.join(template_dir, 'lib.rs.em'),
         data.copy(),
         os.path.join(args['output_dir'], 'rust/src/lib.rs'),
+        minimum_timestamp=latest_target_timestamp)
+
+    cargo_toml_data = {
+        'dependency_packages': dependency_packages,
+        'package_name': args['package_name'],
+    }
+    expand_template(
+        os.path.join(template_dir, 'Cargo.toml.em'),
+        cargo_toml_data,
+        os.path.join(args['output_dir'], 'rust/Cargo.toml'),
         minimum_timestamp=latest_target_timestamp)
 
     return 0

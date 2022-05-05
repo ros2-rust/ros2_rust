@@ -112,7 +112,7 @@ fn demonstrate_sequences() {
 fn demonstrate_pubsub() -> Result<(), Error> {
     println!("================== Interoperability demo ==================");
     // Demonstrate interoperability between idiomatic and RMW-compatible message types
-    let context = rclrs::Context::new(env::args()).unwrap();
+    let context = rclrs::Context::new(env::args())?;
     let mut node = context.create_node("message_demo")?;
 
     let idiomatic_publisher = node.create_publisher::<rclrs_example_msgs::msg::VariousTypes>(

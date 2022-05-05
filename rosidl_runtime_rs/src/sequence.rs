@@ -4,6 +4,9 @@ use std::hash::{Hash, Hasher};
 use std::iter::{Extend, FromIterator, FusedIterator};
 use std::ops::{Deref, DerefMut};
 
+#[cfg(feature = "serde")]
+mod serde;
+
 use crate::traits::SequenceAlloc;
 
 /// An unbounded sequence.
@@ -20,8 +23,8 @@ use crate::traits::SequenceAlloc;
 /// ```
 /// # use rosidl_runtime_rs::{Sequence, seq};
 /// let mut list = Sequence::<i32>::new(3);
-/// assert_eq!(&list[..], &[0, 0, 0]);
 /// // Sequences deref to slices
+/// assert_eq!(&list[..], &[0, 0, 0]);
 /// list[0] = 3;
 /// list[1] = 2;
 /// list[2] = 1;
@@ -52,8 +55,8 @@ pub struct Sequence<T: SequenceAlloc> {
 /// ```
 /// # use rosidl_runtime_rs::{BoundedSequence, seq};
 /// let mut list = BoundedSequence::<i32, 5>::new(3);
-/// assert_eq!(&list[..], &[0, 0, 0]);
 /// // BoundedSequences deref to slices
+/// assert_eq!(&list[..], &[0, 0, 0]);
 /// list[0] = 3;
 /// list[1] = 2;
 /// list[2] = 1;
@@ -626,7 +629,7 @@ impl_sequence_alloc_for_primitive_type!(
 
 /// Creates a sequence, similar to the `vec!` macro.
 ///
-/// It's possible to create both unbounded and bounded sequences.
+/// It's possible to create both [`Sequence`]s and [`BoundedSequence`]s.
 /// Unbounded sequences are created by a comma-separated list of values.
 /// Bounded sequences are created by additionally specifying the maximum capacity (the `N` type
 /// parameter) in the beginning, followed by a `#`.
@@ -674,7 +677,20 @@ macro_rules! seq {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use quickcheck::quickcheck;
+    use quickcheck::{quickcheck, Arbitrary, Gen};
+
+    impl<T: Arbitrary + SequenceAlloc> Arbitrary for Sequence<T> {
+        fn arbitrary(g: &mut Gen) -> Self {
+            Vec::arbitrary(g).into()
+        }
+    }
+
+    impl<T: Arbitrary + SequenceAlloc> Arbitrary for BoundedSequence<T, 256> {
+        fn arbitrary(g: &mut Gen) -> Self {
+            let len = u8::arbitrary(g);
+            (0..len).map(|_| T::arbitrary(g)).collect()
+        }
+    }
 
     quickcheck! {
         fn test_extend(xs: Vec<i32>, ys: Vec<i32>) -> bool {

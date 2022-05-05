@@ -2,7 +2,7 @@ use anyhow::{Error, Result};
 use std::env;
 
 fn main() -> Result<(), Error> {
-    let context = rclrs::Context::new(env::args()).unwrap();
+    let context = rclrs::Context::new(env::args())?;
 
     let node = context.create_node("minimal_publisher")?;
 

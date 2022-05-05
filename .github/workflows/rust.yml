@@ -66,7 +66,7 @@ jobs:
 
     - name: Install cargo-ament-build
       run: |
-        cargo install cargo-ament-build
+        cargo install --debug cargo-ament-build
 
     - name: Build and test
       id: build
@@ -82,7 +82,18 @@ jobs:
         . /opt/ros/${{ matrix.ros_distro }}/setup.sh
         for path in $(colcon list | awk '$3 == "(ament_cargo)" { print $2 }'); do
         cd $path
-        echo "Checking $path"
+        echo "Running clippy in $path"
         cargo clippy -- -D warnings
+        cd -
+        done
+
+    - name: Rustdoc check
+      run: |
+        cd ${{ steps.build.outputs.ros-workspace-directory-name }}
+        . /opt/ros/${{ matrix.ros_distro }}/setup.sh
+        for path in $(colcon list | awk '$3 == "(ament_cargo)" && $1 != "rclrs_examples" { print $2 }'); do
+        cd $path
+        echo "Running rustdoc check in $path"
+        cargo rustdoc -- -D warnings
         cd -
         done

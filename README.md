@@ -90,7 +90,7 @@ Publisher:
 ```
 # Do this in a new terminal
 . ./install/setup.sh
-ros2 run rclrs_examples rclrs_publisher
+ros2 run rclrs_examples minimal_publisher
 ```
 
 Subscriber:
@@ -98,7 +98,7 @@ Subscriber:
 ```
 # Do this in a new terminal
 . ./install/setup.sh
-ros2 run rclrs_examples rclrs_subscriber
+ros2 run rclrs_examples minimal_subscriber
 ```
 
 Enjoy!
