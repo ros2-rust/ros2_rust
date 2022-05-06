@@ -219,11 +219,10 @@ impl Node {
     ///
     /// # Example
     /// ```
-    /// use rclrs::{Context, RclReturnCode};
-    ///
+    /// # use rclrs::{Context, RclReturnCode};
     /// // set default ROS domain ID to 10 here
     /// std::env::set_var("ROS_DOMAIN_ID", "10");
-    /// let context = Context::new(std::vec![])?;
+    /// let context = Context::new([])?;
     /// let node = context.create_node("domain_id_node")?;
     /// let domain_id = node.get_domain_id()?;
     ///
@@ -234,16 +233,14 @@ impl Node {
     /// TODO: If node option is supported,
     /// add description about this function is for getting actual domain_id
     /// and about override of domain_id via node option
-    pub fn get_domain_id(&self) -> Result<usize, RclReturnCode> {
+    pub fn get_domain_id(&self) -> usize {
         let handle = &*self.handle.lock();
         let mut domain_id: usize = 0;
         unsafe {
-            // SAFETY: Node handler is valid as expected by this function.
-            // If invalid node handler is passed, returns NodeErrorCode::NodeInvalid
-            rcl_node_get_domain_id(handle, &mut domain_id)
+            // SAFETY: No preconditions for this function.
+            rcl_node_get_domain_id(handle, &mut domain_id);
         }
-        .ok()?;
 
-        Ok(domain_id)
+        domain_id
     }
 }
