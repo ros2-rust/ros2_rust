@@ -212,4 +212,37 @@ impl Node {
             .filter_map(Weak::upgrade)
             .collect()
     }
+
+    /// Returns the ROS domain ID that the node is using.
+    ///    
+    /// The domain ID controls which nodes can send messages to each other, see the [ROS 2 concept article][1].
+    /// It can be set through the `ROS_DOMAIN_ID` environment variable.
+    ///
+    /// [1]: https://docs.ros.org/en/rolling/Concepts/About-Domain-ID.html
+    ///
+    /// # Example
+    /// ```
+    /// # use rclrs::{Context, RclReturnCode};
+    /// // set default ROS domain ID to 10 here
+    /// std::env::set_var("ROS_DOMAIN_ID", "10");
+    /// let context = Context::new([])?;
+    /// let node = context.create_node("domain_id_node")?;
+    /// let domain_id = node.domain_id();    
+    /// assert_eq!(domain_id, 10);
+    /// # Ok::<(), RclReturnCode>(())
+    /// ```
+    // TODO: If node option is supported,
+    // add description about this function is for getting actual domain_id
+    // and about override of domain_id via node option
+    pub fn domain_id(&self) -> usize {
+        let handle = &*self.handle.lock();
+        let mut domain_id: usize = 0;
+        let ret = unsafe {
+            // SAFETY: No preconditions for this function.
+            rcl_node_get_domain_id(handle, &mut domain_id)
+        };
+
+        debug_assert_eq!(ret, 0);
+        domain_id
+    }
 }
