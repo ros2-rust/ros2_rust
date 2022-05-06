@@ -212,4 +212,38 @@ impl Node {
             .filter_map(Weak::upgrade)
             .collect()
     }
+
+    /// Returns the ROS domain ID that the node is using.
+    ///    
+    /// returned values depend on ROS_DOMAIN_ID environment variable.   
+    ///
+    /// # Example
+    /// ```
+    /// use rclrs::{Context, RclReturnCode};
+    ///
+    /// // set default ROS domain ID to 10 here
+    /// std::env::set_var("ROS_DOMAIN_ID", "10");
+    /// let context = Context::new(std::vec![])?;
+    /// let node = context.create_node("domain_id_node")?;
+    /// let domain_id = node.get_domain_id()?;
+    ///
+    /// assert_eq!(domain_id, 10);
+    /// # Ok::<(), RclReturnCode>(())
+    /// ```
+    ///
+    /// TODO: If node option is supported,
+    /// add description about this function is for getting actual domain_id
+    /// and about override of domain_id via node option
+    pub fn get_domain_id(&self) -> Result<usize, RclReturnCode> {
+        let handle = &*self.handle.lock();
+        let mut domain_id: usize = 0;
+        unsafe {
+            // SAFETY: Node handler is valid as expected by this function.
+            // If invalid node handler is passed, returns NodeErrorCode::NodeInvalid
+            rcl_node_get_domain_id(handle, &mut domain_id)
+        }
+        .ok()?;
+
+        Ok(domain_id)
+    }
 }
