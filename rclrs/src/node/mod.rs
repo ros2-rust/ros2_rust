@@ -215,7 +215,10 @@ impl Node {
 
     /// Returns the ROS domain ID that the node is using.
     ///    
-    /// returned values depend on ROS_DOMAIN_ID environment variable.   
+    /// The domain ID controls which nodes can send messages to each other, see the [ROS 2 concept article][1].
+    /// It can be set through the `ROS_DOMAIN_ID` environment variable.
+    ///
+    /// [1]: https://docs.ros.org/en/rolling/Concepts/About-Domain-ID.html
     ///
     /// # Example
     /// ```
