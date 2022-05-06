@@ -224,23 +224,22 @@ impl Node {
     /// std::env::set_var("ROS_DOMAIN_ID", "10");
     /// let context = Context::new([])?;
     /// let node = context.create_node("domain_id_node")?;
-    /// let domain_id = node.get_domain_id()?;
-    ///
+    /// let domain_id = node.domain_id();    
     /// assert_eq!(domain_id, 10);
     /// # Ok::<(), RclReturnCode>(())
     /// ```
-    ///
-    /// TODO: If node option is supported,
-    /// add description about this function is for getting actual domain_id
-    /// and about override of domain_id via node option
-    pub fn get_domain_id(&self) -> usize {
+    // TODO: If node option is supported,
+    // add description about this function is for getting actual domain_id
+    // and about override of domain_id via node option
+    pub fn domain_id(&self) -> usize {
         let handle = &*self.handle.lock();
         let mut domain_id: usize = 0;
-        unsafe {
+        let ret = unsafe {
             // SAFETY: No preconditions for this function.
-            rcl_node_get_domain_id(handle, &mut domain_id);
-        }
+            rcl_node_get_domain_id(handle, &mut domain_id)
+        };
 
+        debug_assert_eq!(ret, 0);
         domain_id
     }
 }
