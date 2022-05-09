@@ -40,6 +40,28 @@ pub struct Node {
     pub(crate) subscriptions: Vec<Weak<dyn SubscriptionBase>>,
 }
 
+/// A builder for node instantiation.
+///
+/// default value in each fields are
+///   - context: user defined
+///   - name: user defined
+///   - namespace: "/"
+///
+/// # Example
+/// ```
+/// # use rclrs::{Context, Node, NodeBuilder, RclReturnCode};
+/// let context = Context::new([])?;
+/// let node = NodeBuilder::new("foo_node", &context).namespace("/bar").build()?;
+/// assert_eq!(node.name(), "foo_node");
+/// assert_eq!(node.namespace(), "/bar");
+/// # Ok::<(), RclReturnCode>(())
+/// ```
+pub struct NodeBuilder<'a> {
+    pub(self) context: &'a Context,
+    pub(self) name: &'a str,
+    pub(self) namespace: &'a str,
+}
+
 impl Eq for Node {}
 
 impl PartialEq for Node {
@@ -310,5 +332,64 @@ impl Node {
 
         debug_assert_eq!(ret, 0);
         domain_id
+    }
+}
+
+impl<'a> NodeBuilder<'a> {
+    /// Creates new builder for Node.
+    pub fn new(name: &'a str, context: &'a Context) -> NodeBuilder<'a> {
+        let mut default_domain_id = 0;
+        // SAFETY: No preconditions for this function.
+        let ret = unsafe { rcl_get_default_domain_id(&mut default_domain_id) };
+        debug_assert_eq!(ret, 0);
+
+        NodeBuilder {
+            context,
+            name,
+            namespace: "/",
+        }
+    }
+
+    /// Sets node namespace.
+    pub fn namespace(mut self, namespace: &'a str) -> Self {
+        self.namespace = namespace;
+        self
+    }
+
+    /// Builds node instance    
+    pub fn build(&self) -> Result<Node, RclReturnCode> {
+        let node_name = CString::new(self.name).unwrap();
+        let node_namespace = CString::new(self.namespace).unwrap();
+
+        // SAFETY: No preconditions for this function.
+        let mut node_handle = unsafe { rcl_get_zero_initialized_node() };
+
+        unsafe {
+            // SAFETY: No preconditions for this function.
+            let context_handle = &mut *self.context.handle.lock();
+            // SAFETY: No preconditions for this function.
+            let node_options = rcl_node_get_default_options();
+
+            // SAFETY: The node handle is zero-initialized as expected by this function.
+            // The strings and node options are copied by this function, so we don't need
+            // to keep them alive.
+            // The context handle has to be kept alive because it is co-owned by the node.
+            rcl_node_init(
+                &mut node_handle,
+                node_name.as_ptr(),
+                node_namespace.as_ptr(),
+                context_handle,
+                &node_options,
+            )
+            .ok()?;
+        };
+
+        let handle = Arc::new(Mutex::new(node_handle));
+
+        Ok(Node {
+            handle,
+            context: self.context.handle.clone(),
+            subscriptions: std::vec![],
+        })
     }
 }
