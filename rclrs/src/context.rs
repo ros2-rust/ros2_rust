@@ -151,7 +151,7 @@ impl Context {
     /// ```
     /// # use rclrs::Context;
     /// let ctx = Context::new([]).unwrap();
-    /// let builder = ctx.node_builder("foo_node");
+    /// let builder = ctx.create_node_builder("foo_node");
     /// let node = builder.build();
     /// ```
     pub fn create_node_builder<'a>(&'a self, node_name: &'a str) -> NodeBuilder<'a> {
