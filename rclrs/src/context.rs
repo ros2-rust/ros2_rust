@@ -1,5 +1,5 @@
 use crate::rcl_bindings::*;
-use crate::{Node, RclReturnCode, ToResult};
+use crate::{Node, NodeBuilder, RclReturnCode, ToResult};
 
 use std::ffi::CString;
 use std::os::raw::c_char;
@@ -115,7 +115,7 @@ impl Context {
     /// # Ok::<(), RclReturnCode>(())
     /// ```
     pub fn create_node(&self, node_name: &str) -> Result<Node, RclReturnCode> {
-        Node::new(node_name, self)
+        NodeBuilder::new(node_name, self).build()
     }
 
     /// Creates a new node in a namespace.
@@ -138,7 +138,24 @@ impl Context {
         node_namespace: &str,
         node_name: &str,
     ) -> Result<Node, RclReturnCode> {
-        Node::new_with_namespace(node_namespace, node_name, self)
+        NodeBuilder::new(node_name, self)
+            .namespace(node_namespace)
+            .build()
+    }
+
+    /// Creates a [`NodeBuilder`][1]
+    ///
+    /// [1]: crate::NodeBuilder
+    ///
+    /// # Example
+    /// ```
+    /// # use rclrs::Context;
+    /// let ctx = Context::new([]).unwrap();
+    /// let builder = ctx.node_builder("foo_node");
+    /// let node = builder.build();
+    /// ```
+    pub fn create_node_builder<'a>(&'a self, node_name: &'a str) -> NodeBuilder<'a> {
+        NodeBuilder::new(node_name, self)
     }
 
     /// Checks if the context is still valid.

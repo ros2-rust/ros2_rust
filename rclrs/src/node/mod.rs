@@ -80,17 +80,22 @@ impl fmt::Debug for Node {
 
 impl Node {
     /// Creates a new node in the empty namespace.
+<<<<<<< HEAD
     ///
     /// See [`Node::new_with_namespace`] for documentation.
+=======
+    #[deprecated(since = "0.2.0", note = "please use `NodeBuilder` instead")]
+>>>>>>> Replace constructor method procedure
     #[allow(clippy::new_ret_no_self)]
     pub fn new(node_name: &str, context: &Context) -> Result<Node, RclReturnCode> {
-        Self::new_with_namespace("", node_name, context)
+        NodeBuilder::new(node_name, context).build()
     }
 
     /// Creates a new node in a namespace.
     ///
     /// A namespace without a leading forward slash is automatically changed to have a leading
     /// forward slash.
+<<<<<<< HEAD
     ///
     /// # Naming
     /// The node namespace will be prefixed to the node name itself to form the *fully qualified
@@ -138,42 +143,17 @@ impl Node {
     /// [1]: https://docs.ros.org/en/rolling/How-To-Guides/Node-arguments.html
     /// [2]: https://docs.ros2.org/latest/api/rmw/validate__namespace_8h.html
     /// [3]: https://docs.ros2.org/latest/api/rmw/validate__node__name_8h.html
+=======
+    #[deprecated(since = "0.2.0", note = "please use `NodeBuilder` instead")]
+>>>>>>> Replace constructor method procedure
     pub fn new_with_namespace(
         node_ns: &str,
         node_name: &str,
         context: &Context,
     ) -> Result<Node, RclReturnCode> {
-        let raw_node_name = CString::new(node_name).unwrap();
-        let raw_node_ns = CString::new(node_ns).unwrap();
-
-        // SAFETY: Getting a zero-initialized value is always safe.
-        let mut node_handle = unsafe { rcl_get_zero_initialized_node() };
-        let context_handle = &mut *context.handle.lock();
-
-        unsafe {
-            // SAFETY: No preconditions for this function.
-            let node_options = rcl_node_get_default_options();
-            // SAFETY: The node handle is zero-initialized as expected by this function.
-            // The strings and node options are copied by this function, so we don't need
-            // to keep them alive.
-            // The context handle is kept alive because it is co-owned by the node.
-            rcl_node_init(
-                &mut node_handle,
-                raw_node_name.as_ptr(),
-                raw_node_ns.as_ptr(),
-                context_handle,
-                &node_options,
-            )
-            .ok()?;
-        }
-
-        let handle = Arc::new(Mutex::new(node_handle));
-
-        Ok(Node {
-            handle,
-            context: context.handle.clone(),
-            subscriptions: std::vec![],
-        })
+        NodeBuilder::new(node_name, context)
+            .namespace(node_ns)
+            .build()
     }
 
     /// Returns the name of the node.
