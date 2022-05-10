@@ -174,25 +174,13 @@ Running `cargo build` in `rclrs` will now work, as well as `cargo doc`, `cargo t
 
 This can be ignored.
 
-However, `cargo build` will not yet work for Rust packages that depend on message packages, like `rclrs_examples`:
-
-
-```
-/usr/bin/ld: cannot find -lrclrs_example_msgs__rosidl_typesupport_c
-/usr/bin/ld: cannot find -lrclrs_example_msgs__rosidl_generator_c
-collect2: error: ld returned 1 exit status
-```
-
-That is, the linker does not know where to look for the `rclrs_example_msgs` libraries. This location is contained in an environment variable set by the `setup.sh` script for `rclrs_example_msgs`. So we can just source the `install/setup.sh`, and after that, `rclrs_examples` can be built.
-
 To summarize: 
 
 ```shell
 # Initial build of the package with colcon
-# The --lookup-in-workspace flag is optional
+# The --lookup-in-workspace flag is recommended for a cargo-based workflow
 # Compare .cargo/config.toml with and without it to see its effect
 colcon build --packages-up-to rclrs_examples --lookup-in-workspace
-. install/setup.sh
 cd src/ros2_rust/rclrs_examples
 # Run cargo build, or cargo check, cargo doc, etc.
 cargo build
@@ -207,7 +195,7 @@ How can a binary created in Rust be made available to `ros2 run`, `ros2 launch` 
 
 It's not necessary to learn about which marker file goes where. The functionality to properly set up the install directory was extracted from `colcon-ros-cargo` into a `cargo` plugin, so that `colcon` is not required: [`cargo-ament-build`](https://github.com/ros2-rust/cargo-ament-build).
 
-Simply use `cargo ament-build --install-base <path to install dir>` as a drop-in replacement for `cargo build`. After building, simply `. install/setup.sh` and you're good to run your executable with `ros2 run`.
+Simply use `cargo ament-build --install-base <path to install dir>` as a drop-in replacement for `cargo build`. After building, run `. install/setup.sh` and you're good to run your executable with `ros2 run`.
 
 
 ## Troubleshooting
