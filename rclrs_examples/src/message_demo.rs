@@ -73,7 +73,7 @@ fn demonstrate_printing() {
     println!("{:?}", default_msg);
     println!("================== Pretty debug representation ===================");
     println!("{:#?}", default_msg);
-    // The RMW-compatible message type has the same output
+    // The RMW-native message type has the same output
     let default_rmw_msg = rclrs_example_msgs::msg::rmw::VariousTypes::default();
     assert_eq!(
         format!("{:?}", default_msg),
@@ -111,7 +111,7 @@ fn demonstrate_sequences() {
 
 fn demonstrate_pubsub() -> Result<(), Error> {
     println!("================== Interoperability demo ==================");
-    // Demonstrate interoperability between idiomatic and RMW-compatible message types
+    // Demonstrate interoperability between idiomatic and RMW-native message types
     let context = rclrs::Context::new(env::args())?;
     let mut node = context.create_node("message_demo")?;
 
@@ -135,13 +135,13 @@ fn demonstrate_pubsub() -> Result<(), Error> {
             "topic",
             rclrs::QOS_PROFILE_DEFAULT,
             move |_msg: rclrs_example_msgs::msg::rmw::VariousTypes| {
-                println!("Got RMW-compatible message!")
+                println!("Got RMW-native message!")
             },
         )?;
     println!("Sending idiomatic message.");
     idiomatic_publisher.publish(rclrs_example_msgs::msg::VariousTypes::default())?;
     rclrs::spin_once(&node, None)?;
-    println!("Sending RMW-compatible message.");
+    println!("Sending RMW-native message.");
     direct_publisher.publish(rclrs_example_msgs::msg::rmw::VariousTypes::default())?;
     rclrs::spin_once(&node, None)?;
 
