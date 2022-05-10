@@ -164,6 +164,12 @@ def generate_rs(generator_arguments_file, typesupport_impls):
         os.path.join(args['output_dir'], 'rust/Cargo.toml'),
         minimum_timestamp=latest_target_timestamp)
 
+    expand_template(
+        os.path.join(template_dir, 'build.rs.em'),
+        {},
+        os.path.join(args['output_dir'], 'rust/build.rs'),
+        minimum_timestamp=latest_target_timestamp)
+
     return 0
 
 def get_rs_name(name):

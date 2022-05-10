@@ -67,6 +67,7 @@ endforeach()
 
 list(APPEND _generated_common_rs_files
   "${_output_path}/rust/src/lib.rs"
+  "${_output_path}/rust/build.rs"
   "${_output_path}/rust/Cargo.toml"
 )
 
