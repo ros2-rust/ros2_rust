@@ -58,6 +58,8 @@ where
 {
     /// Creates a new `Publisher`.
     ///
+    /// Node and namespace changes are always applied _before_ topic remapping.
+    ///
     /// # Panics
     /// When the topic contains interior null bytes.
     pub fn new(node: &Node, topic: &str, qos: QoSProfile) -> Result<Self, RclReturnCode>

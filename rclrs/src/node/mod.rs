@@ -1,14 +1,14 @@
-use crate::error::{RclReturnCode, ToResult};
-use crate::qos::QoSProfile;
-use crate::rcl_bindings::*;
-use crate::Context;
-
 mod publisher;
 mod subscription;
 pub use self::publisher::*;
 pub use self::subscription::*;
 
+use crate::rcl_bindings::*;
+use crate::{Context, QoSProfile, RclReturnCode, ToResult};
 use std::ffi::{CStr, CString};
+
+use std::cmp::PartialEq;
+use std::fmt;
 use std::sync::{Arc, Weak};
 use std::vec::Vec;
 
@@ -40,8 +40,26 @@ pub struct Node {
     pub(crate) subscriptions: Vec<Weak<dyn SubscriptionBase>>,
 }
 
+impl Eq for Node {}
+
+impl PartialEq for Node {
+    fn eq(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.handle, &other.handle)
+    }
+}
+
+impl fmt::Debug for Node {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+        f.debug_struct("Node")
+            .field("fully_qualified_name", &self.fully_qualified_name())
+            .finish()
+    }
+}
+
 impl Node {
     /// Creates a new node in the empty namespace.
+    ///
+    /// See [`Node::new_with_namespace`] for documentation.
     #[allow(clippy::new_ret_no_self)]
     pub fn new(node_name: &str, context: &Context) -> Result<Node, RclReturnCode> {
         Self::new_with_namespace("", node_name, context)
@@ -51,6 +69,53 @@ impl Node {
     ///
     /// A namespace without a leading forward slash is automatically changed to have a leading
     /// forward slash.
+    ///
+    /// # Naming
+    /// The node namespace will be prefixed to the node name itself to form the *fully qualified
+    /// node name*. This is the name that is shown e.g. in `ros2 node list`.
+    /// Similarly, the node namespace will be prefixed to all names of topics and services
+    /// created from this node.
+    ///
+    /// By convention, a node name with a leading underscore marks the node as hidden.
+    ///
+    /// It's a good idea for node names in the same executable to be unique.
+    ///
+    /// ## Remapping
+    /// The namespace and name given here can be overriden through the command line.
+    /// In that sense, the parameters to this functions are only the _default_ namespace and name.
+    /// See also the [official tutorial][1] on the command line arguments for ROS nodes, and the
+    /// [`Node::namespace()`] and [`Node::name()`] functions for examples.
+    ///
+    /// ## Rules for valid names
+    /// The node namespace needs to fulfill the criteria of
+    /// [`rmw_validate_namespace()`][2], otherwise an error will be returned.
+    /// Likewise, the node name needs to fulfill the criteria of [`rmw_validate_node_name()`][3].
+    ///
+    /// # Example
+    /// ```
+    /// # use rclrs::{Context, Node, RclReturnCode, NodeErrorCode};
+    /// let ctx = Context::new([])?;
+    /// // This is a valid namespace and name
+    /// assert!(Node::new_with_namespace("/my/nested/namespace", "my_node", &ctx).is_ok());
+    /// // This name contains invalid characters, although the empty namespace is valid
+    /// assert_eq!(
+    ///     Node::new_with_namespace("", "röböt", &ctx),
+    ///     Err(RclReturnCode::NodeError(NodeErrorCode::NodeInvalidName))
+    /// );
+    /// // This namespace starts with a number
+    /// assert_eq!(
+    ///     Node::new_with_namespace("/123/4", "my_node", &ctx),
+    ///     Err(RclReturnCode::NodeError(NodeErrorCode::NodeInvalidNamespace))
+    /// );
+    /// # Ok::<(), RclReturnCode>(())
+    /// ```
+    ///
+    /// # Panics
+    /// When the node namespace or node name contain interior null bytes.
+    ///
+    /// [1]: https://docs.ros.org/en/rolling/How-To-Guides/Node-arguments.html
+    /// [2]: https://docs.ros2.org/latest/api/rmw/validate__namespace_8h.html
+    /// [3]: https://docs.ros2.org/latest/api/rmw/validate__node__name_8h.html
     pub fn new_with_namespace(
         node_ns: &str,
         node_name: &str,
@@ -100,12 +165,12 @@ impl Node {
     /// // Without remapping
     /// let context = Context::new([])?;
     /// let node = context.create_node("my_node")?;
-    /// assert_eq!(node.name(), String::from("my_node"));
+    /// assert_eq!(node.name(), "my_node");
     /// // With remapping
     /// let remapping = ["--ros-args", "-r", "__node:=your_node"].map(String::from);
     /// let context_r = Context::new(remapping)?;
     /// let node_r = context_r.create_node("my_node")?;
-    /// assert_eq!(node_r.name(), String::from("your_node"));
+    /// assert_eq!(node_r.name(), "your_node");
     /// # Ok::<(), RclReturnCode>(())
     /// ```
     pub fn name(&self) -> String {
@@ -123,12 +188,12 @@ impl Node {
     /// // Without remapping
     /// let context = Context::new([])?;
     /// let node = context.create_node_with_namespace("/my/namespace", "my_node")?;
-    /// assert_eq!(node.namespace(), String::from("/my/namespace"));
+    /// assert_eq!(node.namespace(), "/my/namespace");
     /// // With remapping
     /// let remapping = ["--ros-args", "-r", "__ns:=/your_namespace"].map(String::from);
     /// let context_r = Context::new(remapping)?;
     /// let node_r = context_r.create_node("my_node")?;
-    /// assert_eq!(node_r.namespace(), String::from("/your_namespace"));
+    /// assert_eq!(node_r.namespace(), "/your_namespace");
     /// # Ok::<(), RclReturnCode>(())
     /// ```
     pub fn namespace(&self) -> String {
@@ -145,13 +210,14 @@ impl Node {
     /// # use rclrs::{Context, RclReturnCode};
     /// let context = Context::new([])?;
     /// let node = context.create_node_with_namespace("/my/namespace", "my_node")?;
-    /// assert_eq!(node.fully_qualified_name(), String::from("/my/namespace/my_node"));
+    /// assert_eq!(node.fully_qualified_name(), "/my/namespace/my_node");
     /// # Ok::<(), RclReturnCode>(())
     /// ```
     pub fn fully_qualified_name(&self) -> String {
         self.get_string(rcl_node_get_fully_qualified_name)
     }
 
+    // Helper for name(), namespace(), fully_qualified_name()
     fn get_string(
         &self,
         getter: unsafe extern "C" fn(*const rcl_node_t) -> *const c_char,

@@ -99,35 +99,39 @@ impl Context {
         })
     }
 
-    /// Creates a node.
+    /// Creates a new node in the empty namespace.
     ///
     /// Convenience function equivalent to [`Node::new`][1].
+    /// Please see that function's documentation.
     ///
     /// [1]: crate::Node::new
     ///
     /// # Example
     /// ```
-    /// # use rclrs::Context;
-    /// let ctx = Context::new([]).unwrap();
+    /// # use rclrs::{Context, RclReturnCode};
+    /// let ctx = Context::new([])?;
     /// let node = ctx.create_node("my_node");
     /// assert!(node.is_ok());
+    /// # Ok::<(), RclReturnCode>(())
     /// ```
     pub fn create_node(&self, node_name: &str) -> Result<Node, RclReturnCode> {
         Node::new(node_name, self)
     }
 
-    /// Creates a node in a namespace.
+    /// Creates a new node in a namespace.
     ///
     /// Convenience function equivalent to [`Node::new_with_namespace`][1].
+    /// Please see that function's documentation.
     ///
     /// [1]: crate::Node::new_with_namespace
     ///
     /// # Example
     /// ```
-    /// # use rclrs::Context;
-    /// let ctx = Context::new([]).unwrap();
+    /// # use rclrs::{Context, RclReturnCode};
+    /// let ctx = Context::new([])?;
     /// let node = ctx.create_node_with_namespace("/my/nested/namespace", "my_node");
     /// assert!(node.is_ok());
+    /// # Ok::<(), RclReturnCode>(())
     /// ```
     pub fn create_node_with_namespace(
         &self,
