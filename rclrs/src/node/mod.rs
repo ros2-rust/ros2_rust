@@ -42,7 +42,7 @@ pub struct Node {
 
 /// A builder for node instantiation.
 ///
-/// default value in each fields are
+/// The default values for each field are
 ///   - context: user defined
 ///   - name: user defined
 ///   - namespace: "/"
