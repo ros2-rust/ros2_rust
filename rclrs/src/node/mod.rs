@@ -309,11 +309,6 @@ impl Node {
 impl NodeBuilder {
     /// Creates new builder for Node.
     pub fn new(name: &str, context: &Context) -> NodeBuilder {
-        let mut default_domain_id = 0;
-        // SAFETY: No preconditions for this function.
-        let ret = unsafe { rcl_get_default_domain_id(&mut default_domain_id) };
-        debug_assert_eq!(ret, 0);
-
         NodeBuilder {
             context: context.handle.clone(),
             name: name.to_string(),
