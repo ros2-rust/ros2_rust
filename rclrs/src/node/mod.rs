@@ -56,10 +56,10 @@ pub struct Node {
 /// assert_eq!(node.namespace(), "/bar");
 /// # Ok::<(), RclReturnCode>(())
 /// ```
-pub struct NodeBuilder<'a> {
-    pub(self) context: &'a Context,
-    pub(self) name: &'a str,
-    pub(self) namespace: &'a str,
+pub struct NodeBuilder {
+    context: Arc<Mutex<rcl_context_t>>,
+    name: String,
+    namespace: String,
 }
 
 impl Eq for Node {}
@@ -306,38 +306,38 @@ impl Node {
     }
 }
 
-impl<'a> NodeBuilder<'a> {
+impl NodeBuilder {
     /// Creates new builder for Node.
-    pub fn new(name: &'a str, context: &'a Context) -> NodeBuilder<'a> {
+    pub fn new(name: &str, context: &Context) -> NodeBuilder {
         let mut default_domain_id = 0;
         // SAFETY: No preconditions for this function.
         let ret = unsafe { rcl_get_default_domain_id(&mut default_domain_id) };
         debug_assert_eq!(ret, 0);
 
         NodeBuilder {
-            context,
-            name,
-            namespace: "/",
+            context: context.handle.clone(),
+            name: name.to_string(),
+            namespace: "/".to_string(),
         }
     }
 
     /// Sets node namespace.
-    pub fn namespace(mut self, namespace: &'a str) -> Self {
-        self.namespace = namespace;
+    pub fn namespace(mut self, namespace: &str) -> Self {
+        self.namespace = namespace.to_string();
         self
     }
 
     /// Builds node instance    
     pub fn build(&self) -> Result<Node, RclReturnCode> {
-        let node_name = CString::new(self.name).unwrap();
-        let node_namespace = CString::new(self.namespace).unwrap();
+        let node_name = CString::new(self.name.as_str()).unwrap();
+        let node_namespace = CString::new(self.namespace.as_str()).unwrap();
 
         // SAFETY: No preconditions for this function.
         let mut node_handle = unsafe { rcl_get_zero_initialized_node() };
 
         unsafe {
             // SAFETY: No preconditions for this function.
-            let context_handle = &mut *self.context.handle.lock();
+            let context_handle = &mut *self.context.lock();
             // SAFETY: No preconditions for this function.
             let node_options = rcl_node_get_default_options();
 
@@ -359,7 +359,7 @@ impl<'a> NodeBuilder<'a> {
 
         Ok(Node {
             handle,
-            context: self.context.handle.clone(),
+            context: self.context.clone(),
             subscriptions: std::vec![],
         })
     }

@@ -154,7 +154,7 @@ impl Context {
     /// let builder = ctx.create_node_builder("foo_node");
     /// let node = builder.build();
     /// ```
-    pub fn create_node_builder<'a>(&'a self, node_name: &'a str) -> NodeBuilder<'a> {
+    pub fn create_node_builder(&self, node_name: &str) -> NodeBuilder {
         NodeBuilder::new(node_name, self)
     }
 
