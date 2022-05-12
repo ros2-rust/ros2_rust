@@ -79,13 +79,8 @@ impl fmt::Debug for Node {
 }
 
 impl Node {
-    /// Creates a new node in the empty namespace.
-<<<<<<< HEAD
-    ///
+    /// Creates a new node in the empty namespace.    
     /// See [`Node::new_with_namespace`] for documentation.
-=======
-    #[deprecated(since = "0.2.0", note = "please use `NodeBuilder` instead")]
->>>>>>> Replace constructor method procedure
     #[allow(clippy::new_ret_no_self)]
     pub fn new(node_name: &str, context: &Context) -> Result<Node, RclReturnCode> {
         NodeBuilder::new(node_name, context).build()
@@ -95,7 +90,6 @@ impl Node {
     ///
     /// A namespace without a leading forward slash is automatically changed to have a leading
     /// forward slash.
-<<<<<<< HEAD
     ///
     /// # Naming
     /// The node namespace will be prefixed to the node name itself to form the *fully qualified
@@ -143,9 +137,6 @@ impl Node {
     /// [1]: https://docs.ros.org/en/rolling/How-To-Guides/Node-arguments.html
     /// [2]: https://docs.ros2.org/latest/api/rmw/validate__namespace_8h.html
     /// [3]: https://docs.ros2.org/latest/api/rmw/validate__node__name_8h.html
-=======
-    #[deprecated(since = "0.2.0", note = "please use `NodeBuilder` instead")]
->>>>>>> Replace constructor method procedure
     pub fn new_with_namespace(
         node_ns: &str,
         node_name: &str,
