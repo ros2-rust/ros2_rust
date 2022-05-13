@@ -8,6 +8,7 @@
 mod context;
 mod error;
 mod node;
+mod parameter;
 mod qos;
 mod wait;
 
@@ -16,6 +17,7 @@ mod rcl_bindings;
 pub use context::*;
 pub use error::*;
 pub use node::*;
+pub use parameter::*;
 pub use qos::*;
 pub use wait::*;
 
