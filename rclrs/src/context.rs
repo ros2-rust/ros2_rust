@@ -143,9 +143,13 @@ impl Context {
             .build()
     }
 
-    /// Creates a [`NodeBuilder`][1]
+    /// Creates a [`NodeBuilder`][1].
+    ///
+    /// Convenience function equivalent to [`NodeBuilder::new`][2].
+    /// Please see that function's documentation.
     ///
     /// [1]: crate::NodeBuilder
+    /// [2]: crate::NodeBuilder::new
     ///
     /// # Example
     /// ```
