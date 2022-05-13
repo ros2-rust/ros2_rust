@@ -149,10 +149,12 @@ impl Context {
     ///
     /// # Example
     /// ```
-    /// # use rclrs::Context;
-    /// let ctx = Context::new([]).unwrap();
-    /// let builder = ctx.create_node_builder("foo_node");
-    /// let node = builder.build();
+    /// # use rclrs::{Context, RclReturnCode};
+    /// let context = Context::new([])?;
+    /// let node_builder = context.create_node_builder("foo_node");
+    /// let node = node_builder.build()?;
+    /// assert_eq!(node.name(), "foo_node");
+    /// # Ok::<(), RclReturnCode>(())
     /// ```
     pub fn create_node_builder(&self, node_name: &str) -> NodeBuilder {
         NodeBuilder::new(node_name, self)
