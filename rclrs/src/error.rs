@@ -592,7 +592,11 @@ impl Error for RclReturnCode {}
 pub(crate) fn to_rcl_result(code: i32) -> Result<(), RclReturnCode> {
     match RclReturnCode::from(code) {
         RclReturnCode::Ok => Ok(()),
-        anything_else => Err(anything_else),
+        anything_else => {
+            // SAFETY: No preconditions for this function.
+            unsafe { rcutils_reset_error() };
+            Err(anything_else)
+        }
     }
 }
 
