@@ -596,7 +596,7 @@ pub(crate) fn to_rcl_result(code: i32) -> Result<(), RclReturnCode> {
             // SAFETY: No preconditions for this function.
             unsafe { rcutils_reset_error() };
             Err(anything_else)
-        },
+        }
     }
 }
 
