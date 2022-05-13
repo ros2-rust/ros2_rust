@@ -3,9 +3,9 @@
    href="http://download.ros.org/schema/package_format3.xsd"
    schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>rclrs_examples</name>
+  <name>examples_rclrs_minimal_pub_sub</name>
   <version>0.2.0</version>
-  <description>Package containing examples of how to use the rclrs API.</description>
+  <description>Package containing an example of the publish-subscribe mechanism in rclrs.</description>
   <maintainer email="esteve@apache.org">Esteve Fernandez</maintainer>
   <license>Apache License 2.0</license>
 
