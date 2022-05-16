@@ -161,60 +161,21 @@ impl Context {
 
 #[cfg(test)]
 mod tests {
-
     use super::*;
-    use std::{env, println};
 
-    fn default_context() -> Context {
-        let args: Vec<CString> = env::args()
-            .filter_map(|arg| CString::new(arg).ok())
-            .collect();
-        println!("<test_create_context> Context args: {:?}", args);
-        Context::default(args)
+    #[test]
+    fn test_create_context() -> Result<(), RclrsError> {
+        // If the context fails to be created, this will cause a panic
+        let _ = Context::new(vec![])?;
+        Ok(())
     }
 
     #[test]
-    fn test_create_context() {
+    fn test_context_ok() -> Result<(), RclrsError> {
         // If the context fails to be created, this will cause a panic
-        let created_context = default_context();
-        println!(
-            "<test_create_context> Created Context: {:?}",
-            created_context
-        );
-    }
+        let created_context = Context::new(vec![]).unwrap();
+        assert!(created_context.ok());
 
-    #[test]
-    fn test_context_ok() {
-        // If the context fails to be created, this will cause a panic
-        let created_context = default_context();
-        let ctxt_ok = created_context.ok();
-        match ctxt_ok {
-            Ok(is_ok) => assert!(is_ok),
-            Err(err_code) => panic!(
-                "<test_context_ok> RCL Error occured during test: {:?}",
-                err_code
-            ),
-        }
-    }
-
-    #[test]
-    fn test_create_node() -> Result<(), RclReturnCode> {
-        // If the context fails to be created, this will cause a panic
-        let created_context = default_context();
-        created_context.create_node("Bob").map(|_x| ())
-    }
-
-    #[test]
-    fn text_context_init() {
-        // If the context fails to be created, this will cause a panic
-        let args: Vec<CString> = env::args()
-            .filter_map(|arg| CString::new(arg).ok())
-            .collect();
-        let context = Context {
-            handle: Arc::new(ContextHandle(Mutex::new(unsafe {
-                rcl_get_zero_initialized_context()
-            }))),
-        };
-        context.init(args).unwrap();
+        Ok(())
     }
 }

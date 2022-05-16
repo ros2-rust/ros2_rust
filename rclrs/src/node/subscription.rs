@@ -211,30 +211,19 @@ where
 mod tests {
     use super::*;
     use crate::{Context, Subscription, QOS_PROFILE_DEFAULT};
-    use alloc::vec::Vec;
-    use std::{env, println};
-    use std_msgs;
-
-    fn default_context() -> Context {
-        let args: Vec<CString> = env::args()
-            .filter_map(|arg| CString::new(arg).ok())
-            .collect();
-        println!("<test_publisher> Context args: {:?}", args);
-        Context::default(args)
-    }
 
     #[test]
-    fn test_new_subscriber() -> Result<(), RclReturnCode> {
-        let context = default_context();
+    fn test_instantiate_subscriber() -> Result<(), RclrsError> {
+        let context =
+            Context::new(vec![]).expect("Context instantiation is expected to be success");
         let node = context.create_node("test_new_subscriber")?;
         let _subscriber = Subscription::<std_msgs::msg::String>::new(
             &node,
             "test",
             QOS_PROFILE_DEFAULT,
-            move |msg: &std_msgs::msg::String| {
-                println!("Recieved message: '{}'", msg.data);
-            },
+            move |_: std_msgs::msg::String| {},
         )?;
+
         Ok(())
     }
 }

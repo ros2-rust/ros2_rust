@@ -291,46 +291,38 @@ unsafe fn call_string_getter_with_handle(
 mod tests {
     use super::*;
     use crate::{Context, Node, QOS_PROFILE_DEFAULT};
-    use std::{env, println};
-    use std_msgs;
 
-    fn default_context() -> Context {
-        let args: Vec<CString> = env::args()
-            .filter_map(|arg| CString::new(arg).ok())
-            .collect();
-        println!("<test_rclrs_mod> Context args: {:?}", args);
-        Context::default(args)
+    #[test]
+    fn test_new_with_namespace() -> Result<(), RclrsError> {
+        let context = Context::new(vec![]).unwrap();
+        let _ = Node::new_with_namespace("Bob", "Testing", &context)?;
+
+        Ok(())
     }
 
     #[test]
-    fn test_new_with_namespace() -> Result<(), RclReturnCode> {
-        let context = default_context();
-        Node::new_with_namespace("Bob", "Testing", &context).map(|_x| ())
+    fn test_new() -> Result<(), RclrsError> {
+        let context = Context::new(vec![]).expect("Context instatiation is expected to be success");
+        let _ = Node::new("Bob", &context)?;
+
+        Ok(())
     }
 
     #[test]
-    fn test_new() -> Result<(), RclReturnCode> {
-        let context = default_context();
-        Node::new("Bob", &context).map(|_x| ())
-    }
-
-    #[test]
-    fn test_create_subscription() -> Result<(), RclReturnCode> {
-        let context = default_context();
+    fn test_create_subscription() -> Result<(), RclrsError> {
+        let context = Context::new(vec![]).expect("Context instatiation is expected to be success");
         let mut node = context.create_node("test_create_subscription")?;
         let _subscription = node.create_subscription::<std_msgs::msg::String, _>(
             "topic",
             QOS_PROFILE_DEFAULT,
-            move |msg: &std_msgs::msg::String| {
-                println!("Got message: '{}'", msg.data);
-            },
+            move |_: std_msgs::msg::String| {},
         )?;
         Ok(())
     }
 
     #[test]
-    fn test_create_publisher() -> Result<(), RclReturnCode> {
-        let context = default_context();
+    fn test_create_publisher() -> Result<(), RclrsError> {
+        let context = Context::new(vec![]).expect("Context instatiation is expected to be success");
         let node = context.create_node("test_create_publisher")?;
         let _publisher =
             node.create_publisher::<std_msgs::msg::String>("topic", QOS_PROFILE_DEFAULT)?;
