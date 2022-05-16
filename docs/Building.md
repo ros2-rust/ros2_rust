@@ -46,7 +46,8 @@ The exact steps may differ between platforms, but as an example, here is how you
 sudo apt install -y git libclang-dev python3-pip python3-vcstool # libclang-dev is required by bindgen
 # Install these plugins for cargo and colcon:
 cargo install cargo-ament-build
-pip install git+https://github.com/colcon/colcon-cargo.git git+https://github.com/colcon/colcon-ros-cargo.git
+pip install git+https://github.com/colcon/colcon-cargo.git
+pip install git+https://github.com/colcon/colcon-ros-cargo.git
 ```
 
 ### Option 2: Using the Docker image
