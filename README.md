@@ -55,7 +55,7 @@ git clone https://github.com/ros2-rust/ros2_rust.git src/ros2_rust
 vcs import src < src/ros2_rust/ros2_rust_foxy.repos
 . /opt/ros/foxy/setup.sh
 cd /src
-colcon build --packages-up-to rclrs_examples
+colcon build --packages-up-to examples_rclrs_minimal_pub_sub
 ```
 
 It's normal to see a `Some selected packages are already built in one or more underlay workspace` warning. This is because the standard message definitions that are part of ROS 2 need to be regenerated in order to create Rust bindings.
@@ -75,10 +75,10 @@ As an example, here is how to build `rclcrs_examples` with `cargo`:
 ```
 # Initial build of the package with colcon
 # Compare .cargo/config.toml with and without the --lookup-in-workspace flag to see its effect
-colcon build --packages-up-to rclrs_examples --lookup-in-workspace
+colcon build --packages-up-to examples_rclrs_minimal_pub_sub --lookup-in-workspace
 # Source the install directory
 . install/setup.sh
-cd rclrs_examples
+cd examples_rclrs_minimal_pub_sub
 # Run cargo build, or cargo check, cargo doc, etc.
 cargo build
 ```
@@ -90,7 +90,7 @@ Publisher:
 ```
 # Do this in a new terminal
 . ./install/setup.sh
-ros2 run rclrs_examples minimal_publisher
+ros2 run examples_rclrs_minimal_pub_sub minimal_publisher
 ```
 
 Subscriber:
@@ -98,7 +98,7 @@ Subscriber:
 ```
 # Do this in a new terminal
 . ./install/setup.sh
-ros2 run rclrs_examples minimal_subscriber
+ros2 run examples_rclrs_minimal_pub_sub minimal_subscriber
 ```
 
 Enjoy!
