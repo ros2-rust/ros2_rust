@@ -1,7 +1,7 @@
-use crate::error::{SubscriberErrorCode, ToResult};
+use crate::error::{RclReturnCode, SubscriberErrorCode, ToResult};
 use crate::qos::QoSProfile;
 use crate::Node;
-use crate::{rcl_bindings::*, RclReturnCode};
+use crate::{rcl_bindings::*, RclrsError};
 
 use std::borrow::Borrow;
 use std::boxed::Box;
@@ -41,7 +41,7 @@ pub trait SubscriptionBase {
     /// Internal function to get a reference to the `rcl` handle.
     fn handle(&self) -> &SubscriptionHandle;
     /// Tries to take a new message and run the callback with it.
-    fn execute(&self) -> Result<(), RclReturnCode>;
+    fn execute(&self) -> Result<(), RclrsError>;
 }
 
 /// Struct for receiving messages of type `T`.
@@ -78,7 +78,7 @@ where
         topic: &str,
         qos: QoSProfile,
         callback: F,
-    ) -> Result<Self, RclReturnCode>
+    ) -> Result<Self, RclrsError>
     where
         T: Message,
         F: FnMut(T) + 'static,
@@ -124,10 +124,10 @@ where
     /// Fetches a new message.
     ///
     /// When there is no new message, this will return a
-    /// [`SubscriptionTakeFailed`][1] wrapped in an [`RclReturnCode`][2].
+    /// [`SubscriptionTakeFailed`][1] wrapped in an [`RclrsError`][2].
     ///
     /// [1]: crate::SubscriberErrorCode
-    /// [2]: crate::RclReturnCode
+    /// [2]: crate::RclrsError
     //
     // ```text
     // +-------------+
@@ -144,7 +144,7 @@ where
     // |  rmw_take   |
     // +-------------+
     // ```
-    pub fn take(&self) -> Result<T, RclReturnCode> {
+    pub fn take(&self) -> Result<T, RclrsError> {
         let mut rmw_message = <T as Message>::RmwMsg::default();
         let handle = &mut *self.handle.lock();
         let ret = unsafe {
@@ -171,10 +171,13 @@ where
         self.handle.borrow()
     }
 
-    fn execute(&self) -> Result<(), RclReturnCode> {
+    fn execute(&self) -> Result<(), RclrsError> {
         let msg = match self.take() {
             Ok(msg) => msg,
-            Err(RclReturnCode::SubscriberError(SubscriberErrorCode::SubscriptionTakeFailed)) => {
+            Err(RclrsError {
+                code: RclReturnCode::SubscriberError(SubscriberErrorCode::SubscriptionTakeFailed),
+                ..
+            }) => {
                 // Spurious wakeup – this may happen even when a waitset indicated that this
                 // subscription was ready, so it shouldn't be an error.
                 return Ok(());

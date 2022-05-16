@@ -4,7 +4,7 @@ pub use self::publisher::*;
 pub use self::subscription::*;
 
 use crate::rcl_bindings::*;
-use crate::{Context, QoSProfile, RclReturnCode, ToResult};
+use crate::{Context, QoSProfile, RclrsError, ToResult};
 use std::ffi::{CStr, CString};
 
 use std::cmp::PartialEq;
@@ -20,7 +20,7 @@ use rosidl_runtime_rs::Message;
 impl Drop for rcl_node_t {
     fn drop(&mut self) {
         // SAFETY: No preconditions for this function
-        unsafe { rcl_node_fini(self).unwrap() };
+        unsafe { rcl_node_fini(self).ok().unwrap() };
     }
 }
 
@@ -61,7 +61,7 @@ impl Node {
     ///
     /// See [`Node::new_with_namespace`] for documentation.
     #[allow(clippy::new_ret_no_self)]
-    pub fn new(node_name: &str, context: &Context) -> Result<Node, RclReturnCode> {
+    pub fn new(node_name: &str, context: &Context) -> Result<Node, RclrsError> {
         Self::new_with_namespace("", node_name, context)
     }
 
@@ -120,7 +120,7 @@ impl Node {
         node_ns: &str,
         node_name: &str,
         context: &Context,
-    ) -> Result<Node, RclReturnCode> {
+    ) -> Result<Node, RclrsError> {
         let raw_node_name = CString::new(node_name).unwrap();
         let raw_node_ns = CString::new(node_ns).unwrap();
 
@@ -161,7 +161,7 @@ impl Node {
     ///
     /// # Example
     /// ```
-    /// # use rclrs::{Context, RclReturnCode};
+    /// # use rclrs::{Context, RclrsError};
     /// // Without remapping
     /// let context = Context::new([])?;
     /// let node = context.create_node("my_node")?;
@@ -171,7 +171,7 @@ impl Node {
     /// let context_r = Context::new(remapping)?;
     /// let node_r = context_r.create_node("my_node")?;
     /// assert_eq!(node_r.name(), "your_node");
-    /// # Ok::<(), RclReturnCode>(())
+    /// # Ok::<(), RclrsError>(())
     /// ```
     pub fn name(&self) -> String {
         self.get_string(rcl_node_get_name)
@@ -184,7 +184,7 @@ impl Node {
     ///
     /// # Example
     /// ```
-    /// # use rclrs::{Context, RclReturnCode};
+    /// # use rclrs::{Context, RclrsError};
     /// // Without remapping
     /// let context = Context::new([])?;
     /// let node = context.create_node_with_namespace("/my/namespace", "my_node")?;
@@ -194,7 +194,7 @@ impl Node {
     /// let context_r = Context::new(remapping)?;
     /// let node_r = context_r.create_node("my_node")?;
     /// assert_eq!(node_r.namespace(), "/your_namespace");
-    /// # Ok::<(), RclReturnCode>(())
+    /// # Ok::<(), RclrsError>(())
     /// ```
     pub fn namespace(&self) -> String {
         self.get_string(rcl_node_get_namespace)
@@ -207,11 +207,11 @@ impl Node {
     ///
     /// # Example
     /// ```
-    /// # use rclrs::{Context, RclReturnCode};
+    /// # use rclrs::{Context, RclrsError};
     /// let context = Context::new([])?;
     /// let node = context.create_node_with_namespace("/my/namespace", "my_node")?;
     /// assert_eq!(node.fully_qualified_name(), "/my/namespace/my_node");
-    /// # Ok::<(), RclReturnCode>(())
+    /// # Ok::<(), RclrsError>(())
     /// ```
     pub fn fully_qualified_name(&self) -> String {
         self.get_string(rcl_node_get_fully_qualified_name)
@@ -244,7 +244,7 @@ impl Node {
         &self,
         topic: &str,
         qos: QoSProfile,
-    ) -> Result<Publisher<T>, RclReturnCode>
+    ) -> Result<Publisher<T>, RclrsError>
     where
         T: Message,
     {
@@ -260,7 +260,7 @@ impl Node {
         topic: &str,
         qos: QoSProfile,
         callback: F,
-    ) -> Result<Arc<Subscription<T>>, RclReturnCode>
+    ) -> Result<Arc<Subscription<T>>, RclrsError>
     where
         T: Message,
         F: FnMut(T) + 'static,

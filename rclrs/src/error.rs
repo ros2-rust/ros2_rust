@@ -1,6 +1,49 @@
 use crate::rcl_bindings::*;
 use std::error::Error;
+use std::ffi::CStr;
 use std::fmt::{self, Display};
+
+/// The main error type.
+#[derive(Debug, PartialEq)]
+pub struct RclrsError {
+    /// The error code.
+    pub code: RclReturnCode,
+    /// The error message set in the rcl layer or below.
+    pub(crate) msg: Option<RclErrorMsg>,
+}
+
+impl Display for RclrsError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.code)
+    }
+}
+
+/// Struct encapsulating an error message from the rcl layer or below.
+///
+/// This struct is intended to be returned by the `source` method in the implementation of the
+/// standard [`Error`][1] trait for [`RclrsError`][2].
+/// By doing this, the error message is printed as a separate item in the error chain.
+/// This avoids an unreadable, inconsistent formatting of error codes and messages that would
+/// likely be produced by a combined display of `RclReturnCode` and message.
+///
+/// [1]: std::error::Error
+/// [2]: crate::RclrsError
+#[derive(Debug, PartialEq)]
+pub(crate) struct RclErrorMsg(String);
+
+impl Display for RclErrorMsg {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl Error for RclErrorMsg {}
+
+impl Error for RclrsError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        self.msg.as_ref().map(|e| e as &dyn Error)
+    }
+}
 
 /// RCL specific error codes.
 ///
@@ -42,19 +85,19 @@ impl TryFrom<i32> for RclErrorCode {
 impl Display for RclErrorCode {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Self::AlreadyInit => write!(f, "RclError: `rcl_init()` already called!"),
-            Self::NotInit => write!(f, "RclError: `rcl_init() not yet called!"),
-            Self::MismatchedRmwId => write!(f, "RclError: Mismatched rmw identifier!"),
+            Self::AlreadyInit => write!(f, "RclError: `rcl_init()` already called."),
+            Self::NotInit => write!(f, "RclError: `rcl_init() not yet called."),
+            Self::MismatchedRmwId => write!(f, "RclError: Mismatched rmw identifier."),
             Self::TopicNameInvalid => {
-                write!(f, "RclError: Topic name does not pass validation!")
+                write!(f, "RclError: Topic name does not pass validation.")
             }
             Self::ServiceNameInvalid => {
-                write!(f, "RclError: Service name does not pass validation!")
+                write!(f, "RclError: Service name does not pass validation.")
             }
             Self::UnknownSubstitution => {
-                write!(f, "RclError: Topic name substitution is unknown!")
+                write!(f, "RclError: Topic name substitution is unknown.")
             }
-            Self::AlreadyShutdown => write!(f, "RclError: `rcl_shutdown()` already called!"),
+            Self::AlreadyShutdown => write!(f, "RclError: `rcl_shutdown()` already called."),
         }
     }
 }
@@ -90,10 +133,10 @@ impl TryFrom<i32> for NodeErrorCode {
 impl Display for NodeErrorCode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::NodeInvalid => write!(f, "NodeError: Invalid `rcl_node_t` given!"),
-            Self::NodeInvalidName => write!(f, "NodeError: Invalid node name!"),
-            Self::NodeInvalidNamespace => write!(f, "NodeError: Invalid node namespace!"),
-            Self::NodeNameNonexistent => write!(f, "NodeError: Failed to find node name!"),
+            Self::NodeInvalid => write!(f, "NodeError: Invalid `rcl_node_t` given."),
+            Self::NodeInvalidName => write!(f, "NodeError: Invalid node name."),
+            Self::NodeInvalidNamespace => write!(f, "NodeError: Invalid node namespace."),
+            Self::NodeNameNonexistent => write!(f, "NodeError: Failed to find node name."),
         }
     }
 }
@@ -124,11 +167,11 @@ impl Display for SubscriberErrorCode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::SubscriptionInvalid => {
-                write!(f, "SubscriberError: Invalid `rcl_subscription_t` given!")
+                write!(f, "SubscriberError: Invalid `rcl_subscription_t` given.")
             }
             Self::SubscriptionTakeFailed => write!(
                 f,
-                "SubscriberError: Failed to take a message from the subscription!"
+                "SubscriberError: Failed to take a message from the subscription."
             ),
         }
     }
@@ -158,9 +201,9 @@ impl TryFrom<i32> for ClientErrorCode {
 impl Display for ClientErrorCode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::ClientInvalid => write!(f, "ClientError: Invalid `rcl_client_t` given!"),
+            Self::ClientInvalid => write!(f, "ClientError: Invalid `rcl_client_t` given."),
             Self::ClientTakeFailed => {
-                write!(f, "ClientError: Failed to take a response from the client!")
+                write!(f, "ClientError: Failed to take a response from the client.")
             }
         }
     }
@@ -191,10 +234,10 @@ impl TryFrom<i32> for ServiceErrorCode {
 impl Display for ServiceErrorCode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::ServiceInvalid => write!(f, "ServiceError: Invalid `rcl_service_t` given!"),
+            Self::ServiceInvalid => write!(f, "ServiceError: Invalid `rcl_service_t` given."),
             Self::ServiceTakeFailed => write!(
                 f,
-                "ServiceError: Failed to take a request from the service!"
+                "ServiceError: Failed to take a request from the service."
             ),
         }
     }
@@ -228,8 +271,8 @@ impl TryFrom<i32> for TimerErrorCode {
 impl Display for TimerErrorCode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::TimerInvalid => write!(f, "TimerError: Invalid `rcl_timer_t` given!"),
-            Self::TimerCanceled => write!(f, "TimerError: Given timer was canceled!"),
+            Self::TimerInvalid => write!(f, "TimerError: Invalid `rcl_timer_t` given."),
+            Self::TimerCanceled => write!(f, "TimerError: Given timer was canceled."),
         }
     }
 }
@@ -262,9 +305,9 @@ impl TryFrom<i32> for WaitSetErrorCode {
 impl Display for WaitSetErrorCode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::WaitSetInvalid => write!(f, "WaitSetError: Invalid `rcl_wait_set_t` given!"),
-            Self::WaitSetEmpty => write!(f, "WaitSetError: Given `rcl_wait_set_t` was empty!"),
-            Self::WaitSetFull => write!(f, "WaitSetError: Given `rcl_wait_set_t` was full!"),
+            Self::WaitSetInvalid => write!(f, "WaitSetError: Invalid `rcl_wait_set_t` given."),
+            Self::WaitSetEmpty => write!(f, "WaitSetError: Given `rcl_wait_set_t` was empty."),
+            Self::WaitSetFull => write!(f, "WaitSetError: Given `rcl_wait_set_t` was full."),
         }
     }
 }
@@ -304,20 +347,20 @@ impl Display for ParsingErrorCode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::InvalidRemapRule => {
-                write!(f, "ParsingError: Argument is not a valid remap rule!")
+                write!(f, "ParsingError: Argument is not a valid remap rule.")
             }
             Self::WrongLexeme => write!(
                 f,
-                "ParsingError: Expected one type of lexeme, but got another!"
+                "ParsingError: Expected one type of lexeme, but got another."
             ),
             Self::InvalidRosArgs => {
-                write!(f, "ParsingError: Found invalid ros argument while parsing!")
+                write!(f, "ParsingError: Found invalid ROS argument while parsing.")
             }
             Self::InvalidParamRule => {
-                write!(f, "ParsingError: Argument is not a valid parameter rule!")
+                write!(f, "ParsingError: Argument is not a valid parameter rule.")
             }
             Self::InvalidLogLevelRule => {
-                write!(f, "ParsingError: Argument is not a valid log level rule!")
+                write!(f, "ParsingError: Argument is not a valid log level rule.")
             }
         }
     }
@@ -348,10 +391,10 @@ impl TryFrom<i32> for EventErrorCode {
 impl Display for EventErrorCode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::EventInvalid => write!(f, "EventError: Invalid `rcl_event_t` given!"),
+            Self::EventInvalid => write!(f, "EventError: Invalid `rcl_event_t` given."),
             Self::EventTakeFailed => write!(
                 f,
-                "EventError: Failed to take an event from the event handle!"
+                "EventError: Failed to take an event from the event handle."
             ),
         }
     }
@@ -385,10 +428,10 @@ impl Display for LifecycleErrorCode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::LifecycleStateRegistered => {
-                write!(f, "LifecycleError: `rcl_lifecycle` state registered!")
+                write!(f, "LifecycleError: `rcl_lifecycle` state registered.")
             }
             Self::LifecycleStateNotRegistered => {
-                write!(f, "LifecycleError: `rcl_lifecycle` state not registered!")
+                write!(f, "LifecycleError: `rcl_lifecycle` state not registered.")
             }
         }
     }
@@ -555,18 +598,18 @@ impl From<LifecycleErrorCode> for RclReturnCode {
 impl Display for RclReturnCode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Ok => write!(f, "RclReturnCode: Operation successful!"),
-            Self::Error => write!(f, "RclReturnCode: Unspecified error!"),
-            Self::Timeout => write!(f, "RclReturnCode: Timeout occurred!"),
-            Self::Unsupported => write!(f, "RclReturnCode: Unsupported return code!"),
-            Self::BadAlloc => write!(f, "RclReturnCode: Failed to allocate memory!"),
+            Self::Ok => write!(f, "RclReturnCode: Operation successful."),
+            Self::Error => write!(f, "RclReturnCode: Unspecified error."),
+            Self::Timeout => write!(f, "RclReturnCode: Timeout occurred."),
+            Self::Unsupported => write!(f, "RclReturnCode: Unsupported return code."),
+            Self::BadAlloc => write!(f, "RclReturnCode: Failed to allocate memory."),
             Self::InvalidArgument => {
-                write!(f, "RclReturnCode: Argument to function was invalid!")
+                write!(f, "RclReturnCode: Argument to function was invalid.")
             }
             Self::RclError(rcl_err) => write!(f, "RclReturnCode::{}", rcl_err),
             Self::NodeError(node_err) => write!(f, "RclReturnCode::{}", node_err),
             Self::PublisherInvalid => {
-                write!(f, "RclReturnCode: Invalid `rcl_publisher_t` given!")
+                write!(f, "RclReturnCode: Invalid `rcl_publisher_t` given.")
             }
             Self::SubscriberError(subscriber_err) => {
                 write!(f, "RclReturnCode::{}", subscriber_err)
@@ -589,27 +632,40 @@ impl Display for RclReturnCode {
 
 impl Error for RclReturnCode {}
 
-pub(crate) fn to_rcl_result(code: i32) -> Result<(), RclReturnCode> {
+pub(crate) fn to_rcl_result(code: i32) -> Result<(), RclrsError> {
     match RclReturnCode::from(code) {
         RclReturnCode::Ok => Ok(()),
         anything_else => {
+            let mut msg = None;
+            // SAFETY: No preconditions for this function.
+            let error_state_ptr = unsafe { rcutils_get_error_state() };
+            // The returned pointer may be null if the error state has not been set.
+            if !error_state_ptr.is_null() {
+                // SAFETY: Dereferencing the pointer is safe since it was checked to be non-null.
+                let msg_ptr = unsafe { (*error_state_ptr).message.as_ptr() };
+                // SAFETY: Pointer has been created from an array, no lifetime issues due to
+                // immediate conversion to owned string.
+                let s = unsafe { CStr::from_ptr(msg_ptr) }
+                    .to_string_lossy()
+                    .into_owned();
+                msg = Some(RclErrorMsg(s));
+            }
             // SAFETY: No preconditions for this function.
             unsafe { rcutils_reset_error() };
-            Err(anything_else)
+            Err(RclrsError {
+                code: anything_else,
+                msg,
+            })
         }
     }
 }
 
 pub(crate) trait ToResult {
-    fn ok(&self) -> Result<(), RclReturnCode>;
-
-    fn unwrap(&self) {
-        self.ok().unwrap();
-    }
+    fn ok(&self) -> Result<(), RclrsError>;
 }
 
 impl ToResult for rcl_ret_t {
-    fn ok(&self) -> Result<(), RclReturnCode> {
+    fn ok(&self) -> Result<(), RclrsError> {
         to_rcl_result(*self as i32)
     }
 }

@@ -1,5 +1,5 @@
 use crate::rcl_bindings::*;
-use crate::{Node, RclReturnCode, ToResult};
+use crate::{Node, RclrsError, ToResult};
 
 use std::ffi::CString;
 use std::os::raw::c_char;
@@ -58,7 +58,7 @@ impl Context {
     ///
     /// # Panics
     /// When there is an interior null byte in any of the args.
-    pub fn new(args: impl IntoIterator<Item = String>) -> Result<Self, RclReturnCode> {
+    pub fn new(args: impl IntoIterator<Item = String>) -> Result<Self, RclrsError> {
         // SAFETY: Getting a zero-initialized value is always safe
         let mut rcl_context = unsafe { rcl_get_zero_initialized_context() };
         let cstring_args: Vec<CString> = args
@@ -114,7 +114,7 @@ impl Context {
     /// assert!(node.is_ok());
     /// # Ok::<(), RclReturnCode>(())
     /// ```
-    pub fn create_node(&self, node_name: &str) -> Result<Node, RclReturnCode> {
+    pub fn create_node(&self, node_name: &str) -> Result<Node, RclrsError> {
         Node::new(node_name, self)
     }
 
@@ -137,7 +137,7 @@ impl Context {
         &self,
         node_namespace: &str,
         node_name: &str,
-    ) -> Result<Node, RclReturnCode> {
+    ) -> Result<Node, RclrsError> {
         Node::new_with_namespace(node_namespace, node_name, self)
     }
 

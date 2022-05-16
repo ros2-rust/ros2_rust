@@ -15,7 +15,7 @@
 // DISTRIBUTION A. Approved for public release; distribution unlimited.
 // OPSEC #4584.
 
-use crate::error::{to_rcl_result, RclReturnCode, ToResult};
+use crate::error::{to_rcl_result, RclReturnCode, RclrsError, ToResult};
 use crate::rcl_bindings::*;
 use crate::{Context, SubscriptionBase};
 
@@ -57,7 +57,7 @@ impl WaitSet {
     ///
     /// The given number of subscriptions is a capacity, corresponding to how often
     /// [`WaitSet::add_subscription`] may be called.
-    pub fn new(number_of_subscriptions: usize, context: &Context) -> Result<Self, RclReturnCode> {
+    pub fn new(number_of_subscriptions: usize, context: &Context) -> Result<Self, RclrsError> {
         let rcl_wait_set = unsafe {
             // SAFETY: Getting a zero-initialized value is always safe
             let mut rcl_wait_set = rcl_get_zero_initialized_wait_set();
@@ -110,7 +110,7 @@ impl WaitSet {
     pub fn add_subscription(
         &mut self,
         subscription: Arc<dyn SubscriptionBase>,
-    ) -> Result<(), RclReturnCode> {
+    ) -> Result<(), RclrsError> {
         unsafe {
             // SAFETY: I'm not sure if it's required, but the subscription pointer will remain valid
             // for as long as the wait set exists, because it's stored in self.subscriptions.
@@ -149,12 +149,15 @@ impl WaitSet {
     /// This list is not comprehensive, since further errors may occur in the `rmw` or `rcl` layers.
     ///
     /// [1]: std::time::Duration::ZERO
-    pub fn wait(&mut self, timeout: Option<Duration>) -> Result<ReadyEntities, RclReturnCode> {
+    pub fn wait(&mut self, timeout: Option<Duration>) -> Result<ReadyEntities, RclrsError> {
         let timeout_ns = match timeout.map(|d| d.as_nanos()) {
             None => -1,
             Some(ns) if ns <= i64::MAX as u128 => ns as i64,
             _ => {
-                return Err(RclReturnCode::InvalidArgument);
+                return Err(RclrsError {
+                    code: RclReturnCode::InvalidArgument,
+                    msg: None,
+                })
             }
         };
         // SAFETY: The comments in rcl mention "This function cannot operate on the same wait set
