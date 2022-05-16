@@ -81,7 +81,7 @@ where
     ) -> Result<Self, RclReturnCode>
     where
         T: Message,
-        F: FnMut(T) + Sized + 'static,
+        F: FnMut(T) + 'static,
     {
         // SAFETY: Getting a zero-initialized value is always safe.
         let mut subscription_handle = unsafe { rcl_get_zero_initialized_subscription() };
