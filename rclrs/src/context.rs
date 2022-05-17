@@ -1,5 +1,5 @@
 use crate::rcl_bindings::*;
-use crate::{Node, NodeBuilder, RclReturnCode, ToResult};
+use crate::{Node, NodeBuilder, RclrsError, ToResult};
 
 use std::ffi::CString;
 use std::os::raw::c_char;
@@ -58,7 +58,7 @@ impl Context {
     ///
     /// # Panics
     /// When there is an interior null byte in any of the args.
-    pub fn new(args: impl IntoIterator<Item = String>) -> Result<Self, RclReturnCode> {
+    pub fn new(args: impl IntoIterator<Item = String>) -> Result<Self, RclrsError> {
         // SAFETY: Getting a zero-initialized value is always safe
         let mut rcl_context = unsafe { rcl_get_zero_initialized_context() };
         let cstring_args: Vec<CString> = args
@@ -108,39 +108,14 @@ impl Context {
     ///
     /// # Example
     /// ```
-    /// # use rclrs::{Context, RclReturnCode};
+    /// # use rclrs::{Context, RclrsError};
     /// let ctx = Context::new([])?;
     /// let node = ctx.create_node("my_node");
     /// assert!(node.is_ok());
-    /// # Ok::<(), RclReturnCode>(())
+    /// # Ok::<(), RclrsError>(())
     /// ```
-    pub fn create_node(&self, node_name: &str) -> Result<Node, RclReturnCode> {
+    pub fn create_node(&self, node_name: &str) -> Result<Node, RclrsError> {
         NodeBuilder::new(node_name, self).build()
-    }
-
-    /// Creates a new node in a namespace.
-    ///
-    /// Convenience function equivalent to [`Node::new_with_namespace`][1].
-    /// Please see that function's documentation.
-    ///
-    /// [1]: crate::Node::new_with_namespace
-    ///
-    /// # Example
-    /// ```
-    /// # use rclrs::{Context, RclReturnCode};
-    /// let ctx = Context::new([])?;
-    /// let node = ctx.create_node_with_namespace("/my/nested/namespace", "my_node");
-    /// assert!(node.is_ok());
-    /// # Ok::<(), RclReturnCode>(())
-    /// ```
-    pub fn create_node_with_namespace(
-        &self,
-        node_namespace: &str,
-        node_name: &str,
-    ) -> Result<Node, RclReturnCode> {
-        NodeBuilder::new(node_name, self)
-            .namespace(node_namespace)
-            .build()
     }
 
     /// Creates a [`NodeBuilder`][1].
@@ -153,12 +128,12 @@ impl Context {
     ///
     /// # Example
     /// ```
-    /// # use rclrs::{Context, RclReturnCode};
+    /// # use rclrs::{Context, RclrsError};
     /// let context = Context::new([])?;
     /// let node_builder = context.create_node_builder("foo_node");
     /// let node = node_builder.build()?;
     /// assert_eq!(node.name(), "foo_node");
-    /// # Ok::<(), RclReturnCode>(())
+    /// # Ok::<(), RclrsError>(())
     /// ```
     pub fn create_node_builder(&self, node_name: &str) -> NodeBuilder {
         NodeBuilder::new(node_name, self)
