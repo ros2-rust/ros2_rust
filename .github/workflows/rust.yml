@@ -13,7 +13,11 @@ jobs:
   build:
     strategy:
       matrix:
-        ros_distro: [rolling, foxy, galactic]
+        ros_distribution:
+          - foxy
+          - galactic
+          # - humble
+          - rolling
         include:
           # Foxy Fitzroy (June 2020 - May 2023)
           - docker_image: rostooling/setup-ros-docker:ubuntu-focal-ros-foxy-ros-base-latest
@@ -24,9 +28,9 @@ jobs:
             ros_distribution: galactic
             ros_version: 2
           # Humble Hawksbill (May 2022 - May 2027)
-          - docker_image: rostooling/setup-ros-docker:ubuntu-jammy-ros-humble-ros-base-latest
-            ros_distribution: humble
-            ros_version: 2
+          # - docker_image: rostooling/setup-ros-docker:ubuntu-jammy-ros-humble-ros-base-latest
+          #   ros_distribution: humble
+          #   ros_version: 2
           # Rolling Ridley  (June 2020 - Present)
           - docker_image: rostooling/setup-ros-docker:ubuntu-jammy-ros-rolling-ros-base-latest
             ros_distribution: rolling
@@ -43,9 +47,9 @@ jobs:
         echo ::set-output name=package_list::$(colcon list --names-only)
 
     - name: Setup ROS environment
-      uses: ros-tooling/setup-ros@v0.2
+      uses: ros-tooling/setup-ros@v0.3
       with:
-        required-ros-distributions: ${{ matrix.ros_distro }}
+        required-ros-distributions: ${{ matrix.ros_distribution }}
 
     - name: Setup Rust
       uses: actions-rs/toolchain@v1
@@ -77,13 +81,13 @@ jobs:
       uses: ros-tooling/action-ros-ci@v0.2
       with:
         package-name: ${{ steps.list_packages.outputs.package_list }}
-        target-ros2-distro: ${{ matrix.ros_distro }}
-        vcs-repo-file-url: ros2_rust_${{ matrix.ros_distro }}.repos
+        target-ros2-distro: ${{ matrix.ros_distribution }}
+        vcs-repo-file-url: ros2_rust_${{ matrix.ros_distribution }}.repos
 
     - name: Run clippy on Rust packages
       run: |
         cd ${{ steps.build.outputs.ros-workspace-directory-name }}
-        . /opt/ros/${{ matrix.ros_distro }}/setup.sh
+        . /opt/ros/${{ matrix.ros_distribution }}/setup.sh
         for path in $(colcon list | awk '$3 == "(ament_cargo)" { print $2 }'); do
         cd $path
         echo "Running clippy in $path"
@@ -94,7 +98,7 @@ jobs:
     - name: Rustdoc check
       run: |
         cd ${{ steps.build.outputs.ros-workspace-directory-name }}
-        . /opt/ros/${{ matrix.ros_distro }}/setup.sh
+        . /opt/ros/${{ matrix.ros_distribution }}/setup.sh
         for path in $(colcon list | awk '$3 == "(ament_cargo)" && $1 != "examples_rclrs_minimal_pub_sub" { print $2 }'); do
         cd $path
         echo "Running rustdoc check in $path"
