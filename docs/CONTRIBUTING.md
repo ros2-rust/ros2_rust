@@ -61,6 +61,25 @@ Do not cast references to raw pointers where it's not needed. Since references c
 
 Generally, a `rcl` type should have a `Drop` impl that calls its `fini()` function. However, there are some cases where this is not possible, e.g. when the type is part of another `rcl` type that owns and finalizes it, or when the `fini()` function takes extra arguments. In these cases, it needs to be decided individually if and where to call `fini()`, and care must be taken to not return early from a function with `?` before the relevant `fini()` functions have been called.
 
+
+## Consistency with major ROS 2 client libraries
+Consistency with the two major ROS 2 client libraries, `rclcpp` and `rclpy`, is a goal of this project – and in particular `rclcpp`.
+
+That means that
+- Roughly the same concepts should exist in all client libraries, e.g. services, parameters, etc.
+- Types, functions, argument names etc. should have the same or similar names as their corresponding items in `rclcpp`/`rclpy` where possible
+- Code should be structured into similar packages by default, e.g. `rosidl_generator_<lang>`, `rcl<lang>` etc.
+- Features should be built on top of `rcl` by default, instead of re-implementing them from scratch
+
+This does _not_ mean that
+- No variability between languages is allowed. What is easy to do, and what is considered idiomatic, is quite different between languages, and thus ROS 2 allows for considerable variability between client languages.
+- Features should always be ported 1:1. Do not rely on the assumption that the best implementation for `rclrs` is whatever `rclcpp` does, but understand the motivation and status of the implementation in the other client libraries. For instance, sometimes a design is implemented incompletely by a client library, the feature is later found to have problems (e.g. the deadlocking of sync client calls in Python), or the client library is constrained by backwards compatibility.
+- Internal consistency does not matter. It does.
+- No deviations from the above guidelines are possible.
+
+In summary, understand the context of the features that you port, in order to avoid [_cargo-culting_](https://en.wikipedia.org/wiki/Cargo_cult_programming), and to be mindful of [Chesterton's fence](https://en.wiktionary.org/wiki/Chesterton%27s_fence).
+
+
 ## License
 Any contribution that you make to this repository will
 be under the Apache 2 License, as dictated by that
