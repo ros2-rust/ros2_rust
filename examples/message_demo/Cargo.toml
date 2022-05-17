@@ -1,0 +1,21 @@
+[package]
+name = "examples_rclrs_message_demo"
+version = "0.2.0"
+authors = ["Nikolai Morin <nnmmgit@gmail.com>"]
+edition = "2021"
+
+[[bin]]
+name = "message_demo"
+path = "src/message_demo.rs"
+
+[dependencies]
+anyhow = {version = "1", features = ["backtrace"]}
+
+[dependencies.rclrs]
+version = "*"
+
+[dependencies.rosidl_runtime_rs]
+version = "*"
+
+[dependencies.rclrs_example_msgs]
+version = "*"

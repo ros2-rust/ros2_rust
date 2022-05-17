@@ -1,5 +1,5 @@
 [package]
-name = "rclrs_examples"
+name = "examples_rclrs_minimal_pub_sub"
 version = "0.2.0"
 authors = ["Esteve Fernandez <esteve@apache.org>"]
 edition = "2021"
@@ -12,10 +12,6 @@ path = "src/minimal_subscriber.rs"
 name = "minimal_publisher"
 path = "src/minimal_publisher.rs"
 
-[[bin]]
-name = "message_demo"
-path = "src/message_demo.rs"
-
 [dependencies]
 anyhow = {version = "1", features = ["backtrace"]}
 
@@ -26,7 +22,4 @@ version = "*"
 version = "*"
 
 [dependencies.std_msgs]
-version = "*"
-
-[dependencies.rclrs_example_msgs]
 version = "*"
