@@ -80,7 +80,7 @@ impl fmt::Debug for Node {
 
 impl Node {
     /// Creates a new node in the empty namespace.    
-    /// See [`Node::new_with_namespace`] for documentation.
+    /// See [`NodeBuilder::new`] for documentation.
     #[allow(clippy::new_ret_no_self)]
     pub fn new(node_name: &str, context: &Context) -> Result<Node, RclrsError> {
         NodeBuilder::new(node_name, context).build()
