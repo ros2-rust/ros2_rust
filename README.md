@@ -19,14 +19,14 @@ The current set of features include:
 - Support for publishers and subscriptions
 - Tunable QoS settings
 
-Lots of things are still missing however, see the [issue list](https://github.com/ros2-rust/ros2_rust/issues) for an overview. You are very welcome to [contribute](docs/Contributing.md)!
+Lots of things are still missing however, see the [issue list](https://github.com/ros2-rust/ros2_rust/issues) for an overview. You are very welcome to [contribute](docs/CONTRIBUTING.md)!
 
 Since the client library is still rapidly evolving, there are no stability guarantees for the moment.
 
 Sounds great, how can I try this out?
 -------------------------------------
 
-Here are the steps for building the `ros2_rust` examples in a vanilla Ubuntu Focal installation. See the [in-depth guide for building `ros2_rust` packages](docs/Building.md) for more details and options, including a Docker-based setup.
+Here are the steps for building the `ros2_rust` examples in a vanilla Ubuntu Focal installation. See the [in-depth guide for building `ros2_rust` packages](docs/BUILDING.md) for more details and options, including a Docker-based setup.
 
 <!--- These steps should be kept in sync with docs/Building.md --->
 ```shell
