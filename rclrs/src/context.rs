@@ -130,9 +130,9 @@ impl Context {
     /// ```
     /// # use rclrs::{Context, RclrsError};
     /// let context = Context::new([])?;
-    /// let node_builder = context.create_node_builder("foo_node");
+    /// let node_builder = context.create_node_builder("my_node");
     /// let node = node_builder.build()?;
-    /// assert_eq!(node.name(), "foo_node");
+    /// assert_eq!(node.name(), "my_node");
     /// # Ok::<(), RclrsError>(())
     /// ```
     pub fn create_node_builder(&self, node_name: &str) -> NodeBuilder {

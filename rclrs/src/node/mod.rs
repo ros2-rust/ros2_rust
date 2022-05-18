@@ -33,29 +33,62 @@ impl Drop for rcl_node_t {
 /// That means that even after the node itself is dropped, it will continue to exist and be
 /// displayed by e.g. `ros2 topic` as long as its publishers and subscriptions are not dropped.
 ///
+/// # Naming
+/// A node has a *name* and a *namespace*.
+/// The node namespace will be prefixed to the node name to form the *fully qualified
+/// node name*. This is the name that is shown e.g. in `ros2 node list`.
+/// Similarly, the node namespace will be prefixed to all names of topics and services
+/// created from this node.
+///
+/// By convention, a node name with a leading underscore marks the node as hidden.
+///
+/// It's a good idea for node names in the same executable to be unique.
+///
+/// ## Remapping
+/// The namespace and name given when creating the node can be overriden through the command line.
+/// In that sense, the parameters to the node creation functions are only the _default_ namespace and
+/// name.
+/// See also the [official tutorial][1] on the command line arguments for ROS nodes, and the
+/// [`Node::namespace()`] and [`Node::name()`] functions for examples.
+///
+/// ## Rules for valid names
+/// The rules for valid node names and node namespaces are explained in
+/// [`NodeBuilder::new()`][3] and [`NodeBuilder::namespace()`][4].
+///
 /// [1]: https://docs.ros.org/en/rolling/Tutorials/Understanding-ROS2-Nodes.html
+/// [2]: https://docs.ros.org/en/rolling/How-To-Guides/Node-arguments.html
+/// [3]: crate::NodeBuilder::new
+/// [4]: crate::NodeBuilder::namespace
 pub struct Node {
     handle: Arc<Mutex<rcl_node_t>>,
     pub(crate) context: Arc<Mutex<rcl_context_t>>,
     pub(crate) subscriptions: Vec<Weak<dyn SubscriptionBase>>,
 }
 
-/// A builder for node instantiation.
+/// A builder for creating a [`Node`][1].
 ///
-/// default value in each fields are
-///   - context: user defined
-///   - name: user defined
-///   - namespace: "/"
+/// The builder pattern allows selectively setting some fields, and leaving all others at their default values.
+///
+/// The default values for optional fields are:
+/// - `namespace: "/"`
 ///
 /// # Example
 /// ```
 /// # use rclrs::{Context, Node, NodeBuilder, RclrsError};
 /// let context = Context::new([])?;
+/// // Building a node in a single expression
 /// let node = NodeBuilder::new("foo_node", &context).namespace("/bar").build()?;
 /// assert_eq!(node.name(), "foo_node");
 /// assert_eq!(node.namespace(), "/bar");
+/// // Building a node step-by-step
+/// let mut builder = NodeBuilder::new("goose", &context);
+/// builder = builder.namespace("/duck/duck");
+/// let node = builder.build()?;
+/// assert_eq!(node.fully_qualified_name(), "/duck/duck/goose");
 /// # Ok::<(), RclrsError>(())
 /// ```
+///
+/// [1]: crate::Node
 pub struct NodeBuilder {
     context: Arc<Mutex<rcl_context_t>>,
     name: String,
@@ -79,8 +112,9 @@ impl fmt::Debug for Node {
 }
 
 impl Node {
-    /// Creates a new node in the empty namespace.    
-    /// See [`NodeBuilder::new`] for documentation.
+    /// Creates a new node in the empty namespace.
+    ///
+    /// See [`NodeBuilder::new()`] for documentation.
     #[allow(clippy::new_ret_no_self)]
     pub fn new(node_name: &str, context: &Context) -> Result<Node, RclrsError> {
         NodeBuilder::new(node_name, context).build()
@@ -138,7 +172,7 @@ impl Node {
     /// Returns the fully qualified name of the node.
     ///
     /// The fully qualified name of the node is the node namespace combined with the node name.
-    /// It is subject to the remappings shown in [`Node::name`] and [`Node::namespace`].
+    /// It is subject to the remappings shown in [`Node::name()`] and [`Node::namespace()`].
     ///
     /// # Example
     /// ```
@@ -227,7 +261,7 @@ impl Node {
     /// # Example
     /// ```
     /// # use rclrs::{Context, RclrsError};
-    /// // set default ROS domain ID to 10 here
+    /// // Set default ROS domain ID to 10 here
     /// std::env::set_var("ROS_DOMAIN_ID", "10");
     /// let context = Context::new([])?;
     /// let node = context.create_node("domain_id_node")?;
@@ -252,46 +286,42 @@ impl Node {
 }
 
 impl NodeBuilder {
-    /// Creates new builder for Node.
+    /// Creates a builder for a node with the given name.
     ///
-    /// # Naming rule for node name
-    /// The node name must follow below rules.
-    ///   - must not be an empty.
-    ///   - must only contain alphanumeric characters and underscores(a-z|A-Z|0-9|_).
-    ///   - must not start a number.
-    /// The validation performs at [`NodeBuilder::build()`][1], and does not perform in this function.
-    /// For more details, see [`rmw_validate_nodename`][2].
+    /// See the [`Node` docs][1] for general information on node names.
     ///
-    /// By convention, a node name with a leading underscore marks the node as hidden.
-    /// Fully qualified node names(namespace + name) should be unique in the same executable to be unique.
+    /// # Rules for valid node names
     ///
-    /// # Remapping
-    /// The namespace and name given here can be overriden through the command line.
-    /// In that sense, the parameters to this constructor and
-    /// [`NodeBuilder::namespace()`][3] are only the _default_ namespace and name.
-    /// See also the [official tutorial][4] on the command line arguments for ROS nodes, and
-    /// the [`Node::namespace()`] and [`Node::name()`] functions for examples.
+    /// The rules for a valid node name are checked by the [`rmw_validate_node_name()`][2]
+    /// function. They are:
+    /// - Must contain only the `a-z`, `A-Z`, `0-9`, and `_` characters
+    /// - Must not be empty and not be longer than `RMW_NODE_NAME_MAX_NAME_LENGTH`
+    /// - Must not start with a number
+    ///
+    /// Note that node name validation is delayed until [`NodeBuilder::build()`][3].
     ///
     /// # Example
     /// ```
     /// # use rclrs::{Context, Node, NodeBuilder, RclrsError, RclReturnCode, NodeErrorCode};
     /// let context = Context::new([])?;
-    /// let builder = NodeBuilder::new("foo_node", &context);
-    /// let node = builder.build()?;
-    /// assert_eq!(node.name(), "foo_node");
-    /// // invalid node name
-    /// let builder = NodeBuilder::new("123abc", &context);
+    /// // This is a valid node name
+    /// assert!(NodeBuilder::new("my_node", &context).build().is_ok());
+    /// // This is another valid node name (although not a good one)
+    /// assert!(NodeBuilder::new("_______", &context).build().is_ok());
+    /// // This is an invalid node name
     /// assert_eq!(
-    ///   builder.build().unwrap_err().code,
-    ///   RclReturnCode::NodeError(NodeErrorCode::NodeInvalidName)
+    ///     NodeBuilder::new("röböt", &context)
+    ///         .build()
+    ///         .unwrap_err()
+    ///         .code,
+    ///     RclReturnCode::NodeError(NodeErrorCode::NodeInvalidName)
     /// );
     /// # Ok::<(), RclrsError>(())
     /// ```    
     ///    
-    /// [1]: NodeBuilder::build
-    /// [2]: https://docs.ros2.org/bouncy/api/rmw/validate__node__name_8h.html
-    /// [3]: NodeBuilder::namespace
-    /// [4]: https://docs.ros.org/en/rolling/How-To-Guides/Node-arguments.html
+    /// [1]: crate::Node#naming
+    /// [2]: https://docs.ros2.org/latest/api/rmw/validate__node__name_8h.html#a5690a285aed9735f89ef11950b6e39e3
+    /// [3]: NodeBuilder::build
     pub fn new(name: &str, context: &Context) -> NodeBuilder {
         NodeBuilder {
             context: context.handle.clone(),
@@ -300,77 +330,69 @@ impl NodeBuilder {
         }
     }
 
-    /// Sets node namespace.
+    /// Sets the node namespace.
     ///
-    /// # Naming rule for node namespace
-    /// The node namespace naming rules is based on rules defined for a [topic][1].    
-    /// namespace naming rules are below.
-    ///   - must not be empty(Note that empty string is allowed in this method. Empty string is replaced to "/".)
-    ///   - may contain alphanumric characters, underscores, or forward slashes(a-z|A-Z|0-9|_|/)
-    ///   - must no start with numeric character(0-9)
-    ///   - must not contain repeated forward slashes(/)
-    ///   - must not contain repeated underscores(_)
+    /// See the [`Node` docs][1] for general information on namespaces.
     ///
-    /// In fully qualified name, Namespace will be prefixed to node name.
-    /// e.g. `/foo/bar/node_name` when namespace is `/foo/bar` and node name is `node_name`
+    /// # Rules for valid namespaces
     ///
-    /// Note that namespace naming validation is delayed to [`NodeBuilder::build()`][2].
-    /// For more details, see [`rmw_validate_namespace()`][3].
-    ///     
-    /// [1]: http://design.ros2.org/articles/topic_and_service_names.html
-    /// [2]: NodeBuilder::build
-    /// [3]: https://docs.ros2.org/bouncy/api/rmw/validate__namespace_8h.html
+    /// The rules for a valid node namespace are based on the [rules for a valid topic][2]
+    /// and are checked by the [`rmw_validate_namespace()`][3] function. However, a namespace
+    /// without a leading forward slash is automatically changed to have a leading forward slash
+    /// before it is checked with this function.
+    ///
+    /// Thus, the effective rules are:
+    /// - Must contain only the `a-z`, `A-Z`, `0-9`, `_`, and `/` characters
+    /// - Must not have a number at the beginning, or after a `/`
+    /// - Must not contain two or more `/` characters in a row
+    /// - Must not have a `/` character at the end, except if `/` is the full namespace
+    ///
+    /// Note that namespace validation is delayed until [`NodeBuilder::build()`][4].
     ///
     /// # Example
     /// ```
     /// # use rclrs::{Context, Node, NodeBuilder, RclrsError, RclReturnCode, NodeErrorCode};
     /// let context = Context::new([])?;
-    /// let builder = NodeBuilder::new("node_name", &context);
-    /// let node = builder.namespace("/foo/bar").build()?;    
-    /// assert_eq!(node.fully_qualified_name(), "/foo/bar/node_name");
-    /// // invalid namespace
-    /// let builder = NodeBuilder::new("node_name", &context);
+    /// // This is a valid namespace
+    /// let builder_ok_ns = NodeBuilder::new("my_node", &context).namespace("/some/nested/namespace");
+    /// assert!(builder_ok_ns.build().is_ok());
+    /// // This is an invalid namespace
     /// assert_eq!(
-    ///   builder.namespace("123abc").build().unwrap_err().code,
-    ///   RclReturnCode::NodeError(NodeErrorCode::NodeInvalidNamespace)
+    ///     NodeBuilder::new("my_node", &context)
+    ///         .namespace("/10_percent_luck/20_percent_skill")
+    ///         .build()
+    ///         .unwrap_err()
+    ///         .code,
+    ///     RclReturnCode::NodeError(NodeErrorCode::NodeInvalidNamespace)
+    /// );
+    /// // A missing forward slash at the beginning is automatically added
+    /// assert_eq!(
+    ///     NodeBuilder::new("my_node", &context)
+    ///         .namespace("foo")
+    ///         .build()?
+    ///         .namespace(),
+    ///     "/foo"
     /// );
     /// # Ok::<(), RclrsError>(())
     /// ```
+    ///
+    /// [1]: crate::Node#naming
+    /// [2]: http://design.ros2.org/articles/topic_and_service_names.html
+    /// [3]: https://docs.ros2.org/latest/api/rmw/validate__namespace_8h.html#a043f17d240cf13df01321b19a469ee49
+    /// [4]: NodeBuilder::build
     pub fn namespace(mut self, namespace: &str) -> Self {
         self.namespace = namespace.to_string();
         self
     }
 
-    /// Builds node instance
+    /// Builds the node instance.
     ///
     /// Node name and namespace validation is performed in this method.
-    /// If invalid name and/or namespace are specified to builder,
-    /// this method will return RclRsError as error.
     ///
-    /// # Example
-    /// ```
-    /// # use rclrs::{Context, Node, NodeBuilder, RclrsError, RclReturnCode, NodeErrorCode};
-    /// let context = Context::new([])?;
+    /// For example usage, see the [`NodeBuilder`] docs.
     ///
-    /// let builder = NodeBuilder::new("node_name", &context);
-    /// let result = builder.namespace("/foo/bar").build();
-    /// assert!(result.is_ok());
-    /// // invalid node name
-    /// let builder = NodeBuilder::new("123abc", &context);
-    /// let result = builder.namespace("/foo/bar").build();
-    /// assert_eq!(
-    ///   result.unwrap_err().code,
-    ///   RclReturnCode::NodeError(NodeErrorCode::NodeInvalidName)
-    /// );
-    /// // invalid namespace
-    /// let builder = NodeBuilder::new("node_name", &context);
-    /// let result = builder.namespace("123abc").build();
-    /// assert_eq!(
-    ///   result.unwrap_err().code,
-    ///   RclReturnCode::NodeError(NodeErrorCode::NodeInvalidNamespace)
-    /// );
-    /// # Ok::<(), RclrsError>(())
-    /// ```
+    /// # Panics
+    /// When the node name or namespace contain null bytes.
     pub fn build(&self) -> Result<Node, RclrsError> {
         let node_name = CString::new(self.name.as_str()).unwrap();
         let node_namespace = CString::new(self.namespace.as_str()).unwrap();
