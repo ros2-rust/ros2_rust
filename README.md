@@ -51,7 +51,7 @@ Then, to run the minimal pub-sub example, do this:
 ```shell
 # In a new terminal (or tmux window)
 . ./install/setup.sh
-ros2 run rclrs_examples minimal_publisher
+ros2 run examples_rclrs_minimal_pub_sub minimal_publisher
 # In a new terminal (or tmux window)
 . ./install/setup.sh
 ros2 run examples_rclrs_minimal_pub_sub minimal_subscriber
