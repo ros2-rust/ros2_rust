@@ -3,7 +3,6 @@ ARG DEBIAN_FRONTEND=noninteractive
 
 # Install dependencies
 RUN apt-get update && apt-get install -y \
-    clang \
     curl \
     git \
     libclang-dev \

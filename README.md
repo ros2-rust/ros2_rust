@@ -1,8 +1,5 @@
-ROS2 for Rust
-=============
-
-Build status
-------------
+ROS 2 for Rust
+==============
 
 | Target | Status |
 |----------|--------|
@@ -11,94 +8,51 @@ Build status
 Introduction
 ------------
 
-This is a set of projects (bindings, code generator, examples and more) that enables developers to write ROS2
-applications in Rust.
+This is a set of projects (the `rclrs` client library, code generator, examples and more) that
+enables developers to write ROS 2 applications in Rust.
 
-Features
---------
+Features and limitations
+------------------------
 
 The current set of features include:
-- Generation of all builtin ROS types
+- Message generation
 - Support for publishers and subscriptions
 - Tunable QoS settings
 
-What's missing?
----------------
+Lots of things are still missing however, see the [issue list](https://github.com/ros2-rust/ros2_rust/issues) for an overview. You are very welcome to [contribute](docs/CONTRIBUTING.md)!
 
-Lots of things!
-- Component nodes
-- Clients and services
-- Tests
-- Documentation
-
-### Limitations
-
-- The `rclrs` interface is very limited for now and might not be idiomatic yet, any help and suggestion on the interface would be greatly appreciated
-- Due to the current ROS2 support of non-default clients, packages containing definitions of messages used in Rust crates must be present in the current workspace; otherwise message crates generation won't be triggered
+Since the client library is still rapidly evolving, there are no stability guarantees for the moment.
 
 Sounds great, how can I try this out?
 -------------------------------------
 
-Here, the Foxy distribution of ROS 2 is used, but newer distributions can be used by simply replacing 'foxy' with the distribution name.
+Here are the steps for building the `ros2_rust` examples in a vanilla Ubuntu Focal installation. See the [in-depth guide for building `ros2_rust` packages](docs/BUILDING.md) for more details and options, including a Docker-based setup.
 
-```
-# First, make sure to have ROS 2 and vcstool installed (alternatively, install vcstool with pip):
-# sudo apt install ros-foxy-desktop ros-foxy-test-interface-files python3-vcstool libclang-dev clang
-# Install the colcon-cargo and colcon-ros-cargo plugins
-pip install git+https://github.com/colcon/colcon-cargo.git git+https://github.com/colcon/colcon-ros-cargo.git
-# Install the cargo-ament-build plugin
+<!--- These steps should be kept in sync with docs/Building.md --->
+```shell
+# Install Rust, e.g. as described in https://rustup.rs/
+# Install ROS 2 as described in https://docs.ros.org/en/foxy/Installation.html
+# Assuming you installed the minimal version of ROS 2, you need these additional packages:
+sudo apt install -y git libclang-dev python3-pip python3-vcstool # libclang-dev is required by bindgen
+# Install these plugins for cargo and colcon:
 cargo install cargo-ament-build
+pip install git+https://github.com/colcon/colcon-cargo.git
+pip install git+https://github.com/colcon/colcon-ros-cargo.git
 
-# In your workspace directory (ideally an empty one), run 
-mkdir src
+mkdir -p workspace/src && cd workspace
 git clone https://github.com/ros2-rust/ros2_rust.git src/ros2_rust
 vcs import src < src/ros2_rust/ros2_rust_foxy.repos
 . /opt/ros/foxy/setup.sh
-cd /src
-colcon build --packages-up-to examples_rclrs_minimal_pub_sub
+colcon build
 ```
 
-It's normal to see a `Some selected packages are already built in one or more underlay workspace` warning. This is because the standard message definitions that are part of ROS 2 need to be regenerated in order to create Rust bindings.
+Then, to run the minimal pub-sub example, do this:
 
-If something goes very wrong and you want to start fresh, make sure to delete all `install*`, `build*` and `.cargo` directories. Also, make sure your terminal does not have any install sourced (check with `echo $AMENT_PREFIX_PATH`, which should be empty).
-
-
-### Building with `cargo`
-As an alternative to `colcon`, Rust packages can be built with pure `cargo`.
-
-However, this will not work out of the box, since the `Cargo.toml` files contain dependencies like `rclrs = "*"`, even though `rclrs` is not published on crates.io. This is intentional and follows ROS 2's principle for packages to reference their dependencies only with their name, and not with their path. At build-time, these dependencies are resolved to a path to the local package by `colcon`, and written into `.cargo/config.toml`. Therefore, the package in question should be built with `colcon` once, and after that `cargo` will be able to use the `.cargo/config.toml` file to find all dependencies.
-
-A second catch is that `cargo` message packages link against native libraries. A convenient way to ensure that they are found is to also source the setup script produced by `colcon`.
-
-As an example, here is how to build `rclcrs_examples` with `cargo`:
-
-```
-# Initial build of the package with colcon
-# Compare .cargo/config.toml with and without the --lookup-in-workspace flag to see its effect
-colcon build --packages-up-to examples_rclrs_minimal_pub_sub --lookup-in-workspace
-# Source the install directory
-. install/setup.sh
-cd examples_rclrs_minimal_pub_sub
-# Run cargo build, or cargo check, cargo doc, etc.
-cargo build
-```
-
-### Running the publisher and subscriber
-
-Publisher:
-
-```
-# Do this in a new terminal
+```shell
+# In a new terminal (or tmux window)
 . ./install/setup.sh
-ros2 run examples_rclrs_minimal_pub_sub minimal_publisher
-```
-
-Subscriber:
-
-```
-# Do this in a new terminal
+ros2 run rclrs_examples minimal_publisher
+# In a new terminal (or tmux window)
 . ./install/setup.sh
 ros2 run examples_rclrs_minimal_pub_sub minimal_subscriber
 ```
-
-Enjoy!
