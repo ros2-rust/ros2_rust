@@ -24,6 +24,10 @@ impl Drop for rcl_node_t {
     }
 }
 
+// SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
+// they are running in. Therefore, this type can be safely sent to another thread.
+unsafe impl Send for rcl_node_t {}
+
 /// A processing unit that can communicate with other nodes.
 ///
 /// Nodes are a core concept in ROS 2. Refer to the official ["Understanding ROS 2 nodes"][1]
@@ -263,7 +267,7 @@ impl Node {
     ) -> Result<Arc<Subscription<T>>, RclrsError>
     where
         T: Message,
-        F: FnMut(T) + 'static,
+        F: FnMut(T) + 'static + Send,
     {
         let subscription = Arc::new(Subscription::<T>::new(self, topic, qos, callback)?);
         self.subscriptions

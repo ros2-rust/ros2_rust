@@ -213,6 +213,11 @@ macro_rules! string_impl {
             }
         }
 
+        // SAFETY: A string is a simple data structure, and therefore not thread-specific.
+        unsafe impl Send for $string {}
+        // SAFETY: A string does not have interior mutability, so it can be shared.
+        unsafe impl Sync for $string {}
+
         impl SequenceAlloc for $string {
             fn sequence_init(seq: &mut Sequence<Self>, size: libc::size_t) -> bool {
                 // SAFETY: There are no special preconditions to the sequence_init function.

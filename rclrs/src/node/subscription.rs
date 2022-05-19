@@ -13,6 +13,10 @@ use rosidl_runtime_rs::{Message, RmwMessage};
 
 use parking_lot::{Mutex, MutexGuard};
 
+// SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
+// they are running in. Therefore, this type can be safely sent to another thread.
+unsafe impl Send for rcl_subscription_t {}
+
 /// Internal struct used by subscriptions.
 pub struct SubscriptionHandle {
     handle: Mutex<rcl_subscription_t>,
@@ -37,7 +41,7 @@ impl Drop for SubscriptionHandle {
 }
 
 /// Trait to be implemented by concrete [`Subscription`]s.
-pub trait SubscriptionBase {
+pub trait SubscriptionBase: Send + Sync {
     /// Internal function to get a reference to the `rcl` handle.
     fn handle(&self) -> &SubscriptionHandle;
     /// Tries to take a new message and run the callback with it.
@@ -61,7 +65,7 @@ where
 {
     pub(crate) handle: Arc<SubscriptionHandle>,
     /// The callback function that runs when a message was received.
-    pub callback: Mutex<Box<dyn FnMut(T) + 'static>>,
+    pub callback: Mutex<Box<dyn FnMut(T) + 'static + Send>>,
     message: PhantomData<T>,
 }
 
@@ -81,7 +85,7 @@ where
     ) -> Result<Self, RclrsError>
     where
         T: Message,
-        F: FnMut(T) + 'static,
+        F: FnMut(T) + 'static + Send,
     {
         // SAFETY: Getting a zero-initialized value is always safe.
         let mut subscription_handle = unsafe { rcl_get_zero_initialized_subscription() };
