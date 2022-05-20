@@ -1,7 +1,8 @@
 [package]
 name = "rosidl_runtime_rs"
 version = "0.2.0"
-authors = ["Jacob Hassold <jhassold@dcscorp.com>", "Nikolai Morin <nnmmgit@gmail.com>"]
+# This project is not military-sponsored, Jacob's employment contract just requires him to use this email address
+authors = ["Jacob Hassold <jacob.a.hassold.civ@army.mil>", "Nikolai Morin <nnmmgit@gmail.com>"]
 edition = "2021"
 
 [lib]
