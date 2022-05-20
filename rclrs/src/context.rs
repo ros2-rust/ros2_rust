@@ -24,6 +24,10 @@ impl Drop for rcl_context_t {
     }
 }
 
+// SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
+// they are running in. Therefore, this type can be safely sent to another thread.
+unsafe impl Send for rcl_context_t {}
+
 /// Shared state between nodes and similar entities.
 ///
 /// It is possible, but not usually necessary, to have several contexts in an application.

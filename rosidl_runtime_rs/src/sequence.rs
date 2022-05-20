@@ -235,6 +235,11 @@ impl<T: SequenceAlloc + PartialOrd> PartialOrd for Sequence<T> {
     }
 }
 
+// SAFETY: A sequence is a simple data structure, and therefore not thread-specific.
+unsafe impl<T: Send + SequenceAlloc> Send for Sequence<T> {}
+// SAFETY: A sequence does not have interior mutability, so it can be shared.
+unsafe impl<T: Sync + SequenceAlloc> Sync for Sequence<T> {}
+
 impl<T> Sequence<T>
 where
     T: SequenceAlloc,

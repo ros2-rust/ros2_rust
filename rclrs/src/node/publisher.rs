@@ -12,6 +12,10 @@ use parking_lot::{Mutex, MutexGuard};
 
 use rosidl_runtime_rs::{Message, RmwMessage};
 
+// SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
+// they are running in. Therefore, this type can be safely sent to another thread.
+unsafe impl Send for rcl_publisher_t {}
+
 pub(crate) struct PublisherHandle {
     handle: Mutex<rcl_publisher_t>,
     node_handle: Arc<Mutex<rcl_node_t>>,

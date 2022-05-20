@@ -37,7 +37,7 @@ pub trait SequenceAlloc: Sized {
 /// used by user code.
 ///
 /// User code never needs to call this trait's method, much less implement this trait.
-pub trait RmwMessage: Clone + Debug + Default {
+pub trait RmwMessage: Clone + Debug + Default + Send + Sync {
     /// Get a pointer to the correct `rosidl_message_type_support_t` structure.
     fn get_type_support() -> libc::uintptr_t;
 }
@@ -126,7 +126,7 @@ pub trait RmwMessage: Clone + Debug + Default {
 ///  problem, since nothing is allocated this way.
 /// The `Drop` impl for any sequence or string will call `fini()`.
 
-pub trait Message: Clone + Debug + Default + 'static {
+pub trait Message: Clone + Debug + Default + 'static + Send + Sync {
     /// The corresponding RMW-native message type.
     type RmwMsg: RmwMessage;
 
