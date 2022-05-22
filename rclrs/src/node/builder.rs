@@ -9,20 +9,21 @@ use std::sync::Arc;
 /// A builder for creating a [`Node`][1].
 ///
 /// The builder pattern allows selectively setting some fields, and leaving all others at their default values.
+/// This struct instance is created via [`Node::builder()`][2].
 ///
 /// The default values for optional fields are:
 /// - `namespace: "/"`
 ///
 /// # Example
 /// ```
-/// # use rclrs::{Context, Node, NodeBuilder, RclrsError};
+/// # use rclrs::{Context, Node, RclrsError};
 /// let context = Context::new([])?;
 /// // Building a node in a single expression
-/// let node = NodeBuilder::new("foo_node", &context).namespace("/bar").build()?;
+/// let node = Node::builder(&context, "foo_node").namespace("/bar").build()?;
 /// assert_eq!(node.name(), "foo_node");
 /// assert_eq!(node.namespace(), "/bar");
 /// // Building a node step-by-step
-/// let mut builder = NodeBuilder::new("goose", &context);
+/// let mut builder = Node::builder(&context, "goose");
 /// builder = builder.namespace("/duck/duck");
 /// let node = builder.build()?;
 /// assert_eq!(node.fully_qualified_name(), "/duck/duck/goose");
@@ -30,6 +31,8 @@ use std::sync::Arc;
 /// ```
 ///
 /// [1]: crate::Node
+/// [2]: crate::Node::builder
+///
 pub struct NodeBuilder {
     context: Arc<Mutex<rcl_context_t>>,
     name: String,
@@ -37,43 +40,12 @@ pub struct NodeBuilder {
 }
 
 impl NodeBuilder {
-    /// Creates a builder for a node with the given name.
+    /// Create builder instance.
     ///
-    /// See the [`Node` docs][1] for general information on node names.
+    /// For details and code examples, see [`Node::builder()`][1]
     ///
-    /// # Rules for valid node names
-    ///
-    /// The rules for a valid node name are checked by the [`rmw_validate_node_name()`][2]
-    /// function. They are:
-    /// - Must contain only the `a-z`, `A-Z`, `0-9`, and `_` characters
-    /// - Must not be empty and not be longer than `RMW_NODE_NAME_MAX_NAME_LENGTH`
-    /// - Must not start with a number
-    ///
-    /// Note that node name validation is delayed until [`NodeBuilder::build()`][3].
-    ///
-    /// # Example
-    /// ```
-    /// # use rclrs::{Context, Node, NodeBuilder, RclrsError, RclReturnCode, NodeErrorCode};
-    /// let context = Context::new([])?;
-    /// // This is a valid node name
-    /// assert!(NodeBuilder::new("my_node", &context).build().is_ok());
-    /// // This is another valid node name (although not a good one)
-    /// assert!(NodeBuilder::new("_______", &context).build().is_ok());
-    /// // This is an invalid node name
-    /// assert_eq!(
-    ///     NodeBuilder::new("röböt", &context)
-    ///         .build()
-    ///         .unwrap_err()
-    ///         .code,
-    ///     RclReturnCode::NodeError(NodeErrorCode::NodeInvalidName)
-    /// );
-    /// # Ok::<(), RclrsError>(())
-    /// ```    
-    ///    
-    /// [1]: crate::Node#naming
-    /// [2]: https://docs.ros2.org/latest/api/rmw/validate__node__name_8h.html#a5690a285aed9735f89ef11950b6e39e3
-    /// [3]: NodeBuilder::build
-    pub fn new(name: &str, context: &Context) -> NodeBuilder {
+    /// [1]: crate::Node::builder
+    pub(crate) fn new(context: &Context, name: &str) -> NodeBuilder {
         NodeBuilder {
             context: context.handle.clone(),
             name: name.to_string(),
@@ -102,14 +74,14 @@ impl NodeBuilder {
     ///
     /// # Example
     /// ```
-    /// # use rclrs::{Context, Node, NodeBuilder, RclrsError, RclReturnCode, NodeErrorCode};
+    /// # use rclrs::{Context, Node, RclrsError, RclReturnCode, NodeErrorCode};
     /// let context = Context::new([])?;
     /// // This is a valid namespace
-    /// let builder_ok_ns = NodeBuilder::new("my_node", &context).namespace("/some/nested/namespace");
+    /// let builder_ok_ns = Node::builder(&context, "my_node").namespace("/some/nested/namespace");
     /// assert!(builder_ok_ns.build().is_ok());
     /// // This is an invalid namespace
     /// assert_eq!(
-    ///     NodeBuilder::new("my_node", &context)
+    ///     Node::builder(&context, "my_node")
     ///         .namespace("/10_percent_luck/20_percent_skill")
     ///         .build()
     ///         .unwrap_err()
@@ -118,7 +90,7 @@ impl NodeBuilder {
     /// );
     /// // A missing forward slash at the beginning is automatically added
     /// assert_eq!(
-    ///     NodeBuilder::new("my_node", &context)
+    ///     Node::builder(&context, "my_node")
     ///         .namespace("foo")
     ///         .build()?
     ///         .namespace(),
@@ -140,10 +112,12 @@ impl NodeBuilder {
     ///
     /// Node name and namespace validation is performed in this method.
     ///
-    /// For example usage, see the [`NodeBuilder`] docs.
+    /// For example usage, see the [`Node::builder()`][1] docs.
     ///
     /// # Panics
     /// When the node name or namespace contain null bytes.
+    ///
+    /// [1]: crate::Node::builder
     pub fn build(&self) -> Result<Node, RclrsError> {
         let node_name = CString::new(self.name.as_str()).unwrap();
         let node_namespace = CString::new(self.namespace.as_str()).unwrap();

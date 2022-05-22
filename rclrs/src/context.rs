@@ -115,7 +115,7 @@ impl Context {
     /// # Ok::<(), RclrsError>(())
     /// ```
     pub fn create_node(&self, node_name: &str) -> Result<Node, RclrsError> {
-        NodeBuilder::new(node_name, self).build()
+        Node::builder(self, node_name).build()
     }
 
     /// Creates a [`NodeBuilder`][1].
@@ -136,7 +136,7 @@ impl Context {
     /// # Ok::<(), RclrsError>(())
     /// ```
     pub fn create_node_builder(&self, node_name: &str) -> NodeBuilder {
-        NodeBuilder::new(node_name, self)
+        Node::builder(self, node_name)
     }
 
     /// Checks if the context is still valid.

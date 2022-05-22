@@ -89,7 +89,7 @@ impl Node {
     /// See [`NodeBuilder::new()`] for documentation.
     #[allow(clippy::new_ret_no_self)]
     pub fn new(node_name: &str, context: &Context) -> Result<Node, RclrsError> {
-        NodeBuilder::new(node_name, context).build()
+        Self::builder(context, node_name).build()
     }
 
     /// Returns the name of the node.
@@ -254,5 +254,45 @@ impl Node {
 
         debug_assert_eq!(ret, 0);
         domain_id
+    }
+
+    /// Creates a builder for a node with the given name.
+    ///
+    /// See the [`Node` docs][1] for general information on node names.
+    ///
+    /// # Rules for valid node names
+    ///
+    /// The rules for a valid node name are checked by the [`rmw_validate_node_name()`][2]
+    /// function. They are:
+    /// - Must contain only the `a-z`, `A-Z`, `0-9`, and `_` characters
+    /// - Must not be empty and not be longer than `RMW_NODE_NAME_MAX_NAME_LENGTH`
+    /// - Must not start with a number
+    ///
+    /// Note that node name validation is delayed until [`NodeBuilder::build()`][3].
+    ///
+    /// # Example
+    /// ```
+    /// # use rclrs::{Context, Node, RclrsError, RclReturnCode, NodeErrorCode};
+    /// let context = Context::new([])?;
+    /// // This is a valid node name
+    /// assert!(Node::builder(&context, "my_node").build().is_ok());
+    /// // This is another valid node name (although not a good one)
+    /// assert!(Node::builder(&context, "_______").build().is_ok());
+    /// // This is an invalid node name
+    /// assert_eq!(
+    ///     Node::builder(&context, "röböt")
+    ///         .build()
+    ///         .unwrap_err()
+    ///         .code,
+    ///     RclReturnCode::NodeError(NodeErrorCode::NodeInvalidName)
+    /// );
+    /// # Ok::<(), RclrsError>(())
+    /// ```    
+    ///    
+    /// [1]: crate::Node#naming
+    /// [2]: https://docs.ros2.org/latest/api/rmw/validate__node__name_8h.html#a5690a285aed9735f89ef11950b6e39e3
+    /// [3]: NodeBuilder::build
+    pub fn builder(context: &Context, node_name: &str) -> NodeBuilder {
+        NodeBuilder::new(context, node_name)
     }
 }
