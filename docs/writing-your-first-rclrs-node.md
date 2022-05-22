@@ -6,7 +6,7 @@ As a semi-realistic example, let's create a node that periodically republishes t
 
 ## Create a package
 
-You can create a package in the usual way:
+You can start by creating a package with `cargo` in the usual way:
 
 ```console
 cargo new republisher_node && cd republisher_node
@@ -14,21 +14,29 @@ cargo new republisher_node && cd republisher_node
 
 In the `Cargo.toml` file, add a dependency on `rclrs = "*"` and `std_msgs = "*"`.
 
-Additionally, create a new `package.xml` if you want your node to be buildable with `colcon`. See the official [tutorial on creating a ROS 2 package](https://docs.ros.org/en/rolling/Tutorials/Creating-Your-First-ROS2-Package.html) for the structure of this file. Make sure to change the build type to `ament_cargo` and the list of dependencies to the two packages mentioned above, as such:
+Additionally, create a new `package.xml` if you want your node to be buildable with `colcon`. Make sure to change the build type to `ament_cargo` and to include the two packages mentioned above in the dependencies, as such:
 
 ```xml
-<depend>rclrs</depend>
-<depend>std_msgs</depend>
+<package format="3">
+  <name>republisher_node</name>
+  <version>0.0.0</version>
+  <description>TODO: Package description</description>
+  <maintainer email="user@todo.todo">user</maintainer>
+  <license>TODO: License declaration</license>
 
-<export>
-  <build_type>ament_cargo</build_type>
-</export>
+  <depend>rclrs</depend>
+  <depend>std_msgs</depend>
+
+  <export>
+    <build_type>ament_cargo</build_type>
+  </export>
+</package>
 ```
 
 
 ## Writing the basic node structure
 
-Since Rust doesn't have inheritance, it's not possible to inherit from `Node` like you would in `rclcpp` or `rclpy`.
+Since Rust doesn't have inheritance, it's not possible to inherit from `Node` as is common practice in `rclcpp` or `rclpy`.
 
 Instead, you can store the node as a regular member. Let's add a struct that contains the node, a subscription, and a field for the last message that was received to `main.rs`:
 
@@ -143,7 +151,7 @@ If you couldn't follow the explanation involving borrowing, closures etc. above,
 The node still doesn't republish the received messages. First, let's add a publisher to the node:
 
 ```rust
-// Add this new field to the RepublisherNode struct:
+// Add this new field to the RepublisherNode struct, after the subscription:
 publisher: rclrs::Publisher<StringMsg>,
 
 // Change the end of RepublisherNode::new() to this:
@@ -167,7 +175,7 @@ fn republish(&self) -> Result<(), rclrs::RclrsError> {
 }
 ```
 
-What's left to do is to call this function every second. `rclrs` doesn't have built-in functionality to do run a function at a fixed interval, but it's easy enough to achieve with a thread and the sleep function. Add `use std::time::Duration;` to the imports, and change your main function to spawn a separate thread:
+What's left to do is to call this function every second. `rclrs` doesn't yet have built-in functionality to do run a function at a fixed interval, but it's easy enough to achieve with a thread and the sleep function. Change your main function to spawn a separate thread:
 
 ```rust
 fn main() -> Result<(), rclrs::RclrsError> {
@@ -175,6 +183,7 @@ fn main() -> Result<(), rclrs::RclrsError> {
     let republisher = RepublisherNode::new(&context)?;
     std::thread::spawn(|| -> Result<(), rclrs::RclrsError> {
         loop {
+            use std::time::Duration;
             std::thread::sleep(Duration::from_millis(1000));
             republisher.republish()?;
         }
@@ -196,6 +205,7 @@ fn main() -> Result<(), rclrs::RclrsError> {
     let republisher_other_thread = Arc::clone(&republisher);
     std::thread::spawn(move || -> Result<(), rclrs::RclrsError> {
         loop {
+            use std::time::Duration;
             std::thread::sleep(Duration::from_millis(1000));
             republisher_other_thread.republish()?;
         }
