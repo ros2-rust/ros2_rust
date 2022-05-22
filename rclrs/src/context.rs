@@ -120,11 +120,12 @@ impl Context {
 
     /// Creates a [`NodeBuilder`][1].
     ///
-    /// Convenience function equivalent to [`NodeBuilder::new`][2].
+    /// Convenience function equivalent to [`NodeBuilder::new()`][2] and [`Node::builder()`][3].
     /// Please see that function's documentation.
     ///
     /// [1]: crate::NodeBuilder
     /// [2]: crate::NodeBuilder::new
+    /// [3]: crate::Node::builder
     ///
     /// # Example
     /// ```
