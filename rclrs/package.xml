@@ -5,8 +5,11 @@
 <package format="3">
   <name>rclrs</name>
   <version>0.2.0</version>
-  <description>Package containing the Rust client.</description>
+  <description>Package containing the Rust client library.</description>
   <maintainer email="esteve@apache.org">Esteve Fernandez</maintainer>
+  <maintainer email="nnmmgit@gmail.com">Nikolai Morin</maintainer>
+  <!-- This project is not military-sponsored, Jacob's employment contract just requires him to use this email address -->
+  <maintainer email="jacob.a.hassold.civ@army.mil">Jacob Hassold</maintainer>
   <license>Apache License 2.0</license>
   <author email="esteve@apache.org">Esteve Fernandez</author>
 

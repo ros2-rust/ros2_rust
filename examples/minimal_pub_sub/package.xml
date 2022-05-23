@@ -7,6 +7,9 @@
   <version>0.2.0</version>
   <description>Package containing an example of the publish-subscribe mechanism in rclrs.</description>
   <maintainer email="esteve@apache.org">Esteve Fernandez</maintainer>
+  <maintainer email="nnmmgit@gmail.com">Nikolai Morin</maintainer>
+  <!-- This project is not military-sponsored, Jacob's employment contract just requires him to use this email address -->
+  <maintainer email="jacob.a.hassold.civ@army.mil">Jacob Hassold</maintainer>
   <license>Apache License 2.0</license>
 
   <build_depend>rclrs</build_depend>

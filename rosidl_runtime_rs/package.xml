@@ -6,10 +6,11 @@
   <name>rosidl_runtime_rs</name>
   <version>0.2.0</version>
   <description>Message generation code shared by Rust projects in ROS 2</description>
-  <maintainer email="jhassold@dcscorp.com">Jacob Hassold</maintainer>
+  <!-- This project is not military-sponsored, Jacob's employment contract just requires him to use this email address -->
+  <maintainer email="jacob.a.hassold.civ@army.mil">Jacob Hassold</maintainer>
   <maintainer email="nnmmgit@gmail.com">Nikolai Morin</maintainer>
   <license>Apache License 2.0</license>
-  <author email="jhassold@dcscorp.com">Jacob Hassold</author>
+  <author email="jacob.a.hassold.civ@army.mil">Jacob Hassold</author>
   <author email="nnmmgit@gmail.com">Nikolai Morin</author>
 
   <depend>rosidl_runtime_c</depend>
