@@ -177,7 +177,7 @@ fn republish(&self) -> Result<(), rclrs::RclrsError> {
 }
 ```
 
-What's left to do is to call this function every second. `rclrs` doesn't yet have built-in functionality to do run a function at a fixed interval, but it's easy enough to achieve with a thread and the sleep function. Change your main function to spawn a separate thread:
+What's left to do is to call this function every second. `rclrs` doesn't yet have ROS timers, which run a function at a fixed interval, but it's easy enough to achieve with a thread, a loop and the sleep function. Change your main function to spawn a separate thread:
 
 ```rust
 fn main() -> Result<(), rclrs::RclrsError> {
