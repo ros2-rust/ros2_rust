@@ -88,6 +88,7 @@ jobs:
       run: |
         cd ${{ steps.build.outputs.ros-workspace-directory-name }}
         . /opt/ros/${{ matrix.ros_distribution }}/setup.sh
+        cat .cargo/config.toml
         for path in $(colcon list | awk '$3 == "(ament_cargo)" { print $2 }'); do
         cd $path
         echo "Running clippy in $path"
