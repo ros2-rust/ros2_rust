@@ -6,6 +6,8 @@ As a semi-realistic example, let's create a node that periodically republishes t
 
 ## Create a package
 
+In ROS 2, `ros2 pkg create` is the standard way of creating packages. However, the functionality to create Rust packages with this tool is not yet implemented, so they need to be created manually.
+
 You can start by creating a package with `cargo` in the usual way:
 
 ```console
