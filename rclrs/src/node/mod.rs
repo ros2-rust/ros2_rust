@@ -88,7 +88,7 @@ impl Node {
     ///
     /// See [`NodeBuilder::new()`] for documentation.
     #[allow(clippy::new_ret_no_self)]
-    pub fn new(node_name: &str, context: &Context) -> Result<Node, RclrsError> {
+    pub fn new(context: &Context, node_name: &str) -> Result<Node, RclrsError> {
         Self::builder(context, node_name).build()
     }
 
