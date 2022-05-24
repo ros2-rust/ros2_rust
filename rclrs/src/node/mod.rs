@@ -258,7 +258,7 @@ impl Node {
 
     /// Creates [`NodeBuilder`][1]
     ///
-    /// This is convienience function equivalent to [`NodeBuilder::new()`][2].
+    /// Convenience function equivalent to [`NodeBuilder::new()`][2].
     ///
     /// [1]: crate::NodeBuilder
     /// [2]: crate::NodeBuilder::new
