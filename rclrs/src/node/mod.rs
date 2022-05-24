@@ -256,7 +256,7 @@ impl Node {
         domain_id
     }
 
-    /// Creates [`NodeBuilder`][1]
+    /// Creates a [`NodeBuilder`][1] with the given name.
     ///
     /// Convenience function equivalent to [`NodeBuilder::new()`][2].
     ///
