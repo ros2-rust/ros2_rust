@@ -146,7 +146,7 @@ impl NodeBuilder {
     ///
     /// Node name and namespace validation is performed in this method.
     ///
-    /// For example usage, see the [`Node::builder()`][1] docs.
+    /// For example usage, see the [`NodeBuilder`][1] docs.
     ///
     /// # Panics
     /// When the node name or namespace contain null bytes.
