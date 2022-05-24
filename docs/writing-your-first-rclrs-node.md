@@ -95,7 +95,7 @@ Let's do something about that `todo!`. The obvious thing for the subscription ca
 
 This is a standard pattern in C++, but doesn't work in Rust. Why not?
 
-Written like this, `data` is *borrowed* by the callback, but `data` is a local variable only exists in its current form until the end of `RepublisherNode::new()`. The subscription callback is required to not borrow any variables, because the subscription, and therefore the callback, can live indefinitely.
+Written like this, `data` is *borrowed* by the callback, but `data` is a local variable which only exists in its current form until the end of `RepublisherNode::new()`. The subscription callback is required to not borrow any variables because the subscription, and therefore the callback, could live indefinitely.
 
 > 💡 As an aside, this requirement is expressed by the `'static` bound on the generic parameter `F` for the callback in `Node::create_subscription()`.
 
@@ -146,7 +146,7 @@ impl RepublisherNode {
 
 If that seems needlessly complicated – maybe it is, in the sense that `rclrs` could potentially introduce new abstractions to improve the ergonomics of this use case. This is to be discussed.
 
-If you couldn't follow the explanation involving borrowing, closures etc. above, an explanation of these concepts is unfortunately out of scope of this tutorial. There are many good Rust books and tutorials that can help you understand these crucial features.
+If you couldn't follow the explanation involving borrowing, closures etc. above, an explanation of these concepts is unfortunately out of scope of this tutorial. There are many good Rust books and tutorials that can help you understand these crucial features. The online book [*The Rust Programming Language*](https://doc.rust-lang.org/book/) is a good place to start for most topics.
 
 ## Periodically run a republishing function
 
@@ -177,7 +177,7 @@ fn republish(&self) -> Result<(), rclrs::RclrsError> {
 }
 ```
 
-What's left to do is to call this function every second. `rclrs` doesn't yet have ROS timers, which run a function at a fixed interval, but it's easy enough to achieve with a thread, a loop and the sleep function. Change your main function to spawn a separate thread:
+What's left to do is to call this function every second. `rclrs` doesn't yet have ROS timers, which run a function at a fixed interval, but it's easy enough to achieve with a thread, a loop, and the sleep function. Change your main function to spawn a separate thread:
 
 ```rust
 fn main() -> Result<(), rclrs::RclrsError> {
