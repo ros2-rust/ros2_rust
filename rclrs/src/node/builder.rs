@@ -151,7 +151,7 @@ impl NodeBuilder {
     /// # Panics
     /// When the node name or namespace contain null bytes.
     ///
-    /// [1]: crate::Node::builder
+    /// [1]: crate::NodeBuilder
     pub fn build(&self) -> Result<Node, RclrsError> {
         let node_name = CString::new(self.name.as_str()).unwrap();
         let node_namespace = CString::new(self.namespace.as_str()).unwrap();
