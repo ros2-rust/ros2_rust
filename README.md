@@ -26,7 +26,7 @@ Since the client library is still rapidly evolving, there are no stability guara
 Sounds great, how can I try this out?
 -------------------------------------
 
-Here are the steps for building the `ros2_rust` examples in a vanilla Ubuntu Focal installation. See the [in-depth guide for building `ros2_rust` packages](docs/BUILDING.md) for more details and options, including a Docker-based setup.
+Here are the steps for building the `ros2_rust` examples in a vanilla Ubuntu Focal installation. See the [in-depth guide for building `ros2_rust` packages](docs/building.md) for more details and options, including a Docker-based setup.
 
 <!--- These steps should be kept in sync with docs/Building.md --->
 ```shell
@@ -56,3 +56,7 @@ ros2 run examples_rclrs_minimal_pub_sub minimal_publisher
 . ./install/setup.sh
 ros2 run examples_rclrs_minimal_pub_sub minimal_subscriber
 ```
+
+Further documentation articles:
+- [Tutorial on writing your first node with `rclrs`](docs/writing-your-first-rclrs-node.md)
+- [Contributor's guide](docs/CONTRIBUTING.md)
