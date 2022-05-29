@@ -1,4 +1,4 @@
-use crate::error::{RclReturnCode, SubscriberErrorCode, ToResult};
+use crate::error::{RclReturnCode, ToResult};
 use crate::qos::QoSProfile;
 use crate::Node;
 use crate::{rcl_bindings::*, RclrsError};
@@ -128,10 +128,9 @@ where
     /// Fetches a new message.
     ///
     /// When there is no new message, this will return a
-    /// [`SubscriptionTakeFailed`][1] wrapped in an [`RclrsError`][2].
+    /// [`SubscriptionTakeFailed`][1]..
     ///
-    /// [1]: crate::SubscriberErrorCode
-    /// [2]: crate::RclrsError
+    /// [1]: crate::RclrsError
     //
     // ```text
     // +-------------+
@@ -178,8 +177,8 @@ where
     fn execute(&self) -> Result<(), RclrsError> {
         let msg = match self.take() {
             Ok(msg) => msg,
-            Err(RclrsError {
-                code: RclReturnCode::SubscriberError(SubscriberErrorCode::SubscriptionTakeFailed),
+            Err(RclrsError::RclError {
+                code: RclReturnCode::SubscriptionTakeFailed,
                 ..
             }) => {
                 // Spurious wakeup – this may happen even when a waitset indicated that this
