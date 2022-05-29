@@ -85,6 +85,25 @@ fn demonstrate_printing() {
     );
 }
 
+fn demonstrate_serde() -> Result<(), Error> {
+    // When the serde feature is turned on, messages are able to be serialized
+    // to and deserialized from a variety of formats. Here JSON is used as an
+    // example.
+    // Works with RMW-native and idiomatic messages.
+    let idiomatic_msg = rclrs_example_msgs::msg::VariousTypes::default();
+    let rmw_msg = rclrs_example_msgs::msg::rmw::VariousTypes::default();
+    println!("================= JSON serialization with Serde ==================");
+    let idiomatic_serialized = serde_json::to_string_pretty(&idiomatic_msg)?;
+    let rmw_serialized = serde_json::to_string_pretty(&rmw_msg)?;
+    assert_eq!(idiomatic_serialized, rmw_serialized);
+    println!("{}", rmw_serialized);
+    let idiomatic_deserialized = serde_json::from_str(&idiomatic_serialized)?;
+    let rmw_deserialized = serde_json::from_str(&rmw_serialized)?;
+    assert_eq!(idiomatic_msg, idiomatic_deserialized);
+    assert_eq!(rmw_msg, rmw_deserialized);
+    Ok(())
+}
+
 fn demonstrate_sequences() {
     // Convenient creation of (bounded) sequences with the seq! macro
     // This one has three items and a length bound of 5
@@ -151,6 +170,7 @@ fn demonstrate_pubsub() -> Result<(), Error> {
 fn main() -> Result<(), Error> {
     check_default_values();
     demonstrate_printing();
+    demonstrate_serde()?;
     demonstrate_sequences();
     demonstrate_pubsub()?;
     Ok(())
