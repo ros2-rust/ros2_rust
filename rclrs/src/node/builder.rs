@@ -1,6 +1,6 @@
 use crate::rcl_bindings::*;
 use crate::{
-    node::run_string_getter_with_handle, resolve_parameter_overrides, Context, Node, RclrsError,
+    node::call_string_getter_with_handle, resolve_parameter_overrides, Context, Node, RclrsError,
     ToResult,
 };
 
@@ -265,8 +265,7 @@ impl NodeBuilder {
         };
 
         let _parameter_map = unsafe {
-            let fqn =
-                run_string_getter_with_handle(&rcl_node, rcl_node_get_fully_qualified_name);
+            let fqn = call_string_getter_with_handle(&rcl_node, rcl_node_get_fully_qualified_name);
             resolve_parameter_overrides(fqn, &rcl_context.global_arguments)?
         };
         let rcl_node_mtx = Arc::new(Mutex::new(rcl_node));

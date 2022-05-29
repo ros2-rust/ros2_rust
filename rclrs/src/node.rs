@@ -117,7 +117,7 @@ impl Node {
     /// # Ok::<(), RclrsError>(())
     /// ```
     pub fn name(&self) -> String {
-        self.run_string_getter(rcl_node_get_name)
+        self.call_string_getter(rcl_node_get_name)
     }
 
     /// Returns the namespace of the node.
@@ -143,7 +143,7 @@ impl Node {
     /// # Ok::<(), RclrsError>(())
     /// ```
     pub fn namespace(&self) -> String {
-        self.run_string_getter(rcl_node_get_namespace)
+        self.call_string_getter(rcl_node_get_namespace)
     }
 
     /// Returns the fully qualified name of the node.
@@ -163,15 +163,15 @@ impl Node {
     /// # Ok::<(), RclrsError>(())
     /// ```
     pub fn fully_qualified_name(&self) -> String {
-        self.run_string_getter(rcl_node_get_fully_qualified_name)
+        self.call_string_getter(rcl_node_get_fully_qualified_name)
     }
 
     // Helper for name(), namespace(), fully_qualified_name()
-    fn run_string_getter(
+    fn call_string_getter(
         &self,
         getter: unsafe extern "C" fn(*const rcl_node_t) -> *const c_char,
     ) -> String {
-        unsafe { run_string_getter_with_handle(&*self.rcl_node_mtx.lock(), getter) }
+        unsafe { call_string_getter_with_handle(&*self.rcl_node_mtx.lock(), getter) }
     }
 
     /// Creates a [`Publisher`][1].
@@ -270,11 +270,11 @@ impl Node {
     }
 }
 
-// Helper used to implement run_string_getter(), but also used to get the FQN in the Node::new()
-// function, which is why it's not merged into Node::run_string_getter().
+// Helper used to implement call_string_getter(), but also used to get the FQN in the Node::new()
+// function, which is why it's not merged into Node::call_string_getter().
 // This function is unsafe since it's possible to pass in an rcl_node_t with dangling
 // pointers etc.
-unsafe fn run_string_getter_with_handle(
+unsafe fn call_string_getter_with_handle(
     rcl_node: &rcl_node_t,
     getter: unsafe extern "C" fn(*const rcl_node_t) -> *const c_char,
 ) -> String {
