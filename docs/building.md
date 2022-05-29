@@ -220,3 +220,12 @@ If you've deleted your `install` directory but not your `.cargo` directory, you'
 > error: failed to resolve patches for `https://github.com/rust-lang/crates.io-index`
 
 Delete the `.cargo` directory, and rebuild.
+
+
+### Can not find library at runtime
+
+If you `cargo run` a package that depends on a custom message, or some other dynamic library outside of the ROS 2 distribution, you will see an error from the dynamic linker such as:
+
+> target/debug/message_demo: error while loading shared libraries: librclrs_example_msgs__rosidl_typesupport_c.so: cannot open shared object file: No such file or directory
+
+To help your executable find the library, one possibility is to source the install directory which contains the message (or other library) package. This will add the required entry to the `$LD_LIBRARY_PATH` variable.
