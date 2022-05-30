@@ -35,7 +35,7 @@ Here are the steps for building the `ros2_rust` examples in a vanilla Ubuntu Foc
 # Assuming you installed the minimal version of ROS 2, you need these additional packages:
 sudo apt install -y git libclang-dev python3-pip python3-vcstool # libclang-dev is required by bindgen
 # Install these plugins for cargo and colcon:
-cargo install cargo-ament-build
+cargo install --debug cargo-ament-build  # --debug is faster to install
 pip install git+https://github.com/colcon/colcon-cargo.git
 pip install git+https://github.com/colcon/colcon-ros-cargo.git
 
