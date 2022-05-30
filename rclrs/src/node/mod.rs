@@ -1,11 +1,13 @@
+mod builder;
 mod publisher;
 mod subscription;
+pub use self::builder::*;
 pub use self::publisher::*;
 pub use self::subscription::*;
 
 use crate::rcl_bindings::*;
 use crate::{Context, QoSProfile, RclrsError, ToResult};
-use std::ffi::{CStr, CString};
+use std::ffi::CStr;
 
 use std::cmp::PartialEq;
 use std::fmt;
@@ -37,7 +39,32 @@ unsafe impl Send for rcl_node_t {}
 /// That means that even after the node itself is dropped, it will continue to exist and be
 /// displayed by e.g. `ros2 topic` as long as its publishers and subscriptions are not dropped.
 ///
+/// # Naming
+/// A node has a *name* and a *namespace*.
+/// The node namespace will be prefixed to the node name to form the *fully qualified
+/// node name*. This is the name that is shown e.g. in `ros2 node list`.
+/// Similarly, the node namespace will be prefixed to all names of topics and services
+/// created from this node.
+///
+/// By convention, a node name with a leading underscore marks the node as hidden.
+///
+/// It's a good idea for node names in the same executable to be unique.
+///
+/// ## Remapping
+/// The namespace and name given when creating the node can be overriden through the command line.
+/// In that sense, the parameters to the node creation functions are only the _default_ namespace and
+/// name.
+/// See also the [official tutorial][1] on the command line arguments for ROS nodes, and the
+/// [`Node::namespace()`] and [`Node::name()`] functions for examples.
+///
+/// ## Rules for valid names
+/// The rules for valid node names and node namespaces are explained in
+/// [`NodeBuilder::new()`][3] and [`NodeBuilder::namespace()`][4].
+///
 /// [1]: https://docs.ros.org/en/rolling/Tutorials/Understanding-ROS2-Nodes.html
+/// [2]: https://docs.ros.org/en/rolling/How-To-Guides/Node-arguments.html
+/// [3]: crate::NodeBuilder::new
+/// [4]: crate::NodeBuilder::namespace
 pub struct Node {
     handle: Arc<Mutex<rcl_node_t>>,
     pub(crate) context: Arc<Mutex<rcl_context_t>>,
@@ -63,99 +90,10 @@ impl fmt::Debug for Node {
 impl Node {
     /// Creates a new node in the empty namespace.
     ///
-    /// See [`Node::new_with_namespace`] for documentation.
+    /// See [`NodeBuilder::new()`] for documentation.
     #[allow(clippy::new_ret_no_self)]
-    pub fn new(node_name: &str, context: &Context) -> Result<Node, RclrsError> {
-        Self::new_with_namespace("", node_name, context)
-    }
-
-    /// Creates a new node in a namespace.
-    ///
-    /// A namespace without a leading forward slash is automatically changed to have a leading
-    /// forward slash.
-    ///
-    /// # Naming
-    /// The node namespace will be prefixed to the node name itself to form the *fully qualified
-    /// node name*. This is the name that is shown e.g. in `ros2 node list`.
-    /// Similarly, the node namespace will be prefixed to all names of topics and services
-    /// created from this node.
-    ///
-    /// By convention, a node name with a leading underscore marks the node as hidden.
-    ///
-    /// It's a good idea for node names in the same executable to be unique.
-    ///
-    /// ## Remapping
-    /// The namespace and name given here can be overriden through the command line.
-    /// In that sense, the parameters to this functions are only the _default_ namespace and name.
-    /// See also the [official tutorial][1] on the command line arguments for ROS nodes, and the
-    /// [`Node::namespace()`] and [`Node::name()`] functions for examples.
-    ///
-    /// ## Rules for valid names
-    /// The node namespace needs to fulfill the criteria of
-    /// [`rmw_validate_namespace()`][2], otherwise an error will be returned.
-    /// Likewise, the node name needs to fulfill the criteria of [`rmw_validate_node_name()`][3].
-    ///
-    /// # Example
-    /// ```
-    /// # use rclrs::{Context, Node, RclReturnCode, NodeErrorCode};
-    /// let ctx = Context::new([])?;
-    /// // This is a valid namespace and name
-    /// assert!(Node::new_with_namespace("/my/nested/namespace", "my_node", &ctx).is_ok());
-    /// // This name contains invalid characters, although the empty namespace is valid
-    /// assert_eq!(
-    ///     Node::new_with_namespace("", "röböt", &ctx),
-    ///     Err(RclReturnCode::NodeError(NodeErrorCode::NodeInvalidName))
-    /// );
-    /// // This namespace starts with a number
-    /// assert_eq!(
-    ///     Node::new_with_namespace("/123/4", "my_node", &ctx),
-    ///     Err(RclReturnCode::NodeError(NodeErrorCode::NodeInvalidNamespace))
-    /// );
-    /// # Ok::<(), RclReturnCode>(())
-    /// ```
-    ///
-    /// # Panics
-    /// When the node namespace or node name contain interior null bytes.
-    ///
-    /// [1]: https://docs.ros.org/en/rolling/How-To-Guides/Node-arguments.html
-    /// [2]: https://docs.ros2.org/latest/api/rmw/validate__namespace_8h.html
-    /// [3]: https://docs.ros2.org/latest/api/rmw/validate__node__name_8h.html
-    pub fn new_with_namespace(
-        node_ns: &str,
-        node_name: &str,
-        context: &Context,
-    ) -> Result<Node, RclrsError> {
-        let raw_node_name = CString::new(node_name).unwrap();
-        let raw_node_ns = CString::new(node_ns).unwrap();
-
-        // SAFETY: Getting a zero-initialized value is always safe.
-        let mut node_handle = unsafe { rcl_get_zero_initialized_node() };
-        let context_handle = &mut *context.handle.lock();
-
-        unsafe {
-            // SAFETY: No preconditions for this function.
-            let node_options = rcl_node_get_default_options();
-            // SAFETY: The node handle is zero-initialized as expected by this function.
-            // The strings and node options are copied by this function, so we don't need
-            // to keep them alive.
-            // The context handle is kept alive because it is co-owned by the node.
-            rcl_node_init(
-                &mut node_handle,
-                raw_node_name.as_ptr(),
-                raw_node_ns.as_ptr(),
-                context_handle,
-                &node_options,
-            )
-            .ok()?;
-        }
-
-        let handle = Arc::new(Mutex::new(node_handle));
-
-        Ok(Node {
-            handle,
-            context: context.handle.clone(),
-            subscriptions: std::vec![],
-        })
+    pub fn new(context: &Context, node_name: &str) -> Result<Node, RclrsError> {
+        Self::builder(context, node_name).build()
     }
 
     /// Returns the name of the node.
@@ -191,7 +129,10 @@ impl Node {
     /// # use rclrs::{Context, RclrsError};
     /// // Without remapping
     /// let context = Context::new([])?;
-    /// let node = context.create_node_with_namespace("/my/namespace", "my_node")?;
+    /// let node = context
+    ///   .create_node_builder("my_node")
+    ///   .namespace("/my/namespace")
+    ///   .build()?;
     /// assert_eq!(node.namespace(), "/my/namespace");
     /// // With remapping
     /// let remapping = ["--ros-args", "-r", "__ns:=/your_namespace"].map(String::from);
@@ -207,13 +148,16 @@ impl Node {
     /// Returns the fully qualified name of the node.
     ///
     /// The fully qualified name of the node is the node namespace combined with the node name.
-    /// It is subject to the remappings shown in [`Node::name`] and [`Node::namespace`].
+    /// It is subject to the remappings shown in [`Node::name()`] and [`Node::namespace()`].
     ///
     /// # Example
     /// ```
     /// # use rclrs::{Context, RclrsError};
     /// let context = Context::new([])?;
-    /// let node = context.create_node_with_namespace("/my/namespace", "my_node")?;
+    /// let node = context
+    ///   .create_node_builder("my_node")
+    ///   .namespace("/my/namespace")
+    ///   .build()?;
     /// assert_eq!(node.fully_qualified_name(), "/my/namespace/my_node");
     /// # Ok::<(), RclrsError>(())
     /// ```
@@ -292,14 +236,14 @@ impl Node {
     ///
     /// # Example
     /// ```
-    /// # use rclrs::{Context, RclReturnCode};
-    /// // set default ROS domain ID to 10 here
+    /// # use rclrs::{Context, RclrsError};
+    /// // Set default ROS domain ID to 10 here
     /// std::env::set_var("ROS_DOMAIN_ID", "10");
     /// let context = Context::new([])?;
     /// let node = context.create_node("domain_id_node")?;
-    /// let domain_id = node.domain_id();    
+    /// let domain_id = node.domain_id();
     /// assert_eq!(domain_id, 10);
-    /// # Ok::<(), RclReturnCode>(())
+    /// # Ok::<(), RclrsError>(())
     /// ```
     // TODO: If node option is supported,
     // add description about this function is for getting actual domain_id
@@ -314,5 +258,24 @@ impl Node {
 
         debug_assert_eq!(ret, 0);
         domain_id
+    }
+
+    /// Creates a [`NodeBuilder`][1] with the given name.
+    ///
+    /// Convenience function equivalent to [`NodeBuilder::new()`][2].
+    ///
+    /// [1]: crate::NodeBuilder
+    /// [2]: crate::NodeBuilder::new
+    ///
+    /// # Example
+    /// ```
+    /// # use rclrs::{Context, Node, RclrsError};
+    /// let context = Context::new([])?;
+    /// let node = Node::builder(&context, "my_node").build()?;
+    /// assert_eq!(node.name(), "my_node");
+    /// # Ok::<(), RclrsError>(())
+    /// ```
+    pub fn builder(context: &Context, node_name: &str) -> NodeBuilder {
+        NodeBuilder::new(context, node_name)
     }
 }

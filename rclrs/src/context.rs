@@ -1,5 +1,5 @@
 use crate::rcl_bindings::*;
-use crate::{Node, RclrsError, ToResult};
+use crate::{Node, NodeBuilder, RclrsError, ToResult};
 
 use std::ffi::CString;
 use std::os::raw::c_char;
@@ -112,37 +112,36 @@ impl Context {
     ///
     /// # Example
     /// ```
-    /// # use rclrs::{Context, RclReturnCode};
+    /// # use rclrs::{Context, RclrsError};
     /// let ctx = Context::new([])?;
     /// let node = ctx.create_node("my_node");
     /// assert!(node.is_ok());
-    /// # Ok::<(), RclReturnCode>(())
+    /// # Ok::<(), RclrsError>(())
     /// ```
     pub fn create_node(&self, node_name: &str) -> Result<Node, RclrsError> {
-        Node::new(node_name, self)
+        Node::builder(self, node_name).build()
     }
 
-    /// Creates a new node in a namespace.
+    /// Creates a [`NodeBuilder`][1].
     ///
-    /// Convenience function equivalent to [`Node::new_with_namespace`][1].
+    /// Convenience function equivalent to [`NodeBuilder::new()`][2] and [`Node::builder()`][3].
     /// Please see that function's documentation.
     ///
-    /// [1]: crate::Node::new_with_namespace
+    /// [1]: crate::NodeBuilder
+    /// [2]: crate::NodeBuilder::new
+    /// [3]: crate::Node::builder
     ///
     /// # Example
     /// ```
-    /// # use rclrs::{Context, RclReturnCode};
-    /// let ctx = Context::new([])?;
-    /// let node = ctx.create_node_with_namespace("/my/nested/namespace", "my_node");
-    /// assert!(node.is_ok());
-    /// # Ok::<(), RclReturnCode>(())
+    /// # use rclrs::{Context, RclrsError};
+    /// let context = Context::new([])?;
+    /// let node_builder = context.create_node_builder("my_node");
+    /// let node = node_builder.build()?;
+    /// assert_eq!(node.name(), "my_node");
+    /// # Ok::<(), RclrsError>(())
     /// ```
-    pub fn create_node_with_namespace(
-        &self,
-        node_namespace: &str,
-        node_name: &str,
-    ) -> Result<Node, RclrsError> {
-        Node::new_with_namespace(node_namespace, node_name, self)
+    pub fn create_node_builder(&self, node_name: &str) -> NodeBuilder {
+        Node::builder(self, node_name)
     }
 
     /// Checks if the context is still valid.
