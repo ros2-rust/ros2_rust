@@ -13,6 +13,7 @@
   <license>Apache License 2.0</license>
   <author email="esteve@apache.org">Esteve Fernandez</author>
 
+  <build_depend>libclang-dev</build_depend>
   <build_depend>rosidl_runtime_rs</build_depend>
   <build_depend>rcl</build_depend>
 
