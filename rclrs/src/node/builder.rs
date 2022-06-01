@@ -272,9 +272,6 @@ impl NodeBuilder {
         let node_namespace = CString::new(self.namespace.as_str()).unwrap();
 
         // SAFETY: No preconditions for this function.
-        let mut node_handle = unsafe { rcl_get_zero_initialized_node() };
-
-        // SAFETY: No preconditions for this function.
         let mut node_options = unsafe { rcl_node_get_default_options() };
 
         let cstr_args = self
@@ -300,9 +297,11 @@ impl NodeBuilder {
         node_options.arguments = arguments;
         node_options.use_global_arguments = self.use_global_arguments;
         node_options.enable_rosout = self.enable_rosout;
-        //SAFETY: No preconditions for this function.
+        // SAFETY: No preconditions for this function.
         node_options.allocator = unsafe { rcutils_get_default_allocator() };
 
+        // SAFETY: No preconditions for this function.
+        let mut node_handle = unsafe { rcl_get_zero_initialized_node() };
         unsafe {
             // SAFETY: No preconditions for this function.
             let context_handle = &mut *self.context.lock();
