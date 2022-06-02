@@ -236,35 +236,7 @@ impl NodeBuilder {
     pub fn build(&self) -> Result<Node, RclrsError> {
         let node_name = CString::new(self.name.as_str()).unwrap();
         let node_namespace = CString::new(self.namespace.as_str()).unwrap();
-
-        // SAFETY: No preconditions for this function.
-        let mut node_options = unsafe { rcl_node_get_default_options() };
-
-        let cstr_args = self
-            .arguments
-            .iter()
-            .map(|s| CString::new(s.as_str()).unwrap())
-            .collect::<Vec<_>>();
-        let cstr_arg_ptrs = cstr_args.iter().map(|s| s.as_ptr()).collect::<Vec<_>>();
-        // SAFETY: No preconditions for this function.
-        let mut arguments = unsafe { rcl_get_zero_initialized_arguments() };
-        unsafe {
-            // SAFETY: This function does not store the ephemeral cstr_args_ptrs
-            // pointers. We are passing in a zero-initialized arguments struct as expected.
-            rcl_parse_arguments(
-                cstr_arg_ptrs.len() as i32,
-                cstr_arg_ptrs.as_ptr(),
-                rcutils_get_default_allocator(),
-                &mut arguments,
-            )
-        }
-        .ok()?;
-
-        node_options.arguments = arguments;
-        node_options.use_global_arguments = self.use_global_arguments;
-        node_options.enable_rosout = self.enable_rosout;
-        // SAFETY: No preconditions for this function.
-        node_options.allocator = unsafe { rcutils_get_default_allocator() };
+        let node_options = self.create_node_options()?;
 
         // SAFETY: Getting a zero-initialized value is always safe.
         let mut node_handle = unsafe { rcl_get_zero_initialized_node() };
@@ -293,5 +265,38 @@ impl NodeBuilder {
             context: self.context.clone(),
             subscriptions: std::vec![],
         })
+    }
+
+    fn create_node_options(&self) -> Result<rcl_node_options_t, RclrsError> {
+        // SAFETY: No preconditions for this function.
+        let mut node_options = unsafe { rcl_node_get_default_options() };
+
+        let cstring_args = self
+            .arguments
+            .iter()
+            .map(|s| CString::new(s.as_str()).unwrap())
+            .collect::<Vec<_>>();
+        let cstring_arg_ptrs = cstring_args.iter().map(|s| s.as_ptr()).collect::<Vec<_>>();
+        // SAFETY: Getting a zero-initialized value is always safe.
+        let mut arguments = unsafe { rcl_get_zero_initialized_arguments() };
+        unsafe {
+            // SAFETY: This function does not store the ephemeral cstr_args_ptrs
+            // pointers. We are passing in a zero-initialized arguments struct as expected.
+            rcl_parse_arguments(
+                cstring_arg_ptrs.len() as i32,
+                cstring_arg_ptrs.as_ptr(),
+                rcutils_get_default_allocator(),
+                &mut arguments,
+            )
+        }
+        .ok()?;
+
+        node_options.arguments = arguments;
+        node_options.use_global_arguments = self.use_global_arguments;
+        node_options.enable_rosout = self.enable_rosout;
+        // SAFETY: No preconditions for this function.
+        node_options.allocator = unsafe { rcutils_get_default_allocator() };
+
+        Ok(node_options)
     }
 }
