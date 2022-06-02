@@ -265,7 +265,7 @@ impl NodeBuilder {
         // SAFETY: No preconditions for this function.
         node_options.allocator = unsafe { rcutils_get_default_allocator() };
 
-        // SAFETY: No preconditions for this function.
+        // SAFETY: Getting a zero-initialized value is always safe.
         let mut node_handle = unsafe { rcl_get_zero_initialized_node() };
         unsafe {
             // SAFETY: No preconditions for this function.
