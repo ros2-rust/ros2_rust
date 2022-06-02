@@ -249,7 +249,8 @@ impl NodeBuilder {
         // SAFETY: No preconditions for this function.
         let mut arguments = unsafe { rcl_get_zero_initialized_arguments() };
         unsafe {
-            // SAFETY: No preconditions for this function.
+            // SAFETY: This function does not store the ephemeral cstr_args_ptrs
+            // pointers. We are passing in a zero-initialized arguments struct as expected.
             rcl_parse_arguments(
                 cstr_arg_ptrs.len() as i32,
                 cstr_arg_ptrs.as_ptr(),
