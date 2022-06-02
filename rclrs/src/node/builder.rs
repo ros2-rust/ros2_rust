@@ -44,7 +44,6 @@ pub struct NodeBuilder {
     context: Arc<Mutex<rcl_context_t>>,
     name: String,
     namespace: String,
-    domain_id: usize,
     use_global_arguments: bool,
     arguments: Vec<String>,
     enable_rosout: bool,
@@ -88,15 +87,10 @@ impl NodeBuilder {
     /// [2]: https://docs.ros2.org/latest/api/rmw/validate__node__name_8h.html#a5690a285aed9735f89ef11950b6e39e3
     /// [3]: NodeBuilder::build
     pub fn new(context: &Context, name: &str) -> NodeBuilder {
-        let mut domain_id = 0;
-        let ret = unsafe { rcl_get_default_domain_id(&mut domain_id) };
-        debug_assert_eq!(ret, 0);
-
         NodeBuilder {
             context: context.handle.clone(),
             name: name.to_string(),
             namespace: "/".to_string(),
-            domain_id,
             use_global_arguments: true,
             arguments: vec![],
             enable_rosout: true,
@@ -155,34 +149,6 @@ impl NodeBuilder {
     /// [4]: NodeBuilder::build
     pub fn namespace(mut self, namespace: &str) -> Self {
         self.namespace = namespace.to_string();
-        self
-    }
-
-    /// Sets node specific domain id
-    ///
-    /// domain id is used in DDS to calculate UDP port that will be used for discovery and communication.
-    /// [This article][1] describes how to calculate UDP port number from domain id.
-    /// From formula in above article, available domain id is between 0 to 232.
-    /// To skip about background described above, you can safely choose between 0 to 101.
-    ///
-    /// For detailed descriptions, see [here][2]
-    ///
-    /// # Example
-    /// ```
-    /// # use rclrs::{Context, Node, NodeBuilder, RclrsError};
-    /// let context = Context::new([])?;
-    /// let node = context
-    ///   .create_node_builder("my_node")
-    ///   .domain_id(42)
-    ///   .build()?;
-    /// assert_eq!(node.domain_id(), 42);
-    /// # Ok::<(), RclrsError>(())
-    /// ```
-    ///
-    /// [1]: https://community.rti.com/content/forum-topic/statically-configure-firewall-let-omg-dds-traffic-through
-    /// [2]: https://docs.ros.org/en/foxy/Concepts/About-Domain-ID.html
-    pub fn domain_id(mut self, domain_id: usize) -> Self {
-        self.domain_id = domain_id;
         self
     }
 
@@ -293,7 +259,6 @@ impl NodeBuilder {
         }
         .ok()?;
 
-        node_options.domain_id = self.domain_id;
         node_options.arguments = arguments;
         node_options.use_global_arguments = self.use_global_arguments;
         node_options.enable_rosout = self.enable_rosout;
