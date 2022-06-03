@@ -215,8 +215,12 @@ impl NodeBuilder {
         self
     }
 
-    /// Enables rosout.
-    /// If false, rosout logging is disabled.
+    /// Enables or disables logging to rosout.
+    ///
+    /// When enabled, log messages are published to the `/rosout` topic in addition to
+    /// standard output.
+    ///
+    /// This option is currently unused in `rclrs`.
     pub fn enable_rosout(mut self, enable: bool) -> Self {
         self.enable_rosout = enable;
         self
