@@ -13,10 +13,9 @@ use std::sync::Arc;
 ///
 /// The default values for optional fields are:
 /// - `namespace: "/"`
-/// - `domain_id: ROS_DOMAIN_ID`
 /// - `use_global_arguments: true`
 /// - `arguments: []`
-/// - `enable_rosout`: true`
+/// - `enable_rosout: true`
 ///
 /// # Example
 /// ```
@@ -267,6 +266,8 @@ impl NodeBuilder {
         })
     }
 
+    /// Creates node options.
+    /// options are overrided by field values of builder.    
     fn create_node_options(&self) -> Result<rcl_node_options_t, RclrsError> {
         // SAFETY: No preconditions for this function.
         let mut node_options = unsafe { rcl_node_get_default_options() };
@@ -280,7 +281,7 @@ impl NodeBuilder {
         // SAFETY: Getting a zero-initialized value is always safe.
         let mut arguments = unsafe { rcl_get_zero_initialized_arguments() };
         unsafe {
-            // SAFETY: This function does not store the ephemeral cstr_args_ptrs
+            // SAFETY: This function does not store the ephemeral cstring_args_ptrs
             // pointers. We are passing in a zero-initialized arguments struct as expected.
             rcl_parse_arguments(
                 cstring_arg_ptrs.len() as i32,
@@ -298,5 +299,23 @@ impl NodeBuilder {
         node_options.allocator = unsafe { rcutils_get_default_allocator() };
 
         Ok(node_options)
+    }
+}
+
+impl Drop for rcl_arguments_t {
+    fn drop(&mut self) {
+        // SAFETY: Do not finish this struct except here.
+        unsafe {
+            rcl_arguments_fini(self);
+        }
+    }
+}
+
+impl Drop for rcl_node_options_t {
+    fn drop(&mut self) {
+        // SAFETY: Do not finish this struct except here.
+        unsafe {
+            rcl_node_options_fini(self);
+        }
     }
 }
