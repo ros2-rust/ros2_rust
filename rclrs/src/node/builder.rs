@@ -183,31 +183,31 @@ impl NodeBuilder {
         self
     }
 
-    /// Sets node specific command line arguments.
+    /// Sets node-specific command line arguments.
     ///
-    /// Command line arguments can mix ROS specific and not specific arguments.
-    /// ROS specific arguments are wrapped between `--ros-args` and `--`.
-    /// Note that `--ros-args` followed by only ROS specific arguments is valid pattern.
-    ///
-    /// below arguments examples are valid:
-    ///   --ros-args -r from:=to -- user_arg0 user_arg1
-    ///   --ros-args -p name:=value
+    /// These arguments are parsed the same way as those for [`Context::new()`][1].
+    /// However, the node-specific command line arguments have higher precedence than the arguments
+    /// used in creating the context.
     ///    
     /// # Example
     /// ```
     /// # use rclrs::{Context, Node, NodeBuilder, RclrsError};
-    /// let context = Context::new([])?;
-    /// let node_args = ["--ros-args", "--remap", "my_node:__node:=your_node"]
-    ///   .iter()
-    ///   .map(|s| s.to_string())
-    ///   .collect::<Vec<_>>();
+    /// // Usually, this would change the name of "my_node" to "context_args_node":
+    /// let context_args = ["--ros-args", "--remap", "my_node:__node:=context_args_node"]
+    ///   .map(String::from);
+    /// let context = Context::new(context_args)?;
+    /// // But the node arguments will change it to "node_args_node":
+    /// let node_args = ["--ros-args", "--remap", "my_node:__node:=node_args_node"]
+    ///   .map(String::from);
     /// let node = context
     ///   .create_node_builder("my_node")
     ///   .arguments(node_args)
     ///   .build()?;
-    /// assert_eq!(node.name(), "your_node");
+    /// assert_eq!(node.name(), "node_args_node");
     /// # Ok::<(), RclrsError>(())
     /// ```
+    ///
+    /// [1]: crate::Context::new
     pub fn arguments(mut self, arguments: impl IntoIterator<Item = String>) -> Self {
         self.arguments = arguments.into_iter().collect();
         self
