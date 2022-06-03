@@ -187,6 +187,8 @@ impl NodeBuilder {
     /// These arguments are parsed the same way as those for [`Context::new()`][1].
     /// However, the node-specific command line arguments have higher precedence than the arguments
     /// used in creating the context.
+    ///
+    /// For more details about command line arguments, see [here][2].
     ///    
     /// # Example
     /// ```
@@ -207,6 +209,7 @@ impl NodeBuilder {
     /// ```
     ///
     /// [1]: crate::Context::new
+    /// [2]: https://design.ros2.org/articles/ros_command_line_arguments.html
     pub fn arguments(mut self, arguments: impl IntoIterator<Item = String>) -> Self {
         self.arguments = arguments.into_iter().collect();
         self
