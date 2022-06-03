@@ -38,7 +38,6 @@ use std::sync::Arc;
 ///
 /// [1]: crate::Node
 /// [2]: crate::Node::builder
-///
 pub struct NodeBuilder {
     context: Arc<Mutex<rcl_context_t>>,
     name: String,
