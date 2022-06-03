@@ -152,32 +152,32 @@ impl NodeBuilder {
         self
     }
 
-    /// Sets flag for using global arguments.
-    /// If false then only use arguments passed to this builder,
-    /// otherwise use global arguments also.
+    /// Enables or disables using global arguments.
+    ///
+    /// The "global" arguments are those used in [creating the context][1].
     ///
     /// # Example
     /// ```
     /// # use rclrs::{Context, Node, NodeBuilder, RclrsError};
-    /// let args = ["--ros-args", "--remap", "my_node:__node:=your_node"]
-    ///   .iter()
-    ///   .map(|s| s.to_string())
-    ///   .collect::<Vec<_>>();
-    /// let context = Context::new(args)?;
-    /// // Use global arguments
-    /// let node = context
-    ///   .create_node_builder("my_node")
-    ///   .use_global_arguments(true)
-    ///   .build()?;
-    /// assert_eq!(node.name(), "your_node");
-    ///
-    /// // Not use global arguments
-    /// let node = context
+    /// let context_args = ["--ros-args", "--remap", "__node:=your_node"]
+    ///   .map(String::from);
+    /// let context = Context::new(context_args)?;
+    /// // Ignore the global arguments:
+    /// let node_without_global_args = context
     ///   .create_node_builder("my_node")
     ///   .use_global_arguments(false)
     ///   .build()?;
-    /// assert_eq!(node.name(), "my_node");
+    /// assert_eq!(node_without_global_args.name(), "my_node");
+    /// // Do not ignore the global arguments:
+    /// let node_with_global_args = context
+    ///   .create_node_builder("my_other_node")
+    ///   .use_global_arguments(true)
+    ///   .build()?;
+    /// assert_eq!(node_with_global_args.name(), "your_node");
     /// # Ok::<(), RclrsError>(())
+    /// ```
+    ///
+    /// [1]: crate::Context::new
     pub fn use_global_arguments(mut self, enable: bool) -> Self {
         self.use_global_arguments = enable;
         self
