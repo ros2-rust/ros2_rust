@@ -56,6 +56,13 @@ ros2 run examples_rclrs_minimal_pub_sub minimal_publisher
 . ./install/setup.sh
 ros2 run examples_rclrs_minimal_pub_sub minimal_subscriber
 ```
+or
+
+```shell
+# In a new terminal (or tmux window)
+. ./install/setup.sh
+ros2 launch examples_rclrs_minimal_pub_sub minimal_pub_sub.launch.xml
+```
 
 Further documentation articles:
 - [Tutorial on writing your first node with `rclrs`](docs/writing-your-first-rclrs-node.md)

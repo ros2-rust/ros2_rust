@@ -24,3 +24,6 @@ version = "*"
 
 [dependencies.std_msgs]
 version = "*"
+
+[package.metadata.ros]
+install_to_share = ["launch"]
