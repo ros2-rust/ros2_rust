@@ -30,7 +30,7 @@ use std::time::Duration;
 /// [`SubscriptionTakeFailed`][1] when the wait set spuriously wakes up.
 /// This can usually be ignored.
 ///
-/// [1]: crate::SubscriberErrorCode
+/// [1]: crate::RclReturnCode
 pub fn spin_once(node: &Node, timeout: Option<Duration>) -> Result<(), RclrsError> {
     let live_subscriptions = node.live_subscriptions();
     let ctx = Context {
@@ -63,11 +63,13 @@ pub fn spin(node: &Node) -> Result<(), RclrsError> {
     let context_is_valid = || unsafe { rcl_context_is_valid(&*node.context.lock()) };
 
     while context_is_valid() {
-        if let Some(error) = spin_once(node, None).err() {
-            match error.code {
-                RclReturnCode::Timeout => continue,
-                _ => return Err(error),
-            };
+        match spin_once(node, None) {
+            Ok(_)
+            | Err(RclrsError::RclError {
+                code: RclReturnCode::Timeout,
+                ..
+            }) => (),
+            error => return error,
         }
     }
 
