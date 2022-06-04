@@ -1,6 +1,6 @@
 use crate::rcl_bindings::*;
 use std::error::Error;
-use std::ffi::CStr;
+use std::ffi::{CStr, NulError};
 use std::fmt::{self, Display};
 
 /// The main error type.
@@ -20,6 +20,13 @@ pub enum RclrsError {
         /// The error message set in the `rcl` layer or below.
         msg: Option<RclErrorMsg>,
     },
+    /// A string provided to `rclrs` could not be converted into a `CString`.
+    StringContainsNul {
+        /// The string that contains a nul byte.
+        s: String,
+        /// The error indicating the position of the nul byte.
+        err: NulError,
+    },
 }
 
 impl Display for RclrsError {
@@ -27,6 +34,9 @@ impl Display for RclrsError {
         match self {
             RclrsError::RclError { code, .. } => write!(f, "{}", code),
             RclrsError::UnknownRclError { code, .. } => write!(f, "{}", code),
+            RclrsError::StringContainsNul { s, .. } => {
+                write!(f, "Could not convert string '{}' to CString", s)
+            }
         }
     }
 }
@@ -54,11 +64,11 @@ impl Error for RclErrorMsg {}
 
 impl Error for RclrsError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
-        let msg = match self {
-            RclrsError::RclError { msg, .. } => msg,
-            RclrsError::UnknownRclError { msg, .. } => msg,
-        };
-        msg.as_ref().map(|e| e as &dyn Error)
+        match self {
+            RclrsError::RclError { msg, .. } => msg.as_ref().map(|e| e as &dyn Error),
+            RclrsError::UnknownRclError { msg, .. } => msg.as_ref().map(|e| e as &dyn Error),
+            RclrsError::StringContainsNul { err, .. } => Some(err).map(|e| e as &dyn Error),
+        }
     }
 }
 

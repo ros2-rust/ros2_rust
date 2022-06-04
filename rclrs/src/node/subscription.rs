@@ -74,9 +74,6 @@ where
     T: Message,
 {
     /// Creates a new subscription.
-    ///
-    /// # Panics
-    /// When the topic contains interior null bytes.
     pub fn new<F>(
         node: &Node,
         topic: &str,
@@ -91,7 +88,10 @@ where
         let mut subscription_handle = unsafe { rcl_get_zero_initialized_subscription() };
         let type_support =
             <T as Message>::RmwMsg::get_type_support() as *const rosidl_message_type_support_t;
-        let topic_c_string = CString::new(topic).unwrap();
+        let topic_c_string = CString::new(topic).map_err(|err| RclrsError::StringContainsNul {
+            err,
+            s: topic.into(),
+        })?;
         let node_handle = &mut *node.handle.lock();
 
         // SAFETY: No preconditions for this function.
