@@ -242,13 +242,11 @@ impl NodeBuilder {
         let node_name = CString::new(self.name.as_str()).unwrap();
         let node_namespace = CString::new(self.namespace.as_str()).unwrap();
         let node_options = self.create_node_options()?;
+        let context_handle = &mut *self.context.lock();
 
         // SAFETY: Getting a zero-initialized value is always safe.
         let mut node_handle = unsafe { rcl_get_zero_initialized_node() };
         unsafe {
-            // SAFETY: No preconditions for this function.
-            let context_handle = &mut *self.context.lock();
-
             // SAFETY: The node handle is zero-initialized as expected by this function.
             // The strings and node options are copied by this function, so we don't need
             // to keep them alive.
