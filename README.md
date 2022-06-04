@@ -58,7 +58,7 @@ ros2 run examples_rclrs_minimal_pub_sub minimal_subscriber
 ```
 or
 
-```
+```shell
 # In a new terminal (or tmux window)
 . ./install/setup.sh
 ros2 launch examples_rclrs_minimal_pub_sub minimal_pub_sub.launch.xml
