@@ -281,7 +281,6 @@ impl NodeBuilder {
             .collect::<Vec<_>>();
         let cstring_arg_ptrs = cstring_args.iter().map(|s| s.as_ptr()).collect::<Vec<_>>();
         // SAFETY: Getting a zero-initialized value is always safe.
-        let mut arguments = unsafe { rcl_get_zero_initialized_arguments() };
         unsafe {
             // SAFETY: This function does not store the ephemeral cstring_args_ptrs
             // pointers. We are passing in a zero-initialized arguments struct as expected.
@@ -289,12 +288,11 @@ impl NodeBuilder {
                 cstring_arg_ptrs.len() as i32,
                 cstring_arg_ptrs.as_ptr(),
                 rcutils_get_default_allocator(),
-                &mut arguments,
+                &mut node_options.arguments,
             )
         }
         .ok()?;
 
-        node_options.arguments = arguments;
         node_options.use_global_arguments = self.use_global_arguments;
         node_options.enable_rosout = self.enable_rosout;
         // SAFETY: No preconditions for this function.
@@ -306,9 +304,13 @@ impl NodeBuilder {
 
 impl Drop for rcl_arguments_t {
     fn drop(&mut self) {
-        // SAFETY: Do not finish this struct except here.
-        unsafe {
-            rcl_arguments_fini(self);
+        if !self.impl_.is_null() {
+            // SAFETY: `rcl_arguments_t.impl_` must be not NULL.
+            // However, after calling `rcl_node_options_fini`, this field become NULL.
+            // To prevent from calling drop twice, put NULL check.
+            unsafe {
+                rcl_arguments_fini(self).ok().unwrap();
+            }
         }
     }
 }
@@ -317,7 +319,7 @@ impl Drop for rcl_node_options_t {
     fn drop(&mut self) {
         // SAFETY: Do not finish this struct except here.
         unsafe {
-            rcl_node_options_fini(self);
+            rcl_node_options_fini(self).ok().unwrap();
         }
     }
 }
