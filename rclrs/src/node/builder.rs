@@ -232,10 +232,10 @@ impl NodeBuilder {
     /// For example usage, see the [`NodeBuilder`][1] docs.
     ///
     /// # Panics
-    /// If any of below conditions are filled, panic occurs
-    ///  - node name contains null byte
-    ///  - namespace contains null byte
-    ///  - any of node argument strings contain null byte.
+    /// If any of the below conditions are fulfilled, a panic occurs:
+    ///  - The node name contains a null byte
+    ///  - The namespace contains a null byte
+    ///  - Any of the node arguments contain a null byte
     ///
     /// [1]: crate::NodeBuilder
     pub fn build(&self) -> Result<Node, RclrsError> {
