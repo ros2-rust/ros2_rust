@@ -119,6 +119,7 @@ foreach(dep ${target_dependencies})
 endforeach()
 
 set(generator_arguments_file "${CMAKE_CURRENT_BINARY_DIR}/rosidl_generator_rs__arguments.json")
+set(package_version "${${PROJECT_NAME}_VERSION}")
 rosidl_write_generator_arguments(
   "${generator_arguments_file}"
   PACKAGE_NAME "${PROJECT_NAME}"

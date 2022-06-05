@@ -31,9 +31,17 @@ def main(argv=sys.argv[1:]):
         '--typesupport-impls',
         required=True,
         help='All the available typesupport implementations')
+    parser.add_argument(
+        '--package-version',
+        required=True,
+        help='The version of interface package')
     args = parser.parse_args(argv)
 
-    return generate_rs(args.generator_arguments_file, args.typesupport_impls)
+    return generate_rs(
+        args.generator_arguments_file,
+        args.typesupport_impls,
+        args.package_version,
+    )
 
 
 if __name__ == '__main__':
