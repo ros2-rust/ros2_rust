@@ -23,7 +23,6 @@ add_custom_command(
   COMMAND ${PYTHON_EXECUTABLE} ${rosidl_generator_rs_BIN}
   --generator-arguments-file "${generator_arguments_file}"
   --typesupport-impls "${_typesupport_impls}"
-  --package-version "${package_version}"
   DEPENDS ${target_dependencies}
   COMMENT "Generating Rust code for ROS interfaces"
   VERBATIM

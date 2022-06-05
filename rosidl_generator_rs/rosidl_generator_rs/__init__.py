@@ -52,7 +52,7 @@ def convert_lower_case_underscore_to_camel_case(word):
     return ''.join(x.capitalize() or '_' for x in word.split('_'))
 
 
-def generate_rs(generator_arguments_file, typesupport_impls, package_version):
+def generate_rs(generator_arguments_file, typesupport_impls):
     args = read_generator_arguments(generator_arguments_file)
     package_name = args['package_name']
 
@@ -157,7 +157,7 @@ def generate_rs(generator_arguments_file, typesupport_impls, package_version):
     cargo_toml_data = {
         'dependency_packages': dependency_packages,
         'package_name': args['package_name'],
-        'package_version': package_version,
+        'package_version': args['package_version'],
     }
     expand_template(
         os.path.join(template_dir, 'Cargo.toml.em'),
