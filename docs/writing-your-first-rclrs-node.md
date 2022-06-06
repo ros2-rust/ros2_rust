@@ -54,7 +54,7 @@ struct RepublisherNode {
 
 impl RepublisherNode {
     fn new(context: &rclrs::Context) -> Result<Self, rclrs::RclrsError> {
-        let mut node = rclrs::Node::new("republisher", context)?;
+        let mut node = rclrs::Node::new(context, "republisher")?;
         let data = None;
         let _subscription = node.create_subscription(
             "in_topic",
@@ -121,7 +121,7 @@ struct RepublisherNode {
 
 impl RepublisherNode {
     fn new(context: &rclrs::Context) -> Result<Self, rclrs::RclrsError> {
-        let mut node = rclrs::Node::new("republisher", context)?;
+        let mut node = rclrs::Node::new(context, "republisher")?;
         let data = Arc::new(Mutex::new(None));  // (3)
         let data_cb = Arc::clone(&data);
         let _subscription = {
