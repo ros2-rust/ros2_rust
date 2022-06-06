@@ -66,8 +66,8 @@ unsafe impl Send for rcl_node_t {}
 /// [3]: crate::NodeBuilder::new
 /// [4]: crate::NodeBuilder::namespace
 pub struct Node {
-    handle: Arc<Mutex<rcl_node_t>>,
-    pub(crate) context: Arc<Mutex<rcl_context_t>>,
+    rcl_node_mtx: Arc<Mutex<rcl_node_t>>,
+    pub(crate) rcl_context_mtx: Arc<Mutex<rcl_context_t>>,
     pub(crate) subscriptions: Vec<Weak<dyn SubscriptionBase>>,
 }
 
@@ -75,7 +75,7 @@ impl Eq for Node {}
 
 impl PartialEq for Node {
     fn eq(&self, other: &Self) -> bool {
-        Arc::ptr_eq(&self.handle, &other.handle)
+        Arc::ptr_eq(&self.rcl_node_mtx, &other.rcl_node_mtx)
     }
 }
 
@@ -171,8 +171,8 @@ impl Node {
         getter: unsafe extern "C" fn(*const rcl_node_t) -> *const c_char,
     ) -> String {
         let char_ptr = unsafe {
-            // SAFETY: The node handle is valid.
-            getter(&*self.handle.lock())
+            // SAFETY: The rcl_node is valid.
+            getter(&*self.rcl_node_mtx.lock())
         };
         debug_assert!(!char_ptr.is_null());
         let cstr = unsafe {
@@ -249,11 +249,11 @@ impl Node {
     // add description about this function is for getting actual domain_id
     // and about override of domain_id via node option
     pub fn domain_id(&self) -> usize {
-        let handle = &*self.handle.lock();
+        let rcl_node = &*self.rcl_node_mtx.lock();
         let mut domain_id: usize = 0;
         let ret = unsafe {
             // SAFETY: No preconditions for this function.
-            rcl_node_get_domain_id(handle, &mut domain_id)
+            rcl_node_get_domain_id(rcl_node, &mut domain_id)
         };
 
         debug_assert_eq!(ret, 0);

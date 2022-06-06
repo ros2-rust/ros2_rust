@@ -34,7 +34,7 @@ use std::time::Duration;
 pub fn spin_once(node: &Node, timeout: Option<Duration>) -> Result<(), RclrsError> {
     let live_subscriptions = node.live_subscriptions();
     let ctx = Context {
-        handle: node.context.clone(),
+        rcl_context_mtx: node.rcl_context_mtx.clone(),
     };
     let mut wait_set = WaitSet::new(live_subscriptions.len(), &ctx)?;
 
@@ -57,10 +57,10 @@ pub fn spin(node: &Node) -> Result<(), RclrsError> {
     // The context_is_valid functions exists only to abstract away ROS distro differences
     #[cfg(ros_distro = "foxy")]
     // SAFETY: No preconditions for this function.
-    let context_is_valid = || unsafe { rcl_context_is_valid(&mut *node.context.lock()) };
+    let context_is_valid = || unsafe { rcl_context_is_valid(&mut *node.rcl_context_mtx.lock()) };
     #[cfg(not(ros_distro = "foxy"))]
     // SAFETY: No preconditions for this function.
-    let context_is_valid = || unsafe { rcl_context_is_valid(&*node.context.lock()) };
+    let context_is_valid = || unsafe { rcl_context_is_valid(&*node.rcl_context_mtx.lock()) };
 
     while context_is_valid() {
         match spin_once(node, None) {

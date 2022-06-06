@@ -16,7 +16,7 @@ impl Drop for rcl_context_t {
             // line arguments.
             // SAFETY: No preconditions for this function.
             if rcl_context_is_valid(self) {
-                // SAFETY: These functions have no preconditions besides a valid handle
+                // SAFETY: These functions have no preconditions besides a valid rcl_context
                 rcl_shutdown(self);
                 rcl_context_fini(self);
             }
@@ -41,7 +41,7 @@ unsafe impl Send for rcl_context_t {}
 /// - the allocator used (left as the default by `rclrs`)
 ///
 pub struct Context {
-    pub(crate) handle: Arc<Mutex<rcl_context_t>>,
+    pub(crate) rcl_context_mtx: Arc<Mutex<rcl_context_t>>,
 }
 
 impl Context {
@@ -77,12 +77,12 @@ impl Context {
             // SAFETY: No preconditions for this function.
             let allocator = rcutils_get_default_allocator();
             // SAFETY: Getting a zero-initialized value is always safe.
-            let mut init_options = rcl_get_zero_initialized_init_options();
+            let mut rcl_init_options = rcl_get_zero_initialized_init_options();
             // SAFETY: Passing in a zero-initialized value is expected.
             // In the case where this returns not ok, there's nothing to clean up.
-            rcl_init_options_init(&mut init_options, allocator).ok()?;
+            rcl_init_options_init(&mut rcl_init_options, allocator).ok()?;
             // SAFETY: This function does not store the ephemeral init_options and c_args
-            // pointers. Passing in a zero-initialized handle is expected.
+            // pointers. Passing in a zero-initialized rcl_context is expected.
             let ret = rcl_init(
                 c_args.len() as i32,
                 if c_args.is_empty() {
@@ -90,18 +90,18 @@ impl Context {
                 } else {
                     c_args.as_ptr()
                 },
-                &init_options,
+                &rcl_init_options,
                 &mut rcl_context,
             )
             .ok();
             // SAFETY: It's safe to pass in an initialized object.
             // Early return will not leak memory, because this is the last fini function.
-            rcl_init_options_fini(&mut init_options).ok()?;
+            rcl_init_options_fini(&mut rcl_init_options).ok()?;
             // Move the check after the last fini()
             ret?;
         }
         Ok(Self {
-            handle: Arc::new(Mutex::new(rcl_context)),
+            rcl_context_mtx: Arc::new(Mutex::new(rcl_context)),
         })
     }
 
@@ -153,8 +153,8 @@ impl Context {
     pub fn ok(&self) -> bool {
         // This will currently always return true, but once we have a signal handler, the signal
         // handler could call `rcl_shutdown()`, hence making the context invalid.
-        let handle = &mut *self.handle.lock();
+        let rcl_context = &mut *self.rcl_context_mtx.lock();
         // SAFETY: No preconditions for this function.
-        unsafe { rcl_context_is_valid(handle) }
+        unsafe { rcl_context_is_valid(rcl_context) }
     }
 }

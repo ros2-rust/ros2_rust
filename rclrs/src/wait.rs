@@ -27,9 +27,9 @@ use parking_lot::Mutex;
 
 /// A struct for waiting on subscriptions and other waitable entities to become ready.
 pub struct WaitSet {
-    handle: rcl_wait_set_t,
+    rcl_wait_set: rcl_wait_set_t,
     // Used to ensure the context is alive while the wait set is alive.
-    _context_handle: Arc<Mutex<rcl_context_t>>,
+    _rcl_context_mtx: Arc<Mutex<rcl_context_t>>,
     // The subscriptions that are currently registered in the wait set.
     // This correspondence is an invariant that must be maintained by all functions,
     // even in the error case.
@@ -71,15 +71,15 @@ impl WaitSet {
                 0,
                 0,
                 0,
-                &mut *context.handle.lock(),
+                &mut *context.rcl_context_mtx.lock(),
                 rcutils_get_default_allocator(),
             )
             .ok()?;
             rcl_wait_set
         };
         Ok(Self {
-            handle: rcl_wait_set,
-            _context_handle: context.handle.clone(),
+            rcl_wait_set,
+            _rcl_context_mtx: context.rcl_context_mtx.clone(),
             subscriptions: Vec::new(),
         })
     }
@@ -94,7 +94,7 @@ impl WaitSet {
         // valid, which it always is in our case. Hence, only debug_assert instead of returning
         // Result.
         // SAFETY: No preconditions for this function (besides passing in a valid wait set).
-        let ret = unsafe { rcl_wait_set_clear(&mut self.handle) };
+        let ret = unsafe { rcl_wait_set_clear(&mut self.rcl_wait_set) };
         debug_assert_eq!(ret, 0);
     }
 
@@ -116,7 +116,7 @@ impl WaitSet {
             // for as long as the wait set exists, because it's stored in self.subscriptions.
             // Passing in a null pointer for the third argument is explicitly allowed.
             rcl_wait_set_add_subscription(
-                &mut self.handle,
+                &mut self.rcl_wait_set,
                 &*subscription.handle().lock(),
                 std::ptr::null_mut(),
             )
@@ -164,8 +164,8 @@ impl WaitSet {
         // in multiple threads, and the wait sets may not share content."
         // We cannot currently guarantee that the wait sets may not share content, but it is
         // mentioned in the doc comment for `add_subscription`.
-        // Also, the handle is obviously valid.
-        unsafe { rcl_wait(&mut self.handle, timeout_ns) }.ok()?;
+        // Also, the rcl_wait_set is obviously valid.
+        unsafe { rcl_wait(&mut self.rcl_wait_set, timeout_ns) }.ok()?;
         let mut ready_entities = ReadyEntities {
             subscriptions: Vec::new(),
         };
@@ -173,7 +173,7 @@ impl WaitSet {
             // SAFETY: The `subscriptions` entry is an array of pointers, and this dereferencing is
             // equivalent to
             // https://github.com/ros2/rcl/blob/35a31b00a12f259d492bf53c0701003bd7f1745c/rcl/include/rcl/wait.h#L419
-            let wait_set_entry = unsafe { *self.handle.subscriptions.add(i) };
+            let wait_set_entry = unsafe { *self.rcl_wait_set.subscriptions.add(i) };
             if !wait_set_entry.is_null() {
                 ready_entities.subscriptions.push(subscription.clone());
             }
