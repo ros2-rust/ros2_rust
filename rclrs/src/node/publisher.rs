@@ -63,9 +63,6 @@ where
     /// Creates a new `Publisher`.
     ///
     /// Node and namespace changes are always applied _before_ topic remapping.
-    ///
-    /// # Panics
-    /// When the topic contains interior null bytes.
     pub fn new(node: &Node, topic: &str, qos: QoSProfile) -> Result<Self, RclrsError>
     where
         T: Message,
@@ -74,7 +71,10 @@ where
         let mut publisher_handle = unsafe { rcl_get_zero_initialized_publisher() };
         let type_support =
             <T as Message>::RmwMsg::get_type_support() as *const rosidl_message_type_support_t;
-        let topic_c_string = CString::new(topic).unwrap();
+        let topic_c_string = CString::new(topic).map_err(|err| RclrsError::StringContainsNul {
+            err,
+            s: topic.into(),
+        })?;
         let node_handle = &mut *node.handle.lock();
 
         // SAFETY: No preconditions for this function.

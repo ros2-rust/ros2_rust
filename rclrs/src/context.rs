@@ -59,16 +59,18 @@ impl Context {
     /// let invalid_remapping = ["--ros-args", "-r", ":=:*/]"].map(String::from);
     /// assert!(Context::new(invalid_remapping).is_err());
     /// ```
-    ///
-    /// # Panics
-    /// When there is an interior null byte in any of the args.
     pub fn new(args: impl IntoIterator<Item = String>) -> Result<Self, RclrsError> {
         // SAFETY: Getting a zero-initialized value is always safe
         let mut rcl_context = unsafe { rcl_get_zero_initialized_context() };
         let cstring_args: Vec<CString> = args
             .into_iter()
-            .map(|arg| CString::new(arg).unwrap())
-            .collect();
+            .map(|arg| {
+                CString::new(arg.as_str()).map_err(|err| RclrsError::StringContainsNul {
+                    err,
+                    s: arg.clone(),
+                })
+            })
+            .collect::<Result<_, _>>()?;
         // Vector of pointers into cstring_args
         let c_args: Vec<*const c_char> = cstring_args.iter().map(|arg| arg.as_ptr()).collect();
         unsafe {
