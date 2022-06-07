@@ -33,7 +33,10 @@ def main(argv=sys.argv[1:]):
         help='All the available typesupport implementations')
     args = parser.parse_args(argv)
 
-    return generate_rs(args.generator_arguments_file, args.typesupport_impls)
+    return generate_rs(
+        args.generator_arguments_file,
+        args.typesupport_impls,
+    )
 
 
 if __name__ == '__main__':

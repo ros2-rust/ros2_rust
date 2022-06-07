@@ -1,8 +1,6 @@
 [package]
 name = "@(package_name)"
-@# The version should ideally be taken from package.xml, see
-@# https://github.com/ros2-rust/ros2_rust/issues/116
-version = "0.2.0"
+version = "@(package_version)"
 edition = "2021"
 
 [dependencies]
