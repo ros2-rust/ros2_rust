@@ -115,6 +115,29 @@ pub fn spin(node: &Node) -> Result<(), RclrsError> {
     Ok(())
 }
 
+/// Convenience function for calling [`rclrs::spin_once`] in a loop.
+///
+/// This function additionally checks that the context is still valid.
+pub fn spin_some(node: &Node) -> Result<(), RclrsError> {
+    // The context_is_valid functions exists only to abstract away ROS distro differences
+    #[cfg(ros_distro = "foxy")]
+    // SAFETY: No preconditions for this function.
+    let context_is_valid = || unsafe { rcl_context_is_valid(&mut *node.context.lock()) };
+    #[cfg(not(ros_distro = "foxy"))]
+    // SAFETY: No preconditions for this function.
+    let context_is_valid = || unsafe { rcl_context_is_valid(&*node.context.lock()) };
+
+    if context_is_valid() {
+        if let Some(error) = spin_once(node, Some(std::time::Duration::from_millis(500))).err() {
+            match error.code {
+                RclReturnCode::Timeout => (),
+                _ => return Err(error),
+            }
+        }
+    }
+    Ok(())
+}
+
 pub fn spin_until_future_complete<T: Unpin + Clone>(
     node: &node::Node,
     future: Arc<Mutex<Box<crate::future::RclFuture<T>>>>,

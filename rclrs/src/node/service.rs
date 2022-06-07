@@ -13,6 +13,10 @@ use crate::node::publisher::MessageCow;
 
 use parking_lot::{Mutex, MutexGuard};
 
+// SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
+// they are running in. Therefore, this type can be safely sent to another thread.
+unsafe impl Send for rcl_service_t {}
+
 pub struct ServiceHandle {
     handle: Mutex<rcl_service_t>,
     node_handle: Arc<Mutex<rcl_node_t>>,
@@ -36,7 +40,7 @@ impl Drop for ServiceHandle {
 
 /// Trait to be implemented by concrete Service structs
 /// See [`Service<T>`] for an example
-pub trait ServiceBase {
+pub trait ServiceBase: Send + Sync {
     fn handle(&self) -> &ServiceHandle;
     fn execute(&self) -> Result<(), RclrsError>;
 }
@@ -48,7 +52,8 @@ where
 {
     pub handle: Arc<ServiceHandle>,
     // The callback's lifetime should last as long as we need it to
-    pub callback: Mutex<Box<dyn FnMut(&rmw_request_id_t, &T::Request, &mut T::Response) + 'static>>,
+    pub callback:
+        Mutex<Box<dyn FnMut(&rmw_request_id_t, &T::Request, &mut T::Response) + 'static + Send>>,
 }
 
 impl<T> Service<T>
@@ -58,7 +63,7 @@ where
     pub fn new<F>(node: &Node, topic: &str, callback: F) -> Result<Self, RclrsError>
     where
         T: rosidl_runtime_rs::Service,
-        F: FnMut(&rmw_request_id_t, &T::Request, &mut T::Response) + Sized + 'static,
+        F: FnMut(&rmw_request_id_t, &T::Request, &mut T::Response) + 'static + Send,
     {
         let mut service_handle = unsafe { rcl_get_zero_initialized_service() };
         let type_support = <T as rosidl_runtime_rs::Service>::get_type_support()

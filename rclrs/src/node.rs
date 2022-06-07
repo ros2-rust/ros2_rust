@@ -223,7 +223,7 @@ impl Node {
     ) -> Result<Arc<crate::node::service::Service<T>>, RclrsError>
     where
         T: rosidl_runtime_rs::Service + 'static,
-        F: FnMut(&rmw_request_id_t, &T::Request, &mut T::Response) + Sized + 'static,
+        F: FnMut(&rmw_request_id_t, &T::Request, &mut T::Response) + 'static + Send,
     {
         let service = Arc::new(crate::node::service::Service::<T>::new(
             self, topic, callback,

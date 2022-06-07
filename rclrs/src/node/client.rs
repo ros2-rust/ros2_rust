@@ -1,4 +1,6 @@
 #![warn(missing_docs)]
+use crate::node::client::oneshot::Canceled;
+use futures::channel::{mpsc, oneshot};
 use std::borrow::Borrow;
 use std::boxed::Box;
 use std::collections::HashMap;
@@ -14,6 +16,10 @@ use crate::{rcl_bindings::*, RclrsError};
 
 use parking_lot::{Mutex, MutexGuard};
 use rosidl_runtime_rs::Message;
+
+// SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
+// they are running in. Therefore, this type can be safely sent to another thread.
+unsafe impl Send for rcl_client_t {}
 
 pub struct ClientHandle {
     handle: Mutex<rcl_client_t>,
@@ -36,9 +42,18 @@ impl Drop for ClientHandle {
     }
 }
 
+impl From<Canceled> for RclrsError {
+    fn from(_: Canceled) -> Self {
+        RclrsError {
+            code: RclReturnCode::Error,
+            msg: None,
+        }
+    }
+}
+
 /// Trait to be implemented by concrete Client structs
 /// See [`Client<T>`] for an example
-pub trait ClientBase {
+pub trait ClientBase: Send + Sync {
     fn handle(&self) -> &ClientHandle;
     fn execute(&self) -> Result<(), RclrsError>;
 }
@@ -49,8 +64,8 @@ where
     T: rosidl_runtime_rs::Service,
 {
     pub(crate) handle: Arc<ClientHandle>,
-    requests: Mutex<HashMap<i64, Mutex<Box<dyn FnMut(&T::Response) + 'static>>>>,
-    futures: Mutex<HashMap<i64, Arc<Mutex<Box<RclFuture<T::Response>>>>>>,
+    requests: Mutex<HashMap<i64, Mutex<Box<dyn FnMut(&T::Response) + 'static + Send>>>>,
+    futures: Arc<Mutex<HashMap<i64, oneshot::Sender<T::Response>>>>,
     sequence_number: AtomicI64,
 }
 
@@ -89,7 +104,9 @@ where
         Ok(Self {
             handle,
             requests: Mutex::new(HashMap::new()),
-            futures: Mutex::new(HashMap::new()),
+            futures: Arc::new(Mutex::new(
+                HashMap::<i64, oneshot::Sender<T::Response>>::new(),
+            )),
             sequence_number: AtomicI64::new(0),
         })
     }
@@ -112,14 +129,13 @@ where
         callback: F,
     ) -> Result<(), RclrsError>
     where
-        F: FnMut(&T::Response) + Sized + 'static,
+        F: FnMut(&T::Response) + 'static + Send,
     {
         let rmw_message = T::Request::into_rmw_message(message.into_cow());
-        let handle = &mut *self.handle.lock();
         let mut sequence_number = self.sequence_number.load(Ordering::SeqCst);
         let ret = unsafe {
             rcl_send_request(
-                handle as *mut _,
+                &*self.handle.lock() as *const _,
                 rmw_message.as_ref() as *const <T::Request as Message>::RmwMsg as *mut _,
                 &mut sequence_number,
             )
@@ -130,7 +146,7 @@ where
         ret.ok()
     }
 
-    /// Send a requests with a callback as a parameter.
+    /// Send a request with a callback as a parameter.
     ///
     /// The [`MessageCow`] trait is implemented by any
     /// [`Message`] as well as any reference to a `Message`.
@@ -142,31 +158,25 @@ where
     ///
     /// Hence, when a message will not be needed anymore after publishing, pass it by value.
     /// When a message will be needed again after publishing, pass it by reference, instead of cloning and passing by value.
-    pub fn call_async<'a, R: MessageCow<'a, T::Request>>(
+    pub async fn call_async<'a, R: MessageCow<'a, T::Request>>(
         &self,
         request: R,
-    ) -> Result<Arc<Mutex<Box<RclFuture<T::Response>>>>, RclrsError>
+    ) -> Result<T::Response, RclrsError>
     where
         T: rosidl_runtime_rs::Service + 'static,
     {
         let rmw_message = T::Request::into_rmw_message(request.into_cow());
-        let handle = &mut *self.handle.lock();
         let mut sequence_number = self.sequence_number.load(Ordering::SeqCst);
         let ret = unsafe {
             rcl_send_request(
-                handle as *mut _,
+                &*self.handle.lock() as *const _,
                 rmw_message.as_ref() as *const <T::Request as Message>::RmwMsg as *mut _,
                 &mut sequence_number,
             )
         };
-        let response = Arc::new(Mutex::new(Box::new(RclFuture::<T::Response>::new())));
-        {
-            let futures = &mut *self.futures.lock();
-            futures.insert(sequence_number, response.clone());
-        }
-        self.sequence_number.swap(sequence_number, Ordering::SeqCst);
-        ret.ok()?;
-        Ok(response)
+        let (tx, rx) = oneshot::channel::<T::Response>();
+        self.futures.lock().insert(sequence_number, tx);
+        Ok(rx.await?)
     }
 
     /// Ask RMW for the data
@@ -232,8 +242,13 @@ where
             let callback = requests.remove(&req_id.sequence_number).unwrap();
             (*callback.lock())(&res);
         } else if futures.contains_key(&req_id.sequence_number) {
-            let future = futures.remove(&req_id.sequence_number).unwrap();
-            (&mut *future.lock()).set_value(res);
+            futures
+                .remove(&req_id.sequence_number)
+                .unwrap_or_else(|| panic!("fail to find key in Client::process_requests"))
+                .send(res)
+                .unwrap_or_else(|_| {
+                    panic!("fail to send response via channel in Client::process_requests")
+                });
         }
         Ok(())
     }
