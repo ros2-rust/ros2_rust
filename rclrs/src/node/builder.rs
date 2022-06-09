@@ -231,16 +231,18 @@ impl NodeBuilder {
     ///
     /// For example usage, see the [`NodeBuilder`][1] docs.
     ///
-    /// # Panics
-    /// If any of the below conditions are fulfilled, a panic occurs:
-    ///  - The node name contains a null byte
-    ///  - The namespace contains a null byte
-    ///  - Any of the node arguments contain a null byte
-    ///
     /// [1]: crate::NodeBuilder
     pub fn build(&self) -> Result<Node, RclrsError> {
-        let node_name = CString::new(self.name.as_str()).unwrap();
-        let node_namespace = CString::new(self.namespace.as_str()).unwrap();
+        let node_name =
+            CString::new(self.name.as_str()).map_err(|err| RclrsError::StringContainsNul {
+                err,
+                s: self.name.clone(),
+            })?;
+        let node_namespace =
+            CString::new(self.namespace.as_str()).map_err(|err| RclrsError::StringContainsNul {
+                err,
+                s: self.namespace.clone(),
+            })?;
         let node_options = self.create_node_options()?;
         let context_handle = &mut *self.context.lock();
 
