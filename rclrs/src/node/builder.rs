@@ -310,6 +310,7 @@ impl Drop for rcl_node_options_t {
     fn drop(&mut self) {
         // SAFETY: Do not finish this struct except here.
         unsafe {
+            // This also finalizes the `rcl_arguments_t` contained in `rcl_node_options_t`,
             rcl_node_options_fini(self).ok().unwrap();
         }
     }
