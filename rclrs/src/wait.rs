@@ -15,7 +15,7 @@
 // DISTRIBUTION A. Approved for public release; distribution unlimited.
 // OPSEC #4584.
 
-use crate::error::{to_rcl_result, RclReturnCode, RclrsError, ToResult};
+use crate::error::{to_rclrs_result, RclReturnCode, RclrsError, ToResult};
 use crate::rcl_bindings::*;
 use crate::{Context, SubscriptionBase};
 
@@ -46,7 +46,7 @@ impl Drop for rcl_wait_set_t {
     fn drop(&mut self) {
         // SAFETY: No preconditions for this function (besides passing in a valid wait set).
         let rc = unsafe { rcl_wait_set_fini(self) };
-        if let Err(e) = to_rcl_result(rc) {
+        if let Err(e) = to_rclrs_result(rc) {
             panic!("Unable to release WaitSet. {:?}", e)
         }
     }
@@ -154,7 +154,7 @@ impl WaitSet {
             None => -1,
             Some(ns) if ns <= i64::MAX as u128 => ns as i64,
             _ => {
-                return Err(RclrsError {
+                return Err(RclrsError::RclError {
                     code: RclReturnCode::InvalidArgument,
                     msg: None,
                 })

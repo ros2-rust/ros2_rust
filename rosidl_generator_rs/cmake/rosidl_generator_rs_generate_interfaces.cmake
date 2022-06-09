@@ -130,6 +130,11 @@ rosidl_write_generator_arguments(
   TARGET_DEPENDENCIES ${target_dependencies}
 )
 
+file(READ ${generator_arguments_file} contents)
+string(REPLACE "\n}"
+  ",\n  \"package_version\": \"${${PROJECT_NAME}_VERSION}\"\n}" contents ${contents})
+file(WRITE ${generator_arguments_file} ${contents})
+
 file(MAKE_DIRECTORY "${_output_path}")
 
 set(_target_suffix "__rs")
