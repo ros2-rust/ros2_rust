@@ -5,6 +5,7 @@ use crate::Node;
 
 use std::borrow::Cow;
 use std::ffi::CString;
+use std::boxed::Box;
 use std::marker::PhantomData;
 use std::sync::Arc;
 
@@ -54,6 +55,7 @@ where
 {
     pub(crate) handle: Arc<PublisherHandle>,
     message: PhantomData<T>,
+    topic_name: Box<String>,
 }
 
 impl<T> Publisher<T>
@@ -104,7 +106,13 @@ where
         Ok(Self {
             handle,
             message: PhantomData,
+            topic_name: Box::new(topic.to_string())
         })
+    }
+
+    /// Returns the topic that the publisher is publishing data to
+    pub fn rcl_publisher_get_topic_name(&self) -> Result<String, RclrsError> {
+        return Ok(*self.topic_name.clone());
     }
 
     /// Publishes a message.
