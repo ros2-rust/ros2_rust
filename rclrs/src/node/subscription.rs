@@ -67,6 +67,7 @@ where
     /// The callback function that runs when a message was received.
     pub callback: Mutex<Box<dyn FnMut(T) + 'static + Send>>,
     message: PhantomData<T>,
+    topic_name: Box<String>,
 }
 
 impl<T> Subscription<T>
@@ -122,12 +123,13 @@ where
             handle,
             callback: Mutex::new(Box::new(callback)),
             message: PhantomData,
+            topic_name: Box::new(topic.to_string())
         })
     }
 
     /// Returns the name of the topic which is being subscribed
     pub fn rcl_subscription_get_topic_name(&self) -> Result<String, RclrsError> {
-        return Ok(self.topic.to_string());
+        return Ok(*self.topic_name.clone());
     }
 
     /// Fetches a new message.
