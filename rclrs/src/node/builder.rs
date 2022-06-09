@@ -306,19 +306,6 @@ impl NodeBuilder {
     }
 }
 
-impl Drop for rcl_arguments_t {
-    fn drop(&mut self) {
-        if !self.impl_.is_null() {
-            // SAFETY: `rcl_arguments_t.impl_` must be not NULL.
-            // However, after calling `rcl_node_options_fini`, this field become NULL.
-            // To prevent from calling drop twice, put NULL check.
-            unsafe {
-                rcl_arguments_fini(self).ok().unwrap();
-            }
-        }
-    }
-}
-
 impl Drop for rcl_node_options_t {
     fn drop(&mut self) {
         // SAFETY: Do not finish this struct except here.
