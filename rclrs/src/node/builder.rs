@@ -273,15 +273,31 @@ impl NodeBuilder {
     }
 
     /// Creates node options.
-    /// options are overrided by field values of builder.    
+    ///
+    /// Any fields not present in the builder will have their default value.
+    /// For detail about default values, see [`NodeBuilder`][1] docs.
+    ///
+    /// [1]: crate::NodeBuilder
     fn create_node_options(&self) -> Result<rcl_node_options_t, RclrsError> {
         // SAFETY: No preconditions for this function.
         let mut node_options = unsafe { rcl_node_get_default_options() };
 
-        let cstring_args = self
+        let (cstring_args_results, mut parse_err_results): (Vec<_>, Vec<_>) = self
             .arguments
             .iter()
-            .map(|s| CString::new(s.as_str()).unwrap())
+            .map(|s| match CString::new(s.as_str()) {
+                Ok(cstr) => Ok(cstr),
+                Err(err) => Err(RclrsError::StringContainsNul { s: s.clone(), err }),
+            })
+            .partition(Result::is_ok);
+
+        if let Some(err) = parse_err_results.pop() {
+            return Err(err.unwrap_err());
+        }
+
+        let cstring_args = cstring_args_results
+            .into_iter()
+            .map(|r| r.unwrap())
             .collect::<Vec<_>>();
         let cstring_arg_ptrs = cstring_args.iter().map(|s| s.as_ptr()).collect::<Vec<_>>();
         // SAFETY: Getting a zero-initialized value is always safe.
