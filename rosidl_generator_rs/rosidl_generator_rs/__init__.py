@@ -157,6 +157,7 @@ def generate_rs(generator_arguments_file, typesupport_impls):
     cargo_toml_data = {
         'dependency_packages': dependency_packages,
         'package_name': args['package_name'],
+        'package_version': args['package_version'],
     }
     expand_template(
         os.path.join(template_dir, 'Cargo.toml.em'),

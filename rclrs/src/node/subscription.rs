@@ -1,4 +1,4 @@
-use crate::error::{RclReturnCode, SubscriberErrorCode, ToResult};
+use crate::error::{RclReturnCode, ToResult};
 use crate::qos::QoSProfile;
 use crate::Node;
 use crate::{rcl_bindings::*, RclrsError};
@@ -74,9 +74,6 @@ where
     T: Message,
 {
     /// Creates a new subscription.
-    ///
-    /// # Panics
-    /// When the topic contains interior null bytes.
     pub fn new<F>(
         node: &Node,
         topic: &str,
@@ -91,7 +88,10 @@ where
         let mut subscription_handle = unsafe { rcl_get_zero_initialized_subscription() };
         let type_support =
             <T as Message>::RmwMsg::get_type_support() as *const rosidl_message_type_support_t;
-        let topic_c_string = CString::new(topic).unwrap();
+        let topic_c_string = CString::new(topic).map_err(|err| RclrsError::StringContainsNul {
+            err,
+            s: topic.into(),
+        })?;
         let node_handle = &mut *node.handle.lock();
 
         // SAFETY: No preconditions for this function.
@@ -128,10 +128,9 @@ where
     /// Fetches a new message.
     ///
     /// When there is no new message, this will return a
-    /// [`SubscriptionTakeFailed`][1] wrapped in an [`RclrsError`][2].
+    /// [`SubscriptionTakeFailed`][1]..
     ///
-    /// [1]: crate::SubscriberErrorCode
-    /// [2]: crate::RclrsError
+    /// [1]: crate::RclrsError
     //
     // ```text
     // +-------------+
@@ -178,8 +177,8 @@ where
     fn execute(&self) -> Result<(), RclrsError> {
         let msg = match self.take() {
             Ok(msg) => msg,
-            Err(RclrsError {
-                code: RclReturnCode::SubscriberError(SubscriberErrorCode::SubscriptionTakeFailed),
+            Err(RclrsError::RclError {
+                code: RclReturnCode::SubscriptionTakeFailed,
                 ..
             }) => {
                 // Spurious wakeup – this may happen even when a waitset indicated that this
