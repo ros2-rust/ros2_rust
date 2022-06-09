@@ -125,6 +125,11 @@ where
         })
     }
 
+    /// Returns the name of the topic which is being subscribed
+    pub fn rcl_subscription_get_topic_name(&self) -> Result<String, RclrsError> {
+        return Ok(self.topic.to_string());
+    }
+
     /// Fetches a new message.
     ///
     /// When there is no new message, this will return a
