@@ -135,14 +135,15 @@ where
         // The unsafe variables created get dropped within the unsafe scope as soon as they're used
         unsafe {
             let raw_topic_pointer = rcl_subscription_get_topic_name((&mut *self.handle.lock()) as *mut _);
-            if let Ok(name) =  CStr::from_ptr(raw_topic_pointer).to_str() {
-                _topic_name = name.to_string();
-            } else {
-                return Err(RclrsError::RclError{
-                    code: crate::error::RclReturnCode::TopicNameInvalid,
-                    msg: None,
-                    // Unable to give an error message as the String field in RclErrorMsg is private
-                });
+            match CStr::from_ptr(raw_topic_pointer).to_str() {
+                Ok(name) => { _topic_name = name.to_string() },
+                Err(_) => {
+                    return Err(RclrsError::RclError{
+                        code: crate::error::RclReturnCode::TopicNameInvalid,
+                        msg: None,
+                        // unable to return an error message as the String field in RclErrorMsg is private
+                    });
+                }
             }
         }
         return Ok(_topic_name);
