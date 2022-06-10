@@ -5,6 +5,7 @@ use crate::Node;
 
 use std::borrow::Cow;
 use std::ffi::CString;
+use std::ffi::CStr;
 use std::marker::PhantomData;
 use std::sync::Arc;
 
@@ -108,10 +109,26 @@ where
     }
 
     /// Returns the topic that the publisher is publishing data to
-    pub fn get_topic(&self) {
-        // SAFETY: No preconditions for this function.
-        let mut raw_topic = unsafe{ rcl_publisher_get_topic_name((&mut *self.handle.lock()) as *mut _) };
-        println!("The topic name is : {:?}", &raw_topic);
+    pub fn get_topic(&self) -> Result<String, RclrsError> {
+
+        let mut _topic_name: String = String::default();
+        // SAFETY: No preconditions for the functions called.
+        // Edge cases for all unsafe variables created have been handled
+        // The unsafe variables created get dropped as soon as they're used
+        unsafe {
+            let raw_topic_pointer = rcl_publisher_get_topic_name((&mut *self.handle.lock()) as *mut _);
+            if let Ok(name) = CStr::from_ptr(raw_topic_pointer).to_str() {
+                _topic_name = name.to_string();
+            } else {
+                return Err(RclrsError::RclError{
+                    code: crate::error::RclReturnCode::TopicNameInvalid,
+                    msg: None,
+                    // Unable to give an error message as the String field in RclErrorMsg is private
+                });
+            }
+        }
+
+        return Ok(_topic_name);
     }
 
     /// Publishes a message.
