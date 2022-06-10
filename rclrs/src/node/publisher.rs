@@ -17,23 +17,23 @@ use rosidl_runtime_rs::{Message, RmwMessage};
 unsafe impl Send for rcl_publisher_t {}
 
 pub(crate) struct PublisherHandle {
-    handle: Mutex<rcl_publisher_t>,
-    node_handle: Arc<Mutex<rcl_node_t>>,
+    rcl_publisher_mtx: Mutex<rcl_publisher_t>,
+    rcl_node_mtx: Arc<Mutex<rcl_node_t>>,
 }
 
 impl PublisherHandle {
     fn lock(&self) -> MutexGuard<rcl_publisher_t> {
-        self.handle.lock()
+        self.rcl_publisher_mtx.lock()
     }
 }
 
 impl Drop for PublisherHandle {
     fn drop(&mut self) {
-        let handle = self.handle.get_mut();
-        let node_handle = &mut *self.node_handle.lock();
+        let rcl_publisher = self.rcl_publisher_mtx.get_mut();
+        let rcl_node = &mut *self.rcl_node_mtx.lock();
         // SAFETY: No preconditions for this function (besides the arguments being valid).
         unsafe {
-            rcl_publisher_fini(handle as *mut _, node_handle as *mut _);
+            rcl_publisher_fini(rcl_publisher as *mut _, rcl_node as *mut _);
         }
     }
 }
@@ -68,27 +68,27 @@ where
         T: Message,
     {
         // SAFETY: Getting a zero-initialized value is always safe.
-        let mut publisher_handle = unsafe { rcl_get_zero_initialized_publisher() };
+        let mut rcl_publisher = unsafe { rcl_get_zero_initialized_publisher() };
         let type_support =
             <T as Message>::RmwMsg::get_type_support() as *const rosidl_message_type_support_t;
         let topic_c_string = CString::new(topic).map_err(|err| RclrsError::StringContainsNul {
             err,
             s: topic.into(),
         })?;
-        let node_handle = &mut *node.handle.lock();
+        let rcl_node = &mut *node.rcl_node_mtx.lock();
 
         // SAFETY: No preconditions for this function.
         let mut publisher_options = unsafe { rcl_publisher_get_default_options() };
         publisher_options.qos = qos.into();
         unsafe {
-            // SAFETY: The publisher handle is zero-initialized as expected by this function.
-            // The node handle is kept alive because it is co-owned by the subscription.
+            // SAFETY: The rcl_publisher is zero-initialized as expected by this function.
+            // The rcl_node is kept alive because it is co-owned by the subscription.
             // The topic name and the options are copied by this function, so they can be dropped
             // afterwards.
             // TODO: type support?
             rcl_publisher_init(
-                &mut publisher_handle,
-                node_handle,
+                &mut rcl_publisher,
+                rcl_node,
                 type_support,
                 topic_c_string.as_ptr(),
                 &publisher_options,
@@ -97,8 +97,8 @@ where
         }
 
         let handle = Arc::new(PublisherHandle {
-            handle: Mutex::new(publisher_handle),
-            node_handle: node.handle.clone(),
+            rcl_publisher_mtx: Mutex::new(rcl_publisher),
+            rcl_node_mtx: node.rcl_node_mtx.clone(),
         });
 
         Ok(Self {
@@ -125,13 +125,13 @@ where
     /// [1]: https://github.com/ros2/ros2/issues/255
     pub fn publish<'a, M: MessageCow<'a, T>>(&self, message: M) -> Result<(), RclrsError> {
         let rmw_message = T::into_rmw_message(message.into_cow());
-        let handle = &mut *self.handle.lock();
+        let rcl_publisher = &mut *self.handle.lock();
         let ret = unsafe {
             // SAFETY: The message type is guaranteed to match the publisher type by the type system.
             // The message does not need to be valid beyond the duration of this function call.
             // The third argument is explictly allowed to be NULL.
             rcl_publish(
-                handle,
+                rcl_publisher,
                 rmw_message.as_ref() as *const <T as Message>::RmwMsg as *mut _,
                 std::ptr::null_mut(),
             )

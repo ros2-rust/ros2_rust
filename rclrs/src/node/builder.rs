@@ -86,7 +86,7 @@ impl NodeBuilder {
     /// [3]: NodeBuilder::build
     pub fn new(context: &Context, name: &str) -> NodeBuilder {
         NodeBuilder {
-            context: context.handle.clone(),
+            context: context.rcl_context_mtx.clone(),
             name: name.to_string(),
             namespace: "/".to_string(),
             use_global_arguments: true,
@@ -244,30 +244,30 @@ impl NodeBuilder {
                 s: self.namespace.clone(),
             })?;
         let node_options = self.create_node_options()?;
-        let context_handle = &mut *self.context.lock();
+        let rcl_context = &mut *self.context.lock();
 
         // SAFETY: Getting a zero-initialized value is always safe.
-        let mut node_handle = unsafe { rcl_get_zero_initialized_node() };
+        let mut rcl_node = unsafe { rcl_get_zero_initialized_node() };
         unsafe {
-            // SAFETY: The node handle is zero-initialized as expected by this function.
+            // SAFETY: The rcl_node is zero-initialized as expected by this function.
             // The strings and node options are copied by this function, so we don't need
             // to keep them alive.
-            // The context handle has to be kept alive because it is co-owned by the node.
+            // The rcl_context has to be kept alive because it is co-owned by the node.
             rcl_node_init(
-                &mut node_handle,
+                &mut rcl_node,
                 node_name.as_ptr(),
                 node_namespace.as_ptr(),
-                context_handle,
+                rcl_context,
                 &node_options,
             )
             .ok()?;
         };
 
-        let handle = Arc::new(Mutex::new(node_handle));
+        let rcl_node_mtx = Arc::new(Mutex::new(rcl_node));
 
         Ok(Node {
-            handle,
-            context: self.context.clone(),
+            rcl_node_mtx,
+            rcl_context_mtx: self.context.clone(),
             subscriptions: std::vec![],
         })
     }
