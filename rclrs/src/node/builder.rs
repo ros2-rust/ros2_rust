@@ -292,7 +292,6 @@ impl NodeBuilder {
             .collect::<Result<Vec<_>, _>>()?;
 
         let cstring_arg_ptrs = cstring_args.iter().map(|s| s.as_ptr()).collect::<Vec<_>>();
-        // SAFETY: Getting a zero-initialized value is always safe.
         unsafe {
             // SAFETY: This function does not store the ephemeral cstring_args_ptrs
             // pointers. We are passing in a zero-initialized arguments struct as expected.
