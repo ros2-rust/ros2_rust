@@ -13,6 +13,9 @@ use std::sync::Arc;
 ///
 /// The default values for optional fields are:
 /// - `namespace: "/"`
+/// - `use_global_arguments: true`
+/// - `arguments: []`
+/// - `enable_rosout: true`
 ///
 /// # Example
 /// ```
@@ -35,11 +38,13 @@ use std::sync::Arc;
 ///
 /// [1]: crate::Node
 /// [2]: crate::Node::builder
-///
 pub struct NodeBuilder {
     context: Arc<Mutex<rcl_context_t>>,
     name: String,
     namespace: String,
+    use_global_arguments: bool,
+    arguments: Vec<String>,
+    enable_rosout: bool,
 }
 
 impl NodeBuilder {
@@ -84,6 +89,9 @@ impl NodeBuilder {
             context: context.handle.clone(),
             name: name.to_string(),
             namespace: "/".to_string(),
+            use_global_arguments: true,
+            arguments: vec![],
+            enable_rosout: true,
         }
     }
 
@@ -142,6 +150,81 @@ impl NodeBuilder {
         self
     }
 
+    /// Enables or disables using global arguments.
+    ///
+    /// The "global" arguments are those used in [creating the context][1].
+    ///
+    /// # Example
+    /// ```
+    /// # use rclrs::{Context, Node, NodeBuilder, RclrsError};
+    /// let context_args = ["--ros-args", "--remap", "__node:=your_node"]
+    ///   .map(String::from);
+    /// let context = Context::new(context_args)?;
+    /// // Ignore the global arguments:
+    /// let node_without_global_args = context
+    ///   .create_node_builder("my_node")
+    ///   .use_global_arguments(false)
+    ///   .build()?;
+    /// assert_eq!(node_without_global_args.name(), "my_node");
+    /// // Do not ignore the global arguments:
+    /// let node_with_global_args = context
+    ///   .create_node_builder("my_other_node")
+    ///   .use_global_arguments(true)
+    ///   .build()?;
+    /// assert_eq!(node_with_global_args.name(), "your_node");
+    /// # Ok::<(), RclrsError>(())
+    /// ```
+    ///
+    /// [1]: crate::Context::new
+    pub fn use_global_arguments(mut self, enable: bool) -> Self {
+        self.use_global_arguments = enable;
+        self
+    }
+
+    /// Sets node-specific command line arguments.
+    ///
+    /// These arguments are parsed the same way as those for [`Context::new()`][1].
+    /// However, the node-specific command line arguments have higher precedence than the arguments
+    /// used in creating the context.
+    ///
+    /// For more details about command line arguments, see [here][2].
+    ///    
+    /// # Example
+    /// ```
+    /// # use rclrs::{Context, Node, NodeBuilder, RclrsError};
+    /// // Usually, this would change the name of "my_node" to "context_args_node":
+    /// let context_args = ["--ros-args", "--remap", "my_node:__node:=context_args_node"]
+    ///   .map(String::from);
+    /// let context = Context::new(context_args)?;
+    /// // But the node arguments will change it to "node_args_node":
+    /// let node_args = ["--ros-args", "--remap", "my_node:__node:=node_args_node"]
+    ///   .map(String::from);
+    /// let node = context
+    ///   .create_node_builder("my_node")
+    ///   .arguments(node_args)
+    ///   .build()?;
+    /// assert_eq!(node.name(), "node_args_node");
+    /// # Ok::<(), RclrsError>(())
+    /// ```
+    ///
+    /// [1]: crate::Context::new
+    /// [2]: https://design.ros2.org/articles/ros_command_line_arguments.html
+    pub fn arguments(mut self, arguments: impl IntoIterator<Item = String>) -> Self {
+        self.arguments = arguments.into_iter().collect();
+        self
+    }
+
+    /// Enables or disables logging to rosout.
+    ///
+    /// When enabled, log messages are published to the `/rosout` topic in addition to
+    /// standard output.
+    ///
+    /// This option is currently unused in `rclrs`.
+    pub fn enable_rosout(mut self, enable: bool) -> Self {
+        self.enable_rosout = enable;
+        self
+    }
+
     /// Builds the node instance.
     ///
     /// Node name and namespace validation is performed in this method.
@@ -160,16 +243,12 @@ impl NodeBuilder {
                 err,
                 s: self.namespace.clone(),
             })?;
+        let node_options = self.create_node_options()?;
+        let context_handle = &mut *self.context.lock();
 
-        // SAFETY: No preconditions for this function.
+        // SAFETY: Getting a zero-initialized value is always safe.
         let mut node_handle = unsafe { rcl_get_zero_initialized_node() };
-
         unsafe {
-            // SAFETY: No preconditions for this function.
-            let context_handle = &mut *self.context.lock();
-            // SAFETY: No preconditions for this function.
-            let node_options = rcl_node_get_default_options();
-
             // SAFETY: The node handle is zero-initialized as expected by this function.
             // The strings and node options are copied by this function, so we don't need
             // to keep them alive.
@@ -191,5 +270,55 @@ impl NodeBuilder {
             context: self.context.clone(),
             subscriptions: std::vec![],
         })
+    }
+
+    /// Creates node options.
+    ///
+    /// Any fields not present in the builder will have their default value.
+    /// For detail about default values, see [`NodeBuilder`][1] docs.
+    ///
+    /// [1]: crate::NodeBuilder
+    fn create_node_options(&self) -> Result<rcl_node_options_t, RclrsError> {
+        // SAFETY: No preconditions for this function.
+        let mut node_options = unsafe { rcl_node_get_default_options() };
+
+        let cstring_args = self
+            .arguments
+            .iter()
+            .map(|s| match CString::new(s.as_str()) {
+                Ok(cstr) => Ok(cstr),
+                Err(err) => Err(RclrsError::StringContainsNul { s: s.clone(), err }),
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let cstring_arg_ptrs = cstring_args.iter().map(|s| s.as_ptr()).collect::<Vec<_>>();
+        unsafe {
+            // SAFETY: This function does not store the ephemeral cstring_args_ptrs
+            // pointers. We are passing in a zero-initialized arguments struct as expected.
+            rcl_parse_arguments(
+                cstring_arg_ptrs.len() as i32,
+                cstring_arg_ptrs.as_ptr(),
+                rcutils_get_default_allocator(),
+                &mut node_options.arguments,
+            )
+        }
+        .ok()?;
+
+        node_options.use_global_arguments = self.use_global_arguments;
+        node_options.enable_rosout = self.enable_rosout;
+        // SAFETY: No preconditions for this function.
+        node_options.allocator = unsafe { rcutils_get_default_allocator() };
+
+        Ok(node_options)
+    }
+}
+
+impl Drop for rcl_node_options_t {
+    fn drop(&mut self) {
+        // SAFETY: Do not finish this struct except here.
+        unsafe {
+            // This also finalizes the `rcl_arguments_t` contained in `rcl_node_options_t`.
+            rcl_node_options_fini(self).ok().unwrap();
+        }
     }
 }
