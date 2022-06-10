@@ -3,7 +3,7 @@
 //!
 //! For getting started, see the [README][1].
 //!
-//! [1]: https://github.com/ros2-rust/ros2_rust/blob/master/README.md
+//! [1]: https://github.com/ros2-rust/ros2_rust/blob/main/README.md
 
 mod context;
 mod error;
