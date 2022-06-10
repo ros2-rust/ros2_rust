@@ -282,23 +282,15 @@ impl NodeBuilder {
         // SAFETY: No preconditions for this function.
         let mut node_options = unsafe { rcl_node_get_default_options() };
 
-        let (cstring_args_results, mut parse_err_results): (Vec<_>, Vec<_>) = self
+        let cstring_args = self
             .arguments
             .iter()
             .map(|s| match CString::new(s.as_str()) {
                 Ok(cstr) => Ok(cstr),
                 Err(err) => Err(RclrsError::StringContainsNul { s: s.clone(), err }),
             })
-            .partition(Result::is_ok);
+            .collect::<Result<Vec<_>, _>>()?;
 
-        if let Some(err) = parse_err_results.pop() {
-            return Err(err.unwrap_err());
-        }
-
-        let cstring_args = cstring_args_results
-            .into_iter()
-            .map(|r| r.unwrap())
-            .collect::<Vec<_>>();
         let cstring_arg_ptrs = cstring_args.iter().map(|s| s.as_ptr()).collect::<Vec<_>>();
         // SAFETY: Getting a zero-initialized value is always safe.
         unsafe {
