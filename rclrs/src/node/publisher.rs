@@ -119,8 +119,7 @@ where
             let raw_topic_pointer = rcl_publisher_get_topic_name(&*self.handle.lock());
             Ok(CStr::from_ptr(raw_topic_pointer)
                 .to_string_lossy()
-                .to_owned()
-                .to_string())
+                .into_owned())
         }
     }
 
