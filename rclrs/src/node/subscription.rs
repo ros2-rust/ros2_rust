@@ -3,7 +3,7 @@ use crate::qos::QoSProfile;
 use crate::Node;
 use crate::{rcl_bindings::*, RclrsError};
 
-use std::borrow::{Borrow, Cow};
+use std::borrow::Borrow;
 use std::boxed::Box;
 use std::ffi::CStr;
 use std::ffi::CString;
@@ -130,14 +130,15 @@ where
     ///
     /// This returns the topic name after remapping, so it is not necessarily the
     /// topic name which was used when creating the subscription
-    pub fn get_topic(&self) -> Result<Cow<str>, RclrsError> {
+    pub fn get_topic(&self) -> Result<String, RclrsError> {
         // SAFETY: No preconditions for the function used
         // The unsafe variables get converted to safe types before being returned
         unsafe {
             let raw_topic_pointer = rcl_subscription_get_topic_name(&*self.handle.lock());
-            return Ok(CStr::from_ptr(raw_topic_pointer)
+            Ok(CStr::from_ptr(raw_topic_pointer)
                 .to_string_lossy()
-                .to_owned());
+                .to_owned()
+                .to_string())
         }
     }
 
