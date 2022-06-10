@@ -3,10 +3,10 @@ use crate::qos::QoSProfile;
 use crate::Node;
 use crate::{rcl_bindings::*, RclrsError};
 
-use std::borrow::Borrow;
+use std::borrow::{Borrow, Cow};
 use std::boxed::Box;
-use std::ffi::CString;
 use std::ffi::CStr;
+use std::ffi::CString;
 use std::marker::PhantomData;
 use std::sync::Arc;
 
@@ -126,27 +126,19 @@ where
         })
     }
 
-    /// Returns the name of the topic which is being subscribed
-    pub fn get_topic(&self) -> Result<String, RclrsError> {
-
-        let mut _topic_name: String = String::default();
+    /// Returns the topic name of the subscription.
+    ///
+    /// This returns the topic name after remapping, so it is not necessarily the
+    /// topic name which was used when creating the subscription
+    pub fn get_topic(&self) -> Result<Cow<str>, RclrsError> {
         // SAFETY: No preconditions for the function used
-        // Edge cases for all unsafe variables have been handled
-        // The unsafe variables created get dropped within the unsafe scope as soon as they're used
+        // The unsafe variables get converted to safe types before being returned
         unsafe {
-            let raw_topic_pointer = rcl_subscription_get_topic_name((&mut *self.handle.lock()) as *mut _);
-            match CStr::from_ptr(raw_topic_pointer).to_str() {
-                Ok(name) => { _topic_name = name.to_string() },
-                Err(_) => {
-                    return Err(RclrsError::RclError{
-                        code: crate::error::RclReturnCode::TopicNameInvalid,
-                        msg: None,
-                        // unable to return an error message as the String field in RclErrorMsg is private
-                    });
-                }
-            }
+            let raw_topic_pointer = rcl_subscription_get_topic_name(&*self.handle.lock());
+            return Ok(CStr::from_ptr(raw_topic_pointer)
+                .to_string_lossy()
+                .to_owned());
         }
-        return Ok(_topic_name);
     }
 
     /// Fetches a new message.
