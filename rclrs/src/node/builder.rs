@@ -267,7 +267,7 @@ impl NodeBuilder {
         let _parameter_map = unsafe {
             let fqn = call_string_getter_with_handle(&rcl_node, rcl_node_get_fully_qualified_name);
             resolve_parameter_overrides(
-                fqn,
+                &fqn,
                 &rcl_node_options.arguments,
                 &rcl_context.global_arguments,
             )?
