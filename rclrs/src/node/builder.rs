@@ -64,20 +64,19 @@ impl NodeBuilder {
     ///
     /// # Example
     /// ```
-    /// # use rclrs::{Context, NodeBuilder, RclrsError, RclReturnCode, NodeErrorCode};
+    /// # use rclrs::{Context, NodeBuilder, RclrsError, RclReturnCode};
     /// let context = Context::new([])?;
     /// // This is a valid node name
     /// assert!(NodeBuilder::new(&context, "my_node").build().is_ok());
     /// // This is another valid node name (although not a good one)
     /// assert!(NodeBuilder::new(&context, "_______").build().is_ok());
     /// // This is an invalid node name
-    /// assert_eq!(
+    /// assert!(matches!(
     ///     NodeBuilder::new(&context, "röböt")
     ///         .build()
-    ///         .unwrap_err()
-    ///         .code,
-    ///     RclReturnCode::NodeError(NodeErrorCode::NodeInvalidName)
-    /// );
+    ///         .unwrap_err(),
+    ///     RclrsError::RclError { code: RclReturnCode::NodeInvalidName, .. }
+    /// ));
     /// # Ok::<(), RclrsError>(())
     /// ```    
     ///    
@@ -116,20 +115,19 @@ impl NodeBuilder {
     ///
     /// # Example
     /// ```
-    /// # use rclrs::{Context, Node, RclrsError, RclReturnCode, NodeErrorCode};
+    /// # use rclrs::{Context, Node, RclrsError, RclReturnCode};
     /// let context = Context::new([])?;
     /// // This is a valid namespace
     /// let builder_ok_ns = Node::builder(&context, "my_node").namespace("/some/nested/namespace");
     /// assert!(builder_ok_ns.build().is_ok());
     /// // This is an invalid namespace
-    /// assert_eq!(
+    /// assert!(matches!(
     ///     Node::builder(&context, "my_node")
     ///         .namespace("/10_percent_luck/20_percent_skill")
     ///         .build()
-    ///         .unwrap_err()
-    ///         .code,
-    ///     RclReturnCode::NodeError(NodeErrorCode::NodeInvalidNamespace)
-    /// );
+    ///         .unwrap_err(),
+    ///     RclrsError::RclError { code: RclReturnCode::NodeInvalidNamespace, .. }
+    /// ));
     /// // A missing forward slash at the beginning is automatically added
     /// assert_eq!(
     ///     Node::builder(&context, "my_node")
@@ -243,7 +241,7 @@ impl NodeBuilder {
                 err,
                 s: self.namespace.clone(),
             })?;
-        let node_options = self.create_node_options()?;
+        let rcl_node_options = self.create_rcl_node_options()?;
         let rcl_context = &mut *self.context.lock();
 
         // SAFETY: Getting a zero-initialized value is always safe.
@@ -258,7 +256,7 @@ impl NodeBuilder {
                 node_name.as_ptr(),
                 node_namespace.as_ptr(),
                 rcl_context,
-                &node_options,
+                &rcl_node_options,
             )
             .ok()?;
         };
@@ -278,9 +276,9 @@ impl NodeBuilder {
     /// For detail about default values, see [`NodeBuilder`][1] docs.
     ///
     /// [1]: crate::NodeBuilder
-    fn create_node_options(&self) -> Result<rcl_node_options_t, RclrsError> {
+    fn create_rcl_node_options(&self) -> Result<rcl_node_options_t, RclrsError> {
         // SAFETY: No preconditions for this function.
-        let mut node_options = unsafe { rcl_node_get_default_options() };
+        let mut rcl_node_options = unsafe { rcl_node_get_default_options() };
 
         let cstring_args = self
             .arguments
@@ -299,17 +297,17 @@ impl NodeBuilder {
                 cstring_arg_ptrs.len() as i32,
                 cstring_arg_ptrs.as_ptr(),
                 rcutils_get_default_allocator(),
-                &mut node_options.arguments,
+                &mut rcl_node_options.arguments,
             )
         }
         .ok()?;
 
-        node_options.use_global_arguments = self.use_global_arguments;
-        node_options.enable_rosout = self.enable_rosout;
+        rcl_node_options.use_global_arguments = self.use_global_arguments;
+        rcl_node_options.enable_rosout = self.enable_rosout;
         // SAFETY: No preconditions for this function.
-        node_options.allocator = unsafe { rcutils_get_default_allocator() };
+        rcl_node_options.allocator = unsafe { rcutils_get_default_allocator() };
 
-        Ok(node_options)
+        Ok(rcl_node_options)
     }
 }
 
