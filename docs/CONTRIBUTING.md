@@ -48,10 +48,18 @@ Prefer using `quickcheck` tests and doctests where they make sense.
 
 Avoid writing tests that simply restate the definition of a function. E.g. for `fn square(x: i32) { x*x }` do not write a test that asserts `square(3) == 3*3`.
 
-### Wrapping `rcl` functions
+### Return type to use when wrapping `rcl` functions
 Functions from `rcl` can typically return error codes. This does not necessarily mean that the `rclrs` function using it must return `Result`. If the error conditions can be determined, from reading `rcl` comments and source code, to never occur, the return code doesn't need to be propagated but only `debug_assert!`ed to be ok. This assert guards against `rcl` introducing a new error condition in the future.
 
 An example would be a function that only returns an error when the pointer we pass in is null or points to an uninitialized object. If we obtain the pointer from a reference, it can't be null, and if the object that is referenced is guaranteed to be initialized, there is no need to return a `Result`.
+
+### References vs raw pointers
+
+Do not cast references to raw pointers where it's not needed. Since references coerce to raw pointers, they can be directly used as arguments to C functions in most cases.
+
+### Implementing the `Drop` trait
+
+Generally, a `rcl` type should have a `Drop` impl that calls its `fini()` function. However, there are some cases where this is not possible, e.g. when the type is part of another `rcl` type that owns and finalizes it, or when the `fini()` function takes extra arguments. In these cases, it needs to be decided individually if and where to call `fini()`, and care must be taken to not return early from a function with `?` before the relevant `fini()` functions have been called.
 
 ## License
 Any contribution that you make to this repository will
