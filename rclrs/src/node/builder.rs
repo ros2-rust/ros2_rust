@@ -266,7 +266,11 @@ impl NodeBuilder {
 
         let _parameter_map = unsafe {
             let fqn = call_string_getter_with_handle(&rcl_node, rcl_node_get_fully_qualified_name);
-            resolve_parameter_overrides(fqn, &rcl_context.global_arguments)?
+            resolve_parameter_overrides(
+                fqn,
+                &rcl_node_options.arguments,
+                &rcl_context.global_arguments,
+            )?
         };
         let rcl_node_mtx = Arc::new(Mutex::new(rcl_node));
 
@@ -278,7 +282,7 @@ impl NodeBuilder {
         })
     }
 
-    /// Creates node options.
+    /// Creates a rcl_node_options_t struct from this builder.
     ///
     /// Any fields not present in the builder will have their default value.
     /// For detail about default values, see [`NodeBuilder`][1] docs.
