@@ -19,9 +19,7 @@ async fn main() -> Result<(), Error> {
 
     println!("Waiting for response");
 
-    let spin_thread = std::thread::spawn(move || {
-        rclrs::spin(&node).map_err(|err| err)
-    });
+    let spin_thread = std::thread::spawn(move || rclrs::spin(&node).map_err(|err| err));
 
     let response = future.await;
     println!(
