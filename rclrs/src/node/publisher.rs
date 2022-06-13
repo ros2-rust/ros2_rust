@@ -8,35 +8,13 @@ use std::ffi::CString;
 use std::marker::PhantomData;
 use std::sync::Arc;
 
-use parking_lot::{Mutex, MutexGuard};
+use parking_lot::Mutex;
 
 use rosidl_runtime_rs::{Message, RmwMessage};
 
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
 // they are running in. Therefore, this type can be safely sent to another thread.
 unsafe impl Send for rcl_publisher_t {}
-
-pub(crate) struct PublisherHandle {
-    rcl_publisher_mtx: Mutex<rcl_publisher_t>,
-    rcl_node_mtx: Arc<Mutex<rcl_node_t>>,
-}
-
-impl PublisherHandle {
-    fn lock(&self) -> MutexGuard<rcl_publisher_t> {
-        self.rcl_publisher_mtx.lock()
-    }
-}
-
-impl Drop for PublisherHandle {
-    fn drop(&mut self) {
-        let rcl_publisher = self.rcl_publisher_mtx.get_mut();
-        let rcl_node = &mut *self.rcl_node_mtx.lock();
-        // SAFETY: No preconditions for this function (besides the arguments being valid).
-        unsafe {
-            rcl_publisher_fini(rcl_publisher as *mut _, rcl_node as *mut _);
-        }
-    }
-}
 
 /// Struct for sending messages of type `T`.
 ///
@@ -52,8 +30,24 @@ pub struct Publisher<T>
 where
     T: Message,
 {
-    pub(crate) handle: Arc<PublisherHandle>,
+    rcl_publisher_mtx: Mutex<rcl_publisher_t>,
+    rcl_node_mtx: Arc<Mutex<rcl_node_t>>,
     message: PhantomData<T>,
+}
+
+impl<T> Drop for Publisher<T>
+where
+    T: Message,
+{
+    fn drop(&mut self) {
+        unsafe {
+            // SAFETY: No preconditions for this function (besides the arguments being valid).
+            rcl_publisher_fini(
+                self.rcl_publisher_mtx.get_mut(),
+                &mut *self.rcl_node_mtx.lock(),
+            );
+        }
+    }
 }
 
 impl<T> Publisher<T>
@@ -96,13 +90,9 @@ where
             .ok()?;
         }
 
-        let handle = Arc::new(PublisherHandle {
-            rcl_publisher_mtx: Mutex::new(rcl_publisher),
-            rcl_node_mtx: node.rcl_node_mtx.clone(),
-        });
-
         Ok(Self {
-            handle,
+            rcl_publisher_mtx: Mutex::new(rcl_publisher),
+            rcl_node_mtx: Arc::clone(&node.rcl_node_mtx),
             message: PhantomData,
         })
     }
@@ -125,7 +115,7 @@ where
     /// [1]: https://github.com/ros2/ros2/issues/255
     pub fn publish<'a, M: MessageCow<'a, T>>(&self, message: M) -> Result<(), RclrsError> {
         let rmw_message = T::into_rmw_message(message.into_cow());
-        let rcl_publisher = &mut *self.handle.lock();
+        let rcl_publisher = &mut *self.rcl_publisher_mtx.lock();
         let ret = unsafe {
             // SAFETY: The message type is guaranteed to match the publisher type by the type system.
             // The message does not need to be valid beyond the duration of this function call.
