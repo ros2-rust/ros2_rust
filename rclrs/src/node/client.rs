@@ -97,7 +97,7 @@ where
 
         let handle = Arc::new(ClientHandle {
             handle: Mutex::new(client_handle),
-            node_handle: node.handle.clone(),
+            node_handle: node.rcl_node_mtx.clone(),
         });
 
         Ok(Self {

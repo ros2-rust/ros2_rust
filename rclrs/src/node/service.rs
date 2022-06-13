@@ -86,7 +86,7 @@ where
 
         let handle = Arc::new(ServiceHandle {
             handle: Mutex::new(service_handle),
-            node_handle: node.handle.clone(),
+            node_handle: node.rcl_node_mtx.clone(),
         });
 
         Ok(Self {
