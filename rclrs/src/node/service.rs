@@ -69,7 +69,7 @@ where
         let type_support = <T as rosidl_runtime_rs::Service>::get_type_support()
             as *const rosidl_service_type_support_t;
         let topic_c_string = CString::new(topic).unwrap();
-        let node_handle = &mut *node.handle.lock();
+        let node_handle = &mut *node.rcl_node_mtx.lock();
 
         unsafe {
             let service_options = rcl_service_get_default_options();
@@ -142,7 +142,7 @@ where
     fn execute(&self) -> Result<(), RclrsError> {
         let (req, mut req_id) = match self.take_request() {
             Ok((req, req_id)) => (req, req_id),
-            Err(RclrsError {
+            Err(RclrsError::RclError {
                 code: RclReturnCode::ServiceTakeFailed,
                 ..
             }) => {

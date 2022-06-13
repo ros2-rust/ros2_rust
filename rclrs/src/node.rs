@@ -71,7 +71,7 @@ unsafe impl Send for rcl_node_t {}
 /// [4]: crate::NodeBuilder::namespace
 pub struct Node {
     rcl_node_mtx: Arc<Mutex<rcl_node_t>>,
-    pub(crate) context: Arc<Mutex<rcl_context_t>>,
+    pub(crate) rcl_context_mtx: Arc<Mutex<rcl_context_t>>,
     pub(crate) clients: Vec<Weak<dyn ClientBase>>,
     pub(crate) services: Vec<Weak<dyn ServiceBase>>,
     pub(crate) subscriptions: Vec<Weak<dyn SubscriptionBase>>,

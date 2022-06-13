@@ -157,7 +157,7 @@ impl WaitSet {
             // for as long as the wait set exists, because it's stored in self.subscriptions.
             // Passing in a null pointer for the third argument is explicitly allowed.
             rcl_wait_set_add_client(
-                &mut self.handle as *mut _,
+                &mut self.rcl_wait_set,
                 &*client.handle().lock() as *const _,
                 core::ptr::null_mut(),
             )
@@ -182,7 +182,7 @@ impl WaitSet {
             // for as long as the wait set exists, because it's stored in self.services.
             // Passing in a null pointer for the third argument is explicitly allowed.
             rcl_wait_set_add_service(
-                &mut self.handle as *mut _,
+                &mut self.rcl_wait_set,
                 &*service.handle().lock() as *const _,
                 core::ptr::null_mut(),
             )
@@ -250,7 +250,7 @@ impl WaitSet {
             // SAFETY: The `clients` entry is an array of pointers, and this dereferencing is
             // equivalent to
             // https://github.com/ros2/rcl/blob/35a31b00a12f259d492bf53c0701003bd7f1745c/rcl/include/rcl/wait.h#L419
-            let wait_set_entry = unsafe { *self.handle.clients.add(i) };
+            let wait_set_entry = unsafe { *self.rcl_wait_set.clients.add(i) };
             if !wait_set_entry.is_null() {
                 ready_entities.clients.push(client.clone());
             }
@@ -259,7 +259,7 @@ impl WaitSet {
             // SAFETY: The `services` entry is an array of pointers, and this dereferencing is
             // equivalent to
             // https://github.com/ros2/rcl/blob/35a31b00a12f259d492bf53c0701003bd7f1745c/rcl/include/rcl/wait.h#L419
-            let wait_set_entry = unsafe { *self.handle.services.add(i) };
+            let wait_set_entry = unsafe { *self.rcl_wait_set.services.add(i) };
             if !wait_set_entry.is_null() {
                 ready_entities.services.push(service.clone());
             }

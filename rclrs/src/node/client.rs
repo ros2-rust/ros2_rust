@@ -1,6 +1,6 @@
 #![warn(missing_docs)]
 use crate::node::client::oneshot::Canceled;
-use futures::channel::{mpsc, oneshot};
+use futures::channel::oneshot;
 use std::borrow::Borrow;
 use std::boxed::Box;
 use std::collections::HashMap;
@@ -43,7 +43,7 @@ impl Drop for ClientHandle {
 
 impl From<Canceled> for RclrsError {
     fn from(_: Canceled) -> Self {
-        RclrsError {
+        RclrsError::RclError {
             code: RclReturnCode::Error,
             msg: None,
         }
@@ -80,7 +80,7 @@ where
         let type_support = <T as rosidl_runtime_rs::Service>::get_type_support()
             as *const rosidl_service_type_support_t;
         let topic_c_string = CString::new(topic).unwrap();
-        let node_handle = &mut *node.handle.lock();
+        let node_handle = &mut *node.rcl_node_mtx.lock();
 
         unsafe {
             let client_options = rcl_client_get_default_options();
@@ -225,7 +225,7 @@ where
     fn execute(&self) -> Result<(), RclrsError> {
         let (res, req_id) = match self.take_response() {
             Ok((res, req_id)) => (res, req_id),
-            Err(RclrsError {
+            Err(RclrsError::RclError {
                 code: RclReturnCode::ClientTakeFailed,
                 ..
             }) => {
