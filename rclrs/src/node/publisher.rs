@@ -4,6 +4,7 @@ use crate::rcl_bindings::*;
 use crate::Node;
 
 use std::borrow::Cow;
+use std::ffi::CStr;
 use std::ffi::CString;
 use std::marker::PhantomData;
 use std::sync::Arc;
@@ -95,6 +96,21 @@ where
             rcl_node_mtx: Arc::clone(&node.rcl_node_mtx),
             message: PhantomData,
         })
+    }
+
+    /// Returns the topic name of the publisher.
+    ///
+    /// This returns the topic name after remapping, so it is not necessarily the
+    /// topic name which was used when creating the publisher.
+    pub fn get_topic(&self) -> String {
+        // SAFETY: No preconditions for the functions called.
+        // The unsafe variables created get converted to safe types before being returned
+        unsafe {
+            let raw_topic_pointer = rcl_publisher_get_topic_name(&*self.handle.lock());
+            CStr::from_ptr(raw_topic_pointer)
+                .to_string_lossy()
+                .into_owned()
+        }
     }
 
     /// Publishes a message.
