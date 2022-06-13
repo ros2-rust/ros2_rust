@@ -9,7 +9,6 @@ use std::sync::atomic::{AtomicI64, Ordering};
 use std::sync::Arc;
 
 use crate::error::{RclReturnCode, ToResult};
-use crate::future::RclFuture;
 use crate::MessageCow;
 use crate::Node;
 use crate::{rcl_bindings::*, RclrsError};
