@@ -5,7 +5,6 @@
 //!
 //! [1]: https://github.com/ros2-rust/ros2_rust/blob/main/README.md
 
-use std::sync::Arc;
 use std::time::Duration;
 
 mod context;

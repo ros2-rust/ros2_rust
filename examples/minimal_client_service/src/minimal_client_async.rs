@@ -1,10 +1,5 @@
 use anyhow::{Error, Result};
-use futures::join;
-use futures::Future;
-use rclrs::Node;
 use std::env;
-use std::thread;
-use tokio;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
@@ -25,7 +20,7 @@ async fn main() -> Result<(), Error> {
     println!("Waiting for response");
 
     let spin_thread = std::thread::spawn(move || {
-        rclrs::spin(&node);
+        rclrs::spin(&node).map_err(|err| err)
     });
 
     let response = future.await;
@@ -35,6 +30,7 @@ async fn main() -> Result<(), Error> {
         request.b,
         response.unwrap().sum
     );
-    spin_thread.join();
+
+    spin_thread.join().ok();
     Ok(())
 }

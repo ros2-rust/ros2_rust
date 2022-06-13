@@ -173,6 +173,7 @@ where
                 &mut sequence_number,
             )
         };
+        debug_assert_eq!(ret, 0);
         let (tx, rx) = oneshot::channel::<T::Response>();
         self.futures.lock().insert(sequence_number, tx);
         Ok(rx.await?)
