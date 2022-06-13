@@ -100,6 +100,8 @@ impl<'a> RclNodeParamsIter<'a> {
 /// A map of parameters for this node.
 /// The key for this map is the parameter name.
 /// A parameter override "overrides" the default value set from within the node, hence the name.
+/// A BTreeMap is used because it supports range queries, making it easy to fetch all parameters
+/// with a given prefix.
 pub(crate) type ParameterOverrideMap = BTreeMap<String, ParameterValue>;
 
 /// Similar to `rclcpp::detail::resolve_parameter_overrides`, but returns a map instead of
