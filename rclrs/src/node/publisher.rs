@@ -106,7 +106,7 @@ where
         // SAFETY: No preconditions for the functions called.
         // The unsafe variables created get converted to safe types before being returned
         unsafe {
-            let raw_topic_pointer = rcl_publisher_get_topic_name(&*self.handle.lock());
+            let raw_topic_pointer = rcl_publisher_get_topic_name(&*self.rcl_publisher_mtx.lock());
             CStr::from_ptr(raw_topic_pointer)
                 .to_string_lossy()
                 .into_owned()
