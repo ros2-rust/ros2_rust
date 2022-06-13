@@ -107,12 +107,12 @@ impl Node {
     /// # use rclrs::{Context, RclrsError};
     /// // Without remapping
     /// let context = Context::new([])?;
-    /// let node = context.create_node("my_node")?;
+    /// let node = rclrs::create_node(&context, "my_node")?;
     /// assert_eq!(node.name(), "my_node");
     /// // With remapping
     /// let remapping = ["--ros-args", "-r", "__node:=your_node"].map(String::from);
     /// let context_r = Context::new(remapping)?;
-    /// let node_r = context_r.create_node("my_node")?;
+    /// let node_r = rclrs::create_node(&context_r, "my_node")?;
     /// assert_eq!(node_r.name(), "your_node");
     /// # Ok::<(), RclrsError>(())
     /// ```
@@ -130,15 +130,15 @@ impl Node {
     /// # use rclrs::{Context, RclrsError};
     /// // Without remapping
     /// let context = Context::new([])?;
-    /// let node = context
-    ///   .create_node_builder("my_node")
+    /// let node =
+    ///   rclrs::create_node_builder(&context, "my_node")
     ///   .namespace("/my/namespace")
     ///   .build()?;
     /// assert_eq!(node.namespace(), "/my/namespace");
     /// // With remapping
     /// let remapping = ["--ros-args", "-r", "__ns:=/your_namespace"].map(String::from);
     /// let context_r = Context::new(remapping)?;
-    /// let node_r = context_r.create_node("my_node")?;
+    /// let node_r = rclrs::create_node(&context_r, "my_node")?;
     /// assert_eq!(node_r.namespace(), "/your_namespace");
     /// # Ok::<(), RclrsError>(())
     /// ```
@@ -155,8 +155,8 @@ impl Node {
     /// ```
     /// # use rclrs::{Context, RclrsError};
     /// let context = Context::new([])?;
-    /// let node = context
-    ///   .create_node_builder("my_node")
+    /// let node =
+    ///   rclrs::create_node_builder(&context, "my_node")
     ///   .namespace("/my/namespace")
     ///   .build()?;
     /// assert_eq!(node.fully_qualified_name(), "/my/namespace/my_node");
@@ -230,7 +230,7 @@ impl Node {
     /// // Set default ROS domain ID to 10 here
     /// std::env::set_var("ROS_DOMAIN_ID", "10");
     /// let context = Context::new([])?;
-    /// let node = context.create_node("domain_id_node")?;
+    /// let node = rclrs::create_node(&context, "domain_id_node")?;
     /// let domain_id = node.domain_id();
     /// assert_eq!(domain_id, 10);
     /// # Ok::<(), RclrsError>(())
