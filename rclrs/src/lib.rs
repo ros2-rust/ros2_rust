@@ -13,7 +13,6 @@ use std::time::Duration;
 
 mod context;
 mod error;
-mod future;
 mod node;
 mod parameter;
 mod qos;
