@@ -42,7 +42,9 @@ pub struct WaitSet {
 pub struct ReadyEntities {
     /// A list of subscriptions that have potentially received messages.
     pub subscriptions: Vec<Arc<dyn SubscriptionBase>>,
+    /// A list of clients that have potentially received responses.
     pub clients: Vec<Arc<dyn ClientBase>>,
+    /// A list of services that have potentially received requests.
     pub services: Vec<Arc<dyn ServiceBase>>,
 }
 
