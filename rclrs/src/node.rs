@@ -294,7 +294,8 @@ mod tests {
 
     #[test]
     fn test_new() -> Result<(), RclrsError> {
-        let context = Context::new(vec![]).expect("Context instantiation is expected to be a success");
+        let context =
+            Context::new(vec![]).expect("Context instantiation is expected to be a success");
         let _ = Node::new(&context, "Bob")?;
 
         Ok(())
@@ -302,7 +303,8 @@ mod tests {
 
     #[test]
     fn test_create_subscription() -> Result<(), RclrsError> {
-        let context = Context::new(vec![]).expect("Context instantiation is expected to be a success");
+        let context =
+            Context::new(vec![]).expect("Context instantiation is expected to be a success");
         let mut node = context.create_node("test_create_subscription")?;
         let _subscription = node.create_subscription::<std_msgs::msg::String, _>(
             "topic",
@@ -314,7 +316,8 @@ mod tests {
 
     #[test]
     fn test_create_publisher() -> Result<(), RclrsError> {
-        let context = Context::new(vec![]).expect("Context instantiation is expected to be a success");
+        let context =
+            Context::new(vec![]).expect("Context instantiation is expected to be a success");
         let node = context.create_node("test_create_publisher")?;
         let _publisher =
             node.create_publisher::<std_msgs::msg::String>("topic", QOS_PROFILE_DEFAULT)?;
