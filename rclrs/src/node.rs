@@ -302,7 +302,7 @@ mod tests {
 
     #[test]
     fn test_create_subscription() -> Result<(), RclrsError> {
-        let context = Context::new(vec![]).expect("Context instatiation is expected to be success");
+        let context = Context::new(vec![]).expect("Context instantiation is expected to be a success");
         let mut node = context.create_node("test_create_subscription")?;
         let _subscription = node.create_subscription::<std_msgs::msg::String, _>(
             "topic",
