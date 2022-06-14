@@ -12,6 +12,7 @@ mod parameter;
 mod qos;
 mod wait;
 mod time;
+mod duration;
 
 mod rcl_bindings;
 
@@ -22,6 +23,7 @@ pub use parameter::*;
 pub use qos::*;
 pub use wait::*;
 pub use time::*;
+pub use duration::*;
 
 use rcl_bindings::rcl_context_is_valid;
 use std::time::Duration;
