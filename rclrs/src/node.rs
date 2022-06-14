@@ -293,17 +293,9 @@ mod tests {
     use crate::{Context, Node, QOS_PROFILE_DEFAULT};
 
     #[test]
-    fn test_new_with_namespace() -> Result<(), RclrsError> {
-        let context = Context::new(vec![]).unwrap();
-        let _ = Node::new_with_namespace("Bob", "Testing", &context)?;
-
-        Ok(())
-    }
-
-    #[test]
     fn test_new() -> Result<(), RclrsError> {
         let context = Context::new(vec![]).expect("Context instatiation is expected to be success");
-        let _ = Node::new("Bob", &context)?;
+        let _ = Node::new(&context, "Bob")?;
 
         Ok(())
     }
