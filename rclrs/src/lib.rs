@@ -11,6 +11,7 @@ mod node;
 mod parameter;
 mod qos;
 mod wait;
+mod time;
 
 mod rcl_bindings;
 
@@ -20,6 +21,7 @@ pub use node::*;
 pub use parameter::*;
 pub use qos::*;
 pub use wait::*;
+pub use time::*;
 
 use rcl_bindings::rcl_context_is_valid;
 use std::time::Duration;
