@@ -314,7 +314,7 @@ mod tests {
 
     #[test]
     fn test_create_publisher() -> Result<(), RclrsError> {
-        let context = Context::new(vec![]).expect("Context instatiation is expected to be success");
+        let context = Context::new(vec![]).expect("Context instantiation is expected to be a success");
         let node = context.create_node("test_create_publisher")?;
         let _publisher =
             node.create_publisher::<std_msgs::msg::String>("topic", QOS_PROFILE_DEFAULT)?;

@@ -171,10 +171,10 @@ mod tests {
 
     fn create_fixture(name: &str) -> (Context, Node) {
         let context =
-            Context::new(vec![]).expect("Context instantiation is expected to be success");
+            Context::new(vec![]).expect("Context instantiation is expected to be a success");
         let node = context
             .create_node(name)
-            .expect("Node instantiation is expected to be success");
+            .expect("Node instantiation is expected to be a success");
 
         (context, node)
     }
