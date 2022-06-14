@@ -294,7 +294,7 @@ mod tests {
 
     #[test]
     fn test_new() -> Result<(), RclrsError> {
-        let context = Context::new(vec![]).expect("Context instatiation is expected to be success");
+        let context = Context::new(vec![]).expect("Context instantiation is expected to be a success");
         let _ = Node::new(&context, "Bob")?;
 
         Ok(())
