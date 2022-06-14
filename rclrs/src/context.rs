@@ -158,3 +158,24 @@ impl Context {
         unsafe { rcl_context_is_valid(rcl_context) }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_create_context() -> Result<(), RclrsError> {
+        // If the context fails to be created, this will cause a panic
+        let _ = Context::new(vec![])?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_context_ok() -> Result<(), RclrsError> {
+        // If the context fails to be created, this will cause a panic
+        let created_context = Context::new(vec![]).unwrap();
+        assert!(created_context.ok());
+
+        Ok(())
+    }
+}
