@@ -5,6 +5,7 @@
 //!
 //! [1]: https://github.com/ros2-rust/ros2_rust/blob/main/README.md
 
+mod clock;
 mod context;
 mod duration;
 mod error;
@@ -16,6 +17,7 @@ mod wait;
 
 mod rcl_bindings;
 
+pub use clock::*;
 pub use context::*;
 pub use duration::*;
 pub use error::*;
