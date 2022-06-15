@@ -172,8 +172,7 @@ mod tests {
     fn create_fixture(name: &str) -> (Context, Node) {
         let context =
             Context::new(vec![]).expect("Context instantiation is expected to be a success");
-        let node = context
-            .create_node(name)
+        let node = rclrs::create_node(&context, name)
             .expect("Node instantiation is expected to be a success");
 
         (context, node)
