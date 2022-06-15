@@ -4,10 +4,11 @@ use std::env;
 fn handle_service(
     _request_header: &rclrs::rmw_request_id_t,
     request: &example_interfaces::srv::AddTwoInts_Request,
-    response: &mut example_interfaces::srv::AddTwoInts_Response,
-) {
+) -> example_interfaces::srv::AddTwoInts_Response {
     println!("request: {} + {}", request.a, request.b);
-    response.sum = request.a + request.b;
+    example_interfaces::srv::AddTwoInts_Response {
+        sum: request.a + request.b,
+    }
 }
 
 fn main() -> Result<(), Error> {

@@ -53,7 +53,7 @@ where
     pub handle: Arc<ServiceHandle>,
     // The callback's lifetime should last as long as we need it to
     pub callback:
-        Mutex<Box<dyn FnMut(&rmw_request_id_t, &T::Request, &mut T::Response) + 'static + Send>>,
+        Mutex<Box<dyn Fn(&rmw_request_id_t, &T::Request) -> T::Response + 'static + Send>>,
 }
 
 impl<T> Service<T>
@@ -63,7 +63,7 @@ where
     pub fn new<F>(node: &Node, topic: &str, callback: F) -> Result<Self, RclrsError>
     where
         T: rosidl_runtime_rs::Service,
-        F: FnMut(&rmw_request_id_t, &T::Request, &mut T::Response) + 'static + Send,
+        F: Fn(&rmw_request_id_t, &T::Request) -> T::Response + 'static + Send,
     {
         let mut service_handle = unsafe { rcl_get_zero_initialized_service() };
         let type_support = <T as rosidl_runtime_rs::Service>::get_type_support()
@@ -152,8 +152,7 @@ where
             }
             Err(e) => return Err(e),
         };
-        let mut res = T::Response::default();
-        (*self.callback.lock())(&req_id, &req, &mut res);
+        let res = (*self.callback.lock())(&req_id, &req);
         let rmw_message = <T::Response as Message>::into_rmw_message(res.into_cow());
         let handle = &mut *self.handle.lock();
         let ret = unsafe {
