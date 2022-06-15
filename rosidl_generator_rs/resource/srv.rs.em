@@ -1,12 +1,14 @@
 @{
+req_res_specs = []
+
 for subfolder, service in srv_specs:
-    msg_specs.append((subfolder, service.request_message))
-    msg_specs.append((subfolder, service.response_message))
+    req_res_specs.append((subfolder, service.request_message))
+    req_res_specs.append((subfolder, service.response_message))
 
 TEMPLATE(
     'msg.rs.em',
     package_name=package_name, interface_path=interface_path,
-    msg_specs=msg_specs,
+    msg_specs=req_res_specs,
     get_rs_name=get_rs_name, get_rmw_rs_type=get_rmw_rs_type,
     get_idiomatic_rs_type=get_idiomatic_rs_type)
 }@
