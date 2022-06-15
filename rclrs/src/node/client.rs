@@ -239,16 +239,13 @@ where
         let requests = &mut *self.requests.lock();
         let futures = &mut *self.futures.lock();
         if requests.contains_key(&req_id.sequence_number) {
-            let callback = requests.remove(&req_id.sequence_number).unwrap();
-            callback(&res);
+            requests.remove(&req_id.sequence_number).unwrap()(&res);
         } else if futures.contains_key(&req_id.sequence_number) {
             futures
                 .remove(&req_id.sequence_number)
-                .unwrap_or_else(|| panic!("fail to find key in Client::process_requests"))
+                .unwrap()
                 .send(res)
-                .unwrap_or_else(|_| {
-                    panic!("fail to send response via channel in Client::process_requests")
-                });
+                .unwrap_or_else(|_| panic!("fail to send response via channel in Client::execute"));
         }
         Ok(())
     }
