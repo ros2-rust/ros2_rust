@@ -170,4 +170,9 @@ impl Duration {
     pub fn seconds(&self) -> u32 {
         time::Duration::from_nanos(self._duration_handle.nanoseconds as u64).as_secs() as u32
     }
+
+    /// Function to get a `std::time::Duration` object
+    pub fn to_duration(&self) -> time::Duration {
+        time::Duration::from_nanos(self._duration_handle.nanoseconds as u64)
+    }
 }
