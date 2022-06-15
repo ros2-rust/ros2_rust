@@ -1,10 +1,10 @@
 use crate::error::RclrsError;
 use crate::rcl_bindings::*;
 //use crate::RclReturnCode;
-//use crate::duration;
+use crate::duration::Duration;
 use parking_lot::Mutex;
 use std::time;
-
+use std::ops::{Add, Sub};
 
 /// Enum to provide different ways to construct the Time struct
 #[allow(missing_docs)]
@@ -25,17 +25,62 @@ pub struct Time {
     // wrapped in mutex to allow the Clock struct to access it
 }
 
-impl Clone for Time {
-    fn clone(&self) -> Self {
+impl Add<Duration> for Time {
+    type Output = Self;
+
+    fn add(self, rhs: Duration) -> Self {
         let lock = self.rcl_time_.lock();
+        let sum = (*lock).nanoseconds + (rhs.nanoseconds() as rcl_time_point_value_t);
+        if (sum as u128) > (rcl_time_point_value_t::MAX as u128) {
+            panic!("Addition causes an overlflow for {}", std::any::type_name::<rcl_time_point_value_t>())
+        }
         Self {
             rcl_time_: Mutex::new(rcl_time_point_t {
-                nanoseconds: (*lock).nanoseconds,
+                nanoseconds: sum,
                 clock_type: (*lock).clock_type,
             })
         }
     }
 }
+
+impl Sub for Time {
+    type Output = Self;
+
+    fn sub(self, rhs: Time) -> Self {
+        let lock = self.rcl_time_.lock();
+        let rhs_lock = rhs.rcl_time_.lock();
+        let diff = lock.nanoseconds - rhs_lock.nanoseconds;
+        if lock.clock_type != rhs_lock.clock_type {
+            panic!("Can not subtract times with different time sources");
+        } else if diff < 0 {
+            panic!("Time subtraction leads to negative time");
+        } else {
+            Self{
+                rcl_time_: Mutex::new(rcl_time_point_t {
+                    nanoseconds: diff,
+                    clock_type: lock.clock_type,
+                })
+            }
+        }
+
+
+    }
+}
+
+//impl Sub<Duration>
+
+impl Clone for Time {
+    fn clone(&self) -> Self {
+        let lock = self.rcl_time_.lock();
+        Self {
+            rcl_time_: Mutex::new(rcl_time_point_t {
+                nanoseconds: lock.nanoseconds,
+                clock_type: lock.clock_type,
+            })
+        }
+    }
+}
+
 
 #[allow(dead_code)]
 impl Time {
