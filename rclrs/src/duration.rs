@@ -49,6 +49,15 @@ impl Add for Duration {
     }
 }
 
+impl Clone for Duration {
+    fn clone(&self) -> Self {
+        Self::new(DurationFrom::NanoSecs {
+            ns: self._duration_handle.nanoseconds,
+        })
+        .unwrap()
+    }
+}
+
 impl Eq for Duration {}
 
 impl Mul<f32> for Duration {
