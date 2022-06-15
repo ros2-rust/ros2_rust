@@ -11,7 +11,7 @@ mod error;
 mod node;
 mod parameter;
 mod qos;
-mod time;
+//mod time;
 mod wait;
 
 mod rcl_bindings;
@@ -22,7 +22,7 @@ pub use error::*;
 pub use node::*;
 pub use parameter::*;
 pub use qos::*;
-pub use time::*;
+//pub use time::*;
 pub use wait::*;
 
 use rcl_bindings::rcl_context_is_valid;
