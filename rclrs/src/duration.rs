@@ -1,6 +1,7 @@
 use crate::rcl_bindings::*;
 //use crate::RclReturnCode;
 use crate::RclrsError;
+use num::{abs, signum};
 use std::cmp::Ordering;
 use std::ops::{Add, Mul, Sub};
 //use std::os::raw::{c_uint, c_void};
@@ -10,13 +11,13 @@ use std::time;
 #[allow(missing_docs)]
 pub enum DurationFrom {
     /// Create Duration instance using seconds
-    Secs { s: u32 },
+    Secs { s: i32 },
 
     /// Create Duration instance using nanoseconds
     NanoSecs { ns: rcl_duration_value_t },
 
     /// Create Duration instance using seconds and ns
-    SecsAndNanoSecs { s: u32, ns: rcl_duration_value_t },
+    SecsAndNanoSecs { s: i32, ns: rcl_duration_value_t },
 
     /// Create Duration instance using std::time::Duration
     Duration { duration: time::Duration },
@@ -65,13 +66,17 @@ impl Mul<f32> for Duration {
 
     fn mul(self, rhs: f32) -> Self {
         let prod = (self._duration_handle.nanoseconds as f32) * rhs;
-        if prod < 0f32 {
-            panic!("Can not scale Duration by a negative number");
-        }
 
-        if (prod as u128) > (rcl_duration_value_t::MAX as u128) {
+        if (prod as i128) > (rcl_duration_value_t::MAX as i128) {
             panic!(
                 "Scaling leads to {} overflow",
+                std::any::type_name::<rcl_duration_value_t>()
+            );
+        }
+
+        if (prod as i128) < (rcl_duration_value_t::MIN as i128) {
+            panic!(
+                "Scaling leads to {} underflow",
                 std::any::type_name::<rcl_duration_value_t>()
             );
         }
@@ -108,8 +113,11 @@ impl Sub for Duration {
 
     fn sub(self, rhs: Self) -> Self {
         let diff = self._duration_handle.nanoseconds - rhs._duration_handle.nanoseconds;
-        if diff < 0 {
-            panic!("Subtraction results in negative duration");
+        if (diff as i128) < (rcl_duration_value_t::MIN as i128) {
+            panic!(
+                "Subtraction leads to {} underflow",
+                std::any::type_name::<rcl_duration_value_t>()
+            );
         }
 
         Self::new(DurationFrom::NanoSecs {
@@ -142,7 +150,8 @@ impl Duration {
         match duration {
             DurationFrom::Secs { s } => Ok(Self {
                 _duration_handle: rcl_duration_t {
-                    nanoseconds: time::Duration::from_secs(s.into()).as_nanos()
+                    nanoseconds: ((signum(s) as i64)
+                        * (time::Duration::from_secs(abs(s) as u64).as_nanos()) as i64)
                         as rcl_duration_value_t,
                 },
             }),
@@ -151,8 +160,9 @@ impl Duration {
             }),
             DurationFrom::SecsAndNanoSecs { s, ns } => Ok(Self {
                 _duration_handle: rcl_duration_t {
-                    nanoseconds: (time::Duration::from_secs(s.into()).as_nanos()
-                        as rcl_duration_value_t)
+                    nanoseconds: ((signum(s) as i64)
+                        * (time::Duration::from_secs(abs(s) as u64).as_nanos() as i64)
+                            as rcl_duration_value_t)
                         + ns,
                 },
             }),
@@ -176,8 +186,9 @@ impl Duration {
     }
 
     /// Function to get the count of seconds in the Duration object
-    pub fn seconds(&self) -> u32 {
-        time::Duration::from_nanos(self._duration_handle.nanoseconds as u64).as_secs() as u32
+    pub fn seconds(&self) -> i32 {
+        let ns = self._duration_handle.nanoseconds;
+        (signum(ns) as i32) * (time::Duration::from_nanos(abs(ns) as u64).as_secs() as i32)
     }
 
     /// Function to get a `std::time::Duration` object
