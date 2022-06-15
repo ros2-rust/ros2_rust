@@ -63,7 +63,7 @@ where
     T: rosidl_runtime_rs::Service,
 {
     pub(crate) handle: Arc<ClientHandle>,
-    requests: Mutex<HashMap<i64, Mutex<Box<dyn FnMut(&T::Response) + 'static + Send>>>>,
+    requests: Mutex<HashMap<i64, Box<dyn FnOnce(&T::Response) + 'static + Send>>>,
     futures: Arc<Mutex<HashMap<i64, oneshot::Sender<T::Response>>>>,
     sequence_number: AtomicI64,
 }
@@ -128,7 +128,7 @@ where
         callback: F,
     ) -> Result<(), RclrsError>
     where
-        F: FnMut(&T::Response) + 'static + Send,
+        F: FnOnce(&T::Response) + 'static + Send,
     {
         let rmw_message = T::Request::into_rmw_message(message.into_cow());
         let mut sequence_number = self.sequence_number.load(Ordering::SeqCst);
@@ -140,7 +140,7 @@ where
             )
         };
         let requests = &mut *self.requests.lock();
-        requests.insert(sequence_number, Mutex::new(Box::new(callback)));
+        requests.insert(sequence_number, Box::new(callback));
         self.sequence_number.swap(sequence_number, Ordering::SeqCst);
         ret.ok()
     }
@@ -240,7 +240,7 @@ where
         let futures = &mut *self.futures.lock();
         if requests.contains_key(&req_id.sequence_number) {
             let callback = requests.remove(&req_id.sequence_number).unwrap();
-            (*callback.lock())(&res);
+            callback(&res);
         } else if futures.contains_key(&req_id.sequence_number) {
             futures
                 .remove(&req_id.sequence_number)
