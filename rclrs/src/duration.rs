@@ -184,4 +184,13 @@ impl Duration {
     pub fn to_duration(&self) -> time::Duration {
         time::Duration::from_nanos(self._duration_handle.nanoseconds as u64)
     }
+
+    /// Function to get the maximum value that can be held in duration
+    pub fn max(&self) -> Self {
+        Self {
+            _duration_handle: rcl_duration_t {
+                nanoseconds: rcl_duration_value_t::MAX,
+            },
+        }
+    }
 }
