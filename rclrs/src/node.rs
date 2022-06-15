@@ -286,3 +286,41 @@ unsafe fn call_string_getter_with_handle(
     let cstr = CStr::from_ptr(char_ptr);
     cstr.to_string_lossy().into_owned()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{Context, Node, QOS_PROFILE_DEFAULT};
+
+    #[test]
+    fn test_new() -> Result<(), RclrsError> {
+        let context =
+            Context::new(vec![]).expect("Context instantiation is expected to be a success");
+        let _ = Node::new(&context, "Bob")?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_create_subscription() -> Result<(), RclrsError> {
+        let context =
+            Context::new(vec![]).expect("Context instantiation is expected to be a success");
+        let mut node = context.create_node("test_create_subscription")?;
+        let _subscription = node.create_subscription::<std_msgs::msg::String, _>(
+            "topic",
+            QOS_PROFILE_DEFAULT,
+            move |_: std_msgs::msg::String| {},
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_create_publisher() -> Result<(), RclrsError> {
+        let context =
+            Context::new(vec![]).expect("Context instantiation is expected to be a success");
+        let node = context.create_node("test_create_publisher")?;
+        let _publisher =
+            node.create_publisher::<std_msgs::msg::String>("topic", QOS_PROFILE_DEFAULT)?;
+        Ok(())
+    }
+}

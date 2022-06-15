@@ -206,3 +206,24 @@ where
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{Context, Subscription, QOS_PROFILE_DEFAULT};
+
+    #[test]
+    fn test_instantiate_subscriber() -> Result<(), RclrsError> {
+        let context =
+            Context::new(vec![]).expect("Context instantiation is expected to be a success");
+        let node = context.create_node("test_new_subscriber")?;
+        let _subscriber = Subscription::<std_msgs::msg::String>::new(
+            &node,
+            "test",
+            QOS_PROFILE_DEFAULT,
+            move |_: std_msgs::msg::String| {},
+        )?;
+
+        Ok(())
+    }
+}

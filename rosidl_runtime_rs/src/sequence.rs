@@ -705,10 +705,10 @@ mod tests {
             if xs_seq.len() != xs.len() + ys.len() {
                 return false;
             }
-            if &xs_seq[..xs.len()] != &xs[..] {
+            if xs_seq[..xs.len()] != xs[..] {
                 return false;
             }
-            if &xs_seq[xs.len()..] != &ys[..] {
+            if xs_seq[xs.len()..] != ys[..] {
                 return false;
             }
             true
