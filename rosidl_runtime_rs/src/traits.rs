@@ -145,7 +145,7 @@ pub trait Message: Clone + Debug + Default + 'static + Send + Sync {
 }
 
 /// Trait for services.
-/// 
+///
 /// User code never needs to call this trait's method, much less implement this trait.
 pub trait Service {
     /// The request message associated with this service.
