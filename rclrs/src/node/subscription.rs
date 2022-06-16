@@ -210,7 +210,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{Context, Subscription, QOS_PROFILE_DEFAULT, create_node};
+    use crate::{create_node, Context, Subscription, QOS_PROFILE_DEFAULT};
 
     #[test]
     fn test_instantiate_subscriber() -> Result<(), RclrsError> {

@@ -290,7 +290,7 @@ unsafe fn call_string_getter_with_handle(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{Context, Node, QOS_PROFILE_DEFAULT, create_node};
+    use crate::{create_node, Context, Node, QOS_PROFILE_DEFAULT};
 
     #[test]
     fn test_new() -> Result<(), RclrsError> {
