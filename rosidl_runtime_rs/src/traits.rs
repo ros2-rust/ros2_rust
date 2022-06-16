@@ -145,16 +145,16 @@ pub trait Message: Clone + Debug + Default + 'static + Send + Sync {
     fn from_rmw_message(msg: Self::RmwMsg) -> Self;
 }
 
-pub trait RmwService {
-    type Request: RmwMessage;
-    type Response: RmwMessage;
-
-    fn get_type_support() -> libc::uintptr_t;
-}
-
+/// Trait for services.
+/// 
+/// User code never needs to call this trait's method, much less implement this trait.
 pub trait Service {
+    /// The request message associated with this service.
     type Request: Message;
+
+    /// The response message associated with this service.
     type Response: Message;
 
+    /// Get a pointer to the correct `rosidl_service_type_support_t` structure.
     fn get_type_support() -> libc::uintptr_t;
 }
