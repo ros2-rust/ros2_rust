@@ -26,7 +26,7 @@ pub struct ClientHandle {
 }
 
 impl ClientHandle {
-    pub fn lock(&self) -> MutexGuard<rcl_client_t> {
+    pub(crate) fn lock(&self) -> MutexGuard<rcl_client_t> {
         self.rcl_client_mtx.lock()
     }
 }
@@ -76,6 +76,7 @@ impl<T> Client<T>
 where
     T: rosidl_runtime_rs::Service,
 {
+    /// Creates a new client.
     pub fn new(node: &Node, topic: &str) -> Result<Self, RclrsError>
     where
         T: rosidl_runtime_rs::Service,

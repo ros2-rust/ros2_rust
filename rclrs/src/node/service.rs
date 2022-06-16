@@ -24,7 +24,7 @@ pub struct ServiceHandle {
 }
 
 impl ServiceHandle {
-    pub fn lock(&self) -> MutexGuard<rcl_service_t> {
+    pub(crate) fn lock(&self) -> MutexGuard<rcl_service_t> {
         self.handle.lock()
     }
 }
@@ -42,7 +42,9 @@ impl Drop for ServiceHandle {
 /// Trait to be implemented by concrete Service structs
 /// See [`Service<T>`] for an example
 pub trait ServiceBase: Send + Sync {
+    /// Internal function to get a reference to the `rcl` handle.
     fn handle(&self) -> &ServiceHandle;
+    /// Tries to take a new request and run the callback with it.
     fn execute(&self) -> Result<(), RclrsError>;
 }
 
@@ -54,8 +56,8 @@ pub struct Service<T>
 where
     T: rosidl_runtime_rs::Service,
 {
-    pub handle: Arc<ServiceHandle>,
-    // The callback's lifetime should last as long as we need it to
+    pub(crate) handle: Arc<ServiceHandle>,
+    /// The callback function that runs when a request was received.
     pub callback: Mutex<ServiceCallback<T::Request, T::Response>>,
 }
 
@@ -63,6 +65,7 @@ impl<T> Service<T>
 where
     T: rosidl_runtime_rs::Service,
 {
+    /// Creates a new service.
     pub fn new<F>(node: &Node, topic: &str, callback: F) -> Result<Self, RclrsError>
     where
         T: rosidl_runtime_rs::Service,
