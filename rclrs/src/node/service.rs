@@ -17,6 +17,7 @@ use parking_lot::{Mutex, MutexGuard};
 // they are running in. Therefore, this type can be safely sent to another thread.
 unsafe impl Send for rcl_service_t {}
 
+/// Internal struct used by services.
 pub struct ServiceHandle {
     handle: Mutex<rcl_service_t>,
     node_handle: Arc<Mutex<rcl_node_t>>,
@@ -45,6 +46,9 @@ pub trait ServiceBase: Send + Sync {
     fn execute(&self) -> Result<(), RclrsError>;
 }
 
+type ServiceCallback<Request, Response> =
+    Box<dyn Fn(&rmw_request_id_t, &Request) -> Response + 'static + Send>;
+
 /// Main class responsible for subscribing to topics and receiving data over IPC in ROS
 pub struct Service<T>
 where
@@ -52,8 +56,7 @@ where
 {
     pub handle: Arc<ServiceHandle>,
     // The callback's lifetime should last as long as we need it to
-    pub callback:
-        Mutex<Box<dyn Fn(&rmw_request_id_t, &T::Request) -> T::Response + 'static + Send>>,
+    pub callback: Mutex<ServiceCallback<T::Request, T::Response>>,
 }
 
 impl<T> Service<T>

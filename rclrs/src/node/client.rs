@@ -1,4 +1,3 @@
-#![warn(missing_docs)]
 use crate::node::client::oneshot::Canceled;
 use futures::channel::oneshot;
 use std::borrow::Borrow;
@@ -20,23 +19,24 @@ use rosidl_runtime_rs::Message;
 // they are running in. Therefore, this type can be safely sent to another thread.
 unsafe impl Send for rcl_client_t {}
 
+/// Internal struct used by clients.
 pub struct ClientHandle {
-    handle: Mutex<rcl_client_t>,
-    node_handle: Arc<Mutex<rcl_node_t>>,
+    rcl_client_mtx: Mutex<rcl_client_t>,
+    rcl_node_mtx: Arc<Mutex<rcl_node_t>>,
 }
 
 impl ClientHandle {
     pub fn lock(&self) -> MutexGuard<rcl_client_t> {
-        self.handle.lock()
+        self.rcl_client_mtx.lock()
     }
 }
 
 impl Drop for ClientHandle {
     fn drop(&mut self) {
-        let handle = self.handle.get_mut();
-        let node_handle = &mut *self.node_handle.lock();
+        let handle = self.rcl_client_mtx.get_mut();
+        let rcl_node_mtx = &mut *self.rcl_node_mtx.lock();
         unsafe {
-            rcl_client_fini(handle as *mut _, node_handle as *mut _);
+            rcl_client_fini(handle as *mut _, rcl_node_mtx as *mut _);
         }
     }
 }
@@ -53,9 +53,13 @@ impl From<Canceled> for RclrsError {
 /// Trait to be implemented by concrete Client structs
 /// See [`Client<T>`] for an example
 pub trait ClientBase: Send + Sync {
+    /// Internal function to get a reference to the `rcl` handle.
     fn handle(&self) -> &ClientHandle;
+    /// Tries to take a new response and run the callback or future with it.
     fn execute(&self) -> Result<(), RclrsError>;
 }
+
+type RequestValue<Response> = Box<dyn FnOnce(&Response) + 'static + Send>;
 
 /// Main class responsible for publishing data to ROS topics
 pub struct Client<T>
@@ -63,7 +67,7 @@ where
     T: rosidl_runtime_rs::Service,
 {
     pub(crate) handle: Arc<ClientHandle>,
-    requests: Mutex<HashMap<i64, Box<dyn FnOnce(&T::Response) + 'static + Send>>>,
+    requests: Mutex<HashMap<i64, RequestValue<T::Response>>>,
     futures: Arc<Mutex<HashMap<i64, oneshot::Sender<T::Response>>>>,
     sequence_number: AtomicI64,
 }
@@ -76,28 +80,28 @@ where
     where
         T: rosidl_runtime_rs::Service,
     {
-        let mut client_handle = unsafe { rcl_get_zero_initialized_client() };
+        let mut rcl_client = unsafe { rcl_get_zero_initialized_client() };
         let type_support = <T as rosidl_runtime_rs::Service>::get_type_support()
             as *const rosidl_service_type_support_t;
         let topic_c_string = CString::new(topic).unwrap();
-        let node_handle = &mut *node.rcl_node_mtx.lock();
+        let rcl_node = &mut *node.rcl_node_mtx.lock();
 
         unsafe {
             let client_options = rcl_client_get_default_options();
 
             rcl_client_init(
-                &mut client_handle as *mut _,
-                node_handle as *mut _,
+                &mut rcl_client,
+                rcl_node,
                 type_support,
                 topic_c_string.as_ptr(),
-                &client_options as *const _,
+                &client_options,
             )
             .ok()?;
         }
 
         let handle = Arc::new(ClientHandle {
-            handle: Mutex::new(client_handle),
-            node_handle: node.rcl_node_mtx.clone(),
+            rcl_client_mtx: Mutex::new(rcl_client),
+            rcl_node_mtx: node.rcl_node_mtx.clone(),
         });
 
         Ok(Self {
