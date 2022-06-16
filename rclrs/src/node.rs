@@ -15,10 +15,10 @@ use crate::{Context, ParameterOverrideMap, QoSProfile, RclrsError, ToResult};
 use std::cmp::PartialEq;
 use std::ffi::CStr;
 use std::fmt;
-use std::os::raw::c_char;
 use std::sync::{Arc, Weak};
 use std::vec::Vec;
 
+use libc::c_char;
 use parking_lot::Mutex;
 
 use rosidl_runtime_rs::Message;
