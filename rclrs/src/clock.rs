@@ -1,10 +1,10 @@
 use crate::error::RclrsError;
 use crate::rcl_bindings::*;
 use crate::RclReturnCode;
-use crate::duration;
+//use crate::duration;
 use crate::time;
-use parking_lot::{Mutex, MutexGuard};
-use std::os::raw::{c_void, c_int};
+use parking_lot::Mutex;
+use std::os::raw::{c_int, c_void};
 
 impl std::default::Default for rcl_allocator_t {
     fn default() -> Self {
@@ -26,12 +26,12 @@ impl std::default::Default for rcl_clock_t {
             threshold: rcl_jump_threshold_t {
                 on_clock_change: false,
                 min_forward: rcl_duration_t {
-                    nanoseconds: 1 as rcl_duration_value_t
+                    nanoseconds: 1 as rcl_duration_value_t,
                 },
                 min_backward: rcl_duration_t {
                     nanoseconds: -1 as rcl_duration_value_t,
                 },
-            } ,
+            },
             user_data: 0 as *mut c_void,
         };
 
@@ -53,9 +53,11 @@ struct JumpHandler {
 }
 
 impl JumpHandler {
-    fn new(pre_callback: &dyn Fn() -> (),
-           post_callback: &dyn Fn() -> Mutex<rcl_time_jump_t>,
-           threshold: rcl_jump_threshold_t) -> Self {
+    fn new(
+        pre_callback: &dyn Fn() -> (),
+        post_callback: &dyn Fn() -> Mutex<rcl_time_jump_t>,
+        threshold: rcl_jump_threshold_t,
+    ) -> Self {
         todo!("implement it");
     }
 }
@@ -77,14 +79,16 @@ impl Clock {
     pub fn new(clock_type: rcl_clock_type_t) -> Result<Self, RclrsError> {
         let mut impl_ = Impl {
             rcl_clock_: Mutex::new(rcl_clock_t::default()),
-            allocator_: Mutex::new(rcl_allocator_t::default())
+            allocator_: Mutex::new(rcl_allocator_t::default()),
         };
         // Safety: variables are wrapped in Mutex
         // raw pointer get converted back to safe types once `get_mut` goes out of scope
         let ret: rcl_ret_t = unsafe {
-            rcl_clock_init(clock_type,
-                           impl_.rcl_clock_.get_mut() as *mut rcl_clock_t,
-                           impl_.allocator_.get_mut() as *mut rcl_allocator_t)
+            rcl_clock_init(
+                clock_type,
+                impl_.rcl_clock_.get_mut() as *mut rcl_clock_t,
+                impl_.allocator_.get_mut() as *mut rcl_allocator_t,
+            )
         };
 
         if ret != 0 {
@@ -94,26 +98,39 @@ impl Clock {
             });
         }
 
-        Ok(Self{
-            impl_,
-        })
+        Ok(Self { impl_ })
     }
 
+    /// Function to get clock type of Clock object
     pub fn get_clock_type(&self) -> rcl_clock_type_t {
         (*self.impl_.rcl_clock_.lock()).type_
     }
 
-    pub fn now(&self) -> time::Time {
+    /// Function to get the time from the source at a given instant
+    pub fn now(&self) -> Result<time::Time, RclrsError> {
+        let now =
+            time::Time::new(time::TimeFrom::NanoSecs { ns: 0u64 }, self.get_clock_type()).unwrap();
 
-        let now = time::Time::new(
-            time::TimeFrom::NanoSecs{ns: 0u64},
-            self.get_clock_type(),
-        ).unwrap();
+        // Safety: Variables are wrapped in mutex, to ensure type safety
+        // Unsafe variables are converted back to safe types
+        let ret = unsafe {
+            rcl_clock_get_now(
+                &mut *self.impl_.rcl_clock_.lock(),
+                &mut (now.get_lock()).nanoseconds,
+            )
+        };
 
-        let ret = rcl_clock_get_now(&mut *self.impl_.rcl_clock_.lock(), &mut now.get_lock().nanoseconds)
+        if ret != 0 {
+            return Err(RclrsError::RclError {
+                code: RclReturnCode::Error,
+                msg: None,
+            });
+        }
 
+        Ok(now)
     }
-
+}
+/*
     todo!("add function sleep_until");
     todo!("add function sleep_for");
     todo!("add function ros_time_is_active");
@@ -122,4 +139,4 @@ impl Clock {
     todo!("add function get_clock_mutex");
     todo!("add function on_time_jump");
     todo!("add function create_jump_callback");
-}
+*/
