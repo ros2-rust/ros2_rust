@@ -167,12 +167,12 @@ impl<'a, T: Message> MessageCow<'a, T> for &'a T {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{Context, Publisher, QOS_PROFILE_DEFAULT};
+    use crate::{Context, Publisher, QOS_PROFILE_DEFAULT, create_node};
 
     fn create_fixture(name: &str) -> (Context, Node) {
         let context =
             Context::new(vec![]).expect("Context instantiation is expected to be a success");
-        let node = rclrs::create_node(&context, name)
+        let node = create_node(&context, name)
             .expect("Node instantiation is expected to be a success");
 
         (context, node)

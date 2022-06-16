@@ -210,13 +210,13 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{Context, Subscription, QOS_PROFILE_DEFAULT};
+    use crate::{Context, Subscription, QOS_PROFILE_DEFAULT, create_node};
 
     #[test]
     fn test_instantiate_subscriber() -> Result<(), RclrsError> {
         let context =
             Context::new(vec![]).expect("Context instantiation is expected to be a success");
-        let node = rclrs::create_node(&context, "test_new_subscriber")?;
+        let node = create_node(&context, "test_new_subscriber")?;
         let _subscriber = Subscription::<std_msgs::msg::String>::new(
             &node,
             "test",

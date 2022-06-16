@@ -290,7 +290,7 @@ unsafe fn call_string_getter_with_handle(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{Context, Node, QOS_PROFILE_DEFAULT};
+    use crate::{Context, Node, QOS_PROFILE_DEFAULT, create_node};
 
     #[test]
     fn test_new() -> Result<(), RclrsError> {
@@ -305,7 +305,7 @@ mod tests {
     fn test_create_subscription() -> Result<(), RclrsError> {
         let context =
             Context::new(vec![]).expect("Context instantiation is expected to be a success");
-        let mut node = rclrs::create_node(&context, "test_create_subscription")?;
+        let mut node = create_node(&context, "test_create_subscription")?;
         let _subscription = node.create_subscription::<std_msgs::msg::String, _>(
             "topic",
             QOS_PROFILE_DEFAULT,
@@ -318,7 +318,7 @@ mod tests {
     fn test_create_publisher() -> Result<(), RclrsError> {
         let context =
             Context::new(vec![]).expect("Context instantiation is expected to be a success");
-        let node = rclrs::create_node(&context, "test_create_publisher")?;
+        let node = create_node(&context, "test_create_publisher")?;
         let _publisher =
             node.create_publisher::<std_msgs::msg::String>("topic", QOS_PROFILE_DEFAULT)?;
         Ok(())

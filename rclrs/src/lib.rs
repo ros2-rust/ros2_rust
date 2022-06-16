@@ -128,7 +128,7 @@ mod tests {
     #[test]
     fn test_spin_once() -> Result<(), RclrsError> {
         let context = Context::new(vec![]).unwrap();
-        let mut subscriber_node = rclrs::create_node(&context, "minimal_subscriber")?;
+        let mut subscriber_node = create_node(&context, "minimal_subscriber")?;
         let num_messages = Arc::new(Mutex::new(0));
         let received_msg = Arc::new(Mutex::new(String::new()));
         let n = num_messages.clone();
