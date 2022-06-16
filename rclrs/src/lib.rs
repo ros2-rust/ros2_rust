@@ -82,7 +82,7 @@ pub fn spin_once(node: &Node, timeout: Option<Duration>) -> Result<(), RclrsErro
     Ok(())
 }
 
-/// Convenience function for calling [`rclrs::spin_once`] in a loop.
+/// Convenience function for calling [`spin_once`] in a loop.
 ///
 /// This function additionally checks that the context is still valid.
 pub fn spin(node: &Node) -> Result<(), RclrsError> {
