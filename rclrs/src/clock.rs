@@ -97,4 +97,14 @@ impl Clock {
             impl_,
         })
     }
+
+    todo!("add function now");
+    todo!("add function sleep_until");
+    todo!("add function sleep_for");
+    todo!("add function ros_time_is_active");
+    todo!("add function get_clock_handle");
+    todo!("add function get_clock_type");
+    todo!("add function get_clock_mutex");
+    todo!("add function on_time_jump");
+    todo!("add function create_jump_callback");
 }
