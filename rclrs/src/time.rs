@@ -147,7 +147,7 @@ impl Time {
     }
 
     /// Function to get a lock on `rcl_time_`
-    fn get_lock(&self) -> MutexGuard<'_, rcl_time_point_t> {
+    pub fn get_lock(&self) -> MutexGuard<'_, rcl_time_point_t> {
         self.rcl_time_.lock()
     }
 

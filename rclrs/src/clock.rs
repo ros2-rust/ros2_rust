@@ -2,7 +2,8 @@ use crate::error::RclrsError;
 use crate::rcl_bindings::*;
 use crate::RclReturnCode;
 use crate::duration;
-use parking_lot::Mutex;
+use crate::time;
+use parking_lot::{Mutex, MutexGuard};
 use std::os::raw::{c_void, c_int};
 
 impl std::default::Default for rcl_allocator_t {
@@ -98,7 +99,21 @@ impl Clock {
         })
     }
 
-    todo!("add function now");
+    pub fn get_clock_type(&self) -> rcl_clock_type_t {
+        (*self.impl_.rcl_clock_.lock()).type_
+    }
+
+    pub fn now(&self) -> time::Time {
+
+        let now = time::Time::new(
+            time::TimeFrom::NanoSecs{ns: 0u64},
+            self.get_clock_type(),
+        ).unwrap();
+
+        let ret = rcl_clock_get_now(&mut *self.impl_.rcl_clock_.lock(), &mut now.get_lock().nanoseconds)
+
+    }
+
     todo!("add function sleep_until");
     todo!("add function sleep_for");
     todo!("add function ros_time_is_active");
