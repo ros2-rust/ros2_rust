@@ -107,6 +107,8 @@ endforeach()
 set(target_dependencies
   "${rosidl_generator_rs_BIN}"
   ${rosidl_generator_rs_GENERATOR_FILES}
+  "${rosidl_generator_rs_TEMPLATE_DIR}/msg_idiomatic.rs.em"
+  "${rosidl_generator_rs_TEMPLATE_DIR}/msg_rmw.rs.em"
   "${rosidl_generator_rs_TEMPLATE_DIR}/msg.rs.em"
   "${rosidl_generator_rs_TEMPLATE_DIR}/srv.rs.em"
   ${rosidl_generate_interfaces_ABS_IDL_FILES}
