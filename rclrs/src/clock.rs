@@ -7,6 +7,7 @@ use crate::RclReturnCode;
 use parking_lot::{Condvar, Mutex};
 use std::os::raw::{c_int, c_void};
 use std::sync::Arc;
+use std::time::Instant;
 
 impl std::default::Default for rcl_allocator_t {
     fn default() -> Self {
@@ -187,15 +188,26 @@ impl Clock {
                     let &(ref lock, ref cvar) = &*(Arc::clone(&self.impl_.thread_handler_));
 
                     let delta = (until.clone() - self.now().unwrap()).to_duration();
+                    let sys_time = Instant::now() + delta;
                     // Safety: No preconditions for this function
                     while (self.now().unwrap() < until)
                         && unsafe { rcl_context_is_valid(&mut *(*context.rcl_context_mtx).lock()) }
                     {
-                        cvar.wait_for(&mut lock.lock(), delta);
+                        cvar.wait_until(&mut lock.lock(), sys_time);
                     }
                 }
                 rcl_clock_type_t::RCL_STEADY_TIME => {
-                    todo!("implement it for RCL_STEADY_TIME");
+                    let rcl_entry = self.now().unwrap();
+                    let std_time_entry = Instant::now();
+                    let delta = (until.clone() - rcl_entry).to_duration();
+                    let std_time_until = std_time_entry + delta;
+
+                    let &(ref lock, ref cvar) = &*(Arc::clone(&self.impl_.thread_handler_));
+                    while (self.now().unwrap() < until)
+                        && unsafe { rcl_context_is_valid(&mut *(*context.rcl_context_mtx).lock()) }
+                    {
+                        cvar.wait_until(&mut lock.lock(), std_time_until);
+                    }
                 }
             }
         }
