@@ -49,7 +49,7 @@ impl std::default::Default for rcl_clock_t {
 }
 
 struct JumpHandler {
-    pre_callback: &'static dyn Fn() -> (),
+    pre_callback: &'static dyn Fn(),
     post_callback: &'static dyn Fn() -> Mutex<rcl_time_jump_t>,
     threshold: rcl_jump_threshold_t,
 }
@@ -57,7 +57,7 @@ struct JumpHandler {
 #[allow(dead_code)]
 impl JumpHandler {
     fn new(
-        pre_callback: &dyn Fn() -> (),
+        pre_callback: &dyn Fn(),
         post_callback: &dyn Fn() -> Mutex<rcl_time_jump_t>,
         threshold: rcl_jump_threshold_t,
     ) -> Self {
@@ -185,11 +185,13 @@ impl Clock {
                 }
                 rcl_clock_type_t::RCL_SYSTEM_TIME => {
                     let &(ref lock, ref cvar) = &*(Arc::clone(&self.impl_.thread_handler_));
+
+                    let delta = (until.clone() - self.now().unwrap()).to_duration();
                     // Safety: No preconditions for this function
                     while (self.now().unwrap() < until)
                         && unsafe { rcl_context_is_valid(&mut *(*context.rcl_context_mtx).lock()) }
                     {
-                        cvar.wait(&mut lock.lock());
+                        cvar.wait_for(&mut lock.lock(), delta);
                     }
                 }
                 rcl_clock_type_t::RCL_STEADY_TIME => {
