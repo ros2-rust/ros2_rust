@@ -54,6 +54,7 @@ struct JumpHandler {
     threshold: rcl_jump_threshold_t,
 }
 
+#[allow(dead_code)]
 impl JumpHandler {
     fn new(
         pre_callback: &dyn Fn() -> (),
@@ -195,6 +196,7 @@ impl Clock {
     pub fn sleep_for(&self, duration: duration::Duration, context: &context::Context) -> Result<bool, RclrsError> {
         self.sleep_until(self.now().unwrap()+duration, context)
     }
+
 }
 /*
     todo!("add function sleep_until");
