@@ -187,6 +187,7 @@ impl Time {
         }
     }
 
+    /// Function to return the time object as a std::time::Duration object
     pub fn to_duration(&self) -> time::Duration {
         time::Duration::from_secs(self.seconds())
     }
