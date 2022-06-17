@@ -3,6 +3,7 @@ use crate::rcl_bindings::*;
 //use crate::RclReturnCode;
 use crate::duration::Duration;
 use parking_lot::{Mutex, MutexGuard};
+use std::cmp::Ordering;
 use std::ops::{Add, Sub};
 use std::time;
 
@@ -46,6 +47,38 @@ impl Add<Duration> for Time {
     }
 }
 
+impl Clone for Time {
+    fn clone(&self) -> Self {
+        let lock = self.get_lock();
+        Self {
+            rcl_time_: Mutex::new(rcl_time_point_t {
+                nanoseconds: lock.nanoseconds,
+                clock_type: lock.clock_type,
+            }),
+        }
+    }
+}
+
+impl Eq for Time {}
+
+impl Ord for Time {
+    fn cmp(&self, rhs: &Self) -> Ordering {
+        self.nanoseconds().cmp(&rhs.nanoseconds())
+    }
+}
+
+impl PartialEq for Time {
+    fn eq(&self, rhs: &Self) -> bool {
+        self.nanoseconds() == rhs.nanoseconds()
+    }
+}
+
+impl PartialOrd for Time {
+    fn partial_cmp(&self, rhs: &Self) -> Option<Ordering> {
+        Some(self.cmp(rhs))
+    }
+}
+
 impl Sub for Time {
     type Output = Self;
 
@@ -86,17 +119,6 @@ impl Sub<Duration> for Time {
     }
 }
 
-impl Clone for Time {
-    fn clone(&self) -> Self {
-        let lock = self.get_lock();
-        Self {
-            rcl_time_: Mutex::new(rcl_time_point_t {
-                nanoseconds: lock.nanoseconds,
-                clock_type: lock.clock_type,
-            }),
-        }
-    }
-}
 
 #[allow(dead_code)]
 impl Time {
