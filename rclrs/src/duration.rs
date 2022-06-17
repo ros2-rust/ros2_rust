@@ -90,15 +90,14 @@ impl Mul<f32> for Duration {
 
 impl Ord for Duration {
     fn cmp(&self, rhs: &Self) -> Ordering {
-        self._duration_handle
-            .nanoseconds
-            .cmp(&rhs._duration_handle.nanoseconds)
+            self.nanoseconds()
+            .cmp(&rhs.nanoseconds())
     }
 }
 
 impl PartialEq for Duration {
     fn eq(&self, rhs: &Self) -> bool {
-        self._duration_handle.nanoseconds == rhs._duration_handle.nanoseconds
+        self.nanoseconds() == rhs.nanoseconds()
     }
 }
 
