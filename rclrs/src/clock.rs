@@ -1,10 +1,12 @@
+use crate::context;
 use crate::error::RclrsError;
 use crate::rcl_bindings::*;
 use crate::RclReturnCode;
-//use crate::duration;
+use crate::duration;
 use crate::time;
-use parking_lot::Mutex;
+use parking_lot::{Mutex, Condvar};
 use std::os::raw::{c_int, c_void};
+use std::sync::Arc;
 
 impl std::default::Default for rcl_allocator_t {
     fn default() -> Self {
@@ -65,7 +67,7 @@ impl JumpHandler {
 struct Impl {
     rcl_clock_: Mutex<rcl_clock_t>,
     allocator_: Mutex<rcl_allocator_t>,
-    //clock_mutex_: Mutex<_>,
+    thread_handler_: Arc<(Mutex<bool>, Condvar)>,
 }
 
 /// The Clock struct
@@ -80,6 +82,7 @@ impl Clock {
         let mut impl_ = Impl {
             rcl_clock_: Mutex::new(rcl_clock_t::default()),
             allocator_: Mutex::new(rcl_allocator_t::default()),
+            thread_handler_: Arc::new((Mutex::new(bool::default()), Condvar::new()))
         };
         // Safety: variables are wrapped in Mutex
         // raw pointer get converted back to safe types once `get_mut` goes out of scope
@@ -129,13 +132,72 @@ impl Clock {
 
         Ok(now)
     }
+
+    /// Function to check if ros clock is valid or not
+    fn ros_time_is_active(&self) -> bool {
+        // Safety: No preconditions for this function
+        if unsafe { !rcl_clock_valid(&mut *self.impl_.rcl_clock_.lock()) } {
+            return false;
+        }
+
+        let mut is_enabled: bool = bool::default();
+
+        // Safety: No preconditions for this function
+        let ret = unsafe { rcl_is_enabled_ros_time_override(&mut *self.impl_.rcl_clock_.lock(), &mut is_enabled) };
+        if ret != 0 {
+            panic!("Failed to check ros time status")
+        }
+        is_enabled
+    }
+
+    /// Function to return clock handle
+    pub fn get_clock_handle(&mut self) -> &mut rcl_clock_t {
+        self.impl_.rcl_clock_.get_mut()
+    }
+
+    /// Function to sleep until a given time stamp
+    pub fn sleep_until(&self, until: time::Time, context: &context::Context) -> Result<bool, RclrsError> {
+        let context_mtx = Arc::clone(&context.rcl_context_mtx);
+        // Safety: No preconditions for this function
+        if unsafe { !rcl_context_is_valid(&mut *context_mtx.lock()) } {
+            return Err(RclrsError::RclError {
+                code: RclReturnCode::Error,
+                msg: None,
+            });
+        } else {
+            let mut time_source_changed: bool = false;
+            match self.get_clock_type() {
+                rcl_clock_type_t::RCL_CLOCK_UNINITIALIZED => {
+                    return Err(RclrsError::RclError {
+                        code: RclReturnCode::Error,
+                        msg: None,
+                    });
+                },
+                rcl_clock_type_t::RCL_ROS_TIME => {
+                    todo!("implement it for RCL_ROS_TIME");
+                },
+                rcl_clock_type_t::RCL_SYSTEM_TIME => {
+                    let &(ref lock, ref cvar) = &*(Arc::clone(&self.impl_.thread_handler_));
+                    // Safety: No preconditions for this function
+                    while (self.now().unwrap() < until) && unsafe { rcl_context_is_valid(&mut *(*context.rcl_context_mtx).lock()) } {
+                        cvar.wait(&mut lock.lock());
+                    }
+                },
+                rcl_clock_type_t::RCL_STEADY_TIME => {
+                    todo!("implement it for RCL_STEADY_TIME");
+                },
+            }
+        }
+        Ok(true)
+    }
+
+    /// Function to sleep for a given duration
+    pub fn sleep_for(&self, duration: duration::Duration, context: &context::Context) -> Result<bool, RclrsError> {
+        self.sleep_until(self.now().unwrap()+duration, context)
+    }
 }
 /*
     todo!("add function sleep_until");
-    todo!("add function sleep_for");
-    todo!("add function ros_time_is_active");
-    todo!("add function get_clock_handle");
-    todo!("add function get_clock_type");
     todo!("add function get_clock_mutex");
     todo!("add function on_time_jump");
     todo!("add function create_jump_callback");
