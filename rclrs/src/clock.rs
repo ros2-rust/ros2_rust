@@ -1,10 +1,10 @@
 use crate::context;
+use crate::duration;
 use crate::error::RclrsError;
 use crate::rcl_bindings::*;
-use crate::RclReturnCode;
-use crate::duration;
 use crate::time;
-use parking_lot::{Mutex, Condvar};
+use crate::RclReturnCode;
+use parking_lot::{Condvar, Mutex};
 use std::os::raw::{c_int, c_void};
 use std::sync::Arc;
 
@@ -83,7 +83,7 @@ impl Clock {
         let mut impl_ = Impl {
             rcl_clock_: Mutex::new(rcl_clock_t::default()),
             allocator_: Mutex::new(rcl_allocator_t::default()),
-            thread_handler_: Arc::new((Mutex::new(bool::default()), Condvar::new()))
+            thread_handler_: Arc::new((Mutex::new(bool::default()), Condvar::new())),
         };
         // Safety: variables are wrapped in Mutex
         // raw pointer get converted back to safe types once `get_mut` goes out of scope
@@ -144,7 +144,9 @@ impl Clock {
         let mut is_enabled: bool = bool::default();
 
         // Safety: No preconditions for this function
-        let ret = unsafe { rcl_is_enabled_ros_time_override(&mut *self.impl_.rcl_clock_.lock(), &mut is_enabled) };
+        let ret = unsafe {
+            rcl_is_enabled_ros_time_override(&mut *self.impl_.rcl_clock_.lock(), &mut is_enabled)
+        };
         if ret != 0 {
             panic!("Failed to check ros time status")
         }
@@ -157,7 +159,11 @@ impl Clock {
     }
 
     /// Function to sleep until a given time stamp
-    pub fn sleep_until(&self, until: time::Time, context: &context::Context) -> Result<bool, RclrsError> {
+    pub fn sleep_until(
+        &self,
+        until: time::Time,
+        context: &context::Context,
+    ) -> Result<bool, RclrsError> {
         let context_mtx = Arc::clone(&context.rcl_context_mtx);
         // Safety: No preconditions for this function
         if unsafe { !rcl_context_is_valid(&mut *context_mtx.lock()) } {
@@ -173,30 +179,35 @@ impl Clock {
                         code: RclReturnCode::Error,
                         msg: None,
                     });
-                },
+                }
                 rcl_clock_type_t::RCL_ROS_TIME => {
                     todo!("implement it for RCL_ROS_TIME");
-                },
+                }
                 rcl_clock_type_t::RCL_SYSTEM_TIME => {
                     let &(ref lock, ref cvar) = &*(Arc::clone(&self.impl_.thread_handler_));
                     // Safety: No preconditions for this function
-                    while (self.now().unwrap() < until) && unsafe { rcl_context_is_valid(&mut *(*context.rcl_context_mtx).lock()) } {
+                    while (self.now().unwrap() < until)
+                        && unsafe { rcl_context_is_valid(&mut *(*context.rcl_context_mtx).lock()) }
+                    {
                         cvar.wait(&mut lock.lock());
                     }
-                },
+                }
                 rcl_clock_type_t::RCL_STEADY_TIME => {
                     todo!("implement it for RCL_STEADY_TIME");
-                },
+                }
             }
         }
         Ok(true)
     }
 
     /// Function to sleep for a given duration
-    pub fn sleep_for(&self, duration: duration::Duration, context: &context::Context) -> Result<bool, RclrsError> {
-        self.sleep_until(self.now().unwrap()+duration, context)
+    pub fn sleep_for(
+        &self,
+        duration: duration::Duration,
+        context: &context::Context,
+    ) -> Result<bool, RclrsError> {
+        self.sleep_until(self.now().unwrap() + duration, context)
     }
-
 }
 /*
     todo!("add function sleep_until");

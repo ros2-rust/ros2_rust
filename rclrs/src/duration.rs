@@ -90,8 +90,7 @@ impl Mul<f32> for Duration {
 
 impl Ord for Duration {
     fn cmp(&self, rhs: &Self) -> Ordering {
-            self.nanoseconds()
-            .cmp(&rhs.nanoseconds())
+        self.nanoseconds().cmp(&rhs.nanoseconds())
     }
 }
 

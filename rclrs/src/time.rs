@@ -119,7 +119,6 @@ impl Sub<Duration> for Time {
     }
 }
 
-
 #[allow(dead_code)]
 impl Time {
     /// Function to create a new instance of Time
