@@ -50,19 +50,30 @@ impl std::default::Default for rcl_clock_t {
 }
 
 struct JumpHandler {
-    pre_callback: &'static dyn Fn(),
-    post_callback: &'static dyn Fn() -> Mutex<rcl_time_jump_t>,
+    pre_callback: fn(),
+    post_callback: fn() -> Mutex<rcl_time_jump_t>,
     threshold: rcl_jump_threshold_t,
 }
 
 #[allow(dead_code)]
 impl JumpHandler {
     fn new(
-        pre_callback: &dyn Fn(),
-        post_callback: &dyn Fn() -> Mutex<rcl_time_jump_t>,
+        pre_callback: fn(),
+        post_callback: fn() -> Mutex<rcl_time_jump_t>,
         threshold: rcl_jump_threshold_t,
     ) -> Self {
-        todo!("implement it");
+        /*
+        static pre_cb: &dyn Fn() = & || {
+            pre_callback()
+        };
+        static post_cb: &dyn Fn() -> Mutex<rcl_time_jump_t> = & || -> Mutex<rcl_time_jump_t> {
+            post_callback()
+        };*/
+        Self {
+            pre_callback,
+            post_callback,
+            threshold,
+        }
     }
 }
 
