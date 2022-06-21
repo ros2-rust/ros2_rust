@@ -50,8 +50,9 @@ impl From<Canceled> for RclrsError {
     }
 }
 
-/// Trait to be implemented by concrete Client structs
-/// See [`Client<T>`] for an example
+/// Trait to be implemented by concrete Client structs.
+///
+/// See [`Client<T>`] for an example.
 pub trait ClientBase: Send + Sync {
     /// Internal function to get a reference to the `rcl` handle.
     fn handle(&self) -> &ClientHandle;
@@ -236,15 +237,16 @@ where
                 ..
             }) => {
                 // Spurious wakeup – this may happen even when a waitset indicated that this
-                // subscription was ready, so it shouldn't be an error.
+                // client was ready, so it shouldn't be an error.
                 return Ok(());
             }
             Err(e) => return Err(e),
         };
         let requests = &mut *self.requests.lock();
         let futures = &mut *self.futures.lock();
-        if requests.contains_key(&req_id.sequence_number) {
-            requests.remove(&req_id.sequence_number).unwrap()(&res);
+        if let Some(callback) = requests.remove(&req_id.sequence_number) {
+            callback(&res);
+        }
         } else if futures.contains_key(&req_id.sequence_number) {
             futures
                 .remove(&req_id.sequence_number)
