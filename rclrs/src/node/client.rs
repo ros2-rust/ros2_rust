@@ -198,7 +198,7 @@ where
     /// +---------------------+
     pub fn take_response(&self) -> Result<(T::Response, rmw_request_id_t), RclrsError> {
         let mut request_id_out = rmw_request_id_t {
-            writer_guid: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            writer_guid: [0; 16],
             sequence_number: 0,
         };
         type RmwMsg<T> =
