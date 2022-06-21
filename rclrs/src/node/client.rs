@@ -4,7 +4,6 @@ use std::borrow::Borrow;
 use std::boxed::Box;
 use std::collections::HashMap;
 use std::ffi::CString;
-use std::sync::atomic::{AtomicI64, Ordering};
 use std::sync::Arc;
 
 use crate::error::{RclReturnCode, ToResult};
@@ -70,7 +69,6 @@ where
     pub(crate) handle: Arc<ClientHandle>,
     requests: Mutex<HashMap<i64, RequestValue<T::Response>>>,
     futures: Arc<Mutex<HashMap<i64, oneshot::Sender<T::Response>>>>,
-    sequence_number: AtomicI64,
 }
 
 impl<T> Client<T>
@@ -112,7 +110,6 @@ where
             futures: Arc::new(Mutex::new(
                 HashMap::<i64, oneshot::Sender<T::Response>>::new(),
             )),
-            sequence_number: AtomicI64::new(0),
         })
     }
 
@@ -137,7 +134,7 @@ where
         F: FnOnce(&T::Response) + 'static + Send,
     {
         let rmw_message = T::Request::into_rmw_message(message.into_cow());
-        let mut sequence_number = self.sequence_number.load(Ordering::SeqCst);
+        let mut sequence_number = -1;
         let ret = unsafe {
             rcl_send_request(
                 &*self.handle.lock() as *const _,
@@ -147,7 +144,6 @@ where
         };
         let requests = &mut *self.requests.lock();
         requests.insert(sequence_number, Box::new(callback));
-        self.sequence_number.swap(sequence_number, Ordering::SeqCst);
         ret.ok()
     }
 
@@ -171,7 +167,7 @@ where
         T: rosidl_runtime_rs::Service + 'static,
     {
         let rmw_message = T::Request::into_rmw_message(request.into_cow());
-        let mut sequence_number = self.sequence_number.load(Ordering::SeqCst);
+        let mut sequence_number = -1;
         let ret = unsafe {
             rcl_send_request(
                 &*self.handle.lock() as *const _,
