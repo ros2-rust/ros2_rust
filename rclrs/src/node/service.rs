@@ -49,7 +49,7 @@ pub trait ServiceBase: Send + Sync {
 }
 
 type ServiceCallback<Request, Response> =
-    Box<dyn Fn(&rmw_request_id_t, &Request) -> Response + 'static + Send>;
+    Box<dyn Fn(&rmw_request_id_t, Request) -> Response + 'static + Send>;
 
 /// Main class responsible for subscribing to topics and receiving data over IPC in ROS
 pub struct Service<T>
@@ -69,7 +69,7 @@ where
     pub fn new<F>(node: &Node, topic: &str, callback: F) -> Result<Self, RclrsError>
     where
         T: rosidl_runtime_rs::Service,
-        F: Fn(&rmw_request_id_t, &T::Request) -> T::Response + 'static + Send,
+        F: Fn(&rmw_request_id_t, T::Request) -> T::Response + 'static + Send,
     {
         let mut service_handle = unsafe { rcl_get_zero_initialized_service() };
         let type_support = <T as rosidl_runtime_rs::Service>::get_type_support()
@@ -158,7 +158,7 @@ where
             }
             Err(e) => return Err(e),
         };
-        let res = (*self.callback.lock())(&req_id, &req);
+        let res = (*self.callback.lock())(&req_id, req);
         let rmw_message = <T::Response as Message>::into_rmw_message(res.into_cow());
         let handle = &mut *self.handle.lock();
         let ret = unsafe {
