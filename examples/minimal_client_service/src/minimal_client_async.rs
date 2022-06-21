@@ -3,7 +3,7 @@ use std::env;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
-    let context = rclrs::Context::new(env::args()).unwrap();
+    let context = rclrs::Context::new(env::args())?;
 
     let mut node = context.create_node("minimal_client")?;
 
@@ -21,12 +21,12 @@ async fn main() -> Result<(), Error> {
 
     let spin_thread = std::thread::spawn(move || rclrs::spin(&node).map_err(|err| err));
 
-    let response = future.await;
+    let response = future.await?;
     println!(
         "Result of {} + {} is: {}",
         request.a,
         request.b,
-        response.unwrap().sum
+        response.sum
     );
 
     spin_thread.join().ok();

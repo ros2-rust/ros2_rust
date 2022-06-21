@@ -12,7 +12,7 @@ fn handle_service(
 }
 
 fn main() -> Result<(), Error> {
-    let context = rclrs::Context::new(env::args()).unwrap();
+    let context = rclrs::Context::new(env::args())?;
 
     let mut node = context.create_node("minimal_service")?;
 
