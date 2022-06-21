@@ -24,9 +24,7 @@ async fn main() -> Result<(), Error> {
     let response = future.await?;
     println!(
         "Result of {} + {} is: {}",
-        request.a,
-        request.b,
-        response.sum
+        request.a, request.b, response.sum
     );
 
     spin_thread.join().ok();
