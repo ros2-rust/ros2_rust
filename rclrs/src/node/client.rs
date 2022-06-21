@@ -247,9 +247,8 @@ where
         if let Some(callback) = requests.remove(&req_id.sequence_number) {
             callback(&res);
         }
-        } else if futures.contains_key(&req_id.sequence_number) {
-            futures
-                .remove(&req_id.sequence_number)
+        if let Some(future) = futures.remove(&req_id.sequence_number) {
+            future
                 .unwrap()
                 .send(res)
                 .unwrap_or_else(|_| panic!("fail to send response via channel in Client::execute"));
