@@ -19,7 +19,7 @@ async fn main() -> Result<(), Error> {
 
     println!("Waiting for response");
 
-    let spin_thread = std::thread::spawn(move || rclrs::spin(&node).map_err(|err| err));
+    let rclrs_spin = tokio::task::spawn_blocking(move || rclrs::spin(&node).map_err(|err| err));
 
     let response = future.await?;
     println!(
@@ -27,6 +27,6 @@ async fn main() -> Result<(), Error> {
         request.a, request.b, response.sum
     );
 
-    spin_thread.join().ok();
+    rclrs_spin.await.ok();
     Ok(())
 }
