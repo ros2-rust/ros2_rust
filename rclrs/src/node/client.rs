@@ -164,7 +164,7 @@ where
         request: R,
     ) -> Result<T::Response, RclrsError>
     where
-        T: rosidl_runtime_rs::Service + 'static,
+        T: rosidl_runtime_rs::Service,
     {
         let rmw_message = T::Request::into_rmw_message(request.into_cow());
         let mut sequence_number = -1;

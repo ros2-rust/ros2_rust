@@ -189,7 +189,7 @@ impl Node {
         topic: &str,
     ) -> Result<Arc<crate::node::client::Client<T>>, RclrsError>
     where
-        T: rosidl_runtime_rs::Service + 'static,
+        T: rosidl_runtime_rs::Service,
     {
         let client = Arc::new(crate::node::client::Client::<T>::new(self, topic)?);
         self.clients
@@ -222,7 +222,7 @@ impl Node {
         callback: F,
     ) -> Result<Arc<crate::node::service::Service<T>>, RclrsError>
     where
-        T: rosidl_runtime_rs::Service + 'static,
+        T: rosidl_runtime_rs::Service,
         F: Fn(&rmw_request_id_t, T::Request) -> T::Response + 'static + Send,
     {
         let service = Arc::new(crate::node::service::Service::<T>::new(
