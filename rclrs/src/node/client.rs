@@ -61,7 +61,7 @@ pub trait ClientBase: Send + Sync {
 
 type RequestValue<Response> = Box<dyn FnOnce(&Response) + 'static + Send>;
 
-/// Main class responsible for publishing data to ROS topics
+/// Main class responsible for sending requests to a ROS service
 pub struct Client<T>
 where
     T: rosidl_runtime_rs::Service,

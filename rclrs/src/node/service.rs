@@ -51,7 +51,7 @@ pub trait ServiceBase: Send + Sync {
 type ServiceCallback<Request, Response> =
     Box<dyn Fn(&rmw_request_id_t, Request) -> Response + 'static + Send>;
 
-/// Main class responsible for subscribing to topics and receiving data over IPC in ROS
+/// Main class responsible for responding to requests sent by ROS clients
 pub struct Service<T>
 where
     T: rosidl_runtime_rs::Service,
