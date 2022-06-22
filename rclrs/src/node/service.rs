@@ -125,14 +125,14 @@ where
             <<T as rosidl_runtime_rs::Service>::Request as rosidl_runtime_rs::Message>::RmwMsg;
         let mut request_out = RmwMsg::<T>::default();
         let handle = &mut *self.handle.lock();
-        let ret = unsafe {
+        unsafe {
             rcl_take_request(
                 handle as *const _,
                 &mut request_id_out,
                 &mut request_out as *mut RmwMsg<T> as *mut _,
             )
-        };
-        ret.ok()?;
+        }
+        .ok()?;
         Ok((T::Request::from_rmw_message(request_out), request_id_out))
     }
 }
