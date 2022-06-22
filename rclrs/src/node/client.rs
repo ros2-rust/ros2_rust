@@ -61,14 +61,16 @@ pub trait ClientBase: Send + Sync {
 
 type RequestValue<Response> = Box<dyn FnOnce(&Response) + 'static + Send>;
 
+type RequestId = i64;
+
 /// Main class responsible for sending requests to a ROS service
 pub struct Client<T>
 where
     T: rosidl_runtime_rs::Service,
 {
     pub(crate) handle: Arc<ClientHandle>,
-    requests: Mutex<HashMap<i64, RequestValue<T::Response>>>,
-    futures: Arc<Mutex<HashMap<i64, oneshot::Sender<T::Response>>>>,
+    requests: Mutex<HashMap<RequestId, RequestValue<T::Response>>>,
+    futures: Arc<Mutex<HashMap<RequestId, oneshot::Sender<T::Response>>>>,
 }
 
 impl<T> Client<T>
