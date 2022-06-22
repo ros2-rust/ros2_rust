@@ -74,7 +74,10 @@ where
         let mut service_handle = unsafe { rcl_get_zero_initialized_service() };
         let type_support = <T as rosidl_runtime_rs::Service>::get_type_support()
             as *const rosidl_service_type_support_t;
-        let topic_c_string = CString::new(topic).unwrap();
+        let topic_c_string = CString::new(topic).map_err(|err| RclrsError::StringContainsNul {
+            err,
+            s: topic.into(),
+        })?;
         let node_handle = &mut *node.rcl_node_mtx.lock();
 
         unsafe {
