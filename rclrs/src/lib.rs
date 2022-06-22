@@ -78,6 +78,47 @@ pub fn spin(node: &Node) -> Result<(), RclrsError> {
     Ok(())
 }
 
+/// Creates a new node in the empty namespace.
+///
+/// Convenience function equivalent to [`Node::new`][1].
+/// Please see that function's documentation.
+///
+/// [1]: crate::Node::new
+///
+/// # Example
+/// ```
+/// # use rclrs::{Context, RclrsError};
+/// let ctx = Context::new([])?;
+/// let node = rclrs::create_node(&ctx, "my_node");
+/// assert!(node.is_ok());
+/// # Ok::<(), RclrsError>(())
+/// ```
+pub fn create_node(context: &Context, node_name: &str) -> Result<Node, RclrsError> {
+    Node::builder(context, node_name).build()
+}
+
+/// Creates a [`NodeBuilder`][1].
+///
+/// Convenience function equivalent to [`NodeBuilder::new()`][2] and [`Node::builder()`][3].
+/// Please see that function's documentation.
+///
+/// [1]: crate::NodeBuilder
+/// [2]: crate::NodeBuilder::new
+/// [3]: crate::Node::builder
+///
+/// # Example
+/// ```
+/// # use rclrs::{Context, RclrsError};
+/// let context = Context::new([])?;
+/// let node_builder = rclrs::create_node_builder(&context, "my_node");
+/// let node = node_builder.build()?;
+/// assert_eq!(node.name(), "my_node");
+/// # Ok::<(), RclrsError>(())
+/// ```
+pub fn create_node_builder(context: &Context, node_name: &str) -> NodeBuilder {
+    Node::builder(context, node_name)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -87,7 +128,7 @@ mod tests {
     #[test]
     fn test_spin_once() -> Result<(), RclrsError> {
         let context = Context::new(vec![]).unwrap();
-        let mut subscriber_node = context.create_node("minimal_subscriber")?;
+        let mut subscriber_node = create_node(&context, "minimal_subscriber")?;
         let num_messages = Arc::new(Mutex::new(0));
         let received_msg = Arc::new(Mutex::new(String::new()));
         let n = num_messages.clone();
