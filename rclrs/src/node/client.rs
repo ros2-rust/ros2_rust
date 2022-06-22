@@ -84,7 +84,7 @@ where
         let type_support = <T as rosidl_runtime_rs::Service>::get_type_support()
             as *const rosidl_service_type_support_t;
         let topic_c_string = CString::new(topic).unwrap();
-        let rcl_node = &mut *node.rcl_node_mtx.lock();
+        let rcl_node = { &mut *node.rcl_node_mtx.lock() };
 
         unsafe {
             let client_options = rcl_client_get_default_options();
