@@ -1,7 +1,6 @@
 use crate::error::{RclReturnCode, ToResult};
-use crate::qos::QoSProfile;
-use crate::Node;
 use crate::{rcl_bindings::*, RclrsError};
+use crate::{Node, QoSProfile, WaitSet, Waitable};
 
 use std::boxed::Box;
 use std::ffi::CStr;
@@ -11,42 +10,11 @@ use std::sync::Arc;
 
 use rosidl_runtime_rs::{Message, RmwMessage};
 
-use parking_lot::{Mutex, MutexGuard};
+use parking_lot::Mutex;
 
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
 // they are running in. Therefore, this type can be safely sent to another thread.
 unsafe impl Send for rcl_subscription_t {}
-
-/// Internal struct used by subscriptions.
-pub struct SubscriptionHandle {
-    rcl_subscription_mtx: Mutex<rcl_subscription_t>,
-    rcl_node_mtx: Arc<Mutex<rcl_node_t>>,
-}
-
-impl SubscriptionHandle {
-    pub(crate) fn lock(&self) -> MutexGuard<rcl_subscription_t> {
-        self.rcl_subscription_mtx.lock()
-    }
-}
-
-impl Drop for SubscriptionHandle {
-    fn drop(&mut self) {
-        let rcl_subscription = self.rcl_subscription_mtx.get_mut();
-        let rcl_node = &mut *self.rcl_node_mtx.lock();
-        // SAFETY: No preconditions for this function (besides the arguments being valid).
-        unsafe {
-            rcl_subscription_fini(rcl_subscription, rcl_node);
-        }
-    }
-}
-
-/// Trait to be implemented by concrete [`Subscription`]s.
-pub trait SubscriptionBase: Send + Sync {
-    /// Internal function to get a reference to the `rcl` handle.
-    fn handle(&self) -> &SubscriptionHandle;
-    /// Tries to take a new message and run the callback with it.
-    fn execute(&self) -> Result<(), RclrsError>;
-}
 
 /// Struct for receiving messages of type `T`.
 ///
@@ -63,10 +31,58 @@ pub struct Subscription<T>
 where
     T: Message,
 {
-    pub(crate) handle: Arc<SubscriptionHandle>,
+    rcl_subscription_mtx: Mutex<rcl_subscription_t>,
+    rcl_node_mtx: Arc<Mutex<rcl_node_t>>,
     /// The callback function that runs when a message was received.
     pub callback: Mutex<Box<dyn FnMut(T) + 'static + Send>>,
     message: PhantomData<T>,
+}
+
+impl<T: Message> Drop for Subscription<T> {
+    fn drop(&mut self) {
+        let rcl_subscription = self.rcl_subscription_mtx.get_mut();
+        let rcl_node = &mut *self.rcl_node_mtx.lock();
+        // SAFETY: No preconditions for this function (besides the arguments being valid).
+        unsafe {
+            rcl_subscription_fini(rcl_subscription, rcl_node);
+        }
+    }
+}
+
+impl<T> Waitable for Subscription<T>
+where
+    T: Message,
+{
+    unsafe fn add_to_wait_set(self: Arc<Self>, wait_set: &mut WaitSet) -> Result<(), RclrsError> {
+        // SAFETY: I'm not sure if it's required, but the subscription pointer will remain valid
+        // for as long as the wait set exists, because it's stored in self.subscriptions.
+        // Passing in a null pointer for the third argument is explicitly allowed.
+        rcl_wait_set_add_subscription(
+            &mut wait_set.rcl_wait_set,
+            &*self.rcl_subscription_mtx.lock(),
+            std::ptr::null_mut(),
+        )
+        .ok()?;
+        wait_set.subscriptions.push(self);
+        Ok(())
+    }
+
+    fn execute(&self) -> Result<(), RclrsError> {
+        let msg = match self.take() {
+            Ok(msg) => msg,
+            Err(RclrsError::RclError {
+                code: RclReturnCode::SubscriptionTakeFailed,
+                ..
+            }) => {
+                // Spurious wakeup – this may happen even when a waitset indicated that this
+                // subscription was ready, so it shouldn't be an error.
+                return Ok(());
+            }
+            Err(e) => return Err(e),
+        };
+        (*self.callback.lock())(msg);
+        Ok(())
+    }
 }
 
 impl<T> Subscription<T>
@@ -113,13 +129,9 @@ where
             .ok()?;
         }
 
-        let handle = Arc::new(SubscriptionHandle {
-            rcl_subscription_mtx: Mutex::new(rcl_subscription),
-            rcl_node_mtx: node.rcl_node_mtx.clone(),
-        });
-
         Ok(Self {
-            handle,
+            rcl_subscription_mtx: Mutex::new(rcl_subscription),
+            rcl_node_mtx: Arc::clone(&node.rcl_node_mtx),
             callback: Mutex::new(Box::new(callback)),
             message: PhantomData,
         })
@@ -133,7 +145,8 @@ where
         // SAFETY: No preconditions for the function used
         // The unsafe variables get converted to safe types before being returned
         unsafe {
-            let raw_topic_pointer = rcl_subscription_get_topic_name(&*self.handle.lock());
+            let raw_topic_pointer =
+                rcl_subscription_get_topic_name(&*self.rcl_subscription_mtx.lock());
             CStr::from_ptr(raw_topic_pointer)
                 .to_string_lossy()
                 .into_owned()
@@ -164,7 +177,7 @@ where
     // ```
     pub fn take(&self) -> Result<T, RclrsError> {
         let mut rmw_message = <T as Message>::RmwMsg::default();
-        let rcl_subscription = &mut *self.handle.lock();
+        let rcl_subscription = &mut *self.rcl_subscription_mtx.lock();
         unsafe {
             // SAFETY: The first two pointers are valid/initialized, and do not need to be valid
             // beyond the function call.
@@ -178,32 +191,6 @@ where
             .ok()?
         };
         Ok(T::from_rmw_message(rmw_message))
-    }
-}
-
-impl<T> SubscriptionBase for Subscription<T>
-where
-    T: Message,
-{
-    fn handle(&self) -> &SubscriptionHandle {
-        &self.handle
-    }
-
-    fn execute(&self) -> Result<(), RclrsError> {
-        let msg = match self.take() {
-            Ok(msg) => msg,
-            Err(RclrsError::RclError {
-                code: RclReturnCode::SubscriptionTakeFailed,
-                ..
-            }) => {
-                // Spurious wakeup – this may happen even when a waitset indicated that this
-                // subscription was ready, so it shouldn't be an error.
-                return Ok(());
-            }
-            Err(e) => return Err(e),
-        };
-        (*self.callback.lock())(msg);
-        Ok(())
     }
 }
 

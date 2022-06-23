@@ -2,52 +2,18 @@ use std::boxed::Box;
 use std::ffi::CString;
 use std::sync::Arc;
 
-use crate::error::{RclReturnCode, ToResult};
-use crate::Node;
-use crate::{rcl_bindings::*, RclrsError};
+use crate::rcl_bindings::*;
+use crate::{Node, RclReturnCode, RclrsError, ToResult, WaitSet, Waitable};
 
 use rosidl_runtime_rs::Message;
 
 use crate::node::publisher::MessageCow;
 
-use parking_lot::{Mutex, MutexGuard};
+use parking_lot::Mutex;
 
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
 // they are running in. Therefore, this type can be safely sent to another thread.
 unsafe impl Send for rcl_service_t {}
-
-/// Internal struct used by services.
-pub struct ServiceHandle {
-    handle: Mutex<rcl_service_t>,
-    node_handle: Arc<Mutex<rcl_node_t>>,
-}
-
-impl ServiceHandle {
-    pub(crate) fn lock(&self) -> MutexGuard<rcl_service_t> {
-        self.handle.lock()
-    }
-}
-
-impl Drop for ServiceHandle {
-    fn drop(&mut self) {
-        let handle = self.handle.get_mut();
-        let node_handle = &mut *self.node_handle.lock();
-        // SAFETY: No preconditions for this function
-        unsafe {
-            rcl_service_fini(handle, node_handle);
-        }
-    }
-}
-
-/// Trait to be implemented by concrete Service structs.
-///
-/// See [`Service<T>`] for an example
-pub trait ServiceBase: Send + Sync {
-    /// Internal function to get a reference to the `rcl` handle.
-    fn handle(&self) -> &ServiceHandle;
-    /// Tries to take a new request and run the callback with it.
-    fn execute(&self) -> Result<(), RclrsError>;
-}
 
 type ServiceCallback<Request, Response> =
     Box<dyn Fn(&rmw_request_id_t, Request) -> Response + 'static + Send>;
@@ -57,9 +23,70 @@ pub struct Service<T>
 where
     T: rosidl_runtime_rs::Service,
 {
-    pub(crate) handle: Arc<ServiceHandle>,
+    rcl_service_mtx: Mutex<rcl_service_t>,
+    rcl_node_mtx: Arc<Mutex<rcl_node_t>>,
     /// The callback function that runs when a request was received.
     pub callback: Mutex<ServiceCallback<T::Request, T::Response>>,
+}
+
+impl<T> Drop for Service<T>
+where
+    T: rosidl_runtime_rs::Service,
+{
+    fn drop(&mut self) {
+        let rcl_service = self.rcl_service_mtx.get_mut();
+        let rcl_node = &mut *self.rcl_node_mtx.lock();
+        // SAFETY: No preconditions for this function
+        unsafe {
+            rcl_service_fini(rcl_service, rcl_node);
+        }
+    }
+}
+
+impl<T> Waitable for Service<T>
+where
+    T: rosidl_runtime_rs::Service,
+{
+    unsafe fn add_to_wait_set(self: Arc<Self>, wait_set: &mut WaitSet) -> Result<(), RclrsError> {
+        // SAFETY: I'm not sure if it's required, but the service pointer will remain valid
+        // for as long as the wait set exists, because it's stored in self.clients.
+        // Passing in a null pointer for the third argument is explicitly allowed.
+        rcl_wait_set_add_service(
+            &mut wait_set.rcl_wait_set,
+            &*self.rcl_service_mtx.lock(),
+            std::ptr::null_mut(),
+        )
+        .ok()?;
+        wait_set.clients.push(self);
+        Ok(())
+    }
+
+    fn execute(&self) -> Result<(), RclrsError> {
+        let (req, mut req_id) = match self.take_request() {
+            Ok((req, req_id)) => (req, req_id),
+            Err(RclrsError::RclError {
+                code: RclReturnCode::ServiceTakeFailed,
+                ..
+            }) => {
+                // Spurious wakeup – this may happen even when a waitset indicated that this
+                // service was ready, so it shouldn't be an error.
+                return Ok(());
+            }
+            Err(e) => return Err(e),
+        };
+        let res = (*self.callback.lock())(&req_id, req);
+        let rmw_message = <T::Response as Message>::into_rmw_message(res.into_cow());
+        let rcl_service = &*self.rcl_service_mtx.lock();
+        unsafe {
+            // SAFETY: The response type is guaranteed to match the service type by the type system.
+            rcl_send_response(
+                rcl_service,
+                &mut req_id,
+                rmw_message.as_ref() as *const <T::Response as Message>::RmwMsg as *mut _,
+            )
+        }
+        .ok()
+    }
 }
 
 impl<T> Service<T>
@@ -100,13 +127,9 @@ where
             .ok()?;
         }
 
-        let handle = Arc::new(ServiceHandle {
-            handle: Mutex::new(service_handle),
-            node_handle: node.rcl_node_mtx.clone(),
-        });
-
         Ok(Self {
-            handle,
+            rcl_service_mtx: Mutex::new(service_handle),
+            rcl_node_mtx: Arc::clone(&node.rcl_node_mtx),
             callback: Mutex::new(Box::new(callback)),
         })
     }
@@ -141,52 +164,16 @@ where
         type RmwMsg<T> =
             <<T as rosidl_runtime_rs::Service>::Request as rosidl_runtime_rs::Message>::RmwMsg;
         let mut request_out = RmwMsg::<T>::default();
-        let handle = &*self.handle.lock();
+        let rcl_service = &*self.rcl_service_mtx.lock();
         unsafe {
             // SAFETY: The three pointers are valid/initialized
             rcl_take_request(
-                handle,
+                rcl_service,
                 &mut request_id_out,
                 &mut request_out as *mut RmwMsg<T> as *mut _,
             )
         }
         .ok()?;
         Ok((T::Request::from_rmw_message(request_out), request_id_out))
-    }
-}
-
-impl<T> ServiceBase for Service<T>
-where
-    T: rosidl_runtime_rs::Service,
-{
-    fn handle(&self) -> &ServiceHandle {
-        &self.handle
-    }
-
-    fn execute(&self) -> Result<(), RclrsError> {
-        let (req, mut req_id) = match self.take_request() {
-            Ok((req, req_id)) => (req, req_id),
-            Err(RclrsError::RclError {
-                code: RclReturnCode::ServiceTakeFailed,
-                ..
-            }) => {
-                // Spurious wakeup – this may happen even when a waitset indicated that this
-                // service was ready, so it shouldn't be an error.
-                return Ok(());
-            }
-            Err(e) => return Err(e),
-        };
-        let res = (*self.callback.lock())(&req_id, req);
-        let rmw_message = <T::Response as Message>::into_rmw_message(res.into_cow());
-        let handle = &*self.handle.lock();
-        unsafe {
-            // SAFETY: The response type is guaranteed to match the service type by the type system.
-            rcl_send_response(
-                handle,
-                &mut req_id,
-                rmw_message.as_ref() as *const <T::Response as Message>::RmwMsg as *mut _,
-            )
-        }
-        .ok()
     }
 }

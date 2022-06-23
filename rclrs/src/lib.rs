@@ -53,16 +53,22 @@ pub fn spin_once(node: &Node, timeout: Option<Duration>) -> Result<(), RclrsErro
         &ctx,
     )?;
 
-    for live_subscription in &live_subscriptions {
-        wait_set.add_subscription(live_subscription.clone())?;
+    for live_subscription in live_subscriptions {
+        // SAFETY: The implementation of this trait function guarantees that the subscription
+        // is not part of any other wait set. (TODO: issue #207)
+        unsafe { live_subscription.add_to_wait_set(&mut wait_set)? };
     }
 
-    for live_client in &live_clients {
-        wait_set.add_client(live_client.clone())?;
+    for live_client in live_clients {
+        // SAFETY: The implementation of this trait function guarantees that the client
+        // is not part of any other wait set. (TODO: issue #207)
+        unsafe { live_client.add_to_wait_set(&mut wait_set)? };
     }
 
-    for live_service in &live_services {
-        wait_set.add_service(live_service.clone())?;
+    for live_service in live_services {
+        // SAFETY: The implementation of this trait function guarantees that the client
+        // is not part of any other wait set. (TODO: issue #207)
+        unsafe { live_service.add_to_wait_set(&mut wait_set)? };
     }
 
     let ready_entities = wait_set.wait(timeout)?;

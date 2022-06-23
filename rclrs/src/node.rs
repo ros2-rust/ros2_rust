@@ -10,7 +10,7 @@ pub use self::service::*;
 pub use self::subscription::*;
 
 use crate::rcl_bindings::*;
-use crate::{Context, ParameterOverrideMap, QoSProfile, RclrsError, ToResult};
+use crate::{Context, ParameterOverrideMap, QoSProfile, RclrsError, ToResult, Waitable};
 
 use std::cmp::PartialEq;
 use std::ffi::CStr;
@@ -72,9 +72,9 @@ unsafe impl Send for rcl_node_t {}
 pub struct Node {
     rcl_node_mtx: Arc<Mutex<rcl_node_t>>,
     pub(crate) rcl_context_mtx: Arc<Mutex<rcl_context_t>>,
-    pub(crate) clients: Vec<Weak<dyn ClientBase>>,
-    pub(crate) services: Vec<Weak<dyn ServiceBase>>,
-    pub(crate) subscriptions: Vec<Weak<dyn SubscriptionBase>>,
+    pub(crate) clients: Vec<Weak<dyn Waitable>>,
+    pub(crate) services: Vec<Weak<dyn Waitable>>,
+    pub(crate) subscriptions: Vec<Weak<dyn Waitable>>,
     _parameter_map: ParameterOverrideMap,
 }
 
@@ -193,7 +193,7 @@ impl Node {
     {
         let client = Arc::new(crate::node::client::Client::<T>::new(self, topic)?);
         self.clients
-            .push(Arc::downgrade(&client) as Weak<dyn ClientBase>);
+            .push(Arc::downgrade(&client) as Weak<dyn Waitable>);
         Ok(client)
     }
 
@@ -229,7 +229,7 @@ impl Node {
             self, topic, callback,
         )?);
         self.services
-            .push(Arc::downgrade(&service) as Weak<dyn ServiceBase>);
+            .push(Arc::downgrade(&service) as Weak<dyn Waitable>);
         Ok(service)
     }
 
@@ -249,23 +249,23 @@ impl Node {
     {
         let subscription = Arc::new(Subscription::<T>::new(self, topic, qos, callback)?);
         self.subscriptions
-            .push(Arc::downgrade(&subscription) as Weak<dyn SubscriptionBase>);
+            .push(Arc::downgrade(&subscription) as Weak<dyn Waitable>);
         Ok(subscription)
     }
 
     /// Returns the subscriptions that have not been dropped yet.
-    pub(crate) fn live_subscriptions(&self) -> Vec<Arc<dyn SubscriptionBase>> {
+    pub(crate) fn live_subscriptions(&self) -> Vec<Arc<dyn Waitable>> {
         self.subscriptions
             .iter()
             .filter_map(Weak::upgrade)
             .collect()
     }
 
-    pub(crate) fn live_clients(&self) -> Vec<Arc<dyn ClientBase>> {
+    pub(crate) fn live_clients(&self) -> Vec<Arc<dyn Waitable>> {
         self.clients.iter().filter_map(Weak::upgrade).collect()
     }
 
-    pub(crate) fn live_services(&self) -> Vec<Arc<dyn ServiceBase>> {
+    pub(crate) fn live_services(&self) -> Vec<Arc<dyn Waitable>> {
         self.services.iter().filter_map(Weak::upgrade).collect()
     }
 

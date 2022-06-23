@@ -1,63 +1,18 @@
-use crate::node::client::oneshot::Canceled;
 use futures::channel::oneshot;
 use std::boxed::Box;
 use std::collections::HashMap;
 use std::ffi::CString;
 use std::sync::Arc;
 
-use crate::error::{RclReturnCode, ToResult};
-use crate::MessageCow;
-use crate::Node;
-use crate::{rcl_bindings::*, RclrsError};
+use crate::rcl_bindings::*;
+use crate::{MessageCow, Node, RclReturnCode, RclrsError, ToResult, WaitSet, Waitable};
 
-use parking_lot::{Mutex, MutexGuard};
+use parking_lot::Mutex;
 use rosidl_runtime_rs::Message;
 
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
 // they are running in. Therefore, this type can be safely sent to another thread.
 unsafe impl Send for rcl_client_t {}
-
-/// Internal struct used by clients.
-pub struct ClientHandle {
-    rcl_client_mtx: Mutex<rcl_client_t>,
-    rcl_node_mtx: Arc<Mutex<rcl_node_t>>,
-}
-
-impl ClientHandle {
-    pub(crate) fn lock(&self) -> MutexGuard<rcl_client_t> {
-        self.rcl_client_mtx.lock()
-    }
-}
-
-impl Drop for ClientHandle {
-    fn drop(&mut self) {
-        let handle = self.rcl_client_mtx.get_mut();
-        let rcl_node_mtx = &mut *self.rcl_node_mtx.lock();
-        // SAFETY: No preconditions for this function
-        unsafe {
-            rcl_client_fini(handle, rcl_node_mtx);
-        }
-    }
-}
-
-impl From<Canceled> for RclrsError {
-    fn from(_: Canceled) -> Self {
-        RclrsError::RclError {
-            code: RclReturnCode::Error,
-            msg: None,
-        }
-    }
-}
-
-/// Trait to be implemented by concrete Client structs.
-///
-/// See [`Client<T>`] for an example.
-pub trait ClientBase: Send + Sync {
-    /// Internal function to get a reference to the `rcl` handle.
-    fn handle(&self) -> &ClientHandle;
-    /// Tries to take a new response and run the callback or future with it.
-    fn execute(&self) -> Result<(), RclrsError>;
-}
 
 type RequestValue<Response> = Box<dyn FnOnce(Response) + 'static + Send>;
 
@@ -68,9 +23,66 @@ pub struct Client<T>
 where
     T: rosidl_runtime_rs::Service,
 {
-    pub(crate) handle: Arc<ClientHandle>,
+    rcl_client_mtx: Mutex<rcl_client_t>,
+    rcl_node_mtx: Arc<Mutex<rcl_node_t>>,
     requests: Mutex<HashMap<RequestId, RequestValue<T::Response>>>,
     futures: Arc<Mutex<HashMap<RequestId, oneshot::Sender<T::Response>>>>,
+}
+
+impl<T> Drop for Client<T>
+where
+    T: rosidl_runtime_rs::Service,
+{
+    fn drop(&mut self) {
+        let rcl_client = self.rcl_client_mtx.get_mut();
+        let rcl_node = &mut *self.rcl_node_mtx.lock();
+        // SAFETY: No preconditions for this function
+        unsafe {
+            rcl_client_fini(rcl_client, rcl_node);
+        }
+    }
+}
+
+impl<T> Waitable for Client<T>
+where
+    T: rosidl_runtime_rs::Service,
+{
+    unsafe fn add_to_wait_set(self: Arc<Self>, wait_set: &mut WaitSet) -> Result<(), RclrsError> {
+        // SAFETY: I'm not sure if it's required, but the client pointer will remain valid
+        // for as long as the wait set exists, because it's stored in self.clients.
+        // Passing in a null pointer for the third argument is explicitly allowed.
+        rcl_wait_set_add_client(
+            &mut wait_set.rcl_wait_set,
+            &*self.rcl_client_mtx.lock(),
+            std::ptr::null_mut(),
+        )
+        .ok()?;
+        wait_set.clients.push(self);
+        Ok(())
+    }
+
+    fn execute(&self) -> Result<(), RclrsError> {
+        let (res, req_id) = match self.take_response() {
+            Ok((res, req_id)) => (res, req_id),
+            Err(RclrsError::RclError {
+                code: RclReturnCode::ClientTakeFailed,
+                ..
+            }) => {
+                // Spurious wakeup – this may happen even when a waitset indicated that this
+                // client was ready, so it shouldn't be an error.
+                return Ok(());
+            }
+            Err(e) => return Err(e),
+        };
+        let requests = &mut *self.requests.lock();
+        let futures = &mut *self.futures.lock();
+        if let Some(callback) = requests.remove(&req_id.sequence_number) {
+            callback(res);
+        } else if let Some(future) = futures.remove(&req_id.sequence_number) {
+            let _ = future.send(res);
+        }
+        Ok(())
+    }
 }
 
 impl<T> Client<T>
@@ -110,13 +122,9 @@ where
             .ok()?;
         }
 
-        let handle = Arc::new(ClientHandle {
-            rcl_client_mtx: Mutex::new(rcl_client),
-            rcl_node_mtx: node.rcl_node_mtx.clone(),
-        });
-
         Ok(Self {
-            handle,
+            rcl_client_mtx: Mutex::new(rcl_client),
+            rcl_node_mtx: Arc::clone(&node.rcl_node_mtx),
             requests: Mutex::new(HashMap::new()),
             futures: Arc::new(Mutex::new(
                 HashMap::<RequestId, oneshot::Sender<T::Response>>::new(),
@@ -149,7 +157,7 @@ where
         unsafe {
             // SAFETY: The request type is guaranteed to match the client type by the type system.
             rcl_send_request(
-                &*self.handle.lock() as *const _,
+                &*self.rcl_client_mtx.lock() as *const _,
                 rmw_message.as_ref() as *const <T::Request as Message>::RmwMsg as *mut _,
                 &mut sequence_number,
             )
@@ -184,7 +192,7 @@ where
         unsafe {
             // SAFETY: The request type is guaranteed to match the client type by the type system.
             rcl_send_request(
-                &*self.handle.lock() as *const _,
+                &*self.rcl_client_mtx.lock() as *const _,
                 rmw_message.as_ref() as *const <T::Request as Message>::RmwMsg as *mut _,
                 &mut sequence_number,
             )
@@ -228,48 +236,16 @@ where
         type RmwMsg<T> =
             <<T as rosidl_runtime_rs::Service>::Response as rosidl_runtime_rs::Message>::RmwMsg;
         let mut response_out = RmwMsg::<T>::default();
-        let handle = &*self.handle.lock();
+        let rcl_client = &*self.rcl_client_mtx.lock();
         unsafe {
             // SAFETY: The three pointers are valid/initialized
             rcl_take_response(
-                handle,
+                rcl_client,
                 &mut request_id_out,
                 &mut response_out as *mut RmwMsg<T> as *mut _,
             )
         }
         .ok()?;
         Ok((T::Response::from_rmw_message(response_out), request_id_out))
-    }
-}
-
-impl<T> ClientBase for Client<T>
-where
-    T: rosidl_runtime_rs::Service,
-{
-    fn handle(&self) -> &ClientHandle {
-        &self.handle
-    }
-
-    fn execute(&self) -> Result<(), RclrsError> {
-        let (res, req_id) = match self.take_response() {
-            Ok((res, req_id)) => (res, req_id),
-            Err(RclrsError::RclError {
-                code: RclReturnCode::ClientTakeFailed,
-                ..
-            }) => {
-                // Spurious wakeup – this may happen even when a waitset indicated that this
-                // client was ready, so it shouldn't be an error.
-                return Ok(());
-            }
-            Err(e) => return Err(e),
-        };
-        let requests = &mut *self.requests.lock();
-        let futures = &mut *self.futures.lock();
-        if let Some(callback) = requests.remove(&req_id.sequence_number) {
-            callback(res);
-        } else if let Some(future) = futures.remove(&req_id.sequence_number) {
-            let _ = future.send(res);
-        }
-        Ok(())
     }
 }

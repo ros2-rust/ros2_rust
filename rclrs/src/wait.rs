@@ -17,7 +17,7 @@
 
 use crate::error::{to_rclrs_result, RclReturnCode, RclrsError, ToResult};
 use crate::rcl_bindings::*;
-use crate::{ClientBase, Context, ServiceBase, SubscriptionBase};
+use crate::Context;
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -25,27 +25,53 @@ use std::vec::Vec;
 
 use parking_lot::Mutex;
 
+/// Trait to be implemented by entities that can be waited on, like a [`Subscription`][1].
+///
+/// [1]: crate::Subscription
+pub trait Waitable: Send + Sync {
+    /// Adds itself to the given wait set.
+    ///
+    /// This will return an error if the number of waitables of this kind in the wait set is larger
+    /// than the capacity set in [`WaitSet::new`].
+    ///
+    /// # Safety
+    ///
+    /// The same waitable must not be added to multiple wait sets, because that would make it
+    /// unsafe to simultaneously wait on those wait sets. Quoting from the rcl docs:
+    /// "This function is thread-safe for unique wait sets with unique contents.
+    /// This function cannot operate on the same wait set in multiple threads, and
+    /// the wait sets may not share content.
+    /// For example, calling `rcl_wait()` in two threads on two different wait sets
+    /// that both contain a single, shared guard condition is undefined behavior."
+    ///
+    /// This function is unsafe because the implementation must ensure that the item is not yet in a
+    /// different wait set.
+    unsafe fn add_to_wait_set(self: Arc<Self>, wait_set: &mut WaitSet) -> Result<(), RclrsError>;
+    /// Tries to take a new message and run the callback with it.
+    fn execute(&self) -> Result<(), RclrsError>;
+}
+
 /// A struct for waiting on subscriptions and other waitable entities to become ready.
 pub struct WaitSet {
-    rcl_wait_set: rcl_wait_set_t,
+    pub(crate) rcl_wait_set: rcl_wait_set_t,
     // Used to ensure the context is alive while the wait set is alive.
     _rcl_context_mtx: Arc<Mutex<rcl_context_t>>,
     // The subscriptions that are currently registered in the wait set.
     // This correspondence is an invariant that must be maintained by all functions,
     // even in the error case.
-    subscriptions: Vec<Arc<dyn SubscriptionBase>>,
-    clients: Vec<Arc<dyn ClientBase>>,
-    services: Vec<Arc<dyn ServiceBase>>,
+    pub(crate) subscriptions: Vec<Arc<dyn Waitable>>,
+    pub(crate) clients: Vec<Arc<dyn Waitable>>,
+    pub(crate) services: Vec<Arc<dyn Waitable>>,
 }
 
 /// A list of entities that are ready, returned by [`WaitSet::wait`].
 pub struct ReadyEntities {
     /// A list of subscriptions that have potentially received messages.
-    pub subscriptions: Vec<Arc<dyn SubscriptionBase>>,
+    pub subscriptions: Vec<Arc<dyn Waitable>>,
     /// A list of clients that have potentially received responses.
-    pub clients: Vec<Arc<dyn ClientBase>>,
+    pub clients: Vec<Arc<dyn Waitable>>,
     /// A list of services that have potentially received requests.
-    pub services: Vec<Arc<dyn ServiceBase>>,
+    pub services: Vec<Arc<dyn Waitable>>,
 }
 
 impl Drop for rcl_wait_set_t {
@@ -61,8 +87,8 @@ impl Drop for rcl_wait_set_t {
 impl WaitSet {
     /// Creates a new wait set.
     ///
-    /// The given number of subscriptions is a capacity, corresponding to how often
-    /// [`WaitSet::add_subscription`] may be called.
+    /// The given numbers are capacities, corresponding to how often
+    /// [`Waitable::add_to_wait_set`] may be called.
     pub fn new(
         number_of_subscriptions: usize,
         number_of_guard_conditions: usize,
@@ -114,84 +140,6 @@ impl WaitSet {
         // SAFETY: No preconditions for this function (besides passing in a valid wait set).
         let ret = unsafe { rcl_wait_set_clear(&mut self.rcl_wait_set) };
         debug_assert_eq!(ret, 0);
-    }
-
-    /// Adds a subscription to the wait set.
-    ///
-    /// It is possible, but not useful, to add the same subscription twice.
-    ///
-    /// This will return an error if the number of subscriptions in the wait set is larger than the
-    /// capacity set in [`WaitSet::new`].
-    ///
-    /// The same subscription must not be added to multiple wait sets, because that would make it
-    /// unsafe to simultaneously wait on those wait sets.
-    pub fn add_subscription(
-        &mut self,
-        subscription: Arc<dyn SubscriptionBase>,
-    ) -> Result<(), RclrsError> {
-        unsafe {
-            // SAFETY: I'm not sure if it's required, but the subscription pointer will remain valid
-            // for as long as the wait set exists, because it's stored in self.subscriptions.
-            // Passing in a null pointer for the third argument is explicitly allowed.
-            rcl_wait_set_add_subscription(
-                &mut self.rcl_wait_set,
-                &*subscription.handle().lock(),
-                std::ptr::null_mut(),
-            )
-        }
-        .ok()?;
-        self.subscriptions.push(subscription);
-        Ok(())
-    }
-
-    /// Adds a client to the wait set.
-    ///
-    /// It is possible, but not useful, to add the same client twice.
-    ///
-    /// This will return an error if the number of clients in the wait set is larger than the
-    /// capacity set in [`WaitSet::new`].
-    ///
-    /// The same client must not be added to multiple wait sets, because that would make it
-    /// unsafe to simultaneously wait on those wait sets.
-    pub fn add_client(&mut self, client: Arc<dyn ClientBase>) -> Result<(), RclrsError> {
-        unsafe {
-            // SAFETY: I'm not sure if it's required, but the client pointer will remain valid
-            // for as long as the wait set exists, because it's stored in self.clients.
-            // Passing in a null pointer for the third argument is explicitly allowed.
-            rcl_wait_set_add_client(
-                &mut self.rcl_wait_set,
-                &*client.handle().lock() as *const _,
-                core::ptr::null_mut(),
-            )
-        }
-        .ok()?;
-        self.clients.push(client);
-        Ok(())
-    }
-
-    /// Adds a service to the wait set.
-    ///
-    /// It is possible, but not useful, to add the same service twice.
-    ///
-    /// This will return an error if the number of services in the wait set is larger than the
-    /// capacity set in [`WaitSet::new`].
-    ///
-    /// The same service must not be added to multiple wait sets, because that would make it
-    /// unsafe to simultaneously wait on those wait sets.
-    pub fn add_service(&mut self, service: Arc<dyn ServiceBase>) -> Result<(), RclrsError> {
-        unsafe {
-            // SAFETY: I'm not sure if it's required, but the service pointer will remain valid
-            // for as long as the wait set exists, because it's stored in self.services.
-            // Passing in a null pointer for the third argument is explicitly allowed.
-            rcl_wait_set_add_service(
-                &mut self.rcl_wait_set,
-                &*service.handle().lock() as *const _,
-                core::ptr::null_mut(),
-            )
-        }
-        .ok()?;
-        self.services.push(service);
-        Ok(())
     }
 
     /// Blocks until the wait set is ready, or until the timeout has been exceeded.
