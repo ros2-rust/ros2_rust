@@ -13,6 +13,14 @@ path = "src/minimal_subscriber.rs"
 name = "minimal_publisher"
 path = "src/minimal_publisher.rs"
 
+[[bin]]
+name = "zero_copy_subscriber"
+path = "src/zero_copy_subscriber.rs"
+
+[[bin]]
+name = "zero_copy_publisher"
+path = "src/zero_copy_publisher.rs"
+
 [dependencies]
 anyhow = {version = "1", features = ["backtrace"]}
 

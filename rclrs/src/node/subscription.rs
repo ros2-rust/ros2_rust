@@ -12,6 +12,9 @@ use std::sync::{Arc, Mutex, MutexGuard};
 
 use rosidl_runtime_rs::{Message, RmwMessage};
 
+mod readonly_loaned_message;
+pub use readonly_loaned_message::*;
+
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
 // they are running in. Therefore, this type can be safely sent to another thread.
 unsafe impl Send for rcl_subscription_t {}
@@ -184,6 +187,40 @@ where
             .ok()?
         };
         Ok(T::from_rmw_message(rmw_message))
+    }
+}
+
+impl<T> Subscription<T>
+where
+    T: RmwMessage,
+{
+    /// Obtains a read-only handle to a message owned by the middleware.
+    ///
+    /// When there is no new message, this will return a
+    /// [`SubscriptionTakeFailed`][1].
+    ///
+    /// This is the counterpart to [`Publisher::borrow_loaned_message()`][2]. See its documentation
+    /// for more information.
+    ///
+    /// [1]: crate::RclrsError
+    /// [2]: crate::Publisher::borrow_loaned_message
+    pub fn take_loaned_message(&self) -> Result<ReadOnlyLoanedMessage<'_, T>, RclrsError> {
+        let mut msg_ptr = std::ptr::null_mut();
+        unsafe {
+            // SAFETY: The third argument (message_info) and fourth argument (allocation) may be null.
+            // The second argument (loaned_message) contains a null ptr as expected.
+            rcl_take_loaned_message(
+                &*self.handle.lock(),
+                &mut msg_ptr,
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
+            )
+            .ok()?;
+        }
+        Ok(ReadOnlyLoanedMessage {
+            msg_ptr: msg_ptr as *const T,
+            subscription: self,
+        })
     }
 }
 
