@@ -102,7 +102,7 @@ where
     ///
     /// This returns the topic name after remapping, so it is not necessarily the
     /// topic name which was used when creating the publisher.
-    pub fn get_topic(&self) -> String {
+    pub fn topic_name(&self) -> String {
         // SAFETY: No preconditions for the functions called.
         // The unsafe variables created get converted to safe types before being returned
         unsafe {
