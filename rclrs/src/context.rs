@@ -1,6 +1,9 @@
+mod builder;
+
 use crate::rcl_bindings::*;
 use crate::{Node, NodeBuilder, RclrsError, ToResult};
 
+use self::builder::*;
 use std::ffi::CString;
 use std::os::raw::c_char;
 use std::string::String;
