@@ -187,4 +187,43 @@ mod tests {
 
         Ok(())
     }
+
+    #[test]
+    fn test_non_ros_arguments() -> Result<(), String> {
+        macro_rules! vec_of_strings {
+            ($($x:expr),*) => (vec![$($x.to_string()),*]);
+        }
+        // ROS args are expected to be between '--ros-args' and '--'. Everything beside that is 'non-ROS'.
+        let context = Context::new(vec_of_strings![
+            "non-ros1",
+            "--ros-args",
+            "ros-args",
+            "--",
+            "non-ros2",
+            "non-ros3"
+        ])
+        .unwrap();
+
+        let non_ros_args: Vec<String> = context.non_ros_arguments().clone();
+        let expected = vec!["non-ros1", "non-ros2", "non-ros3"];
+
+        if non_ros_args.len() != expected.len() {
+            Err(format!(
+                "Expected vector size: {}, actual: {}",
+                expected.len(),
+                non_ros_args.len()
+            ))
+        } else {
+            for i in 0..non_ros_args.len() {
+                if non_ros_args[i] != expected[i] {
+                    let msg = format!(
+                        "Mismatching elements at position: {}. Expected: {}, got: {}",
+                        i, expected[i], non_ros_args[i]
+                    );
+                    return Err(msg);
+                }
+            }
+            Ok(())
+        }
+    }
 }
