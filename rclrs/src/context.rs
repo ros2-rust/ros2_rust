@@ -44,6 +44,7 @@ unsafe impl Send for rcl_context_t {}
 ///
 pub struct Context {
     pub(crate) rcl_context_mtx: Arc<Mutex<rcl_context_t>>,
+    pub(crate) non_ros_arguments: Vec<String>,
 }
 
 impl Context {
@@ -102,11 +103,17 @@ impl Context {
             // Move the check after the last fini()
             ret?;
         }
+        let non_ros_args = get_non_ros_arguments(&rcl_context.global_arguments, &c_args)?;
         Ok(Self {
             rcl_context_mtx: Arc::new(Mutex::new(rcl_context)),
+            non_ros_arguments: non_ros_args,
         })
     }
 
+    /// Returns non-ROS arguments detected during context initialization.
+    pub fn non_ros_arguments(&self) -> &Vec<String> {
+        &self.non_ros_arguments
+    }
     /// Checks if the context is still valid.
     ///
     /// This will return `false` when a signal has caused the context to shut down (currently
