@@ -1,8 +1,10 @@
 use crate::rcl_bindings::*;
+use crate::RclReturnCode::InvalidArgument;
 use crate::{RclrsError, ToResult};
 
-use std::ffi::CString;
+use std::ffi::{CStr, CString};
 use std::os::raw::c_char;
+use std::ptr::null_mut;
 use std::string::String;
 use std::sync::Arc;
 use std::vec::Vec;
@@ -116,6 +118,47 @@ impl Context {
         // SAFETY: No preconditions for this function.
         unsafe { rcl_context_is_valid(rcl_context) }
     }
+}
+
+/// Returns non-ROS arguments held by context.
+///
+/// This function should be called after rcl_init. `rcl_arguments` should be `global_arguments`
+/// field of initialized context. `args` is array of input arguments passed to node.
+fn get_non_ros_arguments(
+    rcl_arguments: *const rcl_arguments_t,
+    args: &[*const c_char],
+) -> Result<Vec<String>, RclrsError> {
+    // SAFETY: In case of error -1 will be returned and handled a line below.
+    let args_status = unsafe { rcl_arguments_get_count_unparsed(rcl_arguments) };
+    if args_status == -1 {
+        return Err(RclrsError::RclError {
+            code: InvalidArgument,
+            msg: None,
+        });
+    }
+    // SAFETY: All possible negative args_status values handled above.
+    let args_num = args_status as usize;
+    if args_num == 0 {
+        return Ok(Vec::new());
+    }
+    let mut out_ptr: *mut i32 = null_mut();
+    unsafe {
+        // SAFETY: No preconditions for this function.
+        let allocator = rcutils_get_default_allocator();
+        // SAFETY: Error will be returned in case of broken rcl_arguments, no precondition for the rest.
+        rcl_arguments_get_unparsed(rcl_arguments, allocator, &mut out_ptr).ok()?;
+    }
+    // SAFETY: out_ptr won't be allocated in case of error and this code won't be reached.
+    // Indices of non-ROS args in input args array
+    let indices: Vec<i32> = unsafe { Vec::from_raw_parts(out_ptr, args_num, args_num) };
+    let mut non_ros_args: Vec<String> = Vec::with_capacity(args_num);
+
+    for i in indices.iter() {
+        // SAFETY: args are expected to have been transformed from String. Indices are expected to be positive.
+        let c_str = unsafe { CStr::from_ptr(args[*i as usize]).to_str().unwrap() };
+        non_ros_args.push(c_str.to_string());
+    }
+    Ok(non_ros_args)
 }
 
 #[cfg(test)]
