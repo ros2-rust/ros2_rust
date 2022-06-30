@@ -33,6 +33,7 @@ impl rosidl_runtime_rs::Service for @(type_name) {
   type Response = crate::@(subfolder)::@(type_name)_Response;
 
   fn get_type_support() -> libc::uintptr_t {
+    // SAFETY: No preconditions for this function.
     unsafe { rosidl_typesupport_c__get_service_type_support_handle__@(package_name)__@(subfolder)__@(type_name)() }
   }
 }
@@ -67,6 +68,7 @@ type_name = srv_spec.namespaced_type.name
     type Response = crate::@(subfolder)::rmw::@(type_name)_Response;
 
     fn get_type_support() -> libc::uintptr_t {
+      // SAFETY: No preconditions for this function.
       unsafe { rosidl_typesupport_c__get_service_type_support_handle__@(package_name)__@(subfolder)__@(type_name)() }
     }
   }

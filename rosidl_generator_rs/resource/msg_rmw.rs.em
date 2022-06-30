@@ -43,9 +43,9 @@ pub struct @(type_name) {
 impl Default for @(type_name) {
   fn default() -> Self {
     unsafe {
-@#    // This is safe since a zeroed bit pattern always forms a valid message.
+@#    // SAFETY: This is safe since a zeroed bit pattern always forms a valid message.
       let mut msg = std::mem::zeroed();
-@#    // This is safe since the precondititons for inti() are fulfilled by giving it a zeroed message.
+@#    // SAFETY: This is safe since the precondititons for init() are fulfilled by giving it a zeroed message.
       if !@(package_name)__@(subfolder)__@(type_name)__init(&mut msg as *mut _) {
         panic!("Call to @(package_name)__@(subfolder)__@(type_name)__init() failed");
       }
@@ -78,6 +78,7 @@ impl rosidl_runtime_rs::Message for @(type_name) {
 
 impl rosidl_runtime_rs::RmwMessage for @(type_name) where Self: Sized {
   fn get_type_support() -> libc::uintptr_t {
+    // SAFETY: No preconditions for this function.
     unsafe { rosidl_typesupport_c__get_message_type_support_handle__@(package_name)__@(subfolder)__@(type_name)() }
   }
 }
