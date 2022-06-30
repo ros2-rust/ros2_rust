@@ -181,15 +181,14 @@ where
     {
         let rmw_message = T::Request::into_rmw_message(request.into_cow());
         let mut sequence_number = -1;
-        let ret = unsafe {
+        unsafe {
             // SAFETY: The request type is guaranteed to match the client type by the type system.
             rcl_send_request(
                 &*self.handle.lock() as *const _,
                 rmw_message.as_ref() as *const <T::Request as Message>::RmwMsg as *mut _,
                 &mut sequence_number,
             )
-        };
-        debug_assert_eq!(ret, 0);
+        }.ok()?;
         let (tx, rx) = oneshot::channel::<T::Response>();
         self.futures.lock().insert(sequence_number, tx);
         Ok(rx.await.unwrap())
