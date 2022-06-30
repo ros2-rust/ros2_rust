@@ -93,9 +93,14 @@ where
         })?;
         let rcl_node = { &mut *node.rcl_node_mtx.lock() };
 
-        unsafe {
-            let client_options = rcl_client_get_default_options();
+        // SAFETY: No preconditions for this function.
+        let client_options = unsafe { rcl_client_get_default_options() };
 
+        unsafe {
+            // SAFETY: The rcl_client is zero-initialized as expected by this function.
+            // The rcl_node is kept alive because it is co-owned by the client.
+            // The topic name and the options are copied by this function, so they can be dropped
+            // afterwards.
             rcl_client_init(
                 &mut rcl_client,
                 rcl_node,
