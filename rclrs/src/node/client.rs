@@ -83,6 +83,7 @@ where
     where
         T: rosidl_runtime_rs::Service,
     {
+        // SAFETY: Getting a zero-initialized value is always safe.
         let mut rcl_client = unsafe { rcl_get_zero_initialized_client() };
         let type_support = <T as rosidl_runtime_rs::Service>::get_type_support()
             as *const rosidl_service_type_support_t;
