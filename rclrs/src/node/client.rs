@@ -34,6 +34,7 @@ impl Drop for ClientHandle {
     fn drop(&mut self) {
         let handle = self.rcl_client_mtx.get_mut();
         let rcl_node_mtx = &mut *self.rcl_node_mtx.lock();
+        // SAFETY: No preconditions for this function
         unsafe {
             rcl_client_fini(handle as *mut _, rcl_node_mtx as *mut _);
         }
