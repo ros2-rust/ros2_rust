@@ -220,6 +220,7 @@ where
         let mut response_out = RmwMsg::<T>::default();
         let handle = &mut *self.handle.lock();
         unsafe {
+            // SAFETY: The three pointers are valid/initialized
             rcl_take_response(
                 handle as *const _,
                 &mut request_id_out,
