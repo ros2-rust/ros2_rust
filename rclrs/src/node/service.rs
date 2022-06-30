@@ -33,6 +33,7 @@ impl Drop for ServiceHandle {
     fn drop(&mut self) {
         let handle = self.handle.get_mut();
         let node_handle = &mut *self.node_handle.lock();
+        // SAFETY: No preconditions for this function
         unsafe {
             rcl_service_fini(handle as *mut _, node_handle as *mut _);
         }
@@ -71,6 +72,7 @@ where
         T: rosidl_runtime_rs::Service,
         F: Fn(&rmw_request_id_t, T::Request) -> T::Response + 'static + Send,
     {
+        // SAFETY: Getting a zero-initialized value is always safe.
         let mut service_handle = unsafe { rcl_get_zero_initialized_service() };
         let type_support = <T as rosidl_runtime_rs::Service>::get_type_support()
             as *const rosidl_service_type_support_t;
@@ -80,9 +82,14 @@ where
         })?;
         let node_handle = &mut *node.rcl_node_mtx.lock();
 
-        unsafe {
-            let service_options = rcl_service_get_default_options();
+        // SAFETY: No preconditions for this function.
+        let service_options = unsafe { rcl_service_get_default_options() };
 
+        unsafe {
+            // SAFETY: The rcl_service is zero-initialized as expected by this function.
+            // The rcl_node is kept alive because it is co-owned by the service.
+            // The topic name and the options are copied by this function, so they can be dropped
+            // afterwards.
             rcl_service_init(
                 &mut service_handle as *mut _,
                 node_handle as *mut _,
@@ -129,6 +136,7 @@ where
         let mut request_out = RmwMsg::<T>::default();
         let handle = &mut *self.handle.lock();
         unsafe {
+            // SAFETY: The three pointers are valid/initialized
             rcl_take_request(
                 handle as *const _,
                 &mut request_id_out,
@@ -164,13 +172,14 @@ where
         let res = (*self.callback.lock())(&req_id, req);
         let rmw_message = <T::Response as Message>::into_rmw_message(res.into_cow());
         let handle = &mut *self.handle.lock();
-        let ret = unsafe {
+        unsafe {
+            // SAFETY: The response type is guaranteed to match the service type by the type system.
             rcl_send_response(
                 handle as *mut _,
                 &mut req_id,
                 rmw_message.as_ref() as *const <T::Response as Message>::RmwMsg as *mut _,
             )
-        };
-        ret.ok()
+        }
+        .ok()
     }
 }
