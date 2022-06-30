@@ -188,7 +188,8 @@ where
                 rmw_message.as_ref() as *const <T::Request as Message>::RmwMsg as *mut _,
                 &mut sequence_number,
             )
-        }.ok()?;
+        }
+        .ok()?;
         let (tx, rx) = oneshot::channel::<T::Response>();
         self.futures.lock().insert(sequence_number, tx);
         Ok(rx.await.unwrap())
