@@ -120,7 +120,7 @@ where
             handle,
             requests: Mutex::new(HashMap::new()),
             futures: Arc::new(Mutex::new(
-                HashMap::<i64, oneshot::Sender<T::Response>>::new(),
+                HashMap::<RequestId, oneshot::Sender<T::Response>>::new(),
             )),
         })
     }
