@@ -132,7 +132,7 @@ where
     pub fn publish<'a, M: MessageCow<'a, T>>(&self, message: M) -> Result<(), RclrsError> {
         let rmw_message = T::into_rmw_message(message.into_cow());
         let rcl_publisher = &mut *self.rcl_publisher_mtx.lock();
-        let ret = unsafe {
+        unsafe {
             // SAFETY: The message type is guaranteed to match the publisher type by the type system.
             // The message does not need to be valid beyond the duration of this function call.
             // The third argument is explictly allowed to be NULL.
@@ -141,8 +141,8 @@ where
                 rmw_message.as_ref() as *const <T as Message>::RmwMsg as *mut _,
                 std::ptr::null_mut(),
             )
-        };
-        ret.ok()
+            .ok()
+        }
     }
 }
 
