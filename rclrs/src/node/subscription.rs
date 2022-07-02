@@ -143,7 +143,7 @@ where
     /// Fetches a new message.
     ///
     /// When there is no new message, this will return a
-    /// [`SubscriptionTakeFailed`][1]..
+    /// [`SubscriptionTakeFailed`][1].
     ///
     /// [1]: crate::RclrsError
     //
@@ -165,7 +165,7 @@ where
     pub fn take(&self) -> Result<T, RclrsError> {
         let mut rmw_message = <T as Message>::RmwMsg::default();
         let rcl_subscription = &mut *self.handle.lock();
-        let ret = unsafe {
+        unsafe {
             // SAFETY: The first two pointers are valid/initialized, and do not need to be valid
             // beyond the function call.
             // The latter two pointers are explicitly allowed to be NULL.
@@ -175,8 +175,8 @@ where
                 std::ptr::null_mut(),
                 std::ptr::null_mut(),
             )
+            .ok()?
         };
-        ret.ok()?;
         Ok(T::from_rmw_message(rmw_message))
     }
 }
