@@ -1,10 +1,9 @@
 use crate::rcl_bindings::*;
+use crate::rcl_utils::{get_rcl_arguments, UnparsedNonRos};
 use crate::{RclrsError, ToResult};
 
-use libc::c_void;
 use std::ffi::CString;
 use std::os::raw::c_char;
-use std::ptr::null_mut;
 use std::string::String;
 use std::sync::Arc;
 use std::vec::Vec;
@@ -125,47 +124,8 @@ impl Context {
     pub fn non_ros_arguments(&self, input_args: &[String]) -> Result<Vec<String>, RclrsError> {
         let rcl_ctx = self.rcl_context_mtx.lock();
         let rcl_args = &rcl_ctx.global_arguments;
-        get_non_ros_arguments(rcl_args, input_args)
+        get_rcl_arguments::<UnparsedNonRos>(rcl_args, input_args)
     }
-}
-
-/// Returns non-ROS arguments held by rcl arguments.
-///
-/// This function should be called after rcl_init. `rcl_arguments` should be `global_arguments`
-/// field of initialized context. `args` is array of input arguments passed to node.
-pub(crate) fn get_non_ros_arguments(
-    rcl_arguments: *const rcl_arguments_t,
-    args: &[String],
-) -> Result<Vec<String>, RclrsError> {
-    // SAFETY: No preconditions for this function.
-    let args_count = unsafe { rcl_arguments_get_count_unparsed(rcl_arguments) };
-    debug_assert!(args_count != -1);
-    // All possible negative args_count values were handled above.
-    let args_count = args_count as usize;
-    if args_count == 0 {
-        return Ok(Vec::new());
-    }
-    let mut non_ros_args: Vec<String> = Vec::with_capacity(args_count);
-    unsafe {
-        let mut indices_ptr: *mut i32 = null_mut();
-        // SAFETY: No preconditions for next 2 functions.
-        let allocator = rcutils_get_default_allocator();
-        // Indices will be set to NULL in case of no arguments handled, but then this code won't be
-        // reached because of if statement above.
-        rcl_arguments_get_unparsed(rcl_arguments, allocator, &mut indices_ptr).ok()?;
-
-        for i in 0..args_count {
-            // If rcl_arguments_get_unparsed finishes with success, indices_ptr is valid
-            // and is allocated with size equal to one returned by rcl_arguments_get_count_unparsed.
-            // SAFETY: No preconditions for this function.
-            let index = *(indices_ptr.add(i));
-            non_ros_args.push(args.get(index as usize).unwrap().clone());
-        }
-        // SAFETY: No preconditions for next 2 functions.
-        let allocator = rcutils_get_default_allocator();
-        allocator.deallocate.unwrap()(indices_ptr as *mut c_void, null_mut());
-    }
-    Ok(non_ros_args)
 }
 
 #[cfg(test)]
