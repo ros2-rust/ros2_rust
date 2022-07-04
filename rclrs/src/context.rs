@@ -150,6 +150,8 @@ pub(crate) fn get_non_ros_arguments(
         let mut indices_ptr: *mut i32 = null_mut();
         // SAFETY: No preconditions for next 2 functions.
         let allocator = rcutils_get_default_allocator();
+        // Indices will be set to NULL in case of no arguments handled, but then this code won't be
+        // reached because of if statement above.
         rcl_arguments_get_unparsed(rcl_arguments, allocator, &mut indices_ptr).ok()?;
 
         for i in 0..args_count {
