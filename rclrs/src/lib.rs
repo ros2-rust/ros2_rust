@@ -37,7 +37,6 @@ pub fn spin_once(node: &Node, timeout: Option<Duration>) -> Result<(), RclrsErro
     let live_subscriptions = node.live_subscriptions();
     let ctx = Context {
         rcl_context_mtx: node.rcl_context_mtx.clone(),
-        non_ros_arguments: Vec::new(), // ugly
     };
     let mut wait_set = WaitSet::new(live_subscriptions.len(), &ctx)?;
 

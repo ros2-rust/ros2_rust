@@ -1,8 +1,8 @@
 use crate::rcl_bindings::*;
-use crate::RclReturnCode::InvalidArgument;
 use crate::{RclrsError, ToResult};
 
-use std::ffi::{CStr, CString};
+use libc::c_void;
+use std::ffi::CString;
 use std::os::raw::c_char;
 use std::ptr::null_mut;
 use std::string::String;
@@ -44,7 +44,6 @@ unsafe impl Send for rcl_context_t {}
 ///
 pub struct Context {
     pub(crate) rcl_context_mtx: Arc<Mutex<rcl_context_t>>,
-    pub(crate) non_ros_arguments: Vec<String>,
 }
 
 impl Context {
@@ -103,17 +102,11 @@ impl Context {
             // Move the check after the last fini()
             ret?;
         }
-        let non_ros_args = get_non_ros_arguments(&rcl_context.global_arguments, &c_args)?;
         Ok(Self {
             rcl_context_mtx: Arc::new(Mutex::new(rcl_context)),
-            non_ros_arguments: non_ros_args,
         })
     }
 
-    /// Returns non-ROS arguments detected during context initialization.
-    pub fn non_ros_arguments(&self) -> &Vec<String> {
-        &self.non_ros_arguments
-    }
     /// Checks if the context is still valid.
     ///
     /// This will return `false` when a signal has caused the context to shut down (currently
@@ -125,45 +118,50 @@ impl Context {
         // SAFETY: No preconditions for this function.
         unsafe { rcl_context_is_valid(rcl_context) }
     }
+
+    /// Get non-ROS arguments
+    ///
+    /// `input_args` is array of arguments passed to launched node.
+    pub fn non_ros_arguments(&self, input_args: &[String]) -> Result<Vec<String>, RclrsError> {
+        let rcl_ctx = self.rcl_context_mtx.lock();
+        let rcl_args = &rcl_ctx.global_arguments;
+        get_non_ros_arguments(rcl_args, input_args)
+    }
 }
 
-/// Returns non-ROS arguments held by context.
+/// Returns non-ROS arguments held by rcl arguments.
 ///
 /// This function should be called after rcl_init. `rcl_arguments` should be `global_arguments`
 /// field of initialized context. `args` is array of input arguments passed to node.
-fn get_non_ros_arguments(
+pub(crate) fn get_non_ros_arguments(
     rcl_arguments: *const rcl_arguments_t,
-    args: &[*const c_char],
+    args: &[String],
 ) -> Result<Vec<String>, RclrsError> {
-    // SAFETY: In case of error -1 will be returned and handled a line below.
-    let args_status = unsafe { rcl_arguments_get_count_unparsed(rcl_arguments) };
-    if args_status == -1 {
-        return Err(RclrsError::RclError {
-            code: InvalidArgument,
-            msg: None,
-        });
-    }
-    // SAFETY: All possible negative args_status values handled above.
-    let args_num = args_status as usize;
-    if args_num == 0 {
+    // SAFETY: No preconditions for this function.
+    let args_count = unsafe { rcl_arguments_get_count_unparsed(rcl_arguments) };
+    debug_assert!(args_count != -1);
+    // All possible negative args_count values were handled above.
+    let args_count = args_count as usize;
+    if args_count == 0 {
         return Ok(Vec::new());
     }
-    let mut out_ptr: *mut i32 = null_mut();
+    let mut non_ros_args: Vec<String> = Vec::with_capacity(args_count);
     unsafe {
-        // SAFETY: No preconditions for this function.
+        let mut indices_ptr: *mut i32 = null_mut();
+        // SAFETY: No preconditions for next 2 functions.
         let allocator = rcutils_get_default_allocator();
-        // SAFETY: Error will be returned in case of broken rcl_arguments, no precondition for the rest.
-        rcl_arguments_get_unparsed(rcl_arguments, allocator, &mut out_ptr).ok()?;
-    }
-    // SAFETY: out_ptr won't be allocated in case of error and this code won't be reached.
-    // Indices of non-ROS args in input args array
-    let indices: Vec<i32> = unsafe { Vec::from_raw_parts(out_ptr, args_num, args_num) };
-    let mut non_ros_args: Vec<String> = Vec::with_capacity(args_num);
+        rcl_arguments_get_unparsed(rcl_arguments, allocator, &mut indices_ptr).ok()?;
 
-    for i in indices.iter() {
-        // SAFETY: args are expected to have been transformed from String. Indices are expected to be positive.
-        let c_str = unsafe { CStr::from_ptr(args[*i as usize]).to_str().unwrap() };
-        non_ros_args.push(c_str.to_string());
+        for i in 0..args_count {
+            // If rcl_arguments_get_unparsed finishes with success, indices_ptr is valid
+            // and is allocated with size equal to one returned by rcl_arguments_get_count_unparsed.
+            // SAFETY: No preconditions for this function.
+            let index = *(indices_ptr.add(i));
+            non_ros_args.push(args.get(index as usize).unwrap().clone());
+        }
+        // SAFETY: No preconditions for next 2 functions.
+        let allocator = rcutils_get_default_allocator();
+        allocator.deallocate.unwrap()(indices_ptr as *mut c_void, null_mut());
     }
     Ok(non_ros_args)
 }
@@ -190,21 +188,21 @@ mod tests {
 
     #[test]
     fn test_non_ros_arguments() -> Result<(), String> {
-        macro_rules! vec_of_strings {
-            ($($x:expr),*) => (vec![$($x.to_string()),*]);
-        }
         // ROS args are expected to be between '--ros-args' and '--'. Everything beside that is 'non-ROS'.
-        let context = Context::new(vec_of_strings![
+        let input_args: Vec<String> = vec![
             "non-ros1",
             "--ros-args",
             "ros-args",
             "--",
             "non-ros2",
-            "non-ros3"
-        ])
-        .unwrap();
+            "non-ros3",
+        ]
+            .into_iter()
+            .map(|x| x.to_string())
+            .collect();
+        let context = Context::new(input_args.clone()).unwrap();
 
-        let non_ros_args: Vec<String> = context.non_ros_arguments().clone();
+        let non_ros_args: Vec<String> = context.non_ros_arguments(input_args.as_slice()).unwrap();
         let expected = vec!["non-ros1", "non-ros2", "non-ros3"];
 
         if non_ros_args.len() != expected.len() {
