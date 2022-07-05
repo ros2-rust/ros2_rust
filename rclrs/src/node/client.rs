@@ -265,7 +265,7 @@ where
         } else if let Some(future) = futures.remove(&req_id.sequence_number) {
             future
                 .send(res)
-                .unwrap_or_else(|_| panic!("fail to send response via channel in Client::execute"));
+                .unwrap_or_else(|_| ());
         }
         Ok(())
     }
