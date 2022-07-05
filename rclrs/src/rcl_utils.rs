@@ -17,49 +17,45 @@ pub(crate) trait RclGetArg {
     ) -> rcl_ret_t;
 }
 
-/// Get ROS unparsed arguments tag.
-///
-/// Tag designated to be used as generic argument of [`get_rcl_arguments`].
-pub(crate) struct UnparsedRos;
-
 /// Get non-ROS unparsed arguments tag.
 ///
 /// Tag designated to be used as generic argument of [`get_rcl_arguments`].
 pub(crate) struct UnparsedNonRos;
 
-/// Macro to avoid boilerplate code for above tags.
+/// Get ROS unparsed arguments tag.
 ///
-/// tag - one of above tags
-/// get_count_function - function for getting count of given arguments type
-/// get_indices_function - function for getting indices of given arguments type
-macro_rules! impl_get_arg {
-    ($tag:ty, $get_count_function:ident, $get_indices_function:ident) => {
-        impl RclGetArg for $tag {
-            unsafe fn get_count(rcl_args: *const rcl_arguments_t) -> ::std::os::raw::c_int {
-                $get_count_function(rcl_args)
-            }
+/// Tag designated to be used as generic argument of [`get_rcl_arguments`].
+pub(crate) struct UnparsedRos;
 
-            unsafe fn get_indices(
-                rcl_args: *const rcl_arguments_t,
-                allocator: rcl_allocator_t,
-                out_ptr: *mut *mut ::std::os::raw::c_int,
-            ) -> rcl_ret_t {
-                $get_indices_function(rcl_args, allocator, out_ptr)
-            }
-        }
-    };
+/// Implementation is safe, since both functions corresponds to each other as rcl documentation states.
+impl RclGetArg for UnparsedNonRos {
+    unsafe fn get_count(rcl_args: *const rcl_arguments_t) -> ::std::os::raw::c_int {
+        rcl_arguments_get_count_unparsed(rcl_args)
+    }
+
+    unsafe fn get_indices(
+        rcl_args: *const rcl_arguments_t,
+        allocator: rcl_allocator_t,
+        out_ptr: *mut *mut ::std::os::raw::c_int,
+    ) -> rcl_ret_t {
+        rcl_arguments_get_unparsed(rcl_args, allocator, out_ptr)
+    }
 }
 
-impl_get_arg!(
-    UnparsedRos,
-    rcl_arguments_get_count_unparsed_ros,
-    rcl_arguments_get_unparsed_ros
-);
-impl_get_arg!(
-    UnparsedNonRos,
-    rcl_arguments_get_count_unparsed,
-    rcl_arguments_get_unparsed
-);
+/// Implementation is safe since both functions corresponds to each other as rcl documentation states.
+impl RclGetArg for UnparsedRos {
+    unsafe fn get_count(rcl_args: *const rcl_arguments_t) -> ::std::os::raw::c_int {
+        rcl_arguments_get_count_unparsed_ros(rcl_args)
+    }
+
+    unsafe fn get_indices(
+        rcl_args: *const rcl_arguments_t,
+        allocator: rcl_allocator_t,
+        out_ptr: *mut *mut ::std::os::raw::c_int,
+    ) -> rcl_ret_t {
+        rcl_arguments_get_unparsed_ros(rcl_args, allocator, out_ptr)
+    }
+}
 
 /// Returns arguments type indicated by [`ArgsGetter`] held by rcl arguments.
 ///
