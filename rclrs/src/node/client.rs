@@ -263,9 +263,7 @@ where
         if let Some(callback) = requests.remove(&req_id.sequence_number) {
             callback(res);
         } else if let Some(future) = futures.remove(&req_id.sequence_number) {
-            future
-                .send(res)
-                .unwrap_or_else(|_| ());
+            future.send(res).unwrap_or_else(|_| ());
         }
         Ok(())
     }
