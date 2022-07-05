@@ -146,17 +146,18 @@ where
     {
         let rmw_message = T::Request::into_rmw_message(message.into_cow());
         let mut sequence_number = -1;
-        let ret = unsafe {
+        unsafe {
             // SAFETY: The request type is guaranteed to match the client type by the type system.
             rcl_send_request(
                 &*self.handle.lock() as *const _,
                 rmw_message.as_ref() as *const <T::Request as Message>::RmwMsg as *mut _,
                 &mut sequence_number,
             )
-        };
+        }
+        .ok()?;
         let requests = &mut *self.requests.lock();
         requests.insert(sequence_number, Box::new(callback));
-        ret.ok()
+        Ok(())
     }
 
     /// Sends a request and returns the response as a `Future`.
