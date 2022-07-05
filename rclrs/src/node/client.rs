@@ -4,6 +4,7 @@ use std::boxed::Box;
 use std::collections::HashMap;
 use std::ffi::CString;
 use std::sync::Arc;
+use std::{thread, time::Duration};
 
 use crate::error::{RclReturnCode, ToResult};
 use crate::MessageCow;
@@ -239,6 +240,30 @@ where
         }
         .ok()?;
         Ok((T::Response::from_rmw_message(response_out), request_id_out))
+    }
+
+    pub fn service_is_ready(&self) -> Result<bool, RclrsError> {
+        let mut is_ready = false;
+        let client = &mut *self.handle.rcl_client_mtx.lock();
+        let node = &mut *self.handle.rcl_node_mtx.lock();
+
+        unsafe {
+            rcl_service_server_is_available(node as *const _, client as *const _, &mut is_ready)
+        }
+        .ok()?;
+        return Ok(is_ready);
+    }
+
+    pub fn wait_for_service(&self, timeout_in_ms: u64) -> Result<bool, RclrsError> {
+        let mut total_time = timeout_in_ms;
+        let interval = 250;
+        let mut is_ready = false;
+        while !is_ready && total_time > 0 {
+            is_ready = self.service_is_ready()?;
+            thread::sleep(Duration::from_millis(interval));
+            total_time -= interval;
+        }
+        Ok(is_ready)
     }
 }
 
