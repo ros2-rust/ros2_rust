@@ -192,6 +192,9 @@ where
         .ok()?;
         let (tx, rx) = oneshot::channel::<T::Response>();
         self.futures.lock().insert(sequence_number, tx);
+        // It is safe to call unwrap() here since the `Canceled` error will only happen when the
+        // `Sender` is dropped
+        // https://docs.rs/futures/latest/futures/channel/oneshot/struct.Canceled.html
         Ok(rx.await.unwrap())
     }
 
