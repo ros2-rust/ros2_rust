@@ -159,9 +159,9 @@ mod tests {
             "non-ros2",
             "non-ros3",
         ]
-            .into_iter()
-            .map(|x| x.to_string())
-            .collect();
+        .into_iter()
+        .map(|x| x.to_string())
+        .collect();
         let context = Context::new(input_args.clone()).unwrap();
 
         let non_ros_args: Vec<String> = context.non_ros_arguments(input_args.as_slice()).unwrap();
