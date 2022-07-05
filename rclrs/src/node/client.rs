@@ -64,7 +64,7 @@ type RequestValue<Response> = Box<dyn FnOnce(&Response) + 'static + Send>;
 
 type RequestId = i64;
 
-/// Main class responsible for sending requests to a ROS service
+/// Main class responsible for sending requests to a ROS service.
 pub struct Client<T>
 where
     T: rosidl_runtime_rs::Service,
@@ -125,7 +125,7 @@ where
         })
     }
 
-    /// Send a requests with a callback as a parameter.
+    /// Sends a request with a callback to be called with the response.
     ///
     /// The [`MessageCow`] trait is implemented by any
     /// [`Message`] as well as any reference to a `Message`.
@@ -160,7 +160,7 @@ where
         ret.ok()
     }
 
-    /// Send a request with a callback as a parameter.
+    /// Sends a request and returns the response as a `Future`.
     ///
     /// The [`MessageCow`] trait is implemented by any
     /// [`Message`] as well as any reference to a `Message`.
@@ -195,7 +195,12 @@ where
         Ok(rx.await.unwrap())
     }
 
-    /// Ask RMW for the data
+    /// Fetches a new response.
+    ///
+    /// When there is no new message, this will return a
+    /// [`ClientTakeFailed`][1].
+    ///
+    /// [1]: crate::RclrsError
     ///
     /// +----------------------+
     /// | rclrs::take_response |
@@ -218,11 +223,11 @@ where
         type RmwMsg<T> =
             <<T as rosidl_runtime_rs::Service>::Response as rosidl_runtime_rs::Message>::RmwMsg;
         let mut response_out = RmwMsg::<T>::default();
-        let handle = &mut *self.handle.lock();
+        let handle = &*self.handle.lock();
         unsafe {
             // SAFETY: The three pointers are valid/initialized
             rcl_take_response(
-                handle as *const _,
+                handle,
                 &mut request_id_out,
                 &mut response_out as *mut RmwMsg<T> as *mut _,
             )
@@ -237,7 +242,7 @@ where
     T: rosidl_runtime_rs::Service,
 {
     fn handle(&self) -> &ClientHandle {
-        self.handle.borrow()
+        &self.handle
     }
 
     fn execute(&self) -> Result<(), RclrsError> {

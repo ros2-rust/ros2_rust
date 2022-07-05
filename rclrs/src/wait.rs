@@ -155,8 +155,8 @@ impl WaitSet {
     /// unsafe to simultaneously wait on those wait sets.
     pub fn add_client(&mut self, client: Arc<dyn ClientBase>) -> Result<(), RclrsError> {
         unsafe {
-            // SAFETY: I'm not sure if it's required, but the subscription pointer will remain valid
-            // for as long as the wait set exists, because it's stored in self.subscriptions.
+            // SAFETY: I'm not sure if it's required, but the client pointer will remain valid
+            // for as long as the wait set exists, because it's stored in self.clients.
             // Passing in a null pointer for the third argument is explicitly allowed.
             rcl_wait_set_add_client(
                 &mut self.rcl_wait_set,

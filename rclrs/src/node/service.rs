@@ -52,7 +52,7 @@ pub trait ServiceBase: Send + Sync {
 type ServiceCallback<Request, Response> =
     Box<dyn Fn(&rmw_request_id_t, Request) -> Response + 'static + Send>;
 
-/// Main class responsible for responding to requests sent by ROS clients
+/// Main class responsible for responding to requests sent by ROS clients.
 pub struct Service<T>
 where
     T: rosidl_runtime_rs::Service,
@@ -134,11 +134,11 @@ where
         type RmwMsg<T> =
             <<T as rosidl_runtime_rs::Service>::Request as rosidl_runtime_rs::Message>::RmwMsg;
         let mut request_out = RmwMsg::<T>::default();
-        let handle = &mut *self.handle.lock();
+        let handle = &*self.handle.lock();
         unsafe {
             // SAFETY: The three pointers are valid/initialized
             rcl_take_request(
-                handle as *const _,
+                handle,
                 &mut request_id_out,
                 &mut request_out as *mut RmwMsg<T> as *mut _,
             )
@@ -153,7 +153,7 @@ where
     T: rosidl_runtime_rs::Service,
 {
     fn handle(&self) -> &ServiceHandle {
-        self.handle.borrow()
+        &self.handle
     }
 
     fn execute(&self) -> Result<(), RclrsError> {
@@ -164,18 +164,18 @@ where
                 ..
             }) => {
                 // Spurious wakeup – this may happen even when a waitset indicated that this
-                // subscription was ready, so it shouldn't be an error.
+                // service was ready, so it shouldn't be an error.
                 return Ok(());
             }
             Err(e) => return Err(e),
         };
         let res = (*self.callback.lock())(&req_id, req);
         let rmw_message = <T::Response as Message>::into_rmw_message(res.into_cow());
-        let handle = &mut *self.handle.lock();
+        let handle = &*self.handle.lock();
         unsafe {
             // SAFETY: The response type is guaranteed to match the service type by the type system.
             rcl_send_response(
-                handle as *mut _,
+                handle,
                 &mut req_id,
                 rmw_message.as_ref() as *const <T::Response as Message>::RmwMsg as *mut _,
             )
