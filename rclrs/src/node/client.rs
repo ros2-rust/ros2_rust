@@ -1,6 +1,5 @@
 use crate::node::client::oneshot::Canceled;
 use futures::channel::oneshot;
-use std::borrow::Borrow;
 use std::boxed::Box;
 use std::collections::HashMap;
 use std::ffi::CString;
@@ -60,7 +59,7 @@ pub trait ClientBase: Send + Sync {
     fn execute(&self) -> Result<(), RclrsError>;
 }
 
-type RequestValue<Response> = Box<dyn FnOnce(&Response) + 'static + Send>;
+type RequestValue<Response> = Box<dyn FnOnce(Response) + 'static + Send>;
 
 type RequestId = i64;
 
@@ -143,7 +142,7 @@ where
         callback: F,
     ) -> Result<(), RclrsError>
     where
-        F: FnOnce(&T::Response) + 'static + Send,
+        F: FnOnce(T::Response) + 'static + Send,
     {
         let rmw_message = T::Request::into_rmw_message(message.into_cow());
         let mut sequence_number = -1;
@@ -261,9 +260,8 @@ where
         let requests = &mut *self.requests.lock();
         let futures = &mut *self.futures.lock();
         if let Some(callback) = requests.remove(&req_id.sequence_number) {
-            callback(&res);
-        }
-        if let Some(future) = futures.remove(&req_id.sequence_number) {
+            callback(res);
+        } else if let Some(future) = futures.remove(&req_id.sequence_number) {
             future
                 .send(res)
                 .unwrap_or_else(|_| panic!("fail to send response via channel in Client::execute"));

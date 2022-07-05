@@ -16,7 +16,7 @@ fn main() -> Result<(), Error> {
 
     client.async_send_request_with_callback(
         &request,
-        move |response: &example_interfaces::srv::AddTwoInts_Response| {
+        move |response: example_interfaces::srv::AddTwoInts_Response| {
             println!(
                 "Result of {} + {} is: {}",
                 request.a, request.b, response.sum

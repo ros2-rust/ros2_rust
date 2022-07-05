@@ -1,4 +1,3 @@
-use std::borrow::Borrow;
 use std::boxed::Box;
 use std::ffi::CString;
 use std::sync::Arc;
