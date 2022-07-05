@@ -198,13 +198,14 @@ where
         Ok(rx.await.unwrap())
     }
 
-    // Fetches a new response.
+    /// Fetches a new response.
+    ///
+    /// When there is no new message, this will return a
+    /// [`ClientTakeFailed`][1].
+    ///
+    /// [1]: crate::RclrsError
     //
-    // When there is no new message, this will return a
-    // [`ClientTakeFailed`][1].
-    //
-    // [1]: crate::RclrsError
-    //
+    // ```text
     // +----------------------+
     // | rclrs::take_response |
     // +----------+-----------+
@@ -218,6 +219,7 @@ where
     // +----------v----------+
     // |      rmw_take       |
     // +---------------------+
+    // ```
     pub fn take_response(&self) -> Result<(T::Response, rmw_request_id_t), RclrsError> {
         let mut request_id_out = rmw_request_id_t {
             writer_guid: [0; 16],

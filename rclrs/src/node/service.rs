@@ -110,13 +110,14 @@ where
         })
     }
 
-    // Fetches a new request.
+    /// Fetches a new request.
+    ///
+    /// When there is no new message, this will return a
+    /// [`ServiceTakeFailed`][1].
+    ///
+    /// [1]: crate::RclrsError
     //
-    // When there is no new message, this will return a
-    // [`ServiceTakeFailed`][1].
-    //
-    // [1]: crate::RclrsError
-    //
+    // ```text
     // +---------------------+
     // | rclrs::take_request |
     // +----------+----------+
@@ -130,6 +131,7 @@ where
     // +----------v----------+
     // |      rmw_take       |
     // +---------------------+
+    // ```
     pub fn take_request(&self) -> Result<(T::Request, rmw_request_id_t), RclrsError> {
         let mut request_id_out = rmw_request_id_t {
             writer_guid: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
