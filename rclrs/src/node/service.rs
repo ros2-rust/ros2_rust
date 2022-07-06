@@ -34,12 +34,13 @@ impl Drop for ServiceHandle {
         let node_handle = &mut *self.node_handle.lock();
         // SAFETY: No preconditions for this function
         unsafe {
-            rcl_service_fini(handle as *mut _, node_handle as *mut _);
+            rcl_service_fini(handle, node_handle);
         }
     }
 }
 
-/// Trait to be implemented by concrete Service structs
+/// Trait to be implemented by concrete Service structs.
+///
 /// See [`Service<T>`] for an example
 pub trait ServiceBase: Send + Sync {
     /// Internal function to get a reference to the `rcl` handle.
