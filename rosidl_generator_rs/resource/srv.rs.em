@@ -62,6 +62,7 @@ type_name = srv_spec.namespaced_type.name
       fn rosidl_typesupport_c__get_service_type_support_handle__@(package_name)__@(subfolder)__@(type_name)() -> libc::uintptr_t;
   }
 
+  // Corresponds to @(package_name)__@(subfolder)__@(type_name)
   pub struct @(type_name);
 
   impl rosidl_runtime_rs::Service for @(type_name) {
