@@ -11,7 +11,7 @@ async fn main() -> Result<(), Error> {
 
     println!("Starting client");
 
-    std::thread::sleep(std::time::Duration::from_millis(500));
+    client.wait_for_service(500)?;
 
     let request = example_interfaces::srv::AddTwoInts_Request { a: 41, b: 1 };
 

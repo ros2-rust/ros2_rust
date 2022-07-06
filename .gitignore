@@ -225,4 +225,7 @@ Cargo.lock
 # Ignore generated .cargo/config.toml files
 **/.cargo/config.toml
 
+# Ignore .vscode
+.vscode
+
 # End of https://www.toptal.com/developers/gitignore/api/cmake,rust,python,cpp,c

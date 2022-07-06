@@ -12,7 +12,7 @@ fn main() -> Result<(), Error> {
 
     println!("Starting client");
 
-    std::thread::sleep(std::time::Duration::from_millis(500));
+    client.wait_for_service(500)?;
 
     client.async_send_request_with_callback(
         &request,
