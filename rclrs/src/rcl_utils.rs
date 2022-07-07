@@ -76,10 +76,11 @@ pub(crate) fn get_rcl_arguments<ArgGetter: RclGetArg>(
     let mut non_ros_args: Vec<String> = Vec::with_capacity(args_count);
     unsafe {
         let mut indices_ptr: *mut i32 = null_mut();
-        // SAFETY: No preconditions for next 2 functions.
+        // SAFETY: No preconditions for this function.
         let allocator = rcutils_get_default_allocator();
         // Indices will be set to NULL in case of no arguments handled, but then this code won't be
         // reached because of if statement above.
+        // SAFETY: No preconditions for this function.
         ArgGetter::get_indices(rcl_arguments, allocator, &mut indices_ptr).ok()?;
 
         for i in 0..args_count {
@@ -89,8 +90,9 @@ pub(crate) fn get_rcl_arguments<ArgGetter: RclGetArg>(
             let index = *(indices_ptr.add(i));
             non_ros_args.push(args.get(index as usize).unwrap().clone());
         }
-        // SAFETY: No preconditions for next 2 functions.
+        // SAFETY: No preconditions for this function.
         let allocator = rcutils_get_default_allocator();
+        // SAFETY: No preconditions for this function.
         allocator.deallocate.unwrap()(indices_ptr as *mut c_void, null_mut());
     }
     Ok(non_ros_args)
