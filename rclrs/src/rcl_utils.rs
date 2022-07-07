@@ -1,6 +1,7 @@
 use crate::rcl_bindings::*;
 use crate::{RclrsError, ToResult};
 
+use crate::RclrsError::IndexOutOfRange;
 use libc::c_void;
 use std::ptr::null_mut;
 
@@ -73,7 +74,7 @@ pub(crate) fn get_rcl_arguments<ArgGetter: RclGetArg>(
     if args_count == 0 {
         return Ok(Vec::new());
     }
-    let mut non_ros_args: Vec<String> = Vec::with_capacity(args_count);
+    let mut extracted_args: Vec<String> = Vec::with_capacity(args_count);
     unsafe {
         let mut indices_ptr: *mut i32 = null_mut();
         // SAFETY: No preconditions for this function.
@@ -88,12 +89,16 @@ pub(crate) fn get_rcl_arguments<ArgGetter: RclGetArg>(
             // and is allocated with size equal to one returned by rcl_arguments_get_count_unparsed.
             // SAFETY: No preconditions for this function.
             let index = *(indices_ptr.add(i));
-            non_ros_args.push(args.get(index as usize).unwrap().clone());
+            let arg = args.get(index as usize).ok_or(IndexOutOfRange {
+                wrong_index: index as usize,
+                max_index: args.len() - 1,
+            })?;
+            extracted_args.push(arg.clone());
         }
         // SAFETY: No preconditions for this function.
         let allocator = rcutils_get_default_allocator();
         // SAFETY: No preconditions for this function.
         allocator.deallocate.unwrap()(indices_ptr as *mut c_void, null_mut());
     }
-    Ok(non_ros_args)
+    Ok(extracted_args)
 }
