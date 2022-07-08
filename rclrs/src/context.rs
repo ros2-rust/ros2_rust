@@ -1,5 +1,4 @@
 use crate::rcl_bindings::*;
-use crate::rcl_utils::{get_rcl_arguments, UnparsedNonRos};
 use crate::{RclrsError, ToResult};
 
 use std::ffi::CString;
@@ -117,15 +116,6 @@ impl Context {
         // SAFETY: No preconditions for this function.
         unsafe { rcl_context_is_valid(rcl_context) }
     }
-
-    /// Get non-ROS arguments
-    ///
-    /// `input_args` is array of arguments passed to launched node.
-    pub fn non_ros_arguments(&self, input_args: &[String]) -> Result<Vec<String>, RclrsError> {
-        let rcl_ctx = self.rcl_context_mtx.lock();
-        let rcl_args = &rcl_ctx.global_arguments;
-        get_rcl_arguments::<UnparsedNonRos>(rcl_args, input_args)
-    }
 }
 
 #[cfg(test)]
@@ -146,44 +136,5 @@ mod tests {
         assert!(created_context.ok());
 
         Ok(())
-    }
-
-    #[test]
-    fn test_non_ros_arguments() -> Result<(), String> {
-        // ROS args are expected to be between '--ros-args' and '--'. Everything beside that is 'non-ROS'.
-        let input_args: Vec<String> = vec![
-            "non-ros1",
-            "--ros-args",
-            "ros-args",
-            "--",
-            "non-ros2",
-            "non-ros3",
-        ]
-        .into_iter()
-        .map(|x| x.to_string())
-        .collect();
-        let context = Context::new(input_args.clone()).unwrap();
-
-        let non_ros_args: Vec<String> = context.non_ros_arguments(input_args.as_slice()).unwrap();
-        let expected = vec!["non-ros1", "non-ros2", "non-ros3"];
-
-        if non_ros_args.len() != expected.len() {
-            Err(format!(
-                "Expected vector size: {}, actual: {}",
-                expected.len(),
-                non_ros_args.len()
-            ))
-        } else {
-            for i in 0..non_ros_args.len() {
-                if non_ros_args[i] != expected[i] {
-                    let msg = format!(
-                        "Mismatching elements at position: {}. Expected: {}, got: {}",
-                        i, expected[i], non_ros_args[i]
-                    );
-                    return Err(msg);
-                }
-            }
-            Ok(())
-        }
     }
 }

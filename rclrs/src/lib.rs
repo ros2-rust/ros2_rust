@@ -22,7 +22,11 @@ pub use parameter::*;
 pub use qos::*;
 pub use wait::*;
 
+use crate::rcl_bindings::*;
+use crate::rcl_utils::{get_rcl_arguments, UnparsedNonRos};
 use rcl_bindings::rcl_context_is_valid;
+use std::ffi::{CStr, CString};
+use std::os::raw::c_char;
 use std::time::Duration;
 
 /// Polls the node for new messages and executes the corresponding callbacks.
@@ -120,6 +124,81 @@ pub fn create_node_builder(context: &Context, node_name: &str) -> NodeBuilder {
     Node::builder(context, node_name)
 }
 
+/// Extract non-ROS arguments from program's input arguments.
+///
+/// `args` is expected to be input arguments of the program (passed via [`env::args()`])
+/// According to rcl documentation ROS arguments are between `--ros-args` and `--` arguments.
+/// Everything beside is considered as non-ROS and left unparsed. Extracted non-ROS args are
+/// returned in order as they appear (see example below).
+///
+/// # Example
+/// ```
+/// let non_ros_args = rclrs::extract_non_ros_args(vec!["arg1", "--ros-args", "some", "args", "--", "arg2"]);
+/// assert_eq!(non_ros_args.len(), 2);
+/// assert_eq!(non_ros_args[0], "arg1");
+/// assert_eq!(non_ros_args[1], "arg2");
+/// ```
+pub fn extract_non_ros_args(
+    args: impl IntoIterator<Item = String>,
+) -> Result<Vec<String>, RclrsError> {
+    // SAFETY: No preconditions for this function
+    let mut rcl_arguments = unsafe { rcl_get_zero_initialized_arguments() };
+    // SAFETY: No preconditions for this function
+    let allocator = unsafe { rcutils_get_default_allocator() };
+
+    let cstring_args: Vec<CString> = args
+        .into_iter()
+        .map(|arg| {
+            CString::new(arg.as_str()).map_err(|err| RclrsError::StringContainsNul {
+                err,
+                s: arg.clone(),
+            })
+        })
+        .collect::<Result<_, _>>()?;
+    // Vector of pointers into cstring_args
+    let c_args: Vec<*const c_char> = cstring_args.iter().map(|arg| arg.as_ptr()).collect();
+
+    // SAFETY: No preconditions for this function
+    let ret = unsafe {
+        rcl_parse_arguments(
+            c_args.len() as i32,
+            if c_args.is_empty() {
+                std::ptr::null()
+            } else {
+                c_args.as_ptr()
+            },
+            allocator,
+            &mut rcl_arguments,
+        )
+        .ok()
+    };
+
+    if let Err(err) = ret {
+        // SAFETY: No preconditions for this function
+        unsafe {
+            rcl_arguments_fini(&mut rcl_arguments).ok()?;
+        }
+        return Err(err);
+    }
+
+    let args: Vec<String> = c_args
+        .into_iter()
+        // c_args have been converted from Vec<String> a few lines above, so this call is safe
+        // SAFETY: c_args contains valid strings
+        .map(|arg| {
+            unsafe { CString::from(CStr::from_ptr(arg)) }
+                .into_string()
+                .unwrap()
+        })
+        .collect();
+    let ret = get_rcl_arguments::<UnparsedNonRos>(&rcl_arguments, &args);
+    unsafe {
+        // SAFETY: No preconditions for this function
+        rcl_arguments_fini(&mut rcl_arguments).ok()?;
+    }
+    ret
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -158,5 +237,43 @@ mod tests {
         assert_eq!(&*received_msg.lock().unwrap().as_str(), "Hello World");
 
         Ok(())
+    }
+
+    #[test]
+    fn test_non_ros_arguments() -> Result<(), String> {
+        // ROS args are expected to be between '--ros-args' and '--'. Everything beside that is 'non-ROS'.
+        let input_args: Vec<String> = vec![
+            "non-ros1",
+            "--ros-args",
+            "ros-args",
+            "--",
+            "non-ros2",
+            "non-ros3",
+        ]
+        .into_iter()
+        .map(|x| x.to_string())
+        .collect();
+
+        let non_ros_args: Vec<String> = extract_non_ros_args(input_args).unwrap();
+        let expected = vec!["non-ros1", "non-ros2", "non-ros3"];
+
+        if non_ros_args.len() != expected.len() {
+            Err(format!(
+                "Expected vector size: {}, actual: {}",
+                expected.len(),
+                non_ros_args.len()
+            ))
+        } else {
+            for i in 0..non_ros_args.len() {
+                if non_ros_args[i] != expected[i] {
+                    let msg = format!(
+                        "Mismatching elements at position: {}. Expected: {}, got: {}",
+                        i, expected[i], non_ros_args[i]
+                    );
+                    return Err(msg);
+                }
+            }
+            Ok(())
+        }
     }
 }
