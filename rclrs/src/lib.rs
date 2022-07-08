@@ -24,29 +24,59 @@ pub use wait::*;
 use rcl_bindings::rcl_context_is_valid;
 use std::time::Duration;
 
+pub use rcl_bindings::rmw_request_id_t;
+
 /// Polls the node for new messages and executes the corresponding callbacks.
 ///
 /// See [`WaitSet::wait`] for the meaning of the `timeout` parameter.
 ///
 /// This may under some circumstances return
-/// [`SubscriptionTakeFailed`][1] when the wait set spuriously wakes up.
+/// [`SubscriptionTakeFailed`][1], [`ClientTakeFailed`][1], [`ServiceTakeFailed`][1] when the wait
+/// set spuriously wakes up.
 /// This can usually be ignored.
 ///
 /// [1]: crate::RclReturnCode
 pub fn spin_once(node: &Node, timeout: Option<Duration>) -> Result<(), RclrsError> {
     let live_subscriptions = node.live_subscriptions();
+    let live_clients = node.live_clients();
+    let live_services = node.live_services();
     let ctx = Context {
         rcl_context_mtx: node.rcl_context_mtx.clone(),
     };
-    let mut wait_set = WaitSet::new(live_subscriptions.len(), &ctx)?;
+    let mut wait_set = WaitSet::new(
+        live_subscriptions.len(),
+        0,
+        0,
+        live_clients.len(),
+        live_services.len(),
+        0,
+        &ctx,
+    )?;
 
     for live_subscription in &live_subscriptions {
         wait_set.add_subscription(live_subscription.clone())?;
     }
 
+    for live_client in &live_clients {
+        wait_set.add_client(live_client.clone())?;
+    }
+
+    for live_service in &live_services {
+        wait_set.add_service(live_service.clone())?;
+    }
+
     let ready_entities = wait_set.wait(timeout)?;
+
     for ready_subscription in ready_entities.subscriptions {
         ready_subscription.execute()?;
+    }
+
+    for ready_client in ready_entities.clients {
+        ready_client.execute()?;
+    }
+
+    for ready_service in ready_entities.services {
+        ready_service.execute()?;
     }
 
     Ok(())
@@ -74,7 +104,6 @@ pub fn spin(node: &Node) -> Result<(), RclrsError> {
             error => return error,
         }
     }
-
     Ok(())
 }
 

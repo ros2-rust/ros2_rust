@@ -115,6 +115,7 @@ def generate_rs(generator_arguments_file, typesupport_impls):
         'srv_specs': [],
         'package_name': args['package_name'],
         'typesupport_impls': typesupport_impls,
+        'interface_path': idl_rel_path,
     }
 
     latest_target_timestamp = get_newest_modification_time(

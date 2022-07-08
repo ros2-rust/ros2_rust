@@ -277,7 +277,9 @@ impl NodeBuilder {
         Ok(Node {
             rcl_node_mtx,
             rcl_context_mtx: self.context.clone(),
-            subscriptions: std::vec![],
+            clients: vec![],
+            services: vec![],
+            subscriptions: vec![],
             _parameter_map,
         })
     }

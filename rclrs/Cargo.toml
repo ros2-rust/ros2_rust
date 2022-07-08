@@ -17,6 +17,8 @@ libc = "0.2.43"
 parking_lot = "0.11.2"
 # Needed for the Message trait, among others
 rosidl_runtime_rs = "*"
+# Needed for clients
+futures = "0.3"
 
 [dev-dependencies]
 # Needed for e.g. writing yaml files in tests
