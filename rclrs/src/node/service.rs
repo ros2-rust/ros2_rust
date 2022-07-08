@@ -89,6 +89,11 @@ where
     }
 }
 
+/// A marker trait to distinguish `Service` waitables from other [`Waitable`]s.
+pub(crate) trait ServiceWaitable: Waitable {}
+
+impl<T> ServiceWaitable for Service<T> where T: rosidl_runtime_rs::Service {}
+
 impl<T> Service<T>
 where
     T: rosidl_runtime_rs::Service,
