@@ -86,7 +86,7 @@ where
 }
 
 /// A marker trait to distinguish `Subscription` waitables from other [`Waitable`]s.
-pub(crate) trait SubscriptionWaitable: Waitable {}
+pub trait SubscriptionWaitable: Waitable {}
 
 impl<T> SubscriptionWaitable for Subscription<T> where T: Message {}
 

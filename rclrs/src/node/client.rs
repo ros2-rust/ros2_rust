@@ -86,7 +86,7 @@ where
 }
 
 /// A marker trait to distinguish `Client` waitables from other [`Waitable`]s.
-pub(crate) trait ClientWaitable: Waitable {}
+pub trait ClientWaitable: Waitable {}
 
 impl<T> ClientWaitable for Client<T> where T: rosidl_runtime_rs::Service {}
 

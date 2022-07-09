@@ -17,7 +17,7 @@
 
 use crate::error::{to_rclrs_result, RclReturnCode, RclrsError, ToResult};
 use crate::rcl_bindings::*;
-use crate::{Client, Context, Service, Subscription};
+use crate::{ClientWaitable, Context, ServiceWaitable, SubscriptionWaitable};
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -59,19 +59,19 @@ pub struct WaitSet {
     // The subscriptions that are currently registered in the wait set.
     // This correspondence is an invariant that must be maintained by all functions,
     // even in the error case.
-    pub(crate) subscriptions: Vec<Arc<dyn Waitable>>,
-    pub(crate) clients: Vec<Arc<dyn Waitable>>,
-    pub(crate) services: Vec<Arc<dyn Waitable>>,
+    pub(crate) subscriptions: Vec<Arc<dyn SubscriptionWaitable>>,
+    pub(crate) clients: Vec<Arc<dyn ClientWaitable>>,
+    pub(crate) services: Vec<Arc<dyn ServiceWaitable>>,
 }
 
 /// A list of entities that are ready, returned by [`WaitSet::wait`].
 pub struct ReadyEntities {
     /// A list of subscriptions that have potentially received messages.
-    pub subscriptions: Vec<Arc<dyn Waitable>>,
+    pub subscriptions: Vec<Arc<dyn SubscriptionWaitable>>,
     /// A list of clients that have potentially received responses.
-    pub clients: Vec<Arc<dyn Waitable>>,
+    pub clients: Vec<Arc<dyn ClientWaitable>>,
     /// A list of services that have potentially received requests.
-    pub services: Vec<Arc<dyn Waitable>>,
+    pub services: Vec<Arc<dyn ServiceWaitable>>,
 }
 
 impl Drop for rcl_wait_set_t {
@@ -135,10 +135,7 @@ impl WaitSet {
     ///
     /// The same client must not be added to multiple wait sets, because that would make it
     /// unsafe to simultaneously wait on those wait sets.
-    pub fn add_client<T: rosidl_runtime_rs::Service>(
-        &mut self,
-        client: Arc<Client<T>>,
-    ) -> Result<(), RclrsError> {
+    pub fn add_client(&mut self, client: Arc<dyn ClientWaitable>) -> Result<(), RclrsError> {
         // SAFETY: The implementation of this trait for clients checks that the client
         // has not already been added to a different wait set.
         unsafe { client.add_to_wait_set(self) }
@@ -153,10 +150,7 @@ impl WaitSet {
     ///
     /// The same service must not be added to multiple wait sets, because that would make it
     /// unsafe to simultaneously wait on those wait sets.
-    pub fn add_service<T: rosidl_runtime_rs::Service>(
-        &mut self,
-        service: Arc<Service<T>>,
-    ) -> Result<(), RclrsError> {
+    pub fn add_service(&mut self, service: Arc<dyn ServiceWaitable>) -> Result<(), RclrsError> {
         // SAFETY: The implementation of this trait for services checks that the service
         // has not already been added to a different wait set.
         unsafe { service.add_to_wait_set(self) }
@@ -171,9 +165,9 @@ impl WaitSet {
     ///
     /// The same subscription must not be added to multiple wait sets, because that would make it
     /// unsafe to simultaneously wait on those wait sets.
-    pub fn add_subscription<T: rosidl_runtime_rs::Message>(
+    pub fn add_subscription(
         &mut self,
-        subscription: Arc<Subscription<T>>,
+        subscription: Arc<dyn SubscriptionWaitable>,
     ) -> Result<(), RclrsError> {
         // SAFETY: The implementation of this trait for subscriptions checks that the subscription
         // has not already been added to a different wait set.

@@ -57,7 +57,7 @@ where
             std::ptr::null_mut(),
         )
         .ok()?;
-        wait_set.clients.push(self);
+        wait_set.services.push(self);
         Ok(())
     }
 
@@ -90,7 +90,7 @@ where
 }
 
 /// A marker trait to distinguish `Service` waitables from other [`Waitable`]s.
-pub(crate) trait ServiceWaitable: Waitable {}
+pub trait ServiceWaitable: Waitable {}
 
 impl<T> ServiceWaitable for Service<T> where T: rosidl_runtime_rs::Service {}
 
