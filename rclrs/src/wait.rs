@@ -17,7 +17,7 @@
 
 use crate::error::{to_rclrs_result, RclReturnCode, RclrsError, ToResult};
 use crate::rcl_bindings::*;
-use crate::Context;
+use crate::{Client, Context, Service, Subscription};
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -124,6 +124,60 @@ impl WaitSet {
             clients: Vec::new(),
             services: Vec::new(),
         })
+    }
+
+    /// Adds a client to the wait set.
+    ///
+    /// It is possible, but not useful, to add the same client twice.
+    ///
+    /// This will return an error if the number of clients in the wait set is larger than the
+    /// capacity set in [`WaitSet::new`].
+    ///
+    /// The same client must not be added to multiple wait sets, because that would make it
+    /// unsafe to simultaneously wait on those wait sets.
+    pub fn add_client<T: rosidl_runtime_rs::Service>(
+        &mut self,
+        client: Arc<Client<T>>,
+    ) -> Result<(), RclrsError> {
+        // SAFETY: The implementation of this trait for clients checks that the client
+        // has not already been added to a different wait set.
+        unsafe { client.add_to_wait_set(self) }
+    }
+
+    /// Adds a service to the wait set.
+    ///
+    /// It is possible, but not useful, to add the same service twice.
+    ///
+    /// This will return an error if the number of services in the wait set is larger than the
+    /// capacity set in [`WaitSet::new`].
+    ///
+    /// The same service must not be added to multiple wait sets, because that would make it
+    /// unsafe to simultaneously wait on those wait sets.
+    pub fn add_service<T: rosidl_runtime_rs::Service>(
+        &mut self,
+        service: Arc<Service<T>>,
+    ) -> Result<(), RclrsError> {
+        // SAFETY: The implementation of this trait for services checks that the service
+        // has not already been added to a different wait set.
+        unsafe { service.add_to_wait_set(self) }
+    }
+
+    /// Adds a subscription to the wait set.
+    ///
+    /// It is possible, but not useful, to add the same subscription twice.
+    ///
+    /// This will return an error if the number of subscriptions in the wait set is larger than the
+    /// capacity set in [`WaitSet::new`].
+    ///
+    /// The same subscription must not be added to multiple wait sets, because that would make it
+    /// unsafe to simultaneously wait on those wait sets.
+    pub fn add_subscription<T: rosidl_runtime_rs::Message>(
+        &mut self,
+        subscription: Arc<Subscription<T>>,
+    ) -> Result<(), RclrsError> {
+        // SAFETY: The implementation of this trait for subscriptions checks that the subscription
+        // has not already been added to a different wait set.
+        unsafe { subscription.add_to_wait_set(self) }
     }
 
     /// Removes all entities from the wait set.
