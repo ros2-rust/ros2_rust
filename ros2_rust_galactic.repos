@@ -3,6 +3,10 @@ repositories:
     type: git
     url: https://github.com/ros2/common_interfaces.git
     version: galactic
+  ros2/example_interfaces:
+    type: git
+    url: https://github.com/ros2/example_interfaces.git
+    version: galactic
   ros2/rcl_interfaces:
     type: git
     url: https://github.com/ros2/rcl_interfaces.git
@@ -14,4 +18,8 @@ repositories:
   ros2/rosidl_defaults:
     type: git
     url: https://github.com/ros2/rosidl_defaults.git
+    version: galactic
+  ros2/unique_identifier_msgs:
+    type: git
+    url: https://github.com/ros2/unique_identifier_msgs.git
     version: galactic

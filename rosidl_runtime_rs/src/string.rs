@@ -110,7 +110,7 @@ pub struct StringExceedsBoundsError {
 
 // There is a lot of redundancy between String and WString, which this macro aims to reduce.
 macro_rules! string_impl {
-    ($string:ty, $char_type:ty, $string_conversion_func:ident, $init:ident, $fini:ident, $assignn:ident, $sequence_init:ident, $sequence_fini:ident, $sequence_copy:ident) => {
+    ($string:ty, $char_type:ty, $unsigned_char_type:ty, $string_conversion_func:ident, $init:ident, $fini:ident, $assignn:ident, $sequence_init:ident, $sequence_fini:ident, $sequence_copy:ident) => {
         #[link(name = "rosidl_runtime_c")]
         extern "C" {
             fn $init(s: *mut $string) -> bool;
@@ -159,7 +159,7 @@ macro_rules! string_impl {
             fn deref(&self) -> &Self::Target {
                 // SAFETY: self.data points to self.size consecutive, initialized elements and
                 // isn't modified externally.
-                unsafe { std::slice::from_raw_parts(self.data as *const $char_type, self.size) }
+                unsafe { std::slice::from_raw_parts(self.data, self.size) }
             }
         }
 
@@ -167,13 +167,18 @@ macro_rules! string_impl {
             fn deref_mut(&mut self) -> &mut Self::Target {
                 // SAFETY: self.data points to self.size consecutive, initialized elements and
                 // isn't modified externally.
-                unsafe { std::slice::from_raw_parts_mut(self.data as *mut $char_type, self.size) }
+                unsafe { std::slice::from_raw_parts_mut(self.data, self.size) }
             }
         }
 
         impl Display for $string {
             fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-                let converted = std::string::String::$string_conversion_func(self.deref());
+                // SAFETY: Same as deref, but with an additional cast to the unsigned type.
+                // See also https://users.rust-lang.org/t/how-to-convert-i8-to-u8/16308/11
+                let u8_slice = unsafe {
+                    std::slice::from_raw_parts(self.data as *mut $unsigned_char_type, self.size)
+                };
+                let converted = std::string::String::$string_conversion_func(u8_slice);
                 Display::fmt(&converted, f)
             }
         }
@@ -238,6 +243,7 @@ macro_rules! string_impl {
 
 string_impl!(
     String,
+    libc::c_char,
     u8,
     from_utf8_lossy,
     rosidl_runtime_c__String__init,
@@ -250,6 +256,7 @@ string_impl!(
 string_impl!(
     WString,
     libc::c_ushort,
+    u16,
     from_utf16_lossy,
     rosidl_runtime_c__U16String__init,
     rosidl_runtime_c__U16String__fini,
@@ -321,7 +328,7 @@ impl<const N: usize> Debug for BoundedString<N> {
 }
 
 impl<const N: usize> Deref for BoundedString<N> {
-    type Target = [u8];
+    type Target = [libc::c_char];
     fn deref(&self) -> &Self::Target {
         self.inner.deref()
     }

@@ -18,6 +18,7 @@ The current set of features include:
 - Message generation
 - Support for publishers and subscriptions
 - Tunable QoS settings
+- Clients and services
 
 Lots of things are still missing however, see the [issue list](https://github.com/ros2-rust/ros2_rust/issues) for an overview. You are very welcome to [contribute](docs/CONTRIBUTING.md)!
 
