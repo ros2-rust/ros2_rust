@@ -4,7 +4,7 @@ use std::env;
 fn main() -> Result<(), Error> {
     let context = rclrs::Context::new(env::args())?;
 
-    let node = context.create_node("minimal_publisher")?;
+    let node = rclrs::create_node(&context, "minimal_publisher")?;
 
     let publisher =
         node.create_publisher::<std_msgs::msg::String>("topic", rclrs::QOS_PROFILE_DEFAULT)?;

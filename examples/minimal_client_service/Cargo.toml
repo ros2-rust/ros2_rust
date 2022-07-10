@@ -1,0 +1,30 @@
+[package]
+name = "examples_rclrs_minimal_client_service"
+version = "0.2.0"
+authors = ["Esteve Fernandez <esteve@apache.org>"]
+edition = "2021"
+
+[[bin]]
+name = "minimal_client"
+path = "src/minimal_client.rs"
+
+[[bin]]
+name = "minimal_client_async"
+path = "src/minimal_client_async.rs"
+
+[[bin]]
+name = "minimal_service"
+path = "src/minimal_service.rs"
+
+[dependencies]
+anyhow = {version = "1", features = ["backtrace"]}
+tokio = { version = "1", features = ["macros", "rt", "rt-multi-thread", "time"] }
+
+[dependencies.rclrs]
+version = "*"
+
+[dependencies.rosidl_runtime_rs]
+version = "*"
+
+[dependencies.example_interfaces]
+version = "*"

@@ -129,7 +129,7 @@ where
     ///
     /// This returns the topic name after remapping, so it is not necessarily the
     /// topic name which was used when creating the subscription.
-    pub fn get_topic(&self) -> String {
+    pub fn topic_name(&self) -> String {
         // SAFETY: No preconditions for the function used
         // The unsafe variables get converted to safe types before being returned
         unsafe {
@@ -143,7 +143,7 @@ where
     /// Fetches a new message.
     ///
     /// When there is no new message, this will return a
-    /// [`SubscriptionTakeFailed`][1]..
+    /// [`SubscriptionTakeFailed`][1].
     ///
     /// [1]: crate::RclrsError
     //
@@ -165,7 +165,7 @@ where
     pub fn take(&self) -> Result<T, RclrsError> {
         let mut rmw_message = <T as Message>::RmwMsg::default();
         let rcl_subscription = &mut *self.handle.lock();
-        let ret = unsafe {
+        unsafe {
             // SAFETY: The first two pointers are valid/initialized, and do not need to be valid
             // beyond the function call.
             // The latter two pointers are explicitly allowed to be NULL.
@@ -175,8 +175,8 @@ where
                 std::ptr::null_mut(),
                 std::ptr::null_mut(),
             )
+            .ok()?
         };
-        ret.ok()?;
         Ok(T::from_rmw_message(rmw_message))
     }
 }
@@ -210,13 +210,13 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{Context, Subscription, QOS_PROFILE_DEFAULT};
+    use crate::{create_node, Context, Subscription, QOS_PROFILE_DEFAULT};
 
     #[test]
     fn test_instantiate_subscriber() -> Result<(), RclrsError> {
         let context =
             Context::new(vec![]).expect("Context instantiation is expected to be a success");
-        let node = context.create_node("test_new_subscriber")?;
+        let node = create_node(&context, "test_new_subscriber")?;
         let _subscriber = Subscription::<std_msgs::msg::String>::new(
             &node,
             "test",
