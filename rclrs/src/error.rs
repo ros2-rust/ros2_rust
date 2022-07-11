@@ -51,8 +51,7 @@ impl Display for RclrsError {
                 write!(
                     f,
                     "Index [{}] out of range, last index: {}",
-                    wrong_index,
-                    max_index
+                    wrong_index, max_index
                 )
             }
         }
@@ -86,7 +85,7 @@ impl Error for RclrsError {
             RclrsError::RclError { msg, .. } => msg.as_ref().map(|e| e as &dyn Error),
             RclrsError::UnknownRclError { msg, .. } => msg.as_ref().map(|e| e as &dyn Error),
             RclrsError::StringContainsNul { err, .. } => Some(err).map(|e| e as &dyn Error),
-            RclrsError::IndexOutOfRange {..} => None,
+            RclrsError::IndexOutOfRange { .. } => None,
         }
     }
 }
