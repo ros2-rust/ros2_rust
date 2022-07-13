@@ -1,5 +1,6 @@
 use std::boxed::Box;
 use std::ffi::CString;
+use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
 use crate::error::{RclReturnCode, ToResult};
@@ -20,6 +21,7 @@ unsafe impl Send for rcl_service_t {}
 pub struct ServiceHandle {
     handle: Mutex<rcl_service_t>,
     node_handle: Arc<Mutex<rcl_node_t>>,
+    pub(crate) in_use_by_wait_set: Arc<AtomicBool>,
 }
 
 impl ServiceHandle {
@@ -103,6 +105,7 @@ where
         let handle = Arc::new(ServiceHandle {
             handle: Mutex::new(service_handle),
             node_handle: node.rcl_node_mtx.clone(),
+            in_use_by_wait_set: Arc::new(AtomicBool::new(false)),
         });
 
         Ok(Self {

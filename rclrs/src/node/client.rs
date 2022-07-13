@@ -1,8 +1,8 @@
-use crate::node::client::oneshot::Canceled;
 use futures::channel::oneshot;
 use std::boxed::Box;
 use std::collections::HashMap;
 use std::ffi::CString;
+use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
 use crate::error::{RclReturnCode, ToResult};
@@ -21,6 +21,7 @@ unsafe impl Send for rcl_client_t {}
 pub struct ClientHandle {
     rcl_client_mtx: Mutex<rcl_client_t>,
     rcl_node_mtx: Arc<Mutex<rcl_node_t>>,
+    pub(crate) in_use_by_wait_set: Arc<AtomicBool>,
 }
 
 impl ClientHandle {
@@ -36,15 +37,6 @@ impl Drop for ClientHandle {
         // SAFETY: No preconditions for this function
         unsafe {
             rcl_client_fini(handle, rcl_node_mtx);
-        }
-    }
-}
-
-impl From<Canceled> for RclrsError {
-    fn from(_: Canceled) -> Self {
-        RclrsError::RclError {
-            code: RclReturnCode::Error,
-            msg: None,
         }
     }
 }
@@ -113,6 +105,7 @@ where
         let handle = Arc::new(ClientHandle {
             rcl_client_mtx: Mutex::new(rcl_client),
             rcl_node_mtx: node.rcl_node_mtx.clone(),
+            in_use_by_wait_set: Arc::new(AtomicBool::new(false)),
         });
 
         Ok(Self {
