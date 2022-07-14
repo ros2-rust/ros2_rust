@@ -34,3 +34,20 @@ impl<T> ExclusivityGuard<T> {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::Arc;
+
+    #[test]
+    fn test_exclusivity_guard() {
+        let atomic = Arc::new(AtomicBool::new(false));
+        let eg = ExclusivityGuard::new((), Arc::clone(&atomic)).unwrap();
+        assert!(ExclusivityGuard::new((), Arc::clone(&atomic)).is_err());
+        drop(eg);
+        assert_eq!(atomic.load(Ordering::Relaxed), false);
+        assert!(ExclusivityGuard::new((), Arc::clone(&atomic)).is_ok());
+    }
+}
