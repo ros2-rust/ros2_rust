@@ -184,17 +184,11 @@ impl Node {
     ///
     /// [1]: crate::Client
     // TODO: make client's lifetime depend on node's lifetime
-    pub fn create_client<T>(
-        &mut self,
-        topic: &str,
-    ) -> Result<Arc<crate::node::client::Client<T>>, RclrsError>
+    pub fn create_client<T>(&mut self, topic: &str) -> Result<Arc<Client<T>>, RclrsError>
     where
         T: rosidl_runtime_rs::Service,
     {
-        let client = Arc::new(crate::node::client::Client::<T>::new(self, topic)?);
-        self.clients
-            .push(Arc::downgrade(&client) as Weak<dyn ClientBase>);
-        Ok(client)
+        Client::<T>::new(self, topic)
     }
 
     /// Creates a [`Publisher`][1].
@@ -220,17 +214,12 @@ impl Node {
         &mut self,
         topic: &str,
         callback: F,
-    ) -> Result<Arc<crate::node::service::Service<T>>, RclrsError>
+    ) -> Result<Arc<Service<T>>, RclrsError>
     where
         T: rosidl_runtime_rs::Service,
         F: Fn(&rmw_request_id_t, T::Request) -> T::Response + 'static + Send,
     {
-        let service = Arc::new(crate::node::service::Service::<T>::new(
-            self, topic, callback,
-        )?);
-        self.services
-            .push(Arc::downgrade(&service) as Weak<dyn ServiceBase>);
-        Ok(service)
+        Service::<T>::new(self, topic, callback)
     }
 
     /// Creates a [`Subscription`][1].
@@ -247,10 +236,7 @@ impl Node {
         T: Message,
         F: FnMut(T) + 'static + Send,
     {
-        let subscription = Arc::new(Subscription::<T>::new(self, topic, qos, callback)?);
-        self.subscriptions
-            .push(Arc::downgrade(&subscription) as Weak<dyn SubscriptionBase>);
-        Ok(subscription)
+        Subscription::new(self, topic, qos, callback)
     }
 
     /// Returns the subscriptions that have not been dropped yet.

@@ -70,7 +70,7 @@ where
     T: rosidl_runtime_rs::Service,
 {
     /// Creates a new client.
-    pub fn new(node: &Node, topic: &str) -> Result<Self, RclrsError>
+    pub fn new(node: &mut Node, topic: &str) -> Result<Arc<Self>, RclrsError>
     where
         T: rosidl_runtime_rs::Service,
     {
@@ -107,14 +107,15 @@ where
             rcl_node_mtx: node.rcl_node_mtx.clone(),
             in_use_by_wait_set: Arc::new(AtomicBool::new(false)),
         });
-
-        Ok(Self {
+        let client = Arc::new(Self {
             handle,
             requests: Mutex::new(HashMap::new()),
             futures: Arc::new(Mutex::new(
                 HashMap::<RequestId, oneshot::Sender<T::Response>>::new(),
             )),
-        })
+        });
+        node.clients.push(Arc::downgrade(&client) as _);
+        Ok(client)
     }
 
     /// Sends a request with a callback to be called with the response.
