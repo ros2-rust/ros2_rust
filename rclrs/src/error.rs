@@ -27,6 +27,8 @@ pub enum RclrsError {
         /// The error indicating the position of the nul byte.
         err: NulError,
     },
+    /// It was attempted to add a waitable to a wait set twice.
+    AlreadyAddedToWaitSet,
 }
 
 impl Display for RclrsError {
@@ -36,6 +38,12 @@ impl Display for RclrsError {
             RclrsError::UnknownRclError { code, .. } => write!(f, "{}", code),
             RclrsError::StringContainsNul { s, .. } => {
                 write!(f, "Could not convert string '{}' to CString", s)
+            }
+            RclrsError::AlreadyAddedToWaitSet => {
+                write!(
+                    f,
+                    "Could not add entity to wait set because it was already added to a wait set"
+                )
             }
         }
     }
@@ -68,6 +76,7 @@ impl Error for RclrsError {
             RclrsError::RclError { msg, .. } => msg.as_ref().map(|e| e as &dyn Error),
             RclrsError::UnknownRclError { msg, .. } => msg.as_ref().map(|e| e as &dyn Error),
             RclrsError::StringContainsNul { err, .. } => Some(err).map(|e| e as &dyn Error),
+            RclrsError::AlreadyAddedToWaitSet => None,
         }
     }
 }

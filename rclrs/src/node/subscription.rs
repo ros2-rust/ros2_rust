@@ -7,6 +7,7 @@ use std::boxed::Box;
 use std::ffi::CStr;
 use std::ffi::CString;
 use std::marker::PhantomData;
+use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
 use rosidl_runtime_rs::{Message, RmwMessage};
@@ -21,6 +22,7 @@ unsafe impl Send for rcl_subscription_t {}
 pub struct SubscriptionHandle {
     rcl_subscription_mtx: Mutex<rcl_subscription_t>,
     rcl_node_mtx: Arc<Mutex<rcl_node_t>>,
+    pub(crate) in_use_by_wait_set: Arc<AtomicBool>,
 }
 
 impl SubscriptionHandle {
@@ -116,6 +118,7 @@ where
         let handle = Arc::new(SubscriptionHandle {
             rcl_subscription_mtx: Mutex::new(rcl_subscription),
             rcl_node_mtx: node.rcl_node_mtx.clone(),
+            in_use_by_wait_set: Arc::new(AtomicBool::new(false)),
         });
 
         Ok(Self {
