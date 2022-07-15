@@ -7,10 +7,14 @@ use std::ptr::null_mut;
 
 /// Trait used for obtaining information from rcl_arguments_t.
 pub(crate) trait RclGetArg {
-    /// Get count function from rcl library (e.g. rcl_arguments_get_count_unparsed)
+    /// Get count function from rcl library (e.g. rcl_arguments_get_count_unparsed).
+    ///
+    /// SAFETY: [`get_indices()`] implementation for this trait must use corresponding `rcl_arguments_get` function.
     unsafe fn get_count(rcl_args: *const rcl_arguments_t) -> ::std::os::raw::c_int;
 
-    /// Get function from rcl library (e.g. rcl_arguments_get_unparsed)
+    /// Get function from rcl library (e.g. rcl_arguments_get_unparsed).
+    ///
+    /// SAFETY: [`get_count()`] implementation for this trait must use corresponding `rcl_arguments_get_count` function.
     unsafe fn get_indices(
         rcl_args: *const rcl_arguments_t,
         allocator: rcl_allocator_t,
@@ -30,10 +34,16 @@ pub(crate) struct UnparsedRos;
 
 /// Implementation is safe, since both functions corresponds to each other as rcl documentation states.
 impl RclGetArg for UnparsedNonRos {
+    /// Get count of unparsed non-ROS arguments from `rcl_arguments_t` struct.
+    ///
+    /// SAFETY: [`get_indices()`] for this implementation must use `rcl_arguments_get_unparsed` function.
     unsafe fn get_count(rcl_args: *const rcl_arguments_t) -> ::std::os::raw::c_int {
         rcl_arguments_get_count_unparsed(rcl_args)
     }
 
+    /// Obtain indices of unparsed non-ROS arguments. Array of indices is stored in `out_ptr` (must be deallocated with passed `allocator`).
+    ///
+    /// SAFETY: [`get_count()`] for this implementation must use `rcl_arguments_get_count_unparsed` function.
     unsafe fn get_indices(
         rcl_args: *const rcl_arguments_t,
         allocator: rcl_allocator_t,
@@ -45,10 +55,16 @@ impl RclGetArg for UnparsedNonRos {
 
 /// Implementation is safe since both functions corresponds to each other as rcl documentation states.
 impl RclGetArg for UnparsedRos {
+    /// Get count of unparsed ROS specific arguments from `rcl_arguments_t` struct.
+    ///
+    /// SAFETY: [`get_indices()`] for this implementation must use `rcl_arguments_get_unparsed_ros` function.
     unsafe fn get_count(rcl_args: *const rcl_arguments_t) -> ::std::os::raw::c_int {
         rcl_arguments_get_count_unparsed_ros(rcl_args)
     }
 
+    /// Obtain indices of unparsed ROS specific arguments. Array of indices is stored in `out_ptr` (must be deallocated with passed `allocator`).
+    ///
+    /// SAFETY: [`get_count()`] for this implementation must use `rcl_get_count_unparsed_ros` function.
     unsafe fn get_indices(
         rcl_args: *const rcl_arguments_t,
         allocator: rcl_allocator_t,

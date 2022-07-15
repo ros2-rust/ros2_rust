@@ -179,7 +179,7 @@ pub fn extract_non_ros_args(
     let args: Vec<String> = c_args
         .into_iter()
         // c_args have been converted from Vec<String> a few lines above, so this call is safe
-        // SAFETY: c_args contains valid strings
+        // SAFETY: c_args must contain valid CStrings
         .map(|arg| {
             unsafe { CString::from(CStr::from_ptr(arg)) }
                 .into_string()
