@@ -47,7 +47,7 @@ mod tests {
         let eg = ExclusivityGuard::new((), Arc::clone(&atomic)).unwrap();
         assert!(ExclusivityGuard::new((), Arc::clone(&atomic)).is_err());
         drop(eg);
-        assert_eq!(atomic.load(Ordering::Relaxed), false);
+        assert!(!atomic.load(Ordering::Relaxed));
         assert!(ExclusivityGuard::new((), Arc::clone(&atomic)).is_ok());
     }
 }
