@@ -158,19 +158,14 @@ pub fn extract_non_ros_args(
     // Vector of pointers into cstring_args
     let c_args: Vec<*const c_char> = cstring_args.iter().map(|arg| arg.as_ptr()).collect();
 
+    let out_ptr = if c_args.is_empty() {
+        std::ptr::null()
+    } else {
+        c_args.as_ptr()
+    };
     // SAFETY: No preconditions for this function
     let ret = unsafe {
-        rcl_parse_arguments(
-            c_args.len() as i32,
-            if c_args.is_empty() {
-                std::ptr::null()
-            } else {
-                c_args.as_ptr()
-            },
-            allocator,
-            &mut rcl_arguments,
-        )
-        .ok()
+        rcl_parse_arguments(c_args.len() as i32, out_ptr, allocator, &mut rcl_arguments).ok()
     };
 
     if let Err(err) = ret {
