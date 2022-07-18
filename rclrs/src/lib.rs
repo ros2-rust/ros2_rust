@@ -256,8 +256,8 @@ mod tests {
             return Err(format!(
                 "Expected vector size: {}, actual: {}",
                 expected.len(),
-                non_ros_args.len();
-            ))
+                non_ros_args.len()
+            ));
         } else {
             for i in 0..non_ros_args.len() {
                 if non_ros_args[i] != expected[i] {
@@ -270,7 +270,12 @@ mod tests {
             }
         }
 
-        let empty_non_ros_args = extract_non_ros_args(vec![]).unwrap();
+        Ok(())
+    }
+
+    #[test]
+    fn test_empty_non_ros_arguments() -> Result<(), RclrsError> {
+        let empty_non_ros_args = extract_non_ros_args(vec![])?;
         assert_eq!(empty_non_ros_args.len(), 0);
 
         Ok(())
