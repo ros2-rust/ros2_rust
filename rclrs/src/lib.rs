@@ -133,7 +133,13 @@ pub fn create_node_builder(context: &Context, node_name: &str) -> NodeBuilder {
 ///
 /// # Example
 /// ```
-/// let non_ros_args = rclrs::extract_non_ros_args(vec!["arg1", "--ros-args", "some", "args", "--", "arg2"]);
+/// let input_args: Vec<String> = vec![
+///             "arg1", "--ros-args", "some", "args", "--", "arg2"
+///         ]
+///         .into_iter()
+///         .map(|x| x.to_string())
+///         .collect();
+/// let non_ros_args = rclrs::extract_non_ros_args(input_args).unwrap();
 /// assert_eq!(non_ros_args.len(), 2);
 /// assert_eq!(non_ros_args[0], "arg1");
 /// assert_eq!(non_ros_args[1], "arg2");
