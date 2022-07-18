@@ -1,8 +1,12 @@
 mod builder;
+mod client;
 mod publisher;
+mod service;
 mod subscription;
 pub use self::builder::*;
+pub use self::client::*;
 pub use self::publisher::*;
+pub use self::service::*;
 pub use self::subscription::*;
 
 use crate::rcl_bindings::*;
@@ -68,6 +72,8 @@ unsafe impl Send for rcl_node_t {}
 pub struct Node {
     rcl_node_mtx: Arc<Mutex<rcl_node_t>>,
     pub(crate) rcl_context_mtx: Arc<Mutex<rcl_context_t>>,
+    pub(crate) clients: Vec<Weak<dyn ClientBase>>,
+    pub(crate) services: Vec<Weak<dyn ServiceBase>>,
     pub(crate) subscriptions: Vec<Weak<dyn SubscriptionBase>>,
     _parameter_map: ParameterOverrideMap,
 }
@@ -174,6 +180,23 @@ impl Node {
         unsafe { call_string_getter_with_handle(&*self.rcl_node_mtx.lock(), getter) }
     }
 
+    /// Creates a [`Client`][1].
+    ///
+    /// [1]: crate::Client
+    // TODO: make client's lifetime depend on node's lifetime
+    pub fn create_client<T>(
+        &mut self,
+        topic: &str,
+    ) -> Result<Arc<crate::node::client::Client<T>>, RclrsError>
+    where
+        T: rosidl_runtime_rs::Service,
+    {
+        let client = Arc::new(crate::node::client::Client::<T>::new(self, topic)?);
+        self.clients
+            .push(Arc::downgrade(&client) as Weak<dyn ClientBase>);
+        Ok(client)
+    }
+
     /// Creates a [`Publisher`][1].
     ///
     /// [1]: crate::Publisher
@@ -187,6 +210,27 @@ impl Node {
         T: Message,
     {
         Publisher::<T>::new(self, topic, qos)
+    }
+
+    /// Creates a [`Service`][1].
+    ///
+    /// [1]: crate::Service
+    // TODO: make service's lifetime depend on node's lifetime
+    pub fn create_service<T, F>(
+        &mut self,
+        topic: &str,
+        callback: F,
+    ) -> Result<Arc<crate::node::service::Service<T>>, RclrsError>
+    where
+        T: rosidl_runtime_rs::Service,
+        F: Fn(&rmw_request_id_t, T::Request) -> T::Response + 'static + Send,
+    {
+        let service = Arc::new(crate::node::service::Service::<T>::new(
+            self, topic, callback,
+        )?);
+        self.services
+            .push(Arc::downgrade(&service) as Weak<dyn ServiceBase>);
+        Ok(service)
     }
 
     /// Creates a [`Subscription`][1].
@@ -215,6 +259,14 @@ impl Node {
             .iter()
             .filter_map(Weak::upgrade)
             .collect()
+    }
+
+    pub(crate) fn live_clients(&self) -> Vec<Arc<dyn ClientBase>> {
+        self.clients.iter().filter_map(Weak::upgrade).collect()
+    }
+
+    pub(crate) fn live_services(&self) -> Vec<Arc<dyn ServiceBase>> {
+        self.services.iter().filter_map(Weak::upgrade).collect()
     }
 
     /// Returns the ROS domain ID that the node is using.

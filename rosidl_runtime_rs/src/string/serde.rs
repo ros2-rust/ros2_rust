@@ -1,5 +1,4 @@
 use serde::{de::Error, Deserialize, Deserializer, Serialize, Serializer};
-use std::ops::Deref;
 
 use super::{BoundedString, BoundedWString, String, WString};
 
@@ -18,7 +17,9 @@ impl Serialize for String {
         S: Serializer,
     {
         // Not particularly efficient
-        let s = std::string::String::from_utf8_lossy(self.deref());
+        // SAFETY: See the Display implementation.
+        let u8_slice = unsafe { std::slice::from_raw_parts(self.data as *mut u8, self.size) };
+        let s = std::string::String::from_utf8_lossy(u8_slice);
         serializer.serialize_str(&s)
     }
 }
@@ -38,7 +39,9 @@ impl Serialize for WString {
         S: Serializer,
     {
         // Not particularly efficient
-        let s = std::string::String::from_utf16_lossy(self.deref());
+        // SAFETY: See the Display implementation.
+        let u16_slice = unsafe { std::slice::from_raw_parts(self.data as *mut u16, self.size) };
+        let s = std::string::String::from_utf16_lossy(u16_slice);
         serializer.serialize_str(&s)
     }
 }

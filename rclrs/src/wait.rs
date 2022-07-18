@@ -17,13 +17,16 @@
 
 use crate::error::{to_rclrs_result, RclReturnCode, RclrsError, ToResult};
 use crate::rcl_bindings::*;
-use crate::{Context, SubscriptionBase};
+use crate::{ClientBase, Context, ServiceBase, SubscriptionBase};
 
 use std::sync::Arc;
 use std::time::Duration;
 use std::vec::Vec;
 
 use parking_lot::Mutex;
+
+mod exclusivity_guard;
+use exclusivity_guard::*;
 
 /// A struct for waiting on subscriptions and other waitable entities to become ready.
 pub struct WaitSet {
@@ -33,13 +36,19 @@ pub struct WaitSet {
     // The subscriptions that are currently registered in the wait set.
     // This correspondence is an invariant that must be maintained by all functions,
     // even in the error case.
-    subscriptions: Vec<Arc<dyn SubscriptionBase>>,
+    subscriptions: Vec<ExclusivityGuard<Arc<dyn SubscriptionBase>>>,
+    clients: Vec<ExclusivityGuard<Arc<dyn ClientBase>>>,
+    services: Vec<ExclusivityGuard<Arc<dyn ServiceBase>>>,
 }
 
 /// A list of entities that are ready, returned by [`WaitSet::wait`].
 pub struct ReadyEntities {
     /// A list of subscriptions that have potentially received messages.
     pub subscriptions: Vec<Arc<dyn SubscriptionBase>>,
+    /// A list of clients that have potentially received responses.
+    pub clients: Vec<Arc<dyn ClientBase>>,
+    /// A list of services that have potentially received requests.
+    pub services: Vec<Arc<dyn ServiceBase>>,
 }
 
 impl Drop for rcl_wait_set_t {
@@ -57,7 +66,15 @@ impl WaitSet {
     ///
     /// The given number of subscriptions is a capacity, corresponding to how often
     /// [`WaitSet::add_subscription`] may be called.
-    pub fn new(number_of_subscriptions: usize, context: &Context) -> Result<Self, RclrsError> {
+    pub fn new(
+        number_of_subscriptions: usize,
+        number_of_guard_conditions: usize,
+        number_of_timers: usize,
+        number_of_clients: usize,
+        number_of_services: usize,
+        number_of_events: usize,
+        context: &Context,
+    ) -> Result<Self, RclrsError> {
         let rcl_wait_set = unsafe {
             // SAFETY: Getting a zero-initialized value is always safe
             let mut rcl_wait_set = rcl_get_zero_initialized_wait_set();
@@ -66,11 +83,11 @@ impl WaitSet {
             rcl_wait_set_init(
                 &mut rcl_wait_set,
                 number_of_subscriptions,
-                0,
-                0,
-                0,
-                0,
-                0,
+                number_of_guard_conditions,
+                number_of_timers,
+                number_of_clients,
+                number_of_services,
+                number_of_events,
                 &mut *context.rcl_context_mtx.lock(),
                 rcutils_get_default_allocator(),
             )
@@ -81,6 +98,8 @@ impl WaitSet {
             rcl_wait_set,
             _rcl_context_mtx: context.rcl_context_mtx.clone(),
             subscriptions: Vec::new(),
+            clients: Vec::new(),
+            services: Vec::new(),
         })
     }
 
@@ -90,6 +109,8 @@ impl WaitSet {
     /// [`WaitSet::new`].
     pub fn clear(&mut self) {
         self.subscriptions.clear();
+        self.clients.clear();
+        self.services.clear();
         // This cannot fail – the rcl_wait_set_clear function only checks that the input handle is
         // valid, which it always is in our case. Hence, only debug_assert instead of returning
         // Result.
@@ -100,17 +121,22 @@ impl WaitSet {
 
     /// Adds a subscription to the wait set.
     ///
-    /// It is possible, but not useful, to add the same subscription twice.
+    /// # Errors
+    /// - If the subscription was already added to this wait set or another one,
+    ///   [`AlreadyAddedToWaitSet`][1] will be returned
+    /// - If the number of subscriptions in the wait set is larger than the
+    ///   capacity set in [`WaitSet::new`], [`WaitSetFull`][2] will be returned
     ///
-    /// This will return an error if the number of subscriptions in the wait set is larger than the
-    /// capacity set in [`WaitSet::new`].
-    ///
-    /// The same subscription must not be added to multiple wait sets, because that would make it
-    /// unsafe to simultaneously wait on those wait sets.
+    /// [1]: crate::RclrsError
+    /// [2]: crate::RclReturnCode
     pub fn add_subscription(
         &mut self,
         subscription: Arc<dyn SubscriptionBase>,
     ) -> Result<(), RclrsError> {
+        let exclusive_subscription = ExclusivityGuard::new(
+            Arc::clone(&subscription),
+            Arc::clone(&subscription.handle().in_use_by_wait_set),
+        )?;
         unsafe {
             // SAFETY: I'm not sure if it's required, but the subscription pointer will remain valid
             // for as long as the wait set exists, because it's stored in self.subscriptions.
@@ -122,7 +148,67 @@ impl WaitSet {
             )
         }
         .ok()?;
-        self.subscriptions.push(subscription);
+        self.subscriptions.push(exclusive_subscription);
+        Ok(())
+    }
+
+    /// Adds a client to the wait set.
+    ///
+    /// # Errors
+    /// - If the client was already added to this wait set or another one,
+    ///   [`AlreadyAddedToWaitSet`][1] will be returned
+    /// - If the number of clients in the wait set is larger than the
+    ///   capacity set in [`WaitSet::new`], [`WaitSetFull`][2] will be returned
+    ///
+    /// [1]: crate::RclrsError
+    /// [2]: crate::RclReturnCode
+    pub fn add_client(&mut self, client: Arc<dyn ClientBase>) -> Result<(), RclrsError> {
+        let exclusive_client = ExclusivityGuard::new(
+            Arc::clone(&client),
+            Arc::clone(&client.handle().in_use_by_wait_set),
+        )?;
+        unsafe {
+            // SAFETY: I'm not sure if it's required, but the client pointer will remain valid
+            // for as long as the wait set exists, because it's stored in self.clients.
+            // Passing in a null pointer for the third argument is explicitly allowed.
+            rcl_wait_set_add_client(
+                &mut self.rcl_wait_set,
+                &*client.handle().lock() as *const _,
+                core::ptr::null_mut(),
+            )
+        }
+        .ok()?;
+        self.clients.push(exclusive_client);
+        Ok(())
+    }
+
+    /// Adds a service to the wait set.
+    ///
+    /// # Errors
+    /// - If the service was already added to this wait set or another one,
+    ///   [`AlreadyAddedToWaitSet`][1] will be returned
+    /// - If the number of services in the wait set is larger than the
+    ///   capacity set in [`WaitSet::new`], [`WaitSetFull`][2] will be returned
+    ///
+    /// [1]: crate::RclrsError
+    /// [2]: crate::RclReturnCode
+    pub fn add_service(&mut self, service: Arc<dyn ServiceBase>) -> Result<(), RclrsError> {
+        let exclusive_service = ExclusivityGuard::new(
+            Arc::clone(&service),
+            Arc::clone(&service.handle().in_use_by_wait_set),
+        )?;
+        unsafe {
+            // SAFETY: I'm not sure if it's required, but the service pointer will remain valid
+            // for as long as the wait set exists, because it's stored in self.services.
+            // Passing in a null pointer for the third argument is explicitly allowed.
+            rcl_wait_set_add_service(
+                &mut self.rcl_wait_set,
+                &*service.handle().lock() as *const _,
+                core::ptr::null_mut(),
+            )
+        }
+        .ok()?;
+        self.services.push(exclusive_service);
         Ok(())
     }
 
@@ -168,6 +254,8 @@ impl WaitSet {
         unsafe { rcl_wait(&mut self.rcl_wait_set, timeout_ns) }.ok()?;
         let mut ready_entities = ReadyEntities {
             subscriptions: Vec::new(),
+            clients: Vec::new(),
+            services: Vec::new(),
         };
         for (i, subscription) in self.subscriptions.iter().enumerate() {
             // SAFETY: The `subscriptions` entry is an array of pointers, and this dereferencing is
@@ -175,9 +263,68 @@ impl WaitSet {
             // https://github.com/ros2/rcl/blob/35a31b00a12f259d492bf53c0701003bd7f1745c/rcl/include/rcl/wait.h#L419
             let wait_set_entry = unsafe { *self.rcl_wait_set.subscriptions.add(i) };
             if !wait_set_entry.is_null() {
-                ready_entities.subscriptions.push(subscription.clone());
+                ready_entities
+                    .subscriptions
+                    .push(Arc::clone(&subscription.waitable));
+            }
+        }
+        for (i, client) in self.clients.iter().enumerate() {
+            // SAFETY: The `clients` entry is an array of pointers, and this dereferencing is
+            // equivalent to
+            // https://github.com/ros2/rcl/blob/35a31b00a12f259d492bf53c0701003bd7f1745c/rcl/include/rcl/wait.h#L419
+            let wait_set_entry = unsafe { *self.rcl_wait_set.clients.add(i) };
+            if !wait_set_entry.is_null() {
+                ready_entities.clients.push(Arc::clone(&client.waitable));
+            }
+        }
+        for (i, service) in self.services.iter().enumerate() {
+            // SAFETY: The `services` entry is an array of pointers, and this dereferencing is
+            // equivalent to
+            // https://github.com/ros2/rcl/blob/35a31b00a12f259d492bf53c0701003bd7f1745c/rcl/include/rcl/wait.h#L419
+            let wait_set_entry = unsafe { *self.rcl_wait_set.services.add(i) };
+            if !wait_set_entry.is_null() {
+                ready_entities.services.push(Arc::clone(&service.waitable));
             }
         }
         Ok(ready_entities)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{Context, Node, RclrsError, WaitSet, QOS_PROFILE_DEFAULT};
+    use std::sync::Arc;
+
+    #[test]
+    fn test_adding_waitable_to_wait_sets() -> Result<(), RclrsError> {
+        let context = Context::new([])?;
+        let mut node = Node::new(&context, "test_adding_waitable_to_wait_sets")?;
+        let subscription = node.create_subscription(
+            "test",
+            QOS_PROFILE_DEFAULT,
+            move |_: std_msgs::msg::String| {},
+        )?;
+        let mut wait_set_1 = WaitSet::new(1, 0, 0, 0, 0, 0, &context)?;
+        let mut wait_set_2 = WaitSet::new(1, 0, 0, 0, 0, 0, &context)?;
+
+        // Try to add the subscription to wait set 1 twice
+        wait_set_1.add_subscription(Arc::clone(&subscription) as _)?;
+        assert!(wait_set_1
+            .add_subscription(Arc::clone(&subscription) as _)
+            .is_err());
+
+        // Try to add it to another wait set
+        assert!(wait_set_2
+            .add_subscription(Arc::clone(&subscription) as _)
+            .is_err());
+
+        // It works as soon as it is not anymore part of wait_set_1
+        wait_set_1.clear();
+        wait_set_2.add_subscription(Arc::clone(&subscription) as _)?;
+
+        // Dropping the wait set also frees up the subscription
+        drop(wait_set_2);
+        wait_set_1.add_subscription(Arc::clone(&subscription) as _)?;
+        Ok(())
     }
 }

@@ -34,6 +34,8 @@ pub enum RclrsError {
         /// Index provided
         wrong_index: usize,
     },
+    /// It was attempted to add a waitable to a wait set twice.
+    AlreadyAddedToWaitSet,
 }
 
 impl Display for RclrsError {
@@ -52,6 +54,10 @@ impl Display for RclrsError {
                     f,
                     "Index [{}] out of range, last index: {}",
                     wrong_index, max_index
+            RclrsError::AlreadyAddedToWaitSet => {
+                write!(
+                    f,
+                    "Could not add entity to wait set because it was already added to a wait set"
                 )
             }
         }
@@ -86,6 +92,7 @@ impl Error for RclrsError {
             RclrsError::UnknownRclError { msg, .. } => msg.as_ref().map(|e| e as &dyn Error),
             RclrsError::StringContainsNul { err, .. } => Some(err).map(|e| e as &dyn Error),
             RclrsError::IndexOutOfRange { .. } => None,
+            RclrsError::AlreadyAddedToWaitSet => None,
         }
     }
 }

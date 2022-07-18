@@ -64,7 +64,7 @@ def generate_rs(generator_arguments_file, typesupport_impls):
     (Path(args['output_dir']) / 'rust/src').mkdir(parents=True, exist_ok=True)
 
     for dep_tuple in args.get('ros_interface_dependencies', []):
-        dep_parts = dep_tuple.rsplit(':', 1)
+        dep_parts = dep_tuple.split(':', 1)
         assert len(dep_parts) == 2
         if dep_parts[0] != package_name:
             dependency_packages.add(dep_parts[0])
@@ -115,6 +115,7 @@ def generate_rs(generator_arguments_file, typesupport_impls):
         'srv_specs': [],
         'package_name': args['package_name'],
         'typesupport_impls': typesupport_impls,
+        'interface_path': idl_rel_path,
     }
 
     latest_target_timestamp = get_newest_modification_time(
