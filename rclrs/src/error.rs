@@ -54,6 +54,8 @@ impl Display for RclrsError {
                     f,
                     "Index [{}] out of range, last index: {}",
                     wrong_index, max_index
+                )
+            }
             RclrsError::AlreadyAddedToWaitSet => {
                 write!(
                     f,
