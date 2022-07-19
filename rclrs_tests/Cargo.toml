@@ -8,8 +8,8 @@ edition = "2021"
 path = "src/lib.rs"
 
 [dependencies]
-anyhow = {version = "1", features = ["backtrace"]}
-test_msgs = {version = "*"}
+test_msgs = "*"
+quickcheck = "1"
 
 [dependencies.rclrs]
 version = "*"

@@ -137,6 +137,8 @@ impl<T: SequenceAlloc> Drop for Sequence<T> {
 
 impl<T: SequenceAlloc + Eq> Eq for Sequence<T> {}
 
+// If you update this Extend implementation, please also update the one in
+// dynamic_sequence.rs in rclrs since they share code.
 impl<T: SequenceAlloc> Extend<T> for Sequence<T> {
     fn extend<I>(&mut self, iter: I)
     where

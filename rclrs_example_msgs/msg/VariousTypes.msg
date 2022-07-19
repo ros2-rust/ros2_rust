@@ -3,6 +3,7 @@ bool bool_member true
 int8 int8_member 1
 uint8 uint8_member 2
 byte byte_member 3
+char char_member 3
 float32 float32_member 1e-2
 
 # Array/sequence of primitive type

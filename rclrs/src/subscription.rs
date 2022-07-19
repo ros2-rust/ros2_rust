@@ -24,8 +24,8 @@ unsafe impl Send for rcl_subscription_t {}
 
 /// Internal struct used by subscriptions.
 pub struct SubscriptionHandle {
-    rcl_subscription_mtx: Mutex<rcl_subscription_t>,
-    rcl_node_mtx: Arc<Mutex<rcl_node_t>>,
+    pub(crate) rcl_subscription_mtx: Mutex<rcl_subscription_t>,
+    pub(crate) rcl_node_mtx: Arc<Mutex<rcl_node_t>>,
     pub(crate) in_use_by_wait_set: Arc<AtomicBool>,
 }
 
