@@ -338,18 +338,3 @@ unsafe fn call_string_getter_with_handle(
     let cstr = CStr::from_ptr(char_ptr);
     cstr.to_string_lossy().into_owned()
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::{create_node, Context, Node, QOS_PROFILE_DEFAULT};
-
-    #[test]
-    fn test_new() -> Result<(), RclrsError> {
-        let context =
-            Context::new(vec![]).expect("Context instantiation is expected to be a success");
-        let _ = Node::new(&context, "Bob")?;
-
-        Ok(())
-    }
-}
