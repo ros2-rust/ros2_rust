@@ -163,18 +163,3 @@ impl<'a, T: Message> MessageCow<'a, T> for &'a T {
         Cow::Borrowed(self)
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::{create_node, Context, Publisher, QOS_PROFILE_DEFAULT};
-
-    fn create_fixture(name: &str) -> (Context, Node) {
-        let context =
-            Context::new(vec![]).expect("Context instantiation is expected to be a success");
-        let node =
-            create_node(&context, name).expect("Node instantiation is expected to be a success");
-
-        (context, node)
-    }
-}
