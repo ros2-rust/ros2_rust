@@ -55,6 +55,9 @@ type ServiceCallback<Request, Response> =
     Box<dyn Fn(&rmw_request_id_t, Request) -> Response + 'static + Send>;
 
 /// Main class responsible for responding to requests sent by ROS clients.
+///
+/// The only available way to instantiate services is via [`Node::create_service`], this is to
+/// ensure that [`Node`]s can track all the services that have been created.
 pub struct Service<T>
 where
     T: rosidl_runtime_rs::Service,
@@ -69,7 +72,9 @@ where
     T: rosidl_runtime_rs::Service,
 {
     /// Creates a new service.
-    pub fn new<F>(node: &Node, topic: &str, callback: F) -> Result<Self, RclrsError>
+    pub(crate) fn new<F>(node: &Node, topic: &str, callback: F) -> Result<Self, RclrsError>
+    // This uses pub(crate) visibility to avoid instantiating this struct outside
+    // [`Node::create_service`], see the struct's documentation for the rationale
     where
         T: rosidl_runtime_rs::Service,
         F: Fn(&rmw_request_id_t, T::Request) -> T::Response + 'static + Send,

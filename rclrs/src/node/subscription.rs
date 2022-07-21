@@ -59,6 +59,9 @@ pub trait SubscriptionBase: Send + Sync {
 /// When a subscription is created, it may take some time to get "matched" with a corresponding
 /// publisher.
 ///
+/// The only available way to instantiate subscriptions is via [`Node::create_subscription`], this
+/// is to ensure that [`Node`]s can track all the subscriptions that have been created.
+///
 /// [1]: crate::spin_once
 /// [2]: crate::spin
 pub struct Subscription<T>
@@ -76,12 +79,14 @@ where
     T: Message,
 {
     /// Creates a new subscription.
-    pub fn new<F>(
+    pub(crate) fn new<F>(
         node: &Node,
         topic: &str,
         qos: QoSProfile,
         callback: F,
     ) -> Result<Self, RclrsError>
+    // This uses pub(crate) visibility to avoid instantiating this struct outside
+    // [`Node::create_subscription`], see the struct's documentation for the rationale
     where
         T: Message,
         F: FnMut(T) + 'static + Send,
@@ -213,15 +218,14 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{create_node, Context, Subscription, QOS_PROFILE_DEFAULT};
+    use crate::{create_node, Context, QOS_PROFILE_DEFAULT};
 
     #[test]
     fn test_instantiate_subscriber() -> Result<(), RclrsError> {
         let context =
             Context::new(vec![]).expect("Context instantiation is expected to be a success");
-        let node = create_node(&context, "test_new_subscriber")?;
-        let _subscriber = Subscription::<std_msgs::msg::String>::new(
-            &node,
+        let mut node = create_node(&context, "test_new_subscriber")?;
+        let _subscriber = node.create_subscription::<std_msgs::msg::String, _>(
             "test",
             QOS_PROFILE_DEFAULT,
             move |_: std_msgs::msg::String| {},
