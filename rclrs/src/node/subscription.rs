@@ -57,6 +57,9 @@ pub trait SubscriptionBase: Send + Sync {
 /// When a subscription is created, it may take some time to get "matched" with a corresponding
 /// publisher.
 ///
+/// The only available way to instantiate subscriptions is via [`Node::create_subscription`], this
+/// is to ensure that [`Node`]s can track all the subscriptions that have been created.
+///
 /// [1]: crate::spin_once
 /// [2]: crate::spin
 pub struct Subscription<T>
@@ -80,6 +83,8 @@ where
         qos: QoSProfile,
         callback: F,
     ) -> Result<Self, RclrsError>
+    // This uses pub(crate) visibility to avoid instantiating this struct outside
+    // [`Node::create_subscription`], see the struct's documentation for the rationale
     where
         T: Message,
         F: FnMut(T) + 'static + Send,
