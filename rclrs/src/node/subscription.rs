@@ -74,12 +74,12 @@ where
     T: Message,
 {
     /// Creates a new subscription.
-    pub fn new<F>(
-        node: &mut Node,
+    pub(crate) fn new<F>(
+        node: &Node,
         topic: &str,
         qos: QoSProfile,
         callback: F,
-    ) -> Result<Arc<Self>, RclrsError>
+    ) -> Result<Self, RclrsError>
     where
         T: Message,
         F: FnMut(T) + 'static + Send,
@@ -117,13 +117,12 @@ where
             rcl_subscription_mtx: Mutex::new(rcl_subscription),
             rcl_node_mtx: node.rcl_node_mtx.clone(),
         });
-        let subscription = Arc::new(Self {
+
+        Ok(Self {
             handle,
             callback: Mutex::new(Box::new(callback)),
             message: PhantomData,
-        });
-        node.subscriptions.push(Arc::downgrade(&subscription) as _);
-        Ok(subscription)
+        })
     }
 
     /// Returns the topic name of the subscription.
@@ -217,9 +216,8 @@ mod tests {
     fn test_instantiate_subscriber() -> Result<(), RclrsError> {
         let context =
             Context::new(vec![]).expect("Context instantiation is expected to be a success");
-        let mut node = create_node(&context, "test_new_subscriber")?;
-        let _subscriber = Subscription::<std_msgs::msg::String>::new(
-            &mut node,
+        let node = create_node(&context, "test_new_subscriber")?;
+        let _subscriber = node.create_subscription::<std_msgs::msg::String, _>(
             "test",
             QOS_PROFILE_DEFAULT,
             move |_: std_msgs::msg::String| {},
