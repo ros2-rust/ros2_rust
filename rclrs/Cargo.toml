@@ -18,16 +18,13 @@ libc = "0.2.43"
 # Provides better concurrency primitives than std
 parking_lot = "0.11.2"
 # Needed for the Message trait, among others
-rosidl_runtime_rs = "*"
+rosidl_runtime_rs = "0.2.0"
 # Needed for clients
 futures = "0.3"
 
 [dev-dependencies]
 # Needed for e.g. writing yaml files in tests
 tempfile = "3.3.0"
-
-[dev-dependencies.std_msgs]
-version = "*"
 
 [build-dependencies]
 # Needed for FFI

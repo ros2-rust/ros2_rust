@@ -214,23 +214,3 @@ where
         Ok(())
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::{create_node, Context, QOS_PROFILE_DEFAULT};
-
-    #[test]
-    fn test_instantiate_subscriber() -> Result<(), RclrsError> {
-        let context =
-            Context::new(vec![]).expect("Context instantiation is expected to be a success");
-        let mut node = create_node(&context, "test_new_subscriber")?;
-        let _subscriber = node.create_subscription::<std_msgs::msg::String, _>(
-            "test",
-            QOS_PROFILE_DEFAULT,
-            move |_: std_msgs::msg::String| {},
-        )?;
-
-        Ok(())
-    }
-}
