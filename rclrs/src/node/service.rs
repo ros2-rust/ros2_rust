@@ -69,7 +69,7 @@ where
     T: rosidl_runtime_rs::Service,
 {
     /// Creates a new service.
-    pub fn new<F>(node: &mut Node, topic: &str, callback: F) -> Result<Arc<Self>, RclrsError>
+    pub(crate) fn new<F>(node: &Node, topic: &str, callback: F) -> Result<Self, RclrsError>
     where
         T: rosidl_runtime_rs::Service,
         F: Fn(&rmw_request_id_t, T::Request) -> T::Response + 'static + Send,
@@ -107,13 +107,11 @@ where
             node_handle: node.rcl_node_mtx.clone(),
             in_use_by_wait_set: Arc::new(AtomicBool::new(false)),
         });
-        let service = Arc::new(Self {
+
+        Ok(Self {
             handle,
             callback: Mutex::new(Box::new(callback)),
-        });
-        node.services.push(Arc::downgrade(&service) as _);
-
-        Ok(service)
+        })
     }
 
     /// Fetches a new request.
