@@ -163,37 +163,3 @@ impl<'a, T: Message> MessageCow<'a, T> for &'a T {
         Cow::Borrowed(self)
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::{create_node, Context, Publisher, QOS_PROFILE_DEFAULT};
-
-    fn create_fixture(name: &str) -> (Context, Node) {
-        let context =
-            Context::new(vec![]).expect("Context instantiation is expected to be a success");
-        let node =
-            create_node(&context, name).expect("Node instantiation is expected to be a success");
-
-        (context, node)
-    }
-
-    #[test]
-    fn test_new_publisher() -> Result<(), RclrsError> {
-        let (_, node) = create_fixture("test_new_publisher");
-        let _ = Publisher::<std_msgs::msg::String>::new(&node, "test", QOS_PROFILE_DEFAULT)?;
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_publish_message() -> Result<(), RclrsError> {
-        let (_, node) = create_fixture("test_publish_message");
-        let publisher =
-            Publisher::<std_msgs::msg::String>::new(&node, "test", QOS_PROFILE_DEFAULT)?;
-        let message = std_msgs::msg::String {
-            data: "Hello world!".to_owned(),
-        };
-        publisher.publish(&message)
-    }
-}
