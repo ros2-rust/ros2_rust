@@ -163,7 +163,7 @@ where
     /// The purpose of this is typically to achieve *zero-copy communication* between publishers and
     /// subscriptions on the same machine: the message is placed directly in a shared memory region,
     /// and a reference to the same memory is returned by [`Subscription::take_loaned_message()`][1].
-    /// No copying or serialization/deserialization takes place, which is much more efficient
+    /// No copying or serialization/deserialization takes place, which is much more efficient,
     /// especially as the message size grows.
     ///
     /// # Conditions for zero-copy communication
