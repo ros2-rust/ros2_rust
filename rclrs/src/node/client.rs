@@ -56,6 +56,9 @@ type RequestValue<Response> = Box<dyn FnOnce(Response) + 'static + Send>;
 type RequestId = i64;
 
 /// Main class responsible for sending requests to a ROS service.
+///
+/// The only available way to instantiate clients is via [`Node::create_client`], this is to
+/// ensure that [`Node`]s can track all the clients that have been created.
 pub struct Client<T>
 where
     T: rosidl_runtime_rs::Service,
@@ -70,7 +73,9 @@ where
     T: rosidl_runtime_rs::Service,
 {
     /// Creates a new client.
-    pub fn new(node: &Node, topic: &str) -> Result<Self, RclrsError>
+    pub(crate) fn new(node: &Node, topic: &str) -> Result<Self, RclrsError>
+    // This uses pub(crate) visibility to avoid instantiating this struct outside
+    // [`Node::create_client`], see the struct's documentation for the rationale
     where
         T: rosidl_runtime_rs::Service,
     {
