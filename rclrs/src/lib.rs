@@ -155,10 +155,10 @@ pub fn create_node_builder(context: &Context, node_name: &str) -> NodeBuilder {
 
 /// Extract non-ROS arguments from program's input arguments.
 ///
-/// `args` is expected to be input arguments of the program (passed via [`env::args()`])
-/// According to rcl documentation ROS arguments are between `--ros-args` and `--` arguments.
-/// Everything beside is considered as non-ROS and left unparsed. Extracted non-ROS args are
-/// returned in order as they appear (see example below).
+/// `args` is expected to be the input arguments of the program (passed via [`env::args()`]).
+/// According to rcl documentation, ROS arguments are between `--ros-args` and `--` arguments.
+/// Everything else is considered as non-ROS and left unparsed. Extracted non-ROS args are
+/// returned in the order that they appear (see example below).
 ///
 /// # Example
 /// ```
