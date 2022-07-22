@@ -5,85 +5,26 @@ use crate::RclrsError::IndexOutOfRange;
 use libc::c_void;
 use std::ptr::null_mut;
 
-/// Trait used for obtaining information from rcl_arguments_t.
-pub(crate) trait RclGetArg {
-    /// Get count function from rcl library (e.g. rcl_arguments_get_count_unparsed).
-    ///
-    /// SAFETY: [`get_indices()`] implementation for this trait must use corresponding `rcl_arguments_get` function.
-    unsafe fn get_count(rcl_args: *const rcl_arguments_t) -> ::std::os::raw::c_int;
-
-    /// Get function from rcl library (e.g. rcl_arguments_get_unparsed).
-    ///
-    /// SAFETY: [`get_count()`] implementation for this trait must use corresponding `rcl_arguments_get_count` function.
-    unsafe fn get_indices(
-        rcl_args: *const rcl_arguments_t,
-        allocator: rcl_allocator_t,
-        out_ptr: *mut *mut ::std::os::raw::c_int,
-    ) -> rcl_ret_t;
-}
-
-/// Get non-ROS unparsed arguments tag.
+/// Returns arguments type held by `rcl_arguments` basing on `rcl_get_count` and `rcl_get_indices` function pointers.
 ///
-/// Tag designated to be used as generic argument of [`get_rcl_arguments`].
-pub(crate) struct UnparsedNonRos;
-
-/// Get ROS unparsed arguments tag.
+/// This function must be called after `rcl_arguments` was initialized. `args` must be array of input arguments passed to node/program.
 ///
-/// Tag designated to be used as generic argument of [`get_rcl_arguments`].
-pub(crate) struct UnparsedRos;
-
-/// Implementation is safe, since both functions corresponds to each other as rcl documentation states.
-impl RclGetArg for UnparsedNonRos {
-    /// Get count of unparsed non-ROS arguments from `rcl_arguments_t` struct.
-    ///
-    /// SAFETY: [`get_indices()`] for this implementation must use `rcl_arguments_get_unparsed` function.
-    unsafe fn get_count(rcl_args: *const rcl_arguments_t) -> ::std::os::raw::c_int {
-        rcl_arguments_get_count_unparsed(rcl_args)
-    }
-
-    /// Obtain indices of unparsed non-ROS arguments. Array of indices is stored in `out_ptr` (must be deallocated with passed `allocator`).
-    ///
-    /// SAFETY: [`get_count()`] for this implementation must use `rcl_arguments_get_count_unparsed` function.
-    unsafe fn get_indices(
-        rcl_args: *const rcl_arguments_t,
-        allocator: rcl_allocator_t,
-        out_ptr: *mut *mut ::std::os::raw::c_int,
-    ) -> rcl_ret_t {
-        rcl_arguments_get_unparsed(rcl_args, allocator, out_ptr)
-    }
-}
-
-/// Implementation is safe since both functions corresponds to each other as rcl documentation states.
-impl RclGetArg for UnparsedRos {
-    /// Get count of unparsed ROS specific arguments from `rcl_arguments_t` struct.
-    ///
-    /// SAFETY: [`get_indices()`] for this implementation must use `rcl_arguments_get_unparsed_ros` function.
-    unsafe fn get_count(rcl_args: *const rcl_arguments_t) -> ::std::os::raw::c_int {
-        rcl_arguments_get_count_unparsed_ros(rcl_args)
-    }
-
-    /// Obtain indices of unparsed ROS specific arguments. Array of indices is stored in `out_ptr` (must be deallocated with passed `allocator`).
-    ///
-    /// SAFETY: [`get_count()`] for this implementation must use `rcl_get_count_unparsed_ros` function.
-    unsafe fn get_indices(
-        rcl_args: *const rcl_arguments_t,
-        allocator: rcl_allocator_t,
-        out_ptr: *mut *mut ::std::os::raw::c_int,
-    ) -> rcl_ret_t {
-        rcl_arguments_get_unparsed_ros(rcl_args, allocator, out_ptr)
-    }
-}
-
-/// Returns arguments type indicated by [`ArgsGetter`] held by rcl arguments.
-///
-/// This function should be called after rcl_init. `rcl_arguments` should be `global_arguments`
-/// field of initialized rcl_context. `args` is array of input arguments passed to node.
-pub(crate) fn get_rcl_arguments<ArgGetter: RclGetArg>(
+/// SAFETY: `rcl_get_count` and `rcl_get_indices` has to be corresponding rcl API functions, e.g.:
+/// `rcl_arguments_get_count_unparsed` -> `rcl_arguments_get_unparsed`
+/// `rcl_arguments_get_count_unparsed_ros` -> `rcl_arguments_get_count_ros`
+/// ...
+pub(crate) fn get_rcl_arguments(
+    rcl_get_count: unsafe extern "C" fn(*const rcl_arguments_t) -> std::os::raw::c_int,
+    rcl_get_indices: unsafe extern "C" fn(
+        *const rcl_arguments_t,
+        rcl_allocator_t,
+        *mut *mut ::std::os::raw::c_int,
+    ) -> rcl_ret_t,
     rcl_arguments: *const rcl_arguments_t,
     args: &[String],
 ) -> Result<Vec<String>, RclrsError> {
     // SAFETY: No preconditions for this function.
-    let args_count = unsafe { ArgGetter::get_count(rcl_arguments) };
+    let args_count = unsafe { rcl_get_count(rcl_arguments) };
     debug_assert!(args_count != -1);
     // All possible negative args_count values were handled above.
     let args_count = args_count as usize;
@@ -98,7 +39,7 @@ pub(crate) fn get_rcl_arguments<ArgGetter: RclGetArg>(
         // Indices will be set to NULL in case of no arguments handled, but then this code won't be
         // reached because of if statement above.
         // SAFETY: No preconditions for this function.
-        ArgGetter::get_indices(rcl_arguments, allocator, &mut indices_ptr).ok()?;
+        rcl_get_indices(rcl_arguments, allocator, &mut indices_ptr).ok()?;
 
         for i in 0..args_count {
             // If get_indices finishes with success, indices_ptr is valid

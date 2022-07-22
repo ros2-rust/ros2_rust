@@ -23,7 +23,7 @@ pub use qos::*;
 pub use wait::*;
 
 use crate::rcl_bindings::*;
-use crate::rcl_utils::{get_rcl_arguments, UnparsedNonRos};
+use crate::rcl_utils::get_rcl_arguments;
 use rcl_bindings::rcl_context_is_valid;
 use std::ffi::{CStr, CString};
 use std::os::raw::c_char;
@@ -221,7 +221,12 @@ pub fn extract_non_ros_args(
                 .unwrap()
         })
         .collect();
-    let ret = get_rcl_arguments::<UnparsedNonRos>(&rcl_arguments, &args);
+    let ret = get_rcl_arguments(
+        rcl_arguments_get_count_unparsed,
+        rcl_arguments_get_unparsed,
+        &rcl_arguments,
+        &args,
+    );
     unsafe {
         // SAFETY: No preconditions for this function
         rcl_arguments_fini(&mut rcl_arguments).ok()?;
