@@ -27,13 +27,13 @@ pub(crate) fn get_rcl_arguments(
     let args_count = unsafe { rcl_get_count(rcl_arguments) };
     debug_assert!(args_count != -1);
     // All possible negative args_count values were handled above.
-    let args_count = args_count as usize;
+    let args_count = usize::try_from(args_count).unwrap();
     if args_count == 0 {
         return Ok(Vec::new());
     }
     let mut extracted_args: Vec<String> = Vec::with_capacity(args_count);
+    let mut indices_ptr: *mut i32 = null_mut();
     unsafe {
-        let mut indices_ptr: *mut i32 = null_mut();
         // SAFETY: No preconditions for this function.
         let allocator = rcutils_get_default_allocator();
         // SAFETY: The indices_ptr is an output parameter, so it is expected that it contains null.
@@ -41,9 +41,8 @@ pub(crate) fn get_rcl_arguments(
         rcl_get_indices(rcl_arguments, allocator, &mut indices_ptr).ok()?;
 
         for i in 0..args_count {
-            // SAFETY: get_indices finished with success, and the length of arguments was not zero,
-            // so indices_ptr is a valid array pointer with size equal to one returned by 
-            // rcl_arguments_get_count_unparsed. Therefore this array indexing is safe.
+            // SAFETY: rcl_get_indices finished with success and rcl_get_count is matching function
+            // according to documentation of this function
             let index = *(indices_ptr.add(i));
             let arg = args.get(index as usize).ok_or(IndexOutOfRange {
                 wrong_index: index as usize,
@@ -53,7 +52,7 @@ pub(crate) fn get_rcl_arguments(
         }
         // SAFETY: No preconditions for this function.
         let allocator = rcutils_get_default_allocator();
-        // SAFETY: No preconditions for this function.
+        // SAFETY: indices_ptr was allocated with given allocator
         allocator.deallocate.unwrap()(indices_ptr as *mut c_void, null_mut());
     }
     Ok(extracted_args)

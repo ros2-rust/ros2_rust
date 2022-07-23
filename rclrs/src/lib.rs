@@ -155,19 +155,17 @@ pub fn create_node_builder(context: &Context, node_name: &str) -> NodeBuilder {
 
 /// Extract non-ROS arguments from program's input arguments.
 ///
-/// `args` is expected to be the input arguments of the program (passed via [`env::args()`]).
+/// `args` is expected to be the input arguments of the program (passed via [`std::env::args()`]),
+/// which are expected to contain at least one element - the executable name.
 /// According to rcl documentation, ROS arguments are between `--ros-args` and `--` arguments.
 /// Everything else is considered as non-ROS and left unparsed. Extracted non-ROS args are
 /// returned in the order that they appear (see example below).
 ///
 /// # Example
 /// ```
-/// let input_args: Vec<String> = vec![
+/// let input_args : [String;6] = [
 ///             "arg1", "--ros-args", "some", "args", "--", "arg2"
-///         ]
-///         .into_iter()
-///         .map(|x| x.to_string())
-///         .collect();
+///         ].map(|x| x.to_string());
 /// let non_ros_args = rclrs::extract_non_ros_args(input_args).unwrap();
 /// assert_eq!(non_ros_args.len(), 2);
 /// assert_eq!(non_ros_args[0], "arg1");
@@ -195,14 +193,14 @@ pub fn extract_non_ros_args(
     // Vector of pointers into cstring_args
     let c_args: Vec<*const c_char> = cstring_args.iter().map(|arg| arg.as_ptr()).collect();
 
-    let out_ptr = if c_args.is_empty() {
+    let argv = if c_args.is_empty() {
         std::ptr::null()
     } else {
         c_args.as_ptr()
     };
     // SAFETY: No preconditions for this function
     let ret = unsafe {
-        rcl_parse_arguments(c_args.len() as i32, out_ptr, allocator, &mut rcl_arguments).ok()
+        rcl_parse_arguments(c_args.len() as i32, argv, allocator, &mut rcl_arguments).ok()
     };
 
     if let Err(err) = ret {
