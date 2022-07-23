@@ -176,7 +176,7 @@ pub fn create_node_builder(context: &Context, node_name: &str) -> NodeBuilder {
 pub fn extract_non_ros_args(
     args: impl IntoIterator<Item = String>,
 ) -> Result<Vec<String>, RclrsError> {
-    // SAFETY: No preconditions for this function
+    // SAFETY: Getting a zero-initialized value is always safe.
     let mut rcl_arguments = unsafe { rcl_get_zero_initialized_arguments() };
     // SAFETY: No preconditions for this function
     let allocator = unsafe { rcutils_get_default_allocator() };
