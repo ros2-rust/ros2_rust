@@ -27,13 +27,6 @@ pub enum RclrsError {
         /// The error indicating the position of the nul byte.
         err: NulError,
     },
-    /// Given container/range could not be processed due to wrong index passed
-    IndexOutOfRange {
-        /// Max index of given container/range
-        max_index: usize,
-        /// Index provided
-        wrong_index: usize,
-    },
     /// It was attempted to add a waitable to a wait set twice.
     AlreadyAddedToWaitSet,
 }
@@ -45,16 +38,6 @@ impl Display for RclrsError {
             RclrsError::UnknownRclError { code, .. } => write!(f, "{}", code),
             RclrsError::StringContainsNul { s, .. } => {
                 write!(f, "Could not convert string '{}' to CString", s)
-            }
-            RclrsError::IndexOutOfRange {
-                max_index,
-                wrong_index,
-            } => {
-                write!(
-                    f,
-                    "Index [{}] out of range, last index: {}",
-                    wrong_index, max_index
-                )
             }
             RclrsError::AlreadyAddedToWaitSet => {
                 write!(
@@ -93,7 +76,6 @@ impl Error for RclrsError {
             RclrsError::RclError { msg, .. } => msg.as_ref().map(|e| e as &dyn Error),
             RclrsError::UnknownRclError { msg, .. } => msg.as_ref().map(|e| e as &dyn Error),
             RclrsError::StringContainsNul { err, .. } => Some(err).map(|e| e as &dyn Error),
-            RclrsError::IndexOutOfRange { .. } => None,
             RclrsError::AlreadyAddedToWaitSet => None,
         }
     }

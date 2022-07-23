@@ -1,7 +1,6 @@
 use crate::rcl_bindings::*;
 use crate::{RclrsError, ToResult};
 
-use crate::RclrsError::IndexOutOfRange;
 use libc::c_void;
 use std::ptr::null_mut;
 
@@ -44,10 +43,9 @@ pub(crate) fn get_rcl_arguments(
             // SAFETY: rcl_get_indices finished with success and rcl_get_count is matching function
             // according to documentation of this function
             let index = *(indices_ptr.add(i));
-            let arg = args.get(index as usize).ok_or(IndexOutOfRange {
-                wrong_index: index as usize,
-                max_index: args.len() - 1,
-            })?;
+            // SAFETY: rcl_get_indices and rcl_get_count are matching functions according
+            // to documentation of this function
+            let arg = args.get(index as usize).unwrap();
             extracted_args.push(arg.clone());
         }
         // SAFETY: No preconditions for this function.
