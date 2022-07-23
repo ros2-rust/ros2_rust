@@ -42,9 +42,9 @@ pub(crate) fn get_rcl_arguments(
         rcl_get_indices(rcl_arguments, allocator, &mut indices_ptr).ok()?;
 
         for i in 0..args_count {
-            // If get_indices finishes with success, indices_ptr is valid
-            // and is allocated with size equal to one returned by rcl_arguments_get_count_unparsed.
-            // SAFETY: No preconditions for this function.
+            // SAFETY: get_indices finished with success, and the length of arguments was not zero,
+            // so indices_ptr is a valid array pointer with size equal to one returned by 
+            // rcl_arguments_get_count_unparsed. Therefore this array indexing is safe.
             let index = *(indices_ptr.add(i));
             let arg = args.get(index as usize).ok_or(IndexOutOfRange {
                 wrong_index: index as usize,
