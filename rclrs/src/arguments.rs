@@ -27,8 +27,6 @@ pub fn extract_non_ros_args(
 ) -> Result<Vec<String>, RclrsError> {
     // SAFETY: Getting a zero-initialized value is always safe.
     let mut rcl_arguments = unsafe { rcl_get_zero_initialized_arguments() };
-    // SAFETY: No preconditions for this function
-    let allocator = unsafe { rcutils_get_default_allocator() };
 
     let (args, cstring_args): (Vec<String>, Vec<Result<CString, RclrsError>>) = args
         .into_iter()
@@ -52,17 +50,12 @@ pub fn extract_non_ros_args(
     } else {
         c_args.as_ptr()
     };
-    // SAFETY: No preconditions for this function
-    let ret = unsafe {
-        rcl_parse_arguments(c_args.len() as i32, argv, allocator, &mut rcl_arguments).ok()
-    };
 
-    if let Err(err) = ret {
-        // SAFETY: No preconditions for this function
-        unsafe {
-            rcl_arguments_fini(&mut rcl_arguments).ok()?;
-        }
-        return Err(err);
+    unsafe {
+        // SAFETY: Getting a default value is always safe.
+        let allocator = rcutils_get_default_allocator();
+        // SAFETY: No preconditions for this function.
+        rcl_parse_arguments(c_args.len() as i32, argv, allocator, &mut rcl_arguments).ok()?;
     }
 
     let ret = get_rcl_arguments(
@@ -72,7 +65,7 @@ pub fn extract_non_ros_args(
         &args,
     );
     unsafe {
-        // SAFETY: No preconditions for this function
+        // SAFETY: No preconditions for this function.
         rcl_arguments_fini(&mut rcl_arguments).ok()?;
     }
     ret
@@ -85,7 +78,7 @@ mod tests {
     #[test]
     fn test_non_ros_arguments() -> Result<(), String> {
         // ROS args are expected to be between '--ros-args' and '--'. Everything beside that is 'non-ROS'.
-        let input_args: Vec<String> = vec![
+        let input_args: [String; 6] = [
             "non-ros1",
             "--ros-args",
             "ros-args",
@@ -93,9 +86,7 @@ mod tests {
             "non-ros2",
             "non-ros3",
         ]
-            .into_iter()
-            .map(|x| x.to_string())
-            .collect();
+        .map(|x| x.to_string());
 
         let non_ros_args: Vec<String> = extract_non_ros_args(input_args).unwrap();
         let expected = vec!["non-ros1", "non-ros2", "non-ros3"];
