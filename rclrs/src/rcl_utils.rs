@@ -36,9 +36,8 @@ pub(crate) fn get_rcl_arguments(
         let mut indices_ptr: *mut i32 = null_mut();
         // SAFETY: No preconditions for this function.
         let allocator = rcutils_get_default_allocator();
-        // Indices will be set to NULL in case of no arguments handled, but then this code won't be
-        // reached because of if statement above.
-        // SAFETY: No preconditions for this function.
+        // SAFETY: The indices_ptr is an output parameter, so it is expected that it contains null.
+        // The indices_ptr will need to be freed by the caller, which happens later in this function.
         rcl_get_indices(rcl_arguments, allocator, &mut indices_ptr).ok()?;
 
         for i in 0..args_count {
