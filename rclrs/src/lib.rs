@@ -181,15 +181,17 @@ pub fn extract_non_ros_args(
     // SAFETY: No preconditions for this function
     let allocator = unsafe { rcutils_get_default_allocator() };
 
-    let cstring_args: Vec<CString> = args
+    let (args, cstring_args): (Vec<String>, Result<Vec<CString>>) = args
         .into_iter()
         .map(|arg| {
-            CString::new(arg.as_str()).map_err(|err| RclrsError::StringContainsNul {
+            let cstring_arg = CString::new(arg.as_str()).map_err(|err| RclrsError::StringContainsNul {
                 err,
                 s: arg.clone(),
-            })
+            });
+            (arg, cstring_arg)
         })
-        .collect::<Result<_, _>>()?;
+        .unzip();
+    let cstring_args = cstring_args?;
     // Vector of pointers into cstring_args
     let c_args: Vec<*const c_char> = cstring_args.iter().map(|arg| arg.as_ptr()).collect();
 
