@@ -25,7 +25,7 @@ pub use wait::*;
 use crate::rcl_bindings::*;
 use crate::rcl_utils::get_rcl_arguments;
 use rcl_bindings::rcl_context_is_valid;
-use std::ffi::{CStr, CString};
+use std::ffi::{CStr, CString, NulError};
 use std::os::raw::c_char;
 use std::time::Duration;
 
@@ -179,17 +179,20 @@ pub fn extract_non_ros_args(
     // SAFETY: No preconditions for this function
     let allocator = unsafe { rcutils_get_default_allocator() };
 
-    let (args, cstring_args): (Vec<String>, Result<Vec<CString>>) = args
+    let (args, cstring_args): (Vec<String>, Vec<Result<CString, RclrsError>>) = args
         .into_iter()
         .map(|arg| {
-            let cstring_arg = CString::new(arg.as_str()).map_err(|err| RclrsError::StringContainsNul {
-                err,
-                s: arg.clone(),
-            });
+            let cstring_arg =
+                CString::new(arg.as_str()).map_err(|err| RclrsError::StringContainsNul {
+                    err,
+                    s: arg.clone(),
+                });
             (arg, cstring_arg)
         })
         .unzip();
-    let cstring_args = cstring_args?;
+    let cstring_args: Vec<CString> = cstring_args
+        .into_iter()
+        .collect::<Result<Vec<CString>, RclrsError>>()?;
     // Vector of pointers into cstring_args
     let c_args: Vec<*const c_char> = cstring_args.iter().map(|arg| arg.as_ptr()).collect();
 
@@ -211,16 +214,6 @@ pub fn extract_non_ros_args(
         return Err(err);
     }
 
-    let args: Vec<String> = c_args
-        .into_iter()
-        // c_args have been converted from Vec<String> a few lines above, so this call is safe
-        // SAFETY: c_args must contain valid CStrings
-        .map(|arg| {
-            unsafe { CString::from(CStr::from_ptr(arg)) }
-                .into_string()
-                .unwrap()
-        })
-        .collect();
     let ret = get_rcl_arguments(
         rcl_arguments_get_count_unparsed,
         rcl_arguments_get_unparsed,
