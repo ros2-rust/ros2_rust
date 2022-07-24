@@ -6,22 +6,28 @@ use std::os::raw::c_char;
 
 /// Extract non-ROS arguments from program's input arguments.
 ///
-/// `args` is expected to be the input arguments of the program (passed via [`std::env::args()`]),
+/// `args` is expected to be the input arguments of the program (e.g. [`std::env::args()`]),
 /// which are expected to contain at least one element - the executable name.
-/// According to rcl documentation, ROS arguments are between `--ros-args` and `--` arguments.
-/// Everything else is considered as non-ROS and left unparsed. Extracted non-ROS args are
-/// returned in the order that they appear (see example below).
+/// 
+/// ROS arguments are arguments between `--ros-args` and `--`, with the final `--` being optional.
+/// Everything else is considered as non-ROS arguments and will be left unparsed by 
+/// [`Context::new()`][1] etc.
+/// Extracted non-ROS arguments are returned in the order that they appear by this function.
 ///
 /// # Example
 /// ```
-/// let input_args : [String;6] = [
-///             "arg1", "--ros-args", "some", "args", "--", "arg2"
-///         ].map(|x| x.to_string());
-/// let non_ros_args = rclrs::extract_non_ros_args(input_args).unwrap();
+/// # use rclrs::RclrsError;
+/// let input_args = [
+///     "arg1", "--ros-args", "some", "args", "--", "arg2"
+/// ].map(|x| x.to_string());
+/// let non_ros_args = rclrs::extract_non_ros_args(input_args)?;
 /// assert_eq!(non_ros_args.len(), 2);
 /// assert_eq!(non_ros_args[0], "arg1");
 /// assert_eq!(non_ros_args[1], "arg2");
+/// # Ok::<(), RclrsError>(())
 /// ```
+/// 
+/// [1]: crate::Context::new
 pub fn extract_non_ros_args(
     args: impl IntoIterator<Item = String>,
 ) -> Result<Vec<String>, RclrsError> {
