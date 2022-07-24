@@ -5,6 +5,7 @@
 //!
 //! [1]: https://github.com/ros2-rust/ros2_rust/blob/main/README.md
 
+mod arguments;
 mod context;
 mod error;
 mod node;
@@ -14,6 +15,7 @@ mod wait;
 
 mod rcl_bindings;
 
+pub use arguments::*;
 pub use context::*;
 pub use error::*;
 pub use node::*;
