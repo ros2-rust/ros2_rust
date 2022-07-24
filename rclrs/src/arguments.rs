@@ -9,9 +9,9 @@ use std::ptr::null_mut;
 ///
 /// `args` is expected to be the input arguments of the program (e.g. [`std::env::args()`]),
 /// which are expected to contain at least one element - the executable name.
-/// 
+///
 /// ROS arguments are arguments between `--ros-args` and `--`, with the final `--` being optional.
-/// Everything else is considered as non-ROS arguments and will be left unparsed by 
+/// Everything else is considered as non-ROS arguments and will be left unparsed by
 /// [`Context::new()`][1] etc.
 /// Extracted non-ROS arguments are returned in the order that they appear by this function.
 ///
@@ -27,7 +27,7 @@ use std::ptr::null_mut;
 /// assert_eq!(non_ros_args[1], "arg2");
 /// # Ok::<(), RclrsError>(())
 /// ```
-/// 
+///
 /// [1]: crate::Context::new
 pub fn extract_non_ros_args(
     args: impl IntoIterator<Item = String>,
