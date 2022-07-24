@@ -7,9 +7,7 @@ use std::borrow::Cow;
 use std::ffi::CStr;
 use std::ffi::CString;
 use std::marker::PhantomData;
-use std::sync::Arc;
-
-use parking_lot::Mutex;
+use std::sync::{Arc, Mutex};
 
 use rosidl_runtime_rs::{Message, RmwMessage};
 
@@ -44,8 +42,8 @@ where
         unsafe {
             // SAFETY: No preconditions for this function (besides the arguments being valid).
             rcl_publisher_fini(
-                self.rcl_publisher_mtx.get_mut(),
-                &mut *self.rcl_node_mtx.lock(),
+                self.rcl_publisher_mtx.get_mut().unwrap(),
+                &mut *self.rcl_node_mtx.lock().unwrap(),
             );
         }
     }
@@ -70,7 +68,7 @@ where
             err,
             s: topic.into(),
         })?;
-        let rcl_node = &mut *node.rcl_node_mtx.lock();
+        let rcl_node = &mut *node.rcl_node_mtx.lock().unwrap();
 
         // SAFETY: No preconditions for this function.
         let mut publisher_options = unsafe { rcl_publisher_get_default_options() };
@@ -106,7 +104,8 @@ where
         // SAFETY: No preconditions for the functions called.
         // The unsafe variables created get converted to safe types before being returned
         unsafe {
-            let raw_topic_pointer = rcl_publisher_get_topic_name(&*self.rcl_publisher_mtx.lock());
+            let raw_topic_pointer =
+                rcl_publisher_get_topic_name(&*self.rcl_publisher_mtx.lock().unwrap());
             CStr::from_ptr(raw_topic_pointer)
                 .to_string_lossy()
                 .into_owned()
@@ -131,7 +130,7 @@ where
     /// [1]: https://github.com/ros2/ros2/issues/255
     pub fn publish<'a, M: MessageCow<'a, T>>(&self, message: M) -> Result<(), RclrsError> {
         let rmw_message = T::into_rmw_message(message.into_cow());
-        let rcl_publisher = &mut *self.rcl_publisher_mtx.lock();
+        let rcl_publisher = &mut *self.rcl_publisher_mtx.lock().unwrap();
         unsafe {
             // SAFETY: The message type is guaranteed to match the publisher type by the type system.
             // The message does not need to be valid beyond the duration of this function call.

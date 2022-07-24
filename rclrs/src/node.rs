@@ -15,12 +15,10 @@ use crate::{Context, ParameterOverrideMap, QoSProfile, RclrsError, ToResult};
 use std::cmp::PartialEq;
 use std::ffi::CStr;
 use std::fmt;
-use std::sync::{Arc, Weak};
+use std::sync::{Arc, Mutex, Weak};
 use std::vec::Vec;
 
 use libc::c_char;
-use parking_lot::Mutex;
-
 use rosidl_runtime_rs::Message;
 
 impl Drop for rcl_node_t {
@@ -177,7 +175,7 @@ impl Node {
         &self,
         getter: unsafe extern "C" fn(*const rcl_node_t) -> *const c_char,
     ) -> String {
-        unsafe { call_string_getter_with_handle(&*self.rcl_node_mtx.lock(), getter) }
+        unsafe { call_string_getter_with_handle(&*self.rcl_node_mtx.lock().unwrap(), getter) }
     }
 
     /// Creates a [`Client`][1].
@@ -291,7 +289,7 @@ impl Node {
     // add description about this function is for getting actual domain_id
     // and about override of domain_id via node option
     pub fn domain_id(&self) -> usize {
-        let rcl_node = &*self.rcl_node_mtx.lock();
+        let rcl_node = &*self.rcl_node_mtx.lock().unwrap();
         let mut domain_id: usize = 0;
         let ret = unsafe {
             // SAFETY: No preconditions for this function.

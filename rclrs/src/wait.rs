@@ -19,11 +19,9 @@ use crate::error::{to_rclrs_result, RclReturnCode, RclrsError, ToResult};
 use crate::rcl_bindings::*;
 use crate::{ClientBase, Context, ServiceBase, SubscriptionBase};
 
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use std::vec::Vec;
-
-use parking_lot::Mutex;
 
 mod exclusivity_guard;
 use exclusivity_guard::*;
@@ -88,7 +86,7 @@ impl WaitSet {
                 number_of_clients,
                 number_of_services,
                 number_of_events,
-                &mut *context.rcl_context_mtx.lock(),
+                &mut *context.rcl_context_mtx.lock().unwrap(),
                 rcutils_get_default_allocator(),
             )
             .ok()?;

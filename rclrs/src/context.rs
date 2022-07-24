@@ -4,10 +4,8 @@ use crate::{RclrsError, ToResult};
 use std::ffi::CString;
 use std::os::raw::c_char;
 use std::string::String;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::vec::Vec;
-
-use parking_lot::Mutex;
 
 impl Drop for rcl_context_t {
     fn drop(&mut self) {
@@ -112,7 +110,7 @@ impl Context {
     pub fn ok(&self) -> bool {
         // This will currently always return true, but once we have a signal handler, the signal
         // handler could call `rcl_shutdown()`, hence making the context invalid.
-        let rcl_context = &mut *self.rcl_context_mtx.lock();
+        let rcl_context = &mut *self.rcl_context_mtx.lock().unwrap();
         // SAFETY: No preconditions for this function.
         unsafe { rcl_context_is_valid(rcl_context) }
     }

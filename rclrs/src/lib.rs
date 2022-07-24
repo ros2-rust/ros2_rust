@@ -91,10 +91,12 @@ pub fn spin(node: &Node) -> Result<(), RclrsError> {
     // The context_is_valid functions exists only to abstract away ROS distro differences
     #[cfg(ros_distro = "foxy")]
     // SAFETY: No preconditions for this function.
-    let context_is_valid = || unsafe { rcl_context_is_valid(&mut *node.rcl_context_mtx.lock()) };
+    let context_is_valid =
+        || unsafe { rcl_context_is_valid(&mut *node.rcl_context_mtx.lock().unwrap()) };
     #[cfg(not(ros_distro = "foxy"))]
     // SAFETY: No preconditions for this function.
-    let context_is_valid = || unsafe { rcl_context_is_valid(&*node.rcl_context_mtx.lock()) };
+    let context_is_valid =
+        || unsafe { rcl_context_is_valid(&*node.rcl_context_mtx.lock().unwrap()) };
 
     while context_is_valid() {
         match spin_once(node, None) {
