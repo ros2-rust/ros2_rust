@@ -8,11 +8,9 @@ use std::ffi::CStr;
 use std::ffi::CString;
 use std::marker::PhantomData;
 use std::sync::atomic::AtomicBool;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, MutexGuard};
 
 use rosidl_runtime_rs::{Message, RmwMessage};
-
-use parking_lot::{Mutex, MutexGuard};
 
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
 // they are running in. Therefore, this type can be safely sent to another thread.
@@ -27,14 +25,14 @@ pub struct SubscriptionHandle {
 
 impl SubscriptionHandle {
     pub(crate) fn lock(&self) -> MutexGuard<rcl_subscription_t> {
-        self.rcl_subscription_mtx.lock()
+        self.rcl_subscription_mtx.lock().unwrap()
     }
 }
 
 impl Drop for SubscriptionHandle {
     fn drop(&mut self) {
-        let rcl_subscription = self.rcl_subscription_mtx.get_mut();
-        let rcl_node = &mut *self.rcl_node_mtx.lock();
+        let rcl_subscription = self.rcl_subscription_mtx.get_mut().unwrap();
+        let rcl_node = &mut *self.rcl_node_mtx.lock().unwrap();
         // SAFETY: No preconditions for this function (besides the arguments being valid).
         unsafe {
             rcl_subscription_fini(rcl_subscription, rcl_node);
@@ -99,7 +97,7 @@ where
             err,
             s: topic.into(),
         })?;
-        let rcl_node = &mut *node.rcl_node_mtx.lock();
+        let rcl_node = &mut *node.rcl_node_mtx.lock().unwrap();
 
         // SAFETY: No preconditions for this function.
         let mut subscription_options = unsafe { rcl_subscription_get_default_options() };
@@ -210,7 +208,7 @@ where
             }
             Err(e) => return Err(e),
         };
-        (*self.callback.lock())(msg);
+        (*self.callback.lock().unwrap())(msg);
         Ok(())
     }
 }

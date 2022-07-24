@@ -1,7 +1,7 @@
 use std::boxed::Box;
 use std::ffi::CString;
 use std::sync::atomic::AtomicBool;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, MutexGuard};
 
 use crate::error::{RclReturnCode, ToResult};
 use crate::Node;
@@ -11,32 +11,30 @@ use rosidl_runtime_rs::Message;
 
 use crate::node::publisher::MessageCow;
 
-use parking_lot::{Mutex, MutexGuard};
-
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
 // they are running in. Therefore, this type can be safely sent to another thread.
 unsafe impl Send for rcl_service_t {}
 
 /// Internal struct used by services.
 pub struct ServiceHandle {
-    handle: Mutex<rcl_service_t>,
-    node_handle: Arc<Mutex<rcl_node_t>>,
+    rcl_service_mtx: Mutex<rcl_service_t>,
+    rcl_node_mtx: Arc<Mutex<rcl_node_t>>,
     pub(crate) in_use_by_wait_set: Arc<AtomicBool>,
 }
 
 impl ServiceHandle {
     pub(crate) fn lock(&self) -> MutexGuard<rcl_service_t> {
-        self.handle.lock()
+        self.rcl_service_mtx.lock().unwrap()
     }
 }
 
 impl Drop for ServiceHandle {
     fn drop(&mut self) {
-        let handle = self.handle.get_mut();
-        let node_handle = &mut *self.node_handle.lock();
+        let rcl_service = self.rcl_service_mtx.get_mut().unwrap();
+        let rcl_node = &mut *self.rcl_node_mtx.lock().unwrap();
         // SAFETY: No preconditions for this function
         unsafe {
-            rcl_service_fini(handle, node_handle);
+            rcl_service_fini(rcl_service, rcl_node);
         }
     }
 }
@@ -80,14 +78,14 @@ where
         F: Fn(&rmw_request_id_t, T::Request) -> T::Response + 'static + Send,
     {
         // SAFETY: Getting a zero-initialized value is always safe.
-        let mut service_handle = unsafe { rcl_get_zero_initialized_service() };
+        let mut rcl_service = unsafe { rcl_get_zero_initialized_service() };
         let type_support = <T as rosidl_runtime_rs::Service>::get_type_support()
             as *const rosidl_service_type_support_t;
         let topic_c_string = CString::new(topic).map_err(|err| RclrsError::StringContainsNul {
             err,
             s: topic.into(),
         })?;
-        let node_handle = &mut *node.rcl_node_mtx.lock();
+        let rcl_node = &mut *node.rcl_node_mtx.lock().unwrap();
 
         // SAFETY: No preconditions for this function.
         let service_options = unsafe { rcl_service_get_default_options() };
@@ -98,8 +96,8 @@ where
             // The topic name and the options are copied by this function, so they can be dropped
             // afterwards.
             rcl_service_init(
-                &mut service_handle as *mut _,
-                node_handle as *mut _,
+                &mut rcl_service as *mut _,
+                rcl_node as *mut _,
                 type_support,
                 topic_c_string.as_ptr(),
                 &service_options as *const _,
@@ -108,8 +106,8 @@ where
         }
 
         let handle = Arc::new(ServiceHandle {
-            handle: Mutex::new(service_handle),
-            node_handle: node.rcl_node_mtx.clone(),
+            rcl_service_mtx: Mutex::new(rcl_service),
+            rcl_node_mtx: node.rcl_node_mtx.clone(),
             in_use_by_wait_set: Arc::new(AtomicBool::new(false)),
         });
 
@@ -184,7 +182,7 @@ where
             }
             Err(e) => return Err(e),
         };
-        let res = (*self.callback.lock())(&req_id, req);
+        let res = (*self.callback.lock().unwrap())(&req_id, req);
         let rmw_message = <T::Response as Message>::into_rmw_message(res.into_cow());
         let handle = &*self.handle.lock();
         unsafe {

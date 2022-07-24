@@ -5,9 +5,7 @@ use crate::{
 };
 
 use std::ffi::CString;
-use std::sync::Arc;
-
-use parking_lot::Mutex;
+use std::sync::{Arc, Mutex};
 
 /// A builder for creating a [`Node`][1].
 ///
@@ -245,7 +243,7 @@ impl NodeBuilder {
                 s: self.namespace.clone(),
             })?;
         let rcl_node_options = self.create_rcl_node_options()?;
-        let rcl_context = &mut *self.context.lock();
+        let rcl_context = &mut *self.context.lock().unwrap();
 
         // SAFETY: Getting a zero-initialized value is always safe.
         let mut rcl_node = unsafe { rcl_get_zero_initialized_node() };

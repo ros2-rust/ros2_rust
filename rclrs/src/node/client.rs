@@ -3,14 +3,13 @@ use std::boxed::Box;
 use std::collections::HashMap;
 use std::ffi::CString;
 use std::sync::atomic::AtomicBool;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, MutexGuard};
 
 use crate::error::{RclReturnCode, ToResult};
 use crate::MessageCow;
 use crate::Node;
 use crate::{rcl_bindings::*, RclrsError};
 
-use parking_lot::{Mutex, MutexGuard};
 use rosidl_runtime_rs::Message;
 
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
@@ -26,17 +25,17 @@ pub struct ClientHandle {
 
 impl ClientHandle {
     pub(crate) fn lock(&self) -> MutexGuard<rcl_client_t> {
-        self.rcl_client_mtx.lock()
+        self.rcl_client_mtx.lock().unwrap()
     }
 }
 
 impl Drop for ClientHandle {
     fn drop(&mut self) {
-        let handle = self.rcl_client_mtx.get_mut();
-        let rcl_node_mtx = &mut *self.rcl_node_mtx.lock();
+        let rcl_client = self.rcl_client_mtx.get_mut().unwrap();
+        let rcl_node_mtx = &mut *self.rcl_node_mtx.lock().unwrap();
         // SAFETY: No preconditions for this function
         unsafe {
-            rcl_client_fini(handle, rcl_node_mtx);
+            rcl_client_fini(rcl_client, rcl_node_mtx);
         }
     }
 }
@@ -87,7 +86,7 @@ where
             err,
             s: topic.into(),
         })?;
-        let rcl_node = { &mut *node.rcl_node_mtx.lock() };
+        let rcl_node = { &mut *node.rcl_node_mtx.lock().unwrap() };
 
         // SAFETY: No preconditions for this function.
         let client_options = unsafe { rcl_client_get_default_options() };
@@ -153,7 +152,7 @@ where
             )
         }
         .ok()?;
-        let requests = &mut *self.requests.lock();
+        let requests = &mut *self.requests.lock().unwrap();
         requests.insert(sequence_number, Box::new(callback));
         Ok(())
     }
@@ -189,7 +188,7 @@ where
         }
         .ok()?;
         let (tx, rx) = oneshot::channel::<T::Response>();
-        self.futures.lock().insert(sequence_number, tx);
+        self.futures.lock().unwrap().insert(sequence_number, tx);
         // It is safe to call unwrap() here since the `Canceled` error will only happen when the
         // `Sender` is dropped
         // https://docs.rs/futures/latest/futures/channel/oneshot/struct.Canceled.html
@@ -261,8 +260,8 @@ where
             }
             Err(e) => return Err(e),
         };
-        let requests = &mut *self.requests.lock();
-        let futures = &mut *self.futures.lock();
+        let requests = &mut *self.requests.lock().unwrap();
+        let futures = &mut *self.futures.lock().unwrap();
         if let Some(callback) = requests.remove(&req_id.sequence_number) {
             callback(res);
         } else if let Some(future) = futures.remove(&req_id.sequence_number) {
