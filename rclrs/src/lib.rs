@@ -14,7 +14,6 @@ mod qos;
 mod wait;
 
 mod rcl_bindings;
-mod rcl_utils;
 
 pub use arguments::*;
 pub use context::*;
