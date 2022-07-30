@@ -1,0 +1,18 @@
+[package]
+name = "rclrs_tests"
+version = "0.2.0"
+authors = ["Chris Reid <christopherjreid@outlook.com>"]
+edition = "2021"
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+anyhow = {version = "1", features = ["backtrace"]}
+test_msgs = {version = "*"}
+
+[dependencies.rclrs]
+version = "*"
+
+[dependencies.rosidl_runtime_rs]
+version = "*"
