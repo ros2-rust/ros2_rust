@@ -127,7 +127,7 @@ Now that everything is set up, you can build with `colcon`. The basic command to
 colcon build --packages-up-to $YOUR_PACKAGE
 ```
 
-where `$YOUR_PACKAGE` could be e.g. `rclrs_examples`. See `colcon build --help` for a complete list of options.
+where `$YOUR_PACKAGE` could be e.g. `examples_rclrs_minimal_pub_sub`. See `colcon build --help` for a complete list of options.
 
 It's normal to see a `Some selected packages are already built in one or more underlay workspace` warning. This is because the standard message definitions that are part of ROS 2 need to be regenerated in order to create Rust bindings. If and when `ros2_rust` becomes an officially supported client library, this issue will disappear.
 
@@ -181,8 +181,8 @@ To summarize:
 # Initial build of the package with colcon
 # The --lookup-in-workspace flag is recommended for a cargo-based workflow
 # Compare .cargo/config.toml with and without it to see its effect
-colcon build --packages-up-to rclrs_examples --lookup-in-workspace
-cd src/ros2_rust/rclrs_examples
+colcon build --packages-up-to examples_rclrs_minimal_pub_sub --lookup-in-workspace
+cd src/ros2_rust/examples/minimal_pub_sub
 # Run cargo build, or cargo check, cargo doc, etc.
 cargo build
 ```
