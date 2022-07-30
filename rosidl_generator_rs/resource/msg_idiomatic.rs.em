@@ -67,7 +67,7 @@ impl rosidl_runtime_rs::Message for @(type_name) {
 @#
 @#    == UnboundedSequence ==
 @[    elif isinstance(member.type, UnboundedSequence)]@
-@[        if isinstance(member.type.value_type, UnboundedString) or isinstance(member.type, UnboundedWString)]@
+@[        if isinstance(member.type.value_type, UnboundedString) or isinstance(member.type.value_type, UnboundedWString)]@
         @(get_rs_name(member.name)): msg.@(get_rs_name(member.name))
           .into_iter()
           .map(|elem| elem.as_str().into())
@@ -127,7 +127,7 @@ impl rosidl_runtime_rs::Message for @(type_name) {
 @#
 @#    == UnboundedSequence ==
 @[    elif isinstance(member.type, UnboundedSequence)]@
-@[        if isinstance(member.type.value_type, UnboundedString) or isinstance(member.type, UnboundedWString)]@
+@[        if isinstance(member.type.value_type, UnboundedString) or isinstance(member.type.value_type, UnboundedWString)]@
         @(get_rs_name(member.name)): msg.@(get_rs_name(member.name))
           .iter()
           .map(|elem| elem.as_str().into())
@@ -183,7 +183,7 @@ impl rosidl_runtime_rs::Message for @(type_name) {
 @[    elif isinstance(member.type, UnboundedSequence)]@
       @(get_rs_name(member.name)): msg.@(get_rs_name(member.name))
           .into_iter()
-@[        if isinstance(member.type.value_type, UnboundedString) or isinstance(member.type, UnboundedWString)]@
+@[        if isinstance(member.type.value_type, UnboundedString) or isinstance(member.type.value_type, UnboundedWString)]@
           .map(|elem| elem.to_string())
 @[        elif isinstance(member.type.value_type, NamedType) or isinstance(member.type.value_type, NamespacedType)]@
           .map(@(get_idiomatic_rs_type(member.type.value_type))::from_rmw_message)
