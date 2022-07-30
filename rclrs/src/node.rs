@@ -1,10 +1,12 @@
 mod builder;
 mod client;
+mod graph;
 mod publisher;
 mod service;
 mod subscription;
 pub use self::builder::*;
 pub use self::client::*;
+pub use self::graph::*;
 pub use self::publisher::*;
 pub use self::service::*;
 pub use self::subscription::*;
