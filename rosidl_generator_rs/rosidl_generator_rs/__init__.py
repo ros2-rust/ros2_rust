@@ -295,7 +295,7 @@ def make_get_idiomatic_rs_type(package_name):
         if isinstance(type_, UnboundedString) or isinstance(type_, UnboundedWString):
             return 'std::string::String'
         elif isinstance(type_, UnboundedSequence):
-            return 'Vec::<{}>'.format(get_idiomatic_rs_type(type_.value_type))
+            return 'Vec<{}>'.format(get_idiomatic_rs_type(type_.value_type))
         elif isinstance(type_, NamespacedType):
             return '::'.join(type_.namespaced_name()).replace(package_name, 'crate')
         elif isinstance(type_, Array):
