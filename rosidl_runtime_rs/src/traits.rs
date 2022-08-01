@@ -144,6 +144,20 @@ pub trait Message: Clone + Debug + Default + 'static + Send + Sync {
     fn from_rmw_message(msg: Self::RmwMsg) -> Self;
 }
 
+/// Allows boxed values to be used by users in Publishers and Subscriptions.
+// See https://github.com/ros2-rust/ros2_rust/pull/235 for a discussion of possible alternatives.
+impl<T: Message> Message for Box<T> {
+    type RmwMsg = T::RmwMsg;
+
+    fn into_rmw_message(msg_cow: Cow<'_, Self>) -> Cow<'_, Self::RmwMsg> {
+        T::into_rmw_message(Cow::Owned(*msg_cow.into_owned()))
+    }
+
+    fn from_rmw_message(msg: Self::RmwMsg) -> Self {
+        Box::new(T::from_rmw_message(msg))
+    }
+}
+
 /// Trait for services.
 ///
 /// User code never needs to call this trait's method, much less implement this trait.
