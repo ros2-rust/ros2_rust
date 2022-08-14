@@ -4,7 +4,7 @@ use std::ffi::{CStr, NulError};
 use std::fmt::{self, Display};
 
 /// The main error type.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum RclrsError {
     /// An error originating in the `rcl` layer.
     RclError {
@@ -59,7 +59,7 @@ impl Display for RclrsError {
 ///
 /// [1]: std::error::Error
 /// [2]: crate::RclrsError
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct RclErrorMsg(String);
 
 impl Display for RclErrorMsg {
@@ -87,7 +87,7 @@ impl Error for RclrsError {
 /// Most of these return codes should never occur in an `rclrs` application,
 /// since they are returned when `rcl` functions are used wrongly..
 #[repr(i32)]
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum RclReturnCode {
     /// Success
     Ok = 0,
