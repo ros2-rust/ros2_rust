@@ -52,11 +52,8 @@ jobs:
         required-ros-distributions: ${{ matrix.ros_distribution }}
 
     - name: Setup Rust
-      uses: actions-rs/toolchain@v1
+      uses: dtolnay/rust-toolchain@stable
       with:
-        profile: minimal
-        toolchain: stable
-        override: true
         components: clippy, rustfmt
 
     - name: Install colcon-cargo and colcon-ros-cargo
