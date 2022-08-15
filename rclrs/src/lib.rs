@@ -6,21 +6,29 @@
 //! [1]: https://github.com/ros2-rust/ros2_rust/blob/main/README.md
 
 mod arguments;
+mod client;
 mod context;
 mod error;
 mod node;
 mod parameter;
+mod publisher;
 mod qos;
+mod service;
+mod subscription;
 mod wait;
 
 mod rcl_bindings;
 
 pub use arguments::*;
+pub use client::*;
 pub use context::*;
 pub use error::*;
 pub use node::*;
 pub use parameter::*;
+pub use publisher::*;
 pub use qos::*;
+pub use service::*;
+pub use subscription::*;
 pub use wait::*;
 
 use rcl_bindings::rcl_context_is_valid;
