@@ -37,7 +37,7 @@ pub trait SequenceAlloc: Sized {
 /// used by user code.
 ///
 /// User code never needs to call this trait's method, much less implement this trait.
-pub trait RmwMessage: Clone + Debug + Default + Send + Sync {
+pub trait RmwMessage: Clone + Debug + Default + Send + Sync + Message {
     /// Get a pointer to the correct `rosidl_message_type_support_t` structure.
     fn get_type_support() -> libc::uintptr_t;
 }

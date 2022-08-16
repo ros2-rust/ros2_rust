@@ -17,6 +17,7 @@ Features and limitations
 The current set of features include:
 - Message generation
 - Support for publishers and subscriptions
+- Loaned messages (zero-copy)
 - Tunable QoS settings
 - Clients and services
 

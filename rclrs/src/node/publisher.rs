@@ -11,6 +11,9 @@ use std::sync::{Arc, Mutex};
 
 use rosidl_runtime_rs::{Message, RmwMessage};
 
+mod loaned_message;
+pub use loaned_message::*;
+
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
 // they are running in. Therefore, this type can be safely sent to another thread.
 unsafe impl Send for rcl_publisher_t {}
@@ -31,6 +34,9 @@ where
 {
     rcl_publisher_mtx: Mutex<rcl_publisher_t>,
     rcl_node_mtx: Arc<Mutex<rcl_node_t>>,
+    // The data pointed to by type_support_ptr has static lifetime;
+    // it is global data in the type support library.
+    type_support_ptr: *const rosidl_message_type_support_t,
     message: PhantomData<T>,
 }
 
@@ -62,7 +68,7 @@ where
     {
         // SAFETY: Getting a zero-initialized value is always safe.
         let mut rcl_publisher = unsafe { rcl_get_zero_initialized_publisher() };
-        let type_support =
+        let type_support_ptr =
             <T as Message>::RmwMsg::get_type_support() as *const rosidl_message_type_support_t;
         let topic_c_string = CString::new(topic).map_err(|err| RclrsError::StringContainsNul {
             err,
@@ -82,7 +88,7 @@ where
             rcl_publisher_init(
                 &mut rcl_publisher,
                 rcl_node,
-                type_support,
+                type_support_ptr,
                 topic_c_string.as_ptr(),
                 &publisher_options,
             )
@@ -92,6 +98,7 @@ where
         Ok(Self {
             rcl_publisher_mtx: Mutex::new(rcl_publisher),
             rcl_node_mtx: Arc::clone(&node.rcl_node_mtx),
+            type_support_ptr,
             message: PhantomData,
         })
     }
@@ -142,6 +149,57 @@ where
             )
             .ok()
         }
+    }
+}
+
+impl<T> Publisher<T>
+where
+    T: RmwMessage,
+{
+    /// Obtains a writable handle to a message owned by the middleware.
+    ///
+    /// This lets the middleware control how and where to allocate memory for the
+    /// message.
+    /// The purpose of this is typically to achieve *zero-copy communication* between publishers and
+    /// subscriptions on the same machine: the message is placed directly in a shared memory region,
+    /// and a reference to the same memory is returned by [`Subscription::take_loaned_message()`][1].
+    /// No copying or serialization/deserialization takes place, which is much more efficient,
+    /// especially as the message size grows.
+    ///
+    /// # Conditions for zero-copy communication
+    /// 1. A middleware with support for shared memory is used, e.g. `CycloneDDS` with `iceoryx`
+    /// 1. Shared memory transport is enabled in the middleware configuration
+    /// 1. Publishers and subscriptions are on the same machine
+    /// 1. The message is a "plain old data" type containing no variable-size members, whether bounded or unbounded
+    /// 1. The publisher's QOS settings are compatible with zero-copy, e.g. the [default QOS][2]
+    /// 1. `Publisher::borrow_loaned_message()` and [`Subscription::take_loaned_message()`][1] are used
+    ///
+    /// This function is only implemented for [`RmwMessage`]s since the "idiomatic" message type
+    /// does not have a typesupport library.
+    ///
+    /// [1]: crate::Subscription::take_loaned_message
+    /// [2]: crate::QOS_PROFILE_DEFAULT
+    //
+    // TODO: Explain more, e.g.
+    // - Zero-copy communication between rclcpp and rclrs possible?
+    // - What errors occur when?
+    // - What happens when only *some* subscribers are local?
+    // - What QOS settings are required exactly? https://cyclonedds.io/docs/cyclonedds/latest/shared_memory.html
+    pub fn borrow_loaned_message(&self) -> Result<LoanedMessage<'_, T>, RclrsError> {
+        let mut msg_ptr = std::ptr::null_mut();
+        unsafe {
+            // SAFETY: msg_ptr contains a null ptr as expected by this function.
+            rcl_borrow_loaned_message(
+                &*self.rcl_publisher_mtx.lock().unwrap(),
+                self.type_support_ptr,
+                &mut msg_ptr,
+            )
+            .ok()?;
+        }
+        Ok(LoanedMessage {
+            publisher: self,
+            msg_ptr: msg_ptr as *mut T,
+        })
     }
 }
 
