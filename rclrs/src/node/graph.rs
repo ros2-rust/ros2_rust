@@ -38,7 +38,7 @@ impl Drop for rcutils_string_array_t {
 pub type TopicNamesAndTypes = HashMap<String, Vec<String>>;
 
 /// Stores a node's name and namespace
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct NodeNameInfo {
     /// The name of the node
     pub name: String,
