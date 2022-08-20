@@ -276,6 +276,7 @@ impl NodeBuilder {
             rcl_node_mtx,
             rcl_context_mtx: self.context.clone(),
             clients: vec![],
+            guard_conditions: vec![],
             services: vec![],
             subscriptions: vec![],
             _parameter_map,

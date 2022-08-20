@@ -49,13 +49,14 @@ pub use rcl_bindings::rmw_request_id_t;
 pub fn spin_once(node: &Node, timeout: Option<Duration>) -> Result<(), RclrsError> {
     let live_subscriptions = node.live_subscriptions();
     let live_clients = node.live_clients();
+    let live_guard_conditions = node.live_guard_conditions();
     let live_services = node.live_services();
     let ctx = Context {
         rcl_context_mtx: node.rcl_context_mtx.clone(),
     };
     let mut wait_set = WaitSet::new(
         live_subscriptions.len(),
-        0,
+        live_guard_conditions.len(),
         0,
         live_clients.len(),
         live_services.len(),
@@ -69,6 +70,10 @@ pub fn spin_once(node: &Node, timeout: Option<Duration>) -> Result<(), RclrsErro
 
     for live_client in &live_clients {
         wait_set.add_client(live_client.clone())?;
+    }
+
+    for live_guard_condition in &live_guard_conditions {
+        wait_set.add_guard_condition(live_guard_condition.clone())?;
     }
 
     for live_service in &live_services {
