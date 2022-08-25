@@ -1,18 +1,13 @@
 mod builder;
-mod client;
 mod graph;
-mod publisher;
-mod service;
-mod subscription;
 pub use self::builder::*;
-pub use self::client::*;
 pub use self::graph::*;
-pub use self::publisher::*;
-pub use self::service::*;
-pub use self::subscription::*;
 
 use crate::rcl_bindings::*;
-use crate::{Context, ParameterOverrideMap, QoSProfile, RclrsError, ToResult};
+use crate::{
+    Client, ClientBase, Context, ParameterOverrideMap, Publisher, QoSProfile, RclrsError, Service,
+    ServiceBase, Subscription, SubscriptionBase, ToResult,
+};
 
 use std::cmp::PartialEq;
 use std::ffi::CStr;
@@ -70,7 +65,7 @@ unsafe impl Send for rcl_node_t {}
 /// [3]: crate::NodeBuilder::new
 /// [4]: crate::NodeBuilder::namespace
 pub struct Node {
-    rcl_node_mtx: Arc<Mutex<rcl_node_t>>,
+    pub(crate) rcl_node_mtx: Arc<Mutex<rcl_node_t>>,
     pub(crate) rcl_context_mtx: Arc<Mutex<rcl_context_t>>,
     pub(crate) clients: Vec<Weak<dyn ClientBase>>,
     pub(crate) services: Vec<Weak<dyn ServiceBase>>,
@@ -184,14 +179,11 @@ impl Node {
     ///
     /// [1]: crate::Client
     // TODO: make client's lifetime depend on node's lifetime
-    pub fn create_client<T>(
-        &mut self,
-        topic: &str,
-    ) -> Result<Arc<crate::node::client::Client<T>>, RclrsError>
+    pub fn create_client<T>(&mut self, topic: &str) -> Result<Arc<Client<T>>, RclrsError>
     where
         T: rosidl_runtime_rs::Service,
     {
-        let client = Arc::new(crate::node::client::Client::<T>::new(self, topic)?);
+        let client = Arc::new(Client::<T>::new(self, topic)?);
         self.clients
             .push(Arc::downgrade(&client) as Weak<dyn ClientBase>);
         Ok(client)
@@ -220,14 +212,12 @@ impl Node {
         &mut self,
         topic: &str,
         callback: F,
-    ) -> Result<Arc<crate::node::service::Service<T>>, RclrsError>
+    ) -> Result<Arc<Service<T>>, RclrsError>
     where
         T: rosidl_runtime_rs::Service,
         F: Fn(&rmw_request_id_t, T::Request) -> T::Response + 'static + Send,
     {
-        let service = Arc::new(crate::node::service::Service::<T>::new(
-            self, topic, callback,
-        )?);
+        let service = Arc::new(Service::<T>::new(self, topic, callback)?);
         self.services
             .push(Arc::downgrade(&service) as Weak<dyn ServiceBase>);
         Ok(service)
