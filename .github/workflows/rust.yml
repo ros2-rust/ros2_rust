@@ -95,7 +95,7 @@ jobs:
     - name: Run cargo test on Rust packages
       run: |
         cd ${{ steps.build.outputs.ros-workspace-directory-name }}
-        . /opt/ros/${{ matrix.ros_distribution }}/setup.sh
+        . install/setup.sh
         for path in $(colcon list | awk '$3 == "(ament_cargo)" && $1 != "examples_rclrs_minimal_pub_sub" && $1 != "examples_rclrs_minimal_client_service" { print $2 }'); do
         cd $path
         echo "Running cargo test in $path"
