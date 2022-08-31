@@ -200,9 +200,7 @@ impl Node {
     }
 
     /// Returns a list of all node names with enclaves.
-    pub fn get_node_names_with_enclaves(
-        &self,
-    ) -> Result<Vec<(String, String, String)>, RclrsError> {
+    pub fn get_node_names_with_enclaves(&self) -> Result<Vec<(NodeNameInfo, String)>, RclrsError> {
         // SAFETY: Getting a zero-initialized value is always safe
         let (mut rcl_names, mut rcl_namespaces, mut rcl_enclaves) = unsafe {
             (
@@ -241,8 +239,10 @@ impl Node {
             .zip(enclaves_slice.iter())
             .map(|((name, namespace), enclave)| unsafe {
                 (
-                    CStr::from_ptr(*name).to_string_lossy().into_owned(),
-                    CStr::from_ptr(*namespace).to_string_lossy().into_owned(),
+                    NodeNameInfo {
+                        name: CStr::from_ptr(*name).to_string_lossy().into_owned(),
+                        namespace: CStr::from_ptr(*namespace).to_string_lossy().into_owned(),
+                    },
                     CStr::from_ptr(*enclave).to_string_lossy().into_owned(),
                 )
             })
@@ -528,26 +528,30 @@ mod tests {
 
         let names_and_namespaces = node.get_node_names().unwrap();
 
-        assert_eq!(
-            names_and_namespaces,
-            vec![NodeNameInfo {
-                name: node_name.to_string(),
-                namespace: "/".to_string()
-            }]
-        );
+        // The tests are executed in parallel, so we might see some other nodes
+        // in here. That's why we can't use assert_eq.
+        assert!(names_and_namespaces.contains(&NodeNameInfo {
+            name: node_name.to_string(),
+            namespace: "/".to_string()
+        }));
     }
 
     #[test]
     fn test_node_names_with_enclaves() {
         let context = Context::new([]).unwrap();
-        let node_name = "test_node_names";
+        let node_name = "test_node_names_with_enclaves";
         let node = Node::new(&context, node_name).unwrap();
 
         let names_and_namespaces = node.get_node_names_with_enclaves().unwrap();
 
-        assert_eq!(
-            names_and_namespaces,
-            vec![(node_name.to_string(), "/".to_string(), "/".to_string())]
-        );
+        // The tests are executed in parallel, so we might see some other nodes
+        // in here. That's why we can't use assert_eq.
+        assert!(names_and_namespaces.contains(&(
+            NodeNameInfo {
+                name: node_name.to_string(),
+                namespace: "/".to_string()
+            },
+            "/".to_string()
+        )));
     }
 }
