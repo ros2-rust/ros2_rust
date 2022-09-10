@@ -22,7 +22,12 @@ When linking to documents from the ROS 2 ecosystem, always use the a link that r
 
 ### Unsafe code
 Keep `unsafe` blocks as small as possible.
-Annotate every `unsafe` block with a `// SAFETY:` comment explaining why its safety preconditions are met.
+
+Annotate every `unsafe` block with a `// SAFETY:` comment explaining why it is safe. For function calls, that should cover the function's preconditions, if any, and any other interesting considerations. For instance, if you'd call [`rcl_context_get_init_options()`](https://github.com/ros2/rcl/blob/4b125b1af0e2e2c8c7dd0c8e18b5a8d36709058c/rcl/include/rcl/context.h#L217), the comment should explain whether the pointer that is returned by the function needs to be freed by the caller later, which hinges on whether it's a deep copy of the init options stored inside the context. If it's not a deep copy, it should be explained how it is guaranteed that the init options pointer does not outlive the context (e.g. because it is immediately converted to an owned type).
+
+In many cases, the only precondition is that the function arguments are valid pointers, which is trivially true if they are created from references. In such cases, a very brief safety comment such as "pointers are trivially valid" is sufficient.
+
+Inside `unsafe` functions, you can use `/* unsafe */` comments as a substitute for the `unsafe` keyword.
 
 ### Formatting
 Use `cargo fmt` to format code.
