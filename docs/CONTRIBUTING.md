@@ -87,6 +87,13 @@ This does _not_ mean that
 In summary, understand the context of the features that you port, in order to avoid [_cargo-culting_](https://en.wikipedia.org/wiki/Cargo_cult_programming), and to be mindful of [Chesterton's fence](https://en.wiktionary.org/wiki/Chesterton%27s_fence).
 
 
+## Reviewing code
+
+When reviewing pull requests, try to understand and give feedback on the high-level design first, before commenting on coding style, safety comments and such.
+
+Use the "changes requested" status sparingly, and instead consider simply leaving comments. This enables other reviewers to approve the pull requests when they see that all requested changes have been made. Conversely, if you are a reviewer and see that someone else has left comments requesting changes, it's expected that you ensure that all of them have been addressed before you approve.
+
+
 ## License
 Any contribution that you make to this repository will
 be under the Apache 2 License, as dictated by that
