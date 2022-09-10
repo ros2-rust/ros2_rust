@@ -9,6 +9,8 @@ There are also occasional ROS 2 Rust WG meetings that are announced on the [ROS 
 ## Coding guidelines
 This section is not comprehensive, and conventions from the broader Rust community should be followed.
 
+If you're looking for resources to learn idiomatic Rust, a good starting point is https://github.com/mre/idiomatic-rust.
+
 Use `cargo clippy` to check that code is idiomatic.
 
 ### Documentation
