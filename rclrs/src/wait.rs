@@ -59,6 +59,15 @@ impl Drop for rcl_wait_set_t {
     }
 }
 
+// SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
+// they are running in. Therefore, this type can be safely sent to another thread.
+unsafe impl Send for rcl_wait_set_t {}
+
+// SAFETY: While the rcl_wait_set_t does have some interior mutability (because it has
+// members of non-const pointer type), this interior mutability is hidden/not used by
+// the WaitSet type. Therefore, sharing &WaitSet between threads does not risk data races.
+unsafe impl Sync for WaitSet {}
+
 impl WaitSet {
     /// Creates a new wait set.
     ///
@@ -285,5 +294,19 @@ impl WaitSet {
             }
         }
         Ok(ready_entities)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn assert_send<T: Send>() {}
+    fn assert_sync<T: Sync>() {}
+
+    #[test]
+    fn wait_set_is_send_and_sync() {
+        assert_send::<WaitSet>();
+        assert_sync::<WaitSet>();
     }
 }

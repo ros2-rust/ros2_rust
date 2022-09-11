@@ -65,6 +65,12 @@ where
     }
 }
 
+// SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
+// they are running in. Therefore, this type can be safely sent to another thread.
+unsafe impl<'a, T> Send for LoanedMessage<'a, T> where T: RmwMessage {}
+// SAFETY: There is no interior mutability in this type. All mutation happens through &mut references.
+unsafe impl<'a, T> Sync for LoanedMessage<'a, T> where T: RmwMessage {}
+
 impl<'a, T> LoanedMessage<'a, T>
 where
     T: RmwMessage,

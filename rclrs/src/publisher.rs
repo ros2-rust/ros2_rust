@@ -55,6 +55,13 @@ where
     }
 }
 
+// SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
+// they are running in. Therefore, this type can be safely sent to another thread.
+unsafe impl<T> Send for Publisher<T> where T: Message {}
+// SAFETY: The type_support_ptr prevents the default Sync impl.
+// rosidl_message_type_support_t is a read-only type without interior mutability.
+unsafe impl<T> Sync for Publisher<T> where T: Message {}
+
 impl<T> Publisher<T>
 where
     T: Message,
