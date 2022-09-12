@@ -328,3 +328,17 @@ unsafe fn call_string_getter_with_handle(
     let cstr = CStr::from_ptr(char_ptr);
     cstr.to_string_lossy().into_owned()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn assert_send<T: Send>() {}
+    fn assert_sync<T: Sync>() {}
+
+    #[test]
+    fn node_is_send_and_sync() {
+        assert_send::<Node>();
+        assert_sync::<Node>();
+    }
+}

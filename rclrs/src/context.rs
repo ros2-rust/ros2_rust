@@ -120,6 +120,15 @@ impl Context {
 mod tests {
     use super::*;
 
+    fn assert_send<T: Send>() {}
+    fn assert_sync<T: Sync>() {}
+
+    #[test]
+    fn context_is_send_and_sync() {
+        assert_send::<Context>();
+        assert_sync::<Context>();
+    }
+
     #[test]
     fn test_create_context() -> Result<(), RclrsError> {
         // If the context fails to be created, this will cause a panic
