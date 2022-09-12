@@ -6,7 +6,7 @@ pub use self::graph::*;
 use crate::rcl_bindings::*;
 use crate::{
     Client, ClientBase, Context, ParameterOverrideMap, Publisher, QoSProfile, RclrsError, Service,
-    ServiceBase, Subscription, SubscriptionBase, ToResult,
+    ServiceBase, Subscription, SubscriptionBase, SubscriptionCallback, ToResult,
 };
 
 use std::cmp::PartialEq;
@@ -227,15 +227,14 @@ impl Node {
     ///
     /// [1]: crate::Subscription
     // TODO: make subscription's lifetime depend on node's lifetime
-    pub fn create_subscription<T, F>(
+    pub fn create_subscription<T, Args>(
         &mut self,
         topic: &str,
         qos: QoSProfile,
-        callback: F,
+        callback: impl SubscriptionCallback<T, Args>,
     ) -> Result<Arc<Subscription<T>>, RclrsError>
     where
         T: Message,
-        F: FnMut(T) + 'static + Send,
     {
         let subscription = Arc::new(Subscription::<T>::new(self, topic, qos, callback)?);
         self.subscriptions
