@@ -1,0 +1,111 @@
+name: Windows
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-windows:
+    strategy:
+      matrix:
+        ros_distribution:
+          - foxy
+    runs-on: windows-2019
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Setup ROS environment
+      uses: ros-tooling/setup-ros@v0.3
+      with:
+        required-ros-distributions: ${{ matrix.ros_distribution }}
+        
+    - name: Search packages in this repository
+      id: list_packages
+      run: |
+        echo ::set-output name=package_list::$(colcon list --names-only)
+      shell: bash
+
+    - name: Setup Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        profile: minimal
+        toolchain: stable
+        override: true
+        components: clippy, rustfmt
+
+    - name: Install colcon-cargo and colcon-ros-cargo
+      run: |
+        C:\hostedtoolcache\windows\Python\3.7.9\x64\Scripts\pip3.exe install git+https://github.com/colcon/colcon-cargo.git
+        C:\hostedtoolcache\windows\Python\3.7.9\x64\Scripts\pip3.exe install git+https://github.com/colcon/colcon-ros-cargo.git@fix_windows
+        rosdep update
+
+    - name: Check formatting of Rust packages
+      run: |
+        for path in $(colcon list | awk '$3 == "(ament_cargo)" { print $2 }'); do
+        cd $path
+        cargo fmt -- --check
+        cd -
+        done
+      shell: bash
+
+    - name: Install cargo-ament-build
+      run: |
+        cargo install --debug cargo-ament-build
+
+    - name: Add clang path to $PATH env
+      shell: bash
+      if: runner.os == 'Windows'
+      run: echo "PATH=$PATH:C:\msys64\mingw64\bin" >> $GITHUB_ENV
+
+    - name: Echo package list
+      shell: bash
+      run: echo ${{ steps.list_packages.outputs.package_list }}
+
+    - name: Build and test
+      id: build
+      uses: ros-tooling/action-ros-ci@master
+      with:
+        package-name: ${{ steps.list_packages.outputs.package_list }}
+        target-ros2-distro: ${{ matrix.ros_distribution }}
+        vcs-repo-file-url: ros2_rust_${{ matrix.ros_distribution }}.repos
+
+    - name: Run clippy on Rust packages
+      run: |
+        cd ${{ steps.build.outputs.ros-workspace-directory-name }}
+        . /opt/ros/${{ matrix.ros_distribution }}/setup.sh
+        for path in $(colcon list | awk '$3 == "(ament_cargo)" { print $2 }'); do
+        cd $path
+        echo "Running clippy in $path"
+        cargo clippy --all-targets --all-features -- -D warnings
+        cd -
+        done
+      shell: bash
+
+    - name: Run cargo test on Rust packages
+      run: |
+        cd ${{ steps.build.outputs.ros-workspace-directory-name }}
+        . /opt/ros/${{ matrix.ros_distribution }}/setup.sh
+        for path in $(colcon list | awk '$3 == "(ament_cargo)" && $1 != "examples_rclrs_minimal_pub_sub" && $1 != "examples_rclrs_minimal_client_service" { print $2 }'); do
+        cd $path
+        echo "Running cargo test in $path"
+        cargo test
+        cd -
+        done
+      shell: bash
+
+    - name: Rustdoc check
+      run: |
+        cd ${{ steps.build.outputs.ros-workspace-directory-name }}
+        . /opt/ros/${{ matrix.ros_distribution }}/setup.sh
+        for path in $(colcon list | awk '$3 == "(ament_cargo)" && $1 != "examples_rclrs_minimal_pub_sub" && $1 != "examples_rclrs_minimal_client_service" { print $2 }'); do
+        cd $path
+        echo "Running rustdoc check in $path"
+        cargo rustdoc -- -D warnings
+        cd -
+        done
+      shell: bash

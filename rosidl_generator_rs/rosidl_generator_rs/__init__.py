@@ -81,6 +81,9 @@ def generate_rs(generator_arguments_file, typesupport_impls):
         idl_file = parse_idl_file(locator)
         idl_content.elements += idl_file.content.elements
 
+    import sys; print("XYZ ros_interface_dependencies =", args.get('ros_interface_dependencies', []), file=sys.stderr)
+    import sys; print("XYZ dependency_packages =", dependency_packages, file=sys.stderr)
+
     typesupport_impls = typesupport_impls.split(';')
 
     template_dir = args['template_dir']
