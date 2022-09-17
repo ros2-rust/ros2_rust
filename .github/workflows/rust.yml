@@ -99,7 +99,7 @@ jobs:
         for path in $(colcon list | awk '$3 == "(ament_cargo)" && $1 != "examples_rclrs_minimal_pub_sub" && $1 != "examples_rclrs_minimal_client_service" { print $2 }'); do
         cd $path
         echo "Running cargo test in $path"
-        cargo test
+        cargo test --all-features
         cd -
         done
 
