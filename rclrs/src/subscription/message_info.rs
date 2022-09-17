@@ -80,6 +80,7 @@ pub struct MessageInfo {
     ///   received messages.
     ///   Those might have already been taken by other messages that were received in between or lost.
     ///   `psn2 - psn1 - 1 = 0` if and only if the messages were sent by the publisher consecutively.
+    #[cfg(all(not(ros_distro = "foxy"), not(ros_distro = "galactic")))]
     pub publication_sequence_number: u64,
     /// Sequence number of the received message set by the subscription.
     ///
@@ -97,6 +98,7 @@ pub struct MessageInfo {
     ///
     /// - `rsn2 > rsn1` (except in the case of a wrap around)
     /// - `rsn2 = rsn1 + 1` if and only if both messages were received consecutively.
+    #[cfg(all(not(ros_distro = "foxy"), not(ros_distro = "galactic")))]
     pub reception_sequence_number: u64,
     /// An identifier for the publisher that sent the message.
     pub publisher_gid: PublisherGid,
@@ -121,7 +123,9 @@ impl MessageInfo {
         Self {
             source_timestamp,
             received_timestamp,
+            #[cfg(all(not(ros_distro = "foxy"), not(ros_distro = "galactic")))]
             publication_sequence_number: rmw_message_info.publication_sequence_number,
+            #[cfg(all(not(ros_distro = "foxy"), not(ros_distro = "galactic")))]
             reception_sequence_number: rmw_message_info.reception_sequence_number,
             publisher_gid,
         }
@@ -132,6 +136,7 @@ impl MessageInfo {
 mod tests {
     use super::*;
 
+    #[cfg(all(not(ros_distro = "foxy"), not(ros_distro = "galactic")))]
     #[test]
     fn negative_durations() {
         let rmw_message_info = rmw_message_info_t {

@@ -88,25 +88,26 @@ mod tests {
 
     #[test]
     fn callback_conversion() {
-        let cb = |s: String| {};
+        struct Message;
+        let cb = |_msg: Message| {};
         assert!(matches!(
             cb.into_callback(),
-            AnySubscriptionCallback::<String>::Regular(_)
+            AnySubscriptionCallback::<Message>::Regular(_)
         ));
-        let cb = |s: String, mi: MessageInfo| {};
+        let cb = |_msg: Message, _info: MessageInfo| {};
         assert!(matches!(
             cb.into_callback(),
-            AnySubscriptionCallback::<String>::RegularWithMessageInfo(_)
+            AnySubscriptionCallback::<Message>::RegularWithMessageInfo(_)
         ));
-        let cb = |s: Box<String>| {};
+        let cb = |_msg: Box<Message>| {};
         assert!(matches!(
             cb.into_callback(),
-            AnySubscriptionCallback::<String>::Boxed(_)
+            AnySubscriptionCallback::<Message>::Boxed(_)
         ));
-        let cb = |s: Box<String>, mi: MessageInfo| {};
+        let cb = |_msg: Box<Message>, _info: MessageInfo| {};
         assert!(matches!(
             cb.into_callback(),
-            AnySubscriptionCallback::<String>::BoxedWithMessageInfo(_)
+            AnySubscriptionCallback::<Message>::BoxedWithMessageInfo(_)
         ));
     }
 }
