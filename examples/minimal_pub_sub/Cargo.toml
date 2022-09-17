@@ -21,6 +21,10 @@ path = "src/zero_copy_subscriber.rs"
 name = "zero_copy_publisher"
 path = "src/zero_copy_publisher.rs"
 
+[[bin]]
+name = "publisher_member_function"
+path = "src/publisher_member_function.rs"
+
 [dependencies]
 anyhow = {version = "1", features = ["backtrace"]}
 
