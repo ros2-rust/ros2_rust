@@ -3,7 +3,6 @@ use crate::qos::QoSProfile;
 use crate::Node;
 use crate::{rcl_bindings::*, RclrsError};
 
-use std::boxed::Box;
 use std::ffi::CStr;
 use std::ffi::CString;
 use std::marker::PhantomData;
@@ -12,7 +11,11 @@ use std::sync::{Arc, Mutex, MutexGuard};
 
 use rosidl_runtime_rs::{Message, RmwMessage};
 
+mod callback;
+mod message_info;
 mod readonly_loaned_message;
+pub use callback::*;
+pub use message_info::*;
 pub use readonly_loaned_message::*;
 
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
@@ -71,7 +74,7 @@ where
 {
     pub(crate) handle: Arc<SubscriptionHandle>,
     /// The callback function that runs when a message was received.
-    pub callback: Mutex<Box<dyn FnMut(T) + 'static + Send>>,
+    pub callback: Mutex<AnySubscriptionCallback<T>>,
     message: PhantomData<T>,
 }
 
@@ -80,17 +83,16 @@ where
     T: Message,
 {
     /// Creates a new subscription.
-    pub(crate) fn new<F>(
+    pub(crate) fn new<Args>(
         node: &Node,
         topic: &str,
         qos: QoSProfile,
-        callback: F,
+        callback: impl SubscriptionCallback<T, Args>,
     ) -> Result<Self, RclrsError>
     // This uses pub(crate) visibility to avoid instantiating this struct outside
     // [`Node::create_subscription`], see the struct's documentation for the rationale
     where
         T: Message,
-        F: FnMut(T) + 'static + Send,
     {
         // SAFETY: Getting a zero-initialized value is always safe.
         let mut rcl_subscription = unsafe { rcl_get_zero_initialized_subscription() };
@@ -129,7 +131,7 @@ where
 
         Ok(Self {
             handle,
-            callback: Mutex::new(Box::new(callback)),
+            callback: Mutex::new(callback.into_callback()),
             message: PhantomData,
         })
     }
@@ -171,8 +173,30 @@ where
     // |  rmw_take   |
     // +-------------+
     // ```
-    pub fn take(&self) -> Result<T, RclrsError> {
+    pub fn take(&self) -> Result<(T, MessageInfo), RclrsError> {
         let mut rmw_message = <T as Message>::RmwMsg::default();
+        let message_info = self.take_inner(&mut rmw_message)?;
+        Ok((T::from_rmw_message(rmw_message), message_info))
+    }
+
+    /// This is a version of take() that returns a boxed message.
+    ///
+    /// This can be more efficient for messages containing large arrays.
+    pub fn take_boxed(&self) -> Result<(Box<T>, MessageInfo), RclrsError> {
+        let mut rmw_message = Box::new(<T as Message>::RmwMsg::default());
+        let message_info = self.take_inner(&mut *rmw_message)?;
+        // TODO: This will still use the stack in general. Change signature of
+        // from_rmw_message to allow placing the result in a Box directly.
+        let message = Box::new(T::from_rmw_message(*rmw_message));
+        Ok((message, message_info))
+    }
+
+    // Inner function, to be used by both regular and boxed versions.
+    fn take_inner(
+        &self,
+        rmw_message: &mut <T as Message>::RmwMsg,
+    ) -> Result<MessageInfo, RclrsError> {
+        let mut message_info = unsafe { rmw_get_zero_initialized_message_info() };
         let rcl_subscription = &mut *self.handle.lock();
         unsafe {
             // SAFETY: The first two pointers are valid/initialized, and do not need to be valid
@@ -180,13 +204,13 @@ where
             // The latter two pointers are explicitly allowed to be NULL.
             rcl_take(
                 rcl_subscription,
-                &mut rmw_message as *mut <T as Message>::RmwMsg as *mut _,
-                std::ptr::null_mut(),
+                rmw_message as *mut <T as Message>::RmwMsg as *mut _,
+                &mut message_info,
                 std::ptr::null_mut(),
             )
             .ok()?
         };
-        Ok(T::from_rmw_message(rmw_message))
+        Ok(MessageInfo::from_rmw_message_info(&message_info))
     }
 }
 
@@ -233,19 +257,38 @@ where
     }
 
     fn execute(&self) -> Result<(), RclrsError> {
-        let msg = match self.take() {
-            Ok(msg) => msg,
+        // Immediately evaluated closure, to handle SubscriptionTakeFailed
+        // outside this match
+        match (|| {
+            match &mut *self.callback.lock().unwrap() {
+                AnySubscriptionCallback::Regular(cb) => {
+                    let (msg, _) = self.take()?;
+                    cb(msg)
+                }
+                AnySubscriptionCallback::Boxed(cb) => {
+                    let (msg, _) = self.take_boxed()?;
+                    cb(msg)
+                }
+                AnySubscriptionCallback::RegularWithMessageInfo(cb) => {
+                    let (msg, msg_info) = self.take()?;
+                    cb(msg, msg_info)
+                }
+                AnySubscriptionCallback::BoxedWithMessageInfo(cb) => {
+                    let (msg, msg_info) = self.take_boxed()?;
+                    cb(msg, msg_info)
+                }
+            }
+            Ok(())
+        })() {
             Err(RclrsError::RclError {
                 code: RclReturnCode::SubscriptionTakeFailed,
                 ..
             }) => {
                 // Spurious wakeup – this may happen even when a waitset indicated that this
                 // subscription was ready, so it shouldn't be an error.
-                return Ok(());
+                Ok(())
             }
-            Err(e) => return Err(e),
-        };
-        (*self.callback.lock().unwrap())(msg);
-        Ok(())
+            other => other,
+        }
     }
 }

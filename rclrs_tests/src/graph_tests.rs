@@ -88,17 +88,17 @@ fn test_subscriptions() -> Result<(), RclrsError> {
     let _node_1_defaults_subscription = graph.node1.create_subscription::<msg::Defaults, _>(
         "graph_test_topic_3",
         QOS_PROFILE_SYSTEM_DEFAULT,
-        |_msg| {},
+        |_msg: msg::Defaults| {},
     )?;
     let _node_2_empty_subscription = graph.node2.create_subscription::<msg::Empty, _>(
         "graph_test_topic_1",
         QOS_PROFILE_SYSTEM_DEFAULT,
-        |_msg| {},
+        |_msg: msg::Empty| {},
     )?;
     let _node_2_basic_types_subscription = graph.node2.create_subscription::<msg::BasicTypes, _>(
         "graph_test_topic_2",
         QOS_PROFILE_SYSTEM_DEFAULT,
-        |_msg| {},
+        |_msg: msg::BasicTypes| {},
     )?;
 
     std::thread::sleep(std::time::Duration::from_millis(100));
@@ -149,17 +149,17 @@ fn test_topic_names_and_types() -> Result<(), RclrsError> {
     let _node_1_defaults_subscription = graph.node1.create_subscription::<msg::Defaults, _>(
         "graph_test_topic_3",
         QOS_PROFILE_SYSTEM_DEFAULT,
-        |_msg| {},
+        |_msg: msg::Defaults| {},
     )?;
     let _node_2_empty_subscription = graph.node2.create_subscription::<msg::Empty, _>(
         "graph_test_topic_1",
         QOS_PROFILE_SYSTEM_DEFAULT,
-        |_msg| {},
+        |_msg: msg::Empty| {},
     )?;
     let _node_2_basic_types_subscription = graph.node2.create_subscription::<msg::BasicTypes, _>(
         "graph_test_topic_2",
         QOS_PROFILE_SYSTEM_DEFAULT,
-        |_msg| {},
+        |_msg: msg::BasicTypes| {},
     )?;
 
     std::thread::sleep(std::time::Duration::from_millis(100));
