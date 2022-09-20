@@ -52,7 +52,7 @@ jobs:
         required-ros-distributions: ${{ matrix.ros_distribution }}
 
     - name: Setup Rust
-      uses: dtolnay/rust-toolchain@stable
+      uses: dtolnay/rust-toolchain@1.63.0
       with:
         components: clippy, rustfmt
 
