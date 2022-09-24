@@ -179,12 +179,13 @@ where
     /// 1. Publishers and subscriptions are on the same machine
     /// 1. The message is a "plain old data" type containing no variable-size members, whether bounded or unbounded
     /// 1. The publisher's QOS settings are compatible with zero-copy, e.g. the [default QOS][2]
-    /// 1. `Publisher::borrow_loaned_message()` and [`Subscription::take_loaned_message()`][1] are used
+    /// 1. `Publisher::borrow_loaned_message()` is used and the subscription uses a callback taking a
+    ///    [`ReadOnlyLoanedMessage`][1]
     ///
     /// This function is only implemented for [`RmwMessage`]s since the "idiomatic" message type
     /// does not have a typesupport library.
     ///
-    /// [1]: crate::Subscription::take_loaned_message
+    /// [1]: crate::ReadOnlyLoanedMessage
     /// [2]: crate::QOS_PROFILE_DEFAULT
     //
     // TODO: Explain more, e.g.
