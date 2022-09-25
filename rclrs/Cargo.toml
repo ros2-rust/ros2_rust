@@ -6,6 +6,7 @@ authors = ["Esteve Fernandez <esteve@apache.org>", "Nikolai Morin <nnmmgit@gmail
 edition = "2021"
 license = "Apache-2.0"
 description = "A ROS 2 client library for developing robotics applications in Rust"
+rust-version = "1.63"
 
 [lib]
 path = "src/lib.rs"
