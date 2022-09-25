@@ -9,7 +9,7 @@ fn main() -> Result<(), Error> {
 
     let mut num_messages: usize = 0;
 
-    let _subscription = node.create_subscription::<std_msgs::msg::UInt32, _>(
+    let _subscription = node.create_subscription(
         "topic",
         rclrs::QOS_PROFILE_DEFAULT,
         move |msg: std_msgs::msg::UInt32| {
