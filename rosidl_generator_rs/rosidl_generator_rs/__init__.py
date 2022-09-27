@@ -243,28 +243,14 @@ def primitive_value_to_rs(type_, value):
 def constant_value_to_rs(type_, value):
     assert value is not None
 
-    if type_ == 'bool':
-        return 'true' if value else 'false'
-
-    if type_ in [
-            'byte',
-            'char',
-            'int8',
-            'uint8',
-            'int16',
-            'uint16',
-            'int32',
-            'uint32',
-            'int64',
-            'uint64',
-            'float64',
-    ]:
+    if isinstance(type_, BasicType):
+        if type_.typename == 'boolean':
+            return 'true' if value else 'false'
+        elif type_.typename == 'float32':
+            return '%sf' % value
         return str(value)
 
-    if type_ == 'float32':
-        return '%sf' % value
-
-    if type_ == 'string':
+    if isinstance(type_, AbstractGenericString):
         return '"%s"' % escape_string(value)
 
     assert False, "unknown constant type '%s'" % type_
