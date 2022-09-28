@@ -12,7 +12,7 @@ fn main() -> Result<(), Error> {
     let _subscription = node.create_subscription::<std_msgs::msg::UInt32, _>(
         "topic",
         rclrs::QOS_PROFILE_DEFAULT,
-        move |msg: std_msgs::msg::UInt32| {
+        move |msg: rclrs::ReadOnlyLoanedMessage<'_, std_msgs::msg::UInt32>| {
             num_messages += 1;
             println!("I heard: '{}'", msg.data);
             println!("(Got {} messages so far)", num_messages);
