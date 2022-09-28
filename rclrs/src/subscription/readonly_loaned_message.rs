@@ -1,30 +1,33 @@
 use crate::rcl_bindings::*;
 use crate::{Subscription, ToResult};
 
-use rosidl_runtime_rs::RmwMessage;
+use rosidl_runtime_rs::Message;
 
 use std::ops::Deref;
 
 /// A message that is owned by the middleware, loaned out for reading.
 ///
-/// It dereferences to a `&T`.
+/// It dereferences to a `&T::RmwMsg`. That is, if `T` is already an RMW-native
+/// message, it's the same as `&T`, and otherwise it's the corresponding RMW-native
+/// message.
 ///
-/// This type is returned by [`Subscription::take_loaned_message()`].
+/// This type is returned by [`Subscription::take_loaned()`] and may be used in
+/// subscription callbacks.
 ///
 /// The loan is returned by dropping the `ReadOnlyLoanedMessage`.
 pub struct ReadOnlyLoanedMessage<'a, T>
 where
-    T: RmwMessage,
+    T: Message,
 {
-    pub(super) msg_ptr: *const T,
+    pub(super) msg_ptr: *const T::RmwMsg,
     pub(super) subscription: &'a Subscription<T>,
 }
 
 impl<'a, T> Deref for ReadOnlyLoanedMessage<'a, T>
 where
-    T: RmwMessage,
+    T: Message,
 {
-    type Target = T;
+    type Target = T::RmwMsg;
     fn deref(&self) -> &Self::Target {
         unsafe { &*self.msg_ptr }
     }
@@ -32,7 +35,7 @@ where
 
 impl<'a, T> Drop for ReadOnlyLoanedMessage<'a, T>
 where
-    T: RmwMessage,
+    T: Message,
 {
     fn drop(&mut self) {
         unsafe {
@@ -48,6 +51,6 @@ where
 
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
 // they are running in. Therefore, this type can be safely sent to another thread.
-unsafe impl<'a, T> Send for ReadOnlyLoanedMessage<'a, T> where T: RmwMessage {}
+unsafe impl<'a, T> Send for ReadOnlyLoanedMessage<'a, T> where T: Message {}
 // SAFETY: This type has no interior mutability, in fact it has no mutability at all.
-unsafe impl<'a, T> Sync for ReadOnlyLoanedMessage<'a, T> where T: RmwMessage {}
+unsafe impl<'a, T> Sync for ReadOnlyLoanedMessage<'a, T> where T: Message {}

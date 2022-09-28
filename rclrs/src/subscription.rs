@@ -212,12 +212,7 @@ where
         };
         Ok(MessageInfo::from_rmw_message_info(&message_info))
     }
-}
 
-impl<T> Subscription<T>
-where
-    T: RmwMessage,
-{
     /// Obtains a read-only handle to a message owned by the middleware.
     ///
     /// When there is no new message, this will return a
@@ -228,23 +223,28 @@ where
     ///
     /// [1]: crate::RclrsError
     /// [2]: crate::Publisher::borrow_loaned_message
-    pub fn take_loaned_message(&self) -> Result<ReadOnlyLoanedMessage<'_, T>, RclrsError> {
+    pub fn take_loaned(&self) -> Result<(ReadOnlyLoanedMessage<'_, T>, MessageInfo), RclrsError> {
         let mut msg_ptr = std::ptr::null_mut();
+        let mut message_info = unsafe { rmw_get_zero_initialized_message_info() };
         unsafe {
             // SAFETY: The third argument (message_info) and fourth argument (allocation) may be null.
             // The second argument (loaned_message) contains a null ptr as expected.
             rcl_take_loaned_message(
                 &*self.handle.lock(),
                 &mut msg_ptr,
-                std::ptr::null_mut(),
+                &mut message_info,
                 std::ptr::null_mut(),
             )
             .ok()?;
         }
-        Ok(ReadOnlyLoanedMessage {
-            msg_ptr: msg_ptr as *const T,
+        let read_only_loaned_msg = ReadOnlyLoanedMessage {
+            msg_ptr: msg_ptr as *const T::RmwMsg,
             subscription: self,
-        })
+        };
+        Ok((
+            read_only_loaned_msg,
+            MessageInfo::from_rmw_message_info(&message_info),
+        ))
     }
 }
 
@@ -265,16 +265,24 @@ where
                     let (msg, _) = self.take()?;
                     cb(msg)
                 }
-                AnySubscriptionCallback::Boxed(cb) => {
-                    let (msg, _) = self.take_boxed()?;
-                    cb(msg)
-                }
                 AnySubscriptionCallback::RegularWithMessageInfo(cb) => {
                     let (msg, msg_info) = self.take()?;
                     cb(msg, msg_info)
                 }
+                AnySubscriptionCallback::Boxed(cb) => {
+                    let (msg, _) = self.take_boxed()?;
+                    cb(msg)
+                }
                 AnySubscriptionCallback::BoxedWithMessageInfo(cb) => {
                     let (msg, msg_info) = self.take_boxed()?;
+                    cb(msg, msg_info)
+                }
+                AnySubscriptionCallback::Loaned(cb) => {
+                    let (msg, _) = self.take_loaned()?;
+                    cb(msg)
+                }
+                AnySubscriptionCallback::LoanedWithMessageInfo(cb) => {
+                    let (msg, msg_info) = self.take_loaned()?;
                     cb(msg, msg_info)
                 }
             }
