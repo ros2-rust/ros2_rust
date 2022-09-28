@@ -79,12 +79,12 @@ That means that
 - Features should be built on top of `rcl` by default, instead of re-implementing them from scratch
 
 This does _not_ mean that
-- No variability between languages is allowed. What is easy to do, and what is considered idiomatic, is quite different between languages, and thus ROS 2 allows for considerable variability between client languages.
+- No variability between languages is allowed. What is easy to do, and what is considered idiomatic, is quite different between languages, and thus ROS 2 allows for considerable variability between client languages. Excessively complex designs in C++ or Python may be caused by limitations of such languages and it's best to strive for clean, simple functionality in Rust, possibly leveraging zero-cost abstractions that are unique to the language.
 - Features should always be ported 1:1. Do not rely on the assumption that the best implementation for `rclrs` is whatever `rclcpp` does, but understand the motivation and status of the implementation in the other client libraries. For instance, sometimes a design is implemented incompletely by a client library, the feature is later found to have problems (e.g. the deadlocking of sync client calls in Python), or the client library is constrained by backwards compatibility.
 - Internal consistency does not matter. It does.
 - No deviations from the above guidelines are possible.
 
-In summary, understand the context of the features that you port, in order to avoid [_cargo-culting_](https://en.wikipedia.org/wiki/Cargo_cult_programming), and to be mindful of [Chesterton's fence](https://en.wiktionary.org/wiki/Chesterton%27s_fence).
+In summary, understand the context of the features that you port, in order to avoid [_cargo-culting_](https://en.wikipedia.org/wiki/Cargo_cult_programming).
 
 
 ## Reviewing code
