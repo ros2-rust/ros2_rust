@@ -32,3 +32,10 @@ NestedType[2] nested_array
 NestedType[] nested_seq_unbounded
 NestedType[<=3] nested_seq_bounded
 
+
+# binary, hexadecimal and octal constants are also possible
+int8 TWO_PLUS_TWO = 5
+# Only unbounded strings are possible
+string PASSWORD = "hunter2"
+# As determined by Edward J. Goodwin
+float32 PI = 3.0

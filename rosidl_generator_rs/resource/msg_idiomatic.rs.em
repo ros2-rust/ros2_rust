@@ -1,4 +1,5 @@
 @{
+from rosidl_parser.definition import AbstractGenericString
 from rosidl_parser.definition import Array
 from rosidl_parser.definition import BasicType
 from rosidl_parser.definition import BoundedSequence
@@ -28,6 +29,30 @@ pub struct @(type_name) {
     pub @(get_rs_name(member.name)): @(get_idiomatic_rs_type(member.type)),
 @[end for]@
 }
+
+@[if msg_spec.constants]@
+impl @(type_name) {
+@[for constant in msg_spec.constants]@
+@{
+comments = getattr(constant, 'get_comment_lines', lambda: [])()
+}@
+@[  for line in comments]@
+@[    if line]@
+    /// @(line)
+@[    else]@
+    ///
+@[    end if]@
+@[  end for]@
+@[  if isinstance(constant.type, BasicType)]@
+    pub const @(get_rs_name(constant.name)): @(get_rmw_rs_type(constant.type)) = @(constant_value_to_rs(constant.type, constant.value));
+@[  elif isinstance(constant.type, AbstractGenericString)]@
+    pub const @(get_rs_name(constant.name)): &'static str = @(constant_value_to_rs(constant.type, constant.value));
+@[  else]@
+@{assert False, 'Unhandled constant type: ' + str(constant.type)}@
+@[  end if]@
+@[end for]@
+}
+@[end if]
 
 impl Default for @(type_name) {
   fn default() -> Self {

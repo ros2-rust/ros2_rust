@@ -12,7 +12,8 @@ TEMPLATE(
     package_name=package_name, interface_path=interface_path,
     msg_specs=req_res_specs,
     get_rs_name=get_rs_name, get_rmw_rs_type=get_rmw_rs_type,
-    get_idiomatic_rs_type=get_idiomatic_rs_type)
+    get_idiomatic_rs_type=get_idiomatic_rs_type,
+    constant_value_to_rs=constant_value_to_rs)
 }@
 
 @[for subfolder, srv_spec in srv_specs]
@@ -48,7 +49,8 @@ TEMPLATE(
     package_name=package_name, interface_path=interface_path,
     msg_specs=req_res_specs,
     get_rs_name=get_rs_name, get_rmw_rs_type=get_rmw_rs_type,
-    get_idiomatic_rs_type=get_idiomatic_rs_type)
+    get_idiomatic_rs_type=get_idiomatic_rs_type,
+    constant_value_to_rs=constant_value_to_rs)
 }@
 
 @[for subfolder, srv_spec in srv_specs]
