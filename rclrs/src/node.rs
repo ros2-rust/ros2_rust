@@ -191,7 +191,7 @@ impl Node {
         Ok(client)
     }
 
-    /// Creates a [`GuardCondition`][1].
+    /// Creates a [`GuardCondition`][1] with no callback.
     ///
     /// A weak pointer to the `GuardCondition` is stored within this node.
     /// When this node is added to a wait set (e.g. when calling `spin_once`[2]
@@ -200,12 +200,33 @@ impl Node {
     ///
     /// [1]: crate::GuardCondition
     /// [2]: crate::spin_once
-    pub fn create_guard_condition(
-        &mut self,
-        context: &Context,
-        callback: Option<Box<dyn Fn() + Send + Sync>>,
-    ) -> Arc<GuardCondition> {
-        let guard_condition = Arc::new(GuardCondition::new(context, callback));
+    pub fn create_guard_condition(&mut self) -> Arc<GuardCondition> {
+        let guard_condition = Arc::new(GuardCondition::new_with_rcl_context(
+            &mut self.rcl_context_mtx.lock().unwrap(),
+            None::<fn()>,
+        ));
+        self.guard_conditions
+            .push(Arc::downgrade(&guard_condition) as Weak<GuardCondition>);
+        guard_condition
+    }
+
+    /// Creates a [`GuardCondition`][1] with a callback.
+    ///
+    /// A weak pointer to the `GuardCondition` is stored within this node.
+    /// When this node is added to a wait set (e.g. when calling `spin_once`[2]
+    /// with this node as an argument), the guard condition can be used to
+    /// interrupt the wait.
+    ///
+    /// [1]: crate::GuardCondition
+    /// [2]: crate::spin_once
+    pub fn create_guard_condition_with_callback<F>(&mut self, callback: F) -> Arc<GuardCondition>
+    where
+        F: Fn() + Send + Sync + 'static,
+    {
+        let guard_condition = Arc::new(GuardCondition::new_with_rcl_context(
+            &mut self.rcl_context_mtx.lock().unwrap(),
+            Some(callback),
+        ));
         self.guard_conditions
             .push(Arc::downgrade(&guard_condition) as Weak<GuardCondition>);
         guard_condition

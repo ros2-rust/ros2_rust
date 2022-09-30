@@ -369,7 +369,7 @@ mod tests {
     fn guard_condition_in_wait_set_readies() -> Result<(), RclrsError> {
         let context = Context::new([])?;
 
-        let guard_condition = Arc::new(GuardCondition::new(&context, None));
+        let guard_condition = Arc::new(GuardCondition::new(&context));
 
         let mut wait_set = WaitSet::new(0, 1, 0, 0, 0, 0, &context)?;
         wait_set.add_guard_condition(Arc::clone(&guard_condition))?;

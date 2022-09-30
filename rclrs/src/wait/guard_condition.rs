@@ -22,11 +22,11 @@ use std::sync::{atomic::AtomicBool, Arc, Mutex};
 /// let atomic_bool = Arc::new(std::sync::atomic::AtomicBool::new(false));
 /// let atomic_bool_for_closure = Arc::clone(&atomic_bool);
 ///
-/// let gc = Arc::new(GuardCondition::new(
+/// let gc = Arc::new(GuardCondition::new_with_callback(
 ///     &context,
-///     Some(Box::new(move || {
+///     move || {
 ///         atomic_bool_for_closure.store(true, Ordering::Relaxed);
-///     })),
+///     },
 /// ));
 ///
 /// let mut ws = WaitSet::new(0, 1, 0, 0, 0, 0, &context)?;
@@ -78,8 +78,24 @@ impl Eq for GuardCondition {}
 unsafe impl Send for rcl_guard_condition_t {}
 
 impl GuardCondition {
-    /// Creates a new guard condition.
-    pub fn new<F>(context: &Context, callback: Option<F>) -> Self
+    /// Creates a new guard condition with no callback.
+    pub fn new(context: &Context) -> Self {
+        Self::new_with_rcl_context(&mut context.rcl_context_mtx.lock().unwrap(), None::<fn()>)
+    }
+
+    /// Creates a new guard condition with a callback.
+    pub fn new_with_callback<F>(context: &Context, callback: F) -> Self
+    where
+        F: Fn() + Send + Sync + 'static,
+    {
+        Self::new_with_rcl_context(&mut context.rcl_context_mtx.lock().unwrap(), Some(callback))
+    }
+
+    /// Creates a new guard condition by providing the rcl_context_t and an optional callback.
+    /// Note this function enables calling `Node::create_guard_condition`[1] without providing the Context separately
+    ///
+    /// [1]: Node::create_guard_condition
+    pub(crate) fn new_with_rcl_context<F>(context: &mut rcl_context_t, callback: Option<F>) -> Self
     where
         F: Fn() + Send + Sync + 'static,
     {
@@ -89,7 +105,7 @@ impl GuardCondition {
             // SAFETY: The context must be valid, and the guard condition must be zero-initialized
             rcl_guard_condition_init(
                 &mut guard_condition,
-                &mut *context.rcl_context_mtx.lock().unwrap(),
+                context,
                 rcl_guard_condition_get_default_options(),
             );
         }
@@ -127,12 +143,9 @@ mod tests {
         let atomic_bool = Arc::new(std::sync::atomic::AtomicBool::new(false));
         let atomic_bool_for_closure = Arc::clone(&atomic_bool);
 
-        let guard_condition = GuardCondition::new(
-            &context,
-            Some(Box::new(move || {
-                atomic_bool_for_closure.store(true, Ordering::Relaxed);
-            })),
-        );
+        let guard_condition = GuardCondition::new_with_callback(&context, move || {
+            atomic_bool_for_closure.store(true, Ordering::Relaxed);
+        });
 
         guard_condition.trigger()?;
 
@@ -148,12 +161,9 @@ mod tests {
         let atomic_bool = Arc::new(std::sync::atomic::AtomicBool::new(false));
         let atomic_bool_for_closure = Arc::clone(&atomic_bool);
 
-        let guard_condition = Arc::new(GuardCondition::new(
-            &context,
-            Some(Box::new(move || {
-                atomic_bool_for_closure.store(true, Ordering::Relaxed);
-            })),
-        ));
+        let guard_condition = Arc::new(GuardCondition::new_with_callback(&context, move || {
+            atomic_bool_for_closure.store(true, Ordering::Relaxed);
+        }));
 
         let mut wait_set = WaitSet::new(0, 1, 0, 0, 0, 0, &context)?;
         wait_set.add_guard_condition(Arc::clone(&guard_condition))?;
