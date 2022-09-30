@@ -81,14 +81,19 @@ That means that
 This does _not_ mean that
 - No variability between languages is allowed. What is easy to do, and what is considered idiomatic, is quite different between languages, and thus ROS 2 allows for considerable variability between client languages. Excessively complex designs in C++ or Python may be caused by limitations of such languages and it's best to strive for clean, simple functionality in Rust, possibly leveraging zero-cost abstractions that are unique to the language.
 - Features should always be ported 1:1. Do not rely on the assumption that the best implementation for `rclrs` is whatever `rclcpp` does, but understand the motivation and status of the implementation in the other client libraries. For instance, sometimes a design is implemented incompletely by a client library, the feature is later found to have problems (e.g. the deadlocking of sync client calls in Python), or the client library is constrained by backwards compatibility.
-- Internal consistency does not matter. It does.
+- Consistency within `rclrs` does not matter. It does.
 - No deviations from the above guidelines are possible.
 
 In summary, understand the context of the features that you port, in order to avoid [_cargo-culting_](https://en.wikipedia.org/wiki/Cargo_cult_programming).
 
 
-## Reviewing code
+## Squashing and amending commits
+As soon as a PR is in review, it is generally preferable to not squash and amend commits anymore without the agreement of the reviewer.
+The reason is that changes – especially large ones – are easier to follow when they are added in new commits, and that those commits can be referenced in review discussions.
+When the PR is merged, all commits in the PR are squashed anyway.
 
+
+## Reviewing code
 When reviewing pull requests, try to understand and give feedback on the high-level design first, before commenting on coding style, safety comments and such.
 
 Use the "changes requested" status sparingly, and instead consider simply leaving comments. This enables other reviewers to approve the pull requests when they see that all requested changes have been made. Conversely, if you are a reviewer and see that someone else has left comments requesting changes, it's expected that you ensure that all of them have been addressed before you approve.
