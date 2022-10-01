@@ -19,6 +19,8 @@ mod wait;
 
 mod rcl_bindings;
 
+use std::time::Duration;
+
 pub use arguments::*;
 pub use client::*;
 pub use context::*;
@@ -27,14 +29,11 @@ pub use node::*;
 pub use parameter::*;
 pub use publisher::*;
 pub use qos::*;
+use rcl_bindings::rcl_context_is_valid;
+pub use rcl_bindings::rmw_request_id_t;
 pub use service::*;
 pub use subscription::*;
 pub use wait::*;
-
-use rcl_bindings::rcl_context_is_valid;
-use std::time::Duration;
-
-pub use rcl_bindings::rmw_request_id_t;
 
 /// Polls the node for new messages and executes the corresponding callbacks.
 ///

@@ -1,15 +1,5 @@
 mod builder;
 mod graph;
-pub use self::builder::*;
-pub use self::graph::*;
-
-use crate::rcl_bindings::*;
-use crate::{
-    Client, ClientBase, Context, GuardCondition, ParameterOverrideMap, Publisher, QoSProfile,
-    RclrsError, Service, ServiceBase, Subscription, SubscriptionBase, SubscriptionCallback,
-    ToResult,
-};
-
 use std::cmp::PartialEq;
 use std::ffi::CStr;
 use std::fmt;
@@ -18,6 +8,15 @@ use std::vec::Vec;
 
 use libc::c_char;
 use rosidl_runtime_rs::Message;
+
+pub use self::builder::*;
+pub use self::graph::*;
+use crate::rcl_bindings::*;
+use crate::{
+    Client, ClientBase, Context, GuardCondition, ParameterOverrideMap, Publisher, QoSProfile,
+    RclrsError, Service, ServiceBase, Subscription, SubscriptionBase, SubscriptionCallback,
+    ToResult,
+};
 
 impl Drop for rcl_node_t {
     fn drop(&mut self) {

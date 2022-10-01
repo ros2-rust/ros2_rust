@@ -49,8 +49,9 @@ impl<T: Serialize + SequenceAlloc, const N: usize> Serialize for BoundedSequence
 
 #[cfg(test)]
 mod tests {
-    use crate::{BoundedSequence, Sequence};
     use quickcheck::quickcheck;
+
+    use crate::{BoundedSequence, Sequence};
 
     quickcheck! {
         fn test_json_roundtrip_sequence(xs: Sequence<i32>) -> bool {

@@ -1,6 +1,6 @@
-use crate::rcl_bindings::*;
-
 use std::time::Duration;
+
+use crate::rcl_bindings::*;
 
 /// The `HISTORY` DDS QoS policy.
 ///

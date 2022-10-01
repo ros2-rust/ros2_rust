@@ -681,8 +681,9 @@ macro_rules! seq {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use quickcheck::{quickcheck, Arbitrary, Gen};
+
+    use super::*;
 
     impl<T: Arbitrary + SequenceAlloc> Arbitrary for Sequence<T> {
         fn arbitrary(g: &mut Gen) -> Self {

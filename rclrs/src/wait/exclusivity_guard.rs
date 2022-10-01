@@ -37,9 +37,10 @@ impl<T> ExclusivityGuard<T> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::Arc;
+
+    use super::*;
 
     #[test]
     fn test_exclusivity_guard() {

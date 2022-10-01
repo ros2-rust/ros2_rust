@@ -467,8 +467,9 @@ impl std::error::Error for StringExceedsBoundsError {}
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use quickcheck::{Arbitrary, Gen};
+
+    use super::*;
 
     impl Arbitrary for String {
         fn arbitrary(g: &mut Gen) -> Self {

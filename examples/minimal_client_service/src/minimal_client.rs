@@ -1,5 +1,6 @@
-use anyhow::{Error, Result};
 use std::env;
+
+use anyhow::{Error, Result};
 
 fn main() -> Result<(), Error> {
     let context = rclrs::Context::new(env::args())?;

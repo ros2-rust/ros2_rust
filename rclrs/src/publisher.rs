@@ -1,8 +1,3 @@
-use crate::error::{RclrsError, ToResult};
-use crate::qos::QoSProfile;
-use crate::rcl_bindings::*;
-use crate::Node;
-
 use std::borrow::Cow;
 use std::ffi::CStr;
 use std::ffi::CString;
@@ -10,6 +5,11 @@ use std::marker::PhantomData;
 use std::sync::{Arc, Mutex};
 
 use rosidl_runtime_rs::{Message, RmwMessage};
+
+use crate::error::{RclrsError, ToResult};
+use crate::qos::QoSProfile;
+use crate::rcl_bindings::*;
+use crate::Node;
 
 mod loaned_message;
 pub use loaned_message::*;

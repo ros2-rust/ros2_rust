@@ -1,7 +1,7 @@
+use std::sync::{atomic::AtomicBool, Arc, Mutex};
+
 use crate::rcl_bindings::*;
 use crate::{Context, RclrsError, ToResult};
-
-use std::sync::{atomic::AtomicBool, Arc, Mutex};
 
 /// A waitable entity used for waking up a wait set manually.
 ///
@@ -135,9 +135,10 @@ impl GuardCondition {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::atomic::Ordering;
+
     use super::*;
     use crate::WaitSet;
-    use std::sync::atomic::Ordering;
 
     #[test]
     fn test_guard_condition() -> Result<(), RclrsError> {

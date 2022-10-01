@@ -1,11 +1,11 @@
-use crate::rcl_bindings::*;
-use crate::{RclrsError, ToResult};
-
 use std::ffi::CString;
 use std::os::raw::c_char;
 use std::string::String;
 use std::sync::{Arc, Mutex};
 use std::vec::Vec;
+
+use crate::rcl_bindings::*;
+use crate::{RclrsError, ToResult};
 
 impl Drop for rcl_context_t {
     fn drop(&mut self) {

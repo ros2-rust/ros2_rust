@@ -1,8 +1,3 @@
-use crate::error::{RclReturnCode, ToResult};
-use crate::qos::QoSProfile;
-use crate::Node;
-use crate::{rcl_bindings::*, RclrsError};
-
 use std::ffi::CStr;
 use std::ffi::CString;
 use std::marker::PhantomData;
@@ -10,6 +5,11 @@ use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use rosidl_runtime_rs::{Message, RmwMessage};
+
+use crate::error::{RclReturnCode, ToResult};
+use crate::qos::QoSProfile;
+use crate::Node;
+use crate::{rcl_bindings::*, RclrsError};
 
 mod callback;
 mod message_info;

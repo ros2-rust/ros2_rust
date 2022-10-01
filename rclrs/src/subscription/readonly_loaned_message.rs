@@ -1,9 +1,9 @@
-use crate::rcl_bindings::*;
-use crate::{Subscription, ToResult};
+use std::ops::Deref;
 
 use rosidl_runtime_rs::Message;
 
-use std::ops::Deref;
+use crate::rcl_bindings::*;
+use crate::{Subscription, ToResult};
 
 /// A message that is owned by the middleware, loaned out for reading.
 ///

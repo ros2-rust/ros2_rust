@@ -1,6 +1,6 @@
-use crate::rcl_bindings::*;
-
 use std::time::{Duration, SystemTime};
+
+use crate::rcl_bindings::*;
 
 /// An identifier for a publisher in the local context.
 ///
