@@ -80,7 +80,7 @@ unsafe impl Send for rcl_guard_condition_t {}
 impl GuardCondition {
     /// Creates a new guard condition with no callback.
     pub fn new(context: &Context) -> Self {
-        Self::new_with_rcl_context(&mut context.rcl_context_mtx.lock().unwrap(), None::<fn()>)
+        Self::new_with_rcl_context(&mut context.rcl_context_mtx.lock().unwrap(), None)
     }
 
     /// Creates a new guard condition with a callback.
@@ -88,17 +88,20 @@ impl GuardCondition {
     where
         F: Fn() + Send + Sync + 'static,
     {
-        Self::new_with_rcl_context(&mut context.rcl_context_mtx.lock().unwrap(), Some(callback))
+        Self::new_with_rcl_context(
+            &mut context.rcl_context_mtx.lock().unwrap(),
+            Some(Box::new(callback) as Box<dyn Fn() + Send + Sync>),
+        )
     }
 
     /// Creates a new guard condition by providing the rcl_context_t and an optional callback.
     /// Note this function enables calling `Node::create_guard_condition`[1] without providing the Context separately
     ///
     /// [1]: Node::create_guard_condition
-    pub(crate) fn new_with_rcl_context<F>(context: &mut rcl_context_t, callback: Option<F>) -> Self
-    where
-        F: Fn() + Send + Sync + 'static,
-    {
+    pub(crate) fn new_with_rcl_context(
+        context: &mut rcl_context_t,
+        callback: Option<Box<dyn Fn() + Send + Sync>>,
+    ) -> Self {
         // SAFETY: Getting a zero initialized value is always safe
         let mut guard_condition = unsafe { rcl_get_zero_initialized_guard_condition() };
         unsafe {
@@ -112,7 +115,7 @@ impl GuardCondition {
 
         Self {
             rcl_guard_condition: Mutex::new(guard_condition),
-            callback: callback.map(|f| Box::new(f) as Box<dyn Fn() + Send + Sync>),
+            callback,
             in_use_by_wait_set: Arc::new(AtomicBool::new(false)),
         }
     }

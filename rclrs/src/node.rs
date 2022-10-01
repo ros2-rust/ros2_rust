@@ -203,7 +203,7 @@ impl Node {
     pub fn create_guard_condition(&mut self) -> Arc<GuardCondition> {
         let guard_condition = Arc::new(GuardCondition::new_with_rcl_context(
             &mut self.rcl_context_mtx.lock().unwrap(),
-            None::<fn()>,
+            None,
         ));
         self.guard_conditions
             .push(Arc::downgrade(&guard_condition) as Weak<GuardCondition>);
@@ -225,7 +225,7 @@ impl Node {
     {
         let guard_condition = Arc::new(GuardCondition::new_with_rcl_context(
             &mut self.rcl_context_mtx.lock().unwrap(),
-            Some(callback),
+            Some(Box::new(callback) as Box<dyn Fn() + Send + Sync>),
         ));
         self.guard_conditions
             .push(Arc::downgrade(&guard_condition) as Weak<GuardCondition>);
