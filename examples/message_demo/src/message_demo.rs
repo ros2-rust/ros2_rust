@@ -1,7 +1,7 @@
-use anyhow::{Error, Result};
 use std::convert::TryInto;
 use std::env;
 
+use anyhow::{Error, Result};
 use rosidl_runtime_rs::{seq, BoundedSequence, Message, Sequence};
 
 fn check_default_values() {

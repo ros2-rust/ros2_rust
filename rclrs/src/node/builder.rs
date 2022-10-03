@@ -1,11 +1,11 @@
+use std::ffi::CString;
+use std::sync::{Arc, Mutex};
+
 use crate::rcl_bindings::*;
 use crate::{
     node::call_string_getter_with_handle, resolve_parameter_overrides, Context, Node, RclrsError,
     ToResult,
 };
-
-use std::ffi::CString;
-use std::sync::{Arc, Mutex};
 
 /// A builder for creating a [`Node`][1].
 ///

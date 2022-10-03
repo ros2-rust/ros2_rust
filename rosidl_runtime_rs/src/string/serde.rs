@@ -86,8 +86,9 @@ impl<const N: usize> Serialize for BoundedWString<N> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{BoundedString, BoundedWString, String, WString};
     use quickcheck::quickcheck;
+
+    use crate::{BoundedString, BoundedWString, String, WString};
 
     quickcheck! {
         fn test_json_roundtrip_string(s: String) -> bool {

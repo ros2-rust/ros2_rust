@@ -1,8 +1,10 @@
-use crate::rcl_bindings::*;
-use crate::{ParameterValue, RclrsError, ToResult};
-use libc::c_char;
 use std::collections::BTreeMap;
 use std::ffi::CStr;
+
+use libc::c_char;
+
+use crate::rcl_bindings::*;
+use crate::{ParameterValue, RclrsError, ToResult};
 
 // Internal helper struct, iterator for rcl_params_t
 struct RclParamsIter<'a> {
@@ -137,11 +139,13 @@ pub(crate) unsafe fn resolve_parameter_overrides(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::error::Error;
     use std::ffi::CString;
     use std::io::Write;
+
     use tempfile::NamedTempFile;
+
+    use super::*;
 
     // These files have values for every possible four-bit number, with the four bits being
     // * `/**` global params

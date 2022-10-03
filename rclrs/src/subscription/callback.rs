@@ -1,7 +1,7 @@
+use rosidl_runtime_rs::Message;
+
 use super::MessageInfo;
 use crate::ReadOnlyLoanedMessage;
-
-use rosidl_runtime_rs::Message;
 
 /// A trait for allowed callbacks for subscriptions.
 ///

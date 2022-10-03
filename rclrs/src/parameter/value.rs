@@ -1,5 +1,6 @@
-use crate::rcl_bindings::*;
 use std::ffi::CStr;
+
+use crate::rcl_bindings::*;
 
 /// A parameter value.
 ///

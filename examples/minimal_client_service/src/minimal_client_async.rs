@@ -1,5 +1,6 @@
-use anyhow::{Error, Result};
 use std::env;
+
+use anyhow::{Error, Result};
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
