@@ -2,7 +2,7 @@
 Changelog for package rclrs
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-0.3
+0.3 (2022-07-22)
 ----------------
 * Loaned messages (zero-copy) (`#212 <https://github.com/ros2-rust/ros2_rust/pull/212>`_)
 * Graph queries (`#234 <https://github.com/ros2-rust/ros2_rust/pull/234>`_)

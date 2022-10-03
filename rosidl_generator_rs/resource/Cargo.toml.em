@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 libc = "0.2"
-rosidl_runtime_rs = "*"
+rosidl_runtime_rs = "0.3"
 serde = { version = "1", optional = true, features = ["derive"] }
 @[for dep in dependency_packages]@
 @(dep) = "*"

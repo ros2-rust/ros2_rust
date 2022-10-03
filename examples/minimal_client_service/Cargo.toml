@@ -1,6 +1,6 @@
 [package]
 name = "examples_rclrs_minimal_client_service"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["Esteve Fernandez <esteve@apache.org>"]
 edition = "2021"
 
@@ -21,10 +21,10 @@ anyhow = {version = "1", features = ["backtrace"]}
 tokio = { version = "1", features = ["macros", "rt", "rt-multi-thread", "time"] }
 
 [dependencies.rclrs]
-version = "*"
+version = "0.3"
 
 [dependencies.rosidl_runtime_rs]
-version = "*"
+version = "0.3"
 
 [dependencies.example_interfaces]
 version = "*"
