@@ -102,8 +102,10 @@ pub struct BoundedWString<const N: usize> {
 /// Error type for [`BoundedString::try_from()`] and [`BoundedWString::try_from()`].
 #[derive(Debug)]
 pub struct StringExceedsBoundsError {
-    len: usize,
-    upper_bound: usize,
+    /// The actual length the string would have after the operation.
+    pub len: usize,
+    /// The upper bound on the string length.
+    pub upper_bound: usize,
 }
 
 // ========================= impls for String and WString =========================

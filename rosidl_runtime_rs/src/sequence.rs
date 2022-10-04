@@ -75,8 +75,10 @@ pub struct BoundedSequence<T: SequenceAlloc, const N: usize> {
 /// Error type for [`BoundedSequence::try_new()`].
 #[derive(Debug)]
 pub struct SequenceExceedsBoundsError {
-    len: usize,
-    upper_bound: usize,
+    /// The actual length the sequence would have after the operation.
+    pub len: usize,
+    /// The upper bound on the sequence length.
+    pub upper_bound: usize,
 }
 
 /// A by-value iterator created by [`Sequence::into_iter()`] and [`BoundedSequence::into_iter()`].

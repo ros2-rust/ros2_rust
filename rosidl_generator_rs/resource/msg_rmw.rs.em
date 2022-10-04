@@ -102,6 +102,7 @@ impl rosidl_runtime_rs::Message for @(type_name) {
 }
 
 impl rosidl_runtime_rs::RmwMessage for @(type_name) where Self: Sized {
+  const TYPE_NAME: &'static str = "@(package_name)/@(subfolder)/@(type_name)";
   fn get_type_support() -> libc::uintptr_t {
     // SAFETY: No preconditions for this function.
     unsafe { rosidl_typesupport_c__get_message_type_support_handle__@(package_name)__@(subfolder)__@(type_name)() }

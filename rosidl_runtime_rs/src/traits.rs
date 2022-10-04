@@ -38,6 +38,9 @@ pub trait SequenceAlloc: Sized {
 ///
 /// User code never needs to call this trait's method, much less implement this trait.
 pub trait RmwMessage: Clone + Debug + Default + Send + Sync + Message {
+    /// A string representation of this message's type, e.g. "geometry_msgs/msg/Twist"
+    const TYPE_NAME: &'static str;
+
     /// Get a pointer to the correct `rosidl_message_type_support_t` structure.
     fn get_type_support() -> libc::uintptr_t;
 }
