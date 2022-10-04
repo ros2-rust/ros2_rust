@@ -46,39 +46,7 @@ pub use wait::*;
 ///
 /// [1]: crate::RclReturnCode
 pub fn spin_once(node: &Node, timeout: Option<Duration>) -> Result<(), RclrsError> {
-    let live_subscriptions = node.live_subscriptions();
-    let live_clients = node.live_clients();
-    let live_guard_conditions = node.live_guard_conditions();
-    let live_services = node.live_services();
-    let ctx = Context {
-        rcl_context_mtx: node.rcl_context_mtx.clone(),
-    };
-    let mut wait_set = WaitSet::new(
-        live_subscriptions.len(),
-        live_guard_conditions.len(),
-        0,
-        live_clients.len(),
-        live_services.len(),
-        0,
-        &ctx,
-    )?;
-
-    for live_subscription in &live_subscriptions {
-        wait_set.add_subscription(live_subscription.clone())?;
-    }
-
-    for live_client in &live_clients {
-        wait_set.add_client(live_client.clone())?;
-    }
-
-    for live_guard_condition in &live_guard_conditions {
-        wait_set.add_guard_condition(live_guard_condition.clone())?;
-    }
-
-    for live_service in &live_services {
-        wait_set.add_service(live_service.clone())?;
-    }
-
+    let mut wait_set = WaitSet::new_for_node(node)?;
     let ready_entities = wait_set.wait(timeout)?;
 
     for ready_subscription in ready_entities.subscriptions {
