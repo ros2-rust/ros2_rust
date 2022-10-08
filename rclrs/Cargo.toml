@@ -14,10 +14,14 @@ path = "src/lib.rs"
 # Please keep the list of dependencies alphabetically sorted,
 # and also state why each dependency is needed.
 [dependencies]
-# Needed for the Message trait, among others
-rosidl_runtime_rs = "0.3"
+# Needed for dynamically finding type support libraries 
+ament_rs = { version = "0.2", optional = true }
 # Needed for clients
 futures = "0.3"
+# Needed for dynamic messages
+libloading = { version = "0.7", optional = true }
+# Needed for the Message trait, among others
+rosidl_runtime_rs = "0.3"
 
 [dev-dependencies]
 # Needed for e.g. writing yaml files in tests
@@ -26,3 +30,6 @@ tempfile = "3.3.0"
 [build-dependencies]
 # Needed for FFI
 bindgen = "0.59.1"
+
+[features]
+dyn_msg = ["ament_rs", "libloading"]
