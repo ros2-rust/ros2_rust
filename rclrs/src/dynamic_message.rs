@@ -52,12 +52,15 @@ struct MessageTypeName {
 /// can be used as a factory to create message instances.
 #[derive(Clone)]
 pub struct DynamicMessageMetadata {
+    #[allow(dead_code)]
     message_type: MessageTypeName,
     // The library needs to be kept loaded in order to keep the type_support_ptr valid.
     #[allow(dead_code)]
     introspection_type_support_library: Arc<libloading::Library>,
+    #[allow(dead_code)]
     type_support_ptr: *const rosidl_message_type_support_t,
-    fini_function: unsafe extern "C" fn(*mut libc::c_void),
+    #[allow(dead_code)]
+    fini_function: unsafe extern "C" fn(*mut std::os::raw::c_void),
 }
 
 // ========================= impl for DynamicMessagePackage =========================
