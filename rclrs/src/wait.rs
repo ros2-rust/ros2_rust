@@ -321,7 +321,7 @@ impl WaitSet {
     /// This list is not comprehensive, since further errors may occur in the `rmw` or `rcl` layers.
     ///
     /// [1]: std::time::Duration::ZERO
-    pub fn wait(&mut self, timeout: Option<Duration>) -> Result<ReadyEntities, RclrsError> {
+    pub fn wait(mut self, timeout: Option<Duration>) -> Result<ReadyEntities, RclrsError> {
         let timeout_ns = match timeout.map(|d| d.as_nanos()) {
             None => -1,
             Some(ns) if ns <= i64::MAX as u128 => ns as i64,
