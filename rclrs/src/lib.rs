@@ -46,7 +46,7 @@ pub use wait::*;
 ///
 /// [1]: crate::RclReturnCode
 pub fn spin_once(node: &Node, timeout: Option<Duration>) -> Result<(), RclrsError> {
-    let mut wait_set = WaitSet::new_for_node(node)?;
+    let wait_set = WaitSet::new_for_node(node)?;
     let ready_entities = wait_set.wait(timeout)?;
 
     for ready_subscription in ready_entities.subscriptions {
