@@ -47,6 +47,7 @@ pub struct NodeNameInfo {
 }
 
 /// Contains topic endpoint information
+#[derive(Debug, PartialEq, Eq)]
 pub struct TopicEndpointInfo {
     /// The name of the endpoint node
     pub node_name: String,
@@ -374,7 +375,7 @@ impl Node {
                 &*self.rcl_node_mtx.lock().unwrap(),
                 &mut rcutils_get_default_allocator(),
                 topic.as_ptr(),
-                true,
+                false,
                 &mut rcl_publishers_info,
             )
             .ok()?;
