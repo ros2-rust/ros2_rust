@@ -27,6 +27,7 @@ extern "C" {
     fn @(package_name)__@(subfolder)__@(type_name)__init(msg: *mut @(type_name)) -> bool;
     fn @(package_name)__@(subfolder)__@(type_name)__Sequence__init(seq: *mut rosidl_runtime_rs::Sequence<@(type_name)>, size: usize) -> bool;
     fn @(package_name)__@(subfolder)__@(type_name)__Sequence__fini(seq: *mut rosidl_runtime_rs::Sequence<@(type_name)>);
+    fn @(package_name)__@(subfolder)__@(type_name)__Sequence__copy(in_seq: &rosidl_runtime_rs::Sequence<@(type_name)>, out_seq: *mut rosidl_runtime_rs::Sequence<@(type_name)>) -> bool;
 }
 
 @# Drop is not needed, since the default drop glue does the same as fini here:
@@ -89,9 +90,8 @@ impl rosidl_runtime_rs::SequenceAlloc for @(type_name) {
     unsafe { @(package_name)__@(subfolder)__@(type_name)__Sequence__fini(seq as *mut _) }
   }
   fn sequence_copy(in_seq: &rosidl_runtime_rs::Sequence<Self>, out_seq: &mut rosidl_runtime_rs::Sequence<Self>) -> bool {
-      out_seq.resize_to_at_least(in_seq.len());
-      out_seq.clone_from_slice(in_seq.as_slice());
-      true
+    // SAFETY: This is safe since a the point is guaranteed to be valid/initialized.
+    unsafe { @(package_name)__@(subfolder)__@(type_name)__Sequence__copy(in_seq, out_seq as *mut _) }
   }
 }
 

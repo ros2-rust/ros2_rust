@@ -120,6 +120,10 @@ macro_rules! string_impl {
             fn $assignn(s: *mut $string, value: *const $char_type, n: usize) -> bool;
             fn $sequence_init(seq: *mut Sequence<$string>, size: usize) -> bool;
             fn $sequence_fini(seq: *mut Sequence<$string>);
+            fn $sequence_copy(
+                in_seq: *const Sequence<$string>,
+                out_seq: *mut Sequence<$string>,
+            ) -> bool;
         }
 
         impl Default for $string {
@@ -235,9 +239,8 @@ macro_rules! string_impl {
                 unsafe { $sequence_fini(seq as *mut _) }
             }
             fn sequence_copy(in_seq: &Sequence<Self>, out_seq: &mut Sequence<Self>) -> bool {
-                out_seq.resize_to_at_least(in_seq.len());
-                out_seq.clone_from_slice(in_seq.as_slice());
-                true
+                // SAFETY: There are no special preconditions to the sequence_copy function.
+                unsafe { $sequence_copy(in_seq as *const _, out_seq as *mut _) }
             }
         }
     };

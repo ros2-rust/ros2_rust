@@ -274,30 +274,6 @@ where
     }
 }
 
-impl<T: Default + SequenceAlloc> Sequence<T> {
-    /// Internal function for the sequence_copy impl. To be removed when rosidl#650 is backported and released.
-    pub fn resize_to_at_least(&mut self, len: usize) {
-        let allocation_size = std::mem::size_of::<Self>() * len;
-        if self.capacity < len {
-            // SAFETY: The memory in self.data is owned by C.
-            let data = unsafe { libc::realloc(self.data as *mut _, allocation_size) } as *mut T;
-            if data.is_null() {
-                panic!("realloc failed");
-            }
-            // Initialize the new memory
-            for i in self.capacity..len {
-                // SAFETY: i is in bounds, and write() is appropriate for initializing uninitialized memory
-                unsafe {
-                    data.add(i).write(T::default());
-                }
-            }
-            self.data = data;
-            self.size = len;
-            self.capacity = len;
-        }
-    }
-}
-
 // ========================= impl for BoundedSequence =========================
 
 impl<T: Debug + SequenceAlloc, const N: usize> Debug for BoundedSequence<T, N> {
@@ -520,6 +496,10 @@ macro_rules! impl_sequence_alloc_for_primitive_type {
         extern "C" {
             fn $init_func(seq: *mut Sequence<$rust_type>, size: usize) -> bool;
             fn $fini_func(seq: *mut Sequence<$rust_type>);
+            fn $copy_func(
+                in_seq: *const Sequence<$rust_type>,
+                out_seq: *mut Sequence<$rust_type>,
+            ) -> bool;
         }
 
         impl SequenceAlloc for $rust_type {
@@ -538,26 +518,8 @@ macro_rules! impl_sequence_alloc_for_primitive_type {
                 unsafe { $fini_func(seq as *mut _) }
             }
             fn sequence_copy(in_seq: &Sequence<Self>, out_seq: &mut Sequence<Self>) -> bool {
-                let allocation_size = std::mem::size_of::<Self>() * in_seq.size;
-                if out_seq.capacity < in_seq.size {
-                    // SAFETY: The memory in out_seq.data is owned by C.
-                    let data = unsafe { libc::realloc(out_seq.data as *mut _, allocation_size) };
-                    if data.is_null() {
-                        return false;
-                    }
-                    out_seq.data = data as *mut _;
-                    out_seq.capacity = in_seq.size;
-                }
-                // SAFETY: The memory areas don't overlap.
-                unsafe {
-                    libc::memcpy(
-                        out_seq.data as *mut _,
-                        in_seq.data as *const _,
-                        allocation_size,
-                    );
-                }
-                out_seq.size = in_seq.size;
-                true
+                // SAFETY: There are no special preconditions to the sequence_copy function.
+                unsafe { $copy_func(in_seq as *const _, out_seq as *mut _) }
             }
         }
     };
