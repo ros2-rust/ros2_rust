@@ -1,7 +1,6 @@
 use std::collections::BTreeMap;
+use std::ffi::c_char;
 use std::ffi::CStr;
-
-use libc::c_char;
 
 use crate::rcl_bindings::*;
 use crate::{ParameterValue, RclrsError, ToResult};

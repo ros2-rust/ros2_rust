@@ -1,12 +1,12 @@
 mod builder;
 mod graph;
 use std::cmp::PartialEq;
+use std::ffi::c_char;
 use std::ffi::CStr;
 use std::fmt;
 use std::sync::{Arc, Mutex, Weak};
 use std::vec::Vec;
 
-use libc::c_char;
 use rosidl_runtime_rs::Message;
 
 pub use self::builder::*;

@@ -1,8 +1,7 @@
+use std::ffi::c_void;
 use std::ffi::CString;
 use std::os::raw::c_char;
 use std::ptr::null_mut;
-
-use libc::c_void;
 
 use crate::error::*;
 use crate::rcl_bindings::*;
