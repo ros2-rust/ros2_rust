@@ -37,8 +37,8 @@ use crate::traits::SequenceAlloc;
 #[repr(C)]
 pub struct Sequence<T: SequenceAlloc> {
     data: *mut T,
-    size: libc::size_t,
-    capacity: libc::size_t,
+    size: usize,
+    capacity: usize,
 }
 
 /// A bounded sequence.
@@ -518,12 +518,12 @@ macro_rules! impl_sequence_alloc_for_primitive_type {
     ($rust_type:ty, $init_func:ident, $fini_func:ident, $copy_func:ident) => {
         #[link(name = "rosidl_runtime_c")]
         extern "C" {
-            fn $init_func(seq: *mut Sequence<$rust_type>, size: libc::size_t) -> bool;
+            fn $init_func(seq: *mut Sequence<$rust_type>, size: usize) -> bool;
             fn $fini_func(seq: *mut Sequence<$rust_type>);
         }
 
         impl SequenceAlloc for $rust_type {
-            fn sequence_init(seq: &mut Sequence<Self>, size: libc::size_t) -> bool {
+            fn sequence_init(seq: &mut Sequence<Self>, size: usize) -> bool {
                 // SAFETY: There are no special preconditions to the sequence_init function.
                 unsafe {
                     // This allocates space and sets seq.size and seq.capacity to size

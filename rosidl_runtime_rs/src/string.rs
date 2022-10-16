@@ -30,8 +30,8 @@ pub struct String {
     /// Dynamic memory in this type is allocated and deallocated by C, but this is a detail that is managed by
     /// the relevant functions and trait impls.
     data: *mut std::ffi::c_char,
-    size: libc::size_t,
-    capacity: libc::size_t,
+    size: usize,
+    capacity: usize,
 }
 
 /// A zero-terminated string of 16-bit characters.
@@ -51,8 +51,8 @@ pub struct String {
 #[repr(C)]
 pub struct WString {
     data: *mut std::ffi::c_ushort,
-    size: libc::size_t,
-    capacity: libc::size_t,
+    size: usize,
+    capacity: usize,
 }
 
 /// A zero-terminated string of 8-bit characters with a length limit.
@@ -117,8 +117,8 @@ macro_rules! string_impl {
         extern "C" {
             fn $init(s: *mut $string) -> bool;
             fn $fini(s: *mut $string);
-            fn $assignn(s: *mut $string, value: *const $char_type, n: libc::size_t) -> bool;
-            fn $sequence_init(seq: *mut Sequence<$string>, size: libc::size_t) -> bool;
+            fn $assignn(s: *mut $string, value: *const $char_type, n: usize) -> bool;
+            fn $sequence_init(seq: *mut Sequence<$string>, size: usize) -> bool;
             fn $sequence_fini(seq: *mut Sequence<$string>);
         }
 
@@ -226,7 +226,7 @@ macro_rules! string_impl {
         unsafe impl Sync for $string {}
 
         impl SequenceAlloc for $string {
-            fn sequence_init(seq: &mut Sequence<Self>, size: libc::size_t) -> bool {
+            fn sequence_init(seq: &mut Sequence<Self>, size: usize) -> bool {
                 // SAFETY: There are no special preconditions to the sequence_init function.
                 unsafe { $sequence_init(seq as *mut _, size) }
             }
@@ -349,7 +349,7 @@ impl<const N: usize> Display for BoundedString<N> {
 }
 
 impl<const N: usize> SequenceAlloc for BoundedString<N> {
-    fn sequence_init(seq: &mut Sequence<Self>, size: libc::size_t) -> bool {
+    fn sequence_init(seq: &mut Sequence<Self>, size: usize) -> bool {
         // SAFETY: There are no special preconditions to the rosidl_runtime_c__String__Sequence__init function.
         unsafe {
             rosidl_runtime_c__String__Sequence__init(seq as *mut Sequence<Self> as *mut _, size)
@@ -415,7 +415,7 @@ impl<const N: usize> Display for BoundedWString<N> {
 }
 
 impl<const N: usize> SequenceAlloc for BoundedWString<N> {
-    fn sequence_init(seq: &mut Sequence<Self>, size: libc::size_t) -> bool {
+    fn sequence_init(seq: &mut Sequence<Self>, size: usize) -> bool {
         // SAFETY: There are no special preconditions to the rosidl_runtime_c__U16String__Sequence__init function.
         unsafe {
             rosidl_runtime_c__U16String__Sequence__init(seq as *mut Sequence<Self> as *mut _, size)
