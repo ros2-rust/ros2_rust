@@ -13,8 +13,6 @@ path = "src/lib.rs"
 # Please keep the list of dependencies alphabetically sorted,
 # and also state why each dependency is needed.
 [dependencies]
-# Needed for FFI
-libc = "0.2"
 # Optional dependency for making it possible to convert messages to and from
 # formats such as JSON, YAML, Pickle, etc.
 serde = { version = "1", optional = true }
@@ -24,4 +22,3 @@ serde = { version = "1", optional = true }
 quickcheck = "1"
 # Needed for testing serde support
 serde_json = "1"
-
