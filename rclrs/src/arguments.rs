@@ -1,6 +1,6 @@
+use std::ffi::c_char;
 use std::ffi::c_void;
 use std::ffi::CString;
-use std::os::raw::c_char;
 use std::ptr::null_mut;
 
 use crate::error::*;
@@ -88,11 +88,11 @@ pub fn extract_non_ros_args(
 /// `rcl_arguments_get_count_unparsed_ros` -> `rcl_arguments_get_count_ros`
 /// ...
 pub(crate) fn get_rcl_arguments(
-    rcl_get_count: unsafe extern "C" fn(*const rcl_arguments_t) -> std::os::raw::c_int,
+    rcl_get_count: unsafe extern "C" fn(*const rcl_arguments_t) -> std::ffi::c_int,
     rcl_get_indices: unsafe extern "C" fn(
         *const rcl_arguments_t,
         rcl_allocator_t,
-        *mut *mut std::os::raw::c_int,
+        *mut *mut std::ffi::c_int,
     ) -> rcl_ret_t,
     rcl_arguments: *const rcl_arguments_t,
     args: &[String],

@@ -68,8 +68,8 @@ impl Node {
         unsafe extern "C" fn wrapper(
             node: *const rcl_node_t,
             allocator: *mut rcl_allocator_t,
-            node_name: *const ::std::os::raw::c_char,
-            node_namespace: *const ::std::os::raw::c_char,
+            node_name: *const ::std::ffi::c_char,
+            node_namespace: *const ::std::ffi::c_char,
             topic_names_and_types: *mut rcl_names_and_types_t,
         ) -> rcl_ret_t {
             rcl_get_publisher_names_and_types_by_node(
@@ -95,8 +95,8 @@ impl Node {
         unsafe extern "C" fn wrapper(
             node: *const rcl_node_t,
             allocator: *mut rcl_allocator_t,
-            node_name: *const ::std::os::raw::c_char,
-            node_namespace: *const ::std::os::raw::c_char,
+            node_name: *const ::std::ffi::c_char,
+            node_namespace: *const ::std::ffi::c_char,
             topic_names_and_types: *mut rcl_names_and_types_t,
         ) -> rcl_ret_t {
             rcl_get_subscriber_names_and_types_by_node(
@@ -316,8 +316,8 @@ impl Node {
         getter: unsafe extern "C" fn(
             *const rcl_node_t,
             *mut rcl_allocator_t,
-            *const ::std::os::raw::c_char,
-            *const ::std::os::raw::c_char,
+            *const ::std::ffi::c_char,
+            *const ::std::ffi::c_char,
             *mut rcl_names_and_types_t,
         ) -> rcl_ret_t,
     ) -> Result<TopicNamesAndTypes, RclrsError> {
@@ -355,7 +355,7 @@ impl Node {
         getter: unsafe extern "C" fn(
             *const rcl_node_t,
             *mut rcl_allocator_t,
-            *const ::std::os::raw::c_char,
+            *const ::std::ffi::c_char,
             bool,
             *mut rcl_topic_endpoint_info_array_t,
         ) -> rcl_ret_t,
