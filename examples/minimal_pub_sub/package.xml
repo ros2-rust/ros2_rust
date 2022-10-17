@@ -4,7 +4,7 @@
    schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>examples_rclrs_minimal_pub_sub</name>
-  <version>0.3.0</version>
+  <version>0.3.1</version>
   <description>Package containing an example of the publish-subscribe mechanism in rclrs.</description>
   <maintainer email="esteve@apache.org">Esteve Fernandez</maintainer>
   <maintainer email="nnmmgit@gmail.com">Nikolai Morin</maintainer>
