@@ -37,7 +37,7 @@ pub struct PublisherGid {
     /// do not need it.
     ///
     /// [1]: std::ffi::CString
-    pub implementation_identifier: *const std::ffi::c_char,
+    pub implementation_identifier: *const std::os::raw::c_char,
 }
 
 // SAFETY: The implementation identifier doesn't care about which thread it's read from.

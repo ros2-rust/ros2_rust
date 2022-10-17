@@ -1,9 +1,9 @@
 mod builder;
 mod graph;
 use std::cmp::PartialEq;
-use std::ffi::c_char;
 use std::ffi::CStr;
 use std::fmt;
+use std::os::raw::c_char;
 use std::sync::{Arc, Mutex, Weak};
 use std::vec::Vec;
 

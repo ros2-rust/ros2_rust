@@ -29,7 +29,7 @@ use crate::traits::SequenceAlloc;
 pub struct String {
     /// Dynamic memory in this type is allocated and deallocated by C, but this is a detail that is managed by
     /// the relevant functions and trait impls.
-    data: *mut std::ffi::c_char,
+    data: *mut std::os::raw::c_char,
     size: usize,
     capacity: usize,
 }
@@ -50,7 +50,7 @@ pub struct String {
 /// ```
 #[repr(C)]
 pub struct WString {
-    data: *mut std::ffi::c_ushort,
+    data: *mut std::os::raw::c_ushort,
     size: usize,
     capacity: usize,
 }
@@ -248,7 +248,7 @@ macro_rules! string_impl {
 
 string_impl!(
     String,
-    std::ffi::c_char,
+    std::os::raw::c_char,
     u8,
     from_utf8_lossy,
     rosidl_runtime_c__String__init,
@@ -260,7 +260,7 @@ string_impl!(
 );
 string_impl!(
     WString,
-    std::ffi::c_ushort,
+    std::os::raw::c_ushort,
     u16,
     from_utf16_lossy,
     rosidl_runtime_c__U16String__init,
@@ -333,7 +333,7 @@ impl<const N: usize> Debug for BoundedString<N> {
 }
 
 impl<const N: usize> Deref for BoundedString<N> {
-    type Target = [std::ffi::c_char];
+    type Target = [std::os::raw::c_char];
     fn deref(&self) -> &Self::Target {
         self.inner.deref()
     }
