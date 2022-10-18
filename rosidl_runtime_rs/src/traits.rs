@@ -42,7 +42,7 @@ pub trait RmwMessage: Clone + Debug + Default + Send + Sync + Message {
     const TYPE_NAME: &'static str;
 
     /// Get a pointer to the correct `rosidl_message_type_support_t` structure.
-    fn get_type_support() -> usize;
+    fn get_type_support() -> *const std::os::raw::c_void;
 }
 
 /// Trait for types that can be used in a `rclrs::Subscription` and a `rclrs::Publisher`.
@@ -158,5 +158,5 @@ pub trait Service: 'static {
     type Response: Message;
 
     /// Get a pointer to the correct `rosidl_service_type_support_t` structure.
-    fn get_type_support() -> usize;
+    fn get_type_support() -> *const std::os::raw::c_void;
 }
