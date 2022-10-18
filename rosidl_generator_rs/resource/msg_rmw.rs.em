@@ -82,15 +82,15 @@ impl Default for @(type_name) {
 
 impl rosidl_runtime_rs::SequenceAlloc for @(type_name) {
   fn sequence_init(seq: &mut rosidl_runtime_rs::Sequence<Self>, size: usize) -> bool {
-    // SAFETY: This is safe since a the point is guaranteed to be valid/initialized.
+    // SAFETY: This is safe since the pointer is guaranteed to be valid/initialized.
     unsafe { @(package_name)__@(subfolder)__@(type_name)__Sequence__init(seq as *mut _, size) }
   }
   fn sequence_fini(seq: &mut rosidl_runtime_rs::Sequence<Self>) {
-    // SAFETY: This is safe since a the point is guaranteed to be valid/initialized.
+    // SAFETY: This is safe since the pointer is guaranteed to be valid/initialized.
     unsafe { @(package_name)__@(subfolder)__@(type_name)__Sequence__fini(seq as *mut _) }
   }
   fn sequence_copy(in_seq: &rosidl_runtime_rs::Sequence<Self>, out_seq: &mut rosidl_runtime_rs::Sequence<Self>) -> bool {
-    // SAFETY: This is safe since a the point is guaranteed to be valid/initialized.
+    // SAFETY: This is safe since the pointer is guaranteed to be valid/initialized.
     unsafe { @(package_name)__@(subfolder)__@(type_name)__Sequence__copy(in_seq, out_seq as *mut _) }
   }
 }
