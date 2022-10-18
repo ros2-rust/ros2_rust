@@ -29,9 +29,9 @@ use crate::traits::SequenceAlloc;
 pub struct String {
     /// Dynamic memory in this type is allocated and deallocated by C, but this is a detail that is managed by
     /// the relevant functions and trait impls.
-    data: *mut libc::c_char,
-    size: libc::size_t,
-    capacity: libc::size_t,
+    data: *mut std::os::raw::c_char,
+    size: usize,
+    capacity: usize,
 }
 
 /// A zero-terminated string of 16-bit characters.
@@ -50,9 +50,9 @@ pub struct String {
 /// ```
 #[repr(C)]
 pub struct WString {
-    data: *mut libc::c_ushort,
-    size: libc::size_t,
-    capacity: libc::size_t,
+    data: *mut std::os::raw::c_ushort,
+    size: usize,
+    capacity: usize,
 }
 
 /// A zero-terminated string of 8-bit characters with a length limit.
@@ -117,9 +117,13 @@ macro_rules! string_impl {
         extern "C" {
             fn $init(s: *mut $string) -> bool;
             fn $fini(s: *mut $string);
-            fn $assignn(s: *mut $string, value: *const $char_type, n: libc::size_t) -> bool;
-            fn $sequence_init(seq: *mut Sequence<$string>, size: libc::size_t) -> bool;
+            fn $assignn(s: *mut $string, value: *const $char_type, n: usize) -> bool;
+            fn $sequence_init(seq: *mut Sequence<$string>, size: usize) -> bool;
             fn $sequence_fini(seq: *mut Sequence<$string>);
+            fn $sequence_copy(
+                in_seq: *const Sequence<$string>,
+                out_seq: *mut Sequence<$string>,
+            ) -> bool;
         }
 
         impl Default for $string {
@@ -226,7 +230,7 @@ macro_rules! string_impl {
         unsafe impl Sync for $string {}
 
         impl SequenceAlloc for $string {
-            fn sequence_init(seq: &mut Sequence<Self>, size: libc::size_t) -> bool {
+            fn sequence_init(seq: &mut Sequence<Self>, size: usize) -> bool {
                 // SAFETY: There are no special preconditions to the sequence_init function.
                 unsafe { $sequence_init(seq as *mut _, size) }
             }
@@ -235,9 +239,8 @@ macro_rules! string_impl {
                 unsafe { $sequence_fini(seq as *mut _) }
             }
             fn sequence_copy(in_seq: &Sequence<Self>, out_seq: &mut Sequence<Self>) -> bool {
-                out_seq.resize_to_at_least(in_seq.len());
-                out_seq.clone_from_slice(in_seq.as_slice());
-                true
+                // SAFETY: There are no special preconditions to the sequence_copy function.
+                unsafe { $sequence_copy(in_seq as *const _, out_seq as *mut _) }
             }
         }
     };
@@ -245,7 +248,7 @@ macro_rules! string_impl {
 
 string_impl!(
     String,
-    libc::c_char,
+    std::os::raw::c_char,
     u8,
     from_utf8_lossy,
     rosidl_runtime_c__String__init,
@@ -257,7 +260,7 @@ string_impl!(
 );
 string_impl!(
     WString,
-    libc::c_ushort,
+    std::os::raw::c_ushort,
     u16,
     from_utf16_lossy,
     rosidl_runtime_c__U16String__init,
@@ -330,7 +333,7 @@ impl<const N: usize> Debug for BoundedString<N> {
 }
 
 impl<const N: usize> Deref for BoundedString<N> {
-    type Target = [libc::c_char];
+    type Target = [std::os::raw::c_char];
     fn deref(&self) -> &Self::Target {
         self.inner.deref()
     }
@@ -349,7 +352,7 @@ impl<const N: usize> Display for BoundedString<N> {
 }
 
 impl<const N: usize> SequenceAlloc for BoundedString<N> {
-    fn sequence_init(seq: &mut Sequence<Self>, size: libc::size_t) -> bool {
+    fn sequence_init(seq: &mut Sequence<Self>, size: usize) -> bool {
         // SAFETY: There are no special preconditions to the rosidl_runtime_c__String__Sequence__init function.
         unsafe {
             rosidl_runtime_c__String__Sequence__init(seq as *mut Sequence<Self> as *mut _, size)
@@ -415,7 +418,7 @@ impl<const N: usize> Display for BoundedWString<N> {
 }
 
 impl<const N: usize> SequenceAlloc for BoundedWString<N> {
-    fn sequence_init(seq: &mut Sequence<Self>, size: libc::size_t) -> bool {
+    fn sequence_init(seq: &mut Sequence<Self>, size: usize) -> bool {
         // SAFETY: There are no special preconditions to the rosidl_runtime_c__U16String__Sequence__init function.
         unsafe {
             rosidl_runtime_c__U16String__Sequence__init(seq as *mut Sequence<Self> as *mut _, size)

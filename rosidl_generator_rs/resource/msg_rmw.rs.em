@@ -19,14 +19,15 @@ type_name = msg_spec.structure.namespaced_type.name
 
 #[link(name = "@(package_name)__rosidl_typesupport_c")]
 extern "C" {
-    fn rosidl_typesupport_c__get_message_type_support_handle__@(package_name)__@(subfolder)__@(type_name)() -> libc::uintptr_t;
+    fn rosidl_typesupport_c__get_message_type_support_handle__@(package_name)__@(subfolder)__@(type_name)() -> *const std::os::raw::c_void;
 }
 
 #[link(name = "@(package_name)__rosidl_generator_c")]
 extern "C" {
     fn @(package_name)__@(subfolder)__@(type_name)__init(msg: *mut @(type_name)) -> bool;
-    fn @(package_name)__@(subfolder)__@(type_name)__Sequence__init(seq: *mut rosidl_runtime_rs::Sequence<@(type_name)>, size: libc::size_t) -> bool;
+    fn @(package_name)__@(subfolder)__@(type_name)__Sequence__init(seq: *mut rosidl_runtime_rs::Sequence<@(type_name)>, size: usize) -> bool;
     fn @(package_name)__@(subfolder)__@(type_name)__Sequence__fini(seq: *mut rosidl_runtime_rs::Sequence<@(type_name)>);
+    fn @(package_name)__@(subfolder)__@(type_name)__Sequence__copy(in_seq: &rosidl_runtime_rs::Sequence<@(type_name)>, out_seq: *mut rosidl_runtime_rs::Sequence<@(type_name)>) -> bool;
 }
 
 @# Drop is not needed, since the default drop glue does the same as fini here:
@@ -80,18 +81,17 @@ impl Default for @(type_name) {
 }
 
 impl rosidl_runtime_rs::SequenceAlloc for @(type_name) {
-  fn sequence_init(seq: &mut rosidl_runtime_rs::Sequence<Self>, size: libc::size_t) -> bool {
-    // SAFETY: This is safe since a the point is guaranteed to be valid/initialized.
+  fn sequence_init(seq: &mut rosidl_runtime_rs::Sequence<Self>, size: usize) -> bool {
+    // SAFETY: This is safe since the pointer is guaranteed to be valid/initialized.
     unsafe { @(package_name)__@(subfolder)__@(type_name)__Sequence__init(seq as *mut _, size) }
   }
   fn sequence_fini(seq: &mut rosidl_runtime_rs::Sequence<Self>) {
-    // SAFETY: This is safe since a the point is guaranteed to be valid/initialized.
+    // SAFETY: This is safe since the pointer is guaranteed to be valid/initialized.
     unsafe { @(package_name)__@(subfolder)__@(type_name)__Sequence__fini(seq as *mut _) }
   }
   fn sequence_copy(in_seq: &rosidl_runtime_rs::Sequence<Self>, out_seq: &mut rosidl_runtime_rs::Sequence<Self>) -> bool {
-      out_seq.resize_to_at_least(in_seq.len());
-      out_seq.clone_from_slice(in_seq.as_slice());
-      true
+    // SAFETY: This is safe since the pointer is guaranteed to be valid/initialized.
+    unsafe { @(package_name)__@(subfolder)__@(type_name)__Sequence__copy(in_seq, out_seq as *mut _) }
   }
 }
 
@@ -103,7 +103,7 @@ impl rosidl_runtime_rs::Message for @(type_name) {
 
 impl rosidl_runtime_rs::RmwMessage for @(type_name) where Self: Sized {
   const TYPE_NAME: &'static str = "@(package_name)/@(subfolder)/@(type_name)";
-  fn get_type_support() -> libc::uintptr_t {
+  fn get_type_support() -> *const std::os::raw::c_void {
     // SAFETY: No preconditions for this function.
     unsafe { rosidl_typesupport_c__get_message_type_support_handle__@(package_name)__@(subfolder)__@(type_name)() }
   }

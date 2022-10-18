@@ -24,7 +24,7 @@ type_name = srv_spec.namespaced_type.name
 
 #[link(name = "@(package_name)__rosidl_typesupport_c")]
 extern "C" {
-    fn rosidl_typesupport_c__get_service_type_support_handle__@(package_name)__@(subfolder)__@(type_name)() -> libc::uintptr_t;
+    fn rosidl_typesupport_c__get_service_type_support_handle__@(package_name)__@(subfolder)__@(type_name)() -> *const std::os::raw::c_void;
 }
 
 // Corresponds to @(package_name)__@(subfolder)__@(type_name)
@@ -34,7 +34,7 @@ impl rosidl_runtime_rs::Service for @(type_name) {
   type Request = crate::@(subfolder)::@(type_name)_Request;
   type Response = crate::@(subfolder)::@(type_name)_Response;
 
-  fn get_type_support() -> libc::uintptr_t {
+  fn get_type_support() -> *const std::os::raw::c_void {
     // SAFETY: No preconditions for this function.
     unsafe { rosidl_typesupport_c__get_service_type_support_handle__@(package_name)__@(subfolder)__@(type_name)() }
   }
@@ -61,7 +61,7 @@ type_name = srv_spec.namespaced_type.name
 
   #[link(name = "@(package_name)__rosidl_typesupport_c")]
   extern "C" {
-      fn rosidl_typesupport_c__get_service_type_support_handle__@(package_name)__@(subfolder)__@(type_name)() -> libc::uintptr_t;
+      fn rosidl_typesupport_c__get_service_type_support_handle__@(package_name)__@(subfolder)__@(type_name)() -> *const std::os::raw::c_void;
   }
 
   // Corresponds to @(package_name)__@(subfolder)__@(type_name)
@@ -71,7 +71,7 @@ type_name = srv_spec.namespaced_type.name
     type Request = crate::@(subfolder)::rmw::@(type_name)_Request;
     type Response = crate::@(subfolder)::rmw::@(type_name)_Response;
 
-    fn get_type_support() -> libc::uintptr_t {
+    fn get_type_support() -> *const std::os::raw::c_void {
       // SAFETY: No preconditions for this function.
       unsafe { rosidl_typesupport_c__get_service_type_support_handle__@(package_name)__@(subfolder)__@(type_name)() }
     }

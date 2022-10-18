@@ -3,10 +3,10 @@ mod graph;
 use std::cmp::PartialEq;
 use std::ffi::CStr;
 use std::fmt;
+use std::os::raw::c_char;
 use std::sync::{Arc, Mutex, Weak};
 use std::vec::Vec;
 
-use libc::c_char;
 use rosidl_runtime_rs::Message;
 
 pub use self::builder::*;
