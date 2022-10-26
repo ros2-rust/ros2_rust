@@ -19,6 +19,9 @@ mod wait;
 
 mod rcl_bindings;
 
+#[cfg(feature = "dyn_msg")]
+pub mod dynamic_message;
+
 use std::time::Duration;
 
 pub use arguments::*;
