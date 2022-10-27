@@ -16,7 +16,9 @@ use crate::rcl_bindings::rosidl_typesupport_introspection_c__MessageMembers_s as
 use crate::rcl_bindings::*;
 
 mod error;
+mod message_structure;
 pub use error::*;
+pub use message_structure::*;
 
 /// Factory for constructing messages in a certain package dynamically.
 ///
@@ -59,6 +61,8 @@ pub struct DynamicMessageMetadata {
     introspection_type_support_library: Arc<libloading::Library>,
     #[allow(dead_code)]
     type_support_ptr: *const rosidl_message_type_support_t,
+    #[allow(dead_code)]
+    structure: MessageStructure,
     #[allow(dead_code)]
     fini_function: unsafe extern "C" fn(*mut std::os::raw::c_void),
 }
@@ -172,6 +176,8 @@ impl DynamicMessagePackage {
         let message_members: &rosidl_message_members_t =
             // SAFETY: The data pointer is supposed to be always valid.
             unsafe { &*(type_support.data as *const rosidl_message_members_t) };
+        // SAFETY: The message members coming from a type support library will always be valid.
+        let structure = unsafe { MessageStructure::from_rosidl_message_members(message_members) };
         // The fini function will always exist.
         let fini_function = message_members.fini_function.unwrap();
         let metadata = DynamicMessageMetadata {
@@ -180,6 +186,7 @@ impl DynamicMessagePackage {
                 &self.introspection_type_support_library,
             ),
             type_support_ptr,
+            structure,
             fini_function,
         };
         Ok(metadata)
