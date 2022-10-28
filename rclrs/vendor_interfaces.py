@@ -1,3 +1,11 @@
+# This script produces the `vendor` module inside `rclrs` by copying
+# the generated code for the `rcl_interfaces` package and its dependency
+# `builtin_interfaces` and adjusting the submodule paths in the code.
+# If these packages, or the `rosidl_generator_rs`, get changed, you can
+# update the `vendor` module by running this script.
+# The purpose is to avoid an external dependency on `rcl_interfaces`, which
+# is not published on crates.io.
+
 import argparse
 from pathlib import Path
 import shutil
