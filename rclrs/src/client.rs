@@ -55,8 +55,11 @@ type RequestId = i64;
 
 /// Main class responsible for sending requests to a ROS service.
 ///
-/// The only available way to instantiate clients is via [`Node::create_client`], this is to
-/// ensure that [`Node`]s can track all the clients that have been created.
+/// The only available way to instantiate clients is via [`Node::create_client`][1], this is to
+/// ensure that [`Node`][2]s can track all the clients that have been created.
+///
+/// [1]: crate::Node::create_client
+/// [2]: crate::Node
 pub struct Client<T>
 where
     T: rosidl_runtime_rs::Service,

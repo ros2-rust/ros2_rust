@@ -62,11 +62,13 @@ pub trait SubscriptionBase: Send + Sync {
 /// When a subscription is created, it may take some time to get "matched" with a corresponding
 /// publisher.
 ///
-/// The only available way to instantiate subscriptions is via [`Node::create_subscription`], this
-/// is to ensure that [`Node`]s can track all the subscriptions that have been created.
+/// The only available way to instantiate subscriptions is via [`Node::create_subscription()`][3], this
+/// is to ensure that [`Node`][4]s can track all the subscriptions that have been created.
 ///
 /// [1]: crate::spin_once
 /// [2]: crate::spin
+/// [3]: crate::Node::create_subscription
+/// [4]: crate::Node
 pub struct Subscription<T>
 where
     T: Message,
