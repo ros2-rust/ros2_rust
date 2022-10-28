@@ -6,7 +6,7 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use rosidl_runtime_rs::Message;
 
 use crate::error::{RclReturnCode, ToResult};
-use crate::{rcl_bindings::*, MessageCow, Node, RclrsError};
+use crate::{rcl_bindings::*, MessageCow, RclrsError};
 
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
 // they are running in. Therefore, this type can be safely sent to another thread.
@@ -67,7 +67,11 @@ where
     T: rosidl_runtime_rs::Service,
 {
     /// Creates a new service.
-    pub(crate) fn new<F>(node: &Node, topic: &str, callback: F) -> Result<Self, RclrsError>
+    pub(crate) fn new<F>(
+        rcl_node_mtx: Arc<Mutex<rcl_node_t>>,
+        topic: &str,
+        callback: F,
+    ) -> Result<Self, RclrsError>
     // This uses pub(crate) visibility to avoid instantiating this struct outside
     // [`Node::create_service`], see the struct's documentation for the rationale
     where
@@ -82,7 +86,6 @@ where
             err,
             s: topic.into(),
         })?;
-        let rcl_node = &mut *node.rcl_node_mtx.lock().unwrap();
 
         // SAFETY: No preconditions for this function.
         let service_options = unsafe { rcl_service_get_default_options() };
@@ -93,8 +96,8 @@ where
             // The topic name and the options are copied by this function, so they can be dropped
             // afterwards.
             rcl_service_init(
-                &mut rcl_service as *mut _,
-                rcl_node as *mut _,
+                &mut rcl_service,
+                &*rcl_node_mtx.lock().unwrap(),
                 type_support,
                 topic_c_string.as_ptr(),
                 &service_options as *const _,
@@ -104,7 +107,7 @@ where
 
         let handle = Arc::new(ServiceHandle {
             rcl_service_mtx: Mutex::new(rcl_service),
-            rcl_node_mtx: node.rcl_node_mtx.clone(),
+            rcl_node_mtx,
             in_use_by_wait_set: Arc::new(AtomicBool::new(false)),
         });
 
