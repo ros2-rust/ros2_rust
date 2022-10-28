@@ -16,6 +16,8 @@
   <build_depend>libclang-dev</build_depend>
   <build_depend>rosidl_runtime_rs</build_depend>
   <build_depend>rcl</build_depend>
+  <depend>builtin_interfaces</depend>
+  <depend>rcl_interfaces</depend>
 
   <export>
     <build_type>ament_cargo</build_type>
