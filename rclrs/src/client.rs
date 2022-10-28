@@ -43,7 +43,7 @@ impl Drop for ClientHandle {
 /// Trait to be implemented by concrete Client structs.
 ///
 /// See [`Client<T>`] for an example.
-pub trait ClientBase: Send + Sync {
+pub trait ClientWaitable: Send + Sync {
     /// Internal function to get a reference to the `rcl` handle.
     fn handle(&self) -> &ClientHandle;
     /// Tries to take a new response and run the callback or future with it.
@@ -239,7 +239,7 @@ where
     }
 }
 
-impl<T> ClientBase for Client<T>
+impl<T> ClientWaitable for Client<T>
 where
     T: rosidl_runtime_rs::Service,
 {

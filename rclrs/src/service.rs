@@ -39,7 +39,7 @@ impl Drop for ServiceHandle {
 /// Trait to be implemented by concrete Service structs.
 ///
 /// See [`Service<T>`] for an example
-pub trait ServiceBase: Send + Sync {
+pub trait ServiceWaitable: Send + Sync {
     /// Internal function to get a reference to the `rcl` handle.
     fn handle(&self) -> &ServiceHandle;
     /// Tries to take a new request and run the callback with it.
@@ -158,7 +158,7 @@ where
     }
 }
 
-impl<T> ServiceBase for Service<T>
+impl<T> ServiceWaitable for Service<T>
 where
     T: rosidl_runtime_rs::Service,
 {

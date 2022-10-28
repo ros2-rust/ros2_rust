@@ -47,7 +47,7 @@ impl Drop for SubscriptionHandle {
 }
 
 /// Trait to be implemented by concrete [`Subscription`]s.
-pub trait SubscriptionBase: Send + Sync {
+pub trait SubscriptionWaitable: Send + Sync {
     /// Internal function to get a reference to the `rcl` handle.
     fn handle(&self) -> &SubscriptionHandle;
     /// Tries to take a new message and run the callback with it.
@@ -248,7 +248,7 @@ where
     }
 }
 
-impl<T> SubscriptionBase for Subscription<T>
+impl<T> SubscriptionWaitable for Subscription<T>
 where
     T: Message,
 {
