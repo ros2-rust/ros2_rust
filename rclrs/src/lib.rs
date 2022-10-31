@@ -15,6 +15,7 @@ mod publisher;
 mod qos;
 mod service;
 mod subscription;
+mod vendor;
 mod wait;
 
 mod rcl_bindings;
