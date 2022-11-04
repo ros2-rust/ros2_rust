@@ -8,11 +8,11 @@ edition = "2021"
 path = "src/lib.rs"
 
 [dependencies]
-anyhow = {version = "1", features = ["backtrace"]}
-test_msgs = {version = "*"}
+test_msgs = "*"
 
 [dependencies.rclrs]
 version = "*"
+features = ["dyn_msg"]
 
 [dependencies.rosidl_runtime_rs]
 version = "*"

@@ -257,6 +257,11 @@ impl DynamicMessageMetadata {
         let pkg = DynamicMessagePackage::new(package_name)?;
         pkg.message_metadata(type_name)
     }
+
+    /// Returns a description of the message structure.
+    pub fn structure(&self) -> &MessageStructure {
+        &self.structure
+    }
 }
 
 #[cfg(test)]
