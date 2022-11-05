@@ -3,6 +3,26 @@ use std::num::NonZeroUsize;
 use rclrs::dynamic_message::*;
 
 #[test]
+fn max_alignment_is_8() {
+    // The DynamicMessage type makes sure that its storage is aligned to 8
+    let alignments = [
+        std::mem::align_of::<msg::Builtins>(),
+        std::mem::align_of::<msg::Arrays>(),
+        std::mem::align_of::<msg::Empty>(),
+        std::mem::align_of::<msg::Strings>(),
+        std::mem::align_of::<msg::BoundedSequences>(),
+        std::mem::align_of::<msg::Nested>(),
+        std::mem::align_of::<msg::MultiNested>(),
+        std::mem::align_of::<msg::UnboundedSequences>(),
+        std::mem::align_of::<msg::WStrings>(),
+        std::mem::align_of::<msg::Constants>(),
+        std::mem::align_of::<msg::BasicTypes>(),
+        std::mem::align_of::<msg::Defaults>(),
+    ];
+    assert_eq!(alignments.into_iter().max().unwrap(), 8);
+}
+
+#[test]
 fn message_structure_is_accurate() {
     let arrays_metadata = DynamicMessageMetadata::new("test_msgs/msg/Arrays").unwrap();
     let arrays_structure = Box::new(arrays_metadata.structure().clone());

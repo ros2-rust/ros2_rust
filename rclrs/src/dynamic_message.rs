@@ -6,8 +6,11 @@
 //! The central type of this module is [`DynamicMessage`].
 
 use std::fmt::{self, Display};
+use std::ops::Deref;
 use std::path::PathBuf;
 use std::sync::Arc;
+
+use rosidl_runtime_rs::RmwMessage;
 
 #[cfg(any(ros_distro = "foxy", ros_distro = "galactic"))]
 use crate::rcl_bindings::rosidl_typesupport_introspection_c__MessageMembers as rosidl_message_members_t;
@@ -54,17 +57,31 @@ struct MessageTypeName {
 /// can be used as a factory to create message instances.
 #[derive(Clone)]
 pub struct DynamicMessageMetadata {
-    #[allow(dead_code)]
     message_type: MessageTypeName,
     // The library needs to be kept loaded in order to keep the type_support_ptr valid.
+    // This is the introspection type support library, not the regular one.
     #[allow(dead_code)]
     introspection_type_support_library: Arc<libloading::Library>,
-    #[allow(dead_code)]
     type_support_ptr: *const rosidl_message_type_support_t,
-    #[allow(dead_code)]
     structure: MessageStructure,
-    #[allow(dead_code)]
     fini_function: unsafe extern "C" fn(*mut std::os::raw::c_void),
+}
+
+/// A message whose type is not known at compile-time.
+///
+/// This type allows inspecting the structure of the message as well as the
+/// values contained in it.
+/// It also allows _modifying_ the values, but not the structure, because
+/// even a dynamic message must always correspond to a specific message type.
+// There is no clone function yet, we need to add that in rosidl.
+pub struct DynamicMessage {
+    metadata: DynamicMessageMetadata,
+    // This is aligned to the maximum possible alignment of a message (8)
+    // by the use of a special allocation function.
+    storage: Box<[u8]>,
+    // This type allows moving the message contents out into another message,
+    // in which case the drop impl is not responsible for calling fini anymore
+    needs_fini: bool,
 }
 
 // ========================= impl for DynamicMessagePackage =========================
@@ -258,9 +275,135 @@ impl DynamicMessageMetadata {
         pkg.message_metadata(type_name)
     }
 
+    /// Instantiates a new message.
+    pub fn create(&self) -> Result<DynamicMessage, DynamicMessageError> {
+        // Get an aligned boxed slice. This is inspired by the maligned crate.
+        use std::alloc::Layout;
+        // As mentioned in the struct definition, the maximum alignment required is 8.
+        let layout = Layout::from_size_align(self.structure.size, 8).unwrap();
+        let mut storage = unsafe {
+            assert_ne!(self.structure.size, 0);
+            // SAFETY: The layout has non-zero size.
+            let ptr = std::alloc::alloc_zeroed(layout);
+            // SAFETY: This is valid, memory in ptr has appropriate size and is initialized
+            let slice = std::slice::from_raw_parts_mut(ptr, self.structure.size);
+            // The mutable reference decays into a (fat) *mut [u8]
+            Box::from_raw(slice)
+        };
+        // SAFETY: The pointer returned by get_type_support_handle() is always valid.
+        let type_support = unsafe { &*self.type_support_ptr };
+        let message_members: &rosidl_message_members_t =
+            // SAFETY: The data pointer is supposed to be always valid.
+            unsafe { &*(type_support.data as *const rosidl_message_members_t) };
+        // SAFETY: The init function is passed zeroed memory of the correct alignment.
+        unsafe {
+            (message_members.init_function.unwrap())(
+                storage.as_mut_ptr() as _,
+                rosidl_runtime_c__message_initialization::ROSIDL_RUNTIME_C_MSG_INIT_ALL,
+            );
+        };
+        let dyn_msg = DynamicMessage {
+            metadata: self.clone(),
+            storage,
+            needs_fini: true,
+        };
+        Ok(dyn_msg)
+    }
+
     /// Returns a description of the message structure.
     pub fn structure(&self) -> &MessageStructure {
         &self.structure
+    }
+}
+
+// ========================= impl for DynamicMessage =========================
+
+impl Drop for DynamicMessage {
+    fn drop(&mut self) {
+        if self.needs_fini {
+            // SAFETY: The fini_function expects to be passed a pointer to the message
+            unsafe { (self.metadata.fini_function)(self.storage.as_mut_ptr() as _) }
+        }
+    }
+}
+
+impl PartialEq for DynamicMessage {
+    fn eq(&self, other: &Self) -> bool {
+        self.metadata.type_support_ptr == other.metadata.type_support_ptr
+            && self.storage == other.storage
+    }
+}
+
+impl Eq for DynamicMessage {}
+
+impl DynamicMessage {
+    /// Dynamically loads a type support library for the specified type and creates a message instance.
+    ///
+    /// The full message type is of the form `<package>/msg/<type_name>`, e.g.
+    /// `std_msgs/msg/String`.
+    ///
+    /// The message instance will contain the default values of the message type.
+    pub fn new(full_message_type: &str) -> Result<Self, DynamicMessageError> {
+        DynamicMessageMetadata::new(full_message_type)?.create()
+    }
+
+    /// Returns a description of the message structure.
+    pub fn structure(&self) -> &MessageStructure {
+        &self.metadata.structure
+    }
+
+    /// Converts a statically typed RMW-native message into a `DynamicMessage`.
+    pub fn convert_from_rmw_message<T>(mut msg: T) -> Result<Self, DynamicMessageError>
+    where
+        T: RmwMessage,
+    {
+        let mut dyn_msg = Self::new(<T as RmwMessage>::TYPE_NAME)?;
+        let align = std::mem::align_of::<T>();
+        assert_eq!(dyn_msg.storage.as_ptr().align_offset(align), 0);
+        {
+            // SAFETY: This transmutes the slice of bytes into a &mut T. This is fine, since
+            // under the hood it *is* a T.
+            // However, the resulting value is not seen as borrowing from dyn_msg by the borrow checker,
+            // so we are careful to not create a second mutable reference before dropping this one,
+            // since that would be UB.
+            let dyn_msg_transmuted = unsafe { &mut *(dyn_msg.storage.as_mut_ptr() as *mut T) };
+            // We cannot simply overwrite one message with the other, or we will get a memory leak/double-free.
+            // Swapping is the solution.
+            std::mem::swap(&mut msg, dyn_msg_transmuted);
+        }
+        Ok(dyn_msg)
+    }
+
+    /// Converts a `DynamicMessage` into a statically typed RMW-native message.
+    ///
+    /// If the RMW-native message type does not match the underlying message type of this `DynamicMessage`,
+    /// it is not converted but instead returned unchanged.
+    pub fn convert_into_rmw_message<T>(mut self) -> Result<T, Self>
+    where
+        T: RmwMessage,
+    {
+        if <T as RmwMessage>::TYPE_NAME == self.metadata.message_type.to_string() {
+            // SAFETY: Even though a zero-initialized message might not match RMW expectations for
+            // what a message should look like, it is safe to temporarily have a zero-initialized
+            // value, i.e. it is not undefined behavior to do this since it's a C struct, and an
+            // all-zeroes bit pattern is always a valid instance of any C struct.
+            let mut dest = unsafe { std::mem::zeroed::<T>() };
+            let dest_ptr = &mut dest as *mut T as *mut u8;
+            // This reinterprets the struct as a slice of bytes.
+            // The bytes copied into the dest slice are a valid value of T, as ensured by comparison
+            // of the type support pointers.
+            let dest_slice =
+                unsafe { std::slice::from_raw_parts_mut(dest_ptr, std::mem::size_of::<T>()) };
+            // This creates a shallow copy, with ownership of the "deep" (or inner) parts moving
+            // into the destination.
+            dest_slice.copy_from_slice(&*self.storage);
+            // Don't run the fini function on the src data anymore, because the inner parts would be
+            // double-freed by dst and src.
+            self.needs_fini = false;
+            Ok(dest)
+        } else {
+            Err(self)
+        }
     }
 }
 
@@ -275,6 +418,8 @@ mod tests {
     fn all_types_are_sync_and_send() {
         assert_send::<DynamicMessageMetadata>();
         assert_sync::<DynamicMessageMetadata>();
+        assert_send::<DynamicMessage>();
+        assert_sync::<DynamicMessage>();
     }
 
     #[test]
