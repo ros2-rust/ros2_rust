@@ -9,7 +9,6 @@ use rosidl_runtime_rs::{Message, RmwMessage};
 use crate::error::{RclrsError, ToResult};
 use crate::qos::QoSProfile;
 use crate::rcl_bindings::*;
-use crate::Node;
 
 mod loaned_message;
 pub use loaned_message::*;
@@ -69,7 +68,11 @@ where
     /// Creates a new `Publisher`.
     ///
     /// Node and namespace changes are always applied _before_ topic remapping.
-    pub fn new(node: &Node, topic: &str, qos: QoSProfile) -> Result<Self, RclrsError>
+    pub fn new(
+        rcl_node_mtx: Arc<Mutex<rcl_node_t>>,
+        topic: &str,
+        qos: QoSProfile,
+    ) -> Result<Self, RclrsError>
     where
         T: Message,
     {
@@ -81,7 +84,6 @@ where
             err,
             s: topic.into(),
         })?;
-        let rcl_node = &mut *node.rcl_node_mtx.lock().unwrap();
 
         // SAFETY: No preconditions for this function.
         let mut publisher_options = unsafe { rcl_publisher_get_default_options() };
@@ -94,7 +96,7 @@ where
             // TODO: type support?
             rcl_publisher_init(
                 &mut rcl_publisher,
-                rcl_node,
+                &*rcl_node_mtx.lock().unwrap(),
                 type_support_ptr,
                 topic_c_string.as_ptr(),
                 &publisher_options,
@@ -104,7 +106,7 @@ where
 
         Ok(Self {
             rcl_publisher_mtx: Mutex::new(rcl_publisher),
-            rcl_node_mtx: Arc::clone(&node.rcl_node_mtx),
+            rcl_node_mtx,
             type_support_ptr,
             message: PhantomData,
         })

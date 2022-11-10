@@ -184,7 +184,7 @@ impl Node {
     where
         T: rosidl_runtime_rs::Service,
     {
-        let client = Arc::new(Client::<T>::new(self, topic)?);
+        let client = Arc::new(Client::<T>::new(Arc::clone(&self.rcl_node_mtx), topic)?);
         self.clients
             .push(Arc::downgrade(&client) as Weak<dyn ClientBase>);
         Ok(client)
@@ -243,7 +243,7 @@ impl Node {
     where
         T: Message,
     {
-        Publisher::<T>::new(self, topic, qos)
+        Publisher::<T>::new(Arc::clone(&self.rcl_node_mtx), topic, qos)
     }
 
     /// Creates a [`Service`][1].
@@ -259,7 +259,11 @@ impl Node {
         T: rosidl_runtime_rs::Service,
         F: Fn(&rmw_request_id_t, T::Request) -> T::Response + 'static + Send,
     {
-        let service = Arc::new(Service::<T>::new(self, topic, callback)?);
+        let service = Arc::new(Service::<T>::new(
+            Arc::clone(&self.rcl_node_mtx),
+            topic,
+            callback,
+        )?);
         self.services
             .push(Arc::downgrade(&service) as Weak<dyn ServiceBase>);
         Ok(service)
@@ -278,7 +282,12 @@ impl Node {
     where
         T: Message,
     {
-        let subscription = Arc::new(Subscription::<T>::new(self, topic, qos, callback)?);
+        let subscription = Arc::new(Subscription::<T>::new(
+            Arc::clone(&self.rcl_node_mtx),
+            topic,
+            qos,
+            callback,
+        )?);
         self.subscriptions
             .push(Arc::downgrade(&subscription) as Weak<dyn SubscriptionBase>);
         Ok(subscription)

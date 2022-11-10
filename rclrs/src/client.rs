@@ -9,7 +9,6 @@ use rosidl_runtime_rs::Message;
 
 use crate::error::{RclReturnCode, ToResult};
 use crate::MessageCow;
-use crate::Node;
 use crate::{rcl_bindings::*, RclrsError};
 
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
@@ -56,8 +55,11 @@ type RequestId = i64;
 
 /// Main class responsible for sending requests to a ROS service.
 ///
-/// The only available way to instantiate clients is via [`Node::create_client`], this is to
-/// ensure that [`Node`]s can track all the clients that have been created.
+/// The only available way to instantiate clients is via [`Node::create_client`][1], this is to
+/// ensure that [`Node`][2]s can track all the clients that have been created.
+///
+/// [1]: crate::Node::create_client
+/// [2]: crate::Node
 pub struct Client<T>
 where
     T: rosidl_runtime_rs::Service,
@@ -72,7 +74,7 @@ where
     T: rosidl_runtime_rs::Service,
 {
     /// Creates a new client.
-    pub(crate) fn new(node: &Node, topic: &str) -> Result<Self, RclrsError>
+    pub(crate) fn new(rcl_node_mtx: Arc<Mutex<rcl_node_t>>, topic: &str) -> Result<Self, RclrsError>
     // This uses pub(crate) visibility to avoid instantiating this struct outside
     // [`Node::create_client`], see the struct's documentation for the rationale
     where
@@ -86,7 +88,6 @@ where
             err,
             s: topic.into(),
         })?;
-        let rcl_node = { &mut *node.rcl_node_mtx.lock().unwrap() };
 
         // SAFETY: No preconditions for this function.
         let client_options = unsafe { rcl_client_get_default_options() };
@@ -98,7 +99,7 @@ where
             // afterwards.
             rcl_client_init(
                 &mut rcl_client,
-                rcl_node,
+                &*rcl_node_mtx.lock().unwrap(),
                 type_support,
                 topic_c_string.as_ptr(),
                 &client_options,
@@ -108,7 +109,7 @@ where
 
         let handle = Arc::new(ClientHandle {
             rcl_client_mtx: Mutex::new(rcl_client),
-            rcl_node_mtx: node.rcl_node_mtx.clone(),
+            rcl_node_mtx,
             in_use_by_wait_set: Arc::new(AtomicBool::new(false)),
         });
 

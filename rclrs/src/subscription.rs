@@ -8,7 +8,6 @@ use rosidl_runtime_rs::{Message, RmwMessage};
 
 use crate::error::{RclReturnCode, ToResult};
 use crate::qos::QoSProfile;
-use crate::Node;
 use crate::{rcl_bindings::*, RclrsError};
 
 mod callback;
@@ -63,11 +62,13 @@ pub trait SubscriptionBase: Send + Sync {
 /// When a subscription is created, it may take some time to get "matched" with a corresponding
 /// publisher.
 ///
-/// The only available way to instantiate subscriptions is via [`Node::create_subscription`], this
-/// is to ensure that [`Node`]s can track all the subscriptions that have been created.
+/// The only available way to instantiate subscriptions is via [`Node::create_subscription()`][3], this
+/// is to ensure that [`Node`][4]s can track all the subscriptions that have been created.
 ///
 /// [1]: crate::spin_once
 /// [2]: crate::spin
+/// [3]: crate::Node::create_subscription
+/// [4]: crate::Node
 pub struct Subscription<T>
 where
     T: Message,
@@ -84,7 +85,7 @@ where
 {
     /// Creates a new subscription.
     pub(crate) fn new<Args>(
-        node: &Node,
+        rcl_node_mtx: Arc<Mutex<rcl_node_t>>,
         topic: &str,
         qos: QoSProfile,
         callback: impl SubscriptionCallback<T, Args>,
@@ -102,7 +103,6 @@ where
             err,
             s: topic.into(),
         })?;
-        let rcl_node = &mut *node.rcl_node_mtx.lock().unwrap();
 
         // SAFETY: No preconditions for this function.
         let mut subscription_options = unsafe { rcl_subscription_get_default_options() };
@@ -115,7 +115,7 @@ where
             // TODO: type support?
             rcl_subscription_init(
                 &mut rcl_subscription,
-                rcl_node,
+                &*rcl_node_mtx.lock().unwrap(),
                 type_support,
                 topic_c_string.as_ptr(),
                 &subscription_options,
@@ -125,7 +125,7 @@ where
 
         let handle = Arc::new(SubscriptionHandle {
             rcl_subscription_mtx: Mutex::new(rcl_subscription),
-            rcl_node_mtx: node.rcl_node_mtx.clone(),
+            rcl_node_mtx,
             in_use_by_wait_set: Arc::new(AtomicBool::new(false)),
         });
 
