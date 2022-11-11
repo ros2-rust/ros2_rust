@@ -3,6 +3,8 @@ use std::ffi::CStr;
 use std::fmt::{self, Debug, Display};
 use std::hash::{Hash, Hasher};
 use std::ops::{Deref, DerefMut};
+use std::ptr;
+use std::ptr::slice_from_raw_parts;
 
 #[cfg(feature = "serde")]
 mod serde;
@@ -135,7 +137,7 @@ macro_rules! string_impl {
                 };
                 // SAFETY: Passing in a zeroed string is safe.
                 if !unsafe { $init(&mut msg as *mut _) } {
-                    panic!("Sinit failed");
+                    panic!("$init failed");
                 }
                 msg
             }
@@ -224,10 +226,53 @@ macro_rules! string_impl {
             }
         }
 
+        impl FromIterator<char> for $string {
+            fn from_iter<I: IntoIterator<Item = char>>(iter: I) -> Self {
+                let mut buf = <$string>::default();
+                buf.extend(iter);
+                buf
+            }
+        }
+
+        impl<'a> FromIterator<&'a char> for $string {
+            fn from_iter<I: IntoIterator<Item = &'a char>>(iter: I) -> Self {
+                let mut buf = <$string>::default();
+                buf.extend(iter);
+                buf
+            }
+        }
+
+        impl Extend<char> for $string {
+            fn extend<I: IntoIterator<Item = char>>(&mut self, iter: I) {
+                let mut v = self.to_vec();
+                let iterator = iter.into_iter();
+
+                iterator.for_each(|c| {
+                    v.push(c as $char_type);
+                });
+
+                // SAFETY: It's okay to pass a non-zero-terminated string here since assignn
+                // uses the specified length and will append the 0 to the dest string itself.
+                if !unsafe {
+                    $assignn(
+                        self as *mut _,
+                        v.as_ptr() as *const _,
+                        v.len(),
+                    )
+                } {
+                    panic!("$assignn failed");
+                }
+            }
+        }
+
+        impl<'a> Extend<&'a char> for $string {
+            fn extend<I: IntoIterator<Item = &'a char>>(&mut self, iter: I) {
+                self.extend(iter.into_iter().cloned());
+            }
+        }
+
         // SAFETY: A string is a simple data structure, and therefore not thread-specific.
         unsafe impl Send for $string {}
-        // SAFETY: A string does not have interior mutability, so it can be shared.
-        unsafe impl Sync for $string {}
 
         impl SequenceAlloc for $string {
             fn sequence_init(seq: &mut Sequence<Self>, size: usize) -> bool {
@@ -241,6 +286,23 @@ macro_rules! string_impl {
             fn sequence_copy(in_seq: &Sequence<Self>, out_seq: &mut Sequence<Self>) -> bool {
                 // SAFETY: There are no special preconditions to the sequence_copy function.
                 unsafe { $sequence_copy(in_seq as *const _, out_seq as *mut _) }
+            }
+        }
+
+        impl $string {
+
+            /// Returns a copy of `self` as a vector without the trailing null byte.
+            pub fn to_vec(&self) -> Vec<$char_type> {
+                let mut v: Vec<$char_type> = vec![];
+
+                // SAFETY: self.data points to self.size consecutive, initialized elements and
+                // isn't modified externally.
+                unsafe {
+                    let s = slice_from_raw_parts(self.data, self.size);
+                    v.extend_from_slice(s.as_ref().unwrap());
+                };
+
+                v
             }
         }
     };
@@ -274,7 +336,7 @@ string_impl!(
 impl From<&str> for String {
     fn from(s: &str) -> Self {
         let mut msg = Self {
-            data: std::ptr::null_mut(),
+            data: ptr::null_mut(),
             size: 0,
             capacity: 0,
         };
@@ -304,7 +366,7 @@ impl String {
 impl From<&str> for WString {
     fn from(s: &str) -> Self {
         let mut msg = Self {
-            data: std::ptr::null_mut(),
+            data: ptr::null_mut(),
             size: 0,
             capacity: 0,
         };
@@ -502,5 +564,53 @@ mod tests {
             let s: std::string::String = (0..len).map(|_| char::arbitrary(g)).collect();
             s.as_str().try_into().unwrap()
         }
+    }
+
+    #[test]
+    fn string_from_char_iterator() {
+        // Base char case
+        let expected = String::from("abc");
+        let actual = "abc".chars().collect::<String>();
+
+        assert_eq!(expected, actual);
+
+        // Empty case
+        let expected = String::from("");
+        let actual = "".chars().collect::<String>();
+
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn extend_string_with_char_iterator() {
+        let expected = WString::from("abcdef");
+        let mut actual = WString::from("abc");
+        actual.extend("def".chars());
+
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn wstring_from_char_iterator() {
+        // Base char case
+        let expected = WString::from("abc");
+        let actual = "abc".chars().collect::<WString>();
+
+        assert_eq!(expected, actual);
+
+        // Empty case
+        let expected = WString::from("");
+        let actual = "".chars().collect::<WString>();
+
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn extend_wstring_with_char_iterator() {
+        let expected = WString::from("abcdef");
+        let mut actual = WString::from("abc");
+        actual.extend("def".chars());
+
+        assert_eq!(expected, actual);
     }
 }
