@@ -253,13 +253,7 @@ macro_rules! string_impl {
 
                 // SAFETY: It's okay to pass a non-zero-terminated string here since assignn
                 // uses the specified length and will append the 0 to the dest string itself.
-                if !unsafe {
-                    $assignn(
-                        self as *mut _,
-                        v.as_ptr() as *const _,
-                        v.len(),
-                    )
-                } {
+                if !unsafe { $assignn(self as *mut _, v.as_ptr() as *const _, v.len()) } {
                     panic!("$assignn failed");
                 }
             }
@@ -290,17 +284,14 @@ macro_rules! string_impl {
         }
 
         impl $string {
-
             /// Returns a copy of `self` as a vector without the trailing null byte.
             pub fn to_vec(&self) -> Vec<$char_type> {
                 let mut v: Vec<$char_type> = vec![];
 
                 // SAFETY: self.data points to self.size consecutive, initialized elements and
                 // isn't modified externally.
-                unsafe {
-                    let s = slice_from_raw_parts(self.data, self.size);
-                    v.extend_from_slice(s.as_ref().unwrap());
-                };
+                let s = unsafe { slice_from_raw_parts(self.data, self.size).as_ref() };
+                v.extend_from_slice(s.unwrap());
 
                 v
             }
