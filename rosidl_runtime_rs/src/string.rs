@@ -4,7 +4,6 @@ use std::fmt::{self, Debug, Display};
 use std::hash::{Hash, Hasher};
 use std::ops::{Deref, DerefMut};
 use std::ptr;
-use std::ptr::slice_from_raw_parts;
 
 #[cfg(feature = "serde")]
 mod serde;
@@ -114,7 +113,7 @@ pub struct StringExceedsBoundsError {
 
 // There is a lot of redundancy between String and WString, which this macro aims to reduce.
 macro_rules! string_impl {
-    ($string:ty, $char_type:ty, $unsigned_char_type:ty, $string_conversion_func:ident, $init:ident, $fini:ident, $assignn:ident, $sequence_init:ident, $sequence_fini:ident, $sequence_copy:ident) => {
+    ($string:ty, $char_type:ty, $unsigned_char_type:ty, $string_conversion_func:ident, $encoding_func:ident, $init:ident, $fini:ident, $assignn:ident, $sequence_init:ident, $sequence_fini:ident, $sequence_copy:ident) => {
         #[link(name = "rosidl_runtime_c")]
         extern "C" {
             fn $init(s: *mut $string) -> bool;
@@ -247,8 +246,23 @@ macro_rules! string_impl {
                 let mut v = self.to_vec();
                 let iterator = iter.into_iter();
 
-                iterator.for_each(|c| {
-                    v.push(c as $char_type);
+                iterator.for_each(|c: char| {
+                    // UTF-8 and UTF-16 encoding requires at least 4 bytes for any character.
+                    // Technically UTF-16 could just use a buffer size of 2 here, but that's more
+                    // trouble than its worth since we are defining this function in the macro.
+                    // See https://doc.rust-lang.org/std/primitive.char.html#method.encode_utf8
+                    let mut buf = [0; 4];
+                    c.$encoding_func(&mut buf);
+
+
+                    let filtered_bytes: Vec<$unsigned_char_type> = buf
+                        .into_iter()
+                        .filter(|&c| c != (0 as $unsigned_char_type))
+                        .collect();
+
+                    for encoded_char in filtered_bytes {
+                        v.push(encoded_char as $char_type);
+                    }
                 });
 
                 // SAFETY: It's okay to pass a non-zero-terminated string here since assignn
@@ -267,6 +281,8 @@ macro_rules! string_impl {
 
         // SAFETY: A string is a simple data structure, and therefore not thread-specific.
         unsafe impl Send for $string {}
+        // SAFETY: A string does not have interior mutability, so it can be shared.
+        unsafe impl Sync for $string {}
 
         impl SequenceAlloc for $string {
             fn sequence_init(seq: &mut Sequence<Self>, size: usize) -> bool {
@@ -282,20 +298,6 @@ macro_rules! string_impl {
                 unsafe { $sequence_copy(in_seq as *const _, out_seq as *mut _) }
             }
         }
-
-        impl $string {
-            /// Returns a copy of `self` as a vector without the trailing null byte.
-            pub fn to_vec(&self) -> Vec<$char_type> {
-                let mut v: Vec<$char_type> = vec![];
-
-                // SAFETY: self.data points to self.size consecutive, initialized elements and
-                // isn't modified externally.
-                let s = unsafe { slice_from_raw_parts(self.data, self.size).as_ref() };
-                v.extend_from_slice(s.unwrap());
-
-                v
-            }
-        }
     };
 }
 
@@ -304,6 +306,7 @@ string_impl!(
     std::os::raw::c_char,
     u8,
     from_utf8_lossy,
+    encode_utf8,
     rosidl_runtime_c__String__init,
     rosidl_runtime_c__String__fini,
     rosidl_runtime_c__String__assignn,
@@ -316,6 +319,7 @@ string_impl!(
     std::os::raw::c_ushort,
     u16,
     from_utf16_lossy,
+    encode_utf16,
     rosidl_runtime_c__U16String__init,
     rosidl_runtime_c__U16String__fini,
     rosidl_runtime_c__U16String__assignn,
@@ -570,6 +574,12 @@ mod tests {
         let actual = "".chars().collect::<String>();
 
         assert_eq!(expected, actual);
+
+        // Non-ascii char case
+        let expected = String::from("Grüß Gott! 𝕊");
+        let actual = "Grüß Gott! 𝕊".chars().collect::<String>();
+
+        assert_eq!(expected, actual);
     }
 
     #[test]
@@ -592,6 +602,12 @@ mod tests {
         // Empty case
         let expected = WString::from("");
         let actual = "".chars().collect::<WString>();
+
+        assert_eq!(expected, actual);
+
+        // Non-ascii char case
+        let expected = WString::from("Grüß Gott! 𝕊");
+        let actual = "Grüß Gott! 𝕊".chars().collect::<WString>();
 
         assert_eq!(expected, actual);
     }
