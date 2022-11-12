@@ -225,6 +225,12 @@ macro_rules! string_impl {
             }
         }
 
+        impl From<&std::string::String> for $string {
+            fn from(s: &std::string::String) -> Self {
+                Self::from(s.as_str())
+            }
+        }
+
         impl FromIterator<char> for $string {
             fn from_iter<I: IntoIterator<Item = char>>(iter: I) -> Self {
                 let mut buf = <$string>::default();
@@ -322,25 +328,6 @@ impl From<&str> for String {
     }
 }
 
-impl From<&std::string::String> for String {
-    fn from(s: &std::string::String) -> Self {
-        let mut msg = Self {
-            data: ptr::null_mut(),
-            size: 0,
-            capacity: 0,
-        };
-
-        // SAFETY: It's okay to pass a non-zero-terminated string here since assignn uses the
-        // specified length and will append the 0 byte to the dest string itself.
-        if !unsafe {
-            rosidl_runtime_c__String__assignn(&mut msg as *mut _, s.as_ptr() as *const _, s.len())
-        } {
-            panic!("rosidl_runtime_c__String__assignn failed");
-        }
-        msg
-    }
-}
-
 impl String {
     /// Creates a CStr from this String.
     ///
@@ -355,29 +342,6 @@ impl String {
 
 impl From<&str> for WString {
     fn from(s: &str) -> Self {
-        let mut msg = Self {
-            data: ptr::null_mut(),
-            size: 0,
-            capacity: 0,
-        };
-        let buf: Vec<u16> = s.encode_utf16().collect();
-        // SAFETY: It's okay to pass a non-zero-terminated string here since assignn uses the
-        // specified length and will append the 0 to the dest string itself.
-        if !unsafe {
-            rosidl_runtime_c__U16String__assignn(
-                &mut msg as *mut _,
-                buf.as_ptr() as *const _,
-                buf.len(),
-            )
-        } {
-            panic!("rosidl_runtime_c__U16String__assignn failed");
-        }
-        msg
-    }
-}
-
-impl From<&std::string::String> for WString {
-    fn from(s: &std::string::String) -> Self {
         let mut msg = Self {
             data: ptr::null_mut(),
             size: 0,
