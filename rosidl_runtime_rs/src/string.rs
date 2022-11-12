@@ -243,32 +243,9 @@ macro_rules! string_impl {
 
         impl Extend<char> for $string {
             fn extend<I: IntoIterator<Item = char>>(&mut self, iter: I) {
-                let mut v = self.to_vec();
-                let iterator = iter.into_iter();
-
-                iterator.for_each(|c: char| {
-                    // UTF-8 and UTF-16 encoding requires at least 4 bytes for any character.
-                    // Technically UTF-16 could just use a buffer size of 2 here, but that's more
-                    // trouble than its worth since we are defining this function in the macro.
-                    // See https://doc.rust-lang.org/std/primitive.char.html#method.encode_utf8
-                    let mut buf = [0; 4];
-                    c.$encoding_func(&mut buf);
-
-                    let filtered_bytes: Vec<$unsigned_char_type> = buf
-                        .into_iter()
-                        .filter(|&c| c != (0 as $unsigned_char_type))
-                        .collect();
-
-                    for encoded_char in filtered_bytes {
-                        v.push(encoded_char as $char_type);
-                    }
-                });
-
-                // SAFETY: It's okay to pass a non-zero-terminated string here since assignn
-                // uses the specified length and will append the 0 to the dest string itself.
-                if !unsafe { $assignn(self as *mut _, v.as_ptr() as *const _, v.len()) } {
-                    panic!("$assignn failed");
-                }
+                let mut s = self.to_string();
+                s.extend(iter);
+                *self = Self::from(&s);
             }
         }
 
@@ -345,6 +322,25 @@ impl From<&str> for String {
     }
 }
 
+impl From<&std::string::String> for String {
+    fn from(s: &std::string::String) -> Self {
+        let mut msg = Self {
+            data: ptr::null_mut(),
+            size: 0,
+            capacity: 0,
+        };
+
+        // SAFETY: It's okay to pass a non-zero-terminated string here since assignn uses the
+        // specified length and will append the 0 byte to the dest string itself.
+        if !unsafe {
+            rosidl_runtime_c__String__assignn(&mut msg as *mut _, s.as_ptr() as *const _, s.len())
+        } {
+            panic!("rosidl_runtime_c__String__assignn failed");
+        }
+        msg
+    }
+}
+
 impl String {
     /// Creates a CStr from this String.
     ///
@@ -359,6 +355,29 @@ impl String {
 
 impl From<&str> for WString {
     fn from(s: &str) -> Self {
+        let mut msg = Self {
+            data: ptr::null_mut(),
+            size: 0,
+            capacity: 0,
+        };
+        let buf: Vec<u16> = s.encode_utf16().collect();
+        // SAFETY: It's okay to pass a non-zero-terminated string here since assignn uses the
+        // specified length and will append the 0 to the dest string itself.
+        if !unsafe {
+            rosidl_runtime_c__U16String__assignn(
+                &mut msg as *mut _,
+                buf.as_ptr() as *const _,
+                buf.len(),
+            )
+        } {
+            panic!("rosidl_runtime_c__U16String__assignn failed");
+        }
+        msg
+    }
+}
+
+impl From<&std::string::String> for WString {
+    fn from(s: &std::string::String) -> Self {
         let mut msg = Self {
             data: ptr::null_mut(),
             size: 0,
