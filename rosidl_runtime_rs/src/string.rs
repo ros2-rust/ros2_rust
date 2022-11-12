@@ -254,7 +254,6 @@ macro_rules! string_impl {
                     let mut buf = [0; 4];
                     c.$encoding_func(&mut buf);
 
-
                     let filtered_bytes: Vec<$unsigned_char_type> = buf
                         .into_iter()
                         .filter(|&c| c != (0 as $unsigned_char_type))
