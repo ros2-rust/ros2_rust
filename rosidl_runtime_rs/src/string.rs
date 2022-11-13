@@ -126,21 +126,6 @@ macro_rules! string_impl {
             ) -> bool;
         }
 
-        impl Default for $string {
-            fn default() -> Self {
-                let mut msg = Self {
-                    data: std::ptr::null_mut(),
-                    size: 0,
-                    capacity: 0,
-                };
-                // SAFETY: Passing in a zeroed string is safe.
-                if !unsafe { $init(&mut msg as *mut _) } {
-                    panic!("Sinit failed");
-                }
-                msg
-            }
-        }
-
         impl Clone for $string {
             fn clone(&self) -> Self {
                 let mut msg = Self::default();
@@ -155,6 +140,21 @@ macro_rules! string_impl {
         impl Debug for $string {
             fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
                 Debug::fmt(&self.to_string(), f)
+            }
+        }
+
+        impl Default for $string {
+            fn default() -> Self {
+                let mut msg = Self {
+                    data: std::ptr::null_mut(),
+                    size: 0,
+                    capacity: 0,
+                };
+                // SAFETY: Passing in a zeroed string is safe.
+                if !unsafe { $init(&mut msg as *mut _) } {
+                    panic!("$init failed");
+                }
+                msg
             }
         }
 
@@ -200,21 +200,51 @@ macro_rules! string_impl {
 
         impl Eq for $string {}
 
+        impl Extend<char> for $string {
+            fn extend<I: IntoIterator<Item = char>>(&mut self, iter: I) {
+                let mut s = self.to_string();
+                s.extend(iter);
+                *self = Self::from(s.as_str());
+            }
+        }
+
+        impl<'a> Extend<&'a char> for $string {
+            fn extend<I: IntoIterator<Item = &'a char>>(&mut self, iter: I) {
+                self.extend(iter.into_iter().cloned());
+            }
+        }
+
+        impl FromIterator<char> for $string {
+            fn from_iter<I: IntoIterator<Item = char>>(iter: I) -> Self {
+                let mut buf = <$string>::default();
+                buf.extend(iter);
+                buf
+            }
+        }
+
+        impl<'a> FromIterator<&'a char> for $string {
+            fn from_iter<I: IntoIterator<Item = &'a char>>(iter: I) -> Self {
+                let mut buf = <$string>::default();
+                buf.extend(iter);
+                buf
+            }
+        }
+
         impl Hash for $string {
             fn hash<H: Hasher>(&self, state: &mut H) {
                 self.deref().hash(state)
             }
         }
 
-        impl PartialEq for $string {
-            fn eq(&self, other: &Self) -> bool {
-                self.deref().eq(other.deref())
-            }
-        }
-
         impl Ord for $string {
             fn cmp(&self, other: &Self) -> Ordering {
                 self.deref().cmp(other.deref())
+            }
+        }
+
+        impl PartialEq for $string {
+            fn eq(&self, other: &Self) -> bool {
+                self.deref().eq(other.deref())
             }
         }
 
@@ -502,5 +532,65 @@ mod tests {
             let s: std::string::String = (0..len).map(|_| char::arbitrary(g)).collect();
             s.as_str().try_into().unwrap()
         }
+    }
+
+    #[test]
+    fn string_from_char_iterator() {
+        // Base char case
+        let expected = String::from("abc");
+        let actual = "abc".chars().collect::<String>();
+
+        assert_eq!(expected, actual);
+
+        // Empty case
+        let expected = String::from("");
+        let actual = "".chars().collect::<String>();
+
+        assert_eq!(expected, actual);
+
+        // Non-ascii char case
+        let expected = String::from("Grüß Gott! 𝕊");
+        let actual = "Grüß Gott! 𝕊".chars().collect::<String>();
+
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn extend_string_with_char_iterator() {
+        let expected = WString::from("abcdef");
+        let mut actual = WString::from("abc");
+        actual.extend("def".chars());
+
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn wstring_from_char_iterator() {
+        // Base char case
+        let expected = WString::from("abc");
+        let actual = "abc".chars().collect::<WString>();
+
+        assert_eq!(expected, actual);
+
+        // Empty case
+        let expected = WString::from("");
+        let actual = "".chars().collect::<WString>();
+
+        assert_eq!(expected, actual);
+
+        // Non-ascii char case
+        let expected = WString::from("Grüß Gott! 𝕊");
+        let actual = "Grüß Gott! 𝕊".chars().collect::<WString>();
+
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn extend_wstring_with_char_iterator() {
+        let expected = WString::from("abcdef");
+        let mut actual = WString::from("abc");
+        actual.extend("def".chars());
+
+        assert_eq!(expected, actual);
     }
 }
