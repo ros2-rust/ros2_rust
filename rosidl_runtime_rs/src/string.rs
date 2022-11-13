@@ -3,7 +3,6 @@ use std::ffi::CStr;
 use std::fmt::{self, Debug, Display};
 use std::hash::{Hash, Hasher};
 use std::ops::{Deref, DerefMut};
-use std::ptr;
 
 #[cfg(feature = "serde")]
 mod serde;
@@ -113,7 +112,7 @@ pub struct StringExceedsBoundsError {
 
 // There is a lot of redundancy between String and WString, which this macro aims to reduce.
 macro_rules! string_impl {
-    ($string:ty, $char_type:ty, $unsigned_char_type:ty, $string_conversion_func:ident, $encoding_func:ident, $init:ident, $fini:ident, $assignn:ident, $sequence_init:ident, $sequence_fini:ident, $sequence_copy:ident) => {
+    ($string:ty, $char_type:ty, $unsigned_char_type:ty, $string_conversion_func:ident, $init:ident, $fini:ident, $assignn:ident, $sequence_init:ident, $sequence_fini:ident, $sequence_copy:ident) => {
         #[link(name = "rosidl_runtime_c")]
         extern "C" {
             fn $init(s: *mut $string) -> bool;
@@ -125,21 +124,6 @@ macro_rules! string_impl {
                 in_seq: *const Sequence<$string>,
                 out_seq: *mut Sequence<$string>,
             ) -> bool;
-        }
-
-        impl Default for $string {
-            fn default() -> Self {
-                let mut msg = Self {
-                    data: std::ptr::null_mut(),
-                    size: 0,
-                    capacity: 0,
-                };
-                // SAFETY: Passing in a zeroed string is safe.
-                if !unsafe { $init(&mut msg as *mut _) } {
-                    panic!("$init failed");
-                }
-                msg
-            }
         }
 
         impl Clone for $string {
@@ -156,6 +140,21 @@ macro_rules! string_impl {
         impl Debug for $string {
             fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
                 Debug::fmt(&self.to_string(), f)
+            }
+        }
+
+        impl Default for $string {
+            fn default() -> Self {
+                let mut msg = Self {
+                    data: std::ptr::null_mut(),
+                    size: 0,
+                    capacity: 0,
+                };
+                // SAFETY: Passing in a zeroed string is safe.
+                if !unsafe { $init(&mut msg as *mut _) } {
+                    panic!("$init failed");
+                }
+                msg
             }
         }
 
@@ -201,33 +200,17 @@ macro_rules! string_impl {
 
         impl Eq for $string {}
 
-        impl Hash for $string {
-            fn hash<H: Hasher>(&self, state: &mut H) {
-                self.deref().hash(state)
+        impl Extend<char> for $string {
+            fn extend<I: IntoIterator<Item = char>>(&mut self, iter: I) {
+                let mut s = self.to_string();
+                s.extend(iter);
+                *self = Self::from(s.as_str());
             }
         }
 
-        impl PartialEq for $string {
-            fn eq(&self, other: &Self) -> bool {
-                self.deref().eq(other.deref())
-            }
-        }
-
-        impl Ord for $string {
-            fn cmp(&self, other: &Self) -> Ordering {
-                self.deref().cmp(other.deref())
-            }
-        }
-
-        impl PartialOrd for $string {
-            fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-                self.deref().partial_cmp(other.deref())
-            }
-        }
-
-        impl From<&std::string::String> for $string {
-            fn from(s: &std::string::String) -> Self {
-                Self::from(s.as_str())
+        impl<'a> Extend<&'a char> for $string {
+            fn extend<I: IntoIterator<Item = &'a char>>(&mut self, iter: I) {
+                self.extend(iter.into_iter().cloned());
             }
         }
 
@@ -247,17 +230,27 @@ macro_rules! string_impl {
             }
         }
 
-        impl Extend<char> for $string {
-            fn extend<I: IntoIterator<Item = char>>(&mut self, iter: I) {
-                let mut s = self.to_string();
-                s.extend(iter);
-                *self = Self::from(&s);
+        impl Hash for $string {
+            fn hash<H: Hasher>(&self, state: &mut H) {
+                self.deref().hash(state)
             }
         }
 
-        impl<'a> Extend<&'a char> for $string {
-            fn extend<I: IntoIterator<Item = &'a char>>(&mut self, iter: I) {
-                self.extend(iter.into_iter().cloned());
+        impl Ord for $string {
+            fn cmp(&self, other: &Self) -> Ordering {
+                self.deref().cmp(other.deref())
+            }
+        }
+
+        impl PartialEq for $string {
+            fn eq(&self, other: &Self) -> bool {
+                self.deref().eq(other.deref())
+            }
+        }
+
+        impl PartialOrd for $string {
+            fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+                self.deref().partial_cmp(other.deref())
             }
         }
 
@@ -288,7 +281,6 @@ string_impl!(
     std::os::raw::c_char,
     u8,
     from_utf8_lossy,
-    encode_utf8,
     rosidl_runtime_c__String__init,
     rosidl_runtime_c__String__fini,
     rosidl_runtime_c__String__assignn,
@@ -301,7 +293,6 @@ string_impl!(
     std::os::raw::c_ushort,
     u16,
     from_utf16_lossy,
-    encode_utf16,
     rosidl_runtime_c__U16String__init,
     rosidl_runtime_c__U16String__fini,
     rosidl_runtime_c__U16String__assignn,
@@ -313,7 +304,7 @@ string_impl!(
 impl From<&str> for String {
     fn from(s: &str) -> Self {
         let mut msg = Self {
-            data: ptr::null_mut(),
+            data: std::ptr::null_mut(),
             size: 0,
             capacity: 0,
         };
@@ -343,7 +334,7 @@ impl String {
 impl From<&str> for WString {
     fn from(s: &str) -> Self {
         let mut msg = Self {
-            data: ptr::null_mut(),
+            data: std::ptr::null_mut(),
             size: 0,
             capacity: 0,
         };
