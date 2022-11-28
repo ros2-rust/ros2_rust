@@ -23,6 +23,11 @@ else:
     import rosidl_pycommon
 
 from rosidl_parser.definition import AbstractGenericString
+from rosidl_parser.definition import AbstractNestedType
+from rosidl_parser.definition import AbstractSequence
+from rosidl_parser.definition import AbstractString
+from rosidl_parser.definition import AbstractWString
+from rosidl_parser.definition import Action
 from rosidl_parser.definition import Array
 from rosidl_parser.definition import BasicType
 from rosidl_parser.definition import BoundedSequence
@@ -86,6 +91,10 @@ def generate_rs(generator_arguments_file, typesupport_impls):
         os.path.join(template_dir, 'srv.rs.em'): ['rust/src/%s.rs'],
     }
 
+    mapping_actions = {
+        os.path.join(template_dir, 'action.rs.em'): ['rust/src/%s.rs'],
+    }
+
     # Ensure the required templates exist
     for template_file in mapping_msgs.keys():
         assert os.path.exists(template_file), \
@@ -93,6 +102,9 @@ def generate_rs(generator_arguments_file, typesupport_impls):
     for template_file in mapping_srvs.keys():
         assert os.path.exists(template_file), \
             'Services template file %s not found' % template_file
+    for template_file in mapping_actions.keys():
+        assert os.path.exists(template_file), \
+            'Actions template file %s not found' % template_file
 
     data = {
         'pre_field_serde': pre_field_serde,
@@ -107,6 +119,7 @@ def generate_rs(generator_arguments_file, typesupport_impls):
         convert_lower_case_underscore_to_camel_case,
         'msg_specs': [],
         'srv_specs': [],
+        'action_specs': [],
         'package_name': args['package_name'],
         'typesupport_impls': typesupport_impls,
         'interface_path': idl_rel_path,
@@ -120,6 +133,9 @@ def generate_rs(generator_arguments_file, typesupport_impls):
 
     for service in idl_content.get_elements_of_type(Service):
         data['srv_specs'].append(('srv', service))
+
+    for action in idl_content.get_elements_of_type(Action):
+        data['action_specs'].append(('action', action))
 
     if data['msg_specs']:
         for template_file, generated_filenames in mapping_msgs.items():
@@ -137,6 +153,17 @@ def generate_rs(generator_arguments_file, typesupport_impls):
             for generated_filename in generated_filenames:
                 generated_file = os.path.join(args['output_dir'],
                                               generated_filename % 'srv')
+                rosidl_pycommon.expand_template(
+                    os.path.join(template_dir, template_file),
+                    data.copy(),
+                    generated_file,
+                    minimum_timestamp=latest_target_timestamp)
+
+    if data['action_specs']:
+        for template_file, generated_filenames in mapping_actions.items():
+            for generated_filename in generated_filenames:
+                generated_file = os.path.join(args['output_dir'],
+                                              generated_filename % 'action')
                 rosidl_pycommon.expand_template(
                     os.path.join(template_dir, template_file),
                     data.copy(),
