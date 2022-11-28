@@ -76,7 +76,7 @@ Next, add a main function to launch it:
 fn main() -> Result<(), rclrs::RclrsError> {
     let context = rclrs::Context::new(std::env::args())?;
     let republisher = RepublisherNode::new(&context)?;
-    rclrs::spin(&republisher.node)
+    rclrs::spin(republisher.node)
 }
 ```
 
@@ -190,7 +190,7 @@ fn main() -> Result<(), rclrs::RclrsError> {
             republisher.republish()?;
         }
     });
-    rclrs::spin(&republisher.node)
+    rclrs::spin(republisher.node)
 }
 ```
 
@@ -212,7 +212,7 @@ fn main() -> Result<(), rclrs::RclrsError> {
             republisher_other_thread.republish()?;
         }
     });
-    rclrs::spin(&republisher.node)
+    rclrs::spin(republisher.node)
 }
 ```
 

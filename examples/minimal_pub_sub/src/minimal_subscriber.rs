@@ -19,5 +19,5 @@ fn main() -> Result<(), Error> {
         },
     )?;
 
-    rclrs::spin(&node).map_err(|err| err.into())
+    rclrs::spin(node).map_err(|err| err.into())
 }
