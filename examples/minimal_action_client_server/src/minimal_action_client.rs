@@ -5,7 +5,9 @@ use anyhow::{Error, Result};
 fn main() -> Result<(), Error> {
     let context = rclrs::Context::new(env::args())?;
 
-    let _node = rclrs::create_node(&context, "minimal_action_client")?;
+    let mut node = rclrs::create_node(&context, "minimal_client")?;
+
+    let _client = node.create_action_client::<example_interfaces::action::Fibonacci>("fibonacci")?;
 
     Ok(())
 }

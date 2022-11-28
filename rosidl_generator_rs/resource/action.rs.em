@@ -35,3 +35,20 @@ TEMPLATE(
     get_idiomatic_rs_type=get_idiomatic_rs_type,
     constant_value_to_rs=constant_value_to_rs)
 }@
+
+@[for subfolder, action_spec in action_specs]
+
+@{
+type_name = action_spec.namespaced_type.name
+}@
+
+  // Corresponds to @(package_name)__@(subfolder)__@(type_name)
+  pub struct @(type_name);
+
+  impl rosidl_runtime_rs::Action for @(type_name) {
+    type Goal = crate::@(subfolder)::rmw::@(type_name)_Goal;
+    type Result = crate::@(subfolder)::rmw::@(type_name)_Result;
+    type Feedback = crate::@(subfolder)::rmw::@(type_name)_Feedback;
+  }
+
+@[end for]

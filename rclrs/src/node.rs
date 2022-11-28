@@ -13,9 +13,9 @@ pub use self::builder::*;
 pub use self::graph::*;
 use crate::rcl_bindings::*;
 use crate::{
-    Client, ClientBase, Clock, Context, GuardCondition, ParameterBuilder, ParameterInterface,
-    ParameterVariant, Parameters, Publisher, QoSProfile, RclrsError, Service, ServiceBase,
-    Subscription, SubscriptionBase, SubscriptionCallback, TimeSource, ToResult,
+    ActionClient, Client, ClientBase, Clock, Context, GuardCondition, ParameterBuilder,
+    ParameterInterface, ParameterVariant, Parameters, Publisher, QoSProfile, RclrsError, Service,
+    ServiceBase, Subscription, SubscriptionBase, SubscriptionCallback, TimeSource, ToResult,
 };
 
 impl Drop for rcl_node_t {
@@ -192,6 +192,26 @@ impl Node {
     {
         let client = Arc::new(Client::<T>::new(Arc::clone(&self.rcl_node_mtx), topic)?);
         { self.clients_mtx.lock().unwrap() }.push(Arc::downgrade(&client) as Weak<dyn ClientBase>);
+        Ok(client)
+    }
+
+    /// Creates a [`Client`][1].
+    ///
+    /// [1]: crate::ActionClient
+    // TODO: make action client's lifetime depend on node's lifetime
+    pub fn create_action_client<T>(
+        &mut self,
+        topic: &str,
+    ) -> Result<Arc<ActionClient<T>>, RclrsError>
+    where
+        T: rosidl_runtime_rs::Action,
+    {
+        let client = Arc::new(ActionClient::<T>::new(
+            Arc::clone(&self.rcl_node_mtx),
+            topic,
+        )?);
+        // self.clients
+        //     .push(Arc::downgrade(&client) as Weak<dyn ClientBase>);
         Ok(client)
     }
 
