@@ -14,11 +14,11 @@
 
   <build_depend>rclrs</build_depend>
   <build_depend>rosidl_runtime_rs</build_depend>
-  <build_depend>action_msgs</build_depend>
+  <build_depend>example_interfaces</build_depend>
 
   <exec_depend>rclrs</exec_depend>
   <exec_depend>rosidl_runtime_rs</exec_depend>
-  <exec_depend>action_msgs</exec_depend>
+  <exec_depend>example_interfaces</exec_depend>
 
   <export>
     <build_type>ament_cargo</build_type>

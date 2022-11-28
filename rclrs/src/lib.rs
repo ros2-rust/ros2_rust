@@ -5,6 +5,7 @@
 //!
 //! [1]: https://github.com/ros2-rust/ros2_rust/blob/main/README.md
 
+mod action;
 mod arguments;
 mod client;
 mod clock;
@@ -32,6 +33,7 @@ pub mod dynamic_message;
 
 use std::{sync::Arc, time::Duration};
 
+pub use action::*;
 pub use arguments::*;
 pub use client::*;
 pub use clock::*;
