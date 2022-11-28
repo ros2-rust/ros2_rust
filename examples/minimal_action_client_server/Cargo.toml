@@ -1,0 +1,29 @@
+[package]
+name = "examples_rclrs_minimal_action_client_server"
+version = "0.3.1"
+# This project is not military-sponsored, Jacob's employment contract just requires him to use this email address
+authors = ["Esteve Fernandez <esteve@apache.org>", "Nikolai Morin <nnmmgit@gmail.com>", "Jacob Hassold <jacob.a.hassold.civ@army.mil>"]
+edition = "2021"
+
+[[bin]]
+name = "minimal_action_client"
+path = "src/minimal_action_client.rs"
+
+[[bin]]
+name = "minimal_action_server"
+path = "src/minimal_action_server.rs"
+
+[dependencies]
+anyhow = {version = "1", features = ["backtrace"]}
+
+[dependencies.rclrs]
+version = "0.3"
+
+[dependencies.rosidl_runtime_rs]
+version = "0.3"
+
+[dependencies.action_msgs]
+version = "*"
+
+[package.metadata.ros]
+install_to_share = ["launch"]
