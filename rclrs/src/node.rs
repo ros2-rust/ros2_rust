@@ -19,11 +19,12 @@ use std::{
 use rosidl_runtime_rs::Message;
 
 use crate::{
-    rcl_bindings::*, Client, ClientBase, ClientOptions, ClientState, Clock, ContextHandle,
-    GuardCondition, LogParams, Logger, ParameterBuilder, ParameterInterface, ParameterVariant,
-    Parameters, Publisher, PublisherOptions, PublisherState, RclrsError, Service, ServiceBase,
-    ServiceOptions, ServiceState, Subscription, SubscriptionBase, SubscriptionCallback,
-    SubscriptionOptions, SubscriptionState, TimeSource, ToLogParams, ENTITY_LIFECYCLE_MUTEX,
+    rcl_bindings::*, ActionClient, Client, ClientBase, ClientOptions, ClientState, Clock,
+    ContextHandle, GuardCondition, LogParams, Logger, ParameterBuilder, ParameterInterface,
+    ParameterVariant, Parameters, Publisher, PublisherOptions, PublisherState, RclrsError, Service,
+    ServiceBase, ServiceOptions, ServiceState, Subscription, SubscriptionBase,
+    SubscriptionCallback, SubscriptionOptions, SubscriptionState, TimeSource, ToLogParams,
+    ENTITY_LIFECYCLE_MUTEX,
 };
 
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
@@ -282,6 +283,23 @@ impl NodeState {
     {
         let client = Arc::new(ClientState::<T>::new(self, options)?);
         { self.clients_mtx.lock().unwrap() }.push(Arc::downgrade(&client) as Weak<dyn ClientBase>);
+        Ok(client)
+    }
+
+    /// Creates a [`Client`][1].
+    ///
+    /// [1]: crate::ActionClient
+    // TODO: make action client's lifetime depend on node's lifetime
+    pub fn create_action_client<T>(
+        self: &Arc<Self>,
+        topic: &str,
+    ) -> Result<Arc<ActionClient<T>>, RclrsError>
+    where
+        T: rosidl_runtime_rs::Action,
+    {
+        let client = Arc::new(ActionClient::<T>::new(self, topic)?);
+        // self.clients
+        //     .push(Arc::downgrade(&client) as Weak<dyn ClientBase>);
         Ok(client)
     }
 

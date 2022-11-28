@@ -132,12 +132,23 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "48c757948c5ede0e46177b7add2e67155f70e33c07fea8284df6576da70b3719"
 
 [[package]]
+name = "example_interfaces"
+version = "0.12.0"
+dependencies = [
+ "action_msgs",
+ "builtin_interfaces",
+ "rosidl_runtime_rs",
+ "service_msgs",
+ "unique_identifier_msgs",
+]
+
+[[package]]
 name = "examples_rclrs_minimal_action_client_server"
 version = "0.4.1"
 dependencies = [
- "action_msgs",
  "anyhow",
  "backtrace",
+ "example_interfaces",
  "rclrs",
  "rosidl_runtime_rs",
 ]

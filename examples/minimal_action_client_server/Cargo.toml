@@ -14,8 +14,8 @@ name = "minimal_action_server"
 path = "src/minimal_action_server.rs"
 
 [dependencies]
-action_msgs = "*"
 anyhow = {version = "1", features = ["backtrace"]}
+example_interfaces = "*"
 rclrs = "0.4"
 rosidl_runtime_rs = "0.4"
 
