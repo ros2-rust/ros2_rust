@@ -5,7 +5,7 @@ use anyhow::{Error, Result};
 fn main() -> Result<(), Error> {
     let context = rclrs::Context::new(env::args())?;
 
-    let mut node = rclrs::create_node(&context, "minimal_client")?;
+    let node = rclrs::create_node(&context, "minimal_client")?;
 
     let client = node.create_client::<example_interfaces::srv::AddTwoInts>("add_two_ints")?;
 

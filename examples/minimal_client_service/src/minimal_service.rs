@@ -15,7 +15,7 @@ fn handle_service(
 fn main() -> Result<(), Error> {
     let context = rclrs::Context::new(env::args())?;
 
-    let mut node = rclrs::create_node(&context, "minimal_service")?;
+    let node = rclrs::create_node(&context, "minimal_service")?;
 
     let _server = node
         .create_service::<example_interfaces::srv::AddTwoInts, _>("add_two_ints", handle_service)?;
