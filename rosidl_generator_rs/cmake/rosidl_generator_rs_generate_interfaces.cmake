@@ -53,13 +53,13 @@ foreach(_idl_file ${rosidl_generate_interfaces_ABS_IDL_FILES})
 
   if(_parent_folder STREQUAL "msg")
     set(_has_msg TRUE)
-    set(_idl_file_without_actions ${_idl_file_without_actions} ${_idl_file})
+    set(_idl_files ${_idl_files} ${_idl_file})
   elseif(_parent_folder STREQUAL "srv")
     set(_has_srv TRUE)
-    set(_idl_file_without_actions ${_idl_file_without_actions} ${_idl_file})
+    set(_idl_files ${_idl_files} ${_idl_file})
   elseif(_parent_folder STREQUAL "action")
     set(_has_action TRUE)
-    message(WARNING "Rust actions generation is not implemented")
+    set(_idl_files ${_idl_files} ${_idl_file})
   else()
     message(FATAL_ERROR "Interface file with unknown parent folder: ${_idl_file}")
   endif()
@@ -107,12 +107,13 @@ endforeach()
 set(target_dependencies
   "${rosidl_generator_rs_BIN}"
   ${rosidl_generator_rs_GENERATOR_FILES}
+  "${rosidl_generator_rs_TEMPLATE_DIR}/action.rs.em"
   "${rosidl_generator_rs_TEMPLATE_DIR}/msg_idiomatic.rs.em"
   "${rosidl_generator_rs_TEMPLATE_DIR}/msg_rmw.rs.em"
   "${rosidl_generator_rs_TEMPLATE_DIR}/msg.rs.em"
   "${rosidl_generator_rs_TEMPLATE_DIR}/srv.rs.em"
   ${rosidl_generate_interfaces_ABS_IDL_FILES}
-  ${_idl_file_without_actions}
+  ${_idl_files}
   ${_dependency_files})
 foreach(dep ${target_dependencies})
   if(NOT EXISTS "${dep}")
@@ -125,7 +126,7 @@ rosidl_write_generator_arguments(
   "${generator_arguments_file}"
   PACKAGE_NAME "${PROJECT_NAME}"
   IDL_TUPLES "${rosidl_generate_interfaces_IDL_TUPLES}"
-  ROS_INTERFACE_FILES "${_idl_file_without_actions}"
+  ROS_INTERFACE_FILES "${_idl_files}"
   ROS_INTERFACE_DEPENDENCIES "${_dependencies}"
   OUTPUT_DIR "${_output_path}"
   TEMPLATE_DIR "${rosidl_generator_rs_TEMPLATE_DIR}"
