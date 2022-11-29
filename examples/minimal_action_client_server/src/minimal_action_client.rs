@@ -6,7 +6,8 @@ fn main() -> Result<(), Error> {
 
     let mut node = executor.create_node("minimal_action_client")?;
 
-    let _client = node.create_action_client::<example_interfaces::action::Fibonacci>("fibonacci")?;
+    let _client =
+        node.create_action_client::<example_interfaces::action::Fibonacci>("fibonacci")?;
 
     executor
         .spin(SpinOptions::default())
