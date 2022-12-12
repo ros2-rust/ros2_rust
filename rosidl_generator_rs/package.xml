@@ -27,7 +27,8 @@
   <test_depend>ament_cmake_gtest</test_depend>
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
-  <test_depend>rosidl_pycommon</test_depend>
+  <test_depend condition="$ROS_DISTRO != rolling">rosidl_cmake</test_depend>
+  <test_depend condition="$ROS_DISTRO == rolling">rosidl_pycommon</test_depend>
   <test_depend>rosidl_generator_c</test_depend>
 
   <member_of_group>rosidl_generator_packages</member_of_group>
