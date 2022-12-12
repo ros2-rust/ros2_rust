@@ -13,8 +13,8 @@
   <buildtool_depend>rosidl_runtime_rs</buildtool_depend>
 
   <buildtool_export_depend>ament_cmake</buildtool_export_depend>
-  <buildtool_export_depend condition="$ROS_DISTRO < rolling">rosidl_cmake</buildtool_export_depend>
-  <buildtool_export_depend condition="$ROS_DISTRO >= rolling">rosidl_pycommon</buildtool_export_depend>
+  <buildtool_export_depend condition="$ROS_DISTRO != rolling">rosidl_cmake</buildtool_export_depend>
+  <buildtool_export_depend condition="$ROS_DISTRO == rolling">rosidl_pycommon</buildtool_export_depend>
   <buildtool_export_depend>rosidl_runtime_rs</buildtool_export_depend>
   <buildtool_export_depend>rosidl_typesupport_c</buildtool_export_depend>
   <buildtool_export_depend>rosidl_typesupport_interface</buildtool_export_depend>
