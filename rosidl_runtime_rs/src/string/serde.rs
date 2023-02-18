@@ -1,13 +1,98 @@
-use serde::{de::Error, Deserialize, Deserializer, Serialize, Serializer};
+use std::fmt;
 
-use super::{BoundedString, BoundedWString, String, WString};
+use serde::{
+    de::{Error, SeqAccess, Visitor},
+    Deserialize, Deserializer, Serialize, Serializer,
+};
+
+use super::{
+    rosidl_runtime_c__String__assignn, rosidl_runtime_c__U16String__assignn, BoundedString,
+    BoundedWString, String, WString,
+};
+
+struct StringVisitor;
+struct WStringVisitor;
+
+impl<'de> Visitor<'de> for StringVisitor {
+    type Value = String;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.write_str("a string")
+    }
+
+    fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+    where
+        E: Error,
+    {
+        Ok(String::from(v))
+    }
+
+    fn visit_bytes<E>(self, v: &[u8]) -> Result<Self::Value, E>
+    where
+        E: Error,
+    {
+        let mut msg = String {
+            data: std::ptr::null_mut(),
+            size: 0,
+            capacity: 0,
+        };
+        // SAFETY: This is doing the same thing as rosidl_runtime_c__String__copy.
+        unsafe {
+            rosidl_runtime_c__String__assignn(&mut msg, v.as_ptr() as *const _, v.len());
+        }
+        Ok(msg)
+    }
+
+    // We don't implement visit_bytes_buf, since the data in a string must always be managed by C.
+}
+
+impl<'de> Visitor<'de> for WStringVisitor {
+    type Value = WString;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.write_str("a string")
+    }
+
+    fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+    where
+        E: Error,
+    {
+        Ok(WString::from(v))
+    }
+
+    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+    where
+        A: SeqAccess<'de>,
+    {
+        let mut buf = if let Some(size) = seq.size_hint() {
+            Vec::with_capacity(size)
+        } else {
+            Vec::new()
+        };
+        while let Some(el) = seq.next_element::<u16>()? {
+            buf.push(el);
+        }
+        let mut msg = WString {
+            data: std::ptr::null_mut(),
+            size: 0,
+            capacity: 0,
+        };
+        // SAFETY: This is doing the same thing as rosidl_runtime_c__U16String__copy.
+        unsafe {
+            rosidl_runtime_c__U16String__assignn(&mut msg, buf.as_ptr(), buf.len());
+        }
+        Ok(msg)
+    }
+
+    // We don't implement visit_bytes_buf, since the data in a string must always be managed by C.
+}
 
 impl<'de> Deserialize<'de> for String {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
-        std::string::String::deserialize(deserializer).map(|s| Self::from(s.as_str()))
+        deserializer.deserialize_string(StringVisitor)
     }
 }
 
@@ -29,7 +114,7 @@ impl<'de> Deserialize<'de> for WString {
     where
         D: Deserializer<'de>,
     {
-        std::string::String::deserialize(deserializer).map(|s| Self::from(s.as_str()))
+        deserializer.deserialize_string(WStringVisitor)
     }
 }
 
