@@ -8,7 +8,7 @@ find_package(rosidl_generator_c REQUIRED)
 find_package(rosidl_typesupport_interface REQUIRED)
 find_package(rosidl_typesupport_introspection_c REQUIRED)
 
-if("$ENV{ROS_DISTRO}" STRLESS "rolling")
+if("$ENV{ROS_DISTRO}" STRLESS_EQUAL "humble")
     find_package(rosidl_cmake REQUIRED)
     ament_export_dependencies(rosidl_cmake)
 endif()

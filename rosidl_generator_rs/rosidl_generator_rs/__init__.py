@@ -18,7 +18,7 @@ import subprocess
 
 from pathlib import Path
 
-if os.environ['ROS_DISTRO'] < 'rolling':
+if os.environ['ROS_DISTRO'] <= 'humble':
     import rosidl_cmake as rosidl_pycommon
 else:
     import rosidl_pycommon
