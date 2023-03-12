@@ -5,6 +5,8 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+  schedule:
+    - cron: '0 0 * * *'
 
 env:
   CARGO_TERM_COLOR: always
@@ -15,17 +17,12 @@ jobs:
       matrix:
         ros_distribution:
           - foxy
-          - galactic
           - humble
           - rolling
         include:
           # Foxy Fitzroy (June 2020 - May 2023)
           - docker_image: rostooling/setup-ros-docker:ubuntu-focal-ros-foxy-ros-base-latest
             ros_distribution: foxy
-            ros_version: 2
-          # Galactic Geochelone (May 2021 - November 2022)
-          - docker_image: rostooling/setup-ros-docker:ubuntu-focal-ros-galactic-ros-base-latest
-            ros_distribution: galactic
             ros_version: 2
           # Humble Hawksbill (May 2022 - May 2027)
           - docker_image: rostooling/setup-ros-docker:ubuntu-jammy-ros-humble-ros-base-latest
@@ -36,6 +33,7 @@ jobs:
             ros_distribution: rolling
             ros_version: 2
     runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.ros_distribution == 'rolling' }}
     container:
       image: ${{ matrix.docker_image }}
     steps:
@@ -47,9 +45,13 @@ jobs:
         echo ::set-output name=package_list::$(colcon list --names-only)
 
     - name: Setup ROS environment
-      uses: ros-tooling/setup-ros@v0.3
+      uses: ros-tooling/setup-ros@v0.6
       with:
         required-ros-distributions: ${{ matrix.ros_distribution }}
+
+    - name: Downgrade pydocstyle as a workaround for https://github.com/ament/ament_lint/issues/434
+      run: |
+        sudo pip install pydocstyle==6.1.1
 
     - name: Setup Rust
       uses: dtolnay/rust-toolchain@1.63.0
