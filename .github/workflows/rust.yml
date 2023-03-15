@@ -82,7 +82,7 @@ jobs:
 
     - name: Source ROS distro
       run: |
-        . /opt/ros/${{ matrix.ros_distro }}/setup.sh
+        . /opt/ros/${{ matrix.ros_distribution }}/setup.sh
 
     - name: Build and test
       id: build
