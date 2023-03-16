@@ -56,7 +56,7 @@ jobs:
 
     - name: Downgrade pydocstyle as a workaround for https://github.com/ament/ament_lint/issues/434
       run: |
-        sudo pip install pydocstyle==6.1.1
+        sudo python3 -m pip install pydocstyle==6.1.1
 
     - name: Setup Rust
       uses: dtolnay/rust-toolchain@1.63.0
