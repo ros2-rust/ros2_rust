@@ -5,3 +5,5 @@
 #include <rmw/types.h>
 #include <rosidl_typesupport_introspection_c/field_types.h>
 #include <rosidl_typesupport_introspection_c/message_introspection.h>
+
+const size_t rmw_gid_storage_size_constant = RMW_GID_STORAGE_SIZE;
