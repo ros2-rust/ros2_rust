@@ -27,7 +27,7 @@ use crate::rcl_bindings::*;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PublisherGid {
     /// Bytes identifying a publisher in the RMW implementation.
-    pub data: [u8; 24],
+    pub data: [u8; RMW_GID_STORAGE_SIZE],
     /// A string containing the RMW implementation's name.
     ///
     /// The `data` member only uniquely identifies the publisher within
@@ -145,7 +145,7 @@ mod tests {
             publication_sequence_number: 0,
             reception_sequence_number: 0,
             publisher_gid: rmw_gid_t {
-                data: [0; 24],
+                data: [0; RMW_GID_STORAGE_SIZE],
                 implementation_identifier: std::ptr::null(),
             },
             from_intra_process: false,
