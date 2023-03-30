@@ -48,6 +48,7 @@ jobs:
       uses: ros-tooling/setup-ros@v0.6
       with:
         required-ros-distributions: ${{ matrix.ros_distribution }}
+        use-ros2-testing: ${{ matrix.ros_distribution == 'rolling' }}
 
     - name: Downgrade pydocstyle as a workaround for https://github.com/ament/ament_lint/issues/434
       run: |
