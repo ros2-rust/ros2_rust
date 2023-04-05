@@ -78,6 +78,8 @@ jobs:
 
     - name: Source ROS distro
       run: |
+        ls -l /opt
+        ls -l /opt/ros
         . /opt/ros/${{ matrix.ros_distribution }}/setup.sh
 
     - name: Build and test
