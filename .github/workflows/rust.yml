@@ -21,9 +21,9 @@ jobs:
             docker_image: rostooling/setup-ros-docker:ubuntu-focal-ros-foxy-ros-base-latest
             ros_distro: foxy
           - os: ubuntu-latest
-            # Galactic Geochelone (May 2021 - November 2022)
-            docker_image: rostooling/setup-ros-docker:ubuntu-focal-ros-galactic-ros-base-latest
-            ros_distro: galactic
+            # Humble Hawksbill (May 2022 - May 2027)
+            docker_image: rostooling/setup-ros-docker:ubuntu-jammy-ros-humble-ros-base-latest
+            ros_distro: humble
           - os: ubuntu-latest
             # Rolling Ridley  (June 2020 - Present)
             docker_image: rostooling/setup-ros-docker:ubuntu-focal-ros-rolling-ros-base-latest
