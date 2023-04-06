@@ -18,11 +18,10 @@ import subprocess
 
 from pathlib import Path
 
-from rosidl_cmake import convert_camel_case_to_lower_case_underscore
-from rosidl_cmake import expand_template
-from rosidl_cmake import generate_files
-from rosidl_cmake import get_newest_modification_time
-from rosidl_cmake import read_generator_arguments
+if os.environ['ROS_DISTRO'] <= 'humble':
+    import rosidl_cmake as rosidl_pycommon
+else:
+    import rosidl_pycommon
 
 from rosidl_parser.definition import AbstractGenericString
 from rosidl_parser.definition import AbstractNestedType
@@ -53,7 +52,7 @@ def convert_lower_case_underscore_to_camel_case(word):
 
 
 def generate_rs(generator_arguments_file, typesupport_impls):
-    args = read_generator_arguments(generator_arguments_file)
+    args = rosidl_pycommon.read_generator_arguments(generator_arguments_file)
     package_name = args['package_name']
 
     # expand init modules for each directory
@@ -108,7 +107,7 @@ def generate_rs(generator_arguments_file, typesupport_impls):
         'constant_value_to_rs': constant_value_to_rs,
         'value_to_rs': value_to_rs,
         'convert_camel_case_to_lower_case_underscore':
-        convert_camel_case_to_lower_case_underscore,
+        rosidl_pycommon.convert_camel_case_to_lower_case_underscore,
         'convert_lower_case_underscore_to_camel_case':
         convert_lower_case_underscore_to_camel_case,
         'msg_specs': [],
@@ -118,7 +117,7 @@ def generate_rs(generator_arguments_file, typesupport_impls):
         'interface_path': idl_rel_path,
     }
 
-    latest_target_timestamp = get_newest_modification_time(
+    latest_target_timestamp = rosidl_pycommon.get_newest_modification_time(
         args['target_dependencies'])
 
     for message in idl_content.get_elements_of_type(Message):
@@ -132,7 +131,7 @@ def generate_rs(generator_arguments_file, typesupport_impls):
             for generated_filename in generated_filenames:
                 generated_file = os.path.join(args['output_dir'],
                                               generated_filename % 'msg')
-                expand_template(
+                rosidl_pycommon.expand_template(
                     os.path.join(template_dir, template_file),
                     data.copy(),
                     generated_file,
@@ -143,13 +142,13 @@ def generate_rs(generator_arguments_file, typesupport_impls):
             for generated_filename in generated_filenames:
                 generated_file = os.path.join(args['output_dir'],
                                               generated_filename % 'srv')
-                expand_template(
+                rosidl_pycommon.expand_template(
                     os.path.join(template_dir, template_file),
                     data.copy(),
                     generated_file,
                     minimum_timestamp=latest_target_timestamp)
 
-    expand_template(
+    rosidl_pycommon.expand_template(
         os.path.join(template_dir, 'lib.rs.em'),
         data.copy(),
         os.path.join(args['output_dir'], 'rust/src/lib.rs'),
@@ -160,13 +159,13 @@ def generate_rs(generator_arguments_file, typesupport_impls):
         'package_name': args['package_name'],
         'package_version': args['package_version'],
     }
-    expand_template(
+    rosidl_pycommon.expand_template(
         os.path.join(template_dir, 'Cargo.toml.em'),
         cargo_toml_data,
         os.path.join(args['output_dir'], 'rust/Cargo.toml'),
         minimum_timestamp=latest_target_timestamp)
 
-    expand_template(
+    rosidl_pycommon.expand_template(
         os.path.join(template_dir, 'build.rs.em'),
         {},
         os.path.join(args['output_dir'], 'rust/build.rs'),

@@ -4,12 +4,15 @@ project(rosidl_generator_rs)
 
 find_package(ament_cmake REQUIRED)
 find_package(ament_cmake_python REQUIRED)
-find_package(rosidl_cmake REQUIRED)
 find_package(rosidl_generator_c REQUIRED)
 find_package(rosidl_typesupport_interface REQUIRED)
 find_package(rosidl_typesupport_introspection_c REQUIRED)
 
-ament_export_dependencies(rosidl_cmake)
+if("$ENV{ROS_DISTRO}" STRLESS_EQUAL "humble")
+    find_package(rosidl_cmake REQUIRED)
+    ament_export_dependencies(rosidl_cmake)
+endif()
+
 ament_export_dependencies(rmw)
 ament_export_dependencies(rosidl_generator_c)
 
