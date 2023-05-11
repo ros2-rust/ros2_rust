@@ -50,10 +50,6 @@ jobs:
         required-ros-distributions: ${{ matrix.ros_distribution }}
         use-ros2-testing: ${{ matrix.ros_distribution == 'rolling' }}
 
-    - name: Downgrade pydocstyle as a workaround for https://github.com/ament/ament_lint/issues/434
-      run: |
-        sudo pip install pydocstyle==6.1.1
-
     - name: Setup Rust
       uses: dtolnay/rust-toolchain@1.63.0
       with:
