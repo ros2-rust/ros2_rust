@@ -83,10 +83,11 @@ impl Context {
     /// # Ok::<(), RclrsError>(())
     /// ```
     pub fn domain_id(&self) -> usize {
-        let mut rcl_context = self.rcl_context_mtx.lock().unwrap();
         let mut domain_id: usize = 0;
+
         #[cfg(not(ros_distro = "foxy"))]
         let ret = unsafe {
+            let mut rcl_context = self.rcl_context_mtx.lock().unwrap();
             // SAFETY: No preconditions for this function.
             rcl_context_get_domain_id(&mut *rcl_context, &mut domain_id)
         };
