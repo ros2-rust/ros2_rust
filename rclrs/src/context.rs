@@ -82,13 +82,18 @@ impl Context {
     /// assert_eq!(domain_id, 11);
     /// # Ok::<(), RclrsError>(())
     /// ```
-    #[cfg(not(ros_distro = "foxy"))]
     pub fn domain_id(&self) -> usize {
         let mut rcl_context = self.rcl_context_mtx.lock().unwrap();
         let mut domain_id: usize = 0;
+        #[cfg(not(ros_distro = "foxy"))]
         let ret = unsafe {
             // SAFETY: No preconditions for this function.
             rcl_context_get_domain_id(&mut *rcl_context, &mut domain_id)
+        };
+        #[cfg(ros_distro = "foxy")]
+        let ret = unsafe {
+            // SAFETY: Getting the default domain ID, based on the environment
+            rcl_get_default_domain_id(&mut domain_id)
         };
 
         debug_assert_eq!(ret, 0);
