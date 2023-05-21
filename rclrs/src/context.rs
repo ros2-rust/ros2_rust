@@ -4,7 +4,7 @@ use std::sync::{Arc, Mutex};
 
 pub use self::builder::*;
 use crate::rcl_bindings::*;
-use crate::{RclrsError};
+use crate::RclrsError;
 
 impl Drop for rcl_context_t {
     fn drop(&mut self) {
