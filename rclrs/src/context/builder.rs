@@ -59,7 +59,7 @@ impl ContextBuilder {
 
         ContextBuilder {
             arguments: args.into_iter().collect(),
-            domain_id
+            domain_id,
         }
     }
 
@@ -81,7 +81,8 @@ impl ContextBuilder {
     pub fn build(&self) -> Result<Context, RclrsError> {
         // SAFETY: Getting a zero-initialized value is always safe
         let mut rcl_context = unsafe { rcl_get_zero_initialized_context() };
-        let cstring_args: Vec<CString> = self.arguments
+        let cstring_args: Vec<CString> = self
+            .arguments
             .iter()
             .map(|arg| {
                 CString::new(arg.as_str()).map_err(|err| RclrsError::StringContainsNul {
