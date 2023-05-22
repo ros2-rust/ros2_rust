@@ -69,6 +69,9 @@ impl ContextBuilder {
     ///
     /// [1]: https://docs.ros.org/en/rolling/Concepts/About-Domain-ID.html
     pub fn domain_id(mut self, domain_id: usize) -> Self {
+        #[cfg(ros_distro = "foxy")]
+        std::env::set_var("ROS_DOMAIN_ID", domain_id.to_string());
+
         self.domain_id = domain_id;
         self
     }
