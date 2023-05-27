@@ -56,7 +56,8 @@ Build the Docker image with
 
 ```shell
 # Make sure to run this in the workspace directory
-docker build -t ros2_rust_dev - < src/ros2_rust/Dockerfile
+# ROS_DISTRO can be humble|rolling
+docker build -f src/ros2_rust/Dockerfile --build-arg "ROS_DISTRO=humble" -t ros2_rust_dev
 ```
 
 and then run it with
