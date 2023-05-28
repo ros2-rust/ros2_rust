@@ -163,8 +163,8 @@ mod tests {
             assert!(!rcl_params.is_null());
             assert_eq!(unsafe { (*rcl_params).num_nodes }, 1);
             let rcl_node_params = unsafe { &(*(*rcl_params).params) };
-            assert_eq!((*rcl_node_params).num_params, 1);
-            let rcl_variant = unsafe { &(*(*rcl_node_params).parameter_values) };
+            assert_eq!(rcl_node_params.num_params, 1);
+            let rcl_variant = unsafe { &(*rcl_node_params.parameter_values) };
             let param_value = unsafe { ParameterValue::from_rcl_variant(rcl_variant) };
             assert_eq!(param_value, pair.1);
             unsafe { rcl_yaml_node_struct_fini(rcl_params) };

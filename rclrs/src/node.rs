@@ -173,7 +173,7 @@ impl Node {
         &self,
         getter: unsafe extern "C" fn(*const rcl_node_t) -> *const c_char,
     ) -> String {
-        unsafe { call_string_getter_with_handle(&*self.rcl_node_mtx.lock().unwrap(), getter) }
+        unsafe { call_string_getter_with_handle(&self.rcl_node_mtx.lock().unwrap(), getter) }
     }
 
     /// Creates a [`Client`][1].
@@ -317,7 +317,7 @@ impl Node {
     }
 
     /// Returns the ROS domain ID that the node is using.
-    ///    
+    ///
     /// The domain ID controls which nodes can send messages to each other, see the [ROS 2 concept article][1].
     /// It can be set through the `ROS_DOMAIN_ID` environment variable.
     ///

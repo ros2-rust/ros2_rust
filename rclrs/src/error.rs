@@ -347,6 +347,6 @@ pub(crate) trait ToResult {
 
 impl ToResult for rcl_ret_t {
     fn ok(&self) -> Result<(), RclrsError> {
-        to_rclrs_result(*self as i32)
+        to_rclrs_result(*self)
     }
 }
