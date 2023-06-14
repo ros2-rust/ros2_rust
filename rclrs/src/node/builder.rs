@@ -237,7 +237,7 @@ impl NodeBuilder {
     /// let node = Node::builder(&context, "my_node").domain_id(1);
     /// assert_eq!(node.domain_id(), 1);
     #[cfg(ros_distro = "foxy")]
-    pub fn domain_id(mut self, domain_id: usize) -> Self {
+    pub fn domain_id(self, domain_id: usize) -> Self {
         std::env::set_var("ROS_DOMAIN_ID", domain_id.to_string());
         self
     }
