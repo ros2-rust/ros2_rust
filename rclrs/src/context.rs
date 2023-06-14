@@ -111,7 +111,7 @@ impl Context {
     /// # Example
     /// ```
     /// # use rclrs::{Context, RclrsError};
-    /// let context_builder = Context::builder([]);
+    /// let mut context_builder = Context::builder([]);
     /// assert!(context_builder.build().is_ok());
     /// # Ok::<(), RclrsError>(())
     /// ```

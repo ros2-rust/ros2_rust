@@ -33,6 +33,7 @@ use crate::{Context, RclrsError, ToResult};
 pub struct ContextBuilder {
     arguments: Vec<String>,
     domain_id: usize,
+    rcl_init_options: rcl_init_options_t,
 }
 
 impl ContextBuilder {
@@ -56,10 +57,18 @@ impl ContextBuilder {
         // SAFETY: Getting the default domain ID, based on the environment
         let ret = unsafe { rcl_get_default_domain_id(&mut domain_id) };
         debug_assert_eq!(ret, 0);
+        // SAFETY: No preconditions for this function.
+        let allocator = unsafe { rcutils_get_default_allocator() };
+        // SAFETY: Getting a zero-initialized value is always safe.
+        let mut rcl_init_options = unsafe { rcl_get_zero_initialized_init_options() };
+        // SAFETY: Passing in a zero-initialized value is expected.
+        // In the case where this returns not ok, there's nothing to clean up.
+        unsafe { rcl_init_options_init(&mut rcl_init_options, allocator).ok().unwrap() };
 
         ContextBuilder {
             arguments: args.into_iter().collect(),
             domain_id,
+            rcl_init_options,
         }
     }
 
@@ -79,7 +88,7 @@ impl ContextBuilder {
     /// For example usage, see the [`ContextBuilder`][1] docs.
     ///
     /// [1]: crate::ContextBuilder
-    pub fn build(&self) -> Result<Context, RclrsError> {
+    pub fn build(&mut self) -> Result<Context, RclrsError> {
         // SAFETY: Getting a zero-initialized value is always safe
         let mut rcl_context = unsafe { rcl_get_zero_initialized_context() };
         let cstring_args: Vec<CString> = self
@@ -94,7 +103,7 @@ impl ContextBuilder {
             .collect::<Result<_, _>>()?;
         // Vector of pointers into cstring_args
         let c_args: Vec<*const c_char> = cstring_args.iter().map(|arg| arg.as_ptr()).collect();
-        let rcl_init_options = self.create_rcl_init_options()?;
+        self.rcl_init_options = self.create_rcl_init_options()?;
         unsafe {
             // SAFETY: This function does not store the ephemeral init_options and c_args
             // pointers. Passing in a zero-initialized rcl_context is expected.
@@ -105,7 +114,7 @@ impl ContextBuilder {
                 } else {
                     c_args.as_ptr()
                 },
-                &rcl_init_options,
+                &self.rcl_init_options,
                 &mut rcl_context,
             )
             .ok()?;
