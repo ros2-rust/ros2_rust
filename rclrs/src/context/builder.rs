@@ -63,7 +63,9 @@ impl ContextBuilder {
         let mut rcl_init_options = unsafe { rcl_get_zero_initialized_init_options() };
         // SAFETY: Passing in a zero-initialized value is expected.
         // In the case where this returns not ok, there's nothing to clean up.
-        unsafe { rcl_init_options_init(&mut rcl_init_options, allocator).ok().unwrap() };
+        unsafe {
+            rcl_init_options_init(&mut rcl_init_options, allocator).ok().unwrap()
+        };
 
         ContextBuilder {
             arguments: args.into_iter().collect(),
