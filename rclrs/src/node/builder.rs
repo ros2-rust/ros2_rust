@@ -224,6 +224,24 @@ impl NodeBuilder {
         self
     }
 
+    /// Sets the node domain id.
+    ///
+    /// The domain ID controls which nodes can send messages to each other, see the [ROS 2 concept article][1].
+    ///
+    /// [1]: https://docs.ros.org/en/rolling/Concepts/About-Domain-ID.html
+    ///
+    /// # Example
+    /// ```
+    /// # use rclrs::{Context, Node, NodeBuilder, RclrsError};
+    /// let context = Context::new([])?;
+    /// let node = Node::builder(&context, "my_node").domain_id(1);
+    /// assert_eq!(node.domain_id(), 1);
+    #[cfg(ros_distro = "foxy")]
+    pub fn domain_id(mut self, domain_id: usize) -> Self {
+        std::env::set_var("ROS_DOMAIN_ID", domain_id.to_string());
+        self
+    }
+
     /// Builds the node instance.
     ///
     /// Node name and namespace validation is performed in this method.

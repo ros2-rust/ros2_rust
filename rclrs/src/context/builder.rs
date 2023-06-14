@@ -68,10 +68,8 @@ impl ContextBuilder {
     /// The domain ID controls which nodes can send messages to each other, see the [ROS 2 concept article][1].
     ///
     /// [1]: https://docs.ros.org/en/rolling/Concepts/About-Domain-ID.html
+    #[cfg(not(ros_distro = "foxy"))]
     pub fn domain_id(mut self, domain_id: usize) -> Self {
-        #[cfg(ros_distro = "foxy")]
-        std::env::set_var("ROS_DOMAIN_ID", domain_id.to_string());
-
         self.domain_id = domain_id;
         self
     }
