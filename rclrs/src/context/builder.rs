@@ -64,7 +64,9 @@ impl ContextBuilder {
         // SAFETY: Passing in a zero-initialized value is expected.
         // In the case where this returns not ok, there's nothing to clean up.
         unsafe {
-            rcl_init_options_init(&mut rcl_init_options, allocator).ok().unwrap()
+            rcl_init_options_init(&mut rcl_init_options, allocator)
+                .ok()
+                .unwrap()
         };
 
         ContextBuilder {
