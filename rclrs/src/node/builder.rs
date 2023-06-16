@@ -233,10 +233,12 @@ impl NodeBuilder {
     /// # Example
     /// ```
     /// # use rclrs::{Context, Node, NodeBuilder, RclrsError};
-    /// let context = Context::new([]);
-    /// let node = Node::builder(&context, "my_node").domain_id(1);
+    /// let context = Context::new([])?;
+    /// let node = Node::builder(&context, "my_node").domain_id(1).build()?;
     /// let domain_id = node.domain_id();
     /// assert_eq!(domain_id, 1);
+    /// # Ok::<(), RclrsError>(())
+    /// ```
     #[cfg(ros_distro = "foxy")]
     pub fn domain_id(self, domain_id: usize) -> Self {
         std::env::set_var("ROS_DOMAIN_ID", domain_id.to_string());
