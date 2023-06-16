@@ -15,16 +15,12 @@ use crate::{Context, RclrsError, ToResult};
 /// # use rclrs::{Context, ContextBuilder, RclrsError};
 /// // Building a context in a single expression
 /// let args = ["ROS 1 ROS 2"].map(String::from);
-/// let context = ContextBuilder::new(args.clone()).domain_id(1).build()?;
-/// assert_eq!(context.domain_id(), 1);
+/// assert!(ContextBuilder::new(args.clone()).build().is_ok());
 /// // Building a context via Context::builder()
-/// let context = Context::builder(args.clone()).domain_id(2).build()?;
-/// assert_eq!(context.domain_id(), 2);
+/// assert!(Context::builder(args.clone()).build().is_ok());
 /// // Building a context step-by-step
 /// let mut builder = Context::builder(args.clone());
-/// builder = builder.domain_id(3);
-/// let context = builder.build()?;
-/// assert_eq!(context.domain_id(), 3);
+/// assert!(builder.build().is_ok());
 /// # Ok::<(), RclrsError>(())
 /// ```
 ///
@@ -46,11 +42,12 @@ impl ContextBuilder {
     ///
     /// # Example
     /// ```
-    /// # use rclrs::ContextBuilder;
+    /// # use rclrs::{ContextBuilder, RclrsError};
     /// let invalid_remapping = ["--ros-args", "-r", ":=:*/]"].map(String::from);
     /// assert!(ContextBuilder::new(invalid_remapping).build().is_err());
     /// let valid_remapping = ["--ros-args", "--remap", "__node:=my_node"].map(String::from);
     /// assert!(ContextBuilder::new(valid_remapping).build().is_ok());
+    /// # Ok::<(), RclrsError>(())
     /// ```
     pub fn new(args: impl IntoIterator<Item = String>) -> ContextBuilder {
         let mut domain_id = 0;
@@ -81,6 +78,14 @@ impl ContextBuilder {
     /// The domain ID controls which nodes can send messages to each other, see the [ROS 2 concept article][1].
     ///
     /// [1]: https://docs.ros.org/en/rolling/Concepts/About-Domain-ID.html
+    ///
+    /// # Example
+    /// ```
+    /// # use rclrs::{Context, ContextBuilder, RclrsError};
+    /// let context = ContextBuilder::new([]).domain_id(1).build()?;
+    /// assert_eq!(context.domain_id(), 1);
+    /// # Ok::<(), RclrsError>(())
+    /// ```
     #[cfg(not(ros_distro = "foxy"))]
     pub fn domain_id(mut self, domain_id: usize) -> Self {
         self.domain_id = domain_id;

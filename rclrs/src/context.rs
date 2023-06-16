@@ -77,21 +77,53 @@ impl Context {
     /// let context = Context::new([])?;
     /// let domain_id = context.domain_id();
     /// assert_eq!(domain_id, 10);
+    /// // Set ROS domain ID by builder
     /// let context = Context::builder([]).domain_id(11).build()?;
     /// let domain_id = context.domain_id();
     /// assert_eq!(domain_id, 11);
     /// # Ok::<(), RclrsError>(())
     /// ```
+    #[cfg(not(ros_distro = "foxy"))]
     pub fn domain_id(&self) -> usize {
         let mut domain_id: usize = 0;
 
-        #[cfg(not(ros_distro = "foxy"))]
         let ret = unsafe {
             let mut rcl_context = self.rcl_context_mtx.lock().unwrap();
             // SAFETY: No preconditions for this function.
             rcl_context_get_domain_id(&mut *rcl_context, &mut domain_id)
         };
-        #[cfg(ros_distro = "foxy")]
+
+        debug_assert_eq!(ret, 0);
+        domain_id
+    }
+
+    /// Returns the context domain id.
+    ///
+    /// The domain ID controls which nodes can send messages to each other, see the [ROS 2 concept article][1].
+    /// It can be set through the `ROS_DOMAIN_ID` environment variable
+    /// or [`ContextBuilder`][2]
+    ///
+    /// [1]: https://docs.ros.org/en/rolling/Concepts/About-Domain-ID.html
+    /// [2]: crate::ContextBuilder
+    ///
+    /// # Example
+    /// ```
+    /// # use rclrs::{Context, RclrsError};
+    /// // Set default ROS domain ID to 10 here
+    /// std::env::set_var("ROS_DOMAIN_ID", "10");
+    /// let context = Context::new([])?;
+    /// let domain_id = context.domain_id();
+    /// assert_eq!(domain_id, 10);
+    /// // Set ROS domain ID by builder
+    /// let context = Context::builder([]).domain_id(11).build()?;
+    /// let domain_id = context.domain_id();
+    /// sassert_eq!(domain_id, 11);
+    /// # Ok::<(), RclrsError>(())
+    /// ```
+    #[cfg(ros_distro = "foxy")]
+    pub fn domain_id(&self) -> usize {
+        let mut domain_id: usize = 0;
+
         let ret = unsafe {
             // SAFETY: Getting the default domain ID, based on the environment
             rcl_get_default_domain_id(&mut domain_id)
