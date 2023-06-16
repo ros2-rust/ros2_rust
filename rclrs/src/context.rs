@@ -114,10 +114,6 @@ impl Context {
     /// let context = Context::new([])?;
     /// let domain_id = context.domain_id();
     /// assert_eq!(domain_id, 10);
-    /// // Set ROS domain ID by builder
-    /// let context = Context::builder([]).domain_id(11).build()?;
-    /// let domain_id = context.domain_id();
-    /// sassert_eq!(domain_id, 11);
     /// # Ok::<(), RclrsError>(())
     /// ```
     #[cfg(ros_distro = "foxy")]

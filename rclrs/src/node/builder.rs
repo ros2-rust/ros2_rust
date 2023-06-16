@@ -79,8 +79,8 @@ impl NodeBuilder {
     ///     RclrsError::RclError { code: RclReturnCode::NodeInvalidName, .. }
     /// ));
     /// # Ok::<(), RclrsError>(())
-    /// ```    
-    ///    
+    /// ```
+    ///
     /// [1]: crate::Node#naming
     /// [2]: https://docs.ros2.org/latest/api/rmw/validate__node__name_8h.html#a5690a285aed9735f89ef11950b6e39e3
     /// [3]: NodeBuilder::build
@@ -187,7 +187,7 @@ impl NodeBuilder {
     /// used in creating the context.
     ///
     /// For more details about command line arguments, see [here][2].
-    ///    
+    ///
     /// # Example
     /// ```
     /// # use rclrs::{Context, Node, NodeBuilder, RclrsError};
@@ -233,9 +233,10 @@ impl NodeBuilder {
     /// # Example
     /// ```
     /// # use rclrs::{Context, Node, NodeBuilder, RclrsError};
-    /// let context = Context::new([])?;
+    /// let context = Context::new([]);
     /// let node = Node::builder(&context, "my_node").domain_id(1);
-    /// assert_eq!(node.domain_id(), 1);
+    /// let domain_id = node.domain_id();
+    /// assert_eq!(domain_id, 1);
     #[cfg(ros_distro = "foxy")]
     pub fn domain_id(self, domain_id: usize) -> Self {
         std::env::set_var("ROS_DOMAIN_ID", domain_id.to_string());
