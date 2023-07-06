@@ -1,4 +1,4 @@
-FROM ros:foxy as base
+FROM ros:humble as base
 ARG DEBIAN_FRONTEND=noninteractive
 
 # Install dependencies
