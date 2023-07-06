@@ -9,9 +9,6 @@ use std::fmt::{self, Display};
 use std::path::PathBuf;
 use std::sync::Arc;
 
-#[cfg(ros_distro = "foxy")]
-use crate::rcl_bindings::rosidl_typesupport_introspection_c__MessageMembers as rosidl_message_members_t;
-#[cfg(not(ros_distro = "foxy"))]
 use crate::rcl_bindings::rosidl_typesupport_introspection_c__MessageMembers_s as rosidl_message_members_t;
 use crate::rcl_bindings::*;
 
