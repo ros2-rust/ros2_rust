@@ -1,4 +1,5 @@
-FROM ros:humble as base
+ARG ROS_DISTRO=humble
+FROM ros:$ROS_DISTRO as base
 ARG DEBIAN_FRONTEND=noninteractive
 
 # Install dependencies
