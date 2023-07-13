@@ -404,6 +404,7 @@ pub mod rmw {
         pub description: rosidl_runtime_rs::String,
         pub additional_constraints: rosidl_runtime_rs::String,
         pub read_only: bool,
+        pub dynamic_typing: bool,
         pub floating_point_range: rosidl_runtime_rs::BoundedSequence<
             crate::vendor::rcl_interfaces::msg::rmw::FloatingPointRange,
             1,
@@ -1269,6 +1270,7 @@ pub struct ParameterDescriptor {
     pub description: std::string::String,
     pub additional_constraints: std::string::String,
     pub read_only: bool,
+    pub dynamic_typing: bool,
     pub floating_point_range: rosidl_runtime_rs::BoundedSequence<
         crate::vendor::rcl_interfaces::msg::rmw::FloatingPointRange,
         1,
@@ -1298,6 +1300,7 @@ impl rosidl_runtime_rs::Message for ParameterDescriptor {
                 description: msg.description.as_str().into(),
                 additional_constraints: msg.additional_constraints.as_str().into(),
                 read_only: msg.read_only,
+                dynamic_typing: msg.dynamic_typing,
                 floating_point_range: msg.floating_point_range,
                 integer_range: msg.integer_range,
             }),
@@ -1307,6 +1310,7 @@ impl rosidl_runtime_rs::Message for ParameterDescriptor {
                 description: msg.description.as_str().into(),
                 additional_constraints: msg.additional_constraints.as_str().into(),
                 read_only: msg.read_only,
+                dynamic_typing: msg.dynamic_typing,
                 floating_point_range: msg.floating_point_range.clone(),
                 integer_range: msg.integer_range.clone(),
             }),
@@ -1320,6 +1324,7 @@ impl rosidl_runtime_rs::Message for ParameterDescriptor {
             description: msg.description.to_string(),
             additional_constraints: msg.additional_constraints.to_string(),
             read_only: msg.read_only,
+            dynamic_typing: msg.dynamic_typing,
             floating_point_range: msg.floating_point_range,
             integer_range: msg.integer_range,
         }
