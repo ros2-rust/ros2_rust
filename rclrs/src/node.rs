@@ -173,7 +173,7 @@ impl Node {
         &self,
         getter: unsafe extern "C" fn(*const rcl_node_t) -> *const c_char,
     ) -> String {
-        unsafe { call_string_getter_with_handle(&*self.rcl_node_mtx.lock().unwrap(), getter) }
+        unsafe { call_string_getter_with_handle(&self.rcl_node_mtx.lock().unwrap(), getter) }
     }
 
     /// Creates a [`Client`][1].

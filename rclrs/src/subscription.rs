@@ -183,7 +183,7 @@ where
     ///
     /// This can be more efficient for messages containing large arrays.
     pub fn take_boxed(&self) -> Result<(Box<T>, MessageInfo), RclrsError> {
-        let mut rmw_message = Box::new(<T as Message>::RmwMsg::default());
+        let mut rmw_message = Box::<<T as Message>::RmwMsg>::default();
         let message_info = self.take_inner(&mut *rmw_message)?;
         // TODO: This will still use the stack in general. Change signature of
         // from_rmw_message to allow placing the result in a Box directly.

@@ -72,7 +72,7 @@ fn get_type_support_library(
     let ament = ament_rs::Ament::new().map_err(|_| RequiredPrefixNotSourced {
         package: package_name.to_owned(),
     })?;
-    let prefix = PathBuf::from(ament.find_package(&package_name).ok_or(
+    let prefix = PathBuf::from(ament.find_package(package_name).ok_or(
         RequiredPrefixNotSourced {
             package: package_name.to_owned(),
         },
