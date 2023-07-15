@@ -17,11 +17,16 @@ jobs:
       matrix:
         ros_distribution:
           - humble
+          - iron
           - rolling
         include:
           # Humble Hawksbill (May 2022 - May 2027)
           - docker_image: rostooling/setup-ros-docker:ubuntu-jammy-ros-humble-ros-base-latest
             ros_distribution: humble
+            ros_version: 2
+          # Iron Irwini (May 2023 - November 2024)
+          - docker_image: rostooling/setup-ros-docker:ubuntu-jammy-ros-iron-ros-base-latest
+            ros_distribution: iron
             ros_version: 2
           # Rolling Ridley  (June 2020 - Present)
           - docker_image: rostooling/setup-ros-docker:ubuntu-jammy-ros-rolling-ros-base-latest
@@ -69,7 +74,7 @@ jobs:
 
     - name: Build and test
       id: build
-      uses: ros-tooling/action-ros-ci@v0.2
+      uses: ros-tooling/action-ros-ci@v0.3
       with:
         package-name: ${{ steps.list_packages.outputs.package_list }}
         target-ros2-distro: ${{ matrix.ros_distribution }}
