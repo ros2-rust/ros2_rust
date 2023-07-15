@@ -3,6 +3,10 @@
 #![allow(non_upper_case_globals)]
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
+// Added to avoid clippy complaining about u128 types not being FFI safe
+// Caused by https://github.com/ros2/ros2/issues/1374 in iron and newer
+// See https://github.com/ros2-rust/ros2_rust/issues/320
+#![allow(improper_ctypes)]
 #![allow(clippy::all)]
 #![allow(missing_docs)]
 
