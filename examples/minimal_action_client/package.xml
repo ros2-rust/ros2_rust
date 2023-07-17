@@ -1,0 +1,26 @@
+<?xml version="1.0"?>
+<?xml-model
+   href="http://download.ros.org/schema/package_format3.xsd"
+   schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>examples_rclrs_minimal_action_client</name>
+  <version>0.3.1</version>
+  <description>Minimal action client examples for rclrs.</description>
+  <maintainer email="esteve@apache.org">Esteve Fernandez</maintainer>
+  <maintainer email="nnmmgit@gmail.com">Nikolai Morin</maintainer>
+  <!-- This project is not military-sponsored, Jacob's employment contract just requires him to use this email address -->
+  <maintainer email="jacob.a.hassold.civ@army.mil">Jacob Hassold</maintainer>
+  <license>Apache License 2.0</license>
+
+  <build_depend>rclrs</build_depend>
+  <build_depend>rosidl_runtime_rs</build_depend>
+  <build_depend>example_interfaces</build_depend>
+
+  <exec_depend>rclrs</exec_depend>
+  <exec_depend>rosidl_runtime_rs</exec_depend>
+  <exec_depend>example_interfaces</exec_depend>
+
+  <export>
+    <build_type>ament_cargo</build_type>
+  </export>
+</package>

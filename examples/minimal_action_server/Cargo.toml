@@ -1,13 +1,9 @@
 [package]
-name = "examples_rclrs_minimal_action_client_server"
+name = "examples_rclrs_minimal_action_server"
 version = "0.3.1"
 # This project is not military-sponsored, Jacob's employment contract just requires him to use this email address
 authors = ["Esteve Fernandez <esteve@apache.org>", "Nikolai Morin <nnmmgit@gmail.com>", "Jacob Hassold <jacob.a.hassold.civ@army.mil>"]
 edition = "2021"
-
-[[bin]]
-name = "minimal_action_client"
-path = "src/minimal_action_client.rs"
 
 [[bin]]
 name = "minimal_action_server"
