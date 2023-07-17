@@ -143,7 +143,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "examples_rclrs_minimal_action_client_server"
+name = "examples_rclrs_minimal_action_client"
 version = "0.4.1"
 dependencies = [
  "anyhow",

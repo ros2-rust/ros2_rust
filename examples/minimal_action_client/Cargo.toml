@@ -1,0 +1,19 @@
+[package]
+name = "examples_rclrs_minimal_action_client"
+version = "0.4.1"
+# This project is not military-sponsored, Jacob's employment contract just requires him to use this email address
+authors = ["Esteve Fernandez <esteve@apache.org>", "Nikolai Morin <nnmmgit@gmail.com>", "Jacob Hassold <jacob.a.hassold.civ@army.mil>"]
+edition = "2021"
+
+[[bin]]
+name = "minimal_action_client"
+path = "src/minimal_action_client.rs"
+
+[dependencies]
+anyhow = {version = "1", features = ["backtrace"]}
+example_interfaces = "*"
+rclrs = "0.4"
+rosidl_runtime_rs = "0.4"
+
+# This specific version is compatible with Rust 1.75
+backtrace = "=0.3.74"
