@@ -80,15 +80,15 @@ where
 {
     pub(crate) fn new(rcl_handle: Arc<rcl_action_goal_handle_t>) {}
 
-    pub(crate) fn is_canceling() -> bool {
+    pub(crate) fn is_canceling(&self) -> bool {
         false
     }
 
-    pub(crate) fn is_active() -> bool {
+    pub(crate) fn is_active(&self) -> bool {
         false
     }
 
-    pub(crate) fn is_executing() -> bool {
+    pub(crate) fn is_executing(&self) -> bool {
         false
     }
 }
