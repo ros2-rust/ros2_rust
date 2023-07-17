@@ -14,9 +14,9 @@ pub use self::graph::*;
 use crate::rcl_bindings::*;
 use crate::{
     ActionClient, ActionServer, CancelResponse, Client, ClientBase, Clock, Context, GoalResponse,
-    GoalUUID, GuardCondition, ParameterInterface, ParameterVariant, Parameters, Publisher,
-    QoSProfile, RclrsError, ServerGoalHandle, Service, ServiceBase, Subscription, SubscriptionBase,
-    SubscriptionCallback, TimeSource, ToResult,
+    GoalUUID, GuardCondition, ParameterBuilder, ParameterInterface, ParameterVariant, Parameters,
+    Publisher, QoSProfile, RclrsError, ServerGoalHandle, Service, ServiceBase, Subscription,
+    SubscriptionBase, SubscriptionCallback, TimeSource, ToResult,
 };
 
 impl Drop for rcl_node_t {
