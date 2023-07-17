@@ -138,6 +138,7 @@ cfg_if::cfg_if! {
         pub struct rosidl_message_type_support_t;
 
         pub const RMW_GID_STORAGE_SIZE: usize = 24;
+        pub const RCL_ACTION_UUID_SIZE: usize = 24;
 
         extern "C" {
             pub fn rcl_context_is_valid(context: *const rcl_context_t) -> bool;
@@ -146,5 +147,6 @@ cfg_if::cfg_if! {
         include!(concat!(env!("OUT_DIR"), "/rcl_bindings_generated.rs"));
 
         pub const RMW_GID_STORAGE_SIZE: usize = rmw_gid_storage_size_constant;
+        pub const RCL_ACTION_UUID_SIZE: usize = rcl_action_uuid_size_constant;
     }
 }
