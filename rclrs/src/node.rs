@@ -19,12 +19,12 @@ use std::{
 use rosidl_runtime_rs::Message;
 
 use crate::{
-    rcl_bindings::*, ActionClient, Client, ClientBase, ClientOptions, ClientState, Clock,
-    ContextHandle, GuardCondition, LogParams, Logger, ParameterBuilder, ParameterInterface,
-    ParameterVariant, Parameters, Publisher, PublisherOptions, PublisherState, RclrsError, Service,
-    ServiceBase, ServiceOptions, ServiceState, Subscription, SubscriptionBase,
-    SubscriptionCallback, SubscriptionOptions, SubscriptionState, TimeSource, ToLogParams,
-    ENTITY_LIFECYCLE_MUTEX,
+    rcl_bindings::*, ActionClient, ActionServer, CancelResponse, Client, ClientBase, ClientOptions,
+    ClientState, Clock, ContextHandle, GoalResponse, GoalUUID, GuardCondition, LogParams, Logger,
+    ParameterBuilder, ParameterInterface, ParameterVariant, Parameters, Publisher,
+    PublisherOptions, PublisherState, RclrsError, ServerGoalHandle, Service, ServiceBase,
+    ServiceOptions, ServiceState, Subscription, SubscriptionBase, SubscriptionCallback,
+    SubscriptionOptions, SubscriptionState, TimeSource, ToLogParams, ENTITY_LIFECYCLE_MUTEX,
 };
 
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
@@ -286,7 +286,7 @@ impl NodeState {
         Ok(client)
     }
 
-    /// Creates a [`Client`][1].
+    /// Creates an [`ActionClient`][1].
     ///
     /// [1]: crate::ActionClient
     // TODO: make action client's lifetime depend on node's lifetime
@@ -297,10 +297,33 @@ impl NodeState {
     where
         T: rosidl_runtime_rs::Action,
     {
-        let client = Arc::new(ActionClient::<T>::new(self, topic)?);
+        let action_client = Arc::new(ActionClient::<T>::new(self, topic)?);
         // self.clients
         //     .push(Arc::downgrade(&client) as Weak<dyn ClientBase>);
-        Ok(client)
+        Ok(action_client)
+    }
+
+    /// Creates an [`ActionServer`][1].
+    ///
+    /// [1]: crate::ActionServer
+    // TODO: make action server's lifetime depend on node's lifetime
+    pub fn create_action_server<T>(
+        self: &Arc<Self>,
+        topic: &str,
+        handle_goal: fn(
+            &crate::action::GoalUUID,
+            Arc<<T::Goal as Message>::RmwMsg>,
+        ) -> GoalResponse,
+        handle_cancel: fn(Arc<ServerGoalHandle<T>>) -> CancelResponse,
+        handle_accepted: fn(Arc<ServerGoalHandle<T>>),
+    ) -> Result<Arc<ActionServer<T>>, RclrsError>
+    where
+        T: rosidl_runtime_rs::Action,
+    {
+        let action_server = Arc::new(ActionServer::<T>::new(self, topic)?);
+        // self.servers
+        //     .push(Arc::downgrade(&server) as Weak<dyn ClientBase>);
+        Ok(action_server)
     }
 
     /// Creates a [`GuardCondition`][1] with no callback.
