@@ -21,7 +21,7 @@ use std::vec::Vec;
 
 use crate::error::{to_rclrs_result, RclReturnCode, RclrsError, ToResult};
 use crate::rcl_bindings::*;
-use crate::{ClientBase, Context, Node, ServiceBase, SubscriptionBase};
+use crate::{ClientWaitable, Context, Node, ServiceWaitable, SubscriptionWaitable};
 
 mod exclusivity_guard;
 mod guard_condition;
@@ -36,23 +36,23 @@ pub struct WaitSet {
     // The subscriptions that are currently registered in the wait set.
     // This correspondence is an invariant that must be maintained by all functions,
     // even in the error case.
-    subscriptions: Vec<ExclusivityGuard<Arc<dyn SubscriptionBase>>>,
-    clients: Vec<ExclusivityGuard<Arc<dyn ClientBase>>>,
+    subscriptions: Vec<ExclusivityGuard<Arc<dyn SubscriptionWaitable>>>,
+    clients: Vec<ExclusivityGuard<Arc<dyn ClientWaitable>>>,
     // The guard conditions that are currently registered in the wait set.
     guard_conditions: Vec<ExclusivityGuard<Arc<GuardCondition>>>,
-    services: Vec<ExclusivityGuard<Arc<dyn ServiceBase>>>,
+    services: Vec<ExclusivityGuard<Arc<dyn ServiceWaitable>>>,
 }
 
 /// A list of entities that are ready, returned by [`WaitSet::wait`].
 pub struct ReadyEntities {
     /// A list of subscriptions that have potentially received messages.
-    pub subscriptions: Vec<Arc<dyn SubscriptionBase>>,
+    pub subscriptions: Vec<Arc<dyn SubscriptionWaitable>>,
     /// A list of clients that have potentially received responses.
-    pub clients: Vec<Arc<dyn ClientBase>>,
+    pub clients: Vec<Arc<dyn ClientWaitable>>,
     /// A list of guard conditions that have been triggered.
     pub guard_conditions: Vec<Arc<GuardCondition>>,
     /// A list of services that have potentially received requests.
-    pub services: Vec<Arc<dyn ServiceBase>>,
+    pub services: Vec<Arc<dyn ServiceWaitable>>,
 }
 
 impl Drop for rcl_wait_set_t {
@@ -185,7 +185,7 @@ impl WaitSet {
     /// [2]: crate::RclReturnCode
     pub fn add_subscription(
         &mut self,
-        subscription: Arc<dyn SubscriptionBase>,
+        subscription: Arc<dyn SubscriptionWaitable>,
     ) -> Result<(), RclrsError> {
         let exclusive_subscription = ExclusivityGuard::new(
             Arc::clone(&subscription),
@@ -248,7 +248,7 @@ impl WaitSet {
     ///
     /// [1]: crate::RclrsError
     /// [2]: crate::RclReturnCode
-    pub fn add_client(&mut self, client: Arc<dyn ClientBase>) -> Result<(), RclrsError> {
+    pub fn add_client(&mut self, client: Arc<dyn ClientWaitable>) -> Result<(), RclrsError> {
         let exclusive_client = ExclusivityGuard::new(
             Arc::clone(&client),
             Arc::clone(&client.handle().in_use_by_wait_set),
@@ -278,7 +278,7 @@ impl WaitSet {
     ///
     /// [1]: crate::RclrsError
     /// [2]: crate::RclReturnCode
-    pub fn add_service(&mut self, service: Arc<dyn ServiceBase>) -> Result<(), RclrsError> {
+    pub fn add_service(&mut self, service: Arc<dyn ServiceWaitable>) -> Result<(), RclrsError> {
         let exclusive_service = ExclusivityGuard::new(
             Arc::clone(&service),
             Arc::clone(&service.handle().in_use_by_wait_set),
