@@ -20,4 +20,7 @@ fn main() {
         let library_path = Path::new(ament_prefix_path).join("lib");
         println!("cargo:rustc-link-search=native={}", library_path.display());
     }
+
+    // Invalidate the built crate whenever this script changes
+    println!("cargo:rerun-if-changed=build.rs");
 }
