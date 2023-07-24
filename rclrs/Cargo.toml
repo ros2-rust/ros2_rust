@@ -19,7 +19,7 @@ ament_rs = { version = "0.2", optional = true }
 # Needed for clients
 futures = "0.3"
 # Needed for dynamic messages
-libloading = { version = "0.7", optional = true }
+libloading = { version = "0.8", optional = true }
 # Needed for the Message trait, among others
 rosidl_runtime_rs = "0.3"
 
@@ -29,7 +29,7 @@ tempfile = "3.3.0"
 
 [build-dependencies]
 # Needed for FFI
-bindgen = "0.59.1"
+bindgen = "0.66.1"
 
 [features]
 dyn_msg = ["ament_rs", "libloading"]

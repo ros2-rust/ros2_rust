@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 
 const AMENT_PREFIX_PATH: &str = "AMENT_PREFIX_PATH";
 const ROS_DISTRO: &str = "ROS_DISTRO";
+const BINDGEN_WRAPPER: &str = "src/rcl_wrapper.h";
 
 fn get_env_var_or_abort(env_var: &'static str) -> String {
     if let Ok(value) = env::var(env_var) {
@@ -21,9 +22,8 @@ fn main() {
     println!("cargo:rustc-cfg=ros_distro=\"{ros_distro}\"");
 
     let mut builder = bindgen::Builder::default()
-        .header("src/rcl_wrapper.h")
+        .header(BINDGEN_WRAPPER)
         .derive_copy(false)
-        .allowlist_recursively(true)
         .allowlist_type("rcl_.*")
         .allowlist_type("rmw_.*")
         .allowlist_type("rcutils_.*")
@@ -37,10 +37,14 @@ fn main() {
         .allowlist_var("rcutils_.*")
         .allowlist_var("rosidl_.*")
         .layout_tests(false)
-        .size_t_is_usize(true)
         .default_enum_style(bindgen::EnumVariation::Rust {
             non_exhaustive: false,
-        });
+        })
+        .parse_callbacks(Box::new(bindgen::CargoCallbacks));
+
+    // Invalidate the built crate whenever this script or the wrapper changes
+    println!("cargo:rerun-if-changed=build.rs");
+    println!("cargo:rerun-if-changed={BINDGEN_WRAPPER}");
 
     // #############
     // # ALGORITHM #
