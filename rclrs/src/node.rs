@@ -67,10 +67,10 @@ unsafe impl Send for rcl_node_t {}
 pub struct Node {
     pub(crate) rcl_node_mtx: Arc<Mutex<rcl_node_t>>,
     pub(crate) rcl_context_mtx: Arc<Mutex<rcl_context_t>>,
-    pub(crate) clients: Vec<Weak<dyn ClientBase>>,
-    pub(crate) guard_conditions: Vec<Weak<GuardCondition>>,
-    pub(crate) services: Vec<Weak<dyn ServiceBase>>,
-    pub(crate) subscriptions: Vec<Weak<dyn SubscriptionBase>>,
+    pub(crate) clients_mtx: Mutex<Vec<Weak<dyn ClientBase>>>,
+    pub(crate) guard_conditions_mtx: Mutex<Vec<Weak<GuardCondition>>>,
+    pub(crate) services_mtx: Mutex<Vec<Weak<dyn ServiceBase>>>,
+    pub(crate) subscriptions_mtx: Mutex<Vec<Weak<dyn SubscriptionBase>>>,
     _parameter_map: ParameterOverrideMap,
 }
 
@@ -180,13 +180,12 @@ impl Node {
     ///
     /// [1]: crate::Client
     // TODO: make client's lifetime depend on node's lifetime
-    pub fn create_client<T>(&mut self, topic: &str) -> Result<Arc<Client<T>>, RclrsError>
+    pub fn create_client<T>(&self, topic: &str) -> Result<Arc<Client<T>>, RclrsError>
     where
         T: rosidl_runtime_rs::Service,
     {
         let client = Arc::new(Client::<T>::new(Arc::clone(&self.rcl_node_mtx), topic)?);
-        self.clients
-            .push(Arc::downgrade(&client) as Weak<dyn ClientBase>);
+        { self.clients_mtx.lock().unwrap() }.push(Arc::downgrade(&client) as Weak<dyn ClientBase>);
         Ok(client)
     }
 
@@ -199,12 +198,12 @@ impl Node {
     ///
     /// [1]: crate::GuardCondition
     /// [2]: crate::spin_once
-    pub fn create_guard_condition(&mut self) -> Arc<GuardCondition> {
+    pub fn create_guard_condition(&self) -> Arc<GuardCondition> {
         let guard_condition = Arc::new(GuardCondition::new_with_rcl_context(
             &mut self.rcl_context_mtx.lock().unwrap(),
             None,
         ));
-        self.guard_conditions
+        { self.guard_conditions_mtx.lock().unwrap() }
             .push(Arc::downgrade(&guard_condition) as Weak<GuardCondition>);
         guard_condition
     }
@@ -226,7 +225,7 @@ impl Node {
             &mut self.rcl_context_mtx.lock().unwrap(),
             Some(Box::new(callback) as Box<dyn Fn() + Send + Sync>),
         ));
-        self.guard_conditions
+        { self.guard_conditions_mtx.lock().unwrap() }
             .push(Arc::downgrade(&guard_condition) as Weak<GuardCondition>);
         guard_condition
     }
@@ -251,7 +250,7 @@ impl Node {
     /// [1]: crate::Service
     // TODO: make service's lifetime depend on node's lifetime
     pub fn create_service<T, F>(
-        &mut self,
+        &self,
         topic: &str,
         callback: F,
     ) -> Result<Arc<Service<T>>, RclrsError>
@@ -264,7 +263,7 @@ impl Node {
             topic,
             callback,
         )?);
-        self.services
+        { self.services_mtx.lock().unwrap() }
             .push(Arc::downgrade(&service) as Weak<dyn ServiceBase>);
         Ok(service)
     }
@@ -274,7 +273,7 @@ impl Node {
     /// [1]: crate::Subscription
     // TODO: make subscription's lifetime depend on node's lifetime
     pub fn create_subscription<T, Args>(
-        &mut self,
+        &self,
         topic: &str,
         qos: QoSProfile,
         callback: impl SubscriptionCallback<T, Args>,
@@ -288,32 +287,39 @@ impl Node {
             qos,
             callback,
         )?);
-        self.subscriptions
+        { self.subscriptions_mtx.lock() }
+            .unwrap()
             .push(Arc::downgrade(&subscription) as Weak<dyn SubscriptionBase>);
         Ok(subscription)
     }
 
     /// Returns the subscriptions that have not been dropped yet.
     pub(crate) fn live_subscriptions(&self) -> Vec<Arc<dyn SubscriptionBase>> {
-        self.subscriptions
+        { self.subscriptions_mtx.lock().unwrap() }
             .iter()
             .filter_map(Weak::upgrade)
             .collect()
     }
 
     pub(crate) fn live_clients(&self) -> Vec<Arc<dyn ClientBase>> {
-        self.clients.iter().filter_map(Weak::upgrade).collect()
+        { self.clients_mtx.lock().unwrap() }
+            .iter()
+            .filter_map(Weak::upgrade)
+            .collect()
     }
 
     pub(crate) fn live_guard_conditions(&self) -> Vec<Arc<GuardCondition>> {
-        self.guard_conditions
+        { self.guard_conditions_mtx.lock().unwrap() }
             .iter()
             .filter_map(Weak::upgrade)
             .collect()
     }
 
     pub(crate) fn live_services(&self) -> Vec<Arc<dyn ServiceBase>> {
-        self.services.iter().filter_map(Weak::upgrade).collect()
+        { self.services_mtx.lock().unwrap() }
+            .iter()
+            .filter_map(Weak::upgrade)
+            .collect()
     }
 
     /// Returns the ROS domain ID that the node is using.

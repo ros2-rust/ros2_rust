@@ -23,6 +23,7 @@ mod rcl_bindings;
 #[cfg(feature = "dyn_msg")]
 pub mod dynamic_message;
 
+use std::sync::Arc;
 use std::time::Duration;
 
 pub use arguments::*;
@@ -49,8 +50,8 @@ pub use wait::*;
 /// This can usually be ignored.
 ///
 /// [1]: crate::RclReturnCode
-pub fn spin_once(node: &Node, timeout: Option<Duration>) -> Result<(), RclrsError> {
-    let wait_set = WaitSet::new_for_node(node)?;
+pub fn spin_once(node: Arc<Node>, timeout: Option<Duration>) -> Result<(), RclrsError> {
+    let wait_set = WaitSet::new_for_node(&node)?;
     let ready_entities = wait_set.wait(timeout)?;
 
     for ready_subscription in ready_entities.subscriptions {
@@ -71,14 +72,16 @@ pub fn spin_once(node: &Node, timeout: Option<Duration>) -> Result<(), RclrsErro
 /// Convenience function for calling [`spin_once`] in a loop.
 ///
 /// This function additionally checks that the context is still valid.
-pub fn spin(node: &Node) -> Result<(), RclrsError> {
+pub fn spin(node: Arc<Node>) -> Result<(), RclrsError> {
     // The context_is_valid functions exists only to abstract away ROS distro differences
     // SAFETY: No preconditions for this function.
-    let context_is_valid =
-        || unsafe { rcl_context_is_valid(&*node.rcl_context_mtx.lock().unwrap()) };
+    let context_is_valid = {
+        let node = Arc::clone(&node);
+        move || unsafe { rcl_context_is_valid(&*node.rcl_context_mtx.lock().unwrap()) }
+    };
 
     while context_is_valid() {
-        match spin_once(node, None) {
+        match spin_once(Arc::clone(&node), None) {
             Ok(_)
             | Err(RclrsError::RclError {
                 code: RclReturnCode::Timeout,
@@ -105,8 +108,8 @@ pub fn spin(node: &Node) -> Result<(), RclrsError> {
 /// assert!(node.is_ok());
 /// # Ok::<(), RclrsError>(())
 /// ```
-pub fn create_node(context: &Context, node_name: &str) -> Result<Node, RclrsError> {
-    Node::builder(context, node_name).build()
+pub fn create_node(context: &Context, node_name: &str) -> Result<Arc<Node>, RclrsError> {
+    Ok(Arc::new(Node::builder(context, node_name).build()?))
 }
 
 /// Creates a [`NodeBuilder`][1].

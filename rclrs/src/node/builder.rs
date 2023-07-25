@@ -275,10 +275,10 @@ impl NodeBuilder {
         Ok(Node {
             rcl_node_mtx,
             rcl_context_mtx: self.context.clone(),
-            clients: vec![],
-            guard_conditions: vec![],
-            services: vec![],
-            subscriptions: vec![],
+            clients_mtx: Mutex::new(vec![]),
+            guard_conditions_mtx: Mutex::new(vec![]),
+            services_mtx: Mutex::new(vec![]),
+            subscriptions_mtx: Mutex::new(vec![]),
             _parameter_map,
         })
     }

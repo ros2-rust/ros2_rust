@@ -54,7 +54,7 @@ struct RepublisherNode {
 
 impl RepublisherNode {
     fn new(context: &rclrs::Context) -> Result<Self, rclrs::RclrsError> {
-        let mut node = rclrs::Node::new(context, "republisher")?;
+        let node = rclrs::Node::new(context, "republisher")?;
         let data = None;
         let _subscription = node.create_subscription(
             "in_topic",
@@ -76,7 +76,7 @@ Next, add a main function to launch it:
 fn main() -> Result<(), rclrs::RclrsError> {
     let context = rclrs::Context::new(std::env::args())?;
     let republisher = RepublisherNode::new(&context)?;
-    rclrs::spin(&republisher.node)
+    rclrs::spin(republisher.node)
 }
 ```
 
@@ -121,7 +121,7 @@ struct RepublisherNode {
 
 impl RepublisherNode {
     fn new(context: &rclrs::Context) -> Result<Self, rclrs::RclrsError> {
-        let mut node = rclrs::Node::new(context, "republisher")?;
+        let node = rclrs::Node::new(context, "republisher")?;
         let data = Arc::new(Mutex::new(None));  // (3)
         let data_cb = Arc::clone(&data);
         let _subscription = {
@@ -190,7 +190,7 @@ fn main() -> Result<(), rclrs::RclrsError> {
             republisher.republish()?;
         }
     });
-    rclrs::spin(&republisher.node)
+    rclrs::spin(republisher.node)
 }
 ```
 
@@ -212,7 +212,7 @@ fn main() -> Result<(), rclrs::RclrsError> {
             republisher_other_thread.republish()?;
         }
     });
-    rclrs::spin(&republisher.node)
+    rclrs::spin(republisher.node)
 }
 ```
 

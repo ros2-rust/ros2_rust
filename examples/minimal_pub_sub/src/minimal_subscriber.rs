@@ -5,7 +5,7 @@ use anyhow::{Error, Result};
 fn main() -> Result<(), Error> {
     let context = rclrs::Context::new(env::args())?;
 
-    let mut node = rclrs::create_node(&context, "minimal_subscriber")?;
+    let node = rclrs::create_node(&context, "minimal_subscriber")?;
 
     let mut num_messages: usize = 0;
 
@@ -19,5 +19,5 @@ fn main() -> Result<(), Error> {
         },
     )?;
 
-    rclrs::spin(&node).map_err(|err| err.into())
+    rclrs::spin(node).map_err(|err| err.into())
 }
