@@ -43,10 +43,6 @@ impl Clock {
         })
     }
 
-    pub fn rcl_clock(&self) -> Arc<Mutex<rcl_clock_t>> {
-        self._rcl_clock.clone()
-    }
-
     pub fn clock_type(&self) -> ClockType {
         self._type
     }
@@ -68,17 +64,26 @@ impl Clock {
         }
     }
 
-    pub fn now(&self) -> Result<Time, RclrsError> {
+    pub fn now(&self) -> Time {
         let mut clock = self._rcl_clock.lock().unwrap();
         let mut time_point: i64 = 0;
         unsafe {
-            // SAFETY: No preconditions for this function
-            rcl_clock_get_now(&mut *clock, &mut time_point).ok()?;
+            // SAFETY: The function will only fail if the clock is not initialized
+            rcl_clock_get_now(&mut *clock, &mut time_point);
         }
-        Ok(Time {
+        Time {
             nsec: time_point,
             clock_type: self._type,
-        })
+        }
+    }
+
+    pub fn set_ros_time_override(&self, nanoseconds: i64) {
+        let mut clock = self._rcl_clock.lock().unwrap();
+        // SAFETY: Safe if clock jump callbacks are not edited, which is guaranteed
+        // by the mutex
+        unsafe {
+            rcl_set_ros_time_override(&mut *clock, nanoseconds);
+        }
     }
 
     /// Helper function to initialize a default clock, same behavior as `rcl_init_generic_clock`.

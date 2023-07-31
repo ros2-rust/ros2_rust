@@ -136,13 +136,8 @@ impl TimeSource {
     }
 
     fn update_clock(clock: &Arc<Mutex<Clock>>, nanoseconds: i64) {
-        let clock = clock.lock().unwrap().rcl_clock();
-        let mut clock = clock.lock().unwrap();
-        // SAFETY: Safe if clock jump callbacks are not edited, which is guaranteed
-        // by the mutex
-        unsafe {
-            rcl_set_ros_time_override(&mut *clock, nanoseconds);
-        }
+        let clock = clock.lock().unwrap();
+        clock.set_ros_time_override(nanoseconds);
     }
 
     fn update_all_clocks(clocks: &Arc<Mutex<Vec<Arc<Mutex<Clock>>>>>, nanoseconds: i64) {
