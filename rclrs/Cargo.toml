@@ -31,5 +31,8 @@ tempfile = "3.3.0"
 # Needed for FFI
 bindgen = "0.66.1"
 
+[dependencies.rosgraph_msgs]
+version = "*"
+
 [features]
 dyn_msg = ["ament_rs", "libloading"]

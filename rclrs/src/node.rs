@@ -13,9 +13,9 @@ pub use self::builder::*;
 pub use self::graph::*;
 use crate::rcl_bindings::*;
 use crate::{
-    Client, ClientBase, Context, GuardCondition, ParameterOverrideMap, Publisher, QoSProfile,
-    RclrsError, Service, ServiceBase, Subscription, SubscriptionBase, SubscriptionCallback,
-    ToResult,
+    Client, ClientBase, Clock, Context, GuardCondition, ParameterOverrideMap, ParameterValue,
+    Publisher, QoSProfile, RclrsError, Service, ServiceBase, Subscription, SubscriptionBase,
+    SubscriptionCallback, TimeSource, TimeSourceBuilder, ToResult,
 };
 
 impl Drop for rcl_node_t {
@@ -71,6 +71,9 @@ pub struct Node {
     pub(crate) guard_conditions_mtx: Mutex<Vec<Weak<GuardCondition>>>,
     pub(crate) services_mtx: Mutex<Vec<Weak<dyn ServiceBase>>>,
     pub(crate) subscriptions_mtx: Mutex<Vec<Weak<dyn SubscriptionBase>>>,
+    _clock: Arc<Mutex<Clock>>,
+    // TODO(luca) set to private
+    pub _time_source: Arc<Mutex<Option<TimeSource>>>,
     _parameter_map: ParameterOverrideMap,
 }
 
@@ -96,7 +99,11 @@ impl Node {
     /// See [`NodeBuilder::new()`] for documentation.
     #[allow(clippy::new_ret_no_self)]
     pub fn new(context: &Context, node_name: &str) -> Result<Node, RclrsError> {
-        Self::builder(context, node_name).build()
+        Self::builder(context, node_name).build().into()
+    }
+
+    pub fn get_clock(&self) -> Arc<Mutex<Clock>> {
+        self._clock.clone()
     }
 
     /// Returns the name of the node.
@@ -353,6 +360,12 @@ impl Node {
 
         debug_assert_eq!(ret, 0);
         domain_id
+    }
+
+    // TODO(luca) There should really be parameter callbacks, this is only for testing
+    // temporarily
+    pub fn get_parameter(&self, name: &str) -> Option<ParameterValue> {
+        self._parameter_map.get(name).cloned()
     }
 
     /// Creates a [`NodeBuilder`][1] with the given name.

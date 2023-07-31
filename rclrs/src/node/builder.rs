@@ -3,8 +3,8 @@ use std::sync::{Arc, Mutex};
 
 use crate::rcl_bindings::*;
 use crate::{
-    node::call_string_getter_with_handle, resolve_parameter_overrides, Context, Node, RclrsError,
-    ToResult,
+    node::call_string_getter_with_handle, resolve_parameter_overrides, Clock, ClockType, Context,
+    Node, RclrsError, TimeSource, TimeSourceBuilder, ToResult,
 };
 
 /// A builder for creating a [`Node`][1].
@@ -17,6 +17,7 @@ use crate::{
 /// - `use_global_arguments: true`
 /// - `arguments: []`
 /// - `enable_rosout: true`
+/// - `clock_type: ClockType::RosTime`
 ///
 /// # Example
 /// ```
@@ -46,6 +47,7 @@ pub struct NodeBuilder {
     use_global_arguments: bool,
     arguments: Vec<String>,
     enable_rosout: bool,
+    clock_type: ClockType,
 }
 
 impl NodeBuilder {
@@ -92,6 +94,7 @@ impl NodeBuilder {
             use_global_arguments: true,
             arguments: vec![],
             enable_rosout: true,
+            clock_type: ClockType::RosTime,
         }
     }
 
@@ -262,6 +265,8 @@ impl NodeBuilder {
             .ok()?;
         };
 
+        let clock = Clock::new(self.clock_type)?;
+
         let _parameter_map = unsafe {
             let fqn = call_string_getter_with_handle(&rcl_node, rcl_node_get_fully_qualified_name);
             resolve_parameter_overrides(
@@ -271,16 +276,24 @@ impl NodeBuilder {
             )?
         };
         let rcl_node_mtx = Arc::new(Mutex::new(rcl_node));
-
-        Ok(Node {
+        let mut node = Node {
             rcl_node_mtx,
             rcl_context_mtx: self.context.clone(),
             clients_mtx: Mutex::new(vec![]),
             guard_conditions_mtx: Mutex::new(vec![]),
             services_mtx: Mutex::new(vec![]),
             subscriptions_mtx: Mutex::new(vec![]),
+            _clock: Arc::new(Mutex::new(clock)),
+            _time_source: Arc::new(Mutex::new(None)),
             _parameter_map,
-        })
+        };
+        /*
+        let node_mtx = Arc::new(node);
+        node._time_source = Some(Arc::new(Mutex::new(TimeSourceBuilder::new(node_mtx).build())));
+        */
+        //node._time_source = Some(Arc::new(Mutex::new(TimeSourceBuilder::new(node_mtx).build())));
+
+        Ok(node)
     }
 
     /// Creates a rcl_node_options_t struct from this builder.
