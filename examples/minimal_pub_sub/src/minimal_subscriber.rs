@@ -6,6 +6,7 @@ fn main() -> Result<(), Error> {
     let context = rclrs::Context::new(env::args())?;
 
     let node = rclrs::create_node(&context, "minimal_subscriber")?;
+    let inner_node = node.clone();
 
     let mut num_messages: usize = 0;
 
@@ -16,6 +17,8 @@ fn main() -> Result<(), Error> {
             num_messages += 1;
             println!("I heard: '{}'", msg.data);
             println!("(Got {} messages so far)", num_messages);
+            let now = inner_node.get_clock().lock().unwrap().now();
+            dbg!(now);
         },
     )?;
 

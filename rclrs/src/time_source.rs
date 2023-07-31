@@ -18,7 +18,7 @@ pub struct TimeSource {
     // TODO(luca) Update this with parameter callbacks for use_sim_time
     _ros_time_active: Arc<Mutex<bool>>,
     _clock_subscription: Option<Arc<Subscription<ClockMsg>>>,
-    // TODO(luca) add last time message for newly attached clocks initialization
+    _last_time_msg: Arc<Mutex<Option<ClockMsg>>>,
 }
 
 pub struct TimeSourceBuilder {
@@ -56,6 +56,7 @@ impl TimeSourceBuilder {
             _use_clock_thread: self.use_clock_thread,
             _ros_time_active: Arc::new(Mutex::new(false)),
             _clock_subscription: None,
+            _last_time_msg: Arc::new(Mutex::new(None)),
         };
         source.attach_clock(self.clock);
         source.attach_node(self.node);
@@ -76,13 +77,15 @@ impl fmt::Display for ClockMismatchError {
 }
 
 impl TimeSource {
-    pub fn attach_clock(&mut self, clock: Arc<Mutex<Clock>>) -> Result<(), ClockMismatchError> {
-        {
-            let clock = clock.lock().unwrap();
-            let clock_type = clock.clock_type();
-            if !matches!(clock_type, ClockType::RosTime) && *self._ros_time_active.lock().unwrap() {
-                return Err(ClockMismatchError(clock_type));
-            }
+    pub fn attach_clock(&self, clock: Arc<Mutex<Clock>>) -> Result<(), ClockMismatchError> {
+        let clock_type = clock.clone().lock().unwrap().clock_type();
+        if !matches!(clock_type, ClockType::RosTime) && *self._ros_time_active.lock().unwrap() {
+            return Err(ClockMismatchError(clock_type));
+        }
+        if let Some(last_msg) = self._last_time_msg.lock().unwrap().clone() {
+            let nanoseconds: i64 =
+                (last_msg.clock.sec as i64 * 1_000_000_000) + last_msg.clock.nanosec as i64;
+            Self::update_clock(&clock, nanoseconds);
         }
         // TODO(luca) this would allow duplicates to be stored in the vector but it seems other
         // client libraries do the same, should we check and no-op if the value exists already?
@@ -91,7 +94,7 @@ impl TimeSource {
     }
 
     // TODO(luca) should we return a result to denote whether the clock was removed?
-    pub fn detach_clock(&mut self, clock: Arc<Mutex<Clock>>) {
+    pub fn detach_clock(&self, clock: Arc<Mutex<Clock>>) {
         self._clocks
             .lock()
             .unwrap()
@@ -114,7 +117,8 @@ impl TimeSource {
                         self._clock_subscription = Some(self.create_clock_sub()?);
                         self.set_ros_time(true);
                     } else {
-                        // TODO(luca) cleanup subscription, clear set_ros_time
+                        self._clock_subscription = None;
+                        self.set_ros_time(false);
                     }
                 }
                 // TODO(luca) more graceful error handling
@@ -131,22 +135,27 @@ impl TimeSource {
         }
     }
 
+    fn update_clock(clock: &Arc<Mutex<Clock>>, nanoseconds: i64) {
+        let clock = clock.lock().unwrap().rcl_clock();
+        let mut clock = clock.lock().unwrap();
+        // SAFETY: Safe if clock jump callbacks are not edited, which is guaranteed
+        // by the mutex
+        unsafe {
+            rcl_set_ros_time_override(&mut *clock, nanoseconds);
+        }
+    }
+
     fn update_all_clocks(clocks: &Arc<Mutex<Vec<Arc<Mutex<Clock>>>>>, nanoseconds: i64) {
         let clocks = clocks.lock().unwrap();
         for clock in clocks.iter() {
-            let clock = clock.lock().unwrap().rcl_clock();
-            let mut clock = clock.lock().unwrap();
-            // SAFETY: Safe if clock jump callbacks are not edited, which is guaranteed
-            // by the mutex
-            unsafe {
-                rcl_set_ros_time_override(&mut *clock, nanoseconds);
-            }
+            Self::update_clock(clock, nanoseconds);
         }
     }
 
     fn create_clock_sub(&self) -> Result<Arc<Subscription<ClockMsg>>, RclrsError> {
         let ros_time_active = self._ros_time_active.clone();
         let clocks = self._clocks.clone();
+        let last_time_msg = self._last_time_msg.clone();
         self._node.create_subscription::<ClockMsg, _>(
             "/clock",
             self._clock_qos,
@@ -154,6 +163,7 @@ impl TimeSource {
                 if *ros_time_active.lock().unwrap() {
                     let nanoseconds: i64 =
                         (msg.clock.sec as i64 * 1_000_000_000) + msg.clock.nanosec as i64;
+                    *last_time_msg.lock().unwrap() = Some(msg);
                     Self::update_all_clocks(&clocks, nanoseconds);
                 }
             },
