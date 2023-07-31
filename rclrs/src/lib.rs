@@ -26,7 +26,7 @@ mod rcl_bindings;
 #[cfg(feature = "dyn_msg")]
 pub mod dynamic_message;
 
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::time::Duration;
 
 pub use arguments::*;
@@ -115,12 +115,10 @@ pub fn spin(node: Arc<Node>) -> Result<(), RclrsError> {
 /// # Ok::<(), RclrsError>(())
 /// ```
 pub fn create_node(context: &Context, node_name: &str) -> Result<Arc<Node>, RclrsError> {
-    println!("Creating node");
-    let mut node = Arc::new(Node::builder(context, node_name).build()?);
+    let node = Arc::new(Node::builder(context, node_name).build()?);
     *node._time_source.lock().unwrap() =
         Some(TimeSourceBuilder::new(node.clone(), node.get_clock()).build());
     Ok(node)
-    //Ok(Arc::new(Node::builder(context, node_name).build()?))
 }
 
 /// Creates a [`NodeBuilder`][1].

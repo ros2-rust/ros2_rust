@@ -276,7 +276,7 @@ impl NodeBuilder {
             )?
         };
         let rcl_node_mtx = Arc::new(Mutex::new(rcl_node));
-        let mut node = Node {
+        let node = Node {
             rcl_node_mtx,
             rcl_context_mtx: self.context.clone(),
             clients_mtx: Mutex::new(vec![]),
@@ -287,11 +287,6 @@ impl NodeBuilder {
             _time_source: Arc::new(Mutex::new(None)),
             _parameter_map,
         };
-        /*
-        let node_mtx = Arc::new(node);
-        node._time_source = Some(Arc::new(Mutex::new(TimeSourceBuilder::new(node_mtx).build())));
-        */
-        //node._time_source = Some(Arc::new(Mutex::new(TimeSourceBuilder::new(node_mtx).build())));
 
         Ok(node)
     }

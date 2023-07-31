@@ -99,7 +99,7 @@ impl Node {
     /// See [`NodeBuilder::new()`] for documentation.
     #[allow(clippy::new_ret_no_self)]
     pub fn new(context: &Context, node_name: &str) -> Result<Node, RclrsError> {
-        Self::builder(context, node_name).build().into()
+        Self::builder(context, node_name).build()
     }
 
     pub fn get_clock(&self) -> Arc<Mutex<Clock>> {
