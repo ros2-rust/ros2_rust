@@ -36,6 +36,8 @@ impl SingleThreadedExecutor {
     }
 
     /// Polls the nodes for new messages and executes the corresponding callbacks.
+    ///
+    /// This function additionally checks that the context is still valid.
     pub fn spin_once(&self, timeout: Option<Duration>) -> Result<(), RclrsError> {
         for node in { self.nodes_mtx.lock().unwrap() }
             .iter()

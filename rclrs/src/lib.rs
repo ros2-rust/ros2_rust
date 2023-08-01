@@ -58,10 +58,7 @@ pub fn spin_once(node: Arc<Node>, timeout: Option<Duration>) -> Result<(), Rclrs
 }
 
 /// Convenience function for calling [`spin_once`] in a loop.
-///
-/// This function additionally checks that the context is still valid.
 pub fn spin(node: Arc<Node>) -> Result<(), RclrsError> {
-    // SAFETY: No preconditions for this function.
     let executor = SingleThreadedExecutor::new();
     executor.add_node(&node)?;
     executor.spin()
