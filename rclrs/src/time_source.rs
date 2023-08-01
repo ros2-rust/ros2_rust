@@ -1,4 +1,3 @@
-use crate::rcl_bindings::*;
 use crate::{
     clock::{Clock, ClockType},
     RclrsError,
@@ -8,7 +7,9 @@ use rosgraph_msgs::msg::Clock as ClockMsg;
 use std::fmt;
 use std::sync::{Arc, Mutex};
 
-/// Time source for a node that subscribes to the /clock node, if the use_sim_time parameter is set
+/// Time source for a node that drives the attached clocks.
+/// If the node's `use_sim_time` parameter is set to `true`, the `TimeSource` will subscribe
+/// to the `/clock` topic and drive the attached clocks
 pub struct TimeSource {
     _node: Arc<Node>,
     _clocks: Arc<Mutex<Vec<Arc<Mutex<Clock>>>>>,
@@ -21,6 +22,19 @@ pub struct TimeSource {
     _last_time_msg: Arc<Mutex<Option<ClockMsg>>>,
 }
 
+/// A builder for creating a [`TimeSource`][1].
+///
+/// The builder pattern allows selectively setting some fields, and leaving all others at their default values.
+/// This struct instance can be created via [`TimeSource::builder()`][2].
+///
+/// The default values for optional fields are:
+/// - `clock_qos: QOS_PROFILE_CLOCK`[3]
+/// - `use_clock_thread: true`
+///
+///
+/// [1]: crate::TimeSource
+/// [2]: crate::TimeSource::builder
+/// [3]: crate::QOS_PROFILE_CLOCK
 pub struct TimeSourceBuilder {
     node: Arc<Node>,
     clock_qos: QoSProfile,
@@ -29,6 +43,9 @@ pub struct TimeSourceBuilder {
 }
 
 impl TimeSourceBuilder {
+    /// Creates a builder for a time source that drives the given clock for the given node.
+    /// The clock's ClockType must be set to `RosTime` to allow updates based on the `/clock`
+    /// topic.
     pub fn new(node: Arc<Node>, clock: Arc<Mutex<Clock>>) -> Self {
         Self {
             node,
@@ -38,16 +55,22 @@ impl TimeSourceBuilder {
         }
     }
 
+    /// Sets the QoS for the `/clock` topic.
     pub fn clock_qos(mut self, clock_qos: QoSProfile) -> Self {
         self.clock_qos = clock_qos;
         self
     }
 
+    /// Sets use_clock_thread.
+    ///
+    /// If set to `true`, the clock callbacks will run in a separate thread.
+    /// NOTE: Currently unimplemented
     pub fn use_clock_thread(mut self, use_clock_thread: bool) -> Self {
         self.use_clock_thread = use_clock_thread;
         self
     }
 
+    /// Builds the `TimeSource` and attaches the provided `Node` and `Clock`.
     pub fn build(self) -> TimeSource {
         let mut source = TimeSource {
             _node: self.node.clone(),
@@ -64,6 +87,7 @@ impl TimeSourceBuilder {
     }
 }
 
+#[derive(Debug)]
 pub struct ClockMismatchError(ClockType);
 
 impl fmt::Display for ClockMismatchError {
@@ -77,6 +101,12 @@ impl fmt::Display for ClockMismatchError {
 }
 
 impl TimeSource {
+    /// Creates a new time source with default parameters.
+    pub fn new(node: Arc<Node>, clock: Arc<Mutex<Clock>>) -> Self {
+        TimeSourceBuilder::new(node, clock).build()
+    }
+
+    /// Attaches the given clock to the `TimeSource`, enabling the `TimeSource` to control it.
     pub fn attach_clock(&self, clock: Arc<Mutex<Clock>>) -> Result<(), ClockMismatchError> {
         let clock_type = clock.clone().lock().unwrap().clock_type();
         if !matches!(clock_type, ClockType::RosTime) && *self._ros_time_active.lock().unwrap() {
@@ -93,6 +123,7 @@ impl TimeSource {
         Ok(())
     }
 
+    /// Detaches the given clock from the `TimeSource`.
     // TODO(luca) should we return a result to denote whether the clock was removed?
     pub fn detach_clock(&self, clock: Arc<Mutex<Clock>>) {
         self._clocks
@@ -101,25 +132,19 @@ impl TimeSource {
             .retain(|c| !Arc::ptr_eq(c, &clock));
     }
 
+    /// Attaches the given node to to the `TimeSource`, using its interface to read the
+    /// `use_sim_time` parameter and create the clock subscription.
     pub fn attach_node(&mut self, node: Arc<Node>) -> Result<(), RclrsError> {
         self._node = node;
-        println!("Checking for use sim time");
         // TODO*luca) REMOVE THIS
-        self._clock_subscription = Some(self.create_clock_sub()?);
-        self.set_ros_time(true);
+        self.set_ros_time(true)?;
         return Ok(());
 
+        // TODO(luca) register a parameter callback
         if let Some(sim_param) = node.get_parameter("use_sim_time") {
             match sim_param {
                 ParameterValue::Bool(val) => {
-                    if val {
-                        println!("use sim time set");
-                        self._clock_subscription = Some(self.create_clock_sub()?);
-                        self.set_ros_time(true);
-                    } else {
-                        self._clock_subscription = None;
-                        self.set_ros_time(false);
-                    }
+                    self.set_ros_time(val)?;
                 }
                 // TODO(luca) more graceful error handling
                 _ => panic!("use_sim_time parameter must be boolean"),
@@ -128,11 +153,20 @@ impl TimeSource {
         Ok(())
     }
 
-    fn set_ros_time(&self, enable: bool) {
-        *self._ros_time_active.lock().unwrap() = enable;
-        for clock in self._clocks.lock().unwrap().iter() {
-            clock.lock().unwrap().set_ros_time(enable);
+    fn set_ros_time(&mut self, enable: bool) -> Result<(), RclrsError> {
+        let mut ros_time_active = self._ros_time_active.lock().unwrap();
+        if enable != *ros_time_active {
+            *ros_time_active = enable;
+            for clock in self._clocks.lock().unwrap().iter() {
+                clock.lock().unwrap().set_ros_time(enable);
+            }
+            if enable {
+                self._clock_subscription = Some(self.create_clock_sub()?);
+            } else {
+                self._clock_subscription = None;
+            }
         }
+        Ok(())
     }
 
     fn update_clock(clock: &Arc<Mutex<Clock>>, nanoseconds: i64) {
@@ -163,5 +197,22 @@ impl TimeSource {
                 }
             },
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::create_node;
+    use crate::Context;
+
+    #[test]
+    fn time_source_attach_clock() {
+        let clock = Arc::new(Mutex::new(Clock::new(ClockType::RosTime).unwrap()));
+        let node = create_node(&Context::new([]).unwrap(), "test_node").unwrap();
+        let time_source = TimeSource::new(node, clock);
+        let clock = Arc::new(Mutex::new(Clock::new(ClockType::RosTime).unwrap()));
+        // Attaching additional clocks should be OK
+        time_source.attach_clock(clock).unwrap();
     }
 }

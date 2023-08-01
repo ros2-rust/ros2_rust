@@ -6,8 +6,12 @@ use std::sync::{Arc, Mutex};
 /// from the `rcl_clock_type_t` enum in the binding.
 #[derive(Clone, Debug, Copy)]
 pub enum ClockType {
+    /// Time with behavior dependent on the `set_ros_time(bool)` function. If called with `true`
+    /// it will be driven by a manual value override, otherwise it will be System Time
     RosTime = 1,
+    /// Wall time depending on the current system
     SystemTime = 2,
+    /// Steady time, monotonically increasing but not necessarily equal to wall time.
     SteadyTime = 3,
 }
 
@@ -21,6 +25,7 @@ impl From<ClockType> for rcl_clock_type_t {
     }
 }
 
+/// Struct that implements a Clock and wraps `rcl_clock_t`.
 pub struct Clock {
     _type: ClockType,
     _rcl_clock: Arc<Mutex<rcl_clock_t>>,
@@ -28,6 +33,7 @@ pub struct Clock {
 }
 
 impl Clock {
+    /// Creates a new clock of the given `ClockType`.
     // TODO(luca) proper error handling
     pub fn new(type_: ClockType) -> Result<Self, RclrsError> {
         let mut rcl_clock;
@@ -43,11 +49,14 @@ impl Clock {
         })
     }
 
+    /// Returns the clock's `ClockType`.
     pub fn clock_type(&self) -> ClockType {
         self._type
     }
 
-    pub fn set_ros_time(&mut self, enable: bool) {
+    /// Sets the clock to use ROS Time, if enabled the clock will report the last value set through
+    /// `Clock::set_ros_time_override(nanoseconds: i64)`.
+    pub fn set_ros_time(&self, enable: bool) {
         let mut clock = self._rcl_clock.lock().unwrap();
         if enable {
             // SAFETY: Safe if clock jump callbacks are not edited, which is guaranteed
@@ -64,6 +73,7 @@ impl Clock {
         }
     }
 
+    /// Returns the current clock's timestamp.
     pub fn now(&self) -> Time {
         let mut clock = self._rcl_clock.lock().unwrap();
         let mut time_point: i64 = 0;
@@ -77,6 +87,7 @@ impl Clock {
         }
     }
 
+    /// Sets the value of the current ROS time.
     pub fn set_ros_time_override(&self, nanoseconds: i64) {
         let mut clock = self._rcl_clock.lock().unwrap();
         // SAFETY: Safe if clock jump callbacks are not edited, which is guaranteed
@@ -118,3 +129,42 @@ impl Drop for Clock {
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
 // they are running in. Therefore, this type can be safely sent to another thread.
 unsafe impl Send for rcl_clock_t {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn assert_send<T: Send>() {}
+    fn assert_sync<T: Sync>() {}
+
+    #[test]
+    fn clock_is_send_and_sync() {
+        assert_send::<Clock>();
+        assert_sync::<Clock>();
+    }
+
+    #[test]
+    fn clock_system_time_now() {
+        let clock = Clock::new(ClockType::SystemTime).unwrap();
+        assert!(clock.now().nsec > 0);
+    }
+
+    #[test]
+    fn clock_ros_time_with_override() {
+        let clock = Clock::new(ClockType::RosTime).unwrap();
+        let start = clock.now();
+        // Ros time is not set, should return wall time
+        assert!(start.nsec > 0);
+        clock.set_ros_time(true);
+        // No manual time set, it should default to 0
+        assert!(clock.now().nsec == 0);
+        let set_time = 1234i64;
+        clock.set_ros_time_override(set_time);
+        // Ros time is set, should return the value that was set
+        assert_eq!(clock.now().nsec, set_time);
+        // Back to normal time, should be greater than before
+        clock.set_ros_time(false);
+        assert!(clock.now().nsec != set_time);
+        assert!(clock.now().nsec > start.nsec);
+    }
+}

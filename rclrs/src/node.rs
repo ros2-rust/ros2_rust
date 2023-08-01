@@ -15,7 +15,7 @@ use crate::rcl_bindings::*;
 use crate::{
     Client, ClientBase, Clock, Context, GuardCondition, ParameterOverrideMap, ParameterValue,
     Publisher, QoSProfile, RclrsError, Service, ServiceBase, Subscription, SubscriptionBase,
-    SubscriptionCallback, TimeSource, TimeSourceBuilder, ToResult,
+    SubscriptionCallback, TimeSource, ToResult,
 };
 
 impl Drop for rcl_node_t {
@@ -102,6 +102,7 @@ impl Node {
         Self::builder(context, node_name).build()
     }
 
+    /// Gets the clock associated with this node.
     pub fn get_clock(&self) -> Arc<Mutex<Clock>> {
         self._clock.clone()
     }

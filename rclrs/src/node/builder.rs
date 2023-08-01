@@ -4,7 +4,7 @@ use std::sync::{Arc, Mutex};
 use crate::rcl_bindings::*;
 use crate::{
     node::call_string_getter_with_handle, resolve_parameter_overrides, Clock, ClockType, Context,
-    Node, RclrsError, TimeSource, TimeSourceBuilder, ToResult,
+    Node, RclrsError, ToResult,
 };
 
 /// A builder for creating a [`Node`][1].

@@ -1,10 +1,12 @@
 use crate::clock::ClockType;
 use crate::rcl_bindings::*;
 
-// TODO(luca) this is currently unused, maybe remove?
+/// Struct that represents time.
 #[derive(Debug)]
 pub struct Time {
+    /// Timestamp in nanoseconds.
     pub nsec: i64,
+    /// Clock type.
     pub clock_type: ClockType,
 }
 
