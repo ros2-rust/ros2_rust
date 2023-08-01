@@ -88,7 +88,7 @@ impl Clock {
 
     /// Helper function to initialize a default clock, same behavior as `rcl_init_generic_clock`.
     /// Needed because functions that initialize a clock take as an input a mutable reference
-    /// to a clock and don't actuall return one, so we need a function to generate one. Doing this
+    /// to a clock and don't actually return one, so we need a function to generate one. Doing this
     /// instead of a `Default` implementation allows the function to be private and avoids
     /// exposing a public API to create an invalid clock
     // SAFETY: Getting a default value is always safe.
