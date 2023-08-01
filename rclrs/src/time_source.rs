@@ -117,9 +117,10 @@ impl TimeSource {
                 (last_msg.clock.sec as i64 * 1_000_000_000) + last_msg.clock.nanosec as i64;
             Self::update_clock(&clock, nanoseconds);
         }
-        // TODO(luca) this would allow duplicates to be stored in the vector but it seems other
-        // client libraries do the same, should we check and no-op if the value exists already?
-        self._clocks.lock().unwrap().push(clock);
+        let mut clocks = self._clocks.lock().unwrap();
+        if !clocks.iter().any(|c| Arc::ptr_eq(c, &clock)) {
+            clocks.push(clock);
+        }
         Ok(())
     }
 
