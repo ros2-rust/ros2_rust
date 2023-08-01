@@ -68,7 +68,7 @@ impl Clock {
         let mut clock = self._rcl_clock.lock().unwrap();
         let mut time_point: i64 = 0;
         unsafe {
-            // SAFETY: The function will only fail if the clock is not initialized
+            // SAFETY: No preconditions for his function
             rcl_clock_get_now(&mut *clock, &mut time_point);
         }
         Time {
