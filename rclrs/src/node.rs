@@ -73,7 +73,7 @@ pub struct Node {
     pub(crate) subscriptions_mtx: Mutex<Vec<Weak<dyn SubscriptionBase>>>,
     _clock: Arc<Clock>,
     // TODO(luca) set to private
-    pub _time_source: Arc<Mutex<Option<TimeSource>>>,
+    pub(crate) _time_source: Arc<Mutex<Option<TimeSource>>>,
     _parameter_map: ParameterOverrideMap,
 }
 
@@ -363,8 +363,8 @@ impl Node {
         domain_id
     }
 
-    // TODO(luca) There should really be parameter callbacks, this is only for testing
-    // temporarily
+    /// Gets a parameter given the name.
+    /// Returns None if no parameter with the requested name was found.
     pub fn get_parameter(&self, name: &str) -> Option<ParameterValue> {
         self._parameter_map.get(name).cloned()
     }

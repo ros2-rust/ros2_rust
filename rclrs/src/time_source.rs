@@ -1,7 +1,4 @@
-use crate::{
-    clock::{Clock, ClockType},
-    RclrsError,
-};
+use crate::clock::{Clock, ClockType};
 use crate::{Node, ParameterValue, QoSProfile, Subscription, QOS_PROFILE_CLOCK};
 use rosgraph_msgs::msg::Clock as ClockMsg;
 use std::fmt;
@@ -72,7 +69,7 @@ impl TimeSourceBuilder {
     }
 
     /// Builds the `TimeSource` and attaches the provided `Node` and `Clock`.
-    pub fn build(self) -> TimeSource {
+    pub fn build(self) -> Result<TimeSource, ClockMismatchError> {
         let mut source = TimeSource {
             _node: self.node.clone(),
             _clocks: Arc::new(Mutex::new(vec![])),
@@ -82,12 +79,15 @@ impl TimeSourceBuilder {
             _clock_subscription: None,
             _last_time_msg: Arc::new(Mutex::new(None)),
         };
-        source.attach_clock(self.clock);
+        source.attach_clock(self.clock)?;
         source.attach_node(self.node);
-        source
+        Ok(source)
     }
 }
 
+/// Error created when a non RosTime clock is attached but the `use_sim_time` parameter is set.
+/// This case could behave in unexpected ways since the /clock topic would be ignored even though
+/// the user explicitly requested to use it through a command line argument.
 #[derive(Debug)]
 pub struct ClockMismatchError(ClockType);
 
@@ -104,7 +104,7 @@ impl fmt::Display for ClockMismatchError {
 impl TimeSource {
     /// Creates a new time source with default parameters.
     pub fn new(node: Arc<Node>, clock: Arc<Clock>) -> Self {
-        TimeSourceBuilder::new(node, clock).build()
+        TimeSourceBuilder::new(node, clock).build().unwrap()
     }
 
     /// Attaches the given clock to the `TimeSource`, enabling the `TimeSource` to control it.
@@ -138,23 +138,22 @@ impl TimeSource {
 
     /// Attaches the given node to to the `TimeSource`, using its interface to read the
     /// `use_sim_time` parameter and create the clock subscription.
-    pub fn attach_node(&mut self, node: Arc<Node>) -> Result<(), RclrsError> {
+    pub fn attach_node(&mut self, node: Arc<Node>) {
         self._node = node;
 
         // TODO(luca) register a parameter callback
         if let Some(sim_param) = self._node.get_parameter("use_sim_time") {
             match sim_param {
                 ParameterValue::Bool(val) => {
-                    self.set_ros_time(val)?;
+                    self.set_ros_time(val);
                 }
                 // TODO(luca) more graceful error handling?
                 _ => panic!("use_sim_time parameter must be boolean"),
             }
         }
-        Ok(())
     }
 
-    fn set_ros_time(&mut self, enable: bool) -> Result<(), RclrsError> {
+    fn set_ros_time(&mut self, enable: bool) {
         let updated = self
             ._ros_time_active
             .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |prev| {
@@ -169,13 +168,8 @@ impl TimeSource {
             for clock in self._clocks.lock().unwrap().iter() {
                 clock.set_ros_time(enable);
             }
-            self._clock_subscription = if enable {
-                Some(self.create_clock_sub()?)
-            } else {
-                None
-            };
+            self._clock_subscription = enable.then(|| self.create_clock_sub());
         }
-        Ok(())
     }
 
     fn update_clock(clock: &Arc<Clock>, nanoseconds: i64) {
@@ -189,22 +183,21 @@ impl TimeSource {
         }
     }
 
-    fn create_clock_sub(&self) -> Result<Arc<Subscription<ClockMsg>>, RclrsError> {
+    fn create_clock_sub(&self) -> Arc<Subscription<ClockMsg>> {
         let ros_time_active = self._ros_time_active.clone();
         let clocks = self._clocks.clone();
         let last_time_msg = self._last_time_msg.clone();
-        self._node.create_subscription::<ClockMsg, _>(
-            "/clock",
-            self._clock_qos,
-            move |msg: ClockMsg| {
+        // Safe to unwrap since the function will only fail if invalid arguments are provided
+        self._node
+            .create_subscription::<ClockMsg, _>("/clock", self._clock_qos, move |msg: ClockMsg| {
                 if ros_time_active.load(Ordering::Relaxed) {
                     let nanoseconds: i64 =
                         (msg.clock.sec as i64 * 1_000_000_000) + msg.clock.nanosec as i64;
                     *last_time_msg.lock().unwrap() = Some(msg);
                     Self::update_all_clocks(&clocks, nanoseconds);
                 }
-            },
-        )
+            })
+            .unwrap()
     }
 }
 
