@@ -115,7 +115,7 @@ impl TimeSource {
         {
             return Err(ClockMismatchError(clock_type));
         }
-        if let Some(last_msg) = self._last_time_msg.lock().unwrap().clone() {
+        if let Some(last_msg) = self._last_time_msg.lock().unwrap().as_ref() {
             let nanoseconds: i64 =
                 (last_msg.clock.sec as i64 * 1_000_000_000) + last_msg.clock.nanosec as i64;
             Self::update_clock(&clock, nanoseconds);
