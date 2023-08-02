@@ -209,13 +209,13 @@ mod tests {
 
     #[test]
     fn time_source_attach_clock() {
-        let clock = Arc::new(Mutex::new(Clock::new(ClockType::RosTime).unwrap()));
+        let clock = Arc::new(Clock::new(ClockType::RosTime).unwrap());
         let node = create_node(&Context::new([]).unwrap(), "test_node").unwrap();
-        let time_source = TimeSource::new(node, clock);
-        let clock = Arc::new(Mutex::new(Clock::new(ClockType::RosTime).unwrap()));
+        let time_source = TimeSource::new(node.clone(), clock);
+        let clock = Arc::new(Clock::new(ClockType::RosTime).unwrap());
         // Attaching additional clocks should be OK
         time_source.attach_clock(clock).unwrap();
         // Default clock should be above 0 (use_sim_time is default false)
-        assert!(node.get_clock().now() > 0);
+        assert!(node.get_clock().now().nsec > 0);
     }
 }
