@@ -5,6 +5,7 @@ use crate::{
 use crate::{Node, ParameterValue, QoSProfile, Subscription, QOS_PROFILE_CLOCK};
 use rosgraph_msgs::msg::Clock as ClockMsg;
 use std::fmt;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
 /// Time source for a node that drives the attached clocks.
@@ -17,7 +18,7 @@ pub struct TimeSource {
     // TODO(luca) implement clock threads, for now will run in main thread
     _use_clock_thread: bool,
     // TODO(luca) Update this with parameter callbacks for use_sim_time
-    _ros_time_active: Arc<Mutex<bool>>,
+    _ros_time_active: Arc<AtomicBool>,
     _clock_subscription: Option<Arc<Subscription<ClockMsg>>>,
     _last_time_msg: Arc<Mutex<Option<ClockMsg>>>,
 }
@@ -77,7 +78,7 @@ impl TimeSourceBuilder {
             _clocks: Arc::new(Mutex::new(vec![])),
             _clock_qos: self.clock_qos,
             _use_clock_thread: self.use_clock_thread,
-            _ros_time_active: Arc::new(Mutex::new(false)),
+            _ros_time_active: Arc::new(AtomicBool::new(false)),
             _clock_subscription: None,
             _last_time_msg: Arc::new(Mutex::new(None)),
         };
@@ -109,7 +110,9 @@ impl TimeSource {
     /// Attaches the given clock to the `TimeSource`, enabling the `TimeSource` to control it.
     pub fn attach_clock(&self, clock: Arc<Clock>) -> Result<(), ClockMismatchError> {
         let clock_type = clock.clock_type();
-        if !matches!(clock_type, ClockType::RosTime) && *self._ros_time_active.lock().unwrap() {
+        if !matches!(clock_type, ClockType::RosTime)
+            && self._ros_time_active.load(Ordering::Relaxed)
+        {
             return Err(ClockMismatchError(clock_type));
         }
         if let Some(last_msg) = self._last_time_msg.lock().unwrap().clone() {
@@ -155,9 +158,17 @@ impl TimeSource {
     }
 
     fn set_ros_time(&mut self, enable: bool) -> Result<(), RclrsError> {
-        let mut ros_time_active = self._ros_time_active.lock().unwrap();
-        if enable != *ros_time_active {
-            *ros_time_active = enable;
+        let updated = self
+            ._ros_time_active
+            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |prev| {
+                if prev != enable {
+                    Some(enable)
+                } else {
+                    None
+                }
+            })
+            .is_ok();
+        if updated {
             for clock in self._clocks.lock().unwrap().iter() {
                 clock.set_ros_time(enable);
             }
@@ -189,7 +200,7 @@ impl TimeSource {
             "/clock",
             self._clock_qos,
             move |msg: ClockMsg| {
-                if *ros_time_active.lock().unwrap() {
+                if ros_time_active.load(Ordering::Relaxed) {
                     let nanoseconds: i64 =
                         (msg.clock.sec as i64 * 1_000_000_000) + msg.clock.nanosec as i64;
                     *last_time_msg.lock().unwrap() = Some(msg);
