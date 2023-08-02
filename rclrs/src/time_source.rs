@@ -172,11 +172,11 @@ impl TimeSource {
             for clock in self._clocks.lock().unwrap().iter() {
                 clock.set_ros_time(enable);
             }
-            if enable {
-                self._clock_subscription = Some(self.create_clock_sub()?);
+            self._clock_subscription = if enable {
+                Some(self.create_clock_sub()?)
             } else {
-                self._clock_subscription = None;
-            }
+                None
+            };
         }
         Ok(())
     }
