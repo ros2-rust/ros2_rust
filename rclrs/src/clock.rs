@@ -28,7 +28,7 @@ impl From<ClockType> for rcl_clock_type_t {
 /// Struct that implements a Clock and wraps `rcl_clock_t`.
 pub struct Clock {
     _type: ClockType,
-    _rcl_clock: Arc<Mutex<rcl_clock_t>>,
+    _rcl_clock: Mutex<rcl_clock_t>,
     // TODO(luca) Implement jump callbacks
 }
 
@@ -45,7 +45,7 @@ impl Clock {
         }
         Ok(Self {
             _type: type_,
-            _rcl_clock: Arc::new(Mutex::new(rcl_clock)),
+            _rcl_clock: Mutex::new(rcl_clock),
         })
     }
 
