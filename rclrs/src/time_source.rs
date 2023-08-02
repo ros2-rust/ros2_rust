@@ -12,7 +12,7 @@ use std::sync::{Arc, Mutex};
 /// to the `/clock` topic and drive the attached clocks
 pub struct TimeSource {
     _node: Arc<Node>,
-    _clocks: Arc<Mutex<Vec<Arc<Mutex<Clock>>>>>,
+    _clocks: Arc<Mutex<Vec<Arc<Clock>>>>,
     _clock_qos: QoSProfile,
     // TODO(luca) implement clock threads, for now will run in main thread
     _use_clock_thread: bool,
@@ -39,14 +39,14 @@ pub struct TimeSourceBuilder {
     node: Arc<Node>,
     clock_qos: QoSProfile,
     use_clock_thread: bool,
-    clock: Arc<Mutex<Clock>>,
+    clock: Arc<Clock>,
 }
 
 impl TimeSourceBuilder {
     /// Creates a builder for a time source that drives the given clock for the given node.
     /// The clock's ClockType must be set to `RosTime` to allow updates based on the `/clock`
     /// topic.
-    pub fn new(node: Arc<Node>, clock: Arc<Mutex<Clock>>) -> Self {
+    pub fn new(node: Arc<Node>, clock: Arc<Clock>) -> Self {
         Self {
             node,
             clock_qos: QOS_PROFILE_CLOCK,
@@ -102,13 +102,13 @@ impl fmt::Display for ClockMismatchError {
 
 impl TimeSource {
     /// Creates a new time source with default parameters.
-    pub fn new(node: Arc<Node>, clock: Arc<Mutex<Clock>>) -> Self {
+    pub fn new(node: Arc<Node>, clock: Arc<Clock>) -> Self {
         TimeSourceBuilder::new(node, clock).build()
     }
 
     /// Attaches the given clock to the `TimeSource`, enabling the `TimeSource` to control it.
-    pub fn attach_clock(&self, clock: Arc<Mutex<Clock>>) -> Result<(), ClockMismatchError> {
-        let clock_type = clock.clone().lock().unwrap().clock_type();
+    pub fn attach_clock(&self, clock: Arc<Clock>) -> Result<(), ClockMismatchError> {
+        let clock_type = clock.clock_type();
         if !matches!(clock_type, ClockType::RosTime) && *self._ros_time_active.lock().unwrap() {
             return Err(ClockMismatchError(clock_type));
         }
@@ -126,7 +126,7 @@ impl TimeSource {
 
     /// Detaches the given clock from the `TimeSource`.
     // TODO(luca) should we return a result to denote whether the clock was removed?
-    pub fn detach_clock(&self, clock: Arc<Mutex<Clock>>) {
+    pub fn detach_clock(&self, clock: Arc<Clock>) {
         self._clocks
             .lock()
             .unwrap()
@@ -159,7 +159,7 @@ impl TimeSource {
         if enable != *ros_time_active {
             *ros_time_active = enable;
             for clock in self._clocks.lock().unwrap().iter() {
-                clock.lock().unwrap().set_ros_time(enable);
+                clock.set_ros_time(enable);
             }
             if enable {
                 self._clock_subscription = Some(self.create_clock_sub()?);
@@ -170,12 +170,11 @@ impl TimeSource {
         Ok(())
     }
 
-    fn update_clock(clock: &Arc<Mutex<Clock>>, nanoseconds: i64) {
-        let clock = clock.lock().unwrap();
+    fn update_clock(clock: &Arc<Clock>, nanoseconds: i64) {
         clock.set_ros_time_override(nanoseconds);
     }
 
-    fn update_all_clocks(clocks: &Arc<Mutex<Vec<Arc<Mutex<Clock>>>>>, nanoseconds: i64) {
+    fn update_all_clocks(clocks: &Arc<Mutex<Vec<Arc<Clock>>>>, nanoseconds: i64) {
         let clocks = clocks.lock().unwrap();
         for clock in clocks.iter() {
             Self::update_clock(clock, nanoseconds);

@@ -283,7 +283,7 @@ impl NodeBuilder {
             guard_conditions_mtx: Mutex::new(vec![]),
             services_mtx: Mutex::new(vec![]),
             subscriptions_mtx: Mutex::new(vec![]),
-            _clock: Arc::new(Mutex::new(clock)),
+            _clock: Arc::new(clock),
             _time_source: Arc::new(Mutex::new(None)),
             _parameter_map,
         };
