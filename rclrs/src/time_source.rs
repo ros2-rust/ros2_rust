@@ -140,17 +140,14 @@ impl TimeSource {
     /// `use_sim_time` parameter and create the clock subscription.
     pub fn attach_node(&mut self, node: Arc<Node>) -> Result<(), RclrsError> {
         self._node = node;
-        // TODO*luca) REMOVE THIS
-        self.set_ros_time(true)?;
-        return Ok(());
 
         // TODO(luca) register a parameter callback
-        if let Some(sim_param) = node.get_parameter("use_sim_time") {
+        if let Some(sim_param) = self._node.get_parameter("use_sim_time") {
             match sim_param {
                 ParameterValue::Bool(val) => {
                     self.set_ros_time(val)?;
                 }
-                // TODO(luca) more graceful error handling
+                // TODO(luca) more graceful error handling?
                 _ => panic!("use_sim_time parameter must be boolean"),
             }
         }
@@ -225,5 +222,7 @@ mod tests {
         let clock = Arc::new(Mutex::new(Clock::new(ClockType::RosTime).unwrap()));
         // Attaching additional clocks should be OK
         time_source.attach_clock(clock).unwrap();
+        // Default clock should be above 0 (use_sim_time is default false)
+        assert!(node.get_clock().now() > 0);
     }
 }
