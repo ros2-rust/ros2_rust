@@ -3,10 +3,11 @@ use rclrs::{
     QOS_PROFILE_SYSTEM_DEFAULT,
 };
 use test_msgs::{msg, srv};
+use std::sync::Arc;
 
 struct TestGraph {
-    node1: Node,
-    node2: Node,
+    node1: Arc<Node>,
+    node2: Arc<Node>,
 }
 
 fn construct_test_graph(namespace: &str) -> Result<TestGraph, RclrsError> {
