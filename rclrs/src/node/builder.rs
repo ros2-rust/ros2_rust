@@ -4,7 +4,7 @@ use std::sync::{Arc, Mutex};
 use crate::rcl_bindings::*;
 use crate::{
     node::call_string_getter_with_handle, resolve_parameter_overrides, Clock, ClockType, Context,
-    Node, RclrsError, ToResult,
+    Node, RclrsError, TimeSourceBuilder, ToResult,
 };
 
 /// A builder for creating a [`Node`][1].
@@ -234,7 +234,7 @@ impl NodeBuilder {
     /// For example usage, see the [`NodeBuilder`][1] docs.
     ///
     /// [1]: crate::NodeBuilder
-    pub fn build(&self) -> Result<Node, RclrsError> {
+    pub fn build(&self) -> Result<Arc<Node>, RclrsError> {
         let node_name =
             CString::new(self.name.as_str()).map_err(|err| RclrsError::StringContainsNul {
                 err,
@@ -265,7 +265,7 @@ impl NodeBuilder {
             .ok()?;
         };
 
-        let clock = Clock::new(self.clock_type)?;
+        let (clock, clock_source) = Clock::new(self.clock_type)?;
 
         let _parameter_map = unsafe {
             let fqn = call_string_getter_with_handle(&rcl_node, rcl_node_get_fully_qualified_name);
@@ -276,17 +276,25 @@ impl NodeBuilder {
             )?
         };
         let rcl_node_mtx = Arc::new(Mutex::new(rcl_node));
-        let node = Node {
+        let node = Arc::new(Node {
             rcl_node_mtx,
             rcl_context_mtx: self.context.clone(),
             clients_mtx: Mutex::new(vec![]),
             guard_conditions_mtx: Mutex::new(vec![]),
             services_mtx: Mutex::new(vec![]),
             subscriptions_mtx: Mutex::new(vec![]),
-            _clock: Arc::new(clock),
+            _clock: clock,
             _time_source: Arc::new(Mutex::new(None)),
             _parameter_map,
-        };
+        });
+
+        if let Some(clock_source) = clock_source {
+            *node._time_source.lock().unwrap() = Some(
+                TimeSourceBuilder::new(node.clone(), clock_source)
+                    .build()
+                    .unwrap(),
+            );
+        }
 
         Ok(node)
     }

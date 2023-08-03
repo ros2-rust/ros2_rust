@@ -1,4 +1,4 @@
-use crate::clock::{Clock, ClockType};
+use crate::clock::{ClockSource, ClockType};
 use crate::{Node, ParameterValue, QoSProfile, Subscription, QOS_PROFILE_CLOCK};
 use rosgraph_msgs::msg::Clock as ClockMsg;
 use std::fmt;
@@ -10,7 +10,7 @@ use std::sync::{Arc, Mutex};
 /// to the `/clock` topic and drive the attached clocks
 pub struct TimeSource {
     _node: Arc<Node>,
-    _clocks: Arc<Mutex<Vec<Arc<Clock>>>>,
+    _clocks: Arc<Mutex<Vec<ClockSource>>>,
     _clock_qos: QoSProfile,
     // TODO(luca) implement clock threads, for now will run in main thread
     _use_clock_thread: bool,
@@ -37,19 +37,19 @@ pub struct TimeSourceBuilder {
     node: Arc<Node>,
     clock_qos: QoSProfile,
     use_clock_thread: bool,
-    clock: Arc<Clock>,
+    clock_source: ClockSource,
 }
 
 impl TimeSourceBuilder {
     /// Creates a builder for a time source that drives the given clock for the given node.
     /// The clock's ClockType must be set to `RosTime` to allow updates based on the `/clock`
     /// topic.
-    pub fn new(node: Arc<Node>, clock: Arc<Clock>) -> Self {
+    pub fn new(node: Arc<Node>, clock_source: ClockSource) -> Self {
         Self {
             node,
             clock_qos: QOS_PROFILE_CLOCK,
             use_clock_thread: true,
-            clock,
+            clock_source,
         }
     }
 
@@ -79,7 +79,7 @@ impl TimeSourceBuilder {
             _clock_subscription: None,
             _last_time_msg: Arc::new(Mutex::new(None)),
         };
-        source.attach_clock(self.clock)?;
+        source.attach_clock(self.clock_source);
         source.attach_node(self.node);
         Ok(source)
     }
@@ -103,37 +103,27 @@ impl fmt::Display for ClockMismatchError {
 
 impl TimeSource {
     /// Creates a new time source with default parameters.
-    pub fn new(node: Arc<Node>, clock: Arc<Clock>) -> Self {
+    pub fn new(node: Arc<Node>, clock: ClockSource) -> Self {
         TimeSourceBuilder::new(node, clock).build().unwrap()
     }
 
     /// Attaches the given clock to the `TimeSource`, enabling the `TimeSource` to control it.
-    pub fn attach_clock(&self, clock: Arc<Clock>) -> Result<(), ClockMismatchError> {
-        let clock_type = clock.clock_type();
-        if !matches!(clock_type, ClockType::RosTime)
-            && self._ros_time_active.load(Ordering::Relaxed)
-        {
-            return Err(ClockMismatchError(clock_type));
-        }
+    pub fn attach_clock(&self, clock: ClockSource) {
         if let Some(last_msg) = self._last_time_msg.lock().unwrap().as_ref() {
             let nanoseconds: i64 =
                 (last_msg.clock.sec as i64 * 1_000_000_000) + last_msg.clock.nanosec as i64;
             Self::update_clock(&clock, nanoseconds);
         }
         let mut clocks = self._clocks.lock().unwrap();
-        if !clocks.iter().any(|c| Arc::ptr_eq(c, &clock)) {
+        if !clocks.iter().any(|c| c != &clock) {
             clocks.push(clock);
         }
-        Ok(())
     }
 
     /// Detaches the given clock from the `TimeSource`.
     // TODO(luca) should we return a result to denote whether the clock was removed?
-    pub fn detach_clock(&self, clock: Arc<Clock>) {
-        self._clocks
-            .lock()
-            .unwrap()
-            .retain(|c| !Arc::ptr_eq(c, &clock));
+    pub fn detach_clock(&self, clock: &ClockSource) {
+        self._clocks.lock().unwrap().retain(|c| c != clock);
     }
 
     /// Attaches the given node to to the `TimeSource`, using its interface to read the
@@ -145,7 +135,8 @@ impl TimeSource {
         if let Some(sim_param) = self._node.get_parameter("use_sim_time") {
             match sim_param {
                 ParameterValue::Bool(val) => {
-                    self.set_ros_time(val);
+                    println!("Setting ros time");
+                    self.set_ros_time_enable(val);
                 }
                 // TODO(luca) more graceful error handling?
                 _ => panic!("use_sim_time parameter must be boolean"),
@@ -153,7 +144,7 @@ impl TimeSource {
         }
     }
 
-    fn set_ros_time(&mut self, enable: bool) {
+    fn set_ros_time_enable(&mut self, enable: bool) {
         let updated = self
             ._ros_time_active
             .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |prev| {
@@ -166,17 +157,17 @@ impl TimeSource {
             .is_ok();
         if updated {
             for clock in self._clocks.lock().unwrap().iter() {
-                clock.set_ros_time(enable);
+                clock.set_ros_time_enable(enable);
             }
             self._clock_subscription = enable.then(|| self.create_clock_sub());
         }
     }
 
-    fn update_clock(clock: &Arc<Clock>, nanoseconds: i64) {
+    fn update_clock(clock: &ClockSource, nanoseconds: i64) {
         clock.set_ros_time_override(nanoseconds);
     }
 
-    fn update_all_clocks(clocks: &Arc<Mutex<Vec<Arc<Clock>>>>, nanoseconds: i64) {
+    fn update_all_clocks(clocks: &Arc<Mutex<Vec<ClockSource>>>, nanoseconds: i64) {
         let clocks = clocks.lock().unwrap();
         for clock in clocks.iter() {
             Self::update_clock(clock, nanoseconds);
@@ -205,17 +196,18 @@ impl TimeSource {
 mod tests {
     use super::*;
     use crate::create_node;
-    use crate::Context;
+    use crate::{Clock, Context};
 
     #[test]
     fn time_source_attach_clock() {
-        let clock = Arc::new(Clock::new(ClockType::RosTime).unwrap());
         let node = create_node(&Context::new([]).unwrap(), "test_node").unwrap();
-        let time_source = TimeSource::new(node.clone(), clock);
-        let clock = Arc::new(Clock::new(ClockType::RosTime).unwrap());
+        let (_, source) = Clock::with_source().unwrap();
+        let time_source = TimeSource::new(node.clone(), source);
+        let (_, source) = Clock::with_source().unwrap();
         // Attaching additional clocks should be OK
-        time_source.attach_clock(clock).unwrap();
+        time_source.attach_clock(source);
         // Default clock should be above 0 (use_sim_time is default false)
         assert!(node.get_clock().now().nsec > 0);
+        // TODO(luca) an integration test by creating a node and setting its use_sim_time
     }
 }
