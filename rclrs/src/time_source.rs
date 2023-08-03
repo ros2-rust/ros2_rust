@@ -135,10 +135,8 @@ impl TimeSource {
         if let Some(sim_param) = self._node.get_parameter("use_sim_time") {
             match sim_param {
                 ParameterValue::Bool(val) => {
-                    println!("Setting ros time");
                     self.set_ros_time_enable(val);
                 }
-                // TODO(luca) more graceful error handling?
                 _ => panic!("use_sim_time parameter must be boolean"),
             }
         }
@@ -175,18 +173,15 @@ impl TimeSource {
     }
 
     fn create_clock_sub(&self) -> Arc<Subscription<ClockMsg>> {
-        let ros_time_active = self._ros_time_active.clone();
         let clocks = self._clocks.clone();
         let last_time_msg = self._last_time_msg.clone();
         // Safe to unwrap since the function will only fail if invalid arguments are provided
         self._node
             .create_subscription::<ClockMsg, _>("/clock", self._clock_qos, move |msg: ClockMsg| {
-                if ros_time_active.load(Ordering::Relaxed) {
-                    let nanoseconds: i64 =
-                        (msg.clock.sec as i64 * 1_000_000_000) + msg.clock.nanosec as i64;
-                    *last_time_msg.lock().unwrap() = Some(msg);
-                    Self::update_all_clocks(&clocks, nanoseconds);
-                }
+                let nanoseconds: i64 =
+                    (msg.clock.sec as i64 * 1_000_000_000) + msg.clock.nanosec as i64;
+                *last_time_msg.lock().unwrap() = Some(msg);
+                Self::update_all_clocks(&clocks, nanoseconds);
             })
             .unwrap()
     }

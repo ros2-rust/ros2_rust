@@ -86,6 +86,11 @@ impl Clock {
         })
     }
 
+    /// Returns the clock's `ClockType`.
+    pub fn clock_type(&self) -> ClockType {
+        self._type
+    }
+
     /// Returns the current clock's timestamp.
     pub fn now(&self) -> Time {
         let mut clock = self._rcl_clock.lock().unwrap();

@@ -115,7 +115,7 @@ pub fn spin(node: Arc<Node>) -> Result<(), RclrsError> {
 /// # Ok::<(), RclrsError>(())
 /// ```
 pub fn create_node(context: &Context, node_name: &str) -> Result<Arc<Node>, RclrsError> {
-    Node::builder(context, node_name).build()
+    Node::new(context, node_name)
 }
 
 /// Creates a [`NodeBuilder`][1].
