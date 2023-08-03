@@ -2,8 +2,8 @@ use rclrs::{
     Context, Node, NodeBuilder, RclrsError, TopicEndpointInfo, TopicNamesAndTypes,
     QOS_PROFILE_SYSTEM_DEFAULT,
 };
-use test_msgs::{msg, srv};
 use std::sync::Arc;
+use test_msgs::{msg, srv};
 
 struct TestGraph {
     node1: Arc<Node>,

@@ -182,7 +182,6 @@ impl Drop for rcl_clock_t {
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
 // they are running in. Therefore, this type can be safely sent to another thread.
 unsafe impl Send for rcl_clock_t {}
-unsafe impl Sync for rcl_clock_t {}
 
 #[cfg(test)]
 mod tests {
