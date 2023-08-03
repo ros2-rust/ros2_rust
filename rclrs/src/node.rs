@@ -72,8 +72,7 @@ pub struct Node {
     pub(crate) services_mtx: Mutex<Vec<Weak<dyn ServiceBase>>>,
     pub(crate) subscriptions_mtx: Mutex<Vec<Weak<dyn SubscriptionBase>>>,
     _clock: Clock,
-    // TODO(luca) set to private
-    pub(crate) _time_source: Arc<Mutex<Option<TimeSource>>>,
+    _time_source: Mutex<Option<TimeSource>>,
     _parameter_map: ParameterOverrideMap,
 }
 
