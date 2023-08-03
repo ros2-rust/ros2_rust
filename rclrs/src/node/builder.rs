@@ -227,6 +227,12 @@ impl NodeBuilder {
         self
     }
 
+    /// Sets the node's clock type.
+    pub fn clock_type(mut self, clock_type: ClockType) -> Self {
+        self.clock_type = clock_type;
+        self
+    }
+
     /// Builds the node instance.
     ///
     /// Node name and namespace validation is performed in this method.

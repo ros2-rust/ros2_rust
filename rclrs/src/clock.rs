@@ -60,7 +60,6 @@ impl Clock {
     }
 
     /// Creates a new clock of the given `ClockType`.
-    // TODO(luca) proper error handling
     pub fn new(type_: ClockType) -> Result<(Self, Option<ClockSource>), RclrsError> {
         let clock = Self::make(type_)?;
         let clock_source = if matches!(type_, ClockType::RosTime) {
@@ -73,7 +72,6 @@ impl Clock {
         Ok((clock, clock_source))
     }
 
-    // TODO(luca) proper error handling
     fn make(type_: ClockType) -> Result<Self, RclrsError> {
         let mut rcl_clock;
         unsafe {
@@ -136,13 +134,17 @@ impl ClockSource {
             // SAFETY: Safe if clock jump callbacks are not edited, which is guaranteed
             // by the mutex
             unsafe {
-                rcl_enable_ros_time_override(&mut *clock);
+                // Function will only fail if timer was uninitialized or not RosTime, which should
+                // not happen
+                rcl_enable_ros_time_override(&mut *clock).ok().unwrap();
             }
         } else {
             // SAFETY: Safe if clock jump callbacks are not edited, which is guaranteed
             // by the mutex
             unsafe {
-                rcl_disable_ros_time_override(&mut *clock);
+                // Function will only fail if timer was uninitialized or not RosTime, which should
+                // not happen
+                rcl_disable_ros_time_override(&mut *clock).ok().unwrap();
             }
         }
     }
@@ -153,15 +155,19 @@ impl ClockSource {
         // SAFETY: Safe if clock jump callbacks are not edited, which is guaranteed
         // by the mutex
         unsafe {
-            rcl_set_ros_time_override(&mut *clock, nanoseconds);
+            // Function will only fail if timer was uninitialized or not RosTime, which should
+            // not happen
+            rcl_set_ros_time_override(&mut *clock, nanoseconds)
+                .ok()
+                .unwrap();
         }
     }
 }
 
-impl Drop for Clock {
+impl Drop for rcl_clock_t {
     fn drop(&mut self) {
         // SAFETY: No preconditions for this function
-        let rc = unsafe { rcl_clock_fini(&mut *self._rcl_clock.lock().unwrap()) };
+        let rc = unsafe { rcl_clock_fini(&mut *self) };
         if let Err(e) = to_rclrs_result(rc) {
             panic!("Unable to release Clock. {:?}", e)
         }
