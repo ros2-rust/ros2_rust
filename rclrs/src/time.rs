@@ -1,8 +1,10 @@
 use crate::rcl_bindings::*;
+use std::ops::{Add, Sub};
 use std::sync::{Mutex, Weak};
+use std::time::Duration;
 
 /// Struct that represents time.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Time {
     /// Timestamp in nanoseconds.
     pub nsec: i64,
@@ -23,9 +25,34 @@ impl Time {
     }
 }
 
+impl Add<Duration> for Time {
+    type Output = Self;
+
+    fn add(self, other: Duration) -> Self {
+        let dur_ns = i64::try_from(other.as_nanos()).unwrap();
+        Time {
+            nsec: self.nsec.checked_add(dur_ns).unwrap(),
+            clock: self.clock.clone(),
+        }
+    }
+}
+
+impl Sub<Duration> for Time {
+    type Output = Self;
+
+    fn sub(self, other: Duration) -> Self {
+        let dur_ns = i64::try_from(other.as_nanos()).unwrap();
+        Time {
+            nsec: self.nsec.checked_sub(dur_ns).unwrap(),
+            clock: self.clock.clone(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use crate::clock::Clock;
+    use super::*;
+    use crate::Clock;
 
     #[test]
     fn compare_times_from_same_clock() {
@@ -46,5 +73,15 @@ mod tests {
         let t2 = c2.now();
         assert!(t2.compare_with(&t1, |_, _| ()).is_none());
         assert!(t1.compare_with(&t2, |_, _| ()).is_none());
+    }
+
+    #[test]
+    fn add_duration_to_time() {
+        let (clock, _) = Clock::with_source().unwrap();
+        let t = clock.now();
+        let t2 = t.clone() + Duration::from_secs(1);
+        assert_eq!(t2.nsec - t.nsec, 1_000_000_000i64);
+        let t3 = t2 - Duration::from_secs(1);
+        assert_eq!(t3.nsec, t.nsec);
     }
 }

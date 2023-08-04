@@ -102,9 +102,14 @@ impl fmt::Display for ClockMismatchError {
 }
 
 impl TimeSource {
-    /// Creates a new time source with default parameters.
+    /// Creates a new `TimeSource` with default parameters.
     pub fn new(node: Arc<Node>, clock: ClockSource) -> Self {
         TimeSourceBuilder::new(node, clock).build().unwrap()
+    }
+
+    /// Creates a new `TimeSourceBuilder` with default parameters.
+    pub fn builder(node: Arc<Node>, clock: ClockSource) -> TimeSourceBuilder {
+        TimeSourceBuilder::new(node, clock)
     }
 
     /// Attaches the given clock to the `TimeSource`, enabling the `TimeSource` to control it.
