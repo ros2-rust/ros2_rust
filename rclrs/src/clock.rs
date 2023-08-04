@@ -101,7 +101,7 @@ impl Clock {
         }
         Time {
             nsec: time_point,
-            clock_type: self._type,
+            clock: Arc::downgrade(&self._rcl_clock),
         }
     }
 
