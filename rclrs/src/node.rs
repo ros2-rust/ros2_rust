@@ -238,11 +238,16 @@ impl Node {
         &self,
         topic: &str,
         qos: QoSProfile,
-    ) -> Result<Publisher<T>, RclrsError>
+    ) -> Result<Arc<Publisher<T>>, RclrsError>
     where
         T: Message,
     {
-        Publisher::<T>::new(Arc::clone(&self.rcl_node_mtx), topic, qos)
+        let publisher = Arc::new(Publisher::<T>::new(
+            Arc::clone(&self.rcl_node_mtx),
+            topic,
+            qos,
+        )?);
+        Ok(publisher)
     }
 
     /// Creates a [`Service`][1].

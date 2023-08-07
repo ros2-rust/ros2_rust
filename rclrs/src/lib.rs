@@ -9,6 +9,7 @@ mod arguments;
 mod client;
 mod context;
 mod error;
+mod executor;
 mod node;
 mod parameter;
 mod publisher;
@@ -30,11 +31,11 @@ pub use arguments::*;
 pub use client::*;
 pub use context::*;
 pub use error::*;
+pub use executor::*;
 pub use node::*;
 pub use parameter::*;
 pub use publisher::*;
 pub use qos::*;
-use rcl_bindings::rcl_context_is_valid;
 pub use rcl_bindings::rmw_request_id_t;
 pub use service::*;
 pub use subscription::*;
@@ -51,46 +52,16 @@ pub use wait::*;
 ///
 /// [1]: crate::RclReturnCode
 pub fn spin_once(node: Arc<Node>, timeout: Option<Duration>) -> Result<(), RclrsError> {
-    let wait_set = WaitSet::new_for_node(&node)?;
-    let ready_entities = wait_set.wait(timeout)?;
-
-    for ready_subscription in ready_entities.subscriptions {
-        ready_subscription.execute()?;
-    }
-
-    for ready_client in ready_entities.clients {
-        ready_client.execute()?;
-    }
-
-    for ready_service in ready_entities.services {
-        ready_service.execute()?;
-    }
-
-    Ok(())
+    let executor = SingleThreadedExecutor::new();
+    executor.add_node(&node)?;
+    executor.spin_once(timeout)
 }
 
 /// Convenience function for calling [`spin_once`] in a loop.
-///
-/// This function additionally checks that the context is still valid.
 pub fn spin(node: Arc<Node>) -> Result<(), RclrsError> {
-    // The context_is_valid functions exists only to abstract away ROS distro differences
-    // SAFETY: No preconditions for this function.
-    let context_is_valid = {
-        let node = Arc::clone(&node);
-        move || unsafe { rcl_context_is_valid(&*node.rcl_context_mtx.lock().unwrap()) }
-    };
-
-    while context_is_valid() {
-        match spin_once(Arc::clone(&node), None) {
-            Ok(_)
-            | Err(RclrsError::RclError {
-                code: RclReturnCode::Timeout,
-                ..
-            }) => (),
-            error => return error,
-        }
-    }
-    Ok(())
+    let executor = SingleThreadedExecutor::new();
+    executor.add_node(&node)?;
+    executor.spin()
 }
 
 /// Creates a new node in the empty namespace.

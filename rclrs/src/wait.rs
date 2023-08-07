@@ -337,7 +337,16 @@ impl WaitSet {
         // We cannot currently guarantee that the wait sets may not share content, but it is
         // mentioned in the doc comment for `add_subscription`.
         // Also, the rcl_wait_set is obviously valid.
-        unsafe { rcl_wait(&mut self.rcl_wait_set, timeout_ns) }.ok()?;
+        match unsafe { rcl_wait(&mut self.rcl_wait_set, timeout_ns) }.ok() {
+            Ok(_) => (),
+            Err(error) => match error {
+                RclrsError::RclError { code, msg } => match code {
+                    RclReturnCode::WaitSetEmpty => (),
+                    _ => return Err(RclrsError::RclError { code, msg }),
+                },
+                _ => return Err(error),
+            },
+        }
         let mut ready_entities = ReadyEntities {
             subscriptions: Vec::new(),
             clients: Vec::new(),
