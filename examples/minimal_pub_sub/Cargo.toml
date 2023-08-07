@@ -14,6 +14,10 @@ name = "minimal_publisher"
 path = "src/minimal_publisher.rs"
 
 [[bin]]
+name = "minimal_two_nodes"
+path = "src/minimal_two_nodes.rs"
+
+[[bin]]
 name = "zero_copy_subscriber"
 path = "src/zero_copy_subscriber.rs"
 
