@@ -3,13 +3,13 @@ use crate::{Node, ParameterValue, QoSProfile, Subscription, QOS_PROFILE_CLOCK};
 use rosgraph_msgs::msg::Clock as ClockMsg;
 use std::fmt;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, Weak};
 
 /// Time source for a node that drives the attached clocks.
 /// If the node's `use_sim_time` parameter is set to `true`, the `TimeSource` will subscribe
 /// to the `/clock` topic and drive the attached clocks
 pub struct TimeSource {
-    _node: Arc<Node>,
+    _node: Weak<Node>,
     _clocks: Arc<Mutex<Vec<ClockSource>>>,
     _clock_qos: QoSProfile,
     // TODO(luca) implement clock threads, for now will run in main thread
@@ -34,7 +34,7 @@ pub struct TimeSource {
 /// [2]: crate::TimeSource::builder
 /// [3]: crate::QOS_PROFILE_CLOCK
 pub struct TimeSourceBuilder {
-    node: Arc<Node>,
+    node: Weak<Node>,
     clock_qos: QoSProfile,
     use_clock_thread: bool,
     clock_source: ClockSource,
@@ -46,7 +46,7 @@ impl TimeSourceBuilder {
     /// topic.
     pub fn new(node: Arc<Node>, clock_source: ClockSource) -> Self {
         Self {
-            node,
+            node: Arc::downgrade(&node),
             clock_qos: QOS_PROFILE_CLOCK,
             use_clock_thread: true,
             clock_source,
@@ -71,7 +71,7 @@ impl TimeSourceBuilder {
     /// Builds the `TimeSource` and attaches the provided `Node` and `Clock`.
     pub fn build(self) -> Result<TimeSource, ClockMismatchError> {
         let mut source = TimeSource {
-            _node: self.node.clone(),
+            _node: Weak::new(),
             _clocks: Arc::new(Mutex::new(vec![])),
             _clock_qos: self.clock_qos,
             _use_clock_thread: self.use_clock_thread,
@@ -133,11 +133,15 @@ impl TimeSource {
 
     /// Attaches the given node to to the `TimeSource`, using its interface to read the
     /// `use_sim_time` parameter and create the clock subscription.
-    pub fn attach_node(&mut self, node: Arc<Node>) {
+    pub fn attach_node(&mut self, node: Weak<Node>) {
         self._node = node;
 
         // TODO(luca) register a parameter callback
-        if let Some(sim_param) = self._node.get_parameter("use_sim_time") {
+        if let Some(sim_param) = self
+            ._node
+            .upgrade()
+            .and_then(|n| n.get_parameter("use_sim_time"))
+        {
             match sim_param {
                 ParameterValue::Bool(val) => {
                     self.set_ros_time_enable(val);
@@ -182,6 +186,8 @@ impl TimeSource {
         let last_time_msg = self._last_time_msg.clone();
         // Safe to unwrap since the function will only fail if invalid arguments are provided
         self._node
+            .upgrade()
+            .unwrap()
             .create_subscription::<ClockMsg, _>("/clock", self._clock_qos, move |msg: ClockMsg| {
                 let nanoseconds: i64 =
                     (msg.clock.sec as i64 * 1_000_000_000) + msg.clock.nanosec as i64;
