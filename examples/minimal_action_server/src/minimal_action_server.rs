@@ -76,5 +76,5 @@ fn main() -> Result<(), Error> {
         handle_accepted,
     );
 
-    rclrs::spin(&node).map_err(|err| err.into())
+    rclrs::spin(node).map_err(|err| err.into())
 }

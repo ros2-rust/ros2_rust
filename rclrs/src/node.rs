@@ -201,7 +201,7 @@ impl Node {
     /// [1]: crate::ActionClient
     // TODO: make action client's lifetime depend on node's lifetime
     pub fn create_action_client<T>(
-        &mut self,
+        &self,
         topic: &str,
     ) -> Result<Arc<ActionClient<T>>, RclrsError>
     where
