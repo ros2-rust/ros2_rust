@@ -78,17 +78,17 @@ impl<T> ServerGoalHandle<T>
 where
     T: rosidl_runtime_rs::Action,
 {
-    pub(crate) fn new(rcl_handle: Arc<rcl_action_goal_handle_t>) {}
+    pub fn new(rcl_handle: Arc<rcl_action_goal_handle_t>) {}
 
-    pub(crate) fn is_canceling(&self) -> bool {
+    pub fn is_canceling(&self) -> bool {
         false
     }
 
-    pub(crate) fn is_active(&self) -> bool {
+    pub fn is_active(&self) -> bool {
         false
     }
 
-    pub(crate) fn is_executing(&self) -> bool {
+    pub fn is_executing(&self) -> bool {
         false
     }
 }
