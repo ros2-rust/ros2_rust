@@ -174,6 +174,7 @@ def generate_rs(generator_arguments_file, typesupport_impls):
 
     return 0
 
+
 def get_rs_name(name):
     keywords = [
         # strict keywords
@@ -188,6 +189,7 @@ def get_rs_name(name):
     ]
     # If the field name is a reserved keyword in Rust append an underscore
     return name if not name in keywords else name + '_'
+
 
 def escape_string(s):
     s = s.replace('\\', '\\\\')
@@ -256,7 +258,7 @@ def constant_value_to_rs(type_, value):
     assert False, "unknown constant type '%s'" % type_
 
 # Type hierarchy:
-# 
+#
 # AbstractType
 # - AbstractNestableType
 #   - AbstractGenericString
@@ -285,6 +287,7 @@ def pre_field_serde(type_):
 
 def make_get_idiomatic_rs_type(package_name):
     get_rmw_rs_type = make_get_rmw_rs_type(package_name)
+
     def get_idiomatic_rs_type(type_):
         if isinstance(type_, UnboundedString) or isinstance(type_, UnboundedWString):
             return 'std::string::String'
@@ -297,6 +300,7 @@ def make_get_idiomatic_rs_type(package_name):
         else:
             return get_rmw_rs_type(type_)
     return get_idiomatic_rs_type
+
 
 def make_get_rmw_rs_type(package_name):
     def get_rmw_rs_type(type_):
@@ -344,9 +348,7 @@ def make_get_rmw_rs_type(package_name):
         elif isinstance(type_, UnboundedSequence):
             return 'rosidl_runtime_rs::Sequence<{}>'.format(get_rmw_rs_type(type_.value_type))
         elif isinstance(type_, BoundedSequence):
-            return 'rosidl_runtime_rs::BoundedSequence<{}, {}>'.format(
-                get_rmw_rs_type(type_.value_type),
-                type_.maximum_size)
+            return 'rosidl_runtime_rs::BoundedSequence<{}, {}>'.format(get_rmw_rs_type(type_.value_type), type_.maximum_size)
 
         assert False, "unknown type '%s'" % type_.typename
     return get_rmw_rs_type
