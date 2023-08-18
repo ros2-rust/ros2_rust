@@ -285,7 +285,6 @@ def pre_field_serde(type_):
 
 def make_get_idiomatic_rs_type(package_name):
     get_rmw_rs_type = make_get_rmw_rs_type(package_name)
-
     def get_idiomatic_rs_type(type_):
         if isinstance(type_, UnboundedString) or isinstance(type_, UnboundedWString):
             return 'std::string::String'
