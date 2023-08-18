@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 rosidl_runtime_rs = "0.3"
 serde = { version = "1", optional = true, features = ["derive"] }
+serde-big-array = "0.5.1"
 @[for dep in dependency_packages]@
 @(dep) = "*"
 @[end for]@

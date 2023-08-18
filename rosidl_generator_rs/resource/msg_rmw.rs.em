@@ -38,7 +38,7 @@ extern "C" {
 #[derive(Clone, Debug, PartialEq, PartialOrd)]
 pub struct @(type_name) {
 @[for member in msg_spec.structure.members]@
-    pub @(get_rs_name(member.name)): @(get_rmw_rs_type(member.type)),
+    @(pre_field_serde(member.type))pub @(get_rs_name(member.name)): @(get_rmw_rs_type(member.type)),
 @[end for]@
 }
 
