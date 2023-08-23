@@ -71,7 +71,7 @@ impl SingleThreadedExecutor {
                 | Err(RclrsError::RclError {
                     code: RclReturnCode::Timeout,
                     ..
-                }) => (),
+                }) => std::thread::yield_now(),
                 error => return error,
             }
         }
