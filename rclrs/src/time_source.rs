@@ -1,7 +1,6 @@
-use crate::clock::{ClockSource, ClockType};
+use crate::clock::ClockSource;
 use crate::{Node, ParameterValue, QoSProfile, Subscription, QOS_PROFILE_CLOCK};
 use rosgraph_msgs::msg::Clock as ClockMsg;
-use std::fmt;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, Weak};
 
@@ -42,8 +41,6 @@ pub struct TimeSourceBuilder {
 
 impl TimeSourceBuilder {
     /// Creates a builder for a time source that drives the given clock for the given node.
-    /// The clock's ClockType must be set to `RosTime` to allow updates based on the `/clock`
-    /// topic.
     pub fn new(node: Arc<Node>, clock_source: ClockSource) -> Self {
         Self {
             node: Arc::downgrade(&node),
@@ -69,7 +66,7 @@ impl TimeSourceBuilder {
     }
 
     /// Builds the `TimeSource` and attaches the provided `Node` and `Clock`.
-    pub fn build(self) -> Result<TimeSource, ClockMismatchError> {
+    pub fn build(self) -> TimeSource {
         let mut source = TimeSource {
             _node: Weak::new(),
             _clocks: Arc::new(Mutex::new(vec![])),
@@ -81,30 +78,14 @@ impl TimeSourceBuilder {
         };
         source.attach_clock(self.clock_source);
         source.attach_node(self.node);
-        Ok(source)
-    }
-}
-
-/// Error created when a non RosTime clock is attached but the `use_sim_time` parameter is set.
-/// This case could behave in unexpected ways since the /clock topic would be ignored even though
-/// the user explicitly requested to use it through a command line argument.
-#[derive(Debug)]
-pub struct ClockMismatchError(ClockType);
-
-impl fmt::Display for ClockMismatchError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "Unexpected clock type {:?}, only RosTime can be used as a time source when use_sim_time is set",
-            self.0
-        )
+        source
     }
 }
 
 impl TimeSource {
     /// Creates a new `TimeSource` with default parameters.
     pub fn new(node: Arc<Node>, clock: ClockSource) -> Self {
-        TimeSourceBuilder::new(node, clock).build().unwrap()
+        TimeSourceBuilder::new(node, clock).build()
     }
 
     /// Creates a new `TimeSourceBuilder` with default parameters.
@@ -120,7 +101,7 @@ impl TimeSource {
             Self::update_clock(&clock, nanoseconds);
         }
         let mut clocks = self._clocks.lock().unwrap();
-        if !clocks.iter().any(|c| c != &clock) {
+        if clocks.iter().all(|c| c != &clock) {
             clocks.push(clock);
         }
     }

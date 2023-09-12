@@ -295,11 +295,8 @@ impl NodeBuilder {
         });
 
         if let Some(clock_source) = clock_source {
-            *node._time_source.lock().unwrap() = Some(
-                TimeSourceBuilder::new(node.clone(), clock_source)
-                    .build()
-                    .unwrap(),
-            );
+            *node._time_source.lock().unwrap() =
+                Some(TimeSourceBuilder::new(node.clone(), clock_source).build());
         }
 
         Ok(node)
