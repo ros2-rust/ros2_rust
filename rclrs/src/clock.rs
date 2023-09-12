@@ -53,22 +53,15 @@ impl Clock {
     /// to update it
     pub fn with_source() -> Result<(Self, ClockSource), RclrsError> {
         let clock = Self::make(ClockType::RosTime)?;
-        let clock_source = ClockSource {
-            _rcl_clock: clock._rcl_clock.clone(),
-        };
+        let clock_source = ClockSource::new(clock._rcl_clock.clone());
         Ok((clock, clock_source))
     }
 
     /// Creates a new clock of the given `ClockType`.
     pub fn new(type_: ClockType) -> Result<(Self, Option<ClockSource>), RclrsError> {
         let clock = Self::make(type_)?;
-        let clock_source = if matches!(type_, ClockType::RosTime) {
-            Some(ClockSource {
-                _rcl_clock: clock._rcl_clock.clone(),
-            })
-        } else {
-            None
-        };
+        let clock_source =
+            matches!(type_, ClockType::RosTime).then(|| ClockSource::new(clock._rcl_clock.clone()));
         Ok((clock, clock_source))
     }
 
@@ -124,6 +117,12 @@ impl Clock {
     }
 }
 
+impl Drop for ClockSource {
+    fn drop(&mut self) {
+        self.set_ros_time_enable(false);
+    }
+}
+
 impl PartialEq for ClockSource {
     fn eq(&self, other: &Self) -> bool {
         Arc::ptr_eq(&self._rcl_clock, &other._rcl_clock)
@@ -131,9 +130,29 @@ impl PartialEq for ClockSource {
 }
 
 impl ClockSource {
+    /// Sets the value of the current ROS time.
+    pub fn set_ros_time_override(&self, nanoseconds: i64) {
+        let mut clock = self._rcl_clock.lock().unwrap();
+        // SAFETY: Safe if clock jump callbacks are not edited, which is guaranteed
+        // by the mutex
+        unsafe {
+            // Function will only fail if timer was uninitialized or not RosTime, which should
+            // not happen
+            rcl_set_ros_time_override(&mut *clock, nanoseconds)
+                .ok()
+                .unwrap();
+        }
+    }
+
+    fn new(clock: Arc<Mutex<rcl_clock_t>>) -> Self {
+        let source = Self { _rcl_clock: clock };
+        source.set_ros_time_enable(true);
+        source
+    }
+
     /// Sets the clock to use ROS Time, if enabled the clock will report the last value set through
     /// `Clock::set_ros_time_override(nanoseconds: i64)`.
-    pub fn set_ros_time_enable(&self, enable: bool) {
+    fn set_ros_time_enable(&self, enable: bool) {
         let mut clock = self._rcl_clock.lock().unwrap();
         if enable {
             // SAFETY: Safe if clock jump callbacks are not edited, which is guaranteed
@@ -151,20 +170,6 @@ impl ClockSource {
                 // not happen
                 rcl_disable_ros_time_override(&mut *clock).ok().unwrap();
             }
-        }
-    }
-
-    /// Sets the value of the current ROS time.
-    pub fn set_ros_time_override(&self, nanoseconds: i64) {
-        let mut clock = self._rcl_clock.lock().unwrap();
-        // SAFETY: Safe if clock jump callbacks are not edited, which is guaranteed
-        // by the mutex
-        unsafe {
-            // Function will only fail if timer was uninitialized or not RosTime, which should
-            // not happen
-            rcl_set_ros_time_override(&mut *clock, nanoseconds)
-                .ok()
-                .unwrap();
         }
     }
 }
@@ -205,19 +210,11 @@ mod tests {
     #[test]
     fn clock_ros_time_with_override() {
         let (clock, source) = Clock::with_source().unwrap();
-        let start = clock.now();
-        // Ros time is not set, should return wall time
-        assert!(start.nsec > 0);
-        source.set_ros_time_enable(true);
         // No manual time set, it should default to 0
         assert!(clock.now().nsec == 0);
         let set_time = 1234i64;
         source.set_ros_time_override(set_time);
         // Ros time is set, should return the value that was set
         assert_eq!(clock.now().nsec, set_time);
-        // Back to normal time, should be greater than before
-        source.set_ros_time_enable(false);
-        assert!(clock.now().nsec != set_time);
-        assert!(clock.now().nsec > start.nsec);
     }
 }

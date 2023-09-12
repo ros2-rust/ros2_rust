@@ -3,8 +3,8 @@ use std::sync::{Arc, Mutex};
 
 use crate::rcl_bindings::*;
 use crate::{
-    node::call_string_getter_with_handle, resolve_parameter_overrides, Clock, ClockType, Context,
-    Node, RclrsError, TimeSourceBuilder, ToResult,
+    node::call_string_getter_with_handle, resolve_parameter_overrides, ClockType, Context, Node,
+    RclrsError, TimeSource, ToResult,
 };
 
 /// A builder for creating a [`Node`][1].
@@ -271,8 +271,6 @@ impl NodeBuilder {
             .ok()?;
         };
 
-        let (clock, clock_source) = Clock::new(self.clock_type)?;
-
         let _parameter_map = unsafe {
             let fqn = call_string_getter_with_handle(&rcl_node, rcl_node_get_fully_qualified_name);
             resolve_parameter_overrides(
@@ -289,15 +287,12 @@ impl NodeBuilder {
             guard_conditions_mtx: Mutex::new(vec![]),
             services_mtx: Mutex::new(vec![]),
             subscriptions_mtx: Mutex::new(vec![]),
-            _clock: clock,
             _time_source: Mutex::new(None),
             _parameter_map,
         });
 
-        if let Some(clock_source) = clock_source {
-            *node._time_source.lock().unwrap() =
-                Some(TimeSourceBuilder::new(node.clone(), clock_source).build());
-        }
+        *node._time_source.lock().unwrap() =
+            Some(TimeSource::builder(Arc::downgrade(&node), self.clock_type).build()?);
 
         Ok(node)
     }
