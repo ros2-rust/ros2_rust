@@ -280,7 +280,7 @@ impl NodeBuilder {
             )?
         };
         let rcl_node_mtx = Arc::new(Mutex::new(rcl_node));
-        let node = Arc::new_cyclic(|weak| Node {
+        Ok(Arc::new_cyclic(|weak| Node {
             rcl_node_mtx,
             rcl_context_mtx: self.context.clone(),
             clients_mtx: Mutex::new(vec![]),
@@ -289,9 +289,7 @@ impl NodeBuilder {
             subscriptions_mtx: Mutex::new(vec![]),
             _time_source: TimeSource::new(weak.clone(), self.clock_type),
             _parameter_map,
-        });
-
-        Ok(node)
+        }))
     }
 
     /// Creates a rcl_node_options_t struct from this builder.
