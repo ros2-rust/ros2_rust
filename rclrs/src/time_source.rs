@@ -1,14 +1,14 @@
 use crate::clock::{Clock, ClockSource, ClockType};
 use crate::{Node, ParameterValue, QoSProfile, RclrsError, Subscription, QOS_PROFILE_CLOCK};
 use rosgraph_msgs::msg::Clock as ClockMsg;
-use std::sync::{Arc, Mutex, Weak};
+use std::sync::{Arc, Mutex, RwLock, Weak};
 
 /// Time source for a node that drives the attached clock.
 /// If the node's `use_sim_time` parameter is set to `true`, the `TimeSource` will subscribe
 /// to the `/clock` topic and drive the attached clock
 pub struct TimeSource {
     _node: Weak<Node>,
-    _clock: Arc<Mutex<Clock>>,
+    _clock: RwLock<Clock>,
     _clock_source: Arc<Mutex<Option<ClockSource>>>,
     _requested_clock_type: ClockType,
     _clock_qos: QoSProfile,
@@ -72,7 +72,7 @@ impl TimeSourceBuilder {
         }?;
         let mut source = TimeSource {
             _node: Weak::new(),
-            _clock: Arc::new(Mutex::new(clock)),
+            _clock: RwLock::new(clock),
             _clock_source: Arc::new(Mutex::new(None)),
             _requested_clock_type: self.clock_type,
             _clock_qos: self.clock_qos,
@@ -97,8 +97,8 @@ impl TimeSource {
     }
 
     /// Returns the clock that this TimeSource is controlling.
-    pub fn get_clock(&self) -> Arc<Mutex<Clock>> {
-        self._clock.clone()
+    pub fn get_clock(&self) -> Clock {
+        self._clock.read().unwrap().clone()
     }
 
     /// Attaches the given node to to the `TimeSource`, using its interface to read the
@@ -123,7 +123,7 @@ impl TimeSource {
 
     fn set_ros_time_enable(&mut self, enable: bool) {
         if matches!(self._requested_clock_type, ClockType::RosTime) {
-            let mut clock = self._clock.lock().unwrap();
+            let mut clock = self._clock.write().unwrap();
             if enable && matches!(clock.clock_type(), ClockType::SystemTime) {
                 // TODO(luca) remove unwrap here?
                 let (new_clock, mut clock_source) = Clock::with_source().unwrap();
@@ -174,7 +174,7 @@ mod tests {
     fn time_source_attach_clock() {
         let node = create_node(&Context::new([]).unwrap(), "test_node").unwrap();
         // Default clock should be above 0 (use_sim_time is default false)
-        assert!(node.get_clock().lock().unwrap().now().nsec > 0);
+        assert!(node.get_clock().now().nsec > 0);
         // TODO(luca) an integration test by creating a node and setting its use_sim_time
     }
 }

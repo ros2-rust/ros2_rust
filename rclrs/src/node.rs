@@ -100,8 +100,8 @@ impl Node {
         Self::builder(context, node_name).build()
     }
 
-    /// Gets the clock associated with this node.
-    pub fn get_clock(&self) -> Arc<Mutex<Clock>> {
+    /// Returns the clock associated with this node.
+    pub fn get_clock(&self) -> Clock {
         self._time_source.get_clock()
     }
 

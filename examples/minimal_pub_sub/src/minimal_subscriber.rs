@@ -17,7 +17,7 @@ fn main() -> Result<(), Error> {
             num_messages += 1;
             println!("I heard: '{}'", msg.data);
             println!("(Got {} messages so far)", num_messages);
-            let now = inner_node.get_clock().lock().unwrap().now();
+            let now = inner_node.get_clock().now();
             dbg!(now);
         },
     )?;

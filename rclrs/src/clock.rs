@@ -26,6 +26,7 @@ impl From<ClockType> for rcl_clock_type_t {
 }
 
 /// Struct that implements a Clock and wraps `rcl_clock_t`.
+#[derive(Clone, Debug)]
 pub struct Clock {
     _type: ClockType,
     _rcl_clock: Arc<Mutex<rcl_clock_t>>,
