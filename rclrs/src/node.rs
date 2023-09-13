@@ -71,7 +71,7 @@ pub struct Node {
     pub(crate) guard_conditions_mtx: Mutex<Vec<Weak<GuardCondition>>>,
     pub(crate) services_mtx: Mutex<Vec<Weak<dyn ServiceBase>>>,
     pub(crate) subscriptions_mtx: Mutex<Vec<Weak<dyn SubscriptionBase>>>,
-    _time_source: Mutex<Option<TimeSource>>,
+    _time_source: TimeSource,
     _parameter_map: ParameterOverrideMap,
 }
 
@@ -102,12 +102,7 @@ impl Node {
 
     /// Gets the clock associated with this node.
     pub fn get_clock(&self) -> Arc<Mutex<Clock>> {
-        self._time_source
-            .lock()
-            .unwrap()
-            .as_ref()
-            .unwrap()
-            .get_clock()
+        self._time_source.get_clock()
     }
 
     /// Returns the name of the node.

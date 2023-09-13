@@ -280,19 +280,16 @@ impl NodeBuilder {
             )?
         };
         let rcl_node_mtx = Arc::new(Mutex::new(rcl_node));
-        let node = Arc::new(Node {
+        let node = Arc::new_cyclic(|weak| Node {
             rcl_node_mtx,
             rcl_context_mtx: self.context.clone(),
             clients_mtx: Mutex::new(vec![]),
             guard_conditions_mtx: Mutex::new(vec![]),
             services_mtx: Mutex::new(vec![]),
             subscriptions_mtx: Mutex::new(vec![]),
-            _time_source: Mutex::new(None),
+            _time_source: TimeSource::new(weak.clone(), self.clock_type),
             _parameter_map,
         });
-
-        *node._time_source.lock().unwrap() =
-            Some(TimeSource::builder(Arc::downgrade(&node), self.clock_type).build()?);
 
         Ok(node)
     }
