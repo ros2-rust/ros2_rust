@@ -363,7 +363,7 @@ impl Node {
 
     /// Gets a parameter given the name.
     /// Returns None if no parameter with the requested name was found.
-    pub fn get_parameter(&self, name: &str) -> Option<ParameterValue> {
+    pub(crate) fn get_parameter(&self, name: &str) -> Option<ParameterValue> {
         self._parameter_map.get(name).cloned()
     }
 
