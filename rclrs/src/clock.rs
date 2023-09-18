@@ -90,7 +90,7 @@ impl Clock {
         let mut clock = self._rcl_clock.lock().unwrap();
         let mut time_point: i64 = 0;
         unsafe {
-            // SAFETY: No preconditions for his function
+            // SAFETY: No preconditions for this function
             rcl_clock_get_now(&mut *clock, &mut time_point);
         }
         Time {
@@ -99,11 +99,9 @@ impl Clock {
         }
     }
 
-    /// Helper function to initialize a default clock, same behavior as `rcl_init_generic_clock`.
-    /// Needed because functions that initialize a clock take as an input a mutable reference
-    /// to a clock and don't actually return one, so we need a function to generate one. Doing this
-    /// instead of a `Default` implementation allows the function to be private and avoids
-    /// exposing a public API to create an invalid clock
+    /// Helper function to privately initialize a default clock, with the same behavior as
+    /// `rcl_init_generic_clock`. By defining a private function instead of implementing
+    /// `Default`,  we avoid exposing a public API to create an invalid clock.
     // SAFETY: Getting a default value is always safe.
     unsafe fn init_generic_clock() -> rcl_clock_t {
         let allocator = rcutils_get_default_allocator();
