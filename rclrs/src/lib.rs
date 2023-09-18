@@ -43,7 +43,7 @@ pub use rcl_bindings::rmw_request_id_t;
 pub use service::*;
 pub use subscription::*;
 pub use time::*;
-pub use time_source::*;
+use time_source::*;
 pub use wait::*;
 
 /// Polls the node for new messages and executes the corresponding callbacks.

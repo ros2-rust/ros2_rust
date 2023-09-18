@@ -6,14 +6,12 @@ use std::sync::{Arc, Mutex, RwLock, Weak};
 /// Time source for a node that drives the attached clock.
 /// If the node's `use_sim_time` parameter is set to `true`, the `TimeSource` will subscribe
 /// to the `/clock` topic and drive the attached clock
-pub struct TimeSource {
+pub(crate) struct TimeSource {
     _node: Weak<Node>,
     _clock: RwLock<Clock>,
     _clock_source: Arc<Mutex<Option<ClockSource>>>,
     _requested_clock_type: ClockType,
     _clock_qos: QoSProfile,
-    // TODO(luca) implement clock threads, for now will run in main thread
-    _use_clock_thread: bool,
     _clock_subscription: Option<Arc<Subscription<ClockMsg>>>,
     _last_received_time: Arc<Mutex<Option<i64>>>,
 }
@@ -25,47 +23,35 @@ pub struct TimeSource {
 ///
 /// The default values for optional fields are:
 /// - `clock_qos: QOS_PROFILE_CLOCK`[3]
-/// - `use_clock_thread: true`
 ///
 ///
 /// [1]: crate::TimeSource
 /// [2]: crate::TimeSource::builder
 /// [3]: crate::QOS_PROFILE_CLOCK
-pub struct TimeSourceBuilder {
+pub(crate) struct TimeSourceBuilder {
     node: Weak<Node>,
     clock_qos: QoSProfile,
-    use_clock_thread: bool,
     clock_type: ClockType,
 }
 
 impl TimeSourceBuilder {
     /// Creates a builder for a time source that drives the given clock for the given node.
-    pub fn new(node: Weak<Node>, clock_type: ClockType) -> Self {
+    pub(crate) fn new(node: Weak<Node>, clock_type: ClockType) -> Self {
         Self {
             node,
             clock_qos: QOS_PROFILE_CLOCK,
-            use_clock_thread: true,
             clock_type,
         }
     }
 
     /// Sets the QoS for the `/clock` topic.
-    pub fn clock_qos(mut self, clock_qos: QoSProfile) -> Self {
+    pub(crate) fn clock_qos(mut self, clock_qos: QoSProfile) -> Self {
         self.clock_qos = clock_qos;
         self
     }
 
-    /// Sets use_clock_thread.
-    ///
-    /// If set to `true`, the clock callbacks will run in a separate thread.
-    /// NOTE: Currently unimplemented
-    pub fn use_clock_thread(mut self, use_clock_thread: bool) -> Self {
-        self.use_clock_thread = use_clock_thread;
-        self
-    }
-
     /// Builds the `TimeSource` and attaches the provided `Node` and `Clock`.
-    pub fn build(self) -> Result<TimeSource, RclrsError> {
+    pub(crate) fn build(self) -> Result<TimeSource, RclrsError> {
         let clock = match self.clock_type {
             ClockType::RosTime | ClockType::SystemTime => Clock::system(),
             ClockType::SteadyTime => Clock::steady(),
@@ -76,7 +62,6 @@ impl TimeSourceBuilder {
             _clock_source: Arc::new(Mutex::new(None)),
             _requested_clock_type: self.clock_type,
             _clock_qos: self.clock_qos,
-            _use_clock_thread: self.use_clock_thread,
             _clock_subscription: None,
             _last_received_time: Arc::new(Mutex::new(None)),
         };
@@ -86,24 +71,19 @@ impl TimeSourceBuilder {
 }
 
 impl TimeSource {
-    /// Creates a new `TimeSource` with default parameters.
-    pub fn new(node: Weak<Node>, clock_type: ClockType) -> Self {
-        TimeSourceBuilder::new(node, clock_type).build().unwrap()
-    }
-
     /// Creates a new `TimeSourceBuilder` with default parameters.
-    pub fn builder(node: Weak<Node>, clock_type: ClockType) -> TimeSourceBuilder {
+    pub(crate) fn builder(node: Weak<Node>, clock_type: ClockType) -> TimeSourceBuilder {
         TimeSourceBuilder::new(node, clock_type)
     }
 
     /// Returns the clock that this TimeSource is controlling.
-    pub fn get_clock(&self) -> Clock {
+    pub(crate) fn get_clock(&self) -> Clock {
         self._clock.read().unwrap().clone()
     }
 
     /// Attaches the given node to to the `TimeSource`, using its interface to read the
     /// `use_sim_time` parameter and create the clock subscription.
-    pub fn attach_node(&mut self, node: Weak<Node>) {
+    fn attach_node(&mut self, node: Weak<Node>) {
         self._node = node;
 
         // TODO(luca) register a parameter callback
