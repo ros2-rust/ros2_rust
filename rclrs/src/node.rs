@@ -13,7 +13,7 @@ pub use self::builder::*;
 pub use self::graph::*;
 use crate::rcl_bindings::*;
 use crate::{
-    Client, ClientBase, Clock, Context, GuardCondition, ParameterOverrideMap, ParameterValue,
+    Client, ClientBase, Clock, Context, GuardCondition, ParameterInterface, ParameterValue,
     Publisher, QoSProfile, RclrsError, Service, ServiceBase, Subscription, SubscriptionBase,
     SubscriptionCallback, TimeSource, ToResult,
 };
@@ -71,8 +71,8 @@ pub struct Node {
     pub(crate) guard_conditions_mtx: Mutex<Vec<Weak<GuardCondition>>>,
     pub(crate) services_mtx: Mutex<Vec<Weak<dyn ServiceBase>>>,
     pub(crate) subscriptions_mtx: Mutex<Vec<Weak<dyn SubscriptionBase>>>,
+    pub _parameter: ParameterInterface,
     _time_source: TimeSource,
-    _parameter_map: ParameterOverrideMap,
 }
 
 impl Eq for Node {}
@@ -366,10 +366,14 @@ impl Node {
         domain_id
     }
 
-    /// Gets a parameter given the name.
-    /// Returns None if no parameter with the requested name was found.
-    pub fn get_parameter(&self, name: &str) -> Option<ParameterValue> {
-        self._parameter_map.get(name).cloned()
+    /// Gets a reference to the parameter interface.
+    pub fn parameter(&self) -> &ParameterInterface {
+        &self._parameter
+    }
+
+    /// Gets a reference to the parameter interface.
+    pub fn parameter_mut(&mut self) -> &ParameterInterface {
+        &mut self._parameter
     }
 
     /// Creates a [`NodeBuilder`][1] with the given name.
@@ -396,7 +400,7 @@ impl Node {
 // function, which is why it's not merged into Node::call_string_getter().
 // This function is unsafe since it's possible to pass in an rcl_node_t with dangling
 // pointers etc.
-unsafe fn call_string_getter_with_handle(
+pub(crate) unsafe fn call_string_getter_with_handle(
     rcl_node: &rcl_node_t,
     getter: unsafe extern "C" fn(*const rcl_node_t) -> *const c_char,
 ) -> String {

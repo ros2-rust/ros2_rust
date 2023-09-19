@@ -110,7 +110,7 @@ impl TimeSource {
         if let Some(sim_param) = self
             ._node
             .upgrade()
-            .and_then(|n| n.get_parameter("use_sim_time"))
+            .and_then(|n| n.parameter().get("use_sim_time"))
         {
             match sim_param {
                 ParameterValue::Bool(val) => {

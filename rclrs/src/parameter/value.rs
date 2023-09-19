@@ -49,6 +49,152 @@ pub enum ParameterValue {
     StringArray(Vec<String>),
 }
 
+impl From<bool> for ParameterValue {
+    fn from(value: bool) -> ParameterValue {
+        ParameterValue::Bool(value)
+    }
+}
+
+impl From<i64> for ParameterValue {
+    fn from(value: i64) -> ParameterValue {
+        ParameterValue::Integer(value)
+    }
+}
+
+impl From<f64> for ParameterValue {
+    fn from(value: f64) -> ParameterValue {
+        ParameterValue::Double(value)
+    }
+}
+
+impl From<String> for ParameterValue {
+    fn from(value: String) -> ParameterValue {
+        ParameterValue::String(value)
+    }
+}
+
+impl From<Vec<u8>> for ParameterValue {
+    fn from(value: Vec<u8>) -> ParameterValue {
+        ParameterValue::ByteArray(value)
+    }
+}
+
+impl From<Vec<bool>> for ParameterValue {
+    fn from(value: Vec<bool>) -> ParameterValue {
+        ParameterValue::BoolArray(value)
+    }
+}
+
+impl From<Vec<i64>> for ParameterValue {
+    fn from(value: Vec<i64>) -> ParameterValue {
+        ParameterValue::IntegerArray(value)
+    }
+}
+
+impl From<Vec<f64>> for ParameterValue {
+    fn from(value: Vec<f64>) -> ParameterValue {
+        ParameterValue::DoubleArray(value)
+    }
+}
+
+impl From<Vec<String>> for ParameterValue {
+    fn from(value: Vec<String>) -> ParameterValue {
+        ParameterValue::StringArray(value)
+    }
+}
+
+pub trait ParameterVariant: Into<ParameterValue> {
+    // TODO(luca) should we use try_from?
+    fn maybe_from(value: ParameterValue) -> Option<Self>;
+}
+
+impl ParameterVariant for bool {
+    fn maybe_from(value: ParameterValue) -> Option<Self> {
+        match value {
+            ParameterValue::Bool(v) => Some(v),
+            _ => None,
+        }
+    }
+}
+
+impl ParameterVariant for i64 {
+    fn maybe_from(value: ParameterValue) -> Option<Self> {
+        match value {
+            ParameterValue::Integer(v) => Some(v),
+            _ => None,
+        }
+    }
+}
+
+impl ParameterVariant for f64 {
+    fn maybe_from(value: ParameterValue) -> Option<Self> {
+        match value {
+            ParameterValue::Double(v) => Some(v),
+            _ => None,
+        }
+    }
+}
+
+impl ParameterVariant for String {
+    fn maybe_from(value: ParameterValue) -> Option<Self> {
+        match value {
+            ParameterValue::String(v) => Some(v),
+            _ => None,
+        }
+    }
+}
+
+impl ParameterVariant for Vec<u8> {
+    fn maybe_from(value: ParameterValue) -> Option<Self> {
+        match value {
+            ParameterValue::ByteArray(v) => Some(v),
+            _ => None,
+        }
+    }
+}
+
+impl ParameterVariant for Vec<bool> {
+    fn maybe_from(value: ParameterValue) -> Option<Self> {
+        match value {
+            ParameterValue::BoolArray(v) => Some(v),
+            _ => None,
+        }
+    }
+}
+
+impl ParameterVariant for Vec<i64> {
+    fn maybe_from(value: ParameterValue) -> Option<Self> {
+        match value {
+            ParameterValue::IntegerArray(v) => Some(v),
+            _ => None,
+        }
+    }
+}
+
+impl ParameterVariant for Vec<f64> {
+    fn maybe_from(value: ParameterValue) -> Option<Self> {
+        match value {
+            ParameterValue::DoubleArray(v) => Some(v),
+            _ => None,
+        }
+    }
+}
+
+impl ParameterVariant for Vec<String> {
+    fn maybe_from(value: ParameterValue) -> Option<Self> {
+        match value {
+            ParameterValue::StringArray(v) => Some(v),
+            _ => None,
+        }
+    }
+}
+
+impl ParameterVariant for ParameterValue {
+    fn maybe_from(value: ParameterValue) -> Option<Self> {
+        Some(value)
+    }
+}
+
 impl ParameterValue {
     // Panics if the rcl_variant_t does not have exactly one field set.
     //
@@ -128,6 +274,8 @@ impl ParameterValue {
 mod tests {
     use super::*;
     use crate::{Context, RclrsError, ToResult};
+
+    // TODO(luca) tests for all from / to ParameterVariant functions
 
     #[test]
     fn test_parameter_value() -> Result<(), RclrsError> {
