@@ -15,7 +15,7 @@ use std::sync::{Arc, Mutex, RwLock};
 // TODO(luca) add From for rcl_interfaces::ParameterDescriptor message, but a manual implementation
 // for the opposite since this struct does not contain all the fields required to populate the
 // message
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct ParameterOptions {
     // TODO(luca) add int / float range
 }
@@ -76,7 +76,7 @@ impl<T: ParameterVariant> OptionalParameter<T> {
 pub struct ParameterInterface {
     _parameter_storage: ParameterStorage,
     _override_map: ParameterOverrideMap,
-    _services: ParameterService,
+    //_services: ParameterService,
 }
 
 impl ParameterInterface {
@@ -85,7 +85,7 @@ impl ParameterInterface {
         node_arguments: &rcl_arguments_t,
         global_arguments: &rcl_arguments_t,
     ) -> Result<Self, RclrsError> {
-        let _services = ParameterService::new(rcl_node_mtx)?;
+        //let _services = ParameterService::new(rcl_node_mtx)?;
 
         let rcl_node = rcl_node_mtx.lock().unwrap();
         let _override_map = unsafe {
@@ -96,15 +96,15 @@ impl ParameterInterface {
         Ok(ParameterInterface {
             _parameter_storage: Default::default(),
             _override_map,
-            _services,
+            //_services,
         })
     }
 
     pub fn declare<T: ParameterVariant>(
         &mut self,
         name: &str,
-        options: ParameterOptions,
         default_value: T,
+        options: ParameterOptions,
     ) -> MandatoryParameter<T> {
         let mut value = default_value.into();
         if let Some(param_override) = self._override_map.get(name) {
@@ -136,8 +136,8 @@ impl ParameterInterface {
     pub fn declare_optional<T: ParameterVariant>(
         &mut self,
         name: &str,
-        options: ParameterOptions,
         default_value: Option<T>,
+        options: ParameterOptions,
     ) -> OptionalParameter<T> {
         let mut value = default_value.map(|p| p.into());
         if let Some(param_override) = self._override_map.get(name) {
@@ -171,10 +171,8 @@ impl ParameterInterface {
             return None;
         };
         match &storage.value {
-            DeclaredValue::Mandatory(v) => Some(T::maybe_from(v.read().unwrap().clone()).unwrap()),
-            DeclaredValue::Optional(v) => {
-                v.read().unwrap().clone().map(|p| T::maybe_from(p).unwrap())
-            }
+            DeclaredValue::Mandatory(v) => T::maybe_from(v.read().unwrap().clone()),
+            DeclaredValue::Optional(v) => v.read().unwrap().clone().and_then(|p| T::maybe_from(p)),
         }
     }
 
@@ -205,8 +203,74 @@ impl ParameterInterface {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{Context, RclrsError, ToResult};
+    use crate::{create_node, Context, RclrsError};
 
     #[test]
-    fn test_parameter_setting_declaring() {}
+    fn test_parameter_setting_declaring() -> Result<(), RclrsError> {
+        // Create a new node with a few parameter overrides
+        let ctx = Context::new([
+            String::from("--ros-args"),
+            String::from("-p"),
+            String::from("declared_int:=10"),
+            String::from("-p"),
+            String::from("optional_bool:=true"),
+            String::from("-p"),
+            String::from("non_declared_string:='param'"),
+        ])?;
+        let node = create_node(&ctx, "param_test_node")?;
+
+        let overridden_int =
+            node.declare_parameter("declared_int", 123, ParameterOptions::default());
+        assert_eq!(overridden_int.get(), 10);
+
+        let new_param = node.declare_parameter("new_param", 2.0, ParameterOptions::default());
+        assert_eq!(new_param.get(), 2.0);
+
+        // Getting a parameter that was declared should work
+        assert_eq!(node.get_parameter::<f64>("new_param"), Some(2.0));
+
+        // Getting / Setting a parameter with the wrong type should not work
+        assert!(node.get_parameter::<i64>("new_param").is_none());
+        assert!(node.set_parameter("new_param", 42).is_err());
+
+        // Setting a parameter should update both existing parameter objects and be reflected in
+        // new node.get_parameter() calls
+        assert!(node.set_parameter("new_param", 10.0).is_ok());
+        assert_eq!(node.get_parameter("new_param"), Some(10.0));
+        assert_eq!(new_param.get(), 10.0);
+        new_param.set(5.0);
+        assert_eq!(new_param.get(), 5.0);
+        assert_eq!(node.get_parameter("new_param"), Some(5.0));
+
+        // Getting a parameter that was not declared should not work
+        assert_eq!(node.get_parameter::<f64>("non_existing_param"), None);
+
+        // Getting a parameter that was not declared should not work, even if a value was provided
+        // as a parameter override
+        assert_eq!(node.get_parameter::<String>("non_declared_string"), None);
+
+        let optional_param = node.declare_optional_parameter::<bool>(
+            "non_existing_bool",
+            None,
+            ParameterOptions::default(),
+        );
+        assert_eq!(optional_param.get(), None);
+
+        let optional_param2 = node.declare_optional_parameter(
+            "non_existing_bool2",
+            Some(false),
+            ParameterOptions::default(),
+        );
+        assert_eq!(optional_param2.get(), Some(false));
+
+        // This was provided as a parameter override, hence should be set to true
+        let optional_param3 = node.declare_optional_parameter(
+            "optional_bool",
+            Some(false),
+            ParameterOptions::default(),
+        );
+        assert_eq!(optional_param3.get(), Some(true));
+
+        Ok(())
+    }
 }

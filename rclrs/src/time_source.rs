@@ -1,5 +1,5 @@
 use crate::clock::{Clock, ClockSource, ClockType};
-use crate::{Node, ParameterValue, QoSProfile, RclrsError, Subscription, QOS_PROFILE_CLOCK};
+use crate::{Node, ParameterOptions, QoSProfile, RclrsError, Subscription, QOS_PROFILE_CLOCK};
 use rosgraph_msgs::msg::Clock as ClockMsg;
 use std::sync::{Arc, Mutex, RwLock, Weak};
 
@@ -106,18 +106,12 @@ impl TimeSource {
     pub fn attach_node(&mut self, node: Weak<Node>) {
         self._node = node;
 
-        // TODO(luca) register a parameter callback
-        if let Some(sim_param) = self
-            ._node
-            .upgrade()
-            .and_then(|n| n.parameter().get("use_sim_time"))
-        {
-            match sim_param {
-                ParameterValue::Bool(val) => {
-                    self.set_ros_time_enable(val);
-                }
-                _ => panic!("use_sim_time parameter must be boolean"),
-            }
+        // TODO(luca) register a parameter callback, hold the parameter handle
+        if let Some(sim_param) = self._node.upgrade().map(|n| {
+            n.declare_parameter::<bool>("use_sim_time", false, ParameterOptions::default())
+                .get()
+        }) {
+            self.set_ros_time_enable(sim_param);
         }
     }
 

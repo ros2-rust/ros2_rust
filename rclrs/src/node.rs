@@ -13,9 +13,10 @@ pub use self::builder::*;
 pub use self::graph::*;
 use crate::rcl_bindings::*;
 use crate::{
-    Client, ClientBase, Clock, Context, GuardCondition, ParameterInterface, ParameterValue,
-    Publisher, QoSProfile, RclrsError, Service, ServiceBase, Subscription, SubscriptionBase,
-    SubscriptionCallback, TimeSource, ToResult,
+    Client, ClientBase, Clock, Context, GuardCondition, MandatoryParameter, OptionalParameter,
+    ParameterInterface, ParameterOptions, ParameterValue, ParameterVariant, Publisher, QoSProfile,
+    RclrsError, Service, ServiceBase, Subscription, SubscriptionBase, SubscriptionCallback,
+    TimeSource, ToResult,
 };
 
 impl Drop for rcl_node_t {
@@ -71,7 +72,7 @@ pub struct Node {
     pub(crate) guard_conditions_mtx: Mutex<Vec<Weak<GuardCondition>>>,
     pub(crate) services_mtx: Mutex<Vec<Weak<dyn ServiceBase>>>,
     pub(crate) subscriptions_mtx: Mutex<Vec<Weak<dyn SubscriptionBase>>>,
-    pub _parameter: ParameterInterface,
+    pub(crate) parameter_mtx: Mutex<ParameterInterface>,
     _time_source: TimeSource,
 }
 
@@ -366,14 +367,36 @@ impl Node {
         domain_id
     }
 
-    /// Gets a reference to the parameter interface.
-    pub fn parameter(&self) -> &ParameterInterface {
-        &self._parameter
+    pub fn declare_parameter<T: ParameterVariant>(
+        &self,
+        name: &str,
+        default_value: T,
+        options: ParameterOptions,
+    ) -> MandatoryParameter<T> {
+        self.parameter_mtx
+            .lock()
+            .unwrap()
+            .declare(name, default_value, options)
     }
 
-    /// Gets a reference to the parameter interface.
-    pub fn parameter_mut(&mut self) -> &ParameterInterface {
-        &mut self._parameter
+    pub fn declare_optional_parameter<T: ParameterVariant>(
+        &self,
+        name: &str,
+        default_value: Option<T>,
+        options: ParameterOptions,
+    ) -> OptionalParameter<T> {
+        self.parameter_mtx
+            .lock()
+            .unwrap()
+            .declare_optional(name, default_value, options)
+    }
+
+    pub fn get_parameter<T: ParameterVariant>(&self, name: &str) -> Option<T> {
+        self.parameter_mtx.lock().unwrap().get(name)
+    }
+
+    pub fn set_parameter<T: ParameterVariant>(&self, name: &str, value: T) -> Result<(), ()> {
+        self.parameter_mtx.lock().unwrap().set(name, value)
     }
 
     /// Creates a [`NodeBuilder`][1] with the given name.
