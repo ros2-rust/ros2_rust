@@ -26,6 +26,16 @@ enum DeclaredValue {
     Optional(Arc<RwLock<Option<ParameterValue>>>),
 }
 
+pub struct MandatoryParameter<T: ParameterVariant> {
+    value: Arc<RwLock<ParameterValue>>,
+    _marker: PhantomData<T>,
+}
+
+pub struct OptionalParameter<T: ParameterVariant> {
+    value: Arc<RwLock<Option<ParameterValue>>>,
+    _marker: PhantomData<T>,
+}
+
 #[derive(Clone, Debug)]
 struct DeclaredStorage {
     value: DeclaredValue,
@@ -39,26 +49,27 @@ struct ParameterStorage {
     undeclared: Option<HashMap<String, ParameterValue>>,
 }
 
-pub struct DeclaredParameter<T: ParameterVariant> {
-    value: DeclaredValue,
-    _marker: PhantomData<T>,
-}
-
-impl<T: ParameterVariant> DeclaredParameter<T> {
-    pub fn get(&self) -> Option<T> {
-        match &self.value {
-            DeclaredValue::Mandatory(v) => Some(T::maybe_from(v.read().unwrap().clone()).unwrap()),
-            DeclaredValue::Optional(v) => {
-                v.read().unwrap().clone().map(|p| T::maybe_from(p).unwrap())
-            }
-        }
+impl<T: ParameterVariant> MandatoryParameter<T> {
+    pub fn get(&self) -> T {
+        T::maybe_from(self.value.read().unwrap().clone()).unwrap()
     }
 
     pub fn set(&self, value: T) {
-        match &self.value {
-            DeclaredValue::Mandatory(v) => *v.write().unwrap() = value.into(),
-            DeclaredValue::Optional(v) => *v.write().unwrap() = Some(value.into()),
-        }
+        *self.value.write().unwrap() = value.into();
+    }
+}
+
+impl<T: ParameterVariant> OptionalParameter<T> {
+    pub fn get(&self) -> Option<T> {
+        self.value
+            .read()
+            .unwrap()
+            .clone()
+            .map(|p| T::maybe_from(p).unwrap())
+    }
+
+    pub fn set(&self, value: T) {
+        *self.value.write().unwrap() = Some(value.into());
     }
 }
 
@@ -89,48 +100,67 @@ impl ParameterInterface {
         })
     }
 
-    // TODO(luca) either create a declare for mandatory parameters or change declare_optional into
-    // declare and make all parameters have an optional value
-    pub fn declare_optional<T: ParameterVariant>(
+    pub fn declare<T: ParameterVariant>(
         &mut self,
         name: &str,
         options: ParameterOptions,
-        default_value: Option<T>,
-    ) -> DeclaredParameter<T> {
+        default_value: T,
+    ) -> MandatoryParameter<T> {
+        let mut value = default_value.into();
         if let Some(param_override) = self._override_map.get(name) {
             // TODO(luca) It is possible for the override (i.e. through command line) to be of a
             // different type thant what is declared, in which case we ignore the override.
             // We currently print an error but there should probably be more formal error
             // reporting.
             if param_override.static_kind() == T::kind() {
-                let value =
-                    DeclaredValue::Optional(Arc::new(RwLock::new(Some(param_override.clone()))));
-                self._parameter_storage.declared.insert(
-                    name.to_owned(),
-                    DeclaredStorage {
-                        options,
-                        value: value.clone(),
-                        kind: T::kind(),
-                    },
-                );
-                return DeclaredParameter {
-                    value,
-                    _marker: Default::default(),
-                };
+                value = param_override.clone();
             } else {
                 println!("Mismatch in parameter override type for {}, ignoring", name);
             }
         }
-        let value = DeclaredValue::Optional(Arc::new(RwLock::new(default_value.map(|v| v.into()))));
+        let value = Arc::new(RwLock::new(value));
         self._parameter_storage.declared.insert(
             name.to_owned(),
             DeclaredStorage {
                 options,
-                value: value.clone(),
+                value: DeclaredValue::Mandatory(value.clone()),
                 kind: T::kind(),
             },
         );
-        DeclaredParameter {
+        MandatoryParameter {
+            value,
+            _marker: Default::default(),
+        }
+    }
+
+    pub fn declare_optional<T: ParameterVariant>(
+        &mut self,
+        name: &str,
+        options: ParameterOptions,
+        default_value: Option<T>,
+    ) -> OptionalParameter<T> {
+        let mut value = default_value.map(|p| p.into());
+        if let Some(param_override) = self._override_map.get(name) {
+            // TODO(luca) It is possible for the override (i.e. through command line) to be of a
+            // different type thant what is declared, in which case we ignore the override.
+            // We currently print an error but there should probably be more formal error
+            // reporting.
+            if param_override.static_kind() == T::kind() {
+                value = Some(param_override.clone());
+            } else {
+                println!("Mismatch in parameter override type for {}, ignoring", name);
+            }
+        }
+        let value = Arc::new(RwLock::new(value));
+        self._parameter_storage.declared.insert(
+            name.to_owned(),
+            DeclaredStorage {
+                options,
+                value: DeclaredValue::Optional(value.clone()),
+                kind: T::kind(),
+            },
+        );
+        OptionalParameter {
             value,
             _marker: Default::default(),
         }
@@ -149,7 +179,7 @@ impl ParameterInterface {
     }
 
     // TODO(luca) either implement a new error or a new RclrsError variant
-    pub fn set<T: ParameterVariant + Default>(&mut self, name: &str, value: T) -> Result<(), ()> {
+    pub fn set<T: ParameterVariant>(&mut self, name: &str, value: T) -> Result<(), ()> {
         match self._parameter_storage.declared.get_mut(name) {
             Some(storage) => {
                 if T::kind() == storage.kind {
