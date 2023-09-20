@@ -49,6 +49,20 @@ pub enum ParameterValue {
     StringArray(Vec<String>),
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub enum ParameterKind {
+    Bool,
+    Integer,
+    Double,
+    String,
+    ByteArray,
+    BoolArray,
+    IntegerArray,
+    DoubleArray,
+    StringArray,
+    Dynamic,
+}
+
 impl From<bool> for ParameterValue {
     fn from(value: bool) -> ParameterValue {
         ParameterValue::Bool(value)
@@ -106,6 +120,8 @@ impl From<Vec<String>> for ParameterValue {
 pub trait ParameterVariant: Into<ParameterValue> {
     // TODO(luca) should we use try_from?
     fn maybe_from(value: ParameterValue) -> Option<Self>;
+
+    fn kind() -> ParameterKind;
 }
 
 impl ParameterVariant for bool {
@@ -114,6 +130,10 @@ impl ParameterVariant for bool {
             ParameterValue::Bool(v) => Some(v),
             _ => None,
         }
+    }
+
+    fn kind() -> ParameterKind {
+        ParameterKind::Bool
     }
 }
 
@@ -124,6 +144,10 @@ impl ParameterVariant for i64 {
             _ => None,
         }
     }
+
+    fn kind() -> ParameterKind {
+        ParameterKind::Integer
+    }
 }
 
 impl ParameterVariant for f64 {
@@ -132,6 +156,10 @@ impl ParameterVariant for f64 {
             ParameterValue::Double(v) => Some(v),
             _ => None,
         }
+    }
+
+    fn kind() -> ParameterKind {
+        ParameterKind::Double
     }
 }
 
@@ -142,6 +170,10 @@ impl ParameterVariant for String {
             _ => None,
         }
     }
+
+    fn kind() -> ParameterKind {
+        ParameterKind::String
+    }
 }
 
 impl ParameterVariant for Vec<u8> {
@@ -150,6 +182,10 @@ impl ParameterVariant for Vec<u8> {
             ParameterValue::ByteArray(v) => Some(v),
             _ => None,
         }
+    }
+
+    fn kind() -> ParameterKind {
+        ParameterKind::ByteArray
     }
 }
 
@@ -160,6 +196,10 @@ impl ParameterVariant for Vec<bool> {
             _ => None,
         }
     }
+
+    fn kind() -> ParameterKind {
+        ParameterKind::BoolArray
+    }
 }
 
 impl ParameterVariant for Vec<i64> {
@@ -168,6 +208,10 @@ impl ParameterVariant for Vec<i64> {
             ParameterValue::IntegerArray(v) => Some(v),
             _ => None,
         }
+    }
+
+    fn kind() -> ParameterKind {
+        ParameterKind::IntegerArray
     }
 }
 
@@ -178,6 +222,10 @@ impl ParameterVariant for Vec<f64> {
             _ => None,
         }
     }
+
+    fn kind() -> ParameterKind {
+        ParameterKind::DoubleArray
+    }
 }
 
 impl ParameterVariant for Vec<String> {
@@ -187,11 +235,19 @@ impl ParameterVariant for Vec<String> {
             _ => None,
         }
     }
+
+    fn kind() -> ParameterKind {
+        ParameterKind::StringArray
+    }
 }
 
 impl ParameterVariant for ParameterValue {
     fn maybe_from(value: ParameterValue) -> Option<Self> {
         Some(value)
+    }
+
+    fn kind() -> ParameterKind {
+        ParameterKind::Dynamic
     }
 }
 
@@ -266,6 +322,21 @@ impl ParameterValue {
             ParameterValue::StringArray(strings)
         } else {
             unreachable!()
+        }
+    }
+
+    /// Returns the ParameterKind of the current variant, as a static kind.
+    pub(crate) fn static_kind(&self) -> ParameterKind {
+        match self {
+            ParameterValue::Bool(_) => ParameterKind::Bool,
+            ParameterValue::Integer(_) => ParameterKind::Integer,
+            ParameterValue::Double(_) => ParameterKind::Double,
+            ParameterValue::String(_) => ParameterKind::String,
+            ParameterValue::ByteArray(_) => ParameterKind::ByteArray,
+            ParameterValue::BoolArray(_) => ParameterKind::BoolArray,
+            ParameterValue::IntegerArray(_) => ParameterKind::IntegerArray,
+            ParameterValue::DoubleArray(_) => ParameterKind::DoubleArray,
+            ParameterValue::StringArray(_) => ParameterKind::StringArray,
         }
     }
 }
