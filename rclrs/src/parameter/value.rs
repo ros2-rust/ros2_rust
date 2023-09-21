@@ -1,4 +1,5 @@
 use std::ffi::CStr;
+use std::sync::Arc;
 
 use crate::rcl_bindings::*;
 
@@ -26,27 +27,27 @@ pub enum ParameterValue {
     ///
     /// Unquoted strings are also possible, but not recommended,
     /// because they may be interpreted as another data type.
-    String(String),
+    String(Arc<str>),
     /// An array of u8.
     ///
     /// YAML example: Not possible to specify as YAML.
-    ByteArray(Vec<u8>),
+    ByteArray(Arc<[u8]>),
     /// An array of booleans.
     ///
     /// YAML example: `[true, false, false]`.
-    BoolArray(Vec<bool>),
+    BoolArray(Arc<[bool]>),
     /// An array of i64.
     ///
     /// YAML example: `[3, 4]`.
-    IntegerArray(Vec<i64>),
+    IntegerArray(Arc<[i64]>),
     /// An array of f64.
     ///
     /// YAML example: `[5.0, 6e2]`.
-    DoubleArray(Vec<f64>),
+    DoubleArray(Arc<[f64]>),
     /// An array of strings.
     ///
     /// YAML example: `["abc", ""]`.
-    StringArray(Vec<String>),
+    StringArray(Arc<[Arc<str>]>),
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -81,38 +82,38 @@ impl From<f64> for ParameterValue {
     }
 }
 
-impl From<String> for ParameterValue {
-    fn from(value: String) -> ParameterValue {
+impl From<Arc<str>> for ParameterValue {
+    fn from(value: Arc<str>) -> ParameterValue {
         ParameterValue::String(value)
     }
 }
 
-impl From<Vec<u8>> for ParameterValue {
-    fn from(value: Vec<u8>) -> ParameterValue {
+impl From<Arc<[u8]>> for ParameterValue {
+    fn from(value: Arc<[u8]>) -> ParameterValue {
         ParameterValue::ByteArray(value)
     }
 }
 
-impl From<Vec<bool>> for ParameterValue {
-    fn from(value: Vec<bool>) -> ParameterValue {
+impl From<Arc<[bool]>> for ParameterValue {
+    fn from(value: Arc<[bool]>) -> ParameterValue {
         ParameterValue::BoolArray(value)
     }
 }
 
-impl From<Vec<i64>> for ParameterValue {
-    fn from(value: Vec<i64>) -> ParameterValue {
+impl From<Arc<[i64]>> for ParameterValue {
+    fn from(value: Arc<[i64]>) -> ParameterValue {
         ParameterValue::IntegerArray(value)
     }
 }
 
-impl From<Vec<f64>> for ParameterValue {
-    fn from(value: Vec<f64>) -> ParameterValue {
+impl From<Arc<[f64]>> for ParameterValue {
+    fn from(value: Arc<[f64]>) -> ParameterValue {
         ParameterValue::DoubleArray(value)
     }
 }
 
-impl From<Vec<String>> for ParameterValue {
-    fn from(value: Vec<String>) -> ParameterValue {
+impl From<Arc<[Arc<str>]>> for ParameterValue {
+    fn from(value: Arc<[Arc<str>]>) -> ParameterValue {
         ParameterValue::StringArray(value)
     }
 }
@@ -163,7 +164,7 @@ impl ParameterVariant for f64 {
     }
 }
 
-impl ParameterVariant for String {
+impl ParameterVariant for Arc<str> {
     fn maybe_from(value: ParameterValue) -> Option<Self> {
         match value {
             ParameterValue::String(v) => Some(v),
@@ -176,7 +177,7 @@ impl ParameterVariant for String {
     }
 }
 
-impl ParameterVariant for Vec<u8> {
+impl ParameterVariant for Arc<[u8]> {
     fn maybe_from(value: ParameterValue) -> Option<Self> {
         match value {
             ParameterValue::ByteArray(v) => Some(v),
@@ -189,7 +190,7 @@ impl ParameterVariant for Vec<u8> {
     }
 }
 
-impl ParameterVariant for Vec<bool> {
+impl ParameterVariant for Arc<[bool]> {
     fn maybe_from(value: ParameterValue) -> Option<Self> {
         match value {
             ParameterValue::BoolArray(v) => Some(v),
@@ -202,7 +203,7 @@ impl ParameterVariant for Vec<bool> {
     }
 }
 
-impl ParameterVariant for Vec<i64> {
+impl ParameterVariant for Arc<[i64]> {
     fn maybe_from(value: ParameterValue) -> Option<Self> {
         match value {
             ParameterValue::IntegerArray(v) => Some(v),
@@ -215,7 +216,7 @@ impl ParameterVariant for Vec<i64> {
     }
 }
 
-impl ParameterVariant for Vec<f64> {
+impl ParameterVariant for Arc<[f64]> {
     fn maybe_from(value: ParameterValue) -> Option<Self> {
         match value {
             ParameterValue::DoubleArray(v) => Some(v),
@@ -228,7 +229,7 @@ impl ParameterVariant for Vec<f64> {
     }
 }
 
-impl ParameterVariant for Vec<String> {
+impl ParameterVariant for Arc<[Arc<str>]> {
     fn maybe_from(value: ParameterValue) -> Option<Self> {
         match value {
             ParameterValue::StringArray(v) => Some(v),
@@ -289,24 +290,24 @@ impl ParameterValue {
         } else if !var.string_value.is_null() {
             let cstr = CStr::from_ptr(var.string_value);
             let s = cstr.to_string_lossy().into_owned();
-            ParameterValue::String(s)
+            ParameterValue::String(s.into())
         } else if !var.byte_array_value.is_null() {
             let rcl_byte_array = &*var.byte_array_value;
             let slice = std::slice::from_raw_parts(rcl_byte_array.values, rcl_byte_array.size);
-            ParameterValue::ByteArray(slice.to_vec())
+            ParameterValue::ByteArray(slice.into())
         } else if !var.bool_array_value.is_null() {
             let rcl_bool_array = &*var.bool_array_value;
             let slice = std::slice::from_raw_parts(rcl_bool_array.values, rcl_bool_array.size);
-            ParameterValue::BoolArray(slice.to_vec())
+            ParameterValue::BoolArray(slice.into())
         } else if !var.integer_array_value.is_null() {
             let rcl_integer_array = &*var.integer_array_value;
             let slice =
                 std::slice::from_raw_parts(rcl_integer_array.values, rcl_integer_array.size);
-            ParameterValue::IntegerArray(slice.to_vec())
+            ParameterValue::IntegerArray(slice.into())
         } else if !var.double_array_value.is_null() {
             let rcl_double_array = &*var.double_array_value;
             let slice = std::slice::from_raw_parts(rcl_double_array.values, rcl_double_array.size);
-            ParameterValue::DoubleArray(slice.to_vec())
+            ParameterValue::DoubleArray(slice.into())
         } else if !var.string_array_value.is_null() {
             let rcutils_string_array = &*var.string_array_value;
             let slice =
@@ -316,10 +317,10 @@ impl ParameterValue {
                 .map(|&ptr| {
                     debug_assert!(!ptr.is_null());
                     let cstr = CStr::from_ptr(ptr);
-                    cstr.to_string_lossy().into_owned()
+                    Arc::from(cstr.to_string_lossy())
                 })
-                .collect();
-            ParameterValue::StringArray(strings)
+                .collect::<Vec<_>>();
+            ParameterValue::StringArray(strings.into())
         } else {
             unreachable!()
         }
@@ -356,13 +357,19 @@ mod tests {
             ("true", ParameterValue::Bool(true)),
             ("1", ParameterValue::Integer(1)),
             ("1.0", ParameterValue::Double(1.0)),
-            ("'1.0'", ParameterValue::String(String::from("1.0"))),
-            ("[yes, no]", ParameterValue::BoolArray(vec![true, false])),
-            ("[-3, 2]", ParameterValue::IntegerArray(vec![-3, 2])),
-            ("[-3.0, 2.0]", ParameterValue::DoubleArray(vec![-3.0, 2.0])),
+            ("'1.0'", ParameterValue::String(Arc::from("1.0"))),
+            (
+                "[yes, no]",
+                ParameterValue::BoolArray(Arc::from([true, false])),
+            ),
+            ("[-3, 2]", ParameterValue::IntegerArray(Arc::from([-3, 2]))),
+            (
+                "[-3.0, 2.0]",
+                ParameterValue::DoubleArray(Arc::from([-3.0, 2.0])),
+            ),
             (
                 "['yes']",
-                ParameterValue::StringArray(vec![String::from("yes")]),
+                ParameterValue::StringArray(Arc::from([Arc::from("yes")])),
             ),
         ];
         for pair in input_output_pairs {

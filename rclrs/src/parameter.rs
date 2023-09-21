@@ -54,8 +54,8 @@ impl<T: ParameterVariant> MandatoryParameter<T> {
         T::maybe_from(self.value.read().unwrap().clone()).unwrap()
     }
 
-    pub fn set(&self, value: T) {
-        *self.value.write().unwrap() = value.into();
+    pub fn set<U: Into<T>>(&self, value: U) {
+        *self.value.write().unwrap() = value.into().into();
     }
 }
 
@@ -213,6 +213,8 @@ mod tests {
             String::from("-p"),
             String::from("declared_int:=10"),
             String::from("-p"),
+            String::from("double_array:=[1.0, 2.0]"),
+            String::from("-p"),
             String::from("optional_bool:=true"),
             String::from("-p"),
             String::from("non_declared_string:='param'"),
@@ -247,7 +249,7 @@ mod tests {
 
         // Getting a parameter that was not declared should not work, even if a value was provided
         // as a parameter override
-        assert_eq!(node.get_parameter::<String>("non_declared_string"), None);
+        assert_eq!(node.get_parameter::<Arc<str>>("non_declared_string"), None);
 
         let optional_param = node.declare_optional_parameter::<bool>(
             "non_existing_bool",
@@ -270,6 +272,20 @@ mod tests {
             ParameterOptions::default(),
         );
         assert_eq!(optional_param3.get(), Some(true));
+
+        // Test syntax for array types
+        let double_array = node.declare_parameter::<Arc<[f64]>>(
+            "double_array",
+            vec![10.0, 20.0].into(),
+            ParameterOptions::default(),
+        );
+
+        // TODO(luca) clearly UX for array types can be improved
+        let strings = Arc::from(
+            [Arc::from("Hello"), Arc::from("World")]
+        );
+        let string_array =
+            node.declare_parameter::<Arc<[Arc<str>]>>("string_array", strings, ParameterOptions::default());
 
         Ok(())
     }
