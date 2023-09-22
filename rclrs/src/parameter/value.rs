@@ -50,17 +50,29 @@ pub enum ParameterValue {
     StringArray(Arc<[Arc<str>]>),
 }
 
+/// Describes the parameter's type. Similar to `ParameterValue` but also includes a `Dynamic`
+/// variant for dynamic parameters.
 #[derive(Clone, Debug, PartialEq)]
 pub enum ParameterKind {
+    /// A boolean parameter.
     Bool,
+    /// An i64 value.
     Integer,
+    /// An f64 value.
     Double,
+    /// A string.
     String,
+    /// An array of u8.
     ByteArray,
+    /// An array of booleans.
     BoolArray,
+    /// An array of i64.
     IntegerArray,
+    /// An array of f64.
     DoubleArray,
+    /// An array of strings.
     StringArray,
+    /// A dynamic parameter that can change its type at runtime.
     Dynamic,
 }
 
@@ -118,10 +130,14 @@ impl From<Arc<[Arc<str>]>> for ParameterValue {
     }
 }
 
+/// A trait that describes a value that can be converted into a parameter.
 pub trait ParameterVariant: Into<ParameterValue> {
+    /// Attempts to convert `value` into the requested type.
+    /// Returns `Some(Self)` if the conversion was successful, `None` otherwise.
     // TODO(luca) should we use try_from?
     fn maybe_from(value: ParameterValue) -> Option<Self>;
 
+    /// Returns the `ParameterKind` of the implemented type.
     fn kind() -> ParameterKind;
 }
 

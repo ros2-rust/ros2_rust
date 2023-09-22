@@ -13,6 +13,10 @@ use std::sync::{
     Arc, Mutex, RwLock, Weak,
 };
 
+/// Options that can be attached to a parameter, such as description, ranges.
+/// This data will be used to populate the ParameterDescriptor
+///
+/// NOTE: Currently unimplemented.
 // TODO(luca) add From for rcl_interfaces::ParameterDescriptor message, but a manual implementation
 // for the opposite since this struct does not contain all the fields required to populate the
 // message
@@ -29,6 +33,7 @@ enum DeclaredValue {
     Optional(Arc<RwLock<Option<ParameterValue>>>),
 }
 
+/// A parameter that must have a value
 pub struct MandatoryParameter<T: ParameterVariant> {
     name: String,
     value: Arc<RwLock<ParameterValue>>,
@@ -46,6 +51,7 @@ impl<T: ParameterVariant> Drop for MandatoryParameter<T> {
     }
 }
 
+/// A parameter that might not have a value, represented by Option<T>.
 pub struct OptionalParameter<T: ParameterVariant> {
     name: String,
     value: Arc<RwLock<Option<ParameterValue>>>,
@@ -82,16 +88,19 @@ struct ParameterMap {
 }
 
 impl<T: ParameterVariant> MandatoryParameter<T> {
+    /// Returns a clone of the most recent value of the parameter.
     pub fn get(&self) -> T {
         T::maybe_from(self.value.read().unwrap().clone()).unwrap()
     }
 
+    /// Sets the parameter value.
     pub fn set<U: Into<T>>(&self, value: U) {
         *self.value.write().unwrap() = value.into().into();
     }
 }
 
 impl<T: ParameterVariant> OptionalParameter<T> {
+    /// Returns a clone of the most recent value of the parameter.
     pub fn get(&self) -> Option<T> {
         self.value
             .read()
@@ -100,16 +109,30 @@ impl<T: ParameterVariant> OptionalParameter<T> {
             .map(|p| T::maybe_from(p).unwrap())
     }
 
+    /// Sets the parameter value.
     pub fn set(&self, value: T) {
         *self.value.write().unwrap() = Some(value.into());
     }
 }
 
+/// Allows access to all parameters via get / set functions, using their name as a key.
 pub struct Parameters<'a> {
     pub(crate) interface: &'a ParameterInterface,
 }
 
+/// Error that can be generated when doing operations on parameters.
+#[derive(Debug)]
+pub enum ParameterError {
+    /// Parameter was already declared and a new declaration was attempted.
+    AlreadyDeclared,
+    /// Parameter was stored in a static type and an operation on a different type was attempted.
+    TypeMismatch,
+}
+
 impl<'a> Parameters<'a> {
+    /// Tries to read a parameter of the requested type.
+    ///
+    /// Returns Some(T) if a parameter of the requested type exists, None otherwise.
     pub fn get<T: ParameterVariant>(&self, name: &str) -> Option<T> {
         let storage = &self.interface._parameter_map.lock().unwrap().storage;
         let Some(storage) = storage.get(name) else {
@@ -126,8 +149,14 @@ impl<'a> Parameters<'a> {
         }
     }
 
+    /// Tries to set a parameter with the requested value.
+    ///
+    /// Returns:
+    /// * Ok(()) if setting was successful.
+    /// * Err(ParameterError::TypeMismatch) if the type of the requested value is different from
+    /// the parameter's type.
     // TODO(luca) either implement a new error or a new RclrsError variant
-    pub fn set<T: ParameterVariant>(&self, name: &str, value: T) -> Result<(), ()> {
+    pub fn set<T: ParameterVariant>(&self, name: &str, value: T) -> Result<(), ParameterError> {
         match self
             .interface
             ._parameter_map
@@ -149,7 +178,7 @@ impl<'a> Parameters<'a> {
                                 }
                             }
                         } else {
-                            return Err(());
+                            return Err(ParameterError::TypeMismatch);
                         }
                     }
                     ParameterStorage::Undeclared(param) => {
@@ -201,11 +230,11 @@ impl ParameterInterface {
         name: &str,
         default_value: T,
         options: ParameterOptions,
-    ) -> Result<MandatoryParameter<T>, ()> {
+    ) -> Result<MandatoryParameter<T>, ParameterError> {
         let mut value = default_value.into();
         if let Some(current_value) = self._parameter_map.lock().unwrap().storage.get(name) {
             match current_value {
-                ParameterStorage::Declared(_) => return Err(()),
+                ParameterStorage::Declared(_) => return Err(ParameterError::AlreadyDeclared),
                 ParameterStorage::Undeclared(param) => {
                     if let Some(v) = T::maybe_from(param.read().unwrap().clone()) {
                         value = v.into();
@@ -246,12 +275,12 @@ impl ParameterInterface {
         name: &str,
         default_value: Option<T>,
         options: ParameterOptions,
-    ) -> Result<OptionalParameter<T>, ()> {
+    ) -> Result<OptionalParameter<T>, ParameterError> {
         let mut value = default_value.map(|p| p.into());
         // TODO(luca) refactor duplicated code between mandatory and optional declaration
         if let Some(current_value) = self._parameter_map.lock().unwrap().storage.get(name) {
             match current_value {
-                ParameterStorage::Declared(_) => return Err(()),
+                ParameterStorage::Declared(_) => return Err(ParameterError::AlreadyDeclared),
                 ParameterStorage::Undeclared(param) => {
                     if let Some(v) = T::maybe_from(param.read().unwrap().clone()) {
                         value = Some(v.into());
