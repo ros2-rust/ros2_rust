@@ -398,6 +398,27 @@ mod tests {
             None
         );
 
+        // If a param is set when undeclared, the following declared value should have the
+        // previously set value.
+        {
+            node.use_undeclared_parameters()
+                .set("new_bool", true)
+                .unwrap();
+            let bool_param = node
+                .declare_parameter("new_bool", false, ParameterOptions::default())
+                .unwrap();
+            assert_eq!(bool_param.get(), true);
+        }
+        {
+            node.use_undeclared_parameters()
+                .set("new_bool", true)
+                .unwrap();
+            let bool_param = node
+                .declare_optional_parameter("new_bool", Some(false), ParameterOptions::default())
+                .unwrap();
+            assert_eq!(bool_param.get(), Some(true));
+        }
+
         let optional_param = node
             .declare_optional_parameter::<bool>(
                 "non_existing_bool",
@@ -423,27 +444,27 @@ mod tests {
         assert_eq!(optional_param3.get(), Some(true));
 
         // Test syntax for array types
-        let double_array = node
-            .declare_parameter::<Arc<[f64]>>(
-                "double_array",
-                vec![10.0, 20.0].into(),
-                ParameterOptions::default(),
-            )
-            .unwrap();
+        node.declare_parameter::<Arc<[f64]>>(
+            "double_array",
+            vec![10.0, 20.0].into(),
+            ParameterOptions::default(),
+        )
+        .unwrap();
 
         // TODO(luca) clearly UX for array types can be improved
         let strings = Arc::from([Arc::from("Hello"), Arc::from("World")]);
-        let string_array = node
-            .declare_parameter::<Arc<[Arc<str>]>>(
-                "string_array",
-                strings,
-                ParameterOptions::default(),
-            )
-            .unwrap();
+        node.declare_parameter::<Arc<[Arc<str>]>>(
+            "string_array",
+            strings,
+            ParameterOptions::default(),
+        )
+        .unwrap();
 
         // If a value is set when undeclared, a following declare_parameter should have the
         // previously set value.
-        node.use_undeclared_parameters().set("undeclared_int", 42);
+        node.use_undeclared_parameters()
+            .set("undeclared_int", 42)
+            .unwrap();
         let undeclared_int = node
             .declare_parameter("undeclared_int", 10, ParameterOptions::default())
             .unwrap();
@@ -475,7 +496,7 @@ mod tests {
         }
         {
             // Parameter went out of scope, redeclaring should be OK and return command line
-            // oveerride
+            // override
             let param = node
                 .declare_parameter("declared_int", 1, ParameterOptions::default())
                 .unwrap();
@@ -487,7 +508,9 @@ mod tests {
             .use_undeclared_parameters()
             .get::<i64>("declared_int")
             .is_none());
-        node.use_undeclared_parameters().set("declared_int", 1.0);
+        node.use_undeclared_parameters()
+            .set("declared_int", 1.0)
+            .unwrap();
         assert_eq!(
             node.use_undeclared_parameters().get::<f64>("declared_int"),
             Some(1.0)
