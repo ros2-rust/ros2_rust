@@ -23,18 +23,42 @@ pub struct ParameterOptions {
 // We use weak references since parameters are owned by the declarer, not the storage.
 #[derive(Clone, Debug)]
 enum DeclaredValue {
-    Mandatory(Weak<RwLock<ParameterValue>>),
-    Optional(Weak<RwLock<Option<ParameterValue>>>),
+    Mandatory(Arc<RwLock<ParameterValue>>),
+    Optional(Arc<RwLock<Option<ParameterValue>>>),
 }
 
 pub struct MandatoryParameter<T: ParameterVariant> {
+    name: String,
     value: Arc<RwLock<ParameterValue>>,
+    map: Weak<Mutex<ParameterMap>>,
     _marker: PhantomData<T>,
 }
 
+impl<T: ParameterVariant> Drop for MandatoryParameter<T> {
+    fn drop(&mut self) {
+        // Clear the entry from the parameter map
+        if let Some(map) = self.map.upgrade() {
+            let storage = &mut map.lock().unwrap().storage;
+            storage.remove(&self.name);
+        }
+    }
+}
+
 pub struct OptionalParameter<T: ParameterVariant> {
+    name: String,
     value: Arc<RwLock<Option<ParameterValue>>>,
+    map: Weak<Mutex<ParameterMap>>,
     _marker: PhantomData<T>,
+}
+
+impl<T: ParameterVariant> Drop for OptionalParameter<T> {
+    fn drop(&mut self) {
+        // Clear the entry from the parameter map
+        if let Some(map) = self.map.upgrade() {
+            let storage = &mut map.lock().unwrap().storage;
+            storage.remove(&self.name);
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -81,7 +105,7 @@ impl<T: ParameterVariant> OptionalParameter<T> {
 }
 
 pub(crate) struct ParameterInterface {
-    _parameter_map: ParameterMap,
+    _parameter_map: Arc<Mutex<ParameterMap>>,
     _override_map: ParameterOverrideMap,
     //_services: ParameterService,
 }
@@ -108,12 +132,22 @@ impl ParameterInterface {
     }
 
     pub(crate) fn declare<T: ParameterVariant>(
-        &mut self,
+        &self,
         name: &str,
         default_value: T,
         options: ParameterOptions,
-    ) -> MandatoryParameter<T> {
+    ) -> Result<MandatoryParameter<T>, ()> {
         let mut value = default_value.into();
+        if let Some(current_value) = self._parameter_map.lock().unwrap().storage.get(name) {
+            match current_value {
+                ParameterStorage::Declared(param) => return Err(()),
+                ParameterStorage::Undeclared(param) => {
+                    if let Some(v) = T::maybe_from(param.read().unwrap().clone()) {
+                        value = v.into();
+                    }
+                }
+            }
+        }
         if let Some(param_override) = self._override_map.get(name) {
             // TODO(luca) It is possible for the override (i.e. through command line) to be of a
             // different type thant what is declared, in which case we ignore the override.
@@ -126,27 +160,40 @@ impl ParameterInterface {
             }
         }
         let value = Arc::new(RwLock::new(value));
-        self._parameter_map.storage.insert(
+        self._parameter_map.lock().unwrap().storage.insert(
             name.to_owned(),
             ParameterStorage::Declared(DeclaredStorage {
                 options,
-                value: DeclaredValue::Mandatory(Arc::downgrade(&value)),
+                value: DeclaredValue::Mandatory(value.clone()),
                 kind: T::kind(),
             }),
         );
-        MandatoryParameter {
+        Ok(MandatoryParameter {
+            name: name.to_owned(),
             value,
+            map: Arc::downgrade(&self._parameter_map),
             _marker: Default::default(),
-        }
+        })
     }
 
     pub(crate) fn declare_optional<T: ParameterVariant>(
-        &mut self,
+        &self,
         name: &str,
         default_value: Option<T>,
         options: ParameterOptions,
-    ) -> OptionalParameter<T> {
+    ) -> Result<OptionalParameter<T>, ()> {
         let mut value = default_value.map(|p| p.into());
+        // TODO(luca) refactor duplicated code between mandatory and optional declaration
+        if let Some(current_value) = self._parameter_map.lock().unwrap().storage.get(name) {
+            match current_value {
+                ParameterStorage::Declared(param) => return Err(()),
+                ParameterStorage::Undeclared(param) => {
+                    if let Some(v) = T::maybe_from(param.read().unwrap().clone()) {
+                        value = Some(v.into());
+                    }
+                }
+            }
+        }
         if let Some(param_override) = self._override_map.get(name) {
             // TODO(luca) It is possible for the override (i.e. through command line) to be of a
             // different type thant what is declared, in which case we ignore the override.
@@ -159,33 +206,34 @@ impl ParameterInterface {
             }
         }
         let value = Arc::new(RwLock::new(value));
-        self._parameter_map.storage.insert(
+        self._parameter_map.lock().unwrap().storage.insert(
             name.to_owned(),
             ParameterStorage::Declared(DeclaredStorage {
                 options,
-                value: DeclaredValue::Optional(Arc::downgrade(&value)),
+                value: DeclaredValue::Optional(value.clone()),
                 kind: T::kind(),
             }),
         );
-        OptionalParameter {
+        Ok(OptionalParameter {
+            name: name.to_owned(),
             value,
+            map: Arc::downgrade(&self._parameter_map),
             _marker: Default::default(),
-        }
+        })
     }
 
-    pub(crate) fn get_undeclared<T: ParameterVariant>(&mut self, name: &str) -> Option<T> {
-        self._parameter_map.allow_undeclared = true;
-        let Some(storage) = self._parameter_map.storage.get(name) else {
+    pub(crate) fn get_undeclared<T: ParameterVariant>(&self, name: &str) -> Option<T> {
+        self._parameter_map.lock().unwrap().allow_undeclared = true;
+        let storage = &self._parameter_map.lock().unwrap().storage;
+        let Some(storage) = storage.get(name) else {
             return None;
         };
         match storage {
             ParameterStorage::Declared(storage) => match &storage.value {
-                DeclaredValue::Mandatory(p) => p
-                    .upgrade()
-                    .and_then(|p| T::maybe_from(p.read().unwrap().clone())),
-                DeclaredValue::Optional(p) => p
-                    .upgrade()
-                    .and_then(|opt| opt.read().unwrap().clone().and_then(|p| T::maybe_from(p))),
+                DeclaredValue::Mandatory(p) => T::maybe_from(p.read().unwrap().clone()),
+                DeclaredValue::Optional(p) => {
+                    p.read().unwrap().clone().and_then(|p| T::maybe_from(p))
+                }
             },
             ParameterStorage::Undeclared(value) => T::maybe_from(value.read().unwrap().clone()),
         }
@@ -193,12 +241,18 @@ impl ParameterInterface {
 
     // TODO(luca) either implement a new error or a new RclrsError variant
     pub(crate) fn set_undeclared<T: ParameterVariant>(
-        &mut self,
+        &self,
         name: &str,
         value: T,
     ) -> Result<(), ()> {
-        self._parameter_map.allow_undeclared = true;
-        match self._parameter_map.storage.entry(name.to_string()) {
+        self._parameter_map.lock().unwrap().allow_undeclared = true;
+        match self
+            ._parameter_map
+            .lock()
+            .unwrap()
+            .storage
+            .entry(name.to_string())
+        {
             Entry::Occupied(mut entry) => {
                 // If it's declared we can only set if it's the same variant.
                 // Undeclared parameters are dynamic by default
@@ -206,15 +260,12 @@ impl ParameterInterface {
                     ParameterStorage::Declared(param) => {
                         if T::kind() == param.kind {
                             match &param.value {
-                                DeclaredValue::Mandatory(p) => p
-                                    .upgrade()
-                                    .map(|p| *p.write().unwrap() = value.into())
-                                    .ok_or(()),
-                                DeclaredValue::Optional(p) => p
-                                    .upgrade()
-                                    .map(|p| *p.write().unwrap() = Some(value.into()))
-                                    .ok_or(()),
+                                DeclaredValue::Mandatory(p) => *p.write().unwrap() = value.into(),
+                                DeclaredValue::Optional(p) => {
+                                    *p.write().unwrap() = Some(value.into())
+                                }
                             }
+                            Ok(())
                         } else {
                             Err(())
                         }
@@ -256,11 +307,14 @@ mod tests {
         ])?;
         let node = create_node(&ctx, "param_test_node")?;
 
-        let overridden_int =
-            node.declare_parameter("declared_int", 123, ParameterOptions::default());
+        let overridden_int = node
+            .declare_parameter("declared_int", 123, ParameterOptions::default())
+            .unwrap();
         assert_eq!(overridden_int.get(), 10);
 
-        let new_param = node.declare_parameter("new_param", 2.0, ParameterOptions::default());
+        let new_param = node
+            .declare_parameter("new_param", 2.0, ParameterOptions::default())
+            .unwrap();
         assert_eq!(new_param.get(), 2.0);
 
         // Getting a parameter that was declared should work
@@ -292,42 +346,56 @@ mod tests {
             None
         );
 
-        let optional_param = node.declare_optional_parameter::<bool>(
-            "non_existing_bool",
-            None,
-            ParameterOptions::default(),
-        );
+        let optional_param = node
+            .declare_optional_parameter::<bool>(
+                "non_existing_bool",
+                None,
+                ParameterOptions::default(),
+            )
+            .unwrap();
         assert_eq!(optional_param.get(), None);
 
-        let optional_param2 = node.declare_optional_parameter(
-            "non_existing_bool2",
-            Some(false),
-            ParameterOptions::default(),
-        );
+        let optional_param2 = node
+            .declare_optional_parameter(
+                "non_existing_bool2",
+                Some(false),
+                ParameterOptions::default(),
+            )
+            .unwrap();
         assert_eq!(optional_param2.get(), Some(false));
 
         // This was provided as a parameter override, hence should be set to true
-        let optional_param3 = node.declare_optional_parameter(
-            "optional_bool",
-            Some(false),
-            ParameterOptions::default(),
-        );
+        let optional_param3 = node
+            .declare_optional_parameter("optional_bool", Some(false), ParameterOptions::default())
+            .unwrap();
         assert_eq!(optional_param3.get(), Some(true));
 
         // Test syntax for array types
-        let double_array = node.declare_parameter::<Arc<[f64]>>(
-            "double_array",
-            vec![10.0, 20.0].into(),
-            ParameterOptions::default(),
-        );
+        let double_array = node
+            .declare_parameter::<Arc<[f64]>>(
+                "double_array",
+                vec![10.0, 20.0].into(),
+                ParameterOptions::default(),
+            )
+            .unwrap();
 
         // TODO(luca) clearly UX for array types can be improved
         let strings = Arc::from([Arc::from("Hello"), Arc::from("World")]);
-        let string_array = node.declare_parameter::<Arc<[Arc<str>]>>(
-            "string_array",
-            strings,
-            ParameterOptions::default(),
-        );
+        let string_array = node
+            .declare_parameter::<Arc<[Arc<str>]>>(
+                "string_array",
+                strings,
+                ParameterOptions::default(),
+            )
+            .unwrap();
+
+        // If a value is set when undeclared, a following declare_parameter should have the
+        // previously set value.
+        node.set_parameter_undeclared("undeclared_int", 42);
+        let undeclared_int = node
+            .declare_parameter("undeclared_int", 10, ParameterOptions::default())
+            .unwrap();
+        assert_eq!(undeclared_int.get(), 42);
 
         Ok(())
     }
@@ -342,16 +410,35 @@ mod tests {
         let node = create_node(&ctx, "param_test_node")?;
         {
             // Setting a parameter with an override
-            let param = node.declare_parameter("declared_int", 1, ParameterOptions::default());
+            let param = node
+                .declare_parameter("declared_int", 1, ParameterOptions::default())
+                .unwrap();
             assert_eq!(param.get(), 10);
             param.set(2);
             assert_eq!(param.get(), 2);
+            // Redeclaring should fail
+            assert!(node
+                .declare_parameter("declared_int", 1, ParameterOptions::default())
+                .is_err());
         }
         {
-            // It should reset to the command line override
-            let param = node.declare_parameter("declared_int", 1, ParameterOptions::default());
+            // Parameter went out of scope, redeclaring should be OK and return command line
+            // oveerride
+            let param = node
+                .declare_parameter("declared_int", 1, ParameterOptions::default())
+                .unwrap();
             assert_eq!(param.get(), 10);
         }
+        // After a declared parameter went out of scope and was cleared, it should still be
+        // possible to use it as an undeclared parameter, type can now be changed
+        assert!(node
+            .get_parameter_undeclared::<i64>("declared_int")
+            .is_none());
+        node.set_parameter_undeclared("declared_int", 1.0);
+        assert_eq!(
+            node.get_parameter_undeclared::<f64>("declared_int"),
+            Some(1.0)
+        );
         Ok(())
     }
 

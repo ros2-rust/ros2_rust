@@ -285,7 +285,7 @@ impl NodeBuilder {
             services_mtx: Mutex::new(vec![]),
             subscriptions_mtx: Mutex::new(vec![]),
             _time_source: TimeSource::new(weak.clone(), self.clock_type),
-            parameter_mtx: Mutex::new(_parameter),
+            _parameter,
         }))
     }
 

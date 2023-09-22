@@ -109,6 +109,7 @@ impl TimeSource {
         // TODO(luca) register a parameter callback, hold the parameter handle
         if let Some(sim_param) = self._node.upgrade().map(|n| {
             n.declare_parameter::<bool>("use_sim_time", false, ParameterOptions::default())
+                .unwrap()
                 .get()
         }) {
             self.set_ros_time_enable(sim_param);

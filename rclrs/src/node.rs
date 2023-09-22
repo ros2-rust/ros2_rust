@@ -14,9 +14,9 @@ pub use self::graph::*;
 use crate::rcl_bindings::*;
 use crate::{
     Client, ClientBase, Clock, Context, GuardCondition, MandatoryParameter, OptionalParameter,
-    ParameterInterface, ParameterOptions, ParameterVariant, Publisher, QoSProfile,
-    RclrsError, Service, ServiceBase, Subscription, SubscriptionBase, SubscriptionCallback,
-    TimeSource, ToResult,
+    ParameterInterface, ParameterOptions, ParameterVariant, Publisher, QoSProfile, RclrsError,
+    Service, ServiceBase, Subscription, SubscriptionBase, SubscriptionCallback, TimeSource,
+    ToResult,
 };
 
 impl Drop for rcl_node_t {
@@ -72,7 +72,7 @@ pub struct Node {
     pub(crate) guard_conditions_mtx: Mutex<Vec<Weak<GuardCondition>>>,
     pub(crate) services_mtx: Mutex<Vec<Weak<dyn ServiceBase>>>,
     pub(crate) subscriptions_mtx: Mutex<Vec<Weak<dyn SubscriptionBase>>>,
-    pub(crate) parameter_mtx: Mutex<ParameterInterface>,
+    _parameter: ParameterInterface,
     _time_source: TimeSource,
 }
 
@@ -372,11 +372,8 @@ impl Node {
         name: &str,
         default_value: T,
         options: ParameterOptions,
-    ) -> MandatoryParameter<T> {
-        self.parameter_mtx
-            .lock()
-            .unwrap()
-            .declare(name, default_value, options)
+    ) -> Result<MandatoryParameter<T>, ()> {
+        self._parameter.declare(name, default_value, options)
     }
 
     pub fn declare_optional_parameter<T: ParameterVariant>(
@@ -384,16 +381,14 @@ impl Node {
         name: &str,
         default_value: Option<T>,
         options: ParameterOptions,
-    ) -> OptionalParameter<T> {
-        self.parameter_mtx
-            .lock()
-            .unwrap()
+    ) -> Result<OptionalParameter<T>, ()> {
+        self._parameter
             .declare_optional(name, default_value, options)
     }
 
     /// Allows undeclared parameters and gets a parameter value by name.
     pub fn get_parameter_undeclared<T: ParameterVariant>(&self, name: &str) -> Option<T> {
-        self.parameter_mtx.lock().unwrap().get_undeclared(name)
+        self._parameter.get_undeclared(name)
     }
 
     /// Allows undeclared parameters and sets a parameter value.
@@ -402,10 +397,7 @@ impl Node {
         name: &str,
         value: T,
     ) -> Result<(), ()> {
-        self.parameter_mtx
-            .lock()
-            .unwrap()
-            .set_undeclared(name, value)
+        self._parameter.set_undeclared(name, value)
     }
 
     /// Creates a [`NodeBuilder`][1] with the given name.
