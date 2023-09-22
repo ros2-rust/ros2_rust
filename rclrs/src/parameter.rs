@@ -104,6 +104,76 @@ impl<T: ParameterVariant> OptionalParameter<T> {
     }
 }
 
+pub struct AllParameters {
+    _parameter_map: Arc<Mutex<ParameterMap>>,
+}
+
+impl AllParameters {
+    pub(crate) fn new(parameter_interface: &ParameterInterface) -> Self {
+        parameter_interface.allow_undeclared();
+        Self {
+            _parameter_map: parameter_interface._parameter_map.clone(),
+        }
+    }
+
+    pub fn get<T: ParameterVariant>(&self, name: &str) -> Option<T> {
+        let storage = &self._parameter_map.lock().unwrap().storage;
+        let Some(storage) = storage.get(name) else {
+            return None;
+        };
+        match storage {
+            ParameterStorage::Declared(storage) => match &storage.value {
+                DeclaredValue::Mandatory(p) => T::maybe_from(p.read().unwrap().clone()),
+                DeclaredValue::Optional(p) => {
+                    p.read().unwrap().clone().and_then(|p| T::maybe_from(p))
+                }
+            },
+            ParameterStorage::Undeclared(value) => T::maybe_from(value.read().unwrap().clone()),
+        }
+    }
+
+    // TODO(luca) either implement a new error or a new RclrsError variant
+    pub fn set<T: ParameterVariant>(&self, name: &str, value: T) -> Result<(), ()> {
+        match self
+            ._parameter_map
+            .lock()
+            .unwrap()
+            .storage
+            .entry(name.to_string())
+        {
+            Entry::Occupied(mut entry) => {
+                // If it's declared we can only set if it's the same variant.
+                // Undeclared parameters are dynamic by default
+                match entry.get_mut() {
+                    ParameterStorage::Declared(param) => {
+                        if T::kind() == param.kind {
+                            match &param.value {
+                                DeclaredValue::Mandatory(p) => *p.write().unwrap() = value.into(),
+                                DeclaredValue::Optional(p) => {
+                                    *p.write().unwrap() = Some(value.into())
+                                }
+                            }
+                            Ok(())
+                        } else {
+                            Err(())
+                        }
+                    }
+                    ParameterStorage::Undeclared(param) => {
+                        *param.write().unwrap() = value.into();
+                        Ok(())
+                    }
+                }
+            }
+            Entry::Vacant(entry) => {
+                entry.insert(ParameterStorage::Undeclared(Arc::new(RwLock::new(
+                    value.into(),
+                ))));
+                Ok(())
+            }
+        }
+    }
+}
+
 pub(crate) struct ParameterInterface {
     _parameter_map: Arc<Mutex<ParameterMap>>,
     _override_map: ParameterOverrideMap,
@@ -140,7 +210,7 @@ impl ParameterInterface {
         let mut value = default_value.into();
         if let Some(current_value) = self._parameter_map.lock().unwrap().storage.get(name) {
             match current_value {
-                ParameterStorage::Declared(param) => return Err(()),
+                ParameterStorage::Declared(_) => return Err(()),
                 ParameterStorage::Undeclared(param) => {
                     if let Some(v) = T::maybe_from(param.read().unwrap().clone()) {
                         value = v.into();
@@ -186,7 +256,7 @@ impl ParameterInterface {
         // TODO(luca) refactor duplicated code between mandatory and optional declaration
         if let Some(current_value) = self._parameter_map.lock().unwrap().storage.get(name) {
             match current_value {
-                ParameterStorage::Declared(param) => return Err(()),
+                ParameterStorage::Declared(_) => return Err(()),
                 ParameterStorage::Undeclared(param) => {
                     if let Some(v) = T::maybe_from(param.read().unwrap().clone()) {
                         value = Some(v.into());
@@ -222,67 +292,8 @@ impl ParameterInterface {
         })
     }
 
-    pub(crate) fn get_undeclared<T: ParameterVariant>(&self, name: &str) -> Option<T> {
+    fn allow_undeclared(&self) {
         self._parameter_map.lock().unwrap().allow_undeclared = true;
-        let storage = &self._parameter_map.lock().unwrap().storage;
-        let Some(storage) = storage.get(name) else {
-            return None;
-        };
-        match storage {
-            ParameterStorage::Declared(storage) => match &storage.value {
-                DeclaredValue::Mandatory(p) => T::maybe_from(p.read().unwrap().clone()),
-                DeclaredValue::Optional(p) => {
-                    p.read().unwrap().clone().and_then(|p| T::maybe_from(p))
-                }
-            },
-            ParameterStorage::Undeclared(value) => T::maybe_from(value.read().unwrap().clone()),
-        }
-    }
-
-    // TODO(luca) either implement a new error or a new RclrsError variant
-    pub(crate) fn set_undeclared<T: ParameterVariant>(
-        &self,
-        name: &str,
-        value: T,
-    ) -> Result<(), ()> {
-        self._parameter_map.lock().unwrap().allow_undeclared = true;
-        match self
-            ._parameter_map
-            .lock()
-            .unwrap()
-            .storage
-            .entry(name.to_string())
-        {
-            Entry::Occupied(mut entry) => {
-                // If it's declared we can only set if it's the same variant.
-                // Undeclared parameters are dynamic by default
-                match entry.get_mut() {
-                    ParameterStorage::Declared(param) => {
-                        if T::kind() == param.kind {
-                            match &param.value {
-                                DeclaredValue::Mandatory(p) => *p.write().unwrap() = value.into(),
-                                DeclaredValue::Optional(p) => {
-                                    *p.write().unwrap() = Some(value.into())
-                                }
-                            }
-                            Ok(())
-                        } else {
-                            Err(())
-                        }
-                    }
-                    ParameterStorage::Undeclared(param) => {
-                        *param.write().unwrap() = value.into();
-                        Ok(())
-                    }
-                }
-            }
-            Entry::Vacant(entry) => {
-                entry.insert(ParameterStorage::Undeclared(Arc::new(RwLock::new(
-                    value.into(),
-                ))));
-                Ok(())
-            }
-        }
     }
 }
 
@@ -318,31 +329,48 @@ mod tests {
         assert_eq!(new_param.get(), 2.0);
 
         // Getting a parameter that was declared should work
-        assert_eq!(node.get_parameter_undeclared::<f64>("new_param"), Some(2.0));
+        assert_eq!(
+            node.use_undeclared_parameters().get::<f64>("new_param"),
+            Some(2.0)
+        );
 
         // Getting / Setting a parameter with the wrong type should not work
-        assert!(node.get_parameter_undeclared::<i64>("new_param").is_none());
-        assert!(node.set_parameter_undeclared("new_param", 42).is_err());
+        assert!(node
+            .use_undeclared_parameters()
+            .get::<i64>("new_param")
+            .is_none());
+        assert!(node
+            .use_undeclared_parameters()
+            .set("new_param", 42)
+            .is_err());
 
         // Setting a parameter should update both existing parameter objects and be reflected in
-        // new node.get_parameter_undeclared() calls
-        assert!(node.set_parameter_undeclared("new_param", 10.0).is_ok());
-        assert_eq!(node.get_parameter_undeclared("new_param"), Some(10.0));
+        // new node.use_undeclared_parameters().get() calls
+        assert!(node
+            .use_undeclared_parameters()
+            .set("new_param", 10.0)
+            .is_ok());
+        assert_eq!(
+            node.use_undeclared_parameters().get("new_param"),
+            Some(10.0)
+        );
         assert_eq!(new_param.get(), 10.0);
         new_param.set(5.0);
         assert_eq!(new_param.get(), 5.0);
-        assert_eq!(node.get_parameter_undeclared("new_param"), Some(5.0));
+        assert_eq!(node.use_undeclared_parameters().get("new_param"), Some(5.0));
 
         // Getting a parameter that was not declared should not work
         assert_eq!(
-            node.get_parameter_undeclared::<f64>("non_existing_param"),
+            node.use_undeclared_parameters()
+                .get::<f64>("non_existing_param"),
             None
         );
 
         // Getting a parameter that was not declared should not work, even if a value was provided
         // as a parameter override
         assert_eq!(
-            node.get_parameter_undeclared::<Arc<str>>("non_declared_string"),
+            node.use_undeclared_parameters()
+                .get::<Arc<str>>("non_declared_string"),
             None
         );
 
@@ -391,7 +419,7 @@ mod tests {
 
         // If a value is set when undeclared, a following declare_parameter should have the
         // previously set value.
-        node.set_parameter_undeclared("undeclared_int", 42);
+        node.use_undeclared_parameters().set("undeclared_int", 42);
         let undeclared_int = node
             .declare_parameter("undeclared_int", 10, ParameterOptions::default())
             .unwrap();
@@ -432,11 +460,12 @@ mod tests {
         // After a declared parameter went out of scope and was cleared, it should still be
         // possible to use it as an undeclared parameter, type can now be changed
         assert!(node
-            .get_parameter_undeclared::<i64>("declared_int")
+            .use_undeclared_parameters()
+            .get::<i64>("declared_int")
             .is_none());
-        node.set_parameter_undeclared("declared_int", 1.0);
+        node.use_undeclared_parameters().set("declared_int", 1.0);
         assert_eq!(
-            node.get_parameter_undeclared::<f64>("declared_int"),
+            node.use_undeclared_parameters().get::<f64>("declared_int"),
             Some(1.0)
         );
         Ok(())
