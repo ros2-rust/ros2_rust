@@ -13,10 +13,10 @@ pub use self::builder::*;
 pub use self::graph::*;
 use crate::rcl_bindings::*;
 use crate::{
-    AllParameters, Client, ClientBase, Clock, Context, GuardCondition, MandatoryParameter,
-    OptionalParameter, ParameterInterface, ParameterOptions, ParameterVariant, Publisher,
-    QoSProfile, RclrsError, Service, ServiceBase, Subscription, SubscriptionBase,
-    SubscriptionCallback, TimeSource, ToResult,
+    Client, ClientBase, Clock, Context, GuardCondition, MandatoryParameter, OptionalParameter,
+    ParameterInterface, ParameterOptions, ParameterVariant, Parameters, Publisher, QoSProfile,
+    RclrsError, Service, ServiceBase, Subscription, SubscriptionBase, SubscriptionCallback,
+    TimeSource, ToResult,
 };
 
 impl Drop for rcl_node_t {
@@ -386,8 +386,11 @@ impl Node {
             .declare_optional(name, default_value, options)
     }
 
-    pub fn use_undeclared_parameters(&self) -> AllParameters {
-        AllParameters::new(&self._parameter)
+    pub fn use_undeclared_parameters(&self) -> Parameters {
+        self._parameter.allow_undeclared();
+        Parameters {
+            interface: &self._parameter,
+        }
     }
 
     /// Creates a [`NodeBuilder`][1] with the given name.

@@ -2,10 +2,7 @@ use std::ffi::CString;
 use std::sync::{Arc, Mutex};
 
 use crate::rcl_bindings::*;
-use crate::{
-    node::call_string_getter_with_handle, ClockType, Context, Node, ParameterInterface, RclrsError,
-    TimeSource, ToResult,
-};
+use crate::{ClockType, Context, Node, ParameterInterface, RclrsError, TimeSource, ToResult};
 
 /// A builder for creating a [`Node`][1].
 ///

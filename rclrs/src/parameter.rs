@@ -1,23 +1,25 @@
 mod override_map;
-mod service;
 mod value;
 
 pub(crate) use override_map::*;
-pub(crate) use service::*;
 pub use value::*;
 
 use crate::rcl_bindings::*;
 use crate::{call_string_getter_with_handle, RclrsError};
-use std::collections::{hash_map::Entry, BTreeMap, HashMap};
+use std::collections::{btree_map::Entry, BTreeMap};
 use std::marker::PhantomData;
-use std::sync::{Arc, Mutex, RwLock, Weak};
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc, Mutex, RwLock, Weak,
+};
 
 // TODO(luca) add From for rcl_interfaces::ParameterDescriptor message, but a manual implementation
 // for the opposite since this struct does not contain all the fields required to populate the
 // message
 #[derive(Clone, Debug, Default)]
 pub struct ParameterOptions {
-    // TODO(luca) add int / float range
+    // TODO(luca) add int / float range and read_only properties
+    description: String,
 }
 
 // We use weak references since parameters are owned by the declarer, not the storage.
@@ -76,8 +78,7 @@ enum ParameterStorage {
 
 #[derive(Debug, Default)]
 struct ParameterMap {
-    storage: HashMap<String, ParameterStorage>,
-    allow_undeclared: bool,
+    storage: BTreeMap<String, ParameterStorage>,
 }
 
 impl<T: ParameterVariant> MandatoryParameter<T> {
@@ -104,20 +105,13 @@ impl<T: ParameterVariant> OptionalParameter<T> {
     }
 }
 
-pub struct AllParameters {
-    _parameter_map: Arc<Mutex<ParameterMap>>,
+pub struct Parameters<'a> {
+    pub(crate) interface: &'a ParameterInterface,
 }
 
-impl AllParameters {
-    pub(crate) fn new(parameter_interface: &ParameterInterface) -> Self {
-        parameter_interface.allow_undeclared();
-        Self {
-            _parameter_map: parameter_interface._parameter_map.clone(),
-        }
-    }
-
+impl<'a> Parameters<'a> {
     pub fn get<T: ParameterVariant>(&self, name: &str) -> Option<T> {
-        let storage = &self._parameter_map.lock().unwrap().storage;
+        let storage = &self.interface._parameter_map.lock().unwrap().storage;
         let Some(storage) = storage.get(name) else {
             return None;
         };
@@ -135,6 +129,7 @@ impl AllParameters {
     // TODO(luca) either implement a new error or a new RclrsError variant
     pub fn set<T: ParameterVariant>(&self, name: &str, value: T) -> Result<(), ()> {
         match self
+            .interface
             ._parameter_map
             .lock()
             .unwrap()
@@ -153,14 +148,12 @@ impl AllParameters {
                                     *p.write().unwrap() = Some(value.into())
                                 }
                             }
-                            Ok(())
                         } else {
-                            Err(())
+                            return Err(());
                         }
                     }
                     ParameterStorage::Undeclared(param) => {
                         *param.write().unwrap() = value.into();
-                        Ok(())
                     }
                 }
             }
@@ -168,15 +161,16 @@ impl AllParameters {
                 entry.insert(ParameterStorage::Undeclared(Arc::new(RwLock::new(
                     value.into(),
                 ))));
-                Ok(())
             }
         }
+        Ok(())
     }
 }
 
 pub(crate) struct ParameterInterface {
     _parameter_map: Arc<Mutex<ParameterMap>>,
     _override_map: ParameterOverrideMap,
+    allow_undeclared: AtomicBool,
     //_services: ParameterService,
 }
 
@@ -197,6 +191,7 @@ impl ParameterInterface {
         Ok(ParameterInterface {
             _parameter_map: Default::default(),
             _override_map,
+            allow_undeclared: Default::default(),
             //_services,
         })
     }
@@ -292,8 +287,8 @@ impl ParameterInterface {
         })
     }
 
-    fn allow_undeclared(&self) {
-        self._parameter_map.lock().unwrap().allow_undeclared = true;
+    pub(crate) fn allow_undeclared(&self) {
+        self.allow_undeclared.store(true, Ordering::Relaxed);
     }
 }
 
