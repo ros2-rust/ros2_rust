@@ -8,9 +8,9 @@ pub use value::*;
 
 use crate::rcl_bindings::*;
 use crate::{call_string_getter_with_handle, RclrsError};
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{hash_map::Entry, BTreeMap, HashMap};
 use std::marker::PhantomData;
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, Mutex, RwLock, Weak};
 
 // TODO(luca) add From for rcl_interfaces::ParameterDescriptor message, but a manual implementation
 // for the opposite since this struct does not contain all the fields required to populate the
@@ -20,10 +20,11 @@ pub struct ParameterOptions {
     // TODO(luca) add int / float range
 }
 
+// We use weak references since parameters are owned by the declarer, not the storage.
 #[derive(Clone, Debug)]
 enum DeclaredValue {
-    Mandatory(Arc<RwLock<ParameterValue>>),
-    Optional(Arc<RwLock<Option<ParameterValue>>>),
+    Mandatory(Weak<RwLock<ParameterValue>>),
+    Optional(Weak<RwLock<Option<ParameterValue>>>),
 }
 
 pub struct MandatoryParameter<T: ParameterVariant> {
@@ -43,10 +44,16 @@ struct DeclaredStorage {
     options: ParameterOptions,
 }
 
-#[derive(Clone, Debug, Default)]
-struct ParameterStorage {
-    declared: HashMap<String, DeclaredStorage>,
-    undeclared: Option<HashMap<String, ParameterValue>>,
+#[derive(Debug)]
+enum ParameterStorage {
+    Declared(DeclaredStorage),
+    Undeclared(Arc<RwLock<ParameterValue>>),
+}
+
+#[derive(Debug, Default)]
+struct ParameterMap {
+    storage: HashMap<String, ParameterStorage>,
+    allow_undeclared: bool,
 }
 
 impl<T: ParameterVariant> MandatoryParameter<T> {
@@ -73,8 +80,8 @@ impl<T: ParameterVariant> OptionalParameter<T> {
     }
 }
 
-pub struct ParameterInterface {
-    _parameter_storage: ParameterStorage,
+pub(crate) struct ParameterInterface {
+    _parameter_map: ParameterMap,
     _override_map: ParameterOverrideMap,
     //_services: ParameterService,
 }
@@ -94,13 +101,13 @@ impl ParameterInterface {
         };
 
         Ok(ParameterInterface {
-            _parameter_storage: Default::default(),
+            _parameter_map: Default::default(),
             _override_map,
             //_services,
         })
     }
 
-    pub fn declare<T: ParameterVariant>(
+    pub(crate) fn declare<T: ParameterVariant>(
         &mut self,
         name: &str,
         default_value: T,
@@ -119,13 +126,13 @@ impl ParameterInterface {
             }
         }
         let value = Arc::new(RwLock::new(value));
-        self._parameter_storage.declared.insert(
+        self._parameter_map.storage.insert(
             name.to_owned(),
-            DeclaredStorage {
+            ParameterStorage::Declared(DeclaredStorage {
                 options,
-                value: DeclaredValue::Mandatory(value.clone()),
+                value: DeclaredValue::Mandatory(Arc::downgrade(&value)),
                 kind: T::kind(),
-            },
+            }),
         );
         MandatoryParameter {
             value,
@@ -133,7 +140,7 @@ impl ParameterInterface {
         }
     }
 
-    pub fn declare_optional<T: ParameterVariant>(
+    pub(crate) fn declare_optional<T: ParameterVariant>(
         &mut self,
         name: &str,
         default_value: Option<T>,
@@ -152,13 +159,13 @@ impl ParameterInterface {
             }
         }
         let value = Arc::new(RwLock::new(value));
-        self._parameter_storage.declared.insert(
+        self._parameter_map.storage.insert(
             name.to_owned(),
-            DeclaredStorage {
+            ParameterStorage::Declared(DeclaredStorage {
                 options,
-                value: DeclaredValue::Optional(value.clone()),
+                value: DeclaredValue::Optional(Arc::downgrade(&value)),
                 kind: T::kind(),
-            },
+            }),
         );
         OptionalParameter {
             value,
@@ -166,36 +173,64 @@ impl ParameterInterface {
         }
     }
 
-    pub fn get<T: ParameterVariant>(&self, name: &str) -> Option<T> {
-        let Some(storage) = self._parameter_storage.declared.get(name) else {
+    pub(crate) fn get_undeclared<T: ParameterVariant>(&mut self, name: &str) -> Option<T> {
+        self._parameter_map.allow_undeclared = true;
+        let Some(storage) = self._parameter_map.storage.get(name) else {
             return None;
         };
-        match &storage.value {
-            DeclaredValue::Mandatory(v) => T::maybe_from(v.read().unwrap().clone()),
-            DeclaredValue::Optional(v) => v.read().unwrap().clone().and_then(|p| T::maybe_from(p)),
+        match storage {
+            ParameterStorage::Declared(storage) => match &storage.value {
+                DeclaredValue::Mandatory(p) => p
+                    .upgrade()
+                    .and_then(|p| T::maybe_from(p.read().unwrap().clone())),
+                DeclaredValue::Optional(p) => p
+                    .upgrade()
+                    .and_then(|opt| opt.read().unwrap().clone().and_then(|p| T::maybe_from(p))),
+            },
+            ParameterStorage::Undeclared(value) => T::maybe_from(value.read().unwrap().clone()),
         }
     }
 
     // TODO(luca) either implement a new error or a new RclrsError variant
-    pub fn set<T: ParameterVariant>(&mut self, name: &str, value: T) -> Result<(), ()> {
-        match self._parameter_storage.declared.get_mut(name) {
-            Some(storage) => {
-                if T::kind() == storage.kind {
-                    // TODO(luca) design document requires ability to "try" setting parameters
-                    // without actually doing it, this will be especially needed for setting
-                    // parameters atomically
-                    match &storage.value {
-                        DeclaredValue::Mandatory(v) => *v.write().unwrap() = value.into(),
-                        DeclaredValue::Optional(v) => *v.write().unwrap() = Some(value.into()),
+    pub(crate) fn set_undeclared<T: ParameterVariant>(
+        &mut self,
+        name: &str,
+        value: T,
+    ) -> Result<(), ()> {
+        self._parameter_map.allow_undeclared = true;
+        match self._parameter_map.storage.entry(name.to_string()) {
+            Entry::Occupied(mut entry) => {
+                // If it's declared we can only set if it's the same variant.
+                // Undeclared parameters are dynamic by default
+                match entry.get_mut() {
+                    ParameterStorage::Declared(param) => {
+                        if T::kind() == param.kind {
+                            match &param.value {
+                                DeclaredValue::Mandatory(p) => p
+                                    .upgrade()
+                                    .map(|p| *p.write().unwrap() = value.into())
+                                    .ok_or(()),
+                                DeclaredValue::Optional(p) => p
+                                    .upgrade()
+                                    .map(|p| *p.write().unwrap() = Some(value.into()))
+                                    .ok_or(()),
+                            }
+                        } else {
+                            Err(())
+                        }
                     }
-                    Ok(())
-                } else {
-                    // Trying to set parameter of the wrong type and parameter is not dynamic
-                    Err(())
+                    ParameterStorage::Undeclared(param) => {
+                        *param.write().unwrap() = value.into();
+                        Ok(())
+                    }
                 }
             }
-            // Parameter was not declared
-            None => Err(()),
+            Entry::Vacant(entry) => {
+                entry.insert(ParameterStorage::Undeclared(Arc::new(RwLock::new(
+                    value.into(),
+                ))));
+                Ok(())
+            }
         }
     }
 }
@@ -229,27 +264,33 @@ mod tests {
         assert_eq!(new_param.get(), 2.0);
 
         // Getting a parameter that was declared should work
-        assert_eq!(node.get_parameter::<f64>("new_param"), Some(2.0));
+        assert_eq!(node.get_parameter_undeclared::<f64>("new_param"), Some(2.0));
 
         // Getting / Setting a parameter with the wrong type should not work
-        assert!(node.get_parameter::<i64>("new_param").is_none());
-        assert!(node.set_parameter("new_param", 42).is_err());
+        assert!(node.get_parameter_undeclared::<i64>("new_param").is_none());
+        assert!(node.set_parameter_undeclared("new_param", 42).is_err());
 
         // Setting a parameter should update both existing parameter objects and be reflected in
-        // new node.get_parameter() calls
-        assert!(node.set_parameter("new_param", 10.0).is_ok());
-        assert_eq!(node.get_parameter("new_param"), Some(10.0));
+        // new node.get_parameter_undeclared() calls
+        assert!(node.set_parameter_undeclared("new_param", 10.0).is_ok());
+        assert_eq!(node.get_parameter_undeclared("new_param"), Some(10.0));
         assert_eq!(new_param.get(), 10.0);
         new_param.set(5.0);
         assert_eq!(new_param.get(), 5.0);
-        assert_eq!(node.get_parameter("new_param"), Some(5.0));
+        assert_eq!(node.get_parameter_undeclared("new_param"), Some(5.0));
 
         // Getting a parameter that was not declared should not work
-        assert_eq!(node.get_parameter::<f64>("non_existing_param"), None);
+        assert_eq!(
+            node.get_parameter_undeclared::<f64>("non_existing_param"),
+            None
+        );
 
         // Getting a parameter that was not declared should not work, even if a value was provided
         // as a parameter override
-        assert_eq!(node.get_parameter::<Arc<str>>("non_declared_string"), None);
+        assert_eq!(
+            node.get_parameter_undeclared::<Arc<str>>("non_declared_string"),
+            None
+        );
 
         let optional_param = node.declare_optional_parameter::<bool>(
             "non_existing_bool",
@@ -281,12 +322,43 @@ mod tests {
         );
 
         // TODO(luca) clearly UX for array types can be improved
-        let strings = Arc::from(
-            [Arc::from("Hello"), Arc::from("World")]
+        let strings = Arc::from([Arc::from("Hello"), Arc::from("World")]);
+        let string_array = node.declare_parameter::<Arc<[Arc<str>]>>(
+            "string_array",
+            strings,
+            ParameterOptions::default(),
         );
-        let string_array =
-            node.declare_parameter::<Arc<[Arc<str>]>>("string_array", strings, ParameterOptions::default());
 
+        Ok(())
+    }
+
+    #[test]
+    fn test_parameter_scope_redeclaring() -> Result<(), RclrsError> {
+        let ctx = Context::new([
+            String::from("--ros-args"),
+            String::from("-p"),
+            String::from("declared_int:=10"),
+        ])?;
+        let node = create_node(&ctx, "param_test_node")?;
+        {
+            // Setting a parameter with an override
+            let param = node.declare_parameter("declared_int", 1, ParameterOptions::default());
+            assert_eq!(param.get(), 10);
+            param.set(2);
+            assert_eq!(param.get(), 2);
+        }
+        {
+            // It should reset to the command line override
+            let param = node.declare_parameter("declared_int", 1, ParameterOptions::default());
+            assert_eq!(param.get(), 10);
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn test_dynamic_undeclared_parameter() -> Result<(), RclrsError> {
+        let ctx = Context::new([])?;
+        let node = create_node(&ctx, "param_test_node")?;
         Ok(())
     }
 }
