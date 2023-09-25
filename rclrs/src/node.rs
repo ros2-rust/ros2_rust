@@ -383,6 +383,47 @@ impl Node {
         self._parameter.declare(name, default_value, options)
     }
 
+    /// Tries to declare a mandatory parameter from an iterable with the requested default value.
+    /// The function will check the parameter overrides, as well as potential undeclared parameters
+    /// that have been previously set, and return the final parameter value.
+    ///
+    /// Returns:
+    /// * Ok(MandatoryParameter<T>) if setting was successful.
+    /// * Err(ParameterError::AlreadyDeclared) if the parameter was already declared.
+    pub fn declare_parameter_from_iter<T: ParameterVariant, U: IntoIterator>(
+        &self,
+        name: &str,
+        default_value: U,
+        options: ParameterOptions,
+    ) -> Result<MandatoryParameter<T>, ParameterError>
+    where
+        T: FromIterator<U::Item>,
+    {
+        self._parameter
+            .declare_from_iter(name, default_value, options)
+    }
+
+    /// Tries to declare a mandatory string array parameter with the requested default value.
+    /// The function will check the parameter overrides, as well as potential undeclared parameters
+    /// that have been previously set, and return the final parameter value.
+    ///
+    /// Returns:
+    /// * Ok(MandatoryParameter<T>) if setting was successful.
+    /// * Err(ParameterError::AlreadyDeclared) if the parameter was already declared.
+    pub fn declare_string_array_parameter<U>(
+        &self,
+        name: &str,
+        default_value: U,
+        options: ParameterOptions,
+    ) -> Result<MandatoryParameter<Arc<[Arc<str>]>>, ParameterError>
+    where
+        U: IntoIterator,
+        U::Item: Into<Arc<str>>,
+    {
+        self._parameter
+            .declare_string_array(name, default_value, options)
+    }
+
     /// Tries to declare an optional parameter with the requested default value.
     /// The function will check the parameter overrides, as well as potential undeclared parameters
     /// that have been previously set, and return the final parameter value.

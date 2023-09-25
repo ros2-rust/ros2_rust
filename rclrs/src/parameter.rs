@@ -160,7 +160,6 @@ impl<'a> Parameters<'a> {
     /// * Ok(()) if setting was successful.
     /// * Err(ParameterError::TypeMismatch) if the type of the requested value is different from
     /// the parameter's type.
-    // TODO(luca) either implement a new error or a new RclrsError variant
     pub fn set<T: ParameterVariant>(&self, name: &str, value: T) -> Result<(), ParameterError> {
         match self
             .interface
@@ -236,28 +235,9 @@ impl ParameterInterface {
         default_value: T,
         options: ParameterOptions,
     ) -> Result<MandatoryParameter<T>, ParameterError> {
-        let mut value = default_value.into();
-        if let Some(current_value) = self._parameter_map.lock().unwrap().storage.get(name) {
-            match current_value {
-                ParameterStorage::Declared(_) => return Err(ParameterError::AlreadyDeclared),
-                ParameterStorage::Undeclared(param) => {
-                    if let Some(v) = T::maybe_from(param.read().unwrap().clone()) {
-                        value = v.into();
-                    }
-                }
-            }
-        }
-        if let Some(param_override) = self._override_map.get(name) {
-            // TODO(luca) It is possible for the override (i.e. through command line) to be of a
-            // different type thant what is declared, in which case we ignore the override.
-            // We currently print an error but there should probably be more formal error
-            // reporting.
-            if param_override.static_kind() == T::kind() {
-                value = param_override.clone();
-            } else {
-                println!("Mismatch in parameter override type for {}, ignoring", name);
-            }
-        }
+        let value = self
+            .get_declaration_default_value::<T>(name)?
+            .unwrap_or_else(|| default_value.into());
         let value = Arc::new(RwLock::new(value));
         self._parameter_map.lock().unwrap().storage.insert(
             name.to_owned(),
@@ -275,24 +255,11 @@ impl ParameterInterface {
         })
     }
 
-    pub(crate) fn declare_optional<T: ParameterVariant>(
+    fn get_declaration_default_value<T: ParameterVariant>(
         &self,
         name: &str,
-        default_value: Option<T>,
-        options: ParameterOptions,
-    ) -> Result<OptionalParameter<T>, ParameterError> {
-        let mut value = default_value.map(|p| p.into());
-        // TODO(luca) refactor duplicated code between mandatory and optional declaration
-        if let Some(current_value) = self._parameter_map.lock().unwrap().storage.get(name) {
-            match current_value {
-                ParameterStorage::Declared(_) => return Err(ParameterError::AlreadyDeclared),
-                ParameterStorage::Undeclared(param) => {
-                    if let Some(v) = T::maybe_from(param.read().unwrap().clone()) {
-                        value = Some(v.into());
-                    }
-                }
-            }
-        }
+    ) -> Result<Option<ParameterValue>, ParameterError> {
+        let mut value = None;
         if let Some(param_override) = self._override_map.get(name) {
             // TODO(luca) It is possible for the override (i.e. through command line) to be of a
             // different type thant what is declared, in which case we ignore the override.
@@ -304,6 +271,61 @@ impl ParameterInterface {
                 println!("Mismatch in parameter override type for {}, ignoring", name);
             }
         }
+        if let Some(current_value) = self._parameter_map.lock().unwrap().storage.get(name) {
+            match current_value {
+                ParameterStorage::Declared(_) => return Err(ParameterError::AlreadyDeclared),
+                ParameterStorage::Undeclared(param) => {
+                    if let Some(v) = T::maybe_from(param.read().unwrap().clone()) {
+                        value = Some(v.into());
+                    }
+                }
+            }
+        }
+        Ok(value)
+    }
+
+    pub(crate) fn declare_from_iter<T: ParameterVariant, U: IntoIterator>(
+        &self,
+        name: &str,
+        default_value: U,
+        options: ParameterOptions,
+    ) -> Result<MandatoryParameter<T>, ParameterError>
+    where
+        T: FromIterator<U::Item>,
+    {
+        let value = self
+            .get_declaration_default_value::<T>(name)?
+            .map(|v| T::maybe_from(v).unwrap())
+            .unwrap_or_else(|| default_value.into_iter().collect());
+        self.declare(name, value, options)
+    }
+
+    pub(crate) fn declare_string_array<U>(
+        &self,
+        name: &str,
+        default_value: U,
+        options: ParameterOptions,
+    ) -> Result<MandatoryParameter<Arc<[Arc<str>]>>, ParameterError>
+    where
+        U: IntoIterator,
+        U::Item: Into<Arc<str>>,
+    {
+        let value = self
+            .get_declaration_default_value::<Arc<[Arc<str>]>>(name)?
+            .map(|v| Arc::<[Arc<str>]>::maybe_from(v).unwrap())
+            .unwrap_or_else(|| default_value.into_iter().map(|v| v.into()).collect());
+        self.declare(name, value, options)
+    }
+
+    pub(crate) fn declare_optional<T: ParameterVariant>(
+        &self,
+        name: &str,
+        default_value: Option<T>,
+        options: ParameterOptions,
+    ) -> Result<OptionalParameter<T>, ParameterError> {
+        let value = self
+            .get_declaration_default_value::<T>(name)?
+            .or_else(|| default_value.map(|p| p.into()));
         let value = Arc::new(RwLock::new(value));
         self._parameter_map.lock().unwrap().storage.insert(
             name.to_owned(),
@@ -453,18 +475,16 @@ mod tests {
         assert_eq!(optional_param3.get(), Some(true));
 
         // Test syntax for array types
-        node.declare_parameter::<Arc<[f64]>>(
+        node.declare_parameter_from_iter::<Arc<[f64]>, _>(
             "double_array",
-            vec![10.0, 20.0].into(),
+            vec![10.0, 20.0],
             ParameterOptions::default(),
         )
         .unwrap();
 
-        // TODO(luca) clearly UX for array types can be improved
-        let strings = Arc::from([Arc::from("Hello"), Arc::from("World")]);
-        node.declare_parameter::<Arc<[Arc<str>]>>(
+        node.declare_string_array_parameter(
             "string_array",
-            strings,
+            vec!["Hello", "World"],
             ParameterOptions::default(),
         )
         .unwrap();
