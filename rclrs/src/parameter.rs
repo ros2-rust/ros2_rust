@@ -110,8 +110,8 @@ impl<T: ParameterVariant> OptionalParameter<T> {
     }
 
     /// Sets the parameter value.
-    pub fn set(&self, value: T) {
-        *self.value.write().unwrap() = Some(value.into());
+    pub fn set(&self, value: Option<T>) {
+        *self.value.write().unwrap() = value.map(|v| v.into());
     }
 }
 
@@ -426,6 +426,10 @@ mod tests {
                 ParameterOptions::default(),
             )
             .unwrap();
+        assert_eq!(optional_param.get(), None);
+        optional_param.set(Some(true));
+        assert_eq!(optional_param.get(), Some(true));
+        optional_param.set(None);
         assert_eq!(optional_param.get(), None);
 
         let optional_param2 = node
