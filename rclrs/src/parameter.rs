@@ -109,9 +109,14 @@ impl<T: ParameterVariant> OptionalParameter<T> {
             .map(|p| T::maybe_from(p).unwrap())
     }
 
-    /// Sets the parameter value.
-    pub fn set(&self, value: Option<T>) {
-        *self.value.write().unwrap() = value.map(|v| v.into());
+    /// Assigns a value to the optional parameter, setting it to `Some(value)`.
+    pub fn set<U: Into<T>>(&self, value: U) {
+        *self.value.write().unwrap() = Some(value.into().into());
+    }
+
+    /// Unsets the optional parameter value to `None`.
+    pub fn unset(&self) {
+        *self.value.write().unwrap() = None;
     }
 }
 
@@ -427,9 +432,9 @@ mod tests {
             )
             .unwrap();
         assert_eq!(optional_param.get(), None);
-        optional_param.set(Some(true));
+        optional_param.set(true);
         assert_eq!(optional_param.get(), Some(true));
-        optional_param.set(None);
+        optional_param.unset();
         assert_eq!(optional_param.get(), None);
 
         let optional_param2 = node
