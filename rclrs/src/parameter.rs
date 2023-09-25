@@ -475,7 +475,7 @@ mod tests {
         assert_eq!(optional_param3.get(), Some(true));
 
         // Test syntax for array types
-        node.declare_parameter_from_iter::<Arc<[f64]>, _>(
+        node.declare_parameter_from_iter::<F64ArrayParameter ,_>(
             "double_array",
             vec![10.0, 20.0],
             ParameterOptions::default(),

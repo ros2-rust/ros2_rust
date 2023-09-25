@@ -50,6 +50,16 @@ pub enum ParameterValue {
     StringArray(Arc<[Arc<str>]>),
 }
 
+pub type BoolParameter = bool;
+pub type I64Parameter = i64;
+pub type F64Parameter = f64;
+pub type StringParameter = Arc<str>;
+pub type ByteArrayParameter = Arc<[u8]>;
+pub type BoolArrayParameter = Arc<[bool]>;
+pub type I64ArrayParameter = Arc<[i64]>;
+pub type F64ArrayParameter = Arc<[f64]>;
+pub type StringArrayParameter = Arc<[Arc<str>]>;
+
 /// Describes the parameter's type. Similar to `ParameterValue` but also includes a `Dynamic`
 /// variant for dynamic parameters.
 #[derive(Clone, Debug, PartialEq)]
