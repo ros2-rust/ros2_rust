@@ -284,18 +284,18 @@ impl ParameterInterface {
         Ok(value)
     }
 
-    pub(crate) fn declare_from_iter<T: ParameterVariant, U: IntoIterator>(
+    pub(crate) fn declare_from_iter<U: IntoIterator>(
         &self,
         name: &str,
         default_value: U,
         options: ParameterOptions,
-    ) -> Result<MandatoryParameter<T>, ParameterError>
+    ) -> Result<MandatoryParameter<Arc<[U::Item]>>, ParameterError>
     where
-        T: FromIterator<U::Item>,
+        Arc<[U::Item]>: ParameterVariant,
     {
         let value = self
-            .get_declaration_default_value::<T>(name)?
-            .map(|v| T::maybe_from(v).unwrap())
+            .get_declaration_default_value::<Arc<[U::Item]>>(name)?
+            .map(|v| Arc::<[U::Item]>::maybe_from(v).unwrap())
             .unwrap_or_else(|| default_value.into_iter().collect());
         self.declare(name, value, options)
     }
@@ -474,20 +474,26 @@ mod tests {
             .unwrap();
         assert_eq!(optional_param3.get(), Some(true));
 
-        // Test syntax for array types
-        node.declare_parameter_from_iter::<F64ArrayParameter ,_>(
-            "double_array",
-            vec![10.0, 20.0],
-            ParameterOptions::default(),
-        )
-        .unwrap();
+        // double_array was overriden to 1.0 2.0 through command line overrides
+        let array_param = node
+            .declare_parameter_from_iter(
+                "double_array",
+                vec![10.0, 20.0],
+                ParameterOptions::default(),
+            )
+            .unwrap();
+        assert_eq!(array_param.get()[0], 1.0);
+        assert_eq!(array_param.get()[1], 2.0);
 
-        node.declare_string_array_parameter(
-            "string_array",
-            vec!["Hello", "World"],
-            ParameterOptions::default(),
-        )
-        .unwrap();
+        let array_param = node
+            .declare_string_array_parameter(
+                "string_array",
+                vec!["Hello", "World"],
+                ParameterOptions::default(),
+            )
+            .unwrap();
+        assert_eq!(array_param.get()[0], "Hello".into());
+        assert_eq!(array_param.get()[1], "World".into());
 
         // If a value is set when undeclared, a following declare_parameter should have the
         // previously set value.
@@ -499,6 +505,26 @@ mod tests {
             .unwrap();
         assert_eq!(undeclared_int.get(), 42);
 
+        Ok(())
+    }
+
+    #[test]
+    fn test_override_undeclared_set_priority() -> Result<(), RclrsError> {
+        let ctx = Context::new([
+            String::from("--ros-args"),
+            String::from("-p"),
+            String::from("declared_int:=10"),
+        ])?;
+        let node = create_node(&ctx, "param_test_node")?;
+        // If a parameter was set as an override and as an undeclared parameter, the undeclared
+        // value should get priority
+        node.use_undeclared_parameters()
+            .set("declared_int", 20)
+            .unwrap();
+        let param = node
+            .declare_parameter("declared_int", 30, ParameterOptions::default())
+            .unwrap();
+        assert_eq!(param.get(), 20);
         Ok(())
     }
 

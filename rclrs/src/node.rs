@@ -390,14 +390,14 @@ impl Node {
     /// Returns:
     /// * Ok(MandatoryParameter<T>) if setting was successful.
     /// * Err(ParameterError::AlreadyDeclared) if the parameter was already declared.
-    pub fn declare_parameter_from_iter<T: ParameterVariant, U: IntoIterator>(
+    pub fn declare_parameter_from_iter<U: IntoIterator>(
         &self,
         name: &str,
         default_value: U,
         options: ParameterOptions,
-    ) -> Result<MandatoryParameter<T>, ParameterError>
+    ) -> Result<MandatoryParameter<Arc<[U::Item]>>, ParameterError>
     where
-        T: FromIterator<U::Item>,
+        Arc<[U::Item]>: ParameterVariant,
     {
         self._parameter
             .declare_from_iter(name, default_value, options)
