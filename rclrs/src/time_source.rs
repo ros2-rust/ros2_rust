@@ -1,5 +1,5 @@
 use crate::clock::{Clock, ClockSource, ClockType};
-use crate::{Node, ParameterOptions, QoSProfile, RclrsError, Subscription, QOS_PROFILE_CLOCK};
+use crate::{Node, QoSProfile, RclrsError, Subscription, QOS_PROFILE_CLOCK};
 use rosgraph_msgs::msg::Clock as ClockMsg;
 use std::sync::{Arc, Mutex, RwLock, Weak};
 
@@ -108,7 +108,8 @@ impl TimeSource {
 
         // TODO(luca) register a parameter callback, hold the parameter handle
         if let Some(sim_param) = self._node.upgrade().map(|n| {
-            n.declare_parameter::<bool>("use_sim_time", false, ParameterOptions::default())
+            n.declare_parameter::<bool>("use_sim_time", false)
+                .mandatory()
                 .unwrap()
                 .get()
         }) {

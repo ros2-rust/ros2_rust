@@ -2,6 +2,7 @@ use std::ffi::CStr;
 use std::sync::Arc;
 
 use crate::rcl_bindings::*;
+use crate::{ParameterRange, ParameterRanges};
 
 /// A parameter value.
 ///
@@ -131,7 +132,9 @@ impl From<Arc<[Arc<str>]>> for ParameterValue {
 }
 
 /// A trait that describes a value that can be converted into a parameter.
-pub trait ParameterVariant: Into<ParameterValue> {
+pub trait ParameterVariant: Into<ParameterValue> + Clone {
+    /// The type used to describe the range of this parameter.
+    type Range: Into<ParameterRanges> + Default + Clone;
     /// Attempts to convert `value` into the requested type.
     /// Returns `Some(Self)` if the conversion was successful, `None` otherwise.
     // TODO(luca) should we use try_from?
@@ -142,6 +145,7 @@ pub trait ParameterVariant: Into<ParameterValue> {
 }
 
 impl ParameterVariant for bool {
+    type Range = ();
     fn maybe_from(value: ParameterValue) -> Option<Self> {
         match value {
             ParameterValue::Bool(v) => Some(v),
@@ -155,6 +159,7 @@ impl ParameterVariant for bool {
 }
 
 impl ParameterVariant for i64 {
+    type Range = ParameterRange<i64>;
     fn maybe_from(value: ParameterValue) -> Option<Self> {
         match value {
             ParameterValue::Integer(v) => Some(v),
@@ -168,6 +173,7 @@ impl ParameterVariant for i64 {
 }
 
 impl ParameterVariant for f64 {
+    type Range = ParameterRange<f64>;
     fn maybe_from(value: ParameterValue) -> Option<Self> {
         match value {
             ParameterValue::Double(v) => Some(v),
@@ -181,6 +187,7 @@ impl ParameterVariant for f64 {
 }
 
 impl ParameterVariant for Arc<str> {
+    type Range = ();
     fn maybe_from(value: ParameterValue) -> Option<Self> {
         match value {
             ParameterValue::String(v) => Some(v),
@@ -194,6 +201,7 @@ impl ParameterVariant for Arc<str> {
 }
 
 impl ParameterVariant for Arc<[u8]> {
+    type Range = ();
     fn maybe_from(value: ParameterValue) -> Option<Self> {
         match value {
             ParameterValue::ByteArray(v) => Some(v),
@@ -207,6 +215,7 @@ impl ParameterVariant for Arc<[u8]> {
 }
 
 impl ParameterVariant for Arc<[bool]> {
+    type Range = ();
     fn maybe_from(value: ParameterValue) -> Option<Self> {
         match value {
             ParameterValue::BoolArray(v) => Some(v),
@@ -220,6 +229,7 @@ impl ParameterVariant for Arc<[bool]> {
 }
 
 impl ParameterVariant for Arc<[i64]> {
+    type Range = ();
     fn maybe_from(value: ParameterValue) -> Option<Self> {
         match value {
             ParameterValue::IntegerArray(v) => Some(v),
@@ -233,6 +243,7 @@ impl ParameterVariant for Arc<[i64]> {
 }
 
 impl ParameterVariant for Arc<[f64]> {
+    type Range = ();
     fn maybe_from(value: ParameterValue) -> Option<Self> {
         match value {
             ParameterValue::DoubleArray(v) => Some(v),
@@ -246,6 +257,7 @@ impl ParameterVariant for Arc<[f64]> {
 }
 
 impl ParameterVariant for Arc<[Arc<str>]> {
+    type Range = ();
     fn maybe_from(value: ParameterValue) -> Option<Self> {
         match value {
             ParameterValue::StringArray(v) => Some(v),
@@ -259,6 +271,7 @@ impl ParameterVariant for Arc<[Arc<str>]> {
 }
 
 impl ParameterVariant for ParameterValue {
+    type Range = ParameterRanges;
     fn maybe_from(value: ParameterValue) -> Option<Self> {
         Some(value)
     }

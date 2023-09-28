@@ -13,7 +13,7 @@ pub use self::builder::*;
 pub use self::graph::*;
 use crate::rcl_bindings::*;
 use crate::{
-    Client, ClientBase, Clock, Context, GuardCondition, MandatoryParameter, OptionalParameter,
+    Client, ClientBase, Clock, Context, GuardCondition, OptionalParameter, ParameterBuilder,
     ParameterError, ParameterInterface, ParameterOptions, ParameterVariant, Parameters, Publisher,
     QoSProfile, RclrsError, Service, ServiceBase, Subscription, SubscriptionBase,
     SubscriptionCallback, TimeSource, ToResult,
@@ -367,61 +367,64 @@ impl Node {
         domain_id
     }
 
-    /// Tries to declare a mandatory parameter with the requested default value.
-    /// The function will check the parameter overrides, as well as potential undeclared parameters
-    /// that have been previously set, and return the final parameter value.
+    /// Creates a `ParameterBuilder` that can be used to set parameter declaration options and
+    /// declare a parameter as `Optional`, `Mandatory` or `ReadOnly`.
     ///
-    /// Returns:
-    /// * Ok(MandatoryParameter<T>) if setting was successful.
-    /// * Err(ParameterError::AlreadyDeclared) if the parameter was already declared.
+    /// # Example
+    /// ```
+    /// # use rclrs::{Context, ParameterRange, RclrsError};
+    /// let context = Context::new([])?;
+    /// let node = rclrs::create_node(&context, "domain_id_node")?;
+    /// // Set it to a range of 0-100, with a step of 2
+    /// let range = ParameterRange {
+    ///     lower: Some(-100),
+    ///     upper: Some(100),
+    ///     step: Some(2),
+    /// };
+    /// let param = node.declare_parameter("int_param", 10)
+    ///                 .range(range)
+    ///                 .mandatory()
+    ///                 .unwrap();
+    /// assert_eq!(param.get(), 10);
+    /// param.set(50).unwrap();
+    /// assert_eq!(param.get(), 50);
+    /// // Out of range, will return an error
+    /// assert!(param.set(200).is_err());
+    /// # Ok::<(), RclrsError>(())
+    /// ```
     pub fn declare_parameter<T: ParameterVariant>(
         &self,
         name: &str,
         default_value: T,
-        options: ParameterOptions,
-    ) -> Result<MandatoryParameter<T>, ParameterError> {
-        self._parameter.declare(name, default_value, options)
+    ) -> ParameterBuilder<'_, T> {
+        self._parameter.declare(name, default_value)
     }
 
-    /// Tries to declare a mandatory parameter from an iterable with the requested default value.
-    /// The function will check the parameter overrides, as well as potential undeclared parameters
-    /// that have been previously set, and return the final parameter value.
-    ///
-    /// Returns:
-    /// * Ok(MandatoryParameter<T>) if setting was successful.
-    /// * Err(ParameterError::AlreadyDeclared) if the parameter was already declared.
+    /// Creates a `ParameterBuilder` that can be used to set parameter declaration options and
+    /// declare a parameter from an iterable as `Optional`, `Mandatory` or `ReadOnly`.
     pub fn declare_parameter_from_iter<U: IntoIterator>(
         &self,
         name: &str,
         default_value: U,
-        options: ParameterOptions,
-    ) -> Result<MandatoryParameter<Arc<[U::Item]>>, ParameterError>
+    ) -> ParameterBuilder<'_, Arc<[U::Item]>>
     where
         Arc<[U::Item]>: ParameterVariant,
     {
-        self._parameter
-            .declare_from_iter(name, default_value, options)
+        self._parameter.declare_from_iter(name, default_value)
     }
 
-    /// Tries to declare a mandatory string array parameter with the requested default value.
-    /// The function will check the parameter overrides, as well as potential undeclared parameters
-    /// that have been previously set, and return the final parameter value.
-    ///
-    /// Returns:
-    /// * Ok(MandatoryParameter<T>) if setting was successful.
-    /// * Err(ParameterError::AlreadyDeclared) if the parameter was already declared.
+    /// Creates a `ParameterBuilder` that can be used to set parameter declaration options and
+    /// declare a string array parameter as `Optional`, `Mandatory` or `ReadOnly`.
     pub fn declare_string_array_parameter<U>(
         &self,
         name: &str,
         default_value: U,
-        options: ParameterOptions,
-    ) -> Result<MandatoryParameter<Arc<[Arc<str>]>>, ParameterError>
+    ) -> ParameterBuilder<'_, Arc<[Arc<str>]>>
     where
         U: IntoIterator,
         U::Item: Into<Arc<str>>,
     {
-        self._parameter
-            .declare_string_array(name, default_value, options)
+        self._parameter.declare_string_array(name, default_value)
     }
 
     /// Tries to declare an optional parameter with the requested default value.
@@ -429,13 +432,13 @@ impl Node {
     /// that have been previously set, and return the final parameter value.
     ///
     /// Returns:
-    /// * Ok(OptionalParameter<T>) if setting was successful.
-    /// * Err(ParameterError::AlreadyDeclared) if the parameter was already declared.
+    /// * `Ok(OptionalParameter<T>)` if setting was successful.
+    /// * `Err(ParameterError::AlreadyDeclared)` if the parameter was already declared.
     pub fn declare_optional_parameter<T: ParameterVariant>(
         &self,
         name: &str,
         default_value: Option<T>,
-        options: ParameterOptions,
+        options: ParameterOptions<T>,
     ) -> Result<OptionalParameter<T>, ParameterError> {
         self._parameter
             .declare_optional(name, default_value, options)
