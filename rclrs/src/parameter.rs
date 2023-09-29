@@ -87,6 +87,15 @@ pub struct ParameterRanges {
 }
 
 impl ParameterRanges {
+    fn validate(&self) -> Result<(), ParameterError> {
+        if let Some(integer) = &self.integer {
+            integer.validate()?;
+        }
+        if let Some(float) = &self.float {
+            float.validate()?;
+        }
+        Ok(())
+    }
     fn check_in_range(&self, value: &ParameterValue) -> Result<(), ParameterError> {
         match value {
             ParameterValue::Integer(v) => {
@@ -105,59 +114,33 @@ impl ParameterRanges {
     }
 }
 
-/// Builder for the `ParameterRange` struct. Defaults to no range enforced.
-#[derive(Debug)]
-pub struct ParameterRangeBuilder<T: ParameterVariant> {
-    lower: Option<T>,
-    upper: Option<T>,
-    step: Option<T>,
-}
-
-impl<T: ParameterVariant> Default for ParameterRangeBuilder<T> {
-    fn default() -> Self {
-        Self {
-            lower: Default::default(),
-            upper: Default::default(),
-            step: Default::default(),
-        }
-    }
-}
-
-impl<T: ParameterVariant + PartialOrd + Default> ParameterRangeBuilder<T> {
-    /// Creates a new `ParameterRangeBuilder` struct, default initialized.
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// Sets the lower limit, the parameter must be >= lower.
-    pub fn lower(mut self, lower: T) -> Self {
-        self.lower = Some(lower);
-        self
-    }
-
-    /// Sets the upper limit, the parameter must be <= upper.
-    pub fn upper(mut self, upper: T) -> Self {
-        self.upper = Some(upper);
-        self
-    }
-
-    /// Sets the step size, if set and `lower` is set the parameter must be within an integer
-    /// number of steps of size `step` from `lower`, or equal to the upper limit if set.
+/// Describes the range for paramter type T.
+#[derive(Clone, Debug, Default)]
+pub struct ParameterRange<T: ParameterVariant + PartialOrd> {
+    /// Lower limit, if set the parameter must be >= l.
+    pub lower: Option<T>,
+    /// Upper limit, if set the parameter must be <= u.
+    pub upper: Option<T>,
+    /// Step size, if set and `lower` is set the parameter must be within an integer number of
+    /// steps of size `step` from `lower`, or equal to the upper limit if set.
     /// Example:
-    /// If lower is 0, upper is 10 and step is 3, acceptable values are:
+    /// If lower is Some(0), upper is Some(10) and step is Some(3), acceptable values are:
     /// [0, 3, 6, 9, 10]
-    pub fn step(mut self, step: T) -> Self {
-        self.step = Some(step);
-        self
+    pub step: Option<T>,
+}
+
+impl<T: ParameterVariant + PartialOrd + Default> ParameterRange<T> {
+    fn check_boundary(&self, value: &T) -> Result<(), ParameterError> {
+        if self.lower.as_ref().is_some_and(|l| value < l) {
+            return Err(ParameterError::OutOfRange);
+        }
+        if self.upper.as_ref().is_some_and(|u| value > u) {
+            return Err(ParameterError::OutOfRange);
+        }
+        Ok(())
     }
 
-    /// Consumes the builder and returns the finalized `ParameterRange` object.
-    ///
-    /// Returns:
-    /// * `Ok(ParameterRange<T>)` if building was successful.
-    /// * `Err(ParameterError::InvalidRange)` if  the range was not valid, for example if lower >
-    /// upper or step <= 0.
-    pub fn build(self) -> Result<ParameterRange<T>, ParameterError> {
+    fn validate(&self) -> Result<(), ParameterError> {
         if self
             .lower
             .as_ref()
@@ -168,35 +151,6 @@ impl<T: ParameterVariant + PartialOrd + Default> ParameterRangeBuilder<T> {
         }
         if self.step.as_ref().is_some_and(|s| s <= &T::default()) {
             return Err(ParameterError::InvalidRange);
-        }
-        Ok(ParameterRange {
-            lower: self.lower,
-            upper: self.upper,
-            step: self.step,
-        })
-    }
-}
-
-/// Describes the range for paramter type T.
-#[derive(Clone, Debug, Default)]
-pub struct ParameterRange<T: ParameterVariant + PartialOrd> {
-    lower: Option<T>,
-    upper: Option<T>,
-    step: Option<T>,
-}
-
-impl<T: ParameterVariant + PartialOrd + Default> ParameterRange<T> {
-    /// Creates a new builder, used to set the parameter range values
-    pub fn builder() -> ParameterRangeBuilder<T> {
-        ParameterRangeBuilder::new()
-    }
-
-    fn check_boundary(&self, value: &T) -> Result<(), ParameterError> {
-        if self.lower.as_ref().is_some_and(|l| value < l) {
-            return Err(ParameterError::OutOfRange);
-        }
-        if self.upper.as_ref().is_some_and(|u| value > u) {
-            return Err(ParameterError::OutOfRange);
         }
         Ok(())
     }
@@ -291,6 +245,7 @@ impl<'a, T: ParameterVariant> ParameterBuilder<'a, T> {
             .unwrap_or(self.default_value)
             .into();
         let ranges = self.options.ranges.clone().into();
+        ranges.validate()?;
         ranges.check_in_range(&value)?;
         let value = Arc::new(RwLock::new(value));
         self.interface
@@ -328,6 +283,7 @@ impl<'a, T: ParameterVariant> ParameterBuilder<'a, T> {
             .unwrap_or(self.default_value)
             .into();
         let ranges = self.options.ranges.clone().into();
+        ranges.validate()?;
         ranges.check_in_range(&value)?;
         self.interface
             ._parameter_map
@@ -351,6 +307,9 @@ impl<'a, T: ParameterVariant> ParameterBuilder<'a, T> {
     }
 
     /// Declares the parameter as an Optional parameter, that can be unset.
+    ///
+    /// This method sets a value, unlike `node.declare_optional_parameter([...])` that can declare
+    /// an unset value.
     ///
     /// Returns:
     /// * `Ok(OptionalParameter<T>)` if declaration was successful.
@@ -692,6 +651,7 @@ impl ParameterInterface {
             .or(default_value)
             .map(|v| v.into());
         let ranges = options.ranges.clone().into();
+        ranges.validate()?;
         if let Some(ref v) = value {
             ranges.check_in_range(v)?;
         }
@@ -815,7 +775,8 @@ mod tests {
                 .set("new_bool", true)
                 .unwrap();
             let bool_param = node
-                .declare_optional_parameter("new_bool", Some(false), ParameterOptions::default())
+                .declare_parameter("new_bool", false)
+                .optional()
                 .unwrap();
             assert_eq!(bool_param.get(), Some(true));
         }
@@ -949,29 +910,34 @@ mod tests {
         let ctx = Context::new([]).unwrap();
         let node = create_node(&ctx, "param_test_node").unwrap();
         // Setting invalid ranges should fail
+        let range = ParameterRange {
+            lower: Some(10),
+            upper: Some(-10),
+            step: Some(3),
+        };
         assert!(matches!(
-            ParameterRange::builder()
-                .lower(10)
-                .upper(-10)
-                .step(3)
-                .build(),
+            node.declare_parameter("int_param", 5)
+                .range(range)
+                .mandatory(),
             Err(ParameterError::InvalidRange)
         ));
+        let range = ParameterRange {
+            lower: Some(-10),
+            upper: Some(10),
+            step: Some(-1),
+        };
         assert!(matches!(
-            ParameterRange::builder()
-                .lower(-10)
-                .upper(10)
-                .step(-1)
-                .build(),
+            node.declare_parameter("int_param", 5)
+                .range(range)
+                .mandatory(),
             Err(ParameterError::InvalidRange)
         ));
         // Setting parameters out of range range should fail
-        let range = ParameterRange::builder()
-            .lower(-10)
-            .upper(10)
-            .step(3)
-            .build()
-            .unwrap();
+        let range = ParameterRange {
+            lower: Some(-10),
+            upper: Some(10),
+            step: Some(3),
+        };
         assert!(matches!(
             node.declare_parameter("out_of_range_int", 100)
                 .range(range.clone())
@@ -997,7 +963,7 @@ mod tests {
             Err(ParameterError::OutOfRange)
         ));
         assert!(matches!(
-            node.use_undeclared_parameters().set("int_param", 100),
+            node.use_undeclared_parameters().set("int_param", -9),
             Err(ParameterError::OutOfRange)
         ));
         assert!(node
@@ -1006,12 +972,11 @@ mod tests {
             .is_ok());
 
         // Same for a double parameter
-        let range = ParameterRange::builder()
-            .lower(-10.0)
-            .upper(10.0)
-            .step(3.0)
-            .build()
-            .unwrap();
+        let range = ParameterRange {
+            lower: Some(-10.0),
+            upper: Some(10.0),
+            step: Some(3.0),
+        };
         assert!(matches!(
             node.declare_parameter("out_of_range_double", 100.0)
                 .range(range.clone())

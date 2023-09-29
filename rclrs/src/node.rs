@@ -376,12 +376,11 @@ impl Node {
     /// let context = Context::new([])?;
     /// let node = rclrs::create_node(&context, "domain_id_node")?;
     /// // Set it to a range of 0-100, with a step of 2
-    /// let range = ParameterRange::builder()
-    ///                             .lower(-100)
-    ///                             .upper(100)
-    ///                             .step(2)
-    ///                             .build()
-    ///                             .unwrap();
+    /// let range = ParameterRange {
+    ///     lower: Some(-100),
+    ///     upper: Some(100),
+    ///     step: Some(2),
+    /// };
     /// let param = node.declare_parameter("int_param", 10)
     ///                 .range(range)
     ///                 .mandatory()
@@ -429,6 +428,10 @@ impl Node {
     }
 
     /// Tries to declare an optional parameter with the requested default value.
+    ///
+    /// Optional parameters can also be declared through
+    /// `node.declare_parameter([...]).optional()`. However, this method is the only way to specify
+    /// a `None` default value since `declare_parameter` requires a default.
     /// The function will check the parameter overrides, as well as potential undeclared parameters
     /// that have been previously set, and return the final parameter value.
     ///
