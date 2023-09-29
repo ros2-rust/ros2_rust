@@ -354,21 +354,6 @@ impl ParameterValue {
             unreachable!()
         }
     }
-
-    /// Returns the ParameterKind of the current variant, as a static kind.
-    pub(crate) fn static_kind(&self) -> ParameterKind {
-        match self {
-            ParameterValue::Bool(_) => ParameterKind::Bool,
-            ParameterValue::Integer(_) => ParameterKind::Integer,
-            ParameterValue::Double(_) => ParameterKind::Double,
-            ParameterValue::String(_) => ParameterKind::String,
-            ParameterValue::ByteArray(_) => ParameterKind::ByteArray,
-            ParameterValue::BoolArray(_) => ParameterKind::BoolArray,
-            ParameterValue::IntegerArray(_) => ParameterKind::IntegerArray,
-            ParameterValue::DoubleArray(_) => ParameterKind::DoubleArray,
-            ParameterValue::StringArray(_) => ParameterKind::StringArray,
-        }
-    }
 }
 
 #[cfg(test)]
