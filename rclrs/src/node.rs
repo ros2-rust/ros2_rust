@@ -376,11 +376,12 @@ impl Node {
     /// let context = Context::new([])?;
     /// let node = rclrs::create_node(&context, "domain_id_node")?;
     /// // Set it to a range of 0-100, with a step of 2
-    /// let range = ParameterRange {
-    ///     lower: Some(-100),
-    ///     upper: Some(100),
-    ///     step: Some(2),
-    /// };
+    /// let range = ParameterRange::builder()
+    ///                             .lower(-100)
+    ///                             .upper(100)
+    ///                             .step(2)
+    ///                             .build()
+    ///                             .unwrap();
     /// let param = node.declare_parameter("int_param", 10)
     ///                 .range(range)
     ///                 .mandatory()
