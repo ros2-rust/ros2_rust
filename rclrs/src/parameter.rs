@@ -232,6 +232,34 @@ pub struct ParameterBuilder<'a, T: Declarable> {
 }
 
 impl<'a, T: ParameterVariant> ParameterBuilder<'a, Option<T>> {
+    // TODO(luca) reduce duplication for setters
+    /// Sets the range for the parameter.
+    pub fn range(mut self, range: T::Range) -> Self {
+        self.options.ranges = range;
+        self
+    }
+
+    /// Sets the parameter's human readable description.
+    pub fn description(mut self, description: impl Into<Arc<str>>) -> Self {
+        self.options.description = description.into();
+        self
+    }
+
+    /// Sets the parameter's human readable constraints.
+    /// These are not enforced by the library but are displayed on parameter description requests
+    /// and can be used by integrators to understand complex constraints.
+    pub fn constraints(mut self, constraints: impl Into<Arc<str>>) -> Self {
+        self.options.constraints = constraints.into();
+        self
+    }
+
+    /// Sets the parameter's human readable constraints.
+    /// These are not enforced by the library but are displayed on parameter description requests
+    /// and can be used by integrators to understand complex constraints.
+    pub fn tentative(mut self) -> Self {
+        self.tentative = true;
+        self
+    }
     /// Declares the parameter as an Optional parameter, that can be unset.
     ///
     /// Returns:
@@ -1239,17 +1267,16 @@ mod tests {
             step: None,
         };
         {
-            let param = node.declare_parameter("int_param", 1).optional().unwrap();
+            node.declare_parameter("int_param", 1).optional().unwrap();
         }
         {
-            let param = node
-                .declare_parameter("int_param", Some(1))
+            node.declare_parameter("int_param", Some(1))
+                .range(range)
                 .optional()
                 .unwrap();
         }
         {
-            let param = node
-                .declare_unset_parameter::<i64>("int_param")
+            node.declare_unset_parameter::<i64>("int_param")
                 .optional()
                 .unwrap();
         }
