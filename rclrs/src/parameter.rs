@@ -6,7 +6,7 @@ pub use value::*;
 
 use crate::rcl_bindings::*;
 use crate::{call_string_getter_with_handle, RclrsError};
-use std::collections::{btree_map::Entry, BTreeMap};
+use std::collections::BTreeMap;
 use std::marker::PhantomData;
 use std::sync::{
     atomic::{AtomicBool, Ordering},
@@ -315,39 +315,7 @@ impl<'a, T: ParameterVariant> ParameterBuilder<'a, T> {
     /// * `Err(DeclarationError::Override(ParameterValueError::OutOfRange))` if the parameter override is out of range.
     /// * `Err(DeclarationError::Override(ParameterValueError::TypeMismatch))` if the parameter override is set to the wrong type.
     pub fn mandatory(self) -> Result<MandatoryParameter<T>, DeclarationError> {
-        // TODO(luca) refactor common code between read_only and mandatory
-        let ranges = self.options.ranges.clone().into();
-        ranges.validate()?;
-        let default_value = self.default_value.into();
-        ranges
-            .check_in_range(&default_value)
-            .map_err(|_| DeclarationError::DefaultOutOfRange)?;
-        let value = self
-            .interface
-            .get_declaration_default_value::<T>(&self.name, &ranges, self.tentative)?
-            .map(|v| v.into())
-            .unwrap_or(default_value);
-        let value = Arc::new(RwLock::new(value));
-        self.interface
-            ._parameter_map
-            .lock()
-            .unwrap()
-            .storage
-            .insert(
-                self.name.to_owned(),
-                ParameterStorage::Declared(DeclaredStorage {
-                    options: self.options.into(),
-                    value: DeclaredValue::Mandatory(value.clone()),
-                    kind: T::kind(),
-                }),
-            );
-        Ok(MandatoryParameter {
-            name: self.name.to_owned(),
-            value,
-            ranges,
-            map: Arc::downgrade(&self.interface._parameter_map),
-            _marker: Default::default(),
-        })
+        self.try_into()
     }
 
     /// Declares the parameter as a ReadOnly parameter, that cannot be edited.
@@ -358,36 +326,7 @@ impl<'a, T: ParameterVariant> ParameterBuilder<'a, T> {
     /// * `Err(DeclarationError::Override(ParameterValueError::OutOfRange))` if the parameter override is out of range.
     /// * `Err(DeclarationError::Override(ParameterValueError::TypeMismatch))` if the parameter override is set to the wrong type.
     pub fn read_only(self) -> Result<ReadOnlyParameter<T>, DeclarationError> {
-        let ranges = self.options.ranges.clone().into();
-        ranges.validate()?;
-        let default_value = self.default_value.into();
-        ranges
-            .check_in_range(&default_value)
-            .map_err(|_| DeclarationError::DefaultOutOfRange)?;
-        let value = self
-            .interface
-            .get_declaration_default_value::<T>(&self.name, &ranges, self.tentative)?
-            .map(|v| v.into())
-            .unwrap_or(default_value);
-        self.interface
-            ._parameter_map
-            .lock()
-            .unwrap()
-            .storage
-            .insert(
-                self.name.to_owned(),
-                ParameterStorage::Declared(DeclaredStorage {
-                    options: self.options.into(),
-                    value: DeclaredValue::ReadOnly(value.clone()),
-                    kind: T::kind(),
-                }),
-            );
-        Ok(ReadOnlyParameter {
-            name: self.name.to_owned(),
-            value,
-            map: Arc::downgrade(&self.interface._parameter_map),
-            _marker: Default::default(),
-        })
+        self.try_into()
     }
 
     /// Declares the parameter as an Optional parameter, that can be unset.
@@ -425,6 +364,34 @@ impl<T: ParameterVariant> Drop for MandatoryParameter<T> {
             let storage = &mut map.lock().unwrap().storage;
             storage.remove(&self.name);
         }
+    }
+}
+
+impl<T: ParameterVariant> TryFrom<ParameterBuilder<'_, T>> for MandatoryParameter<T> {
+    type Error = DeclarationError;
+
+    fn try_from(builder: ParameterBuilder<T>) -> Result<Self, Self::Error> {
+        let ranges = builder.options.ranges.clone().into();
+        let default_value = builder.default_value.into();
+        ParameterInterface::validate_range_and_default_value(&ranges, Some(&default_value))?;
+        let value = builder
+            .interface
+            .get_declaration_default_value::<T>(&builder.name, &ranges, builder.tentative)?
+            .unwrap_or(default_value);
+        let value = Arc::new(RwLock::new(value));
+        builder.interface.store_parameter(
+            &builder.name,
+            T::kind(),
+            DeclaredValue::Mandatory(value.clone()),
+            builder.options.into(),
+        );
+        Ok(MandatoryParameter {
+            name: builder.name,
+            value,
+            ranges,
+            map: Arc::downgrade(&builder.interface._parameter_map),
+            _marker: Default::default(),
+        })
     }
 }
 
@@ -466,6 +433,32 @@ impl<T: ParameterVariant> Drop for ReadOnlyParameter<T> {
             let storage = &mut map.lock().unwrap().storage;
             storage.remove(&self.name);
         }
+    }
+}
+
+impl<T: ParameterVariant> TryFrom<ParameterBuilder<'_, T>> for ReadOnlyParameter<T> {
+    type Error = DeclarationError;
+
+    fn try_from(builder: ParameterBuilder<T>) -> Result<Self, Self::Error> {
+        let ranges = builder.options.ranges.clone().into();
+        let default_value = builder.default_value.into();
+        ParameterInterface::validate_range_and_default_value(&ranges, Some(&default_value))?;
+        let value = builder
+            .interface
+            .get_declaration_default_value::<T>(&builder.name, &ranges, builder.tentative)?
+            .unwrap_or(default_value);
+        builder.interface.store_parameter(
+            &builder.name,
+            T::kind(),
+            DeclaredValue::ReadOnly(value.clone()),
+            builder.options.into(),
+        );
+        Ok(ReadOnlyParameter {
+            name: builder.name,
+            value,
+            map: Arc::downgrade(&builder.interface._parameter_map),
+            _marker: Default::default(),
+        })
     }
 }
 
@@ -598,44 +591,35 @@ impl<'a> Parameters<'a> {
         name: &str,
         value: T,
     ) -> Result<(), ParameterValueError> {
-        match self
-            .interface
-            ._parameter_map
-            .lock()
-            .unwrap()
-            .storage
-            .entry(name.to_string())
-        {
-            // TODO(luca) this always clones a string, find a way to avoid
-            Entry::Occupied(mut entry) => {
-                // If it's declared we can only set if it's the same variant.
-                // Undeclared parameters are dynamic by default
-                match entry.get_mut() {
-                    ParameterStorage::Declared(param) => {
-                        if T::kind() == param.kind {
-                            let value = value.into();
-                            param.options.ranges.check_in_range(&value)?;
-                            match &param.value {
-                                DeclaredValue::Mandatory(p) => *p.write().unwrap() = value,
-                                DeclaredValue::Optional(p) => *p.write().unwrap() = Some(value),
-                                DeclaredValue::ReadOnly(_) => {
-                                    return Err(ParameterValueError::ReadOnly)
-                                }
+        let mut map = self.interface._parameter_map.lock().unwrap();
+        if let Some(entry) = map.storage.get_mut(name) {
+            // If it's declared we can only set if it's the same variant.
+            // Undeclared parameters are dynamic by default
+            match entry {
+                ParameterStorage::Declared(param) => {
+                    if T::kind() == param.kind {
+                        let value = value.into();
+                        param.options.ranges.check_in_range(&value)?;
+                        match &param.value {
+                            DeclaredValue::Mandatory(p) => *p.write().unwrap() = value,
+                            DeclaredValue::Optional(p) => *p.write().unwrap() = Some(value),
+                            DeclaredValue::ReadOnly(_) => {
+                                return Err(ParameterValueError::ReadOnly)
                             }
-                        } else {
-                            return Err(ParameterValueError::TypeMismatch);
                         }
-                    }
-                    ParameterStorage::Undeclared(param) => {
-                        *param.write().unwrap() = value.into();
+                    } else {
+                        return Err(ParameterValueError::TypeMismatch);
                     }
                 }
+                ParameterStorage::Undeclared(param) => {
+                    *param.write().unwrap() = value.into();
+                }
             }
-            Entry::Vacant(entry) => {
-                entry.insert(ParameterStorage::Undeclared(Arc::new(RwLock::new(
-                    value.into(),
-                ))));
-            }
+        } else {
+            map.storage.insert(
+                name.to_owned(),
+                ParameterStorage::Undeclared(Arc::new(RwLock::new(value.into()))),
+            );
         }
         Ok(())
     }
@@ -689,7 +673,7 @@ impl ParameterInterface {
         name: &str,
         ranges: &ParameterRanges,
         tentative: bool,
-    ) -> Result<Option<T>, DeclarationError> {
+    ) -> Result<Option<ParameterValue>, DeclarationError> {
         let mut value = None;
         if let Some(param_override) = self._override_map.get(name) {
             ranges
@@ -711,7 +695,7 @@ impl ParameterInterface {
                         if tentative {
                             return Err(e);
                         } else {
-                            return Ok(value);
+                            return Ok(value.map(|v| v.into()));
                         }
                     }
                     if let Some(v) = T::maybe_from(param) {
@@ -724,7 +708,7 @@ impl ParameterInterface {
                 }
             }
         }
-        Ok(value)
+        Ok(value.map(|v| v.into()))
     }
 
     pub(crate) fn declare_from_iter<U: IntoIterator>(
@@ -764,30 +748,17 @@ impl ParameterInterface {
         tentative: bool,
     ) -> Result<OptionalParameter<T>, DeclarationError> {
         let ranges = options.ranges.clone().into();
-        ranges.validate()?;
         let default_value = default_value.map(|v| v.into());
-        if let Some(ref v) = default_value {
-            ranges
-                .check_in_range(v)
-                .map_err(|_| DeclarationError::DefaultOutOfRange)?;
-        }
+        Self::validate_range_and_default_value(&ranges, default_value.as_ref())?;
         let value = self
             .get_declaration_default_value::<T>(name, &ranges, tentative)?
-            .map(|v| v.into())
             .or(default_value);
-        if let Some(ref v) = value {
-            ranges
-                .check_in_range(v)
-                .map_err(DeclarationError::PreexistingValue)?;
-        }
         let value = Arc::new(RwLock::new(value));
-        self._parameter_map.lock().unwrap().storage.insert(
-            name.to_owned(),
-            ParameterStorage::Declared(DeclaredStorage {
-                options: options.into(),
-                value: DeclaredValue::Optional(value.clone()),
-                kind: T::kind(),
-            }),
+        self.store_parameter(
+            name,
+            T::kind(),
+            DeclaredValue::Optional(value.clone()),
+            options.into(),
         );
         Ok(OptionalParameter {
             name: name.to_owned(),
@@ -796,6 +767,36 @@ impl ParameterInterface {
             map: Arc::downgrade(&self._parameter_map),
             _marker: Default::default(),
         })
+    }
+
+    fn validate_range_and_default_value(
+        ranges: &ParameterRanges,
+        value: Option<&ParameterValue>,
+    ) -> Result<(), DeclarationError> {
+        ranges.validate()?;
+        if let Some(v) = value {
+            ranges
+                .check_in_range(v)
+                .map_err(|_| DeclarationError::DefaultOutOfRange)?;
+        }
+        Ok(())
+    }
+
+    fn store_parameter(
+        &self,
+        name: &str,
+        kind: ParameterKind,
+        value: DeclaredValue,
+        options: ParameterOptionsStorage,
+    ) {
+        self._parameter_map.lock().unwrap().storage.insert(
+            name.to_owned(),
+            ParameterStorage::Declared(DeclaredStorage {
+                options,
+                value,
+                kind,
+            }),
+        );
     }
 
     pub(crate) fn allow_undeclared(&self) {
