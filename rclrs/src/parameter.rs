@@ -201,14 +201,52 @@ enum DeclaredValue {
     ReadOnly(ParameterValue),
 }
 
+/// Trait used to describe a value that can be declared.
+/// Depending on whether a parameter is mandatory or optional, its value can be specified as either
+/// `T` or `Option<T>` and this trait assist in defining the types and their constraints.
+pub trait Declarable {
+    /// Type passed to the builder to specify the default value.
+    type DefaultInput;
+    /// Type of the parameter.
+    type ParameterType: ParameterVariant;
+}
+
+impl<T: ParameterVariant> Declarable for T {
+    type DefaultInput = T;
+    type ParameterType = T;
+}
+
+impl<T: ParameterVariant> Declarable for Option<T> {
+    type DefaultInput = Option<T>;
+    type ParameterType = T;
+}
+
 /// Builder used to generate a parameter. Defaults to `ParameterOptions<T>::default()`.
 #[must_use]
-pub struct ParameterBuilder<'a, T: ParameterVariant> {
+pub struct ParameterBuilder<'a, T: Declarable> {
     name: String,
     default_value: T,
     tentative: bool,
-    options: ParameterOptions<T>,
+    options: ParameterOptions<T::ParameterType>,
     interface: &'a ParameterInterface,
+}
+
+impl<'a, T: ParameterVariant> ParameterBuilder<'a, Option<T>> {
+    /// Declares the parameter as an Optional parameter, that can be unset.
+    ///
+    /// Returns:
+    /// * `Ok(OptionalParameter<T>)` if declaration was successful.
+    /// * `Err(DeclarationError::PreexistingValue(ParameterValueError::OutOfRange))` if the parameter value is out of range.
+    /// * `Err(DeclarationError::Override(ParameterValueError::OutOfRange))` if the parameter override is out of range.
+    /// * `Err(DeclarationError::Override(ParameterValueError::TypeMismatch))` if the parameter override is set to the wrong type.
+    pub fn optional(self) -> Result<OptionalParameter<T>, DeclarationError> {
+        self.interface.declare_optional(
+            &self.name,
+            self.default_value,
+            self.options,
+            self.tentative,
+        )
+    }
 }
 
 impl<'a, T: ParameterVariant> ParameterBuilder<'a, T> {
@@ -324,17 +362,18 @@ impl<'a, T: ParameterVariant> ParameterBuilder<'a, T> {
 
     /// Declares the parameter as an Optional parameter, that can be unset.
     ///
-    /// This method sets a value, unlike `node.declare_optional_parameter([...])` that can declare
-    /// an unset value.
-    ///
     /// Returns:
     /// * `Ok(OptionalParameter<T>)` if declaration was successful.
     /// * `Err(DeclarationError::PreexistingValue(ParameterValueError::OutOfRange))` if the parameter value is out of range.
     /// * `Err(DeclarationError::Override(ParameterValueError::OutOfRange))` if the parameter override is out of range.
     /// * `Err(DeclarationError::Override(ParameterValueError::TypeMismatch))` if the parameter override is set to the wrong type.
     pub fn optional(self) -> Result<OptionalParameter<T>, DeclarationError> {
-        self.interface
-            .declare_optional(&self.name, Some(self.default_value), self.options)
+        self.interface.declare_optional(
+            &self.name,
+            Some(self.default_value),
+            self.options,
+            self.tentative,
+        )
     }
 }
 
@@ -599,7 +638,7 @@ impl ParameterInterface {
         })
     }
 
-    pub(crate) fn declare<T: ParameterVariant>(
+    pub(crate) fn declare<T: Declarable>(
         &self,
         name: &str,
         default_value: T,
@@ -685,16 +724,17 @@ impl ParameterInterface {
         self.declare(name, value)
     }
 
-    pub(crate) fn declare_optional<T: ParameterVariant>(
+    fn declare_optional<T: ParameterVariant>(
         &self,
         name: &str,
         default_value: Option<T>,
         options: ParameterOptions<T>,
+        tentative: bool,
     ) -> Result<OptionalParameter<T>, DeclarationError> {
         let ranges = options.ranges.clone().into();
         ranges.validate()?;
         let value = self
-            .get_declaration_default_value::<T>(name, &ranges, false)?
+            .get_declaration_default_value::<T>(name, &ranges, tentative)?
             .or(default_value)
             .map(|v| v.into());
         if let Some(ref v) = value {
@@ -862,11 +902,8 @@ mod tests {
         }
 
         let optional_param = node
-            .declare_optional_parameter::<bool>(
-                "non_existing_bool",
-                None,
-                ParameterOptions::default(),
-            )
+            .declare_parameter("non_existing_bool", None)
+            .optional()
             .unwrap();
         assert_eq!(optional_param.get(), None);
         optional_param.set(true).unwrap();
@@ -875,17 +912,15 @@ mod tests {
         assert_eq!(optional_param.get(), None);
 
         let optional_param2 = node
-            .declare_optional_parameter(
-                "non_existing_bool2",
-                Some(false),
-                ParameterOptions::default(),
-            )
+            .declare_parameter("non_existing_bool2", Some(false))
+            .optional()
             .unwrap();
         assert_eq!(optional_param2.get(), Some(false));
 
         // This was provided as a parameter override, hence should be set to true
         let optional_param3 = node
-            .declare_optional_parameter("optional_bool", Some(false), ParameterOptions::default())
+            .declare_parameter("optional_bool", Some(false))
+            .optional()
             .unwrap();
         assert_eq!(optional_param3.get(), Some(true));
 
@@ -1182,13 +1217,41 @@ mod tests {
             assert_eq!(param.get(), 1.0);
         }
         {
-            node.use_undeclared_parameters().set("int_param", 100);
+            node.use_undeclared_parameters()
+                .set("int_param", 100)
+                .unwrap();
             let param = node
                 .declare_parameter("int_param", 5)
                 .range(range)
                 .mandatory()
                 .unwrap();
             assert_eq!(param.get(), 5);
+        }
+    }
+
+    #[test]
+    fn test_optional_parameter_apis() {
+        let ctx = Context::new([]).unwrap();
+        let node = create_node(&ctx, "param_test_node").unwrap();
+        let range = ParameterRange {
+            lower: Some(-10),
+            upper: Some(10),
+            step: None,
+        };
+        {
+            let param = node.declare_parameter("int_param", 1).optional().unwrap();
+        }
+        {
+            let param = node
+                .declare_parameter("int_param", Some(1))
+                .optional()
+                .unwrap();
+        }
+        {
+            let param = node
+                .declare_unset_parameter::<i64>("int_param")
+                .optional()
+                .unwrap();
         }
     }
 }

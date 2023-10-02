@@ -13,10 +13,9 @@ pub use self::builder::*;
 pub use self::graph::*;
 use crate::rcl_bindings::*;
 use crate::{
-    Client, ClientBase, Clock, Context, DeclarationError, GuardCondition, OptionalParameter,
-    ParameterBuilder, ParameterInterface, ParameterOptions, ParameterVariant, Parameters,
-    Publisher, QoSProfile, RclrsError, Service, ServiceBase, Subscription, SubscriptionBase,
-    SubscriptionCallback, TimeSource, ToResult,
+    Client, ClientBase, Clock, Context, Declarable, GuardCondition, ParameterBuilder,
+    ParameterInterface, ParameterVariant, Parameters, Publisher, QoSProfile, RclrsError, Service,
+    ServiceBase, Subscription, SubscriptionBase, SubscriptionCallback, TimeSource, ToResult,
 };
 
 impl Drop for rcl_node_t {
@@ -392,7 +391,7 @@ impl Node {
     /// assert!(param.set(200).is_err());
     /// # Ok::<(), RclrsError>(())
     /// ```
-    pub fn declare_parameter<T: ParameterVariant>(
+    pub fn declare_parameter<T: Declarable>(
         &self,
         name: &str,
         default_value: T,
@@ -427,25 +426,12 @@ impl Node {
         self._parameter.declare_string_array(name, default_value)
     }
 
-    /// Tries to declare an optional parameter with the requested default value.
-    ///
-    /// Optional parameters can also be declared through
-    /// `node.declare_parameter([...]).optional()`. However, this method is the only way to specify
-    /// a `None` default value since `declare_parameter` requires a default.
-    /// The function will check the parameter overrides, as well as potential undeclared parameters
-    /// that have been previously set, and return the final parameter value.
-    ///
-    /// Returns:
-    /// * `Ok(OptionalParameter<T>)` if setting was successful.
-    /// * `Err(DeclarationError::AlreadyDeclared)` if the parameter was already declared.
-    pub fn declare_optional_parameter<T: ParameterVariant>(
+    /// Helper function to declare a parameter with an unset value.
+    pub fn declare_unset_parameter<T: ParameterVariant>(
         &self,
         name: &str,
-        default_value: Option<T>,
-        options: ParameterOptions<T>,
-    ) -> Result<OptionalParameter<T>, DeclarationError> {
-        self._parameter
-            .declare_optional(name, default_value, options)
+    ) -> ParameterBuilder<'_, Option<T>> {
+        self._parameter.declare::<Option<T>>(name, None)
     }
 
     /// Enables usage of undeclared parameters for this node.
