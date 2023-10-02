@@ -13,9 +13,9 @@ pub use self::builder::*;
 pub use self::graph::*;
 use crate::rcl_bindings::*;
 use crate::{
-    Client, ClientBase, Clock, Context, GuardCondition, OptionalParameter, ParameterBuilder,
-    ParameterError, ParameterInterface, ParameterOptions, ParameterVariant, Parameters, Publisher,
-    QoSProfile, RclrsError, Service, ServiceBase, Subscription, SubscriptionBase,
+    Client, ClientBase, Clock, Context, DeclarationError, GuardCondition, OptionalParameter,
+    ParameterBuilder, ParameterInterface, ParameterOptions, ParameterVariant, Parameters,
+    Publisher, QoSProfile, RclrsError, Service, ServiceBase, Subscription, SubscriptionBase,
     SubscriptionCallback, TimeSource, ToResult,
 };
 
@@ -437,13 +437,13 @@ impl Node {
     ///
     /// Returns:
     /// * `Ok(OptionalParameter<T>)` if setting was successful.
-    /// * `Err(ParameterError::AlreadyDeclared)` if the parameter was already declared.
+    /// * `Err(DeclarationError::AlreadyDeclared)` if the parameter was already declared.
     pub fn declare_optional_parameter<T: ParameterVariant>(
         &self,
         name: &str,
         default_value: Option<T>,
         options: ParameterOptions<T>,
-    ) -> Result<OptionalParameter<T>, ParameterError> {
+    ) -> Result<OptionalParameter<T>, DeclarationError> {
         self._parameter
             .declare_optional(name, default_value, options)
     }

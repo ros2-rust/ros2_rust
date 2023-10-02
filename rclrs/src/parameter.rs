@@ -87,7 +87,7 @@ pub struct ParameterRanges {
 }
 
 impl ParameterRanges {
-    fn validate(&self) -> Result<(), ParameterError> {
+    fn validate(&self) -> Result<(), DeclarationError> {
         if let Some(integer) = &self.integer {
             integer.validate()?;
         }
@@ -140,17 +140,17 @@ impl<T: ParameterVariant + PartialOrd + Default> ParameterRange<T> {
         Ok(())
     }
 
-    fn validate(&self) -> Result<(), ParameterError> {
+    fn validate(&self) -> Result<(), DeclarationError> {
         if self
             .lower
             .as_ref()
             .zip(self.upper.as_ref())
             .is_some_and(|(l, u)| l > u)
         {
-            return Err(ParameterError::InvalidRange);
+            return Err(DeclarationError::InvalidRange);
         }
         if self.step.as_ref().is_some_and(|s| s <= &T::default()) {
-            return Err(ParameterError::InvalidRange);
+            return Err(DeclarationError::InvalidRange);
         }
         Ok(())
     }
@@ -206,6 +206,7 @@ enum DeclaredValue {
 pub struct ParameterBuilder<'a, T: ParameterVariant> {
     name: String,
     default_value: T,
+    tentative: bool,
     options: ParameterOptions<T>,
     interface: &'a ParameterInterface,
 }
@@ -231,26 +232,34 @@ impl<'a, T: ParameterVariant> ParameterBuilder<'a, T> {
         self
     }
 
+    /// Sets the parameter's human readable constraints.
+    /// These are not enforced by the library but are displayed on parameter description requests
+    /// and can be used by integrators to understand complex constraints.
+    pub fn tentative(mut self) -> Self {
+        self.tentative = true;
+        self
+    }
+
     /// Declares the parameter as a Mandatory parameter, that must always have a value set.
     ///
     /// Returns:
     /// * `Ok(MandatoryParameter<T>)` if declaration was successful.
-    /// * `Err(ParameterError::AlreadyDeclared)` if the parameter was already declared.
-    /// * `Err(ParameterError::Value(ParameterValueError::OutOfRange))` if the parameter value is out of range.
-    /// * `Err(ParameterError::Override(ParameterValueError::OutOfRange))` if the parameter override is out of range.
-    /// * `Err(ParameterError::Override(ParameterValueError::TypeMismatch))` if the parameter override is set to the wrong type.
-    pub fn mandatory(self) -> Result<MandatoryParameter<T>, ParameterError> {
+    /// * `Err(DeclarationError::AlreadyDeclared)` if the parameter was already declared.
+    /// * `Err(DeclarationError::PreexistingValue(ParameterValueError::OutOfRange))` if the parameter value is out of range.
+    /// * `Err(DeclarationError::Override(ParameterValueError::OutOfRange))` if the parameter override is out of range.
+    /// * `Err(DeclarationError::Override(ParameterValueError::TypeMismatch))` if the parameter override is set to the wrong type.
+    pub fn mandatory(self) -> Result<MandatoryParameter<T>, DeclarationError> {
         // TODO(luca) refactor common code between read_only and mandatory
         let ranges = self.options.ranges.clone().into();
         ranges.validate()?;
         let value = self
             .interface
-            .get_declaration_default_value::<T>(&self.name, &ranges)?
+            .get_declaration_default_value::<T>(&self.name, &ranges, self.tentative)?
             .unwrap_or(self.default_value)
             .into();
         ranges
             .check_in_range(&value)
-            .map_err(ParameterError::Value)?;
+            .map_err(DeclarationError::PreexistingValue)?;
         let value = Arc::new(RwLock::new(value));
         self.interface
             ._parameter_map
@@ -278,20 +287,20 @@ impl<'a, T: ParameterVariant> ParameterBuilder<'a, T> {
     ///
     /// Returns:
     /// * `Ok(ReadOnlyParameter<T>)` if declaration was successful.
-    /// * `Err(ParameterError::Value(ParameterValueError::OutOfRange))` if the parameter value is out of range.
-    /// * `Err(ParameterError::Override(ParameterValueError::OutOfRange))` if the parameter override is out of range.
-    /// * `Err(ParameterError::Override(ParameterValueError::TypeMismatch))` if the parameter override is set to the wrong type.
-    pub fn read_only(self) -> Result<ReadOnlyParameter<T>, ParameterError> {
+    /// * `Err(DeclarationError::PreexistingValue(ParameterValueError::OutOfRange))` if the parameter value is out of range.
+    /// * `Err(DeclarationError::Override(ParameterValueError::OutOfRange))` if the parameter override is out of range.
+    /// * `Err(DeclarationError::Override(ParameterValueError::TypeMismatch))` if the parameter override is set to the wrong type.
+    pub fn read_only(self) -> Result<ReadOnlyParameter<T>, DeclarationError> {
         let ranges = self.options.ranges.clone().into();
         ranges.validate()?;
         let value = self
             .interface
-            .get_declaration_default_value::<T>(&self.name, &ranges)?
+            .get_declaration_default_value::<T>(&self.name, &ranges, self.tentative)?
             .unwrap_or(self.default_value)
             .into();
         ranges
             .check_in_range(&value)
-            .map_err(ParameterError::Value)?;
+            .map_err(DeclarationError::PreexistingValue)?;
         self.interface
             ._parameter_map
             .lock()
@@ -320,10 +329,10 @@ impl<'a, T: ParameterVariant> ParameterBuilder<'a, T> {
     ///
     /// Returns:
     /// * `Ok(OptionalParameter<T>)` if declaration was successful.
-    /// * `Err(ParameterError::Value(ParameterValueError::OutOfRange))` if the parameter value is out of range.
-    /// * `Err(ParameterError::Override(ParameterValueError::OutOfRange))` if the parameter override is out of range.
-    /// * `Err(ParameterError::Override(ParameterValueError::TypeMismatch))` if the parameter override is set to the wrong type.
-    pub fn optional(self) -> Result<OptionalParameter<T>, ParameterError> {
+    /// * `Err(DeclarationError::PreexistingValue(ParameterValueError::OutOfRange))` if the parameter value is out of range.
+    /// * `Err(DeclarationError::Override(ParameterValueError::OutOfRange))` if the parameter override is out of range.
+    /// * `Err(DeclarationError::Override(ParameterValueError::TypeMismatch))` if the parameter override is set to the wrong type.
+    pub fn optional(self) -> Result<OptionalParameter<T>, DeclarationError> {
         self.interface
             .declare_optional(&self.name, Some(self.default_value), self.options)
     }
@@ -416,7 +425,7 @@ impl<T: ParameterVariant> MandatoryParameter<T> {
     }
 
     /// Sets the parameter value.
-    /// Returns `ParameterError::OutOfRange` if the value is out of the parameter's range.
+    /// Returns `DeclarationError::OutOfRange` if the value is out of the parameter's range.
     pub fn set<U: Into<T>>(&self, value: U) -> Result<(), ParameterValueError> {
         let value = value.into().into();
         self.ranges.check_in_range(&value)?;
@@ -443,7 +452,7 @@ impl<T: ParameterVariant> OptionalParameter<T> {
     }
 
     /// Assigns a value to the optional parameter, setting it to `Some(value)`.
-    /// Returns `ParameterError::OutOfRange` if the value is out of the parameter's range.
+    /// Returns `DeclarationError::OutOfRange` if the value is out of the parameter's range.
     pub fn set<U: Into<T>>(&self, value: U) -> Result<(), ParameterValueError> {
         let value = value.into().into();
         self.ranges.check_in_range(&value)?;
@@ -475,11 +484,11 @@ pub enum ParameterValueError {
 
 /// Error that can be generated when doing operations on parameters.
 #[derive(Debug)]
-pub enum ParameterError {
+pub enum DeclarationError {
     /// Parameter was already declared and a new declaration was attempted.
     AlreadyDeclared,
     /// An error caused when trying to set the parameter's value.
-    Value(ParameterValueError),
+    PreexistingValue(ParameterValueError),
     /// An error caused when parsing the parameter override's value.
     Override(ParameterValueError),
     /// An invalid range was provided to a parameter declaration (i.e. lower bound > higher bound).
@@ -511,7 +520,7 @@ impl<'a> Parameters<'a> {
     ///
     /// Returns:
     /// * Ok(()) if setting was successful.
-    /// * Err(ParameterError::TypeMismatch) if the type of the requested value is different from
+    /// * Err(DeclarationError::TypeMismatch) if the type of the requested value is different from
     /// the parameter's type.
     pub fn set<T: ParameterVariant>(
         &self,
@@ -598,6 +607,7 @@ impl ParameterInterface {
         ParameterBuilder {
             default_value,
             name: name.into(),
+            tentative: false,
             options: Default::default(),
             interface: self,
         }
@@ -607,25 +617,38 @@ impl ParameterInterface {
         &self,
         name: &str,
         ranges: &ParameterRanges,
-    ) -> Result<Option<T>, ParameterError> {
+        tentative: bool,
+    ) -> Result<Option<T>, DeclarationError> {
         let mut value = None;
         if let Some(param_override) = self._override_map.get(name) {
             ranges
                 .check_in_range(param_override)
-                .map_err(ParameterError::Override)?;
-            value = Some(
-                T::maybe_from(param_override.clone())
-                    .ok_or(ParameterError::Override(ParameterValueError::TypeMismatch))?,
-            );
+                .map_err(DeclarationError::Override)?;
+            value = Some(T::maybe_from(param_override.clone()).ok_or(
+                DeclarationError::Override(ParameterValueError::TypeMismatch),
+            )?);
         }
         if let Some(current_value) = self._parameter_map.lock().unwrap().storage.get(name) {
             match current_value {
-                ParameterStorage::Declared(_) => return Err(ParameterError::AlreadyDeclared),
+                ParameterStorage::Declared(_) => return Err(DeclarationError::AlreadyDeclared),
                 ParameterStorage::Undeclared(param) => {
-                    // TODO(luca) what should we do if the parameter here is either a different
-                    // type or out of range?
-                    if let Some(v) = T::maybe_from(param.read().unwrap().clone()) {
+                    let param = param.read().unwrap().clone();
+                    if let Err(e) = ranges
+                        .check_in_range(&param)
+                        .map_err(DeclarationError::PreexistingValue)
+                    {
+                        if tentative {
+                            return Err(e);
+                        } else {
+                            return Ok(value);
+                        }
+                    }
+                    if let Some(v) = T::maybe_from(param) {
                         value = Some(v);
+                    } else if tentative {
+                        return Err(DeclarationError::PreexistingValue(
+                            ParameterValueError::TypeMismatch,
+                        ));
                     }
                 }
             }
@@ -667,15 +690,17 @@ impl ParameterInterface {
         name: &str,
         default_value: Option<T>,
         options: ParameterOptions<T>,
-    ) -> Result<OptionalParameter<T>, ParameterError> {
+    ) -> Result<OptionalParameter<T>, DeclarationError> {
         let ranges = options.ranges.clone().into();
         ranges.validate()?;
         let value = self
-            .get_declaration_default_value::<T>(name, &ranges)?
+            .get_declaration_default_value::<T>(name, &ranges, false)?
             .or(default_value)
             .map(|v| v.into());
         if let Some(ref v) = value {
-            ranges.check_in_range(v).map_err(ParameterError::Value)?;
+            ranges
+                .check_in_range(v)
+                .map_err(DeclarationError::PreexistingValue)?;
         }
         let value = Arc::new(RwLock::new(value));
         self._parameter_map.lock().unwrap().storage.insert(
@@ -720,7 +745,9 @@ mod tests {
         // error
         assert!(matches!(
             node.declare_parameter("declared_int", 1.0).mandatory(),
-            Err(ParameterError::Override(ParameterValueError::TypeMismatch))
+            Err(DeclarationError::Override(
+                ParameterValueError::TypeMismatch
+            ))
         ));
 
         // If the override does not respect the range we should return an error
@@ -732,7 +759,7 @@ mod tests {
             node.declare_parameter("declared_int", 1)
                 .range(range)
                 .mandatory(),
-            Err(ParameterError::Override(ParameterValueError::OutOfRange))
+            Err(DeclarationError::Override(ParameterValueError::OutOfRange))
         ));
     }
 
@@ -931,7 +958,7 @@ mod tests {
             // Redeclaring should fail
             assert!(matches!(
                 node.declare_parameter("declared_int", 1).mandatory(),
-                Err(ParameterError::AlreadyDeclared)
+                Err(DeclarationError::AlreadyDeclared)
             ));
         }
         {
@@ -972,7 +999,7 @@ mod tests {
             node.declare_parameter("int_param", 5)
                 .range(range)
                 .mandatory(),
-            Err(ParameterError::InvalidRange)
+            Err(DeclarationError::InvalidRange)
         ));
         let range = ParameterRange {
             lower: Some(-10),
@@ -983,7 +1010,7 @@ mod tests {
             node.declare_parameter("int_param", 5)
                 .range(range)
                 .mandatory(),
-            Err(ParameterError::InvalidRange)
+            Err(DeclarationError::InvalidRange)
         ));
         // Setting parameters out of range range should fail
         let range = ParameterRange {
@@ -995,13 +1022,17 @@ mod tests {
             node.declare_parameter("out_of_range_int", 100)
                 .range(range.clone())
                 .mandatory(),
-            Err(ParameterError::Value(ParameterValueError::OutOfRange))
+            Err(DeclarationError::PreexistingValue(
+                ParameterValueError::OutOfRange
+            ))
         ));
         assert!(matches!(
             node.declare_parameter("wrong_step_int", -9)
                 .range(range.clone())
                 .mandatory(),
-            Err(ParameterError::Value(ParameterValueError::OutOfRange))
+            Err(DeclarationError::PreexistingValue(
+                ParameterValueError::OutOfRange
+            ))
         ));
         let param = node
             .declare_parameter("int_param", -7)
@@ -1034,13 +1065,17 @@ mod tests {
             node.declare_parameter("out_of_range_double", 100.0)
                 .range(range.clone())
                 .mandatory(),
-            Err(ParameterError::Value(ParameterValueError::OutOfRange))
+            Err(DeclarationError::PreexistingValue(
+                ParameterValueError::OutOfRange
+            ))
         ));
         assert!(matches!(
             node.declare_parameter("wrong_step_double", -9.0)
                 .range(range.clone())
                 .mandatory(),
-            Err(ParameterError::Value(ParameterValueError::OutOfRange))
+            Err(DeclarationError::PreexistingValue(
+                ParameterValueError::OutOfRange
+            ))
         ));
         let param = node
             .declare_parameter("double_param", -7.0)
@@ -1089,7 +1124,7 @@ mod tests {
         // Multiple copies cannot be declared
         assert!(matches!(
             node.declare_parameter("int_param", 100).read_only(),
-            Err(ParameterError::AlreadyDeclared)
+            Err(DeclarationError::AlreadyDeclared)
         ));
         // A reading should work and return the correct value:w
         assert_eq!(param.get(), 100);
@@ -1102,5 +1137,58 @@ mod tests {
             node.use_undeclared_parameters().set("int_param", 10),
             Err(ParameterValueError::ReadOnly)
         ));
+    }
+
+    #[test]
+    fn test_preexisting_value_error_and_tentative_api() {
+        let ctx = Context::new([]).unwrap();
+        let node = create_node(&ctx, "param_test_node").unwrap();
+        node.use_undeclared_parameters()
+            .set("int_param", 100)
+            .unwrap();
+        // Tentative will try to use previously set values and return errors if they are out of
+        // range or of the wrong type
+        assert!(matches!(
+            node.declare_parameter("int_param", 1.0)
+                .tentative()
+                .mandatory(),
+            Err(DeclarationError::PreexistingValue(
+                ParameterValueError::TypeMismatch
+            ))
+        ));
+
+        let range = ParameterRange {
+            lower: Some(-10),
+            upper: Some(10),
+            step: Some(3),
+        };
+        assert!(matches!(
+            node.declare_parameter("int_param", 1)
+                .range(range.clone())
+                .tentative()
+                .mandatory(),
+            Err(DeclarationError::PreexistingValue(
+                ParameterValueError::OutOfRange
+            ))
+        ));
+
+        // Default behavior will just drop the previously set value if it is out of range or of the
+        // wrong type.
+        {
+            let param = node
+                .declare_parameter("int_param", 1.0)
+                .mandatory()
+                .unwrap();
+            assert_eq!(param.get(), 1.0);
+        }
+        {
+            node.use_undeclared_parameters().set("int_param", 100);
+            let param = node
+                .declare_parameter("int_param", 5)
+                .range(range)
+                .mandatory()
+                .unwrap();
+            assert_eq!(param.get(), 5);
+        }
     }
 }
