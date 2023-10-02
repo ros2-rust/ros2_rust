@@ -318,14 +318,15 @@ impl<'a, T: ParameterVariant> ParameterBuilder<'a, T> {
         // TODO(luca) refactor common code between read_only and mandatory
         let ranges = self.options.ranges.clone().into();
         ranges.validate()?;
+        let default_value = self.default_value.into();
+        ranges
+            .check_in_range(&default_value)
+            .map_err(|_| DeclarationError::DefaultOutOfRange)?;
         let value = self
             .interface
             .get_declaration_default_value::<T>(&self.name, &ranges, self.tentative)?
-            .unwrap_or(self.default_value)
-            .into();
-        ranges
-            .check_in_range(&value)
-            .map_err(DeclarationError::PreexistingValue)?;
+            .map(|v| v.into())
+            .unwrap_or(default_value);
         let value = Arc::new(RwLock::new(value));
         self.interface
             ._parameter_map
@@ -359,14 +360,15 @@ impl<'a, T: ParameterVariant> ParameterBuilder<'a, T> {
     pub fn read_only(self) -> Result<ReadOnlyParameter<T>, DeclarationError> {
         let ranges = self.options.ranges.clone().into();
         ranges.validate()?;
+        let default_value = self.default_value.into();
+        ranges
+            .check_in_range(&default_value)
+            .map_err(|_| DeclarationError::DefaultOutOfRange)?;
         let value = self
             .interface
             .get_declaration_default_value::<T>(&self.name, &ranges, self.tentative)?
-            .unwrap_or(self.default_value)
-            .into();
-        ranges
-            .check_in_range(&value)
-            .map_err(DeclarationError::PreexistingValue)?;
+            .map(|v| v.into())
+            .unwrap_or(default_value);
         self.interface
             ._parameter_map
             .lock()
@@ -560,6 +562,8 @@ pub enum DeclarationError {
     Override(ParameterValueError),
     /// An invalid range was provided to a parameter declaration (i.e. lower bound > higher bound).
     InvalidRange,
+    /// The default value provided to the declaration was out of range.
+    DefaultOutOfRange,
 }
 
 impl<'a> Parameters<'a> {
@@ -761,10 +765,16 @@ impl ParameterInterface {
     ) -> Result<OptionalParameter<T>, DeclarationError> {
         let ranges = options.ranges.clone().into();
         ranges.validate()?;
+        let default_value = default_value.map(|v| v.into());
+        if let Some(ref v) = default_value {
+            ranges
+                .check_in_range(v)
+                .map_err(|_| DeclarationError::DefaultOutOfRange)?;
+        }
         let value = self
             .get_declaration_default_value::<T>(name, &ranges, tentative)?
-            .or(default_value)
-            .map(|v| v.into());
+            .map(|v| v.into())
+            .or(default_value);
         if let Some(ref v) = value {
             ranges
                 .check_in_range(v)
@@ -1085,17 +1095,13 @@ mod tests {
             node.declare_parameter("out_of_range_int", 100)
                 .range(range.clone())
                 .mandatory(),
-            Err(DeclarationError::PreexistingValue(
-                ParameterValueError::OutOfRange
-            ))
+            Err(DeclarationError::DefaultOutOfRange)
         ));
         assert!(matches!(
             node.declare_parameter("wrong_step_int", -9)
                 .range(range.clone())
                 .mandatory(),
-            Err(DeclarationError::PreexistingValue(
-                ParameterValueError::OutOfRange
-            ))
+            Err(DeclarationError::DefaultOutOfRange)
         ));
         let param = node
             .declare_parameter("int_param", -7)
@@ -1127,18 +1133,14 @@ mod tests {
         assert!(matches!(
             node.declare_parameter("out_of_range_double", 100.0)
                 .range(range.clone())
-                .mandatory(),
-            Err(DeclarationError::PreexistingValue(
-                ParameterValueError::OutOfRange
-            ))
+                .optional(),
+            Err(DeclarationError::DefaultOutOfRange)
         ));
         assert!(matches!(
             node.declare_parameter("wrong_step_double", -9.0)
                 .range(range.clone())
-                .mandatory(),
-            Err(DeclarationError::PreexistingValue(
-                ParameterValueError::OutOfRange
-            ))
+                .read_only(),
+            Err(DeclarationError::DefaultOutOfRange)
         ));
         let param = node
             .declare_parameter("double_param", -7.0)
@@ -1226,7 +1228,7 @@ mod tests {
             step: Some(3),
         };
         assert!(matches!(
-            node.declare_parameter("int_param", 1)
+            node.declare_parameter("int_param", -1)
                 .range(range.clone())
                 .tentative()
                 .mandatory(),
