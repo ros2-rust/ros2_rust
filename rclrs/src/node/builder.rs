@@ -2,7 +2,10 @@ use std::ffi::CString;
 use std::sync::{Arc, Mutex};
 
 use crate::rcl_bindings::*;
-use crate::{ClockType, Context, Node, ParameterInterface, RclrsError, TimeSource, ToResult};
+use crate::{
+    ClockType, Context, Node, ParameterInterface, QoSProfile, RclrsError, TimeSource, ToResult,
+    QOS_PROFILE_CLOCK,
+};
 
 /// A builder for creating a [`Node`][1].
 ///
@@ -15,6 +18,7 @@ use crate::{ClockType, Context, Node, ParameterInterface, RclrsError, TimeSource
 /// - `arguments: []`
 /// - `enable_rosout: true`
 /// - `clock_type: ClockType::RosTime`
+/// - `clock_qos: QOS_PROFILE_CLOCK`
 ///
 /// # Example
 /// ```
@@ -45,6 +49,7 @@ pub struct NodeBuilder {
     arguments: Vec<String>,
     enable_rosout: bool,
     clock_type: ClockType,
+    clock_qos: QoSProfile,
 }
 
 impl NodeBuilder {
@@ -92,6 +97,7 @@ impl NodeBuilder {
             arguments: vec![],
             enable_rosout: true,
             clock_type: ClockType::RosTime,
+            clock_qos: QOS_PROFILE_CLOCK,
         }
     }
 
@@ -230,6 +236,12 @@ impl NodeBuilder {
         self
     }
 
+    /// Sets the QoSProfile for the clock subscription.
+    pub fn clock_qos(mut self, clock_qos: QoSProfile) -> Self {
+        self.clock_qos = clock_qos;
+        self
+    }
+
     /// Builds the node instance.
     ///
     /// Node name and namespace validation is performed in this method.
@@ -281,7 +293,10 @@ impl NodeBuilder {
             guard_conditions_mtx: Mutex::new(vec![]),
             services_mtx: Mutex::new(vec![]),
             subscriptions_mtx: Mutex::new(vec![]),
-            _time_source: TimeSource::new(weak.clone(), self.clock_type),
+            _time_source: TimeSource::builder(weak.clone(), self.clock_type)
+                .clock_qos(self.clock_qos)
+                .build()
+                .unwrap(),
             _parameter,
         }))
     }
