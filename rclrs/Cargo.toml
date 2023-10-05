@@ -20,8 +20,6 @@ ament_rs = { version = "0.2", optional = true }
 futures = "0.3"
 # Needed for dynamic messages
 libloading = { version = "0.8", optional = true }
-# Needed for /clock topic subscription when using simulation time
-rosgraph_msgs = "*"
 # Needed for the Message trait, among others
 rosidl_runtime_rs = "0.3"
 
