@@ -420,7 +420,7 @@ impl Node {
         self._parameter.declare_string_array(name, default_value)
     }
 
-    /// Helper function to declare a parameter with an unset value.
+    /// Helper function to declare an `Optional` parameter with a default unset value.
     pub fn declare_unset_parameter<T: ParameterVariant>(
         &self,
         name: &str,
