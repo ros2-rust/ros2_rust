@@ -1,11 +1,11 @@
-use std::sync::{Arc, Mutex, Weak};
+use std::sync::{Arc, Weak, Mutex};
 
-use crate::vendor::rcl_interfaces::msg::rmw::*;
 use crate::vendor::rcl_interfaces::srv::rmw::*;
-use rosidl_runtime_rs::{seq, Sequence};
+use crate::vendor::rcl_interfaces::msg::rmw::*;
+use rosidl_runtime_rs::{Sequence, seq};
 
-use crate::rcl_bindings::rcl_node_t;
 use crate::{rmw_request_id_t, Node, RclrsError, Service, ServiceBase};
+use crate::rcl_bindings::rcl_node_t;
 
 pub struct ParameterService {
     describe_parameters_service: Arc<Service<DescribeParameters>>,
@@ -17,50 +17,52 @@ pub struct ParameterService {
 }
 
 impl ParameterService {
-    pub fn new(rcl_node_mtx: &Arc<Mutex<rcl_node_t>>) -> Result<Self, RclrsError> {
-        let describe_parameters_service = Service::new(
-            Arc::clone(rcl_node_mtx),
+    pub fn new(rcl_node_mtx: Arc<Mutex<rcl_node_t>>) -> Result<Self, RclrsError> {
+        let describe_parameters_service = Service::new(Arc::clone(&rcl_node_mtx),
             "describe_parameters",
             |req_id: &rmw_request_id_t, req: DescribeParameters_Request| {
                 DescribeParameters_Response {
-                    descriptors: seq![],
+                    descriptors: seq![]
                 }
             },
         )?;
-        let get_parameter_types_service = Service::new(
-            Arc::clone(rcl_node_mtx),
+        let get_parameter_types_service = Service::new(Arc::clone(&rcl_node_mtx),
             "get_parameter_types",
             |req_id: &rmw_request_id_t, req: GetParameterTypes_Request| {
-                GetParameterTypes_Response { types: seq![] }
+                GetParameterTypes_Response {
+                    types: seq![]
+                }
             },
         )?;
-        let get_parameters_service = Service::new(
-            Arc::clone(rcl_node_mtx),
+        let get_parameters_service = Service::new(Arc::clone(&rcl_node_mtx),
             "get_parameters",
-            |req_id: &rmw_request_id_t, req: GetParameters_Request| GetParameters_Response {
-                values: seq![],
+            |req_id: &rmw_request_id_t, req: GetParameters_Request| {
+                GetParameters_Response {
+                    values: seq![]
+                }
             },
         )?;
-        let list_parameters_service = Service::new(
-            Arc::clone(rcl_node_mtx),
+        let list_parameters_service = Service::new(Arc::clone(&rcl_node_mtx),
             "list_parameters",
-            |req_id: &rmw_request_id_t, req: ListParameters_Request| ListParameters_Response {
-                result: ListParametersResult::default(),
+            |req_id: &rmw_request_id_t, req: ListParameters_Request| {
+                ListParameters_Response {
+                    result: ListParametersResult::default()
+                }
             },
         )?;
-        let set_parameters_service = Service::new(
-            Arc::clone(rcl_node_mtx),
+        let set_parameters_service = Service::new(Arc::clone(&rcl_node_mtx),
             "set_parameters",
-            |req_id: &rmw_request_id_t, req: SetParameters_Request| SetParameters_Response {
-                results: seq![],
+            |req_id: &rmw_request_id_t, req: SetParameters_Request| {
+                SetParameters_Response {
+                    results: seq![]
+                }
             },
         )?;
-        let set_parameters_atomically_service = Service::new(
-            Arc::clone(rcl_node_mtx),
+        let set_parameters_atomically_service = Service::new(Arc::clone(&rcl_node_mtx),
             "set_parameters_atomically",
             |req_id: &rmw_request_id_t, req: SetParametersAtomically_Request| {
                 SetParametersAtomically_Response {
-                    result: SetParametersResult::default(),
+                    result: SetParametersResult::default()
                 }
             },
         )?;
