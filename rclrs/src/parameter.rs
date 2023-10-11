@@ -629,7 +629,8 @@ pub(crate) struct ParameterInterface {
     _parameter_map: Arc<Mutex<ParameterMap>>,
     _override_map: ParameterOverrideMap,
     allow_undeclared: AtomicBool,
-    //_services: ParameterService,
+    // NOTE(luca-della-vedova) add a ParameterService field to this struct to add support for
+    // services.
 }
 
 impl ParameterInterface {
@@ -638,8 +639,6 @@ impl ParameterInterface {
         node_arguments: &rcl_arguments_t,
         global_arguments: &rcl_arguments_t,
     ) -> Result<Self, RclrsError> {
-        //let _services = ParameterService::new(rcl_node_mtx)?;
-
         let rcl_node = rcl_node_mtx.lock().unwrap();
         let _override_map = unsafe {
             let fqn = call_string_getter_with_handle(&rcl_node, rcl_node_get_fully_qualified_name);
@@ -650,7 +649,6 @@ impl ParameterInterface {
             _parameter_map: Default::default(),
             _override_map,
             allow_undeclared: Default::default(),
-            //_services,
         })
     }
 
@@ -719,8 +717,8 @@ impl ParameterInterface {
     where
         Arc<[U::Item]>: ParameterVariant,
     {
-        // TODO(luca) consider passing a FnOnce to initialize the value to declare to do lazy
-        // initialization.
+        // TODO(luca-della-vedova) consider passing a FnOnce to initialize the value to declare to
+        // do lazy initialization.
         let value = default_value.into_iter().collect();
         self.declare(name, value)
     }
@@ -734,8 +732,8 @@ impl ParameterInterface {
         U: IntoIterator,
         U::Item: Into<Arc<str>>,
     {
-        // TODO(luca) consider passing a FnOnce to initialize the value to declare to do lazy
-        // initialization.
+        // TODO(luca-della-vedova) consider passing a FnOnce to initialize the value to declare to
+        // do lazy initialization.
         let value = default_value.into_iter().map(|v| v.into()).collect();
         self.declare(name, value)
     }
