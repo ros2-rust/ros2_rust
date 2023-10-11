@@ -39,7 +39,6 @@ pub struct ParameterOptions<T: ParameterVariant> {
     ranges: T::Range,
 }
 
-// TODO(luca) we can't derive Default because it requires ParameterVariant to implement Default
 impl<T: ParameterVariant> Default for ParameterOptions<T> {
     fn default() -> Self {
         Self {
@@ -232,7 +231,7 @@ pub struct ParameterBuilder<'a, T: Declarable> {
 }
 
 impl<'a, T: ParameterVariant> ParameterBuilder<'a, Option<T>> {
-    // TODO(luca) reduce duplication for setters
+    // TODO(luca-della-vedova) reduce duplication for setters
     /// Sets the range for the parameter.
     pub fn range(mut self, range: T::Range) -> Self {
         self.options.ranges = range;
@@ -472,7 +471,7 @@ struct DeclaredStorage {
 #[derive(Debug)]
 enum ParameterStorage {
     Declared(DeclaredStorage),
-    Undeclared(Arc<RwLock<ParameterValue>>),
+    Undeclared(ParameterValue),
 }
 
 #[derive(Debug, Default)]
@@ -576,7 +575,7 @@ impl<'a> Parameters<'a> {
                 }
                 DeclaredValue::ReadOnly(p) => T::maybe_from(p.clone()),
             },
-            ParameterStorage::Undeclared(value) => T::maybe_from(value.read().unwrap().clone()),
+            ParameterStorage::Undeclared(value) => T::maybe_from(value.clone()),
         }
     }
 
@@ -612,14 +611,12 @@ impl<'a> Parameters<'a> {
                     }
                 }
                 ParameterStorage::Undeclared(param) => {
-                    *param.write().unwrap() = value.into();
+                    *param = value.into();
                 }
             }
         } else {
-            map.storage.insert(
-                name.to_owned(),
-                ParameterStorage::Undeclared(Arc::new(RwLock::new(value.into()))),
-            );
+            map.storage
+                .insert(name.to_owned(), ParameterStorage::Undeclared(value.into()));
         }
         Ok(())
     }
@@ -685,7 +682,6 @@ impl ParameterInterface {
             match current_value {
                 ParameterStorage::Declared(_) => return Err(DeclarationError::AlreadyDeclared),
                 ParameterStorage::Undeclared(param) => {
-                    let param = param.read().unwrap().clone();
                     if let Err(e) = ranges
                         .check_in_range(&param)
                         .map_err(DeclarationError::PreexistingValue)
@@ -696,7 +692,7 @@ impl ParameterInterface {
                             return Ok(value.map(|v| v.into()));
                         }
                     }
-                    if let Some(v) = T::maybe_from(param) {
+                    if let Some(v) = T::maybe_from(param.clone()) {
                         value = Some(v);
                     } else if tentative {
                         return Err(DeclarationError::PreexistingValue(
