@@ -13,6 +13,26 @@ use std::sync::{
     Arc, Mutex, RwLock, Weak,
 };
 
+// This module implements the core logic of parameters in rclrs.
+// The implementation is fairly different from the existing ROS 2 client libraries. A detailed
+// explanation of the core differences and why they have been implemented is available at:
+// https://github.com/ros2-rust/ros2_rust/pull/332
+// Among the most relevant ones:
+//
+// * Parameter declaration returns an object which will be the main accessor to the parameter,
+// providing getters and, except for read only parameters, setters. Object destruction will
+// undeclare the parameter.
+// * Declaration uses a builder pattern to specify ranges, description, human readable constraints
+// instead of an ParameterDescriptor argument.
+// * Parameters properties of read only and dynamic are embedded in their type rather than being a
+// boolean parameter.
+// * There are no runtime exceptions for common cases such as undeclared parameter, already
+// declared, or uninitialized.
+// * There is no "parameter not set" type, users can instead decide to have a `Mandatory` parameter
+// that must always have a value or `Optional` parameter that can be unset.
+// * Explicit API for access to undeclared parameters by having a
+// `node.use_undeclared_parameters()` API that allows access to all parameters.
+
 #[derive(Clone, Debug)]
 struct ParameterOptionsStorage {
     _description: Arc<str>,
@@ -683,7 +703,7 @@ impl ParameterInterface {
                 ParameterStorage::Declared(_) => return Err(DeclarationError::AlreadyDeclared),
                 ParameterStorage::Undeclared(param) => {
                     if let Err(e) = ranges
-                        .check_in_range(&param)
+                        .check_in_range(param)
                         .map_err(DeclarationError::PreexistingValue)
                     {
                         if tentative {
