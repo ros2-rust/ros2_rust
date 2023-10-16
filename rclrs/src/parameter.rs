@@ -1101,7 +1101,7 @@ mod tests {
                 .mandatory(),
             Err(DeclarationError::InvalidRange)
         ));
-        // Setting parameters out of range range should fail
+        // Setting parameters out of range should fail
         let range = ParameterRange {
             lower: Some(-10),
             upper: Some(10),
