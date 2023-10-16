@@ -503,7 +503,9 @@ struct ParameterMap {
 impl<T: ParameterVariant> MandatoryParameter<T> {
     /// Returns a clone of the most recent value of the parameter.
     pub fn get(&self) -> T {
-        T::maybe_from(self.value.read().unwrap().clone()).unwrap()
+        T::try_from(self.value.read().unwrap().clone())
+            .ok()
+            .unwrap()
     }
 
     /// Sets the parameter value.
@@ -519,7 +521,7 @@ impl<T: ParameterVariant> MandatoryParameter<T> {
 impl<T: ParameterVariant> ReadOnlyParameter<T> {
     /// Returns a clone of the most recent value of the parameter.
     pub fn get(&self) -> T {
-        T::maybe_from(self.value.clone()).unwrap()
+        T::try_from(self.value.clone()).ok().unwrap()
     }
 }
 
@@ -530,7 +532,7 @@ impl<T: ParameterVariant> OptionalParameter<T> {
             .read()
             .unwrap()
             .clone()
-            .map(|p| T::maybe_from(p).unwrap())
+            .map(|p| T::try_from(p).ok().unwrap())
     }
 
     /// Assigns a value to the optional parameter, setting it to `Some(value)`.
@@ -590,13 +592,13 @@ impl<'a> Parameters<'a> {
         };
         match storage {
             ParameterStorage::Declared(storage) => match &storage.value {
-                DeclaredValue::Mandatory(p) => T::maybe_from(p.read().unwrap().clone()),
+                DeclaredValue::Mandatory(p) => T::try_from(p.read().unwrap().clone()).ok(),
                 DeclaredValue::Optional(p) => {
-                    p.read().unwrap().clone().and_then(|p| T::maybe_from(p))
+                    p.read().unwrap().clone().and_then(|p| T::try_from(p).ok())
                 }
-                DeclaredValue::ReadOnly(p) => T::maybe_from(p.clone()),
+                DeclaredValue::ReadOnly(p) => T::try_from(p.clone()).ok(),
             },
-            ParameterStorage::Undeclared(value) => T::maybe_from(value.clone()),
+            ParameterStorage::Undeclared(value) => T::try_from(value.clone()).ok(),
         }
     }
 
@@ -695,9 +697,10 @@ impl ParameterInterface {
             ranges
                 .check_in_range(param_override)
                 .map_err(DeclarationError::Override)?;
-            value = Some(T::maybe_from(param_override.clone()).ok_or(
-                DeclarationError::Override(ParameterValueError::TypeMismatch),
-            )?);
+            value = Some(
+                T::try_from(param_override.clone())
+                    .map_err(|_| DeclarationError::Override(ParameterValueError::TypeMismatch))?,
+            );
         }
         if let Some(current_value) = self._parameter_map.lock().unwrap().storage.get(name) {
             match current_value {
@@ -713,7 +716,7 @@ impl ParameterInterface {
                             return Ok(value.map(|v| v.into()));
                         }
                     }
-                    if let Some(v) = T::maybe_from(param.clone()) {
+                    if let Ok(v) = T::try_from(param.clone()) {
                         value = Some(v);
                     } else if tentative {
                         return Err(DeclarationError::PreexistingValue(

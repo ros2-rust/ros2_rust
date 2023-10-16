@@ -2,7 +2,7 @@ use std::ffi::CStr;
 use std::sync::Arc;
 
 use crate::rcl_bindings::*;
-use crate::{ParameterRange, ParameterRanges};
+use crate::{ParameterRange, ParameterRanges, ParameterValueError};
 
 /// A parameter value.
 ///
@@ -132,138 +132,179 @@ impl From<Arc<[Arc<str>]>> for ParameterValue {
 }
 
 /// A trait that describes a value that can be converted into a parameter.
-pub trait ParameterVariant: Into<ParameterValue> + Clone {
+pub trait ParameterVariant: Into<ParameterValue> + Clone + TryFrom<ParameterValue> {
     /// The type used to describe the range of this parameter.
     type Range: Into<ParameterRanges> + Default + Clone;
-    /// Attempts to convert `value` into the requested type.
-    /// Returns `Some(Self)` if the conversion was successful, `None` otherwise.
-    // TODO(luca) should we use try_from?
-    fn maybe_from(value: ParameterValue) -> Option<Self>;
 
     /// Returns the `ParameterKind` of the implemented type.
     fn kind() -> ParameterKind;
 }
 
-impl ParameterVariant for bool {
-    type Range = ();
-    fn maybe_from(value: ParameterValue) -> Option<Self> {
+impl TryFrom<ParameterValue> for bool {
+    type Error = ParameterValueError;
+
+    fn try_from(value: ParameterValue) -> Result<Self, Self::Error> {
         match value {
-            ParameterValue::Bool(v) => Some(v),
-            _ => None,
+            ParameterValue::Bool(v) => Ok(v),
+            _ => Err(ParameterValueError::TypeMismatch),
         }
     }
+}
+
+impl ParameterVariant for bool {
+    type Range = ();
 
     fn kind() -> ParameterKind {
         ParameterKind::Bool
     }
 }
 
-impl ParameterVariant for i64 {
-    type Range = ParameterRange<i64>;
-    fn maybe_from(value: ParameterValue) -> Option<Self> {
+impl TryFrom<ParameterValue> for i64 {
+    type Error = ParameterValueError;
+
+    fn try_from(value: ParameterValue) -> Result<Self, Self::Error> {
         match value {
-            ParameterValue::Integer(v) => Some(v),
-            _ => None,
+            ParameterValue::Integer(v) => Ok(v),
+            _ => Err(ParameterValueError::TypeMismatch),
         }
     }
+}
+
+impl ParameterVariant for i64 {
+    type Range = ParameterRange<i64>;
 
     fn kind() -> ParameterKind {
         ParameterKind::Integer
     }
 }
 
-impl ParameterVariant for f64 {
-    type Range = ParameterRange<f64>;
-    fn maybe_from(value: ParameterValue) -> Option<Self> {
+impl TryFrom<ParameterValue> for f64 {
+    type Error = ParameterValueError;
+
+    fn try_from(value: ParameterValue) -> Result<Self, Self::Error> {
         match value {
-            ParameterValue::Double(v) => Some(v),
-            _ => None,
+            ParameterValue::Double(v) => Ok(v),
+            _ => Err(ParameterValueError::TypeMismatch),
         }
     }
+}
+
+impl ParameterVariant for f64 {
+    type Range = ParameterRange<f64>;
 
     fn kind() -> ParameterKind {
         ParameterKind::Double
     }
 }
 
-impl ParameterVariant for Arc<str> {
-    type Range = ();
-    fn maybe_from(value: ParameterValue) -> Option<Self> {
+impl TryFrom<ParameterValue> for Arc<str> {
+    type Error = ParameterValueError;
+
+    fn try_from(value: ParameterValue) -> Result<Self, Self::Error> {
         match value {
-            ParameterValue::String(v) => Some(v),
-            _ => None,
+            ParameterValue::String(v) => Ok(v),
+            _ => Err(ParameterValueError::TypeMismatch),
         }
     }
+}
+
+impl ParameterVariant for Arc<str> {
+    type Range = ();
 
     fn kind() -> ParameterKind {
         ParameterKind::String
     }
 }
 
-impl ParameterVariant for Arc<[u8]> {
-    type Range = ();
-    fn maybe_from(value: ParameterValue) -> Option<Self> {
+impl TryFrom<ParameterValue> for Arc<[u8]> {
+    type Error = ParameterValueError;
+
+    fn try_from(value: ParameterValue) -> Result<Self, Self::Error> {
         match value {
-            ParameterValue::ByteArray(v) => Some(v),
-            _ => None,
+            ParameterValue::ByteArray(v) => Ok(v),
+            _ => Err(ParameterValueError::TypeMismatch),
         }
     }
+}
+
+impl ParameterVariant for Arc<[u8]> {
+    type Range = ();
 
     fn kind() -> ParameterKind {
         ParameterKind::ByteArray
     }
 }
 
-impl ParameterVariant for Arc<[bool]> {
-    type Range = ();
-    fn maybe_from(value: ParameterValue) -> Option<Self> {
+impl TryFrom<ParameterValue> for Arc<[bool]> {
+    type Error = ParameterValueError;
+
+    fn try_from(value: ParameterValue) -> Result<Self, Self::Error> {
         match value {
-            ParameterValue::BoolArray(v) => Some(v),
-            _ => None,
+            ParameterValue::BoolArray(v) => Ok(v),
+            _ => Err(ParameterValueError::TypeMismatch),
         }
     }
+}
+
+impl ParameterVariant for Arc<[bool]> {
+    type Range = ();
 
     fn kind() -> ParameterKind {
         ParameterKind::BoolArray
     }
 }
 
-impl ParameterVariant for Arc<[i64]> {
-    type Range = ();
-    fn maybe_from(value: ParameterValue) -> Option<Self> {
+impl TryFrom<ParameterValue> for Arc<[i64]> {
+    type Error = ParameterValueError;
+
+    fn try_from(value: ParameterValue) -> Result<Self, Self::Error> {
         match value {
-            ParameterValue::IntegerArray(v) => Some(v),
-            _ => None,
+            ParameterValue::IntegerArray(v) => Ok(v),
+            _ => Err(ParameterValueError::TypeMismatch),
         }
     }
+}
+
+impl ParameterVariant for Arc<[i64]> {
+    type Range = ();
 
     fn kind() -> ParameterKind {
         ParameterKind::IntegerArray
     }
 }
 
-impl ParameterVariant for Arc<[f64]> {
-    type Range = ();
-    fn maybe_from(value: ParameterValue) -> Option<Self> {
+impl TryFrom<ParameterValue> for Arc<[f64]> {
+    type Error = ParameterValueError;
+
+    fn try_from(value: ParameterValue) -> Result<Self, Self::Error> {
         match value {
-            ParameterValue::DoubleArray(v) => Some(v),
-            _ => None,
+            ParameterValue::DoubleArray(v) => Ok(v),
+            _ => Err(ParameterValueError::TypeMismatch),
         }
     }
+}
+
+impl ParameterVariant for Arc<[f64]> {
+    type Range = ();
 
     fn kind() -> ParameterKind {
         ParameterKind::DoubleArray
     }
 }
 
-impl ParameterVariant for Arc<[Arc<str>]> {
-    type Range = ();
-    fn maybe_from(value: ParameterValue) -> Option<Self> {
+impl TryFrom<ParameterValue> for Arc<[Arc<str>]> {
+    type Error = ParameterValueError;
+
+    fn try_from(value: ParameterValue) -> Result<Self, Self::Error> {
         match value {
-            ParameterValue::StringArray(v) => Some(v),
-            _ => None,
+            ParameterValue::StringArray(v) => Ok(v),
+            _ => Err(ParameterValueError::TypeMismatch),
         }
     }
+}
+
+impl ParameterVariant for Arc<[Arc<str>]> {
+    type Range = ();
 
     fn kind() -> ParameterKind {
         ParameterKind::StringArray
@@ -272,9 +313,6 @@ impl ParameterVariant for Arc<[Arc<str>]> {
 
 impl ParameterVariant for ParameterValue {
     type Range = ParameterRanges;
-    fn maybe_from(value: ParameterValue) -> Option<Self> {
-        Some(value)
-    }
 
     fn kind() -> ParameterKind {
         ParameterKind::Dynamic
