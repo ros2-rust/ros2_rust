@@ -370,7 +370,7 @@ impl Node {
     /// let node = rclrs::create_node(&context, "domain_id_node")?;
     /// // Set it to a range of 0-100, with a step of 2
     /// let range = ParameterRange {
-    ///     lower: Some(-100),
+    ///     lower: Some(0),
     ///     upper: Some(100),
     ///     step: Some(2),
     /// };

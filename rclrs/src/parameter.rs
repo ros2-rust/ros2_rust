@@ -115,6 +115,7 @@ impl ParameterRanges {
         }
         Ok(())
     }
+
     fn check_in_range(&self, value: &ParameterValue) -> Result<(), ParameterValueError> {
         match value {
             ParameterValue::Integer(v) => {
@@ -612,7 +613,7 @@ impl<'a> Parameters<'a> {
     ) -> Result<(), ParameterValueError> {
         let mut map = self.interface._parameter_map.lock().unwrap();
         if let Some(entry) = map.storage.get_mut(name) {
-            // If it's declared we can only set if it's the same variant.
+            // If it's declared, we can only set if it's the same variant.
             // Undeclared parameters are dynamic by default
             match entry {
                 ParameterStorage::Declared(param) => {
@@ -843,7 +844,7 @@ mod tests {
             ))
         ));
 
-        // If the override does not respect the range we should return an error
+        // If the override does not respect the range, we should return an error
         let range = ParameterRange {
             upper: Some(5),
             ..Default::default()
@@ -977,7 +978,7 @@ mod tests {
             .unwrap();
         assert_eq!(optional_param3.get(), Some(true));
 
-        // double_array was overriden to 1.0 2.0 through command line overrides
+        // double_array was overriden to [1.0, 2.0] through command line overrides
         let array_param = node
             .declare_parameter_from_iter("double_array", vec![10.0, 20.0])
             .mandatory()
@@ -992,7 +993,7 @@ mod tests {
         assert_eq!(array_param.get()[0], "Hello".into());
         assert_eq!(array_param.get()[1], "World".into());
 
-        // If a value is set when undeclared, a following declare_parameter should have the
+        // If a value is set when undeclared, the following declare_parameter should have the
         // previously set value.
         node.use_undeclared_parameters()
             .set("undeclared_int", 42)
