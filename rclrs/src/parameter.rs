@@ -221,83 +221,44 @@ enum DeclaredValue {
     ReadOnly(ParameterValue),
 }
 
-/// Trait used to describe a value that can be declared.
-/// Depending on whether a parameter is mandatory or optional, its value can be specified as either
-/// `T` or `Option<T>` and this trait assist in defining the types and their constraints.
-pub trait Declarable {
-    /// Type passed to the builder to specify the default value.
-    type DefaultInput;
-    /// Type of the parameter.
-    type ParameterType: ParameterVariant;
-}
-
-impl<T: ParameterVariant> Declarable for T {
-    type DefaultInput = T;
-    type ParameterType = T;
-}
-
-impl<T: ParameterVariant> Declarable for Option<T> {
-    type DefaultInput = Option<T>;
-    type ParameterType = T;
-}
-
 /// Builder used to generate a parameter. Defaults to `ParameterOptions<T>::default()`.
 #[must_use]
-pub struct ParameterBuilder<'a, T: Declarable> {
+pub struct ParameterBuilder<'a, T: ParameterVariant> {
     name: String,
-    default_value: T,
+    default_value: Option<T>,
     tentative: bool,
-    options: ParameterOptions<T::ParameterType>,
+    options: ParameterOptions<T>,
     interface: &'a ParameterInterface,
 }
 
-impl<'a, T: ParameterVariant> ParameterBuilder<'a, Option<T>> {
-    // TODO(luca-della-vedova) reduce duplication for setters
-    /// Sets the range for the parameter.
-    pub fn range(mut self, range: T::Range) -> Self {
-        self.options.ranges = range;
-        self
-    }
-
-    /// Sets the parameter's human readable description.
-    pub fn description(mut self, description: impl Into<Arc<str>>) -> Self {
-        self.options.description = description.into();
-        self
-    }
-
-    /// Sets the parameter's human readable constraints.
-    /// These are not enforced by the library but are displayed on parameter description requests
-    /// and can be used by integrators to understand complex constraints.
-    pub fn constraints(mut self, constraints: impl Into<Arc<str>>) -> Self {
-        self.options.constraints = constraints.into();
-        self
-    }
-
-    /// Sets the parameter's human readable constraints.
-    /// These are not enforced by the library but are displayed on parameter description requests
-    /// and can be used by integrators to understand complex constraints.
-    pub fn tentative(mut self) -> Self {
-        self.tentative = true;
-        self
-    }
-    /// Declares the parameter as an Optional parameter, that can be unset.
-    ///
-    /// Returns:
-    /// * `Ok(OptionalParameter<T>)` if declaration was successful.
-    /// * `Err(DeclarationError::PreexistingValue(ParameterValueError::OutOfRange))` if the parameter value is out of range.
-    /// * `Err(DeclarationError::Override(ParameterValueError::OutOfRange))` if the parameter override is out of range.
-    /// * `Err(DeclarationError::Override(ParameterValueError::TypeMismatch))` if the parameter override is set to the wrong type.
-    pub fn optional(self) -> Result<OptionalParameter<T>, DeclarationError> {
-        self.interface.declare_optional(
-            &self.name,
-            self.default_value,
-            self.options,
-            self.tentative,
-        )
-    }
-}
-
 impl<'a, T: ParameterVariant> ParameterBuilder<'a, T> {
+    /// Sets the default value for the parameter.
+    pub fn default(mut self, value: T) -> Self {
+        self.default_value = Some(value);
+        self
+    }
+
+    /// Sets the default for the parameter from an iterable.
+    pub fn default_from_iter<U: IntoIterator>(mut self, default_value: U) -> Self
+    where
+        T: FromIterator<U::Item>,
+    {
+        self.default_value = Some(default_value.into_iter().collect());
+        self
+    }
+
+    /// Sets the default for the parameter from a string array.
+    pub fn default_string_array<U>(mut self, default_value: U) -> Self
+    //) -> ParameterBuilder<Arc<[Arc<str>]>>
+    where
+        U: IntoIterator,
+        T: FromIterator<U::Item>,
+        //U::Item: Into<Arc<str>>,
+    {
+        self.default_value = Some(default_value.into_iter().map(|v| v.into()).collect());
+        self
+    }
+
     /// Sets the range for the parameter.
     pub fn range(mut self, range: T::Range) -> Self {
         self.options.ranges = range;
@@ -357,12 +318,35 @@ impl<'a, T: ParameterVariant> ParameterBuilder<'a, T> {
     /// * `Err(DeclarationError::Override(ParameterValueError::OutOfRange))` if the parameter override is out of range.
     /// * `Err(DeclarationError::Override(ParameterValueError::TypeMismatch))` if the parameter override is set to the wrong type.
     pub fn optional(self) -> Result<OptionalParameter<T>, DeclarationError> {
-        self.interface.declare_optional(
-            &self.name,
-            Some(self.default_value),
-            self.options,
-            self.tentative,
-        )
+        self.try_into()
+    }
+}
+
+impl<T: ParameterVariant> TryFrom<ParameterBuilder<'_, T>> for OptionalParameter<T> {
+    type Error = DeclarationError;
+
+    fn try_from(builder: ParameterBuilder<T>) -> Result<Self, Self::Error> {
+        let ranges = builder.options.ranges.clone().into();
+        let default_value = builder.default_value.map(|v| v.into());
+        ParameterInterface::validate_range_and_default_value(&ranges, default_value.as_ref())?;
+        let value = builder
+            .interface
+            .get_declaration_default_value::<T>(&builder.name, &ranges, builder.tentative)?
+            .or(default_value);
+        let value = Arc::new(RwLock::new(value));
+        builder.interface.store_parameter(
+            &builder.name,
+            T::kind(),
+            DeclaredValue::Optional(value.clone()),
+            builder.options.into(),
+        );
+        Ok(OptionalParameter {
+            name: builder.name.to_owned(),
+            value,
+            ranges,
+            map: Arc::downgrade(&builder.interface._parameter_map),
+            _marker: Default::default(),
+        })
     }
 }
 
@@ -392,7 +376,10 @@ impl<T: ParameterVariant> TryFrom<ParameterBuilder<'_, T>> for MandatoryParamete
 
     fn try_from(builder: ParameterBuilder<T>) -> Result<Self, Self::Error> {
         let ranges = builder.options.ranges.clone().into();
-        let default_value = builder.default_value.into();
+        let default_value = builder
+            .default_value
+            .ok_or(DeclarationError::NoValueSet)?
+            .into();
         ParameterInterface::validate_range_and_default_value(&ranges, Some(&default_value))?;
         let value = builder
             .interface
@@ -461,7 +448,10 @@ impl<T: ParameterVariant> TryFrom<ParameterBuilder<'_, T>> for ReadOnlyParameter
 
     fn try_from(builder: ParameterBuilder<T>) -> Result<Self, Self::Error> {
         let ranges = builder.options.ranges.clone().into();
-        let default_value = builder.default_value.into();
+        let default_value = builder
+            .default_value
+            .ok_or(DeclarationError::NoValueSet)?
+            .into();
         ParameterInterface::validate_range_and_default_value(&ranges, Some(&default_value))?;
         let value = builder
             .interface
@@ -571,6 +561,9 @@ pub enum ParameterValueError {
 pub enum DeclarationError {
     /// Parameter was already declared and a new declaration was attempted.
     AlreadyDeclared,
+    /// Parameter was declared as non optional but no value was set, either through a user
+    /// specified default or an override.
+    NoValueSet,
     /// An error caused when trying to set the parameter's value.
     PreexistingValue(ParameterValueError),
     /// An error caused when parsing the parameter override's value.
@@ -672,13 +665,9 @@ impl ParameterInterface {
         })
     }
 
-    pub(crate) fn declare<T: Declarable>(
-        &self,
-        name: &str,
-        default_value: T,
-    ) -> ParameterBuilder<T> {
+    pub(crate) fn declare<T: ParameterVariant>(&self, name: &str) -> ParameterBuilder<T> {
         ParameterBuilder {
-            default_value,
+            default_value: None,
             name: name.into(),
             tentative: false,
             options: Default::default(),
@@ -727,64 +716,6 @@ impl ParameterInterface {
             }
         }
         Ok(value.map(|v| v.into()))
-    }
-
-    pub(crate) fn declare_from_iter<U: IntoIterator>(
-        &self,
-        name: &str,
-        default_value: U,
-    ) -> ParameterBuilder<Arc<[U::Item]>>
-    where
-        Arc<[U::Item]>: ParameterVariant,
-    {
-        // TODO(luca-della-vedova) consider passing a FnOnce to initialize the value to declare to
-        // do lazy initialization.
-        let value = default_value.into_iter().collect();
-        self.declare(name, value)
-    }
-
-    pub(crate) fn declare_string_array<U>(
-        &self,
-        name: &str,
-        default_value: U,
-    ) -> ParameterBuilder<Arc<[Arc<str>]>>
-    where
-        U: IntoIterator,
-        U::Item: Into<Arc<str>>,
-    {
-        // TODO(luca-della-vedova) consider passing a FnOnce to initialize the value to declare to
-        // do lazy initialization.
-        let value = default_value.into_iter().map(|v| v.into()).collect();
-        self.declare(name, value)
-    }
-
-    fn declare_optional<T: ParameterVariant>(
-        &self,
-        name: &str,
-        default_value: Option<T>,
-        options: ParameterOptions<T>,
-        tentative: bool,
-    ) -> Result<OptionalParameter<T>, DeclarationError> {
-        let ranges = options.ranges.clone().into();
-        let default_value = default_value.map(|v| v.into());
-        Self::validate_range_and_default_value(&ranges, default_value.as_ref())?;
-        let value = self
-            .get_declaration_default_value::<T>(name, &ranges, tentative)?
-            .or(default_value);
-        let value = Arc::new(RwLock::new(value));
-        self.store_parameter(
-            name,
-            T::kind(),
-            DeclaredValue::Optional(value.clone()),
-            options.into(),
-        );
-        Ok(OptionalParameter {
-            name: name.to_owned(),
-            value,
-            ranges,
-            map: Arc::downgrade(&self._parameter_map),
-            _marker: Default::default(),
-        })
     }
 
     fn validate_range_and_default_value(
@@ -841,7 +772,9 @@ mod tests {
         // Declaring a parameter with a different type than what was overridden should return an
         // error
         assert!(matches!(
-            node.declare_parameter("declared_int", 1.0).mandatory(),
+            node.declare_parameter("declared_int")
+                .default(1.0)
+                .mandatory(),
             Err(DeclarationError::Override(
                 ParameterValueError::TypeMismatch
             ))
@@ -853,7 +786,8 @@ mod tests {
             ..Default::default()
         };
         assert!(matches!(
-            node.declare_parameter("declared_int", 1)
+            node.declare_parameter("declared_int")
+                .default(1)
                 .range(range)
                 .mandatory(),
             Err(DeclarationError::Override(ParameterValueError::OutOfRange))
@@ -878,13 +812,15 @@ mod tests {
         let node = create_node(&ctx, "param_test_node").unwrap();
 
         let overridden_int = node
-            .declare_parameter("declared_int", 123)
+            .declare_parameter("declared_int")
+            .default(123)
             .mandatory()
             .unwrap();
         assert_eq!(overridden_int.get(), 10);
 
         let new_param = node
-            .declare_parameter("new_param", 2.0)
+            .declare_parameter("new_param")
+            .default(2.0)
             .mandatory()
             .unwrap();
         assert_eq!(new_param.get(), 2.0);
@@ -942,7 +878,8 @@ mod tests {
                 .set("new_bool", true)
                 .unwrap();
             let bool_param = node
-                .declare_parameter("new_bool", false)
+                .declare_parameter("new_bool")
+                .default(false)
                 .mandatory()
                 .unwrap();
             assert!(bool_param.get());
@@ -952,14 +889,15 @@ mod tests {
                 .set("new_bool", true)
                 .unwrap();
             let bool_param = node
-                .declare_parameter("new_bool", false)
+                .declare_parameter("new_bool")
+                .default(false)
                 .optional()
                 .unwrap();
             assert_eq!(bool_param.get(), Some(true));
         }
 
         let optional_param = node
-            .declare_parameter("non_existing_bool", None)
+            .declare_parameter("non_existing_bool")
             .optional()
             .unwrap();
         assert_eq!(optional_param.get(), None);
@@ -969,28 +907,32 @@ mod tests {
         assert_eq!(optional_param.get(), None);
 
         let optional_param2 = node
-            .declare_parameter("non_existing_bool2", Some(false))
+            .declare_parameter("non_existing_bool2")
+            .default(false)
             .optional()
             .unwrap();
         assert_eq!(optional_param2.get(), Some(false));
 
         // This was provided as a parameter override, hence should be set to true
         let optional_param3 = node
-            .declare_parameter("optional_bool", Some(false))
+            .declare_parameter("optional_bool")
+            .default(false)
             .optional()
             .unwrap();
         assert_eq!(optional_param3.get(), Some(true));
 
         // double_array was overriden to [1.0, 2.0] through command line overrides
         let array_param = node
-            .declare_parameter_from_iter("double_array", vec![10.0, 20.0])
+            .declare_parameter("double_array")
+            .default_from_iter(vec![10.0, 20.0])
             .mandatory()
             .unwrap();
         assert_eq!(array_param.get()[0], 1.0);
         assert_eq!(array_param.get()[1], 2.0);
 
         let array_param = node
-            .declare_string_array_parameter("string_array", vec!["Hello", "World"])
+            .declare_parameter("string_array")
+            .default_string_array(vec!["Hello", "World"])
             .mandatory()
             .unwrap();
         assert_eq!(array_param.get()[0], "Hello".into());
@@ -1002,7 +944,8 @@ mod tests {
             .set("undeclared_int", 42)
             .unwrap();
         let undeclared_int = node
-            .declare_parameter("undeclared_int", 10)
+            .declare_parameter("undeclared_int")
+            .default(10)
             .mandatory()
             .unwrap();
         assert_eq!(undeclared_int.get(), 42);
@@ -1023,7 +966,8 @@ mod tests {
             .set("declared_int", 20)
             .unwrap();
         let param = node
-            .declare_parameter("declared_int", 30)
+            .declare_parameter("declared_int")
+            .default(30)
             .mandatory()
             .unwrap();
         assert_eq!(param.get(), 20);
@@ -1041,7 +985,8 @@ mod tests {
         {
             // Setting a parameter with an override
             let param = node
-                .declare_parameter("declared_int", 1)
+                .declare_parameter("declared_int")
+                .default(1)
                 .mandatory()
                 .unwrap();
             assert_eq!(param.get(), 10);
@@ -1049,17 +994,16 @@ mod tests {
             assert_eq!(param.get(), 2);
             // Redeclaring should fail
             assert!(matches!(
-                node.declare_parameter("declared_int", 1).mandatory(),
+                node.declare_parameter("declared_int")
+                    .default(1)
+                    .mandatory(),
                 Err(DeclarationError::AlreadyDeclared)
             ));
         }
         {
             // Parameter went out of scope, redeclaring should be OK and return command line
             // override
-            let param = node
-                .declare_parameter("declared_int", 1)
-                .mandatory()
-                .unwrap();
+            let param = node.declare_parameter("declared_int").mandatory().unwrap();
             assert_eq!(param.get(), 10);
         }
         // After a declared parameter went out of scope and was cleared, it should still be
@@ -1088,7 +1032,8 @@ mod tests {
             step: Some(3),
         };
         assert!(matches!(
-            node.declare_parameter("int_param", 5)
+            node.declare_parameter("int_param")
+                .default(5)
                 .range(range)
                 .mandatory(),
             Err(DeclarationError::InvalidRange)
@@ -1099,7 +1044,8 @@ mod tests {
             step: Some(-1),
         };
         assert!(matches!(
-            node.declare_parameter("int_param", 5)
+            node.declare_parameter("int_param")
+                .default(5)
                 .range(range)
                 .mandatory(),
             Err(DeclarationError::InvalidRange)
@@ -1111,19 +1057,22 @@ mod tests {
             step: Some(3),
         };
         assert!(matches!(
-            node.declare_parameter("out_of_range_int", 100)
+            node.declare_parameter("out_of_range_int")
+                .default(100)
                 .range(range.clone())
                 .mandatory(),
             Err(DeclarationError::DefaultOutOfRange)
         ));
         assert!(matches!(
-            node.declare_parameter("wrong_step_int", -9)
+            node.declare_parameter("wrong_step_int")
+                .default(-9)
                 .range(range.clone())
                 .mandatory(),
             Err(DeclarationError::DefaultOutOfRange)
         ));
         let param = node
-            .declare_parameter("int_param", -7)
+            .declare_parameter("int_param")
+            .default(-7)
             .range(range)
             .mandatory()
             .unwrap();
@@ -1150,19 +1099,22 @@ mod tests {
             step: Some(3.0),
         };
         assert!(matches!(
-            node.declare_parameter("out_of_range_double", 100.0)
+            node.declare_parameter("out_of_range_double")
+                .default(100.0)
                 .range(range.clone())
                 .optional(),
             Err(DeclarationError::DefaultOutOfRange)
         ));
         assert!(matches!(
-            node.declare_parameter("wrong_step_double", -9.0)
+            node.declare_parameter("wrong_step_double")
+                .default(-9.0)
                 .range(range.clone())
                 .read_only(),
             Err(DeclarationError::DefaultOutOfRange)
         ));
         let param = node
-            .declare_parameter("double_param", -7.0)
+            .declare_parameter("double_param")
+            .default(-7.0)
             .range(range.clone())
             .mandatory()
             .unwrap();
@@ -1202,12 +1154,13 @@ mod tests {
         let ctx = Context::new([]).unwrap();
         let node = create_node(&ctx, "param_test_node").unwrap();
         let param = node
-            .declare_parameter("int_param", 100)
+            .declare_parameter("int_param")
+            .default(100)
             .read_only()
             .unwrap();
         // Multiple copies cannot be declared
         assert!(matches!(
-            node.declare_parameter("int_param", 100).read_only(),
+            node.declare_parameter("int_param").default(100).read_only(),
             Err(DeclarationError::AlreadyDeclared)
         ));
         // A reading should work and return the correct value:w
@@ -1233,7 +1186,8 @@ mod tests {
         // Tentative will try to use previously set values and return errors if they are out of
         // range or of the wrong type
         assert!(matches!(
-            node.declare_parameter("int_param", 1.0)
+            node.declare_parameter("int_param")
+                .default(1.0)
                 .tentative()
                 .mandatory(),
             Err(DeclarationError::PreexistingValue(
@@ -1247,7 +1201,8 @@ mod tests {
             step: Some(3),
         };
         assert!(matches!(
-            node.declare_parameter("int_param", -1)
+            node.declare_parameter("int_param")
+                .default(-1)
                 .range(range.clone())
                 .tentative()
                 .mandatory(),
@@ -1260,7 +1215,8 @@ mod tests {
         // wrong type.
         {
             let param = node
-                .declare_parameter("int_param", 1.0)
+                .declare_parameter("int_param")
+                .default(1.0)
                 .mandatory()
                 .unwrap();
             assert_eq!(param.get(), 1.0);
@@ -1270,7 +1226,8 @@ mod tests {
                 .set("int_param", 100)
                 .unwrap();
             let param = node
-                .declare_parameter("int_param", 5)
+                .declare_parameter("int_param")
+                .default(5)
                 .range(range)
                 .mandatory()
                 .unwrap();
@@ -1288,16 +1245,7 @@ mod tests {
             step: None,
         };
         {
-            node.declare_parameter("int_param", 1).optional().unwrap();
-        }
-        {
-            node.declare_parameter("int_param", Some(1))
-                .range(range)
-                .optional()
-                .unwrap();
-        }
-        {
-            node.declare_unset_parameter::<i64>("int_param")
+            node.declare_parameter::<i64>("int_param")
                 .optional()
                 .unwrap();
         }

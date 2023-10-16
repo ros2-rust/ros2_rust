@@ -13,7 +13,7 @@ pub use self::builder::*;
 pub use self::graph::*;
 use crate::rcl_bindings::*;
 use crate::{
-    Client, ClientBase, Context, Declarable, GuardCondition, ParameterBuilder, ParameterInterface,
+    Client, ClientBase, Context, GuardCondition, ParameterBuilder, ParameterInterface,
     ParameterVariant, Parameters, Publisher, QoSProfile, RclrsError, Service, ServiceBase,
     Subscription, SubscriptionBase, SubscriptionCallback, ToResult,
 };
@@ -374,7 +374,8 @@ impl Node {
     ///     upper: Some(100),
     ///     step: Some(2),
     /// };
-    /// let param = node.declare_parameter("int_param", 10)
+    /// let param = node.declare_parameter("int_param")
+    ///                 .default(10)
     ///                 .range(range)
     ///                 .mandatory()
     ///                 .unwrap();
@@ -385,47 +386,8 @@ impl Node {
     /// assert!(param.set(200).is_err());
     /// # Ok::<(), RclrsError>(())
     /// ```
-    pub fn declare_parameter<T: Declarable>(
-        &self,
-        name: &str,
-        default_value: T,
-    ) -> ParameterBuilder<'_, T> {
-        self._parameter.declare(name, default_value)
-    }
-
-    /// Creates a `ParameterBuilder` that can be used to set parameter declaration options and
-    /// declare a parameter from an iterable as `Optional`, `Mandatory` or `ReadOnly`.
-    pub fn declare_parameter_from_iter<U: IntoIterator>(
-        &self,
-        name: &str,
-        default_value: U,
-    ) -> ParameterBuilder<'_, Arc<[U::Item]>>
-    where
-        Arc<[U::Item]>: ParameterVariant,
-    {
-        self._parameter.declare_from_iter(name, default_value)
-    }
-
-    /// Creates a `ParameterBuilder` that can be used to set parameter declaration options and
-    /// declare a string array parameter as `Optional`, `Mandatory` or `ReadOnly`.
-    pub fn declare_string_array_parameter<U>(
-        &self,
-        name: &str,
-        default_value: U,
-    ) -> ParameterBuilder<'_, Arc<[Arc<str>]>>
-    where
-        U: IntoIterator,
-        U::Item: Into<Arc<str>>,
-    {
-        self._parameter.declare_string_array(name, default_value)
-    }
-
-    /// Helper function to declare an `Optional` parameter with a default unset value.
-    pub fn declare_unset_parameter<T: ParameterVariant>(
-        &self,
-        name: &str,
-    ) -> ParameterBuilder<'_, Option<T>> {
-        self._parameter.declare::<Option<T>>(name, None)
+    pub fn declare_parameter<T: ParameterVariant>(&self, name: &str) -> ParameterBuilder<'_, T> {
+        self._parameter.declare(name)
     }
 
     /// Enables usage of undeclared parameters for this node.
