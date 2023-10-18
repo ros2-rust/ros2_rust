@@ -360,8 +360,10 @@ impl Node {
         domain_id
     }
 
-    /// Creates a `ParameterBuilder` that can be used to set parameter declaration options and
-    /// declare a parameter as `Optional`, `Mandatory` or `ReadOnly`.
+    /// Creates a [`ParameterBuilder`] that can be used to set parameter declaration options and
+    /// declare a parameter as [`OptionalParameter`](crate::parameter::OptionalParameter),
+    /// [`MandatoryParameter`](crate::parameter::MandatoryParameter), or
+    /// [`ReadOnly`](crate::parameter::ReadOnlyParameter).
     ///
     /// # Example
     /// ```

@@ -230,7 +230,8 @@ enum DeclaredValue {
     ReadOnly(ParameterValue),
 }
 
-/// Builder used to generate a parameter. Defaults to `ParameterOptions<T>::default()`.
+/// Builder used to declare a parameter. Obtain this by calling
+/// [`crate::Node::declare_parameter`].
 #[must_use]
 pub struct ParameterBuilder<'a, T: ParameterVariant> {
     name: Arc<str>,
