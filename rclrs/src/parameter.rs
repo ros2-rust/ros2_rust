@@ -1167,7 +1167,10 @@ mod tests {
         {
             // Parameter went out of scope, redeclaring should be OK and return command line
             // override
-            let param = node.declare_parameter::<i64>("declared_int").mandatory().unwrap();
+            let param = node
+                .declare_parameter::<i64>("declared_int")
+                .mandatory()
+                .unwrap();
             assert_eq!(param.get(), 10);
         }
         // After a declared parameter went out of scope and was cleared, it should still be
