@@ -328,7 +328,7 @@ impl Node {
     }
 
     /// Returns the ROS domain ID that the node is using.
-    ///    
+    ///
     /// The domain ID controls which nodes can send messages to each other, see the [ROS 2 concept article][1].
     /// It can be set through the `ROS_DOMAIN_ID` environment variable.
     ///
@@ -386,8 +386,11 @@ impl Node {
     /// assert!(param.set(200).is_err());
     /// # Ok::<(), RclrsError>(())
     /// ```
-    pub fn declare_parameter<T: ParameterVariant>(&self, name: &str) -> ParameterBuilder<'_, T> {
-        self._parameter.declare(name)
+    pub fn declare_parameter<'a, T: ParameterVariant + 'a>(
+        &'a self,
+        name: impl Into<Arc<str>>,
+    ) -> ParameterBuilder<'a, T> {
+        self._parameter.declare(name.into())
     }
 
     /// Enables usage of undeclared parameters for this node.

@@ -6,7 +6,8 @@ pub use value::*;
 
 use crate::rcl_bindings::*;
 use crate::{call_string_getter_with_handle, RclrsError};
-use std::collections::BTreeMap;
+use std::fmt::Debug;
+use std::collections::{BTreeMap, btree_map::Entry};
 use std::marker::PhantomData;
 use std::sync::{
     atomic::{AtomicBool, Ordering},
@@ -116,21 +117,25 @@ impl ParameterRanges {
         Ok(())
     }
 
-    fn check_in_range(&self, value: &ParameterValue) -> Result<(), ParameterValueError> {
+    fn in_range(&self, value: &ParameterValue) -> bool {
         match value {
             ParameterValue::Integer(v) => {
                 if let Some(range) = &self.integer {
-                    range.check(*v)?;
+                    if !range.in_range(*v) {
+                        return false;
+                    }
                 }
             }
             ParameterValue::Double(v) => {
                 if let Some(range) = &self.float {
-                    range.check(*v)?;
+                    if !range.in_range(*v) {
+                        return false;
+                    }
                 }
             }
             _ => {}
         }
-        Ok(())
+        true
     }
 }
 
@@ -150,14 +155,14 @@ pub struct ParameterRange<T: ParameterVariant + PartialOrd> {
 }
 
 impl<T: ParameterVariant + PartialOrd + Default> ParameterRange<T> {
-    fn check_boundary(&self, value: &T) -> Result<(), ParameterValueError> {
+    fn inside_boundary(&self, value: &T) -> bool {
         if self.lower.as_ref().is_some_and(|l| value < l) {
-            return Err(ParameterValueError::OutOfRange);
+            return false;
         }
         if self.upper.as_ref().is_some_and(|u| value > u) {
-            return Err(ParameterValueError::OutOfRange);
+            return false;
         }
-        Ok(())
+        true
     }
 
     fn validate(&self) -> Result<(), DeclarationError> {
@@ -177,17 +182,19 @@ impl<T: ParameterVariant + PartialOrd + Default> ParameterRange<T> {
 }
 
 impl ParameterRange<i64> {
-    fn check(&self, value: i64) -> Result<(), ParameterValueError> {
-        self.check_boundary(&value)?;
+    fn in_range(&self, value: i64) -> bool {
+        if !self.inside_boundary(&value) {
+            return false;
+        }
         if self.upper.is_some_and(|u| u == value) {
-            return Ok(());
+            return true;
         }
         if let (Some(l), Some(s)) = (self.lower, self.step) {
             if (value - l) % s != 0 {
-                return Err(ParameterValueError::OutOfRange);
+                return false;
             }
         }
-        Ok(())
+        true
     }
 }
 
@@ -198,19 +205,21 @@ impl ParameterRange<f64> {
         (v1 - v2).abs() <= (f64::EPSILON * (v1 + v2).abs() * ULP_TOL)
     }
 
-    fn check(&self, value: f64) -> Result<(), ParameterValueError> {
+    fn in_range(&self, value: f64) -> bool {
         if self.upper.is_some_and(|u| Self::are_close(u, value))
             || self.lower.is_some_and(|l| Self::are_close(l, value))
         {
-            return Ok(());
+            return true;
         }
-        self.check_boundary(&value)?;
+        if !self.inside_boundary(&value) {
+            return false;
+        }
         if let (Some(l), Some(s)) = (self.lower, self.step) {
             if !Self::are_close(((value - l) / s).round() * s + l, value) {
-                return Err(ParameterValueError::OutOfRange);
+                return false;
             }
         }
-        Ok(())
+        true
     }
 }
 
@@ -224,38 +233,61 @@ enum DeclaredValue {
 /// Builder used to generate a parameter. Defaults to `ParameterOptions<T>::default()`.
 #[must_use]
 pub struct ParameterBuilder<'a, T: ParameterVariant> {
-    name: String,
+    name: Arc<str>,
     default_value: Option<T>,
-    tentative: bool,
+    ignore_override: bool,
+    discard_mismatching_prior_value: bool,
+    discriminator: Box<dyn FnOnce(AvailableValues<T>) -> Option<T> + 'a>,
     options: ParameterOptions<T>,
     interface: &'a ParameterInterface,
 }
 
 impl<'a, T: ParameterVariant> ParameterBuilder<'a, T> {
-    /// Sets the default value for the parameter.
+    /// Sets the default value for the parameter. The parameter value will be
+    /// initialized to this if no command line override was given for this
+    /// parameter and if the parameter also had no value prior to being
+    /// declared.
+    ///
+    /// To customize how the initial value of the parameter is chosen, you can
+    /// provide a custom function with the method [`Self::discriminate()`]. By
+    /// default, the initial value will be chosen as
+    /// `default_value < override_value < prior_value` in order of increasing
+    /// preference.
     pub fn default(mut self, value: T) -> Self {
         self.default_value = Some(value);
         self
     }
 
-    /// Sets the default for the parameter from an iterable.
-    pub fn default_from_iter<U: IntoIterator>(mut self, default_value: U) -> Self
-    where
-        T: FromIterator<U::Item>,
-    {
-        self.default_value = Some(default_value.into_iter().collect());
+    /// Ignore any override that was given for this parameter.
+    ///
+    /// If you also use [`Self::discriminate()`], the
+    /// [`AvailableValues::override_value`] field given to the discriminator
+    /// will be [`None`] even if the user had provided an override.
+    pub fn ignore_override(mut self) -> Self {
+        self.ignore_override = true;
         self
     }
 
-    /// Sets the default for the parameter from a string array.
-    pub fn default_string_array<U>(mut self, default_value: U) -> Self
-    //) -> ParameterBuilder<Arc<[Arc<str>]>>
+    /// If the parameter was set to a value before being declared with a type
+    /// that does not match this declaration, discard the prior value instead
+    /// of emitting a [`DeclarationError::PriorValueTypeMismatch`].
+    ///
+    /// If the type of the prior value does match the declaration, it will
+    /// still be provided to the discriminator.
+    pub fn discard_mismatching_prior_value(mut self) -> Self {
+        self.discard_mismatching_prior_value = true;
+        self
+    }
+
+    /// Decide what the initial value for the parameter will be based on the
+    /// available `default_value`, `override_value`, or `prior_value`.
+    ///
+    /// The default discriminator is [`default_initial_value_discriminator()`].
+    pub fn discriminate<F>(mut self, f: F) -> Self
     where
-        U: IntoIterator,
-        T: FromIterator<U::Item>,
-        //U::Item: Into<Arc<str>>,
+        F: FnOnce(AvailableValues<T>) -> Option<T> + 'a
     {
-        self.default_value = Some(default_value.into_iter().map(|v| v.into()).collect());
+        self.discriminator = Box::new(f);
         self
     }
 
@@ -279,47 +311,101 @@ impl<'a, T: ParameterVariant> ParameterBuilder<'a, T> {
         self
     }
 
-    /// Sets the parameter's human readable constraints.
-    /// These are not enforced by the library but are displayed on parameter description requests
-    /// and can be used by integrators to understand complex constraints.
-    pub fn tentative(mut self) -> Self {
-        self.tentative = true;
-        self
-    }
-
-    /// Declares the parameter as a Mandatory parameter, that must always have a value set.
+    /// Declares the parameter as a Mandatory parameter, that must always have a value.
     ///
-    /// Returns:
-    /// * `Ok(MandatoryParameter<T>)` if declaration was successful.
-    /// * `Err(DeclarationError::AlreadyDeclared)` if the parameter was already declared.
-    /// * `Err(DeclarationError::PreexistingValue(ParameterValueError::OutOfRange))` if the parameter value is out of range.
-    /// * `Err(DeclarationError::Override(ParameterValueError::OutOfRange))` if the parameter override is out of range.
-    /// * `Err(DeclarationError::Override(ParameterValueError::TypeMismatch))` if the parameter override is set to the wrong type.
+    /// ## See also
+    /// * [`Self::optional()`]
+    /// * [`Self::read_only()`]
     pub fn mandatory(self) -> Result<MandatoryParameter<T>, DeclarationError> {
         self.try_into()
     }
 
     /// Declares the parameter as a ReadOnly parameter, that cannot be edited.
     ///
-    /// Returns:
-    /// * `Ok(ReadOnlyParameter<T>)` if declaration was successful.
-    /// * `Err(DeclarationError::PreexistingValue(ParameterValueError::OutOfRange))` if the parameter value is out of range.
-    /// * `Err(DeclarationError::Override(ParameterValueError::OutOfRange))` if the parameter override is out of range.
-    /// * `Err(DeclarationError::Override(ParameterValueError::TypeMismatch))` if the parameter override is set to the wrong type.
+    /// # See also
+    /// * [`Self::optional()`]
+    /// * [`Self::mandatory()`]
     pub fn read_only(self) -> Result<ReadOnlyParameter<T>, DeclarationError> {
         self.try_into()
     }
 
     /// Declares the parameter as an Optional parameter, that can be unset.
     ///
-    /// Returns:
-    /// * `Ok(OptionalParameter<T>)` if declaration was successful.
-    /// * `Err(DeclarationError::PreexistingValue(ParameterValueError::OutOfRange))` if the parameter value is out of range.
-    /// * `Err(DeclarationError::Override(ParameterValueError::OutOfRange))` if the parameter override is out of range.
-    /// * `Err(DeclarationError::Override(ParameterValueError::TypeMismatch))` if the parameter override is set to the wrong type.
+    /// This will never return the [`DeclarationError::NoValueAvailable`] variant.
+    ///
+    /// ## See also
+    /// * [`Self::mandatory()`]
+    /// * [`Self::read_only()`]
     pub fn optional(self) -> Result<OptionalParameter<T>, DeclarationError> {
         self.try_into()
     }
+}
+
+impl<'a, T> ParameterBuilder<'a, Arc<[T]>>
+where
+    Arc<[T]>: ParameterVariant,
+{
+    /// Sets the default for an array-like parameter from an iterable.
+    pub fn default_from_iter(
+        mut self,
+        default_value: impl IntoIterator<Item=T>,
+    ) -> Self {
+        self.default_value = Some(default_value.into_iter().collect());
+        self
+    }
+}
+
+impl<'a> ParameterBuilder<'a, Arc<[Arc<str>]>> {
+    /// Sets the default for the parameter from a string-like array.
+    pub fn default_string_array<U>(mut self, default_value: U) -> Self
+    where
+        U: IntoIterator,
+        U::Item: Into<Arc<str>>,
+    {
+        self.default_value = Some(
+            default_value.into_iter().map(|v| v.into()).collect()
+        );
+        self
+    }
+}
+
+/// This struct is given to the discriminator function of the
+/// [`ParameterBuilder`] so it knows what values are available to choose from.
+pub struct AvailableValues<T> {
+    /// The value given to the parameter builder as the default value.
+    pub default_value: Option<T>,
+    /// The value given as an override value, usually as a command line argument.
+    pub override_value: Option<T>,
+    /// A prior value that the parameter was set to before it was declared.
+    pub prior_value: Option<T>,
+    /// The valid ranges for the parameter value.
+    pub range: ParameterRanges,
+}
+
+/// The default discriminator that chooses the initial value for a parameter.
+/// The implementation here uses a simple preference of
+/// ```
+/// default_value < override_value < prior_value
+/// ```
+/// in ascending order of preference.
+///
+/// The `prior_value` will automatically be discarded if it is outside the
+/// designated range. The override value will not be discarded if it is out of
+/// range because that is more likely to be an error that needs to be escalated.
+/// You can replace all of this with custom behavior by providing your own
+/// discriminator function to [`ParameterBuilder::discriminate()`].
+pub fn default_initial_value_discriminator<T: ParameterVariant>(
+    available: AvailableValues<T>
+) -> Option<T> {
+    if let Some(prior) = available.prior_value {
+        if available.range.in_range(&prior.clone().into()) {
+            return Some(prior);
+        }
+    }
+    if available.override_value.is_some() {
+        return available.override_value;
+    }
+    available.default_value
 }
 
 impl<T: ParameterVariant> TryFrom<ParameterBuilder<'_, T>> for OptionalParameter<T> {
@@ -327,21 +413,25 @@ impl<T: ParameterVariant> TryFrom<ParameterBuilder<'_, T>> for OptionalParameter
 
     fn try_from(builder: ParameterBuilder<T>) -> Result<Self, Self::Error> {
         let ranges = builder.options.ranges.clone().into();
-        let default_value = builder.default_value.map(|v| v.into());
-        ParameterInterface::validate_range_and_default_value(&ranges, default_value.as_ref())?;
-        let value = builder
+        let initial_value = builder
             .interface
-            .get_declaration_default_value::<T>(&builder.name, &ranges, builder.tentative)?
-            .or(default_value);
-        let value = Arc::new(RwLock::new(value));
+            .get_declaration_initial_value::<T>(
+                &builder.name,
+                builder.default_value,
+                builder.ignore_override,
+                builder.discard_mismatching_prior_value,
+                builder.discriminator,
+                &ranges
+            )?;
+        let value = Arc::new(RwLock::new(initial_value.map(|v| v.into())));
         builder.interface.store_parameter(
-            &builder.name,
+            builder.name.clone(),
             T::kind(),
             DeclaredValue::Optional(value.clone()),
             builder.options.into(),
         );
         Ok(OptionalParameter {
-            name: builder.name.to_owned(),
+            name: builder.name,
             value,
             ranges,
             map: Arc::downgrade(&builder.interface._parameter_map),
@@ -354,11 +444,22 @@ impl<T: ParameterVariant> TryFrom<ParameterBuilder<'_, T>> for OptionalParameter
 /// This struct has ownership of the declared parameter. Additional parameter declaration will fail
 /// while this struct exists and the parameter will be undeclared when it is dropped.
 pub struct MandatoryParameter<T: ParameterVariant> {
-    name: String,
+    name: Arc<str>,
     value: Arc<RwLock<ParameterValue>>,
     ranges: ParameterRanges,
     map: Weak<Mutex<ParameterMap>>,
     _marker: PhantomData<T>,
+}
+
+impl<T: ParameterVariant + Debug> Debug for MandatoryParameter<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f
+            .debug_struct("MandatoryParameter")
+            .field("name", &self.name)
+            .field("value", &self.get())
+            .field("range", &self.ranges)
+            .finish()
+    }
 }
 
 impl<T: ParameterVariant> Drop for MandatoryParameter<T> {
@@ -371,23 +472,27 @@ impl<T: ParameterVariant> Drop for MandatoryParameter<T> {
     }
 }
 
-impl<T: ParameterVariant> TryFrom<ParameterBuilder<'_, T>> for MandatoryParameter<T> {
+impl<'a, T: ParameterVariant + 'a> TryFrom<ParameterBuilder<'a, T>> for MandatoryParameter<T> {
     type Error = DeclarationError;
 
     fn try_from(builder: ParameterBuilder<T>) -> Result<Self, Self::Error> {
         let ranges = builder.options.ranges.clone().into();
-        let default_value = builder
-            .default_value
-            .ok_or(DeclarationError::NoValueSet)?
-            .into();
-        ParameterInterface::validate_range_and_default_value(&ranges, Some(&default_value))?;
-        let value = builder
+        let initial_value = builder
             .interface
-            .get_declaration_default_value::<T>(&builder.name, &ranges, builder.tentative)?
-            .unwrap_or(default_value);
-        let value = Arc::new(RwLock::new(value));
+            .get_declaration_initial_value::<T>(
+                &builder.name,
+                builder.default_value,
+                builder.ignore_override,
+                builder.discard_mismatching_prior_value,
+                builder.discriminator,
+                &ranges
+            )?;
+        let Some(initial_value) = initial_value else {
+            return Err(DeclarationError::NoValueAvailable);
+        };
+        let value = Arc::new(RwLock::new(initial_value.into()));
         builder.interface.store_parameter(
-            &builder.name,
+            builder.name.clone(),
             T::kind(),
             DeclaredValue::Mandatory(value.clone()),
             builder.options.into(),
@@ -397,7 +502,7 @@ impl<T: ParameterVariant> TryFrom<ParameterBuilder<'_, T>> for MandatoryParamete
             value,
             ranges,
             map: Arc::downgrade(&builder.interface._parameter_map),
-            _marker: Default::default(),
+            _marker: Default::default()
         })
     }
 }
@@ -406,11 +511,22 @@ impl<T: ParameterVariant> TryFrom<ParameterBuilder<'_, T>> for MandatoryParamete
 /// This struct has ownership of the declared parameter. Additional parameter declaration will fail
 /// while this struct exists and the parameter will be undeclared when it is dropped.
 pub struct OptionalParameter<T: ParameterVariant> {
-    name: String,
+    name: Arc<str>,
     value: Arc<RwLock<Option<ParameterValue>>>,
     ranges: ParameterRanges,
     map: Weak<Mutex<ParameterMap>>,
     _marker: PhantomData<T>,
+}
+
+impl<T: ParameterVariant + Debug> Debug for OptionalParameter<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f
+            .debug_struct("OptionalParameter")
+            .field("name", &self.name)
+            .field("value", &self.get())
+            .field("range", &self.ranges)
+            .finish()
+    }
 }
 
 impl<T: ParameterVariant> Drop for OptionalParameter<T> {
@@ -427,10 +543,20 @@ impl<T: ParameterVariant> Drop for OptionalParameter<T> {
 /// This struct has ownership of the declared parameter. Additional parameter declaration will fail
 /// while this struct exists and the parameter will be undeclared when it is dropped.
 pub struct ReadOnlyParameter<T: ParameterVariant> {
-    name: String,
+    name: Arc<str>,
     value: ParameterValue,
     map: Weak<Mutex<ParameterMap>>,
     _marker: PhantomData<T>,
+}
+
+impl<T: ParameterVariant + Debug> Debug for ReadOnlyParameter<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f
+            .debug_struct("ReadOnlyParameter")
+            .field("name", &self.name)
+            .field("value", &self.value)
+            .finish()
+    }
 }
 
 impl<T: ParameterVariant> Drop for ReadOnlyParameter<T> {
@@ -443,22 +569,27 @@ impl<T: ParameterVariant> Drop for ReadOnlyParameter<T> {
     }
 }
 
-impl<T: ParameterVariant> TryFrom<ParameterBuilder<'_, T>> for ReadOnlyParameter<T> {
+impl<'a, T: ParameterVariant + 'a> TryFrom<ParameterBuilder<'a, T>> for ReadOnlyParameter<T> {
     type Error = DeclarationError;
 
     fn try_from(builder: ParameterBuilder<T>) -> Result<Self, Self::Error> {
         let ranges = builder.options.ranges.clone().into();
-        let default_value = builder
-            .default_value
-            .ok_or(DeclarationError::NoValueSet)?
-            .into();
-        ParameterInterface::validate_range_and_default_value(&ranges, Some(&default_value))?;
-        let value = builder
+        let initial_value = builder
             .interface
-            .get_declaration_default_value::<T>(&builder.name, &ranges, builder.tentative)?
-            .unwrap_or(default_value);
+            .get_declaration_initial_value::<T>(
+                &builder.name,
+                builder.default_value,
+                builder.ignore_override,
+                builder.discard_mismatching_prior_value,
+                builder.discriminator,
+                &ranges
+            )?;
+        let Some(initial_value) = initial_value else {
+            return Err(DeclarationError::NoValueAvailable);
+        };
+        let value = initial_value.into();
         builder.interface.store_parameter(
-            &builder.name,
+            builder.name.clone(),
             T::kind(),
             DeclaredValue::ReadOnly(value.clone()),
             builder.options.into(),
@@ -487,7 +618,7 @@ enum ParameterStorage {
 
 #[derive(Debug, Default)]
 struct ParameterMap {
-    storage: BTreeMap<String, ParameterStorage>,
+    storage: BTreeMap<Arc<str>, ParameterStorage>,
 }
 
 impl<T: ParameterVariant> MandatoryParameter<T> {
@@ -502,7 +633,9 @@ impl<T: ParameterVariant> MandatoryParameter<T> {
     /// Returns `DeclarationError::OutOfRange` if the value is out of the parameter's range.
     pub fn set<U: Into<T>>(&self, value: U) -> Result<(), ParameterValueError> {
         let value = value.into().into();
-        self.ranges.check_in_range(&value)?;
+        if !self.ranges.in_range(&value) {
+            return Err(ParameterValueError::OutOfRange);
+        }
         *self.value.write().unwrap() = value;
         Ok(())
     }
@@ -529,7 +662,9 @@ impl<T: ParameterVariant> OptionalParameter<T> {
     /// Returns `DeclarationError::OutOfRange` if the value is out of the parameter's range.
     pub fn set<U: Into<T>>(&self, value: U) -> Result<(), ParameterValueError> {
         let value = value.into().into();
-        self.ranges.check_in_range(&value)?;
+        if !self.ranges.in_range(&value) {
+            return Err(ParameterValueError::OutOfRange);
+        }
         *self.value.write().unwrap() = Some(value);
         Ok(())
     }
@@ -561,17 +696,19 @@ pub enum ParameterValueError {
 pub enum DeclarationError {
     /// Parameter was already declared and a new declaration was attempted.
     AlreadyDeclared,
-    /// Parameter was declared as non optional but no value was set, either through a user
-    /// specified default or an override.
-    NoValueSet,
-    /// An error caused when trying to set the parameter's value.
-    PreexistingValue(ParameterValueError),
-    /// An error caused when parsing the parameter override's value.
-    Override(ParameterValueError),
+    /// Parameter was declared as non optional but no value was available, either through a user
+    /// specified default, a command-line override, or a previously set value.
+    NoValueAvailable,
+    /// The override value that was provided has the wrong type. This error is bypassed
+    /// when using [`ParameterBuilder::ignore_override()`].
+    OverrideValueTypeMismatch,
+    /// The value that the parameter was already set to has the wrong type. This error
+    /// is bypassed when using [`ParameterBuilder::discard_mismatching_prior`].
+    PriorValueTypeMismatch,
+    /// The initial value that was selected is out of range.
+    InitialValueOutOfRange,
     /// An invalid range was provided to a parameter declaration (i.e. lower bound > higher bound).
     InvalidRange,
-    /// The default value provided to the declaration was out of range.
-    DefaultOutOfRange,
 }
 
 impl<'a> Parameters<'a> {
@@ -603,37 +740,43 @@ impl<'a> Parameters<'a> {
     /// the parameter's type.
     pub fn set<T: ParameterVariant>(
         &self,
-        name: &str,
+        name: impl Into<Arc<str>>,
         value: T,
     ) -> Result<(), ParameterValueError> {
         let mut map = self.interface._parameter_map.lock().unwrap();
-        if let Some(entry) = map.storage.get_mut(name) {
-            // If it's declared, we can only set if it's the same variant.
-            // Undeclared parameters are dynamic by default
-            match entry {
-                ParameterStorage::Declared(param) => {
-                    if T::kind() == param.kind {
-                        let value = value.into();
-                        param.options.ranges.check_in_range(&value)?;
-                        match &param.value {
-                            DeclaredValue::Mandatory(p) => *p.write().unwrap() = value,
-                            DeclaredValue::Optional(p) => *p.write().unwrap() = Some(value),
-                            DeclaredValue::ReadOnly(_) => {
-                                return Err(ParameterValueError::ReadOnly)
+        let name: Arc<str> = name.into();
+        match map.storage.entry(name) {
+            Entry::Occupied(mut entry) => {
+                // If it's declared, we can only set if it's the same variant.
+                // Undeclared parameters are dynamic by default
+                match entry.get_mut() {
+                    ParameterStorage::Declared(param) => {
+                        if T::kind() == param.kind {
+                            let value = value.into();
+                            if !param.options.ranges.in_range(&value) {
+                                return Err(ParameterValueError::OutOfRange);
                             }
+                            match &param.value {
+                                DeclaredValue::Mandatory(p) => *p.write().unwrap() = value,
+                                DeclaredValue::Optional(p) => *p.write().unwrap() = Some(value),
+                                DeclaredValue::ReadOnly(_) => {
+                                    return Err(ParameterValueError::ReadOnly);
+                                }
+                            }
+                        } else {
+                            return Err(ParameterValueError::TypeMismatch);
                         }
-                    } else {
-                        return Err(ParameterValueError::TypeMismatch);
+                    }
+                    ParameterStorage::Undeclared(param) => {
+                        *param = value.into();
                     }
                 }
-                ParameterStorage::Undeclared(param) => {
-                    *param = value.into();
-                }
             }
-        } else {
-            map.storage
-                .insert(name.to_owned(), ParameterStorage::Undeclared(value.into()));
+            Entry::Vacant(entry) => {
+                entry.insert(ParameterStorage::Undeclared(value.into()));
+            }
         }
+
         Ok(())
     }
 }
@@ -665,81 +808,84 @@ impl ParameterInterface {
         })
     }
 
-    pub(crate) fn declare<T: ParameterVariant>(&self, name: &str) -> ParameterBuilder<T> {
+    pub(crate) fn declare<'a, T: ParameterVariant + 'a>(&'a self, name: Arc<str>) -> ParameterBuilder<'a, T> {
         ParameterBuilder {
+            name,
             default_value: None,
-            name: name.into(),
-            tentative: false,
+            ignore_override: false,
+            discard_mismatching_prior_value: false,
+            discriminator: Box::new(default_initial_value_discriminator::<T>),
             options: Default::default(),
             interface: self,
         }
     }
 
-    fn get_declaration_default_value<T: ParameterVariant>(
+    fn get_declaration_initial_value<'a, T: ParameterVariant + 'a>(
         &self,
         name: &str,
+        default_value: Option<T>,
+        ignore_override: bool,
+        discard_mismatching_prior: bool,
+        discriminator: Box<dyn FnOnce(AvailableValues<T>) -> Option<T> + 'a>,
         ranges: &ParameterRanges,
-        tentative: bool,
-    ) -> Result<Option<ParameterValue>, DeclarationError> {
-        let mut value = None;
-        if let Some(param_override) = self._override_map.get(name) {
-            ranges
-                .check_in_range(param_override)
-                .map_err(DeclarationError::Override)?;
-            value = Some(
-                T::try_from(param_override.clone())
-                    .map_err(|_| DeclarationError::Override(ParameterValueError::TypeMismatch))?,
-            );
-        }
-        if let Some(current_value) = self._parameter_map.lock().unwrap().storage.get(name) {
-            match current_value {
+    ) -> Result<Option<T>, DeclarationError> {
+        ranges.validate()?;
+        let override_value: Option<T> = if ignore_override {
+            None
+        } else {
+            if let Some(override_value) = self._override_map.get(name).cloned() {
+                Some(override_value.try_into().map_err(
+                    |_| DeclarationError::OverrideValueTypeMismatch
+                )?)
+            } else {
+                None
+            }
+        };
+
+        let prior_value = if let Some(prior_value) = self._parameter_map.lock().unwrap().storage.get(name) {
+            match prior_value {
                 ParameterStorage::Declared(_) => return Err(DeclarationError::AlreadyDeclared),
                 ParameterStorage::Undeclared(param) => {
-                    if let Err(e) = ranges
-                        .check_in_range(param)
-                        .map_err(DeclarationError::PreexistingValue)
-                    {
-                        if tentative {
-                            return Err(e);
-                        } else {
-                            return Ok(value.map(|v| v.into()));
+                    match param.clone().try_into() {
+                        Ok(prior) => Some(prior),
+                        Err(_) => {
+                            if !discard_mismatching_prior {
+                                return Err(DeclarationError::PriorValueTypeMismatch);
+                            }
+                            None
                         }
-                    }
-                    if let Ok(v) = T::try_from(param.clone()) {
-                        value = Some(v);
-                    } else if tentative {
-                        return Err(DeclarationError::PreexistingValue(
-                            ParameterValueError::TypeMismatch,
-                        ));
                     }
                 }
             }
-        }
-        Ok(value.map(|v| v.into()))
-    }
+        } else {
+            None
+        };
 
-    fn validate_range_and_default_value(
-        ranges: &ParameterRanges,
-        value: Option<&ParameterValue>,
-    ) -> Result<(), DeclarationError> {
-        ranges.validate()?;
-        if let Some(v) = value {
-            ranges
-                .check_in_range(v)
-                .map_err(|_| DeclarationError::DefaultOutOfRange)?;
+        let selection = discriminator(
+            AvailableValues {
+                default_value,
+                override_value,
+                prior_value,
+                range: ranges.clone()
+            }
+        );
+        if let Some(initial_value) = &selection {
+            if !ranges.in_range(&initial_value.clone().into()) {
+                return Err(DeclarationError::InitialValueOutOfRange);
+            }
         }
-        Ok(())
+        Ok(selection)
     }
 
     fn store_parameter(
         &self,
-        name: &str,
+        name: Arc<str>,
         kind: ParameterKind,
         value: DeclaredValue,
         options: ParameterOptionsStorage,
     ) {
         self._parameter_map.lock().unwrap().storage.insert(
-            name.to_owned(),
+            name,
             ParameterStorage::Declared(DeclaredStorage {
                 options,
                 value,
@@ -775,9 +921,16 @@ mod tests {
             node.declare_parameter("declared_int")
                 .default(1.0)
                 .mandatory(),
-            Err(DeclarationError::Override(
-                ParameterValueError::TypeMismatch
-            ))
+            Err(DeclarationError::OverrideValueTypeMismatch)
+        ));
+
+        // The error should not happen if we ignore overrides
+        assert!(matches!(
+            node.declare_parameter("declared_int")
+                .default(1.0)
+                .ignore_override()
+                .mandatory(),
+            Ok(_)
         ));
 
         // If the override does not respect the range, we should return an error
@@ -788,9 +941,20 @@ mod tests {
         assert!(matches!(
             node.declare_parameter("declared_int")
                 .default(1)
-                .range(range)
+                .range(range.clone())
                 .mandatory(),
-            Err(DeclarationError::Override(ParameterValueError::OutOfRange))
+            Err(DeclarationError::InitialValueOutOfRange)
+        ));
+
+        // The override being out of range should not matter if we use
+        // ignore_override
+        assert!(matches!(
+            node.declare_parameter("declared_int")
+                .default(1)
+                .range(range)
+                .ignore_override()
+                .mandatory(),
+            Ok(_)
         ));
     }
 
@@ -1003,7 +1167,7 @@ mod tests {
         {
             // Parameter went out of scope, redeclaring should be OK and return command line
             // override
-            let param = node.declare_parameter("declared_int").mandatory().unwrap();
+            let param = node.declare_parameter::<i64>("declared_int").mandatory().unwrap();
             assert_eq!(param.get(), 10);
         }
         // After a declared parameter went out of scope and was cleared, it should still be
@@ -1061,14 +1225,14 @@ mod tests {
                 .default(100)
                 .range(range.clone())
                 .mandatory(),
-            Err(DeclarationError::DefaultOutOfRange)
+            Err(DeclarationError::InitialValueOutOfRange)
         ));
         assert!(matches!(
             node.declare_parameter("wrong_step_int")
                 .default(-9)
                 .range(range.clone())
                 .mandatory(),
-            Err(DeclarationError::DefaultOutOfRange)
+            Err(DeclarationError::InitialValueOutOfRange)
         ));
         let param = node
             .declare_parameter("int_param")
@@ -1103,14 +1267,14 @@ mod tests {
                 .default(100.0)
                 .range(range.clone())
                 .optional(),
-            Err(DeclarationError::DefaultOutOfRange)
+            Err(DeclarationError::InitialValueOutOfRange)
         ));
         assert!(matches!(
             node.declare_parameter("wrong_step_double")
                 .default(-9.0)
                 .range(range.clone())
                 .read_only(),
-            Err(DeclarationError::DefaultOutOfRange)
+            Err(DeclarationError::InitialValueOutOfRange)
         ));
         let param = node
             .declare_parameter("double_param")
@@ -1177,22 +1341,18 @@ mod tests {
     }
 
     #[test]
-    fn test_preexisting_value_error_and_tentative_api() {
+    fn test_preexisting_value_error() {
         let ctx = Context::new([]).unwrap();
         let node = create_node(&ctx, "param_test_node").unwrap();
         node.use_undeclared_parameters()
             .set("int_param", 100)
             .unwrap();
-        // Tentative will try to use previously set values and return errors if they are out of
-        // range or of the wrong type
+
         assert!(matches!(
             node.declare_parameter("int_param")
                 .default(1.0)
-                .tentative()
                 .mandatory(),
-            Err(DeclarationError::PreexistingValue(
-                ParameterValueError::TypeMismatch
-            ))
+            Err(DeclarationError::PriorValueTypeMismatch)
         ));
 
         let range = ParameterRange {
@@ -1204,24 +1364,26 @@ mod tests {
             node.declare_parameter("int_param")
                 .default(-1)
                 .range(range.clone())
-                .tentative()
+                .discriminate(|available| {
+                    available.prior_value
+                })
                 .mandatory(),
-            Err(DeclarationError::PreexistingValue(
-                ParameterValueError::OutOfRange
-            ))
+            Err(DeclarationError::InitialValueOutOfRange)
         ));
 
-        // Default behavior will just drop the previously set value if it is out of range or of the
-        // wrong type.
         {
+            // We now ask to discard the mismatching prior value, so we no
+            // longer get an error.
             let param = node
                 .declare_parameter("int_param")
                 .default(1.0)
+                .discard_mismatching_prior_value()
                 .mandatory()
                 .unwrap();
             assert_eq!(param.get(), 1.0);
         }
         {
+            // The out of range prior value will be discarded by default.
             node.use_undeclared_parameters()
                 .set("int_param", 100)
                 .unwrap();
