@@ -690,7 +690,7 @@ pub enum DeclarationError {
     /// when using [`ParameterBuilder::ignore_override()`].
     OverrideValueTypeMismatch,
     /// The value that the parameter was already set to has the wrong type. This error
-    /// is bypassed when using [`ParameterBuilder::discard_mismatching_prior`].
+    /// is bypassed when using [`ParameterBuilder::discard_mismatching_prior_value`].
     PriorValueTypeMismatch,
     /// The initial value that was selected is out of range.
     InitialValueOutOfRange,
