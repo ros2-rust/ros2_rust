@@ -16,6 +16,10 @@ path = "src/minimal_client_async.rs"
 name = "minimal_service"
 path = "src/minimal_service.rs"
 
+[[bin]]
+name = "minimal_deferred_service"
+path = "src/minimal_deferred_service.rs"
+
 [dependencies]
 anyhow = {version = "1", features = ["backtrace"]}
 tokio = { version = "1", features = ["macros", "rt", "rt-multi-thread", "time"] }

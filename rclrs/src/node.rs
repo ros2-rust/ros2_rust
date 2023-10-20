@@ -14,7 +14,7 @@ pub use self::graph::*;
 use crate::rcl_bindings::*;
 use crate::{
     Client, ClientBase, Context, GuardCondition, ParameterOverrideMap, Publisher, QoSProfile,
-    RclrsError, Service, ServiceBase, Subscription, SubscriptionBase, SubscriptionCallback,
+    RclrsError, ResponseSender, Service, ServiceBase, Subscription, SubscriptionBase, SubscriptionCallback,
     ToResult,
 };
 
@@ -250,9 +250,11 @@ impl Node {
         Ok(publisher)
     }
 
-    /// Creates a [`Service`][1].
+    /// Creates a [`Service`] whose callback immediately responds to a
+    /// request. The return value of the callback provides the response.
     ///
-    /// [1]: crate::Service
+    /// See also: [`Self::create_deferred_service`]
+    //
     // TODO: make service's lifetime depend on node's lifetime
     pub fn create_service<T, F>(
         &self,
@@ -263,7 +265,32 @@ impl Node {
         T: rosidl_runtime_rs::Service,
         F: Fn(&rmw_request_id_t, T::Request) -> T::Response + 'static + Send,
     {
-        let service = Arc::new(Service::<T>::new(
+        let service = Arc::new(Service::<T>::immediate(
+            Arc::clone(&self.rcl_node_mtx),
+            topic,
+            callback,
+        )?);
+        { self.services_mtx.lock().unwrap() }
+            .push(Arc::downgrade(&service) as Weak<dyn ServiceBase>);
+        Ok(service)
+    }
+
+    /// Creates a [`Service`] whose response can be deferred until later. The
+    /// callback will be provided with a [`ResponseSender`] which can be moved
+    /// to a thread pool or a job queue and send the service's response at a
+    /// later time.
+    ///
+    /// See also: [`Self::create_service`]
+    pub fn create_deferred_service<T, F>(
+        &self,
+        topic: &str,
+        callback: F,
+    ) -> Result<Arc<Service<T>>, RclrsError>
+    where
+        T: rosidl_runtime_rs::Service,
+        F: Fn(T::Request, ResponseSender<T::Response>) + 'static + Send,
+    {
+        let service = Arc::new(Service::<T>::deferred(
             Arc::clone(&self.rcl_node_mtx),
             topic,
             callback,
@@ -328,7 +355,7 @@ impl Node {
     }
 
     /// Returns the ROS domain ID that the node is using.
-    ///    
+    ///
     /// The domain ID controls which nodes can send messages to each other, see the [ROS 2 concept article][1].
     /// It can be set through the `ROS_DOMAIN_ID` environment variable.
     ///

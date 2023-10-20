@@ -1,7 +1,7 @@
 use std::boxed::Box;
 use std::ffi::CString;
 use std::sync::atomic::AtomicBool;
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::{Arc, Weak, Mutex, MutexGuard};
 
 use rosidl_runtime_rs::Message;
 
@@ -46,40 +46,154 @@ pub trait ServiceBase: Send + Sync {
     fn execute(&self) -> Result<(), RclrsError>;
 }
 
-type ServiceCallback<Request, Response> =
-    Box<dyn Fn(&rmw_request_id_t, Request) -> Response + 'static + Send>;
-
 /// Main class responsible for responding to requests sent by ROS clients.
 ///
-/// The only available way to instantiate services is via [`Node::create_service()`][1], this is to
-/// ensure that [`Node`][2]s can track all the services that have been created.
+/// The only available way to instantiate services is via [`Node::create_service()`][1]
+/// or [`Node::create_deferred_service()`][2], this is to ensure that [`Node`][3]s
+/// can track all the services that have been created.
 ///
 /// [1]: crate::Node::create_service
-/// [2]: crate::Node
+/// [2]: crate::Node::create_deferred_service
+/// [3]: crate::Node
 pub struct Service<T>
 where
     T: rosidl_runtime_rs::Service,
 {
     pub(crate) handle: Arc<ServiceHandle>,
+    /// The user-defined responder for this service
+    pub responder: Mutex<Responder<T>>,
+}
+
+/// Defines how a service responds to requests.
+pub enum Responder<T: rosidl_runtime_rs::Service> {
+    /// The responder will immediately return a response
+    Immediate(ImmediateResponder<T>),
+    /// The response may be deferred until later
+    Deferred(DeferredResponder<T>),
+}
+
+/// A responder that blocks execution until it has provided a response.
+pub struct ImmediateResponder<T: rosidl_runtime_rs::Service> {
     /// The callback function that runs when a request was received.
-    pub callback: Mutex<ServiceCallback<T::Request, T::Response>>,
+    pub callback: ImmediateServiceCallback<T::Request, T::Response>,
+}
+
+/// Storage for the callback used by an [`ImmediateResponder`].
+type ImmediateServiceCallback<Request, Response> =
+    Box<dyn Fn(&rmw_request_id_t, Request) -> Response + 'static + Send>;
+
+/// A responder that allows a response to be provided later.
+pub struct DeferredResponder<T: rosidl_runtime_rs::Service> {
+    /// The callback that will be triggered to handle incoming requests.
+    pub callback: DeferredServiceCallback<T::Request, T::Response>,
+    /// The default callback that will be triggered if a [`ResponseSender`] is
+    /// dropped without sending any response. This can be overriden using
+    /// [`ResponseSender::on_drop()`].
+    pub default_on_drop: Option<DeferredServiceDrop<T::Response>>,
+}
+
+/// Used by deferred services to send a response when it is ready.
+pub struct ResponseSender<Response: rosidl_runtime_rs::Message> {
+    request_id: rmw_request_id_s,
+    handle: Weak<ServiceHandle>,
+    on_drop: Option<DeferredServiceDrop<Response>>,
+    sent: bool,
+}
+
+impl<Response: rosidl_runtime_rs::Message> ResponseSender<Response> {
+    /// Send a response for an earlier request.
+    pub fn send(mut self, response: Response) -> Result<(), ResponseSendError> {
+        self.sent = true;
+        let Some(handle) = self.handle.upgrade() else {
+            return Err(ResponseSendError::ServiceDropped);
+        };
+        send_response(&mut self.request_id, response, &handle)
+            .map_err(ResponseSendError::Rclrs)
+    }
+
+    /// Set a callback that will be triggered if this [`ResponseSender`] gets
+    /// dropped without sending a response. If you do not set this, then the
+    /// service's default on-drop behavior will be used.
+    ///
+    /// The provided callback can choose to return `Some(response)` to provide
+    /// a fallback response for the service. If the callback returns `None`,
+    /// then no response will ever be delivered for the request.
+    pub fn on_drop<F>(&mut self, f: F)
+    where
+        F: Fn(&rmw_request_id_s) -> Option<Response> + 'static + Send + Sync,
+    {
+        self.on_drop = Some(Arc::new(f));
+    }
+
+    /// Do nothing if this [`ResponseSender`] gets dropped without sending a
+    /// response. This will clear out the service's default on-drop behavior.
+    pub fn ignore_drop(&mut self) {
+        self.on_drop = None;
+    }
+
+    /// Get information about the request that this [`ResponseSender`] is
+    /// associated with.
+    pub fn request_id(&self) -> &rmw_request_id_s {
+        &self.request_id
+    }
+
+    /// Check if the service that this [`ResponseSender`] is associated with is
+    /// still alive (has not been dropped). If the service is not alive anymore,
+    /// then the response can never be sent.
+    pub fn is_service_alive(&self) -> bool {
+        self.handle.strong_count() > 0
+    }
+}
+
+/// An error that can happen when sending a response for a deferred service.
+#[derive(Debug, PartialEq, Eq)]
+pub enum ResponseSendError {
+    /// The service associated with this request has been dropped, so the
+    /// response can no longer be sent.
+    ServiceDropped,
+    ///
+    Rclrs(RclrsError),
+}
+
+/// Storage for the kind of callback used by deferred services.
+type DeferredServiceCallback<Request, Response> =
+    Box<dyn Fn(Request, ResponseSender<Response>) + 'static + Send>;
+
+/// Storage for the kind of callback triggered when a [`ResponseSender`] gets dropped.
+type DeferredServiceDrop<Response> =
+    Arc<dyn Fn(&rmw_request_id_s) -> Option<Response> + 'static + Send + Sync>;
+
+impl<Response: rosidl_runtime_rs::Message> Drop for ResponseSender<Response> {
+    fn drop(&mut self) {
+        if self.sent {
+            return;
+        }
+        let Some(handle) = self.handle.upgrade() else {
+            return;
+        };
+        if let Some(on_drop) = &self.on_drop {
+            if let Some(response) = on_drop(&self.request_id) {
+                send_response(&mut self.request_id, response, &handle).ok();
+            }
+        }
+    }
 }
 
 impl<T> Service<T>
 where
     T: rosidl_runtime_rs::Service,
 {
-    /// Creates a new service.
-    pub(crate) fn new<F>(
+    /// Creates a new service. Consider using [`Service::immediate()`] or
+    /// [`Service::deferred()`] instead.
+    pub(crate) fn new(
         rcl_node_mtx: Arc<Mutex<rcl_node_t>>,
         topic: &str,
-        callback: F,
+        responder: Responder<T>,
     ) -> Result<Self, RclrsError>
     // This uses pub(crate) visibility to avoid instantiating this struct outside
     // [`Node::create_service`], see the struct's documentation for the rationale
     where
         T: rosidl_runtime_rs::Service,
-        F: Fn(&rmw_request_id_t, T::Request) -> T::Response + 'static + Send,
     {
         // SAFETY: Getting a zero-initialized value is always safe.
         let mut rcl_service = unsafe { rcl_get_zero_initialized_service() };
@@ -114,10 +228,40 @@ where
             in_use_by_wait_set: Arc::new(AtomicBool::new(false)),
         });
 
-        Ok(Self {
-            handle,
-            callback: Mutex::new(Box::new(callback)),
-        })
+        Ok(Self { handle, responder: Mutex::new(responder) })
+    }
+
+    /// Create an immediate responder service.
+    pub(crate) fn immediate<F>(
+        rcl_node_mtx: Arc<Mutex<rcl_node_t>>,
+        topic: &str,
+        f: F,
+    ) -> Result<Self, RclrsError>
+    where
+        T: rosidl_runtime_rs::Service,
+        F: Fn(&rmw_request_id_t, T::Request) -> T::Response + 'static + Send,
+    {
+        let responder = Responder::Immediate(ImmediateResponder {
+            callback: Box::new(f),
+        });
+        Self::new(rcl_node_mtx, topic, responder)
+    }
+
+    /// Create a deferred responder service.
+    pub(crate) fn deferred<F>(
+        rcl_node_mtx: Arc<Mutex<rcl_node_t>>,
+        topic: &str,
+        f: F,
+    ) -> Result<Self, RclrsError>
+    where
+        T: rosidl_runtime_rs::Service,
+        F: Fn(T::Request, ResponseSender<T::Response>) + 'static + Send,
+    {
+        let responder = Responder::Deferred(DeferredResponder {
+            callback: Box::new(f),
+            default_on_drop: None
+        });
+        Self::new(rcl_node_mtx, topic, responder)
     }
 
     /// Fetches a new request.
@@ -185,17 +329,40 @@ where
             }
             Err(e) => return Err(e),
         };
-        let res = (*self.callback.lock().unwrap())(&req_id, req);
-        let rmw_message = <T::Response as Message>::into_rmw_message(res.into_cow());
-        let handle = &*self.handle.lock();
-        unsafe {
-            // SAFETY: The response type is guaranteed to match the service type by the type system.
-            rcl_send_response(
-                handle,
-                &mut req_id,
-                rmw_message.as_ref() as *const <T::Response as Message>::RmwMsg as *mut _,
-            )
+        let responder = self.responder.lock().unwrap();
+        match &*responder {
+            Responder::Immediate(immediate) => {
+                let res = (*immediate.callback)(&req_id, req);
+                send_response(&mut req_id, res, &self.handle)
+            }
+            Responder::Deferred(deferred) => {
+                let sender = ResponseSender {
+                    request_id: req_id,
+                    handle: Arc::downgrade(&self.handle),
+                    on_drop: deferred.default_on_drop.clone(),
+                    sent: false,
+                };
+                (*deferred.callback)(req, sender);
+                Ok(())
+            }
         }
-        .ok()
     }
+}
+
+fn send_response<Response: rosidl_runtime_rs::Message>(
+    request_id: &mut rmw_request_id_s,
+    response: Response,
+    handle: &ServiceHandle,
+) -> Result<(), RclrsError> {
+    let rmw_message = Response::into_rmw_message(response.into_cow());
+    let raw_handle = &*handle.lock();
+    unsafe {
+        // SAFETY: The response type is guaranteed to match the service type by the type system.
+        rcl_send_response(
+            raw_handle,
+            request_id,
+            rmw_message.as_ref() as *const Response::RmwMsg as *mut _,
+        )
+    }
+    .ok()
 }

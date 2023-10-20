@@ -18,7 +18,7 @@ pub struct ParameterService {
 
 impl ParameterService {
     pub fn new(rcl_node_mtx: Arc<Mutex<rcl_node_t>>) -> Result<Self, RclrsError> {
-        let describe_parameters_service = Service::new(Arc::clone(&rcl_node_mtx),
+        let describe_parameters_service = Service::immediate(Arc::clone(&rcl_node_mtx),
             "describe_parameters",
             |req_id: &rmw_request_id_t, req: DescribeParameters_Request| {
                 DescribeParameters_Response {
@@ -26,7 +26,7 @@ impl ParameterService {
                 }
             },
         )?;
-        let get_parameter_types_service = Service::new(Arc::clone(&rcl_node_mtx),
+        let get_parameter_types_service = Service::immediate(Arc::clone(&rcl_node_mtx),
             "get_parameter_types",
             |req_id: &rmw_request_id_t, req: GetParameterTypes_Request| {
                 GetParameterTypes_Response {
@@ -34,7 +34,7 @@ impl ParameterService {
                 }
             },
         )?;
-        let get_parameters_service = Service::new(Arc::clone(&rcl_node_mtx),
+        let get_parameters_service = Service::immediate(Arc::clone(&rcl_node_mtx),
             "get_parameters",
             |req_id: &rmw_request_id_t, req: GetParameters_Request| {
                 GetParameters_Response {
@@ -42,7 +42,7 @@ impl ParameterService {
                 }
             },
         )?;
-        let list_parameters_service = Service::new(Arc::clone(&rcl_node_mtx),
+        let list_parameters_service = Service::immediate(Arc::clone(&rcl_node_mtx),
             "list_parameters",
             |req_id: &rmw_request_id_t, req: ListParameters_Request| {
                 ListParameters_Response {
@@ -50,7 +50,7 @@ impl ParameterService {
                 }
             },
         )?;
-        let set_parameters_service = Service::new(Arc::clone(&rcl_node_mtx),
+        let set_parameters_service = Service::immediate(Arc::clone(&rcl_node_mtx),
             "set_parameters",
             |req_id: &rmw_request_id_t, req: SetParameters_Request| {
                 SetParameters_Response {
@@ -58,7 +58,7 @@ impl ParameterService {
                 }
             },
         )?;
-        let set_parameters_atomically_service = Service::new(Arc::clone(&rcl_node_mtx),
+        let set_parameters_atomically_service = Service::immediate(Arc::clone(&rcl_node_mtx),
             "set_parameters_atomically",
             |req_id: &rmw_request_id_t, req: SetParametersAtomically_Request| {
                 SetParametersAtomically_Response {
