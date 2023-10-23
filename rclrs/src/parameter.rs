@@ -238,7 +238,7 @@ pub struct ParameterBuilder<'a, T: ParameterVariant> {
     default_value: Option<T>,
     ignore_override: bool,
     discard_mismatching_prior_value: bool,
-    discriminator: Box<dyn FnOnce(AvailableValues<T>) -> Option<T> + 'a>,
+    discriminator: DiscriminatorFunction<'a, T>,
     options: ParameterOptions<T>,
     interface: &'a ParameterInterface,
 }
@@ -367,7 +367,7 @@ impl<'a> ParameterBuilder<'a, Arc<[Arc<str>]>> {
 
 /// This struct is given to the discriminator function of the
 /// [`ParameterBuilder`] so it knows what values are available to choose from.
-pub struct AvailableValues<T> {
+pub struct AvailableValues<'a, T> {
     /// The value given to the parameter builder as the default value.
     pub default_value: Option<T>,
     /// The value given as an override value, usually as a command line argument.
@@ -375,7 +375,7 @@ pub struct AvailableValues<T> {
     /// A prior value that the parameter was set to before it was declared.
     pub prior_value: Option<T>,
     /// The valid ranges for the parameter value.
-    pub range: ParameterRanges,
+    pub ranges: &'a ParameterRanges,
 }
 
 /// The default discriminator that chooses the initial value for a parameter.
@@ -394,7 +394,7 @@ pub fn default_initial_value_discriminator<T: ParameterVariant>(
     available: AvailableValues<T>,
 ) -> Option<T> {
     if let Some(prior) = available.prior_value {
-        if available.range.in_range(&prior.clone().into()) {
+        if available.ranges.in_range(&prior.clone().into()) {
             return Some(prior);
         }
     }
@@ -403,6 +403,8 @@ pub fn default_initial_value_discriminator<T: ParameterVariant>(
     }
     available.default_value
 }
+
+type DiscriminatorFunction<'a, T> = Box<dyn FnOnce(AvailableValues<T>) -> Option<T> + 'a>;
 
 impl<T: ParameterVariant> TryFrom<ParameterBuilder<'_, T>> for OptionalParameter<T> {
     type Error = DeclarationError;
@@ -611,9 +613,7 @@ struct ParameterMap {
 impl<T: ParameterVariant> MandatoryParameter<T> {
     /// Returns a clone of the most recent value of the parameter.
     pub fn get(&self) -> T {
-        T::try_from(self.value.read().unwrap().clone())
-            .ok()
-            .unwrap()
+        self.value.read().unwrap().clone().try_into().ok().unwrap()
     }
 
     /// Sets the parameter value.
@@ -631,7 +631,7 @@ impl<T: ParameterVariant> MandatoryParameter<T> {
 impl<T: ParameterVariant> ReadOnlyParameter<T> {
     /// Returns a clone of the most recent value of the parameter.
     pub fn get(&self) -> T {
-        T::try_from(self.value.clone()).ok().unwrap()
+        self.value.clone().try_into().ok().unwrap()
     }
 }
 
@@ -642,7 +642,7 @@ impl<T: ParameterVariant> OptionalParameter<T> {
             .read()
             .unwrap()
             .clone()
-            .map(|p| T::try_from(p).ok().unwrap())
+            .map(|p| p.try_into().ok().unwrap())
     }
 
     /// Assigns a value to the optional parameter, setting it to `Some(value)`.
@@ -704,18 +704,16 @@ impl<'a> Parameters<'a> {
     /// Returns Some(T) if a parameter of the requested type exists, None otherwise.
     pub fn get<T: ParameterVariant>(&self, name: &str) -> Option<T> {
         let storage = &self.interface._parameter_map.lock().unwrap().storage;
-        let Some(storage) = storage.get(name) else {
-            return None;
-        };
+        let storage = storage.get(name)?;
         match storage {
             ParameterStorage::Declared(storage) => match &storage.value {
-                DeclaredValue::Mandatory(p) => T::try_from(p.read().unwrap().clone()).ok(),
+                DeclaredValue::Mandatory(p) => p.read().unwrap().clone().try_into().ok(),
                 DeclaredValue::Optional(p) => {
-                    p.read().unwrap().clone().and_then(|p| T::try_from(p).ok())
+                    p.read().unwrap().clone().and_then(|p| p.try_into().ok())
                 }
-                DeclaredValue::ReadOnly(p) => T::try_from(p.clone()).ok(),
+                DeclaredValue::ReadOnly(p) => p.clone().try_into().ok(),
             },
-            ParameterStorage::Undeclared(value) => T::try_from(value.clone()).ok(),
+            ParameterStorage::Undeclared(value) => value.clone().try_into().ok(),
         }
     }
 
@@ -816,7 +814,7 @@ impl ParameterInterface {
         default_value: Option<T>,
         ignore_override: bool,
         discard_mismatching_prior: bool,
-        discriminator: Box<dyn FnOnce(AvailableValues<T>) -> Option<T> + 'a>,
+        discriminator: DiscriminatorFunction<T>,
         ranges: &ParameterRanges,
     ) -> Result<Option<T>, DeclarationError> {
         ranges.validate()?;
@@ -854,7 +852,7 @@ impl ParameterInterface {
             default_value,
             override_value,
             prior_value,
-            range: ranges.clone(),
+            ranges,
         });
         if let Some(initial_value) = &selection {
             if !ranges.in_range(&initial_value.clone().into()) {
