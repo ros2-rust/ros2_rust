@@ -149,8 +149,8 @@ pub struct ParameterRange<T: ParameterVariant + PartialOrd> {
     /// Step size, if set and `lower` is set the parameter must be within an integer number of
     /// steps of size `step` from `lower`, or equal to the upper limit if set.
     /// Example:
-    /// If lower is Some(0), upper is Some(10) and step is Some(3), acceptable values are:
-    /// [0, 3, 6, 9, 10]
+    /// If lower is `Some(0)`, upper is `Some(10)` and step is `Some(3)`, acceptable values are:
+    /// `[0, 3, 6, 9, 10]`.
     pub step: Option<T>,
 }
 
@@ -617,7 +617,7 @@ impl<T: ParameterVariant> MandatoryParameter<T> {
     }
 
     /// Sets the parameter value.
-    /// Returns `ParameterValueError::OutOfRange` if the value is out of the parameter's range.
+    /// Returns [`ParameterValueError::OutOfRange`] if the value is out of the parameter's range.
     pub fn set<U: Into<T>>(&self, value: U) -> Result<(), ParameterValueError> {
         let value = value.into().into();
         if !self.ranges.in_range(&value) {
@@ -646,7 +646,7 @@ impl<T: ParameterVariant> OptionalParameter<T> {
     }
 
     /// Assigns a value to the optional parameter, setting it to `Some(value)`.
-    /// Returns `ParameterValueError::OutOfRange` if the value is out of the parameter's range.
+    /// Returns [`ParameterValueError::OutOfRange`] if the value is out of the parameter's range.
     pub fn set<U: Into<T>>(&self, value: U) -> Result<(), ParameterValueError> {
         let value = value.into().into();
         if !self.ranges.in_range(&value) {
@@ -701,7 +701,7 @@ pub enum DeclarationError {
 impl<'a> Parameters<'a> {
     /// Tries to read a parameter of the requested type.
     ///
-    /// Returns Some(T) if a parameter of the requested type exists, None otherwise.
+    /// Returns `Some(T)` if a parameter of the requested type exists, `None` otherwise.
     pub fn get<T: ParameterVariant>(&self, name: &str) -> Option<T> {
         let storage = &self.interface._parameter_map.lock().unwrap().storage;
         let storage = storage.get(name)?;
@@ -720,9 +720,9 @@ impl<'a> Parameters<'a> {
     /// Tries to set a parameter with the requested value.
     ///
     /// Returns:
-    /// * Ok(()) if setting was successful.
-    /// * Err(DeclarationError::TypeMismatch) if the type of the requested value is different from
-    /// the parameter's type.
+    /// * `Ok(())` if setting was successful.
+    /// * [`Err(DeclarationError::TypeMismatch)`] if the type of the requested value is different
+    /// from the parameter's type.
     pub fn set<T: ParameterVariant>(
         &self,
         name: impl Into<Arc<str>>,
@@ -910,13 +910,12 @@ mod tests {
         ));
 
         // The error should not happen if we ignore overrides
-        assert!(matches!(
-            node.declare_parameter("declared_int")
-                .default(1.0)
-                .ignore_override()
-                .mandatory(),
-            Ok(_)
-        ));
+        assert!(node
+            .declare_parameter("declared_int")
+            .default(1.0)
+            .ignore_override()
+            .mandatory()
+            .is_ok());
 
         // If the override does not respect the range, we should return an error
         let range = ParameterRange {
@@ -933,14 +932,13 @@ mod tests {
 
         // The override being out of range should not matter if we use
         // ignore_override
-        assert!(matches!(
-            node.declare_parameter("declared_int")
-                .default(1)
-                .range(range)
-                .ignore_override()
-                .mandatory(),
-            Ok(_)
-        ));
+        assert!(node
+            .declare_parameter("declared_int")
+            .default(1)
+            .range(range)
+            .ignore_override()
+            .mandatory()
+            .is_ok());
     }
 
     #[test]
