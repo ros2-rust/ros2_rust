@@ -617,7 +617,7 @@ impl<T: ParameterVariant> MandatoryParameter<T> {
     }
 
     /// Sets the parameter value.
-    /// Returns `DeclarationError::OutOfRange` if the value is out of the parameter's range.
+    /// Returns `ParameterValueError::OutOfRange` if the value is out of the parameter's range.
     pub fn set<U: Into<T>>(&self, value: U) -> Result<(), ParameterValueError> {
         let value = value.into().into();
         if !self.ranges.in_range(&value) {
@@ -646,7 +646,7 @@ impl<T: ParameterVariant> OptionalParameter<T> {
     }
 
     /// Assigns a value to the optional parameter, setting it to `Some(value)`.
-    /// Returns `DeclarationError::OutOfRange` if the value is out of the parameter's range.
+    /// Returns `ParameterValueError::OutOfRange` if the value is out of the parameter's range.
     pub fn set<U: Into<T>>(&self, value: U) -> Result<(), ParameterValueError> {
         let value = value.into().into();
         if !self.ranges.in_range(&value) {

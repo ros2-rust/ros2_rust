@@ -397,7 +397,7 @@ impl Node {
 
     /// Enables usage of undeclared parameters for this node.
     ///
-    /// Returns a `Parameter` struct that can be used to get and set all parameters.
+    /// Returns a `Parameters` struct that can be used to get and set all parameters.
     pub fn use_undeclared_parameters(&self) -> Parameters {
         self._parameter.allow_undeclared();
         Parameters {
