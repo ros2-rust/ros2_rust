@@ -1,12 +1,10 @@
 # Building `ros2_rust` packages
-
 This is a more detailed guide on how to build ROS 2 packages written in Rust that expands on the minimal steps in the README.
 
 In this guide, the Humble distribution of ROS 2 is used, but newer distributions can be used by simply replacing 'humble' with the distribution name everywhere.
 
 
 ## Choosing a workspace directory and cloning `ros2_rust`
-
 A "workspace directory", or just "workspace", is simply a directory of your choosing that contains your `ros2_rust` checkout and potentially other ROS 2 packages. It will also usually be your working directory for building. There is only one limitation: It must not contain the ROS 2 installation, so it can't be `/`, for instance. Note that this has **nothing** to do with a [`cargo` workspace](https://doc.rust-lang.org/book/ch14-03-cargo-workspaces.html).
 
 If you don't have a workspace directory already, simply create an empty directory in a convenient location.
@@ -23,19 +21,16 @@ git clone https://github.com/ros2-rust/ros2_rust.git src/ros2_rust
 
 
 ## Environment setup
-
-Building `rclrs` requires a standard [ROS 2 installation](https://docs.ros.org/en/humble/Installation.html), and a few extensions.
-These extensions are: `colcon-cargo`, `colcon-ros-cargo`, `cargo-ament-build`. The first two are `colcon` plugins, and the third is a `cargo` plugin.
+Building `rclrs` requires a standard [ROS 2 installation](https://docs.ros.org/en/humble/Installation.html), and a few extensions. These extensions are: `colcon-cargo`, `colcon-ros-cargo`, `cargo-ament-build`. The first two are `colcon` plugins, and the third is a `cargo` plugin.
 
 The `libclang` library is also required for automatically generating FFI bindings with `bindgen`. See the [`bindgen` docs](https://rust-lang.github.io/rust-bindgen/requirements.html) on how to install it. As a side note, on Ubuntu the `clang` package is not required, only the `libclang-dev` package.
 
 The `python3-vcstool` package is used in [importing auxiliary repositories](#importing-repositories). It can also be installed through `pip` instead of `apt`.
 
-You can either install these dependencies on your computer, or use the [premade Docker image](#using-the-docker-image).
+You can either install these dependencies on your computer, or use the [premade Docker image](#option-2:-using-the-docker-image).
 
 
 ### Option 1: Installing the dependencies
-
 The exact steps may differ between platforms, but as an example, here is how you would install the dependencies on Ubuntu:
 
 <!--- These steps should be kept in sync with README.md --->
@@ -51,7 +46,6 @@ pip install git+https://github.com/colcon/colcon-ros-cargo.git
 ```
 
 ### Option 2: Using the Docker image
-
 Build the Docker image with
 
 ```shell
@@ -71,7 +65,6 @@ As you can see, this maps the workspace directory to `/workspace` inside the con
 
 
 ### Importing repositories
-
 `ros2_rust` also expects a few other repositories to be in the workspace. They can be imported from a `repos` file contained in `ros2_rust`, like this:
 
 ```shell
@@ -81,21 +74,18 @@ vcs import src < src/ros2_rust/ros2_rust_humble.repos
 
 This uses the [`vcs` tool](https://github.com/dirk-thomas/vcstool), which is preinstalled in the Docker image.
 
-The new repositories are now in `src/ros2`.
-The list of needed repositories should very rarely change, so you typically only need to do this once.
+The new repositories are now in `src/ros2`. The list of needed repositories should very rarely change, so you typically only need to do this once.
 
 
 ### Sourcing the ROS 2 installation
-
-Before building, the ROS 2 installation, and ideally _only_ the ROS 2 installation, should be sourced.
-Sourcing an installation populates a few environment variables such as `$AMENT_PREFIX_PATH`, so if you are not sure, you can check that the `$AMENT_PREFIX_PATH` environment variable contains the ROS 2 installation, e.g. `/opt/ros/humble`.
+Before building, the ROS 2 installation, and ideally _only_ the ROS 2 installation, should be sourced. Sourcing an installation populates a few environment variables such as `$AMENT_PREFIX_PATH`, so if you are not sure, you can check that the `$AMENT_PREFIX_PATH` environment variable contains the ROS 2 installation, e.g. `/opt/ros/humble`.
 
 In the pre-made Docker image, sourcing is already done for you. Otherwise, if `$AMENT_PREFIX_PATH` is empty, you need to source the ROS 2 installation yourself:
 
 ```shell
 # You can also do `source /opt/ros/humble/setup.bash` in bash
 . /opt/ros/humble/setup.sh
-````
+```
 
 If `$AMENT_PREFIX_PATH` contains undesired paths, exit and reopen your shell. If the problem persists, it's probably because of a sourcing command in your `~/.bashrc` or similar.
 
@@ -103,7 +93,6 @@ It's convenient to install `tmux`, especially in Docker, and open separate windo
 
 
 ### Checking your setup
-
 To verify that you've correctly installed dependencies and sourced your ROS 2 installation, you should be able to run
 
 ```shell
@@ -120,7 +109,6 @@ The build type `ament_cargo` means that the `colcon-ros-cargo` plugin works as e
 
 
 ## Building with `colcon`
-
 Now that everything is set up, you can build with `colcon`. The basic command to build a package and its dependencies is
 
 ```shell
@@ -136,20 +124,16 @@ In addition to the standard `build`, `install` and `log` directories, `colcon` w
 
 
 ### Tips and limitations
+1. Don't start two build processes involving Rust packages in parallel; they might overwrite each other's `.cargo/config.toml`.
 
-Don't start two build processes involving Rust packages in parallel; they might overwrite each other's `.cargo/config.toml`.
+1. A clean build will always be much slower than an incremental rebuild.
 
-A clean build will always be much slower than an incremental rebuild.
+1. `colcon test` is not currently implemented for Rust packages.
 
-`colcon test` is not currently implemented for Rust packages.
-
-The plugin to build `cargo` projects with `colcon` currently has the issue that both `cargo` and `colcon` will [rebuild all dependencies for each package](https://github.com/colcon/colcon-ros-cargo/). This makes building large projects with `colcon` less efficient, but if this is an issue, you can build with `cargo` instead.
-
+1. The plugin to build `cargo` projects with `colcon` currently has the issue that both `cargo` and `colcon` will [rebuild all dependencies for each package](https://github.com/colcon/colcon-ros-cargo/). This makes building large projects with `colcon` less efficient, but if this is an issue, you can build with `cargo` instead.
 
 ## Building with `cargo`
-
 Rust packages for ROS 2 can also be built with pure `cargo`, and still integrate with ROS 2 tools like `ros2 run`.
-
 
 ### Learning by doing
 
@@ -190,8 +174,50 @@ cargo build
 
 If you'd like to not have any of that "overriding dependencies through  `.cargo/config.toml`", you can do that too of course. You just need to use concrete paths for any dependency that isn't published on `crates.io`, such as message packages. For instance, you might have to write `std_msgs = {path = '/workspace/install/std_msgs/share/std_msgs/rust'}`.
 
+## VS Code Setup with .devcontainer
+A convienent (and reccomended) development setup is use the provided Dockerfile with VS Code's `Dev Containers` extension. To set this up:
 
-### Integration with ROS 2 tools
+- Follow the steps in [using the docker image](#option-2-using-the-docker-image) to build an imaged tagged with `ros2_rust_dev` and your preffered ROS2 version.
+- Install [VS Code](https://code.visualstudio.com/download) and the [Dev Containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) extension.
+- In the root folder of your workspace (alongside `src/`) create a folder named .devcontainer with a file named devcontainer.json and the contents:
+```json
+{
+    "name": "rclrs",
+    "image": "ros2_rust_dev",
+    // Provide rust-analyzer and lldb within the container
+    // These are the two most popular and useful rust extensions
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "rust-lang.rust-analyzer",
+                "vadimcn.vscode-lldb"
+            ]
+        }
+    }
+}
+```
+- In the root folder of your workspace (alongside `src/`) create a folder named .vscode with a file named settings.json and the contents:
+```json
+{
+    "rust-analyzer.linkedProjects": [
+        // List the rust crates you want rust-analyzer to index here
+        // The more you list the slower start-up time can be
+        "src/ros2_rust/rclrs/Cargo.toml",
+        "src/ros2_rust/examples/minimal_pub_sub/Cargo.toml"
+    ],
+}
+```
+- Now open your workspace's root folder in VS Code on your host, then switch into the container by hitting `Ctrl + Shift + P` and running the command `Dev Containers: Reopen in Container`
+
+VS Code will now automatically startup a container with your image, mount your workspace into the container, and connect your VS Code session so that you are operating within the container. Rust Analyzer and Code LLDB should be providing correct intellisense features and the ability to graphically debug. However, `rust-analyzer` may fail to startup correctly if you haven't run `colcon build` from the root of your workspace and correctly generated your `.cargo/config.toml`, see [here](#learning-by-doing) for help.
+
+Note: You may need to manually start the rust-analyzer with `Ctrl + Shift + P` and `rust-analyzer: Start server`.
+
+Instructions provided here are a minimal guide, refer to these documents for additional information:
+- [Creating a Dev Container](https://code.visualstudio.com/docs/devcontainers/create-dev-container)
+- [Rust with VS Code](https://code.visualstudio.com/docs/languages/rust)
+
+## Integration with ROS 2 tools
 
 How can a binary created in Rust be made available to `ros2 run`, `ros2 launch` etc.? And how can other ROS 2 packages use a `cdylib` created in Rust? For that to work, the correct files must be placed at the correct location in the install directory, see [REP 122](https://www.ros.org/reps/rep-0122.html).
 
