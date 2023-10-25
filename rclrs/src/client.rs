@@ -254,7 +254,7 @@ where
             rcl_service_server_is_available(node as *const _, client as *const _, &mut is_ready)
         }
         .ok()?;
-        return Ok(is_ready);
+        Ok(is_ready)
     }
 }
 
