@@ -2,6 +2,10 @@
 Changelog for package rclrs
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Unreleased
+----------------
+* Service clients now support service_is_ready to check if a service server is present ahead of calling (`#399 <https://github.com/ros2-rust/ros2_rust/pull/339>`_)
+
 0.3 (2022-07-22)
 ----------------
 * Loaned messages (zero-copy) (`#212 <https://github.com/ros2-rust/ros2_rust/pull/212>`_)
