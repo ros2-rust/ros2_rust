@@ -211,7 +211,7 @@ A convenient (and recommended) development setup is to use the provided Dockerfi
 
 VS Code will now automatically startup a container with your image, mount your workspace into the container, and connect your VS Code session so that you are operating within the container. Rust Analyzer and Code LLDB should be providing correct intellisense features and the ability to graphically debug. However, `rust-analyzer` may fail to startup correctly if you haven't run `colcon build` from the root of your workspace and correctly generated your `.cargo/config.toml`, see [here](#learning-by-doing) for help.
 
-Note: You may need to manually start the rust-analyzer with `Ctrl + Shift + P` and `rust-analyzer: Start server`.
+Note: You may need to manually start the rust-analyzer server with `Ctrl + Shift + P` and `rust-analyzer: Start server`.
 
 Instructions provided here are a minimal guide, refer to these documents for additional information:
 - [Creating a Dev Container](https://code.visualstudio.com/docs/devcontainers/create-dev-container)
