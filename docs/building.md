@@ -175,11 +175,11 @@ cargo build
 If you'd like to not have any of that "overriding dependencies through  `.cargo/config.toml`", you can do that too of course. You just need to use concrete paths for any dependency that isn't published on `crates.io`, such as message packages. For instance, you might have to write `std_msgs = {path = '/workspace/install/std_msgs/share/std_msgs/rust'}`.
 
 ## VS Code Setup with .devcontainer
-A convienent (and reccomended) development setup is use the provided Dockerfile with VS Code's `Dev Containers` extension. To set this up:
+A convenient (and recommended) development setup is use the provided Dockerfile with VS Code's `Dev Containers` extension. To set this up:
 
-- Follow the steps in [using the docker image](#option-2-using-the-docker-image) to build an imaged tagged with `ros2_rust_dev` and your preffered ROS2 version.
+- Follow the steps in [using the docker image](#option-2-using-the-docker-image) to build an imaged tagged with `ros2_rust_dev` and your preferred ROS2 version.
 - Install [VS Code](https://code.visualstudio.com/download) and the [Dev Containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) extension.
-- In the root folder of your workspace (alongside `src/`) create a folder named .devcontainer with a file named devcontainer.json and the contents:
+- In the root folder of your workspace (alongside `src/`) create a folder named `.devcontainer` with a file named `devcontainer.json` and the contents:
 ```json
 {
     "name": "rclrs",
@@ -196,7 +196,7 @@ A convienent (and reccomended) development setup is use the provided Dockerfile 
     }
 }
 ```
-- In the root folder of your workspace (alongside `src/`) create a folder named .vscode with a file named settings.json and the contents:
+- In the root folder of your workspace (alongside `src/`) create a folder named `.vscode` with a file named `settings.json` and the contents:
 ```json
 {
     "rust-analyzer.linkedProjects": [
