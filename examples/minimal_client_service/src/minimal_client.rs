@@ -13,7 +13,9 @@ fn main() -> Result<(), Error> {
 
     println!("Starting client");
 
-    std::thread::sleep(std::time::Duration::from_millis(500));
+    while !client.service_is_ready()? {
+        std::thread::sleep(std::time::Duration::from_millis(10));
+    }
 
     client.async_send_request_with_callback(
         &request,
