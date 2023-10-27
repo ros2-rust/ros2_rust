@@ -13,9 +13,9 @@ pub use self::builder::*;
 pub use self::graph::*;
 use crate::rcl_bindings::*;
 use crate::{
-    Client, ClientBase, Context, GuardCondition, ParameterOverrideMap, Publisher, QoSProfile,
-    RclrsError, Service, ServiceBase, Subscription, SubscriptionBase, SubscriptionCallback,
-    ToResult,
+    Client, ClientBase, Context, GuardCondition, ParameterBuilder, ParameterInterface,
+    ParameterVariant, Parameters, Publisher, QoSProfile, RclrsError, Service, ServiceBase,
+    Subscription, SubscriptionBase, SubscriptionCallback, ToResult,
 };
 
 impl Drop for rcl_node_t {
@@ -71,7 +71,7 @@ pub struct Node {
     pub(crate) guard_conditions_mtx: Mutex<Vec<Weak<GuardCondition>>>,
     pub(crate) services_mtx: Mutex<Vec<Weak<dyn ServiceBase>>>,
     pub(crate) subscriptions_mtx: Mutex<Vec<Weak<dyn SubscriptionBase>>>,
-    _parameter_map: ParameterOverrideMap,
+    _parameter: ParameterInterface,
 }
 
 impl Eq for Node {}
@@ -328,7 +328,7 @@ impl Node {
     }
 
     /// Returns the ROS domain ID that the node is using.
-    ///    
+    ///
     /// The domain ID controls which nodes can send messages to each other, see the [ROS 2 concept article][1].
     /// It can be set through the `ROS_DOMAIN_ID` environment variable.
     ///
@@ -360,6 +360,51 @@ impl Node {
         domain_id
     }
 
+    /// Creates a [`ParameterBuilder`] that can be used to set parameter declaration options and
+    /// declare a parameter as [`OptionalParameter`](crate::parameter::OptionalParameter),
+    /// [`MandatoryParameter`](crate::parameter::MandatoryParameter), or
+    /// [`ReadOnly`](crate::parameter::ReadOnlyParameter).
+    ///
+    /// # Example
+    /// ```
+    /// # use rclrs::{Context, ParameterRange, RclrsError};
+    /// let context = Context::new([])?;
+    /// let node = rclrs::create_node(&context, "domain_id_node")?;
+    /// // Set it to a range of 0-100, with a step of 2
+    /// let range = ParameterRange {
+    ///     lower: Some(0),
+    ///     upper: Some(100),
+    ///     step: Some(2),
+    /// };
+    /// let param = node.declare_parameter("int_param")
+    ///                 .default(10)
+    ///                 .range(range)
+    ///                 .mandatory()
+    ///                 .unwrap();
+    /// assert_eq!(param.get(), 10);
+    /// param.set(50).unwrap();
+    /// assert_eq!(param.get(), 50);
+    /// // Out of range, will return an error
+    /// assert!(param.set(200).is_err());
+    /// # Ok::<(), RclrsError>(())
+    /// ```
+    pub fn declare_parameter<'a, T: ParameterVariant + 'a>(
+        &'a self,
+        name: impl Into<Arc<str>>,
+    ) -> ParameterBuilder<'a, T> {
+        self._parameter.declare(name.into())
+    }
+
+    /// Enables usage of undeclared parameters for this node.
+    ///
+    /// Returns a [`Parameters`] struct that can be used to get and set all parameters.
+    pub fn use_undeclared_parameters(&self) -> Parameters {
+        self._parameter.allow_undeclared();
+        Parameters {
+            interface: &self._parameter,
+        }
+    }
+
     /// Creates a [`NodeBuilder`][1] with the given name.
     ///
     /// Convenience function equivalent to [`NodeBuilder::new()`][2].
@@ -384,7 +429,7 @@ impl Node {
 // function, which is why it's not merged into Node::call_string_getter().
 // This function is unsafe since it's possible to pass in an rcl_node_t with dangling
 // pointers etc.
-unsafe fn call_string_getter_with_handle(
+pub(crate) unsafe fn call_string_getter_with_handle(
     rcl_node: &rcl_node_t,
     getter: unsafe extern "C" fn(*const rcl_node_t) -> *const c_char,
 ) -> String {

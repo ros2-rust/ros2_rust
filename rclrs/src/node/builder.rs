@@ -2,10 +2,7 @@ use std::ffi::CString;
 use std::sync::{Arc, Mutex};
 
 use crate::rcl_bindings::*;
-use crate::{
-    node::call_string_getter_with_handle, resolve_parameter_overrides, Context, Node, RclrsError,
-    ToResult,
-};
+use crate::{Context, Node, ParameterInterface, RclrsError, ToResult};
 
 /// A builder for creating a [`Node`][1].
 ///
@@ -262,16 +259,12 @@ impl NodeBuilder {
             .ok()?;
         };
 
-        let _parameter_map = unsafe {
-            let fqn = call_string_getter_with_handle(&rcl_node, rcl_node_get_fully_qualified_name);
-            resolve_parameter_overrides(
-                &fqn,
-                &rcl_node_options.arguments,
-                &rcl_context.global_arguments,
-            )?
-        };
         let rcl_node_mtx = Arc::new(Mutex::new(rcl_node));
-
+        let _parameter = ParameterInterface::new(
+            &rcl_node_mtx,
+            &rcl_node_options.arguments,
+            &rcl_context.global_arguments,
+        )?;
         Ok(Node {
             rcl_node_mtx,
             rcl_context_mtx: self.context.clone(),
@@ -279,7 +272,7 @@ impl NodeBuilder {
             guard_conditions_mtx: Mutex::new(vec![]),
             services_mtx: Mutex::new(vec![]),
             subscriptions_mtx: Mutex::new(vec![]),
-            _parameter_map,
+            _parameter,
         })
     }
 
