@@ -3,8 +3,8 @@ use std::sync::{Arc, Mutex};
 
 use crate::rcl_bindings::*;
 use crate::{
-    node::call_string_getter_with_handle, resolve_parameter_overrides, ClockType, Context, Node,
-    QoSProfile, RclrsError, TimeSource, ToResult, QOS_PROFILE_CLOCK,
+    ClockType, Context, Node, ParameterInterface, QoSProfile, RclrsError, TimeSource, ToResult,
+    QOS_PROFILE_CLOCK,
 };
 
 /// A builder for creating a [`Node`][1].
@@ -280,28 +280,27 @@ impl NodeBuilder {
             .ok()?;
         };
 
-        let _parameter_map = unsafe {
-            let fqn = call_string_getter_with_handle(&rcl_node, rcl_node_get_fully_qualified_name);
-            resolve_parameter_overrides(
-                &fqn,
-                &rcl_node_options.arguments,
-                &rcl_context.global_arguments,
-            )?
-        };
         let rcl_node_mtx = Arc::new(Mutex::new(rcl_node));
-        Ok(Arc::new_cyclic(|weak| Node {
+        let _parameter = ParameterInterface::new(
+            &rcl_node_mtx,
+            &rcl_node_options.arguments,
+            &rcl_context.global_arguments,
+        )?;
+        let node = Arc::new(Node {
             rcl_node_mtx,
             rcl_context_mtx: self.context.clone(),
             clients_mtx: Mutex::new(vec![]),
             guard_conditions_mtx: Mutex::new(vec![]),
             services_mtx: Mutex::new(vec![]),
             subscriptions_mtx: Mutex::new(vec![]),
-            _time_source: TimeSource::builder(weak.clone(), self.clock_type)
+            _time_source: TimeSource::builder(self.clock_type)
                 .clock_qos(self.clock_qos)
                 .build()
                 .unwrap(),
-            _parameter_map,
-        }))
+            _parameter,
+        });
+        node._time_source.attach_node(Arc::downgrade(&node));
+        Ok(node)
     }
 
     /// Creates a rcl_node_options_t struct from this builder.

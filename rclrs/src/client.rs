@@ -238,6 +238,24 @@ where
         .ok()?;
         Ok((T::Response::from_rmw_message(response_out), request_id_out))
     }
+
+    /// Check if a service server is available.
+    ///
+    /// Will return true if there is a service server available, false if unavailable.
+    ///
+    pub fn service_is_ready(&self) -> Result<bool, RclrsError> {
+        let mut is_ready = false;
+        let client = &mut *self.handle.rcl_client_mtx.lock().unwrap();
+        let node = &mut *self.handle.rcl_node_mtx.lock().unwrap();
+
+        unsafe {
+            // SAFETY both node and client are guaranteed to be valid here
+            // client is guaranteed to have been generated with node
+            rcl_service_server_is_available(node as *const _, client as *const _, &mut is_ready)
+        }
+        .ok()?;
+        Ok(is_ready)
+    }
 }
 
 impl<T> ClientBase for Client<T>

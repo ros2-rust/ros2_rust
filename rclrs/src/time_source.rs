@@ -1,5 +1,5 @@
 use crate::clock::{Clock, ClockSource, ClockType};
-use crate::{Node, ParameterValue, QoSProfile, RclrsError, Subscription, QOS_PROFILE_CLOCK};
+use crate::{MandatoryParameter, Node, QoSProfile, RclrsError, Subscription, QOS_PROFILE_CLOCK};
 use rosgraph_msgs::msg::Clock as ClockMsg;
 use std::sync::{Arc, Mutex, RwLock, Weak};
 
@@ -7,13 +7,15 @@ use std::sync::{Arc, Mutex, RwLock, Weak};
 /// If the node's `use_sim_time` parameter is set to `true`, the `TimeSource` will subscribe
 /// to the `/clock` topic and drive the attached clock
 pub(crate) struct TimeSource {
-    _node: Weak<Node>,
+    _node: Mutex<Weak<Node>>,
     _clock: RwLock<Clock>,
     _clock_source: Arc<Mutex<Option<ClockSource>>>,
     _requested_clock_type: ClockType,
     _clock_qos: QoSProfile,
-    _clock_subscription: Option<Arc<Subscription<ClockMsg>>>,
+    _clock_subscription: Mutex<Option<Arc<Subscription<ClockMsg>>>>,
     _last_received_time: Arc<Mutex<Option<i64>>>,
+    // TODO(luca) MandatoryParameter here
+    _use_sim_time: bool,
 }
 
 /// A builder for creating a [`TimeSource`][1].
@@ -29,16 +31,14 @@ pub(crate) struct TimeSource {
 /// [2]: crate::TimeSource::builder
 /// [3]: crate::QOS_PROFILE_CLOCK
 pub(crate) struct TimeSourceBuilder {
-    node: Weak<Node>,
     clock_qos: QoSProfile,
     clock_type: ClockType,
 }
 
 impl TimeSourceBuilder {
-    /// Creates a builder for a time source that drives the given clock for the given node.
-    pub(crate) fn new(node: Weak<Node>, clock_type: ClockType) -> Self {
+    /// Creates a builder for a time source that drives the given clock.
+    pub(crate) fn new(clock_type: ClockType) -> Self {
         Self {
-            node,
             clock_qos: QOS_PROFILE_CLOCK,
             clock_type,
         }
@@ -56,24 +56,24 @@ impl TimeSourceBuilder {
             ClockType::RosTime | ClockType::SystemTime => Clock::system(),
             ClockType::SteadyTime => Clock::steady(),
         }?;
-        let mut source = TimeSource {
-            _node: Weak::new(),
+        let source = TimeSource {
+            _node: Mutex::new(Weak::new()),
             _clock: RwLock::new(clock),
             _clock_source: Arc::new(Mutex::new(None)),
             _requested_clock_type: self.clock_type,
             _clock_qos: self.clock_qos,
-            _clock_subscription: None,
+            _clock_subscription: Mutex::new(None),
             _last_received_time: Arc::new(Mutex::new(None)),
+            _use_sim_time: false,
         };
-        source.attach_node(self.node);
         Ok(source)
     }
 }
 
 impl TimeSource {
     /// Creates a new `TimeSourceBuilder` with default parameters.
-    pub(crate) fn builder(node: Weak<Node>, clock_type: ClockType) -> TimeSourceBuilder {
-        TimeSourceBuilder::new(node, clock_type)
+    pub(crate) fn builder(clock_type: ClockType) -> TimeSourceBuilder {
+        TimeSourceBuilder::new(clock_type)
     }
 
     /// Returns the clock that this TimeSource is controlling.
@@ -83,25 +83,24 @@ impl TimeSource {
 
     /// Attaches the given node to to the `TimeSource`, using its interface to read the
     /// `use_sim_time` parameter and create the clock subscription.
-    fn attach_node(&mut self, node: Weak<Node>) {
-        self._node = node;
+    pub(crate) fn attach_node(&self, node: Weak<Node>) {
+        *self._node.lock().unwrap() = node;
 
         // TODO(luca) register a parameter callback
-        if let Some(sim_param) = self
+        let val = self
             ._node
+            .lock()
+            .unwrap()
             .upgrade()
-            .and_then(|n| n.get_parameter("use_sim_time"))
-        {
-            match sim_param {
-                ParameterValue::Bool(val) => {
-                    self.set_ros_time_enable(val);
-                }
-                _ => panic!("use_sim_time parameter must be boolean"),
-            }
-        }
+            .unwrap()
+            .declare_parameter("use_sim_time")
+            .default(false)
+            .mandatory()
+            .unwrap();
+        self.set_ros_time_enable(val.get());
     }
 
-    fn set_ros_time_enable(&mut self, enable: bool) {
+    fn set_ros_time_enable(&self, enable: bool) {
         if matches!(self._requested_clock_type, ClockType::RosTime) {
             let mut clock = self._clock.write().unwrap();
             if enable && matches!(clock.clock_type(), ClockType::SystemTime) {
@@ -112,13 +111,13 @@ impl TimeSource {
                 }
                 *clock = new_clock;
                 *self._clock_source.lock().unwrap() = Some(clock_source);
-                self._clock_subscription = Some(self.create_clock_sub());
+                *self._clock_subscription.lock().unwrap() = Some(self.create_clock_sub());
             }
             if !enable && matches!(clock.clock_type(), ClockType::RosTime) {
                 // TODO(luca) remove unwrap here?
                 *clock = Clock::system().unwrap();
                 *self._clock_source.lock().unwrap() = None;
-                self._clock_subscription = None;
+                *self._clock_subscription.lock().unwrap() = None;
             }
         }
     }
@@ -132,6 +131,8 @@ impl TimeSource {
         let last_received_time = self._last_received_time.clone();
         // Safe to unwrap since the function will only fail if invalid arguments are provided
         self._node
+            .lock()
+            .unwrap()
             .upgrade()
             .unwrap()
             .create_subscription::<ClockMsg, _>("/clock", self._clock_qos, move |msg: ClockMsg| {

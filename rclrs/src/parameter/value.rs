@@ -1,6 +1,8 @@
 use std::ffi::CStr;
+use std::sync::Arc;
 
 use crate::rcl_bindings::*;
+use crate::{ParameterRange, ParameterRanges, ParameterValueError};
 
 /// A parameter value.
 ///
@@ -26,27 +28,295 @@ pub enum ParameterValue {
     ///
     /// Unquoted strings are also possible, but not recommended,
     /// because they may be interpreted as another data type.
-    String(String),
+    String(Arc<str>),
     /// An array of u8.
     ///
     /// YAML example: Not possible to specify as YAML.
-    ByteArray(Vec<u8>),
+    ByteArray(Arc<[u8]>),
     /// An array of booleans.
     ///
     /// YAML example: `[true, false, false]`.
-    BoolArray(Vec<bool>),
+    BoolArray(Arc<[bool]>),
     /// An array of i64.
     ///
     /// YAML example: `[3, 4]`.
-    IntegerArray(Vec<i64>),
+    IntegerArray(Arc<[i64]>),
     /// An array of f64.
     ///
     /// YAML example: `[5.0, 6e2]`.
-    DoubleArray(Vec<f64>),
+    DoubleArray(Arc<[f64]>),
     /// An array of strings.
     ///
     /// YAML example: `["abc", ""]`.
-    StringArray(Vec<String>),
+    StringArray(Arc<[Arc<str>]>),
+}
+
+/// Describes the parameter's type. Similar to `ParameterValue` but also includes a `Dynamic`
+/// variant for dynamic parameters.
+#[derive(Clone, Debug, PartialEq)]
+pub enum ParameterKind {
+    /// A boolean parameter.
+    Bool,
+    /// An i64 value.
+    Integer,
+    /// An f64 value.
+    Double,
+    /// A string.
+    String,
+    /// An array of u8.
+    ByteArray,
+    /// An array of booleans.
+    BoolArray,
+    /// An array of i64.
+    IntegerArray,
+    /// An array of f64.
+    DoubleArray,
+    /// An array of strings.
+    StringArray,
+    /// A dynamic parameter that can change its type at runtime.
+    Dynamic,
+}
+
+impl From<bool> for ParameterValue {
+    fn from(value: bool) -> ParameterValue {
+        ParameterValue::Bool(value)
+    }
+}
+
+impl From<i64> for ParameterValue {
+    fn from(value: i64) -> ParameterValue {
+        ParameterValue::Integer(value)
+    }
+}
+
+impl From<f64> for ParameterValue {
+    fn from(value: f64) -> ParameterValue {
+        ParameterValue::Double(value)
+    }
+}
+
+impl From<Arc<str>> for ParameterValue {
+    fn from(value: Arc<str>) -> ParameterValue {
+        ParameterValue::String(value)
+    }
+}
+
+impl From<Arc<[u8]>> for ParameterValue {
+    fn from(value: Arc<[u8]>) -> ParameterValue {
+        ParameterValue::ByteArray(value)
+    }
+}
+
+impl From<Arc<[bool]>> for ParameterValue {
+    fn from(value: Arc<[bool]>) -> ParameterValue {
+        ParameterValue::BoolArray(value)
+    }
+}
+
+impl From<Arc<[i64]>> for ParameterValue {
+    fn from(value: Arc<[i64]>) -> ParameterValue {
+        ParameterValue::IntegerArray(value)
+    }
+}
+
+impl From<Arc<[f64]>> for ParameterValue {
+    fn from(value: Arc<[f64]>) -> ParameterValue {
+        ParameterValue::DoubleArray(value)
+    }
+}
+
+impl From<Arc<[Arc<str>]>> for ParameterValue {
+    fn from(value: Arc<[Arc<str>]>) -> ParameterValue {
+        ParameterValue::StringArray(value)
+    }
+}
+
+/// A trait that describes a value that can be converted into a parameter.
+pub trait ParameterVariant: Into<ParameterValue> + Clone + TryFrom<ParameterValue> {
+    /// The type used to describe the range of this parameter.
+    type Range: Into<ParameterRanges> + Default + Clone;
+
+    /// Returns the `ParameterKind` of the implemented type.
+    fn kind() -> ParameterKind;
+}
+
+impl TryFrom<ParameterValue> for bool {
+    type Error = ParameterValueError;
+
+    fn try_from(value: ParameterValue) -> Result<Self, Self::Error> {
+        match value {
+            ParameterValue::Bool(v) => Ok(v),
+            _ => Err(ParameterValueError::TypeMismatch),
+        }
+    }
+}
+
+impl ParameterVariant for bool {
+    type Range = ();
+
+    fn kind() -> ParameterKind {
+        ParameterKind::Bool
+    }
+}
+
+impl TryFrom<ParameterValue> for i64 {
+    type Error = ParameterValueError;
+
+    fn try_from(value: ParameterValue) -> Result<Self, Self::Error> {
+        match value {
+            ParameterValue::Integer(v) => Ok(v),
+            _ => Err(ParameterValueError::TypeMismatch),
+        }
+    }
+}
+
+impl ParameterVariant for i64 {
+    type Range = ParameterRange<i64>;
+
+    fn kind() -> ParameterKind {
+        ParameterKind::Integer
+    }
+}
+
+impl TryFrom<ParameterValue> for f64 {
+    type Error = ParameterValueError;
+
+    fn try_from(value: ParameterValue) -> Result<Self, Self::Error> {
+        match value {
+            ParameterValue::Double(v) => Ok(v),
+            _ => Err(ParameterValueError::TypeMismatch),
+        }
+    }
+}
+
+impl ParameterVariant for f64 {
+    type Range = ParameterRange<f64>;
+
+    fn kind() -> ParameterKind {
+        ParameterKind::Double
+    }
+}
+
+impl TryFrom<ParameterValue> for Arc<str> {
+    type Error = ParameterValueError;
+
+    fn try_from(value: ParameterValue) -> Result<Self, Self::Error> {
+        match value {
+            ParameterValue::String(v) => Ok(v),
+            _ => Err(ParameterValueError::TypeMismatch),
+        }
+    }
+}
+
+impl ParameterVariant for Arc<str> {
+    type Range = ();
+
+    fn kind() -> ParameterKind {
+        ParameterKind::String
+    }
+}
+
+impl TryFrom<ParameterValue> for Arc<[u8]> {
+    type Error = ParameterValueError;
+
+    fn try_from(value: ParameterValue) -> Result<Self, Self::Error> {
+        match value {
+            ParameterValue::ByteArray(v) => Ok(v),
+            _ => Err(ParameterValueError::TypeMismatch),
+        }
+    }
+}
+
+impl ParameterVariant for Arc<[u8]> {
+    type Range = ();
+
+    fn kind() -> ParameterKind {
+        ParameterKind::ByteArray
+    }
+}
+
+impl TryFrom<ParameterValue> for Arc<[bool]> {
+    type Error = ParameterValueError;
+
+    fn try_from(value: ParameterValue) -> Result<Self, Self::Error> {
+        match value {
+            ParameterValue::BoolArray(v) => Ok(v),
+            _ => Err(ParameterValueError::TypeMismatch),
+        }
+    }
+}
+
+impl ParameterVariant for Arc<[bool]> {
+    type Range = ();
+
+    fn kind() -> ParameterKind {
+        ParameterKind::BoolArray
+    }
+}
+
+impl TryFrom<ParameterValue> for Arc<[i64]> {
+    type Error = ParameterValueError;
+
+    fn try_from(value: ParameterValue) -> Result<Self, Self::Error> {
+        match value {
+            ParameterValue::IntegerArray(v) => Ok(v),
+            _ => Err(ParameterValueError::TypeMismatch),
+        }
+    }
+}
+
+impl ParameterVariant for Arc<[i64]> {
+    type Range = ();
+
+    fn kind() -> ParameterKind {
+        ParameterKind::IntegerArray
+    }
+}
+
+impl TryFrom<ParameterValue> for Arc<[f64]> {
+    type Error = ParameterValueError;
+
+    fn try_from(value: ParameterValue) -> Result<Self, Self::Error> {
+        match value {
+            ParameterValue::DoubleArray(v) => Ok(v),
+            _ => Err(ParameterValueError::TypeMismatch),
+        }
+    }
+}
+
+impl ParameterVariant for Arc<[f64]> {
+    type Range = ();
+
+    fn kind() -> ParameterKind {
+        ParameterKind::DoubleArray
+    }
+}
+
+impl TryFrom<ParameterValue> for Arc<[Arc<str>]> {
+    type Error = ParameterValueError;
+
+    fn try_from(value: ParameterValue) -> Result<Self, Self::Error> {
+        match value {
+            ParameterValue::StringArray(v) => Ok(v),
+            _ => Err(ParameterValueError::TypeMismatch),
+        }
+    }
+}
+
+impl ParameterVariant for Arc<[Arc<str>]> {
+    type Range = ();
+
+    fn kind() -> ParameterKind {
+        ParameterKind::StringArray
+    }
+}
+
+impl ParameterVariant for ParameterValue {
+    type Range = ParameterRanges;
+
+    fn kind() -> ParameterKind {
+        ParameterKind::Dynamic
+    }
 }
 
 impl ParameterValue {
@@ -87,24 +357,24 @@ impl ParameterValue {
         } else if !var.string_value.is_null() {
             let cstr = CStr::from_ptr(var.string_value);
             let s = cstr.to_string_lossy().into_owned();
-            ParameterValue::String(s)
+            ParameterValue::String(s.into())
         } else if !var.byte_array_value.is_null() {
             let rcl_byte_array = &*var.byte_array_value;
             let slice = std::slice::from_raw_parts(rcl_byte_array.values, rcl_byte_array.size);
-            ParameterValue::ByteArray(slice.to_vec())
+            ParameterValue::ByteArray(slice.into())
         } else if !var.bool_array_value.is_null() {
             let rcl_bool_array = &*var.bool_array_value;
             let slice = std::slice::from_raw_parts(rcl_bool_array.values, rcl_bool_array.size);
-            ParameterValue::BoolArray(slice.to_vec())
+            ParameterValue::BoolArray(slice.into())
         } else if !var.integer_array_value.is_null() {
             let rcl_integer_array = &*var.integer_array_value;
             let slice =
                 std::slice::from_raw_parts(rcl_integer_array.values, rcl_integer_array.size);
-            ParameterValue::IntegerArray(slice.to_vec())
+            ParameterValue::IntegerArray(slice.into())
         } else if !var.double_array_value.is_null() {
             let rcl_double_array = &*var.double_array_value;
             let slice = std::slice::from_raw_parts(rcl_double_array.values, rcl_double_array.size);
-            ParameterValue::DoubleArray(slice.to_vec())
+            ParameterValue::DoubleArray(slice.into())
         } else if !var.string_array_value.is_null() {
             let rcutils_string_array = &*var.string_array_value;
             let slice =
@@ -114,10 +384,10 @@ impl ParameterValue {
                 .map(|&ptr| {
                     debug_assert!(!ptr.is_null());
                     let cstr = CStr::from_ptr(ptr);
-                    cstr.to_string_lossy().into_owned()
+                    Arc::from(cstr.to_string_lossy())
                 })
-                .collect();
-            ParameterValue::StringArray(strings)
+                .collect::<Vec<_>>();
+            ParameterValue::StringArray(strings.into())
         } else {
             unreachable!()
         }
@@ -129,6 +399,8 @@ mod tests {
     use super::*;
     use crate::{Context, RclrsError, ToResult};
 
+    // TODO(luca) tests for all from / to ParameterVariant functions
+
     #[test]
     fn test_parameter_value() -> Result<(), RclrsError> {
         // This test is not a test of the YAML parser or argument parser, only a test that the
@@ -137,13 +409,19 @@ mod tests {
             ("true", ParameterValue::Bool(true)),
             ("1", ParameterValue::Integer(1)),
             ("1.0", ParameterValue::Double(1.0)),
-            ("'1.0'", ParameterValue::String(String::from("1.0"))),
-            ("[yes, no]", ParameterValue::BoolArray(vec![true, false])),
-            ("[-3, 2]", ParameterValue::IntegerArray(vec![-3, 2])),
-            ("[-3.0, 2.0]", ParameterValue::DoubleArray(vec![-3.0, 2.0])),
+            ("'1.0'", ParameterValue::String(Arc::from("1.0"))),
+            (
+                "[yes, no]",
+                ParameterValue::BoolArray(Arc::from([true, false])),
+            ),
+            ("[-3, 2]", ParameterValue::IntegerArray(Arc::from([-3, 2]))),
+            (
+                "[-3.0, 2.0]",
+                ParameterValue::DoubleArray(Arc::from([-3.0, 2.0])),
+            ),
             (
                 "['yes']",
-                ParameterValue::StringArray(vec![String::from("yes")]),
+                ParameterValue::StringArray(Arc::from([Arc::from("yes")])),
             ),
         ];
         for pair in input_output_pairs {

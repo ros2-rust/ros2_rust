@@ -101,6 +101,7 @@ def generate_rs(generator_arguments_file, typesupport_impls):
             'Services template file %s not found' % template_file
 
     data = {
+        'pre_field_serde': pre_field_serde,
         'get_rmw_rs_type': make_get_rmw_rs_type(args['package_name']),
         'get_rs_name': get_rs_name,
         'get_idiomatic_rs_type': make_get_idiomatic_rs_type(args['package_name']),
@@ -273,6 +274,14 @@ def constant_value_to_rs(type_, value):
 #   - AbstractSequence
 #     - BoundedSequence
 #     - UnboundedSequence
+
+
+def pre_field_serde(type_):
+    if isinstance(type_, Array) and type_.size > 32:
+        return '#[cfg_attr(feature = "serde", serde(with = "serde_big_array::BigArray"))]\n    '
+    else:
+        return ''
+
 
 def make_get_idiomatic_rs_type(package_name):
     get_rmw_rs_type = make_get_rmw_rs_type(package_name)
