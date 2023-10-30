@@ -298,7 +298,7 @@ impl NodeBuilder {
                 .build(),
             _parameter,
         });
-        node._time_source.attach_node(Arc::downgrade(&node));
+        node._time_source.attach_node(&node);
         Ok(node)
     }
 

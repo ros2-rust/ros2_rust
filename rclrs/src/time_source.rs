@@ -81,17 +81,15 @@ impl TimeSource {
 
     /// Attaches the given node to to the `TimeSource`, using its interface to read the
     /// `use_sim_time` parameter and create the clock subscription.
-    pub(crate) fn attach_node(&self, node: Weak<Node>) {
+    pub(crate) fn attach_node(&self, node: &Arc<Node>) {
         // TODO(luca) register a parameter callback that calls set_ros_time(bool) once parameter
         // callbacks are implemented.
         let param = node
-            .upgrade()
-            .unwrap()
             .declare_parameter("use_sim_time")
             .default(false)
             .mandatory()
             .unwrap();
-        *self._node.lock().unwrap() = node;
+        *self._node.lock().unwrap() = Arc::downgrade(node);
         self.set_ros_time_enable(param.get());
         *self._use_sim_time.lock().unwrap() = Some(param);
     }
