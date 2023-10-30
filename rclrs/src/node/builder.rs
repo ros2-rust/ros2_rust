@@ -295,8 +295,7 @@ impl NodeBuilder {
             subscriptions_mtx: Mutex::new(vec![]),
             _time_source: TimeSource::builder(self.clock_type)
                 .clock_qos(self.clock_qos)
-                .build()
-                .unwrap(),
+                .build(),
             _parameter,
         });
         node._time_source.attach_node(Arc::downgrade(&node));

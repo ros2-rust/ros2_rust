@@ -1,5 +1,5 @@
 use crate::rcl_bindings::*;
-use crate::{error::ToResult, time::Time, to_rclrs_result, RclrsError};
+use crate::{error::ToResult, time::Time, to_rclrs_result};
 use std::sync::{Arc, Mutex};
 
 /// Enum to describe clock type. Redefined for readability and to eliminate the uninitialized case
@@ -41,43 +41,45 @@ pub struct ClockSource {
 
 impl Clock {
     /// Creates a new Clock with `ClockType::SystemTime`
-    pub fn system() -> Result<Self, RclrsError> {
+    pub fn system() -> Self {
         Self::make(ClockType::SystemTime)
     }
 
     /// Creates a new Clock with `ClockType::SteadyTime`
-    pub fn steady() -> Result<Self, RclrsError> {
+    pub fn steady() -> Self {
         Self::make(ClockType::SteadyTime)
     }
 
     /// Creates a new Clock with `ClockType::RosTime` and a matching `ClockSource` that can be used
     /// to update it
-    pub fn with_source() -> Result<(Self, ClockSource), RclrsError> {
-        let clock = Self::make(ClockType::RosTime)?;
+    pub fn with_source() -> (Self, ClockSource) {
+        let clock = Self::make(ClockType::RosTime);
         let clock_source = ClockSource::new(clock._rcl_clock.clone());
-        Ok((clock, clock_source))
+        (clock, clock_source)
     }
 
     /// Creates a new clock of the given `ClockType`.
-    pub fn new(type_: ClockType) -> Result<(Self, Option<ClockSource>), RclrsError> {
-        let clock = Self::make(type_)?;
+    pub fn new(type_: ClockType) -> (Self, Option<ClockSource>) {
+        let clock = Self::make(type_);
         let clock_source =
             matches!(type_, ClockType::RosTime).then(|| ClockSource::new(clock._rcl_clock.clone()));
-        Ok((clock, clock_source))
+        (clock, clock_source)
     }
 
-    fn make(type_: ClockType) -> Result<Self, RclrsError> {
+    fn make(type_: ClockType) -> Self {
         let mut rcl_clock;
         unsafe {
             // SAFETY: Getting a default value is always safe.
             rcl_clock = Self::init_generic_clock();
             let mut allocator = rcutils_get_default_allocator();
-            rcl_clock_init(type_.into(), &mut rcl_clock, &mut allocator).ok()?;
+            // Function will return Err(_) only if there isn't enough memory to allocate a clock
+            // object.
+            rcl_clock_init(type_.into(), &mut rcl_clock, &mut allocator).ok().unwrap();
         }
-        Ok(Self {
+        Self {
             _type: type_,
             _rcl_clock: Arc::new(Mutex::new(rcl_clock)),
-        })
+        }
     }
 
     /// Returns the clock's `ClockType`.

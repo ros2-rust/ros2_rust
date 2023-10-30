@@ -1,5 +1,5 @@
 use crate::clock::{Clock, ClockSource, ClockType};
-use crate::{MandatoryParameter, Node, QoSProfile, RclrsError, Subscription, QOS_PROFILE_CLOCK};
+use crate::{MandatoryParameter, Node, QoSProfile, Subscription, QOS_PROFILE_CLOCK};
 use rosgraph_msgs::msg::Clock as ClockMsg;
 use std::sync::{Arc, Mutex, RwLock, Weak};
 
@@ -50,11 +50,11 @@ impl TimeSourceBuilder {
     }
 
     /// Builds the `TimeSource` and attaches the provided `Node` and `Clock`.
-    pub(crate) fn build(self) -> Result<TimeSource, RclrsError> {
+    pub(crate) fn build(self) -> TimeSource {
         let clock = match self.clock_type {
             ClockType::RosTime | ClockType::SystemTime => Clock::system(),
             ClockType::SteadyTime => Clock::steady(),
-        }?;
+        };
         let source = TimeSource {
             _node: Mutex::new(Weak::new()),
             _clock: RwLock::new(clock),
@@ -65,7 +65,7 @@ impl TimeSourceBuilder {
             _last_received_time: Arc::new(Mutex::new(None)),
             _use_sim_time: Mutex::new(None),
         };
-        Ok(source)
+        source
     }
 }
 
@@ -83,7 +83,8 @@ impl TimeSource {
     /// Attaches the given node to to the `TimeSource`, using its interface to read the
     /// `use_sim_time` parameter and create the clock subscription.
     pub(crate) fn attach_node(&self, node: Weak<Node>) {
-        // TODO(luca) register a parameter callback
+        // TODO(luca) register a parameter callback that calls set_ros_time(bool) once parameter
+        // callbacks are implemented.
         let param = node
             .upgrade()
             .unwrap()
@@ -100,8 +101,7 @@ impl TimeSource {
         if matches!(self._requested_clock_type, ClockType::RosTime) {
             let mut clock = self._clock.write().unwrap();
             if enable && matches!(clock.clock_type(), ClockType::SystemTime) {
-                // TODO(luca) remove unwrap here?
-                let (new_clock, mut clock_source) = Clock::with_source().unwrap();
+                let (new_clock, mut clock_source) = Clock::with_source();
                 if let Some(last_received_time) = *self._last_received_time.lock().unwrap() {
                     Self::update_clock(&mut clock_source, last_received_time);
                 }
@@ -110,8 +110,7 @@ impl TimeSource {
                 *self._clock_subscription.lock().unwrap() = Some(self.create_clock_sub());
             }
             if !enable && matches!(clock.clock_type(), ClockType::RosTime) {
-                // TODO(luca) remove unwrap here?
-                *clock = Clock::system().unwrap();
+                *clock = Clock::system();
                 *self._clock_source.lock().unwrap() = None;
                 *self._clock_subscription.lock().unwrap() = None;
             }
