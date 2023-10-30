@@ -56,7 +56,7 @@ mod tests {
 
     #[test]
     fn compare_times_from_same_clock() {
-        let clock = Clock::system().unwrap();
+        let clock = Clock::system();
         let t1 = clock.now();
         std::thread::sleep(std::time::Duration::from_micros(1));
         let t2 = clock.now();
@@ -67,8 +67,8 @@ mod tests {
     #[test]
     fn compare_times_from_different_clocks() {
         // Times from different clocks, even if of the same type, can't be compared
-        let c1 = Clock::system().unwrap();
-        let c2 = Clock::system().unwrap();
+        let c1 = Clock::system();
+        let c2 = Clock::system();
         let t1 = c1.now();
         let t2 = c2.now();
         assert!(t2.compare_with(&t1, |_, _| ()).is_none());
@@ -77,7 +77,7 @@ mod tests {
 
     #[test]
     fn add_duration_to_time() {
-        let (clock, _) = Clock::with_source().unwrap();
+        let (clock, _) = Clock::with_source();
         let t = clock.now();
         let t2 = t.clone() + Duration::from_secs(1);
         assert_eq!(t2.nsec - t.nsec, 1_000_000_000i64);

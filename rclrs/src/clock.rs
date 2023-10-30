@@ -74,7 +74,9 @@ impl Clock {
             let mut allocator = rcutils_get_default_allocator();
             // Function will return Err(_) only if there isn't enough memory to allocate a clock
             // object.
-            rcl_clock_init(type_.into(), &mut rcl_clock, &mut allocator).ok().unwrap();
+            rcl_clock_init(type_.into(), &mut rcl_clock, &mut allocator)
+                .ok()
+                .unwrap();
         }
         Self {
             _type: type_,
@@ -204,13 +206,13 @@ mod tests {
 
     #[test]
     fn clock_system_time_now() {
-        let clock = Clock::system().unwrap();
+        let clock = Clock::system();
         assert!(clock.now().nsec > 0);
     }
 
     #[test]
     fn clock_ros_time_with_override() {
-        let (clock, source) = Clock::with_source().unwrap();
+        let (clock, source) = Clock::with_source();
         // No manual time set, it should default to 0
         assert!(clock.now().nsec == 0);
         let set_time = 1234i64;

@@ -55,7 +55,7 @@ impl TimeSourceBuilder {
             ClockType::RosTime | ClockType::SystemTime => Clock::system(),
             ClockType::SteadyTime => Clock::steady(),
         };
-        let source = TimeSource {
+        TimeSource {
             _node: Mutex::new(Weak::new()),
             _clock: RwLock::new(clock),
             _clock_source: Arc::new(Mutex::new(None)),
@@ -64,8 +64,7 @@ impl TimeSourceBuilder {
             _clock_subscription: Mutex::new(None),
             _last_received_time: Arc::new(Mutex::new(None)),
             _use_sim_time: Mutex::new(None),
-        };
-        source
+        }
     }
 }
 
@@ -92,8 +91,8 @@ impl TimeSource {
             .default(false)
             .mandatory()
             .unwrap();
-        self.set_ros_time_enable(param.get());
         *self._node.lock().unwrap() = node;
+        self.set_ros_time_enable(param.get());
         *self._use_sim_time.lock().unwrap() = Some(param);
     }
 
@@ -147,10 +146,22 @@ mod tests {
     use crate::{create_node, Context};
 
     #[test]
-    fn time_source_attach_clock() {
+    fn time_source_default_clock() {
         let node = create_node(&Context::new([]).unwrap(), "test_node").unwrap();
         // Default clock should be above 0 (use_sim_time is default false)
         assert!(node.get_clock().now().nsec > 0);
-        // TODO(luca) an integration test by creating a node and setting its use_sim_time
+    }
+
+    #[test]
+    fn time_source_sim_time() {
+        let ctx = Context::new([
+            String::from("--ros-args"),
+            String::from("-p"),
+            String::from("use_sim_time:=true"),
+        ])
+        .unwrap();
+        let node = create_node(&ctx, "test_node").unwrap();
+        // Default sim time value should be 0 (no message received)
+        assert_eq!(node.get_clock().now().nsec, 0);
     }
 }
