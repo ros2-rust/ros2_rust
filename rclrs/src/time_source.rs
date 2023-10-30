@@ -14,8 +14,7 @@ pub(crate) struct TimeSource {
     _clock_qos: QoSProfile,
     _clock_subscription: Mutex<Option<Arc<Subscription<ClockMsg>>>>,
     _last_received_time: Arc<Mutex<Option<i64>>>,
-    // TODO(luca) MandatoryParameter here
-    _use_sim_time: bool,
+    _use_sim_time: Mutex<Option<MandatoryParameter<bool>>>,
 }
 
 /// A builder for creating a [`TimeSource`][1].
@@ -64,7 +63,7 @@ impl TimeSourceBuilder {
             _clock_qos: self.clock_qos,
             _clock_subscription: Mutex::new(None),
             _last_received_time: Arc::new(Mutex::new(None)),
-            _use_sim_time: false,
+            _use_sim_time: Mutex::new(None),
         };
         Ok(source)
     }
@@ -84,20 +83,17 @@ impl TimeSource {
     /// Attaches the given node to to the `TimeSource`, using its interface to read the
     /// `use_sim_time` parameter and create the clock subscription.
     pub(crate) fn attach_node(&self, node: Weak<Node>) {
-        *self._node.lock().unwrap() = node;
-
         // TODO(luca) register a parameter callback
-        let val = self
-            ._node
-            .lock()
-            .unwrap()
+        let param = node
             .upgrade()
             .unwrap()
             .declare_parameter("use_sim_time")
             .default(false)
             .mandatory()
             .unwrap();
-        self.set_ros_time_enable(val.get());
+        self.set_ros_time_enable(param.get());
+        *self._node.lock().unwrap() = node;
+        *self._use_sim_time.lock().unwrap() = Some(param);
     }
 
     fn set_ros_time_enable(&self, enable: bool) {
