@@ -36,6 +36,10 @@ fn main() {
         .allowlist_var("rmw_.*")
         .allowlist_var("rcutils_.*")
         .allowlist_var("rosidl_.*")
+        .blocklist_function("rcl_take_dynamic_.*")
+        .blocklist_function("rmw_take_dynamic_.*")
+        .blocklist_function("rmw_serialization_support_init")
+        .blocklist_function("rosidl_dynamic_.*")
         .layout_tests(false)
         .default_enum_style(bindgen::EnumVariation::Rust {
             non_exhaustive: false,

@@ -76,8 +76,8 @@ impl NodeBuilder {
     ///     RclrsError::RclError { code: RclReturnCode::NodeInvalidName, .. }
     /// ));
     /// # Ok::<(), RclrsError>(())
-    /// ```    
-    ///    
+    /// ```
+    ///
     /// [1]: crate::Node#naming
     /// [2]: https://docs.ros2.org/latest/api/rmw/validate__node__name_8h.html#a5690a285aed9735f89ef11950b6e39e3
     /// [3]: NodeBuilder::build
@@ -184,7 +184,7 @@ impl NodeBuilder {
     /// used in creating the context.
     ///
     /// For more details about command line arguments, see [here][2].
-    ///    
+    ///
     /// # Example
     /// ```
     /// # use rclrs::{Context, Node, NodeBuilder, RclrsError};
@@ -218,6 +218,27 @@ impl NodeBuilder {
     /// This option is currently unused in `rclrs`.
     pub fn enable_rosout(mut self, enable: bool) -> Self {
         self.enable_rosout = enable;
+        self
+    }
+
+    /// Sets the node domain id.
+    ///
+    /// The domain ID controls which nodes can send messages to each other, see the [ROS 2 concept article][1].
+    ///
+    /// [1]: https://docs.ros.org/en/rolling/Concepts/About-Domain-ID.html
+    ///
+    /// # Example
+    /// ```
+    /// # use rclrs::{Context, Node, NodeBuilder, RclrsError};
+    /// let context = Context::new([])?;
+    /// let node = Node::builder(&context, "my_node").domain_id(1).build()?;
+    /// let domain_id = node.domain_id();
+    /// assert_eq!(domain_id, 1);
+    /// # Ok::<(), RclrsError>(())
+    /// ```
+    #[cfg(ros_distro = "foxy")]
+    pub fn domain_id(self, domain_id: usize) -> Self {
+        std::env::set_var("ROS_DOMAIN_ID", domain_id.to_string());
         self
     }
 
