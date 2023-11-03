@@ -3,6 +3,7 @@ use std::ffi::CStr;
 use std::fmt::{self, Debug, Display};
 use std::hash::{Hash, Hasher};
 use std::ops::{Deref, DerefMut};
+use std::sync::Arc;
 
 #[cfg(feature = "serde")]
 mod serde;
@@ -308,7 +309,25 @@ impl From<&str> for String {
             size: 0,
             capacity: 0,
         };
-        // SAFETY: It's okay to pass a non-zero-terminated string here since assignn uses the
+        // SAFETY: It's okay to pass a non-zero-terminated string here since assign uses the
+        // specified length and will append the 0 byte to the dest string itself.
+        if !unsafe {
+            rosidl_runtime_c__String__assignn(&mut msg as *mut _, s.as_ptr() as *const _, s.len())
+        } {
+            panic!("rosidl_runtime_c__String__assignn failed");
+        }
+        msg
+    }
+}
+
+impl From<Arc<str>> for String {
+    fn from(s: Arc<str>) -> Self {
+        let mut msg = Self {
+            data: std::ptr::null_mut(),
+            size: 0,
+            capacity: 0,
+        };
+        // SAFETY: It's okay to pass a non-zero-terminated string here since assign uses the
         // specified length and will append the 0 byte to the dest string itself.
         if !unsafe {
             rosidl_runtime_c__String__assignn(&mut msg as *mut _, s.as_ptr() as *const _, s.len())

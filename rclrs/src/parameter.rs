@@ -1,11 +1,13 @@
 mod override_map;
+mod service;
 mod value;
 
 pub(crate) use override_map::*;
 pub use value::*;
+use service::*;
 
 use crate::rcl_bindings::*;
-use crate::{call_string_getter_with_handle, RclrsError};
+use crate::{call_string_getter_with_handle, Node, RclrsError};
 use std::collections::{btree_map::Entry, BTreeMap};
 use std::fmt::Debug;
 use std::marker::PhantomData;
@@ -606,7 +608,7 @@ enum ParameterStorage {
 }
 
 #[derive(Debug, Default)]
-struct ParameterMap {
+pub(crate) struct ParameterMap {
     storage: BTreeMap<Arc<str>, ParameterStorage>,
 }
 
@@ -770,8 +772,7 @@ pub(crate) struct ParameterInterface {
     _parameter_map: Arc<Mutex<ParameterMap>>,
     _override_map: ParameterOverrideMap,
     allow_undeclared: AtomicBool,
-    // NOTE(luca-della-vedova) add a ParameterService field to this struct to add support for
-    // services.
+    services: Mutex<Option<ParameterService>>,
 }
 
 impl ParameterInterface {
@@ -780,8 +781,8 @@ impl ParameterInterface {
         node_arguments: &rcl_arguments_t,
         global_arguments: &rcl_arguments_t,
     ) -> Result<Self, RclrsError> {
-        let rcl_node = rcl_node_mtx.lock().unwrap();
         let _override_map = unsafe {
+            let rcl_node = rcl_node_mtx.lock().unwrap();
             let fqn = call_string_getter_with_handle(&rcl_node, rcl_node_get_fully_qualified_name);
             resolve_parameter_overrides(&fqn, node_arguments, global_arguments)?
         };
@@ -790,6 +791,8 @@ impl ParameterInterface {
             _parameter_map: Default::default(),
             _override_map,
             allow_undeclared: Default::default(),
+            services: Mutex::new(None),
+            //services: ParameterService::new(rcl_node_mtx,  parameter_map)?,
         })
     }
 
@@ -806,6 +809,11 @@ impl ParameterInterface {
             options: Default::default(),
             interface: self,
         }
+    }
+
+    pub(crate) fn create_services(&self, node: &Node) -> Result<(), RclrsError> {
+        *self.services.lock().unwrap() = Some(ParameterService::new(node, self._parameter_map.clone())?);
+        Ok(())
     }
 
     fn get_declaration_initial_value<'a, T: ParameterVariant + 'a>(

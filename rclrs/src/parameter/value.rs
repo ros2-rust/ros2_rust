@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use crate::rcl_bindings::*;
 use crate::{ParameterRange, ParameterRanges, ParameterValueError};
+use crate::vendor::rcl_interfaces::msg::rmw::ParameterType;
 
 /// A parameter value.
 ///
@@ -390,6 +391,20 @@ impl ParameterValue {
             ParameterValue::StringArray(strings.into())
         } else {
             unreachable!()
+        }
+    }
+
+    pub(crate) fn rcl_parameter_type(&self) -> u8 {
+        match self {
+            ParameterValue::Bool(_) => ParameterType::PARAMETER_BOOL,
+            ParameterValue::Integer(_) => ParameterType::PARAMETER_INTEGER,
+            ParameterValue::Double(_) => ParameterType::PARAMETER_DOUBLE,
+            ParameterValue::String(_) => ParameterType::PARAMETER_STRING,
+            ParameterValue::ByteArray(_) => ParameterType::PARAMETER_BYTE_ARRAY,
+            ParameterValue::BoolArray(_) => ParameterType::PARAMETER_BOOL_ARRAY,
+            ParameterValue::IntegerArray(_) => ParameterType::PARAMETER_INTEGER_ARRAY,
+            ParameterValue::DoubleArray(_) => ParameterType::PARAMETER_DOUBLE_ARRAY,
+            ParameterValue::StringArray(_) => ParameterType::PARAMETER_STRING_ARRAY,
         }
     }
 }

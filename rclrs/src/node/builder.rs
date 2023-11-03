@@ -265,7 +265,7 @@ impl NodeBuilder {
             &rcl_node_options.arguments,
             &rcl_context.global_arguments,
         )?;
-        Ok(Node {
+        let node = Node {
             rcl_node_mtx,
             rcl_context_mtx: self.context.clone(),
             clients_mtx: Mutex::new(vec![]),
@@ -273,7 +273,9 @@ impl NodeBuilder {
             services_mtx: Mutex::new(vec![]),
             subscriptions_mtx: Mutex::new(vec![]),
             _parameter,
-        })
+        };
+        node._parameter.create_services(&node)?;
+        Ok(node)
     }
 
     /// Creates a rcl_node_options_t struct from this builder.
