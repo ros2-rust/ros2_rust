@@ -338,6 +338,12 @@ impl From<Arc<str>> for String {
     }
 }
 
+impl From<String> for Arc<str> {
+    fn from(s: String) -> Self {
+        s.to_cstr().to_str().unwrap().into()
+    }
+}
+
 impl String {
     /// Creates a CStr from this String.
     ///

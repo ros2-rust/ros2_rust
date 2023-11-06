@@ -3,18 +3,15 @@ mod service;
 mod value;
 
 pub(crate) use override_map::*;
-pub use value::*;
 use service::*;
+pub use value::*;
 
 use crate::rcl_bindings::*;
 use crate::{call_string_getter_with_handle, Node, RclrsError};
 use std::collections::{btree_map::Entry, BTreeMap};
 use std::fmt::Debug;
 use std::marker::PhantomData;
-use std::sync::{
-    atomic::{AtomicBool, Ordering},
-    Arc, Mutex, RwLock, Weak,
-};
+use std::sync::{Arc, Mutex, RwLock, Weak};
 
 // This module implements the core logic of parameters in rclrs.
 // The implementation is fairly different from the existing ROS 2 client libraries. A detailed
@@ -610,6 +607,7 @@ enum ParameterStorage {
 #[derive(Debug, Default)]
 pub(crate) struct ParameterMap {
     storage: BTreeMap<Arc<str>, ParameterStorage>,
+    allow_undeclared: bool,
 }
 
 impl<T: ParameterVariant> MandatoryParameter<T> {
@@ -725,6 +723,9 @@ impl<'a> Parameters<'a> {
     /// * `Ok(())` if setting was successful.
     /// * [`Err(DeclarationError::TypeMismatch)`] if the type of the requested value is different
     /// from the parameter's type.
+    /// * [`Err(DeclarationError::OutOfRange)`] if the requested value is out of the parameter's
+    /// range.
+    /// * [`Err(DeclarationError::ReadOnly)`] if the parameter is read only.
     pub fn set<T: ParameterVariant>(
         &self,
         name: impl Into<Arc<str>>,
@@ -763,7 +764,6 @@ impl<'a> Parameters<'a> {
                 entry.insert(ParameterStorage::Undeclared(value.into()));
             }
         }
-
         Ok(())
     }
 }
@@ -771,7 +771,6 @@ impl<'a> Parameters<'a> {
 pub(crate) struct ParameterInterface {
     _parameter_map: Arc<Mutex<ParameterMap>>,
     _override_map: ParameterOverrideMap,
-    allow_undeclared: AtomicBool,
     services: Mutex<Option<ParameterService>>,
 }
 
@@ -790,7 +789,6 @@ impl ParameterInterface {
         Ok(ParameterInterface {
             _parameter_map: Default::default(),
             _override_map,
-            allow_undeclared: Default::default(),
             services: Mutex::new(None),
             //services: ParameterService::new(rcl_node_mtx,  parameter_map)?,
         })
@@ -812,7 +810,8 @@ impl ParameterInterface {
     }
 
     pub(crate) fn create_services(&self, node: &Node) -> Result<(), RclrsError> {
-        *self.services.lock().unwrap() = Some(ParameterService::new(node, self._parameter_map.clone())?);
+        *self.services.lock().unwrap() =
+            Some(ParameterService::new(node, self._parameter_map.clone())?);
         Ok(())
     }
 
@@ -888,7 +887,7 @@ impl ParameterInterface {
     }
 
     pub(crate) fn allow_undeclared(&self) {
-        self.allow_undeclared.store(true, Ordering::Relaxed);
+        self._parameter_map.lock().unwrap().allow_undeclared = true;
     }
 }
 
