@@ -2,7 +2,10 @@ use std::ffi::CString;
 use std::sync::{Arc, Mutex};
 
 use crate::rcl_bindings::*;
-use crate::{Context, Node, ParameterInterface, RclrsError, ToResult};
+use crate::{
+    ClockType, Context, Node, ParameterInterface, QoSProfile, RclrsError, TimeSource, ToResult,
+    QOS_PROFILE_CLOCK,
+};
 
 /// A builder for creating a [`Node`][1].
 ///
@@ -14,6 +17,8 @@ use crate::{Context, Node, ParameterInterface, RclrsError, ToResult};
 /// - `use_global_arguments: true`
 /// - `arguments: []`
 /// - `enable_rosout: true`
+/// - `clock_type: ClockType::RosTime`
+/// - `clock_qos: QOS_PROFILE_CLOCK`
 ///
 /// # Example
 /// ```
@@ -43,6 +48,8 @@ pub struct NodeBuilder {
     use_global_arguments: bool,
     arguments: Vec<String>,
     enable_rosout: bool,
+    clock_type: ClockType,
+    clock_qos: QoSProfile,
 }
 
 impl NodeBuilder {
@@ -89,6 +96,8 @@ impl NodeBuilder {
             use_global_arguments: true,
             arguments: vec![],
             enable_rosout: true,
+            clock_type: ClockType::RosTime,
+            clock_qos: QOS_PROFILE_CLOCK,
         }
     }
 
@@ -221,6 +230,18 @@ impl NodeBuilder {
         self
     }
 
+    /// Sets the node's clock type.
+    pub fn clock_type(mut self, clock_type: ClockType) -> Self {
+        self.clock_type = clock_type;
+        self
+    }
+
+    /// Sets the QoSProfile for the clock subscription.
+    pub fn clock_qos(mut self, clock_qos: QoSProfile) -> Self {
+        self.clock_qos = clock_qos;
+        self
+    }
+
     /// Builds the node instance.
     ///
     /// Node name and namespace validation is performed in this method.
@@ -228,7 +249,7 @@ impl NodeBuilder {
     /// For example usage, see the [`NodeBuilder`][1] docs.
     ///
     /// [1]: crate::NodeBuilder
-    pub fn build(&self) -> Result<Node, RclrsError> {
+    pub fn build(&self) -> Result<Arc<Node>, RclrsError> {
         let node_name =
             CString::new(self.name.as_str()).map_err(|err| RclrsError::StringContainsNul {
                 err,
@@ -265,15 +286,20 @@ impl NodeBuilder {
             &rcl_node_options.arguments,
             &rcl_context.global_arguments,
         )?;
-        Ok(Node {
+        let node = Arc::new(Node {
             rcl_node_mtx,
             rcl_context_mtx: self.context.clone(),
             clients_mtx: Mutex::new(vec![]),
             guard_conditions_mtx: Mutex::new(vec![]),
             services_mtx: Mutex::new(vec![]),
             subscriptions_mtx: Mutex::new(vec![]),
+            _time_source: TimeSource::builder(self.clock_type)
+                .clock_qos(self.clock_qos)
+                .build(),
             _parameter,
-        })
+        });
+        node._time_source.attach_node(&node);
+        Ok(node)
     }
 
     /// Creates a rcl_node_options_t struct from this builder.

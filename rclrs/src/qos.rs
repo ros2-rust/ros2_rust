@@ -296,6 +296,21 @@ pub const QOS_PROFILE_SENSOR_DATA: QoSProfile = QoSProfile {
     avoid_ros_namespace_conventions: false,
 };
 
+/// Equivalent to `ClockQos` from the [`rclcpp` package][1].
+/// Same as sensor data but with a history depth of 1
+///
+/// [1]: https://github.com/ros2/rclcpp/blob/rolling/rclcpp/include/rclcpp/qos.hpp
+pub const QOS_PROFILE_CLOCK: QoSProfile = QoSProfile {
+    history: QoSHistoryPolicy::KeepLast { depth: 1 },
+    reliability: QoSReliabilityPolicy::BestEffort,
+    durability: QoSDurabilityPolicy::Volatile,
+    deadline: QoSDuration::SystemDefault,
+    lifespan: QoSDuration::SystemDefault,
+    liveliness: QoSLivelinessPolicy::SystemDefault,
+    liveliness_lease_duration: QoSDuration::SystemDefault,
+    avoid_ros_namespace_conventions: false,
+};
+
 /// Equivalent to `rmw_qos_profile_parameters` from the [`rmw` package][1].
 ///
 /// [1]: https://github.com/ros2/rmw/blob/master/rmw/include/rmw/qos_profiles.h

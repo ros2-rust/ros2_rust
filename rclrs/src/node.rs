@@ -13,9 +13,9 @@ pub use self::builder::*;
 pub use self::graph::*;
 use crate::rcl_bindings::*;
 use crate::{
-    Client, ClientBase, Context, GuardCondition, ParameterBuilder, ParameterInterface,
+    Client, ClientBase, Clock, Context, GuardCondition, ParameterBuilder, ParameterInterface,
     ParameterVariant, Parameters, Publisher, QoSProfile, RclrsError, Service, ServiceBase,
-    Subscription, SubscriptionBase, SubscriptionCallback, ToResult,
+    Subscription, SubscriptionBase, SubscriptionCallback, TimeSource, ToResult,
 };
 
 impl Drop for rcl_node_t {
@@ -71,6 +71,7 @@ pub struct Node {
     pub(crate) guard_conditions_mtx: Mutex<Vec<Weak<GuardCondition>>>,
     pub(crate) services_mtx: Mutex<Vec<Weak<dyn ServiceBase>>>,
     pub(crate) subscriptions_mtx: Mutex<Vec<Weak<dyn SubscriptionBase>>>,
+    _time_source: TimeSource,
     _parameter: ParameterInterface,
 }
 
@@ -95,8 +96,13 @@ impl Node {
     ///
     /// See [`NodeBuilder::new()`] for documentation.
     #[allow(clippy::new_ret_no_self)]
-    pub fn new(context: &Context, node_name: &str) -> Result<Node, RclrsError> {
+    pub fn new(context: &Context, node_name: &str) -> Result<Arc<Node>, RclrsError> {
         Self::builder(context, node_name).build()
+    }
+
+    /// Returns the clock associated with this node.
+    pub fn get_clock(&self) -> Clock {
+        self._time_source.get_clock()
     }
 
     /// Returns the name of the node.
