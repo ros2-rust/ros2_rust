@@ -1,12 +1,11 @@
-use std::collections::btree_map::Entry;
 use std::sync::{Arc, Mutex};
 
 use crate::vendor::rcl_interfaces::msg::rmw::*;
 use crate::vendor::rcl_interfaces::srv::rmw::*;
-use rosidl_runtime_rs::{seq, BoundedSequence, Sequence};
+use rosidl_runtime_rs::{seq, Sequence};
 
 use super::ParameterMap;
-use crate::parameter::{DeclaredValue, ParameterKind, ParameterRanges, ParameterStorage};
+use crate::parameter::{DeclaredValue, ParameterKind, ParameterStorage};
 use crate::{rmw_request_id_t, Node, RclrsError, Service};
 
 pub struct ParameterService {
@@ -16,142 +15,6 @@ pub struct ParameterService {
     list_parameters_service: Arc<Service<ListParameters>>,
     set_parameters_service: Arc<Service<SetParameters>>,
     set_parameters_atomically_service: Arc<Service<SetParametersAtomically>>,
-}
-
-// TODO(luca) should this be a method in the DeclaredStorage impl?
-fn storage_to_parameter_type(storage: &ParameterStorage) -> u8 {
-    match storage {
-        ParameterStorage::Declared(s) => match s.kind {
-            ParameterKind::Bool => ParameterType::PARAMETER_BOOL,
-            ParameterKind::Integer => ParameterType::PARAMETER_INTEGER,
-            ParameterKind::Double => ParameterType::PARAMETER_DOUBLE,
-            ParameterKind::String => ParameterType::PARAMETER_STRING,
-            ParameterKind::ByteArray => ParameterType::PARAMETER_BYTE_ARRAY,
-            ParameterKind::BoolArray => ParameterType::PARAMETER_BOOL_ARRAY,
-            ParameterKind::IntegerArray => ParameterType::PARAMETER_INTEGER_ARRAY,
-            ParameterKind::DoubleArray => ParameterType::PARAMETER_DOUBLE_ARRAY,
-            ParameterKind::StringArray => ParameterType::PARAMETER_STRING_ARRAY,
-            ParameterKind::Dynamic => match &s.value {
-                DeclaredValue::Mandatory(v) => v.read().unwrap().rcl_parameter_type(),
-                DeclaredValue::Optional(v) => v
-                    .read()
-                    .unwrap()
-                    .as_ref()
-                    .map(|v| v.rcl_parameter_type())
-                    .unwrap_or(ParameterType::PARAMETER_NOT_SET),
-                DeclaredValue::ReadOnly(v) => v.rcl_parameter_type(),
-            },
-        },
-        ParameterStorage::Undeclared(value) => value.rcl_parameter_type(),
-    }
-}
-
-// TODO(luca) should this be a methond in the ParameterRanges impl?
-fn parameter_ranges_to_descriptor_ranges(
-    ranges: &ParameterRanges,
-) -> (
-    BoundedSequence<IntegerRange, 1>,
-    BoundedSequence<FloatingPointRange, 1>,
-) {
-    let int_range = ranges
-        .integer
-        .as_ref()
-        .map(|range| {
-            // Converting step to a positive value is safe because declaring a parameter with a
-            // negative step is not allowed.
-            // TODO(luca) explore changing step into a positive value in the generic definition to
-            // make negative steps a compile error.
-            if range.lower.is_none() && range.upper.is_none() && range.step.is_none() {
-                // It's a default range, just return a default
-                Default::default()
-            } else {
-                seq![1 # IntegerRange {
-                    from_value: range.lower.unwrap_or(i64::MIN),
-                    to_value: range.upper.unwrap_or(i64::MAX),
-                    step: range.step.unwrap_or(0).try_into().unwrap(),
-                }]
-            }
-        })
-        .unwrap_or_default();
-    let float_range = ranges
-        .float
-        .as_ref()
-        .map(|range| {
-            // TODO(luca) Double check whether we should use MIN/MAX or INFINITY/NEG_INFINITY
-            if range.lower.is_none() && range.upper.is_none() && range.step.is_none() {
-                Default::default()
-            } else {
-                seq![1 # FloatingPointRange {
-                    from_value: range.lower.unwrap_or(f64::MIN),
-                    to_value: range.upper.unwrap_or(f64::MAX),
-                    step: range.step.unwrap_or(0.0),
-                }]
-            }
-        })
-        .unwrap_or_default();
-    (int_range, float_range)
-}
-
-fn validate_parameter_setting(
-    map: &ParameterMap,
-    name: &str,
-    value: ParameterValue,
-) -> Result<crate::parameter::ParameterValue, rosidl_runtime_rs::String> {
-    let name = name.into();
-    let Ok(value): Result<crate::parameter::ParameterValue, _> = value.try_into() else {
-        return Err("Invalid parameter type".into());
-    };
-    match map.storage.get(name) {
-        Some(entry) => {
-            if let ParameterStorage::Declared(storage) = entry {
-                if std::mem::discriminant(&storage.kind)
-                    == std::mem::discriminant(&value.static_kind())
-                    || matches!(storage.kind, ParameterKind::Dynamic)
-                {
-                    if !storage.options.ranges.in_range(&value) {
-                        return Err("Parameter value is out of range".into());
-                    }
-                    if matches!(&storage.value, DeclaredValue::ReadOnly(_)) {
-                        return Err("Parameter is read only".into());
-                    }
-                } else {
-                    return Err(
-                        "Parameter set to different type and dynamic typing is disabled".into(),
-                    );
-                }
-            }
-        }
-        None => {
-            if !map.allow_undeclared {
-                return Err(
-                    "Parameter was not declared and undeclared parameters are not allowed".into(),
-                );
-            }
-        }
-    }
-    Ok(value)
-}
-
-fn store_parameter(
-    map: &mut ParameterMap,
-    name: Arc<str>,
-    value: crate::parameter::ParameterValue,
-) {
-    match map.storage.entry(name.into()) {
-        Entry::Occupied(mut entry) => match entry.get_mut() {
-            ParameterStorage::Declared(storage) => match &storage.value {
-                DeclaredValue::Mandatory(p) => *p.write().unwrap() = value,
-                DeclaredValue::Optional(p) => *p.write().unwrap() = Some(value),
-                DeclaredValue::ReadOnly(_) => {}
-            },
-            ParameterStorage::Undeclared(param) => {
-                *param = value;
-            }
-        },
-        Entry::Vacant(entry) => {
-            entry.insert(ParameterStorage::Undeclared(value));
-        }
-    }
 }
 
 impl ParameterService {
@@ -177,9 +40,9 @@ impl ParameterService {
                         let mut descriptor = match storage {
                             ParameterStorage::Declared(storage) => {
                                 let (integer_range, floating_point_range) =
-                                    parameter_ranges_to_descriptor_ranges(&storage.options.ranges);
+                                    storage.options.ranges.to_descriptor_ranges();
                                 ParameterDescriptor {
-                                    name: name.clone().into(),
+                                    name,
                                     type_: Default::default(),
                                     description: storage.options._description.clone().into(),
                                     additional_constraints: storage
@@ -193,13 +56,13 @@ impl ParameterService {
                                     integer_range,
                                 }
                             }
-                            ParameterStorage::Undeclared(value) => ParameterDescriptor {
-                                name: name.clone().into(),
+                            ParameterStorage::Undeclared(_) => ParameterDescriptor {
+                                name,
                                 dynamic_typing: true,
                                 ..Default::default()
                             },
                         };
-                        descriptor.type_ = storage_to_parameter_type(storage);
+                        descriptor.type_ = storage.to_parameter_type();
                         Some(descriptor)
                     })
                     .collect::<Option<_>>()
@@ -219,7 +82,7 @@ impl ParameterService {
                     .map(|name| {
                         // TODO(luca) Remove conversion to string and implement Borrow
                         let storage = map.storage.get(name.to_cstr().to_str().unwrap())?;
-                        Some(storage_to_parameter_type(storage))
+                        Some(storage.to_parameter_type())
                     })
                     .collect::<Option<_>>()
                     .unwrap_or_default();
@@ -291,8 +154,8 @@ impl ParameterService {
                     .into_iter()
                     .map(|param| {
                         let name = param.name.to_cstr().to_str().unwrap();
-                        let value = validate_parameter_setting(&map, &name, param.value)?;
-                        store_parameter(&mut map, name.into(), value);
+                        let value = map.validate_parameter_setting(name, param.value)?;
+                        map.store_parameter(name.into(), value);
                         Ok(())
                     })
                     .map(|res| match res {
@@ -318,7 +181,7 @@ impl ParameterService {
                     .into_iter()
                     .map(|param| {
                         let name = param.name.to_cstr().to_str().unwrap();
-                        let value = validate_parameter_setting(&map, &name, param.value)?;
+                        let value = map.validate_parameter_setting(name, param.value)?;
                         Ok((name.into(), value))
                     })
                     .collect::<Result<Vec<_>, _>>();
@@ -326,7 +189,7 @@ impl ParameterService {
                 let result = match results {
                     Ok(results) => {
                         for (name, value) in results.into_iter() {
-                            store_parameter(&mut map, name, value);
+                            map.store_parameter(name, value);
                         }
                         SetParametersResult {
                             successful: true,

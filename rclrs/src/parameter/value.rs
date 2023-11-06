@@ -4,7 +4,10 @@ use std::sync::Arc;
 use crate::rcl_bindings::*;
 use crate::vendor::rcl_interfaces::msg::rmw::ParameterType;
 use crate::vendor::rcl_interfaces::msg::rmw::ParameterValue as RmwParameterValue;
-use crate::{ParameterRange, ParameterRanges, ParameterValueError};
+use crate::{
+    parameter::{ParameterRange, ParameterRanges},
+    ParameterValueError,
+};
 
 /// A parameter value.
 ///
@@ -378,7 +381,10 @@ impl From<ParameterValue> for RmwParameterValue {
     }
 }
 
+/// An error that occured when trying to convert a parameter from a
+/// [crate::vendor::rcl_interfaces::msg::rmw::ParameterValue]
 pub enum RmwParameterConversionError {
+    /// The parameter type was not valid.
     InvalidParameterType,
 }
 
