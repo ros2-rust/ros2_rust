@@ -18,7 +18,16 @@ fn get_env_var_or_abort(env_var: &'static str) -> String {
 }
 
 fn main() {
-    let ros_distro = get_env_var_or_abort(ROS_DISTRO);
+    let ros_distro = if let Ok(value) = env::var(ROS_DISTRO) {
+        value
+    } else {
+        println!(
+            "{} environment variable not set - please source ROS 2 installation first.",
+            ROS_DISTRO
+        );
+        return;
+    };
+
     println!("cargo:rustc-cfg=ros_distro=\"{ros_distro}\"");
 
     let mut builder = bindgen::Builder::default()
