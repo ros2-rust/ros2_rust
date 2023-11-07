@@ -1,6 +1,6 @@
 use crate::clock::{Clock, ClockSource, ClockType};
+use crate::vendor::rosgraph_msgs::msg::Clock as ClockMsg;
 use crate::{MandatoryParameter, Node, QoSProfile, Subscription, QOS_PROFILE_CLOCK};
-use rosgraph_msgs::msg::Clock as ClockMsg;
 use std::sync::{Arc, Mutex, RwLock, Weak};
 
 /// Time source for a node that drives the attached clock.

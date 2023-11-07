@@ -1,6 +1,7 @@
 # This script produces the `vendor` module inside `rclrs` by copying
-# the generated code for the `rcl_interfaces` package and its dependency
-# `builtin_interfaces` and adjusting the submodule paths in the code.
+# the generated code for the `rosgraph_msgs` and `rcl_interfaces` packages and
+# its dependency `builtin_interfaces` and adjusting the submodule paths in the
+# code.
 # If these packages, or the `rosidl_generator_rs`, get changed, you can
 # update the `vendor` module by running this script.
 # The purpose is to avoid an external dependency on `rcl_interfaces`, which
@@ -12,7 +13,7 @@ import shutil
 import subprocess
 
 def get_args():
-  parser = argparse.ArgumentParser(description='Vendor the rcl_interfaces and builtin_interfaces packages into rclrs')
+  parser = argparse.ArgumentParser(description='Vendor the rcl_interfaces, builtin_interfaces and rosgraph_msgs packages into rclrs')
   parser.add_argument('install_base', metavar='install_base', type=Path,
                       help='the install base (must have non-merged layout)')
   return parser.parse_args()
@@ -20,6 +21,7 @@ def get_args():
 def adjust(pkg, text):
   text = text.replace('builtin_interfaces::', 'crate::vendor::builtin_interfaces::')
   text = text.replace('rcl_interfaces::', 'crate::vendor::rcl_interfaces::')
+  text = text.replace('rosgraph_msgs::', 'crate::vendor::rosgraph_msgs::')
   text = text.replace('crate::msg', f'crate::vendor::{pkg}::msg')
   text = text.replace('crate::srv', f'crate::vendor::{pkg}::srv')
   return text
@@ -34,6 +36,7 @@ mod_contents = """//! Created by {}
 
 pub mod builtin_interfaces;
 pub mod rcl_interfaces;
+pub mod rosgraph_msgs;
 """.format(Path(__file__).name)
 
 def main():
@@ -41,11 +44,12 @@ def main():
   assert args.install_base.is_dir(), "Install base does not exist"
   assert (args.install_base / 'builtin_interfaces').is_dir(), "Install base does not contain builtin_interfaces"
   assert (args.install_base / 'rcl_interfaces').is_dir(), "Install base does not contain rcl_interfaces"
+  assert (args.install_base / 'rosgraph_msgs').is_dir(), "Install base does not contain rosgraph_msgs"
   rclrs_root = Path(__file__).parent
   vendor_dir = rclrs_root / 'src' / 'vendor'
   if vendor_dir.exists():
     shutil.rmtree(vendor_dir)
-  for pkg in ['builtin_interfaces', 'rcl_interfaces']:
+  for pkg in ['builtin_interfaces', 'rcl_interfaces', 'rosgraph_msgs']:
     src = args.install_base / pkg / 'share' / pkg / 'rust' / 'src'
     dst = vendor_dir / pkg
     dst.mkdir(parents=True)
