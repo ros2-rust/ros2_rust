@@ -2,11 +2,12 @@ use rclrs::{
     Context, Node, NodeBuilder, RclrsError, TopicEndpointInfo, TopicNamesAndTypes,
     QOS_PROFILE_SYSTEM_DEFAULT,
 };
+use std::sync::Arc;
 use test_msgs::{msg, srv};
 
 struct TestGraph {
-    node1: Node,
-    node2: Node,
+    node1: Arc<Node>,
+    node2: Arc<Node>,
 }
 
 fn construct_test_graph(namespace: &str) -> Result<TestGraph, RclrsError> {

@@ -18,6 +18,7 @@
   <build_depend>rcl</build_depend>
   <depend>builtin_interfaces</depend>
   <depend>rcl_interfaces</depend>
+  <depend>rosgraph_msgs</depend>
 
   <export>
     <build_type>ament_cargo</build_type>
