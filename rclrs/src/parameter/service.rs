@@ -1,8 +1,9 @@
+use std::collections::BTreeSet;
 use std::sync::{Arc, Mutex};
 
 use crate::vendor::rcl_interfaces::msg::rmw::*;
 use crate::vendor::rcl_interfaces::srv::rmw::*;
-use rosidl_runtime_rs::{seq, Sequence};
+use rosidl_runtime_rs::Sequence;
 
 use super::ParameterMap;
 use crate::parameter::{DeclaredValue, ParameterKind, ParameterStorage};
@@ -29,7 +30,6 @@ impl ParameterService {
         let describe_parameters_service = node.create_service(
             &(fqn.clone() + "/describe_parameters"),
             move |req_id: &rmw_request_id_t, req: DescribeParameters_Request| {
-                // TODO(luca) look at the request and filter names
                 let map = map.lock().unwrap();
                 let descriptors = req
                     .names
@@ -81,8 +81,9 @@ impl ParameterService {
                     .into_iter()
                     .map(|name| {
                         // TODO(luca) Remove conversion to string and implement Borrow
-                        let storage = map.storage.get(name.to_cstr().to_str().unwrap())?;
-                        Some(storage.to_parameter_type())
+                        map.storage
+                            .get(name.to_cstr().to_str().unwrap())
+                            .map(|s| s.to_parameter_type())
                     })
                     .collect::<Option<_>>()
                     .unwrap_or_default();
@@ -126,20 +127,57 @@ impl ParameterService {
         let list_parameters_service = node.create_service(
             &(fqn.clone() + "/list_parameters"),
             move |req_id: &rmw_request_id_t, req: ListParameters_Request| {
+                let check_parameter_name_depth = |substring: &[i8]| {
+                    if req.depth == ListParameters_Request::DEPTH_RECURSIVE {
+                        return true;
+                    }
+                    u64::try_from(substring.iter().filter(|c| **c == ('.' as i8)).count()).unwrap()
+                        < req.depth
+                };
                 let map = map.lock().unwrap();
-                let names = map
+                let names: Sequence<_> = map
                     .storage
                     .keys()
                     .filter_map(|name| {
-                        // TODO(luca) filter by prefix
-                        Some(name.clone().into())
+                        let name: rosidl_runtime_rs::String = name.clone().into();
+                        if req.prefixes.len() == 0 && check_parameter_name_depth(&name[..]) {
+                            return Some(name);
+                        }
+                        req.prefixes
+                            .iter()
+                            .any(|prefix| {
+                                if name == *prefix {
+                                    return true;
+                                }
+                                let mut prefix = prefix.clone();
+                                prefix.extend(".".chars());
+                                if name.len() > prefix.len()
+                                    && name[0..prefix.len()] == prefix[0..]
+                                    && check_parameter_name_depth(&name[prefix.len()..])
+                                {
+                                    return true;
+                                }
+                                false
+                            })
+                            .then_some(name)
+                    })
+                    .collect();
+                let prefixes: BTreeSet<rosidl_runtime_rs::String> = names
+                    .iter()
+                    .filter_map(|name| {
+                        let name = name.to_string();
+                        if let Some(pos) = name.rfind('.') {
+                            return Some(name[0..pos].into());
+                            //return Some(name[0..pos].iter().map(|c| *c as char).collect());
+                        }
+                        None
                     })
                     .collect();
                 // TODO(luca) populate prefixes in result
                 ListParameters_Response {
                     result: ListParametersResult {
                         names,
-                        prefixes: seq![],
+                        prefixes: prefixes.into_iter().collect(),
                     },
                 }
             },
