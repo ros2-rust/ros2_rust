@@ -1,6 +1,6 @@
 [package]
 name = "examples_rclrs_message_demo"
-version = "0.4.0"
+version = "0.3.1"
 authors = ["Nikolai Morin <nnmmgit@gmail.com>"]
 edition = "2021"
 
@@ -12,13 +12,13 @@ path = "src/message_demo.rs"
 anyhow = {version = "1", features = ["backtrace"]}
 
 [dependencies.rclrs]
-version = "0.4"
+version = "0.3"
 
 [dependencies.rosidl_runtime_rs]
-version = "0.4"
+version = "0.3"
 
 [dependencies.rclrs_example_msgs]
-version = "0.4"
+version = "0.3"
 features = ["serde"]
 
 [dependencies.serde_json]
