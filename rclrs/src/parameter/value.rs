@@ -398,9 +398,9 @@ impl TryFrom<RmwParameterValue> for ParameterValue {
             ParameterType::PARAMETER_BOOL => Ok(ParameterValue::Bool(param.bool_value)),
             ParameterType::PARAMETER_INTEGER => Ok(ParameterValue::Integer(param.integer_value)),
             ParameterType::PARAMETER_DOUBLE => Ok(ParameterValue::Double(param.double_value)),
-            ParameterType::PARAMETER_STRING => {
-                Ok(ParameterValue::String(param.string_value.to_string().into()))
-            }
+            ParameterType::PARAMETER_STRING => Ok(ParameterValue::String(
+                param.string_value.to_string().into(),
+            )),
             ParameterType::PARAMETER_BYTE_ARRAY => {
                 Ok(ParameterValue::ByteArray((*param.byte_array_value).into()))
             }
