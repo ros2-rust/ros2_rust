@@ -712,7 +712,7 @@ impl<'a> Parameters<'a> {
 pub(crate) struct ParameterInterface {
     _parameter_map: Arc<Mutex<ParameterMap>>,
     _override_map: ParameterOverrideMap,
-    services: Mutex<Option<ParameterService>>,
+    _services: Mutex<Option<ParameterService>>,
 }
 
 impl ParameterInterface {
@@ -721,8 +721,8 @@ impl ParameterInterface {
         node_arguments: &rcl_arguments_t,
         global_arguments: &rcl_arguments_t,
     ) -> Result<Self, RclrsError> {
+        let rcl_node = rcl_node_mtx.lock().unwrap();
         let _override_map = unsafe {
-            let rcl_node = rcl_node_mtx.lock().unwrap();
             let fqn = call_string_getter_with_handle(&rcl_node, rcl_node_get_fully_qualified_name);
             resolve_parameter_overrides(&fqn, node_arguments, global_arguments)?
         };
@@ -730,8 +730,7 @@ impl ParameterInterface {
         Ok(ParameterInterface {
             _parameter_map: Default::default(),
             _override_map,
-            services: Mutex::new(None),
-            //services: ParameterService::new(rcl_node_mtx,  parameter_map)?,
+            _services: Mutex::new(None),
         })
     }
 
@@ -751,7 +750,7 @@ impl ParameterInterface {
     }
 
     pub(crate) fn create_services(&self, node: &Node) -> Result<(), RclrsError> {
-        *self.services.lock().unwrap() =
+        *self._services.lock().unwrap() =
             Some(ParameterService::new(node, self._parameter_map.clone())?);
         Ok(())
     }

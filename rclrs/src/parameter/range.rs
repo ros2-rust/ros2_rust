@@ -53,8 +53,7 @@ impl ParameterRanges {
                 // negative step is not allowed.
                 // TODO(luca) explore changing step into a positive value in the generic definition to
                 // make negative steps a compile error.
-                if range.lower.is_none() && range.upper.is_none() && range.step.is_none() {
-                    // It's a default range, just return a default
+                if range.is_default() {
                     Default::default()
                 } else {
                     seq![1 # IntegerRange {
@@ -70,7 +69,7 @@ impl ParameterRanges {
             .as_ref()
             .map(|range| {
                 // TODO(luca) Double check whether we should use MIN/MAX or INFINITY/NEG_INFINITY
-                if range.lower.is_none() && range.upper.is_none() && range.step.is_none() {
+                if range.is_default() {
                     Default::default()
                 } else {
                     seq![1 # FloatingPointRange {
@@ -132,6 +131,10 @@ pub struct ParameterRange<T: ParameterVariant + PartialOrd> {
 }
 
 impl<T: ParameterVariant + PartialOrd + Default> ParameterRange<T> {
+    fn is_default(&self) -> bool {
+        self.lower.is_none() && self.upper.is_none() && self.step.is_none()
+    }
+
     fn inside_boundary(&self, value: &T) -> bool {
         if self.lower.as_ref().is_some_and(|l| value < l) {
             return false;
