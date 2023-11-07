@@ -1,6 +1,6 @@
 [package]
 name = "rclrs"
-version = "0.3.1"
+version = "0.4.0"
 # This project is not military-sponsored, Jacob's employment contract just requires him to use this email address
 authors = ["Esteve Fernandez <esteve@apache.org>", "Nikolai Morin <nnmmgit@gmail.com>", "Jacob Hassold <jacob.a.hassold.civ@army.mil>"]
 edition = "2021"
@@ -23,7 +23,7 @@ libloading = { version = "0.8", optional = true }
 # Needed for /clock topic subscription when using simulation time
 rosgraph_msgs = "*"
 # Needed for the Message trait, among others
-rosidl_runtime_rs = "0.3"
+rosidl_runtime_rs = "0.4"
 
 [dev-dependencies]
 # Needed for e.g. writing yaml files in tests
