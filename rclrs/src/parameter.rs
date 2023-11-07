@@ -4,7 +4,7 @@ mod service;
 mod value;
 
 pub(crate) use override_map::*;
-use range::*;
+pub use range::*;
 use service::*;
 pub use value::*;
 

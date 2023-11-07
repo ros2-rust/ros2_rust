@@ -399,7 +399,7 @@ impl TryFrom<RmwParameterValue> for ParameterValue {
             ParameterType::PARAMETER_INTEGER => Ok(ParameterValue::Integer(param.integer_value)),
             ParameterType::PARAMETER_DOUBLE => Ok(ParameterValue::Double(param.double_value)),
             ParameterType::PARAMETER_STRING => {
-                Ok(ParameterValue::String(param.string_value.into()))
+                Ok(ParameterValue::String(param.string_value.to_string().into()))
             }
             ParameterType::PARAMETER_BYTE_ARRAY => {
                 Ok(ParameterValue::ByteArray((*param.byte_array_value).into()))
@@ -417,7 +417,7 @@ impl TryFrom<RmwParameterValue> for ParameterValue {
                 param
                     .string_array_value
                     .iter()
-                    .map(|s| s.clone().into())
+                    .map(|s| s.to_string().into())
                     .collect::<Vec<_>>()
                     .into(),
             )),

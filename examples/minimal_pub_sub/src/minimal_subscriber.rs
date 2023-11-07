@@ -6,10 +6,6 @@ fn main() -> Result<(), Error> {
     let context = rclrs::Context::new(env::args())?;
 
     let node = rclrs::create_node(&context, "minimal_subscriber")?;
-    let param = node.declare_parameter("test").default(42).mandatory().unwrap();
-    let p2 = node.declare_parameter("hello").default(1.23).read_only().unwrap();
-    let p3 = node.declare_parameter::<bool>("bool").optional().unwrap();
-    let p4 = node.declare_parameter::<rclrs::ParameterValue>("dynamic").optional().unwrap();
 
     let mut num_messages: usize = 0;
 
