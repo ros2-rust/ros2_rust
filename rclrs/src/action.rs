@@ -78,7 +78,12 @@ impl<T> ServerGoalHandle<T>
 where
     T: rosidl_runtime_rs::Action,
 {
-    pub fn new(rcl_handle: Arc<rcl_action_goal_handle_t>) {}
+    pub fn new(rcl_handle: Arc<rcl_action_goal_handle_t>) -> Self {
+        Self {
+            rcl_handle,
+            _marker: Default::default(),
+        }
+    }
 
     pub fn is_canceling(&self) -> bool {
         false
