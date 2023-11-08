@@ -34,8 +34,9 @@ bindgen = "0.66.1"
 
 [features]
 dyn_msg = ["ament_rs", "libloading"]
-generate_docs = []
+# This feature is solely for the purpose of being able to generate documetation without a ROS installation
+# The only intended usage of this feature is for docs.rs builders to work.
+generate_docs = ["rosidl_runtime_rs/generate_docs"]
 
 [package.metadata.docs.rs]
-
 features = ["generate_docs"]
