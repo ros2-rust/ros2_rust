@@ -9,12 +9,20 @@ use super::ParameterMap;
 use crate::parameter::{DeclaredValue, ParameterKind, ParameterStorage};
 use crate::{rmw_request_id_t, Node, RclrsError, Service};
 
+// The variables only exist to keep a strong reference to the services and are technically unused.
+// What is used is the Weak that is stored in the node, and is upgraded when spinning.
 pub struct ParameterService {
+    #[allow(dead_code)]
     describe_parameters_service: Arc<Service<DescribeParameters>>,
+    #[allow(dead_code)]
     get_parameter_types_service: Arc<Service<GetParameterTypes>>,
+    #[allow(dead_code)]
     get_parameters_service: Arc<Service<GetParameters>>,
+    #[allow(dead_code)]
     list_parameters_service: Arc<Service<ListParameters>>,
+    #[allow(dead_code)]
     set_parameters_service: Arc<Service<SetParameters>>,
+    #[allow(dead_code)]
     set_parameters_atomically_service: Arc<Service<SetParametersAtomically>>,
 }
 
@@ -29,7 +37,7 @@ impl ParameterService {
         let map = parameter_map.clone();
         let describe_parameters_service = node.create_service(
             &(fqn.clone() + "/describe_parameters"),
-            move |req_id: &rmw_request_id_t, req: DescribeParameters_Request| {
+            move |_req_id: &rmw_request_id_t, req: DescribeParameters_Request| {
                 let map = map.lock().unwrap();
                 let descriptors = req
                     .names
@@ -74,7 +82,7 @@ impl ParameterService {
         let map = parameter_map.clone();
         let get_parameter_types_service = node.create_service(
             &(fqn.clone() + "/get_parameter_types"),
-            move |req_id: &rmw_request_id_t, req: GetParameterTypes_Request| {
+            move |_req_id: &rmw_request_id_t, req: GetParameterTypes_Request| {
                 let map = map.lock().unwrap();
                 let types = req
                     .names
@@ -93,7 +101,7 @@ impl ParameterService {
         let map = parameter_map.clone();
         let get_parameters_service = node.create_service(
             &(fqn.clone() + "/get_parameters"),
-            move |req_id: &rmw_request_id_t, req: GetParameters_Request| {
+            move |_req_id: &rmw_request_id_t, req: GetParameters_Request| {
                 let map = map.lock().unwrap();
                 let values = req
                     .names
@@ -126,7 +134,7 @@ impl ParameterService {
         let map = parameter_map.clone();
         let list_parameters_service = node.create_service(
             &(fqn.clone() + "/list_parameters"),
-            move |req_id: &rmw_request_id_t, req: ListParameters_Request| {
+            move |_req_id: &rmw_request_id_t, req: ListParameters_Request| {
                 let check_parameter_name_depth = |substring: &[i8]| {
                     if req.depth == ListParameters_Request::DEPTH_RECURSIVE {
                         return true;
@@ -185,7 +193,7 @@ impl ParameterService {
         let map = parameter_map.clone();
         let set_parameters_service = node.create_service(
             &(fqn.clone() + "/set_parameters"),
-            move |req_id: &rmw_request_id_t, req: SetParameters_Request| {
+            move |_req_id: &rmw_request_id_t, req: SetParameters_Request| {
                 let mut map = map.lock().unwrap();
                 let results = req
                     .parameters
@@ -212,7 +220,7 @@ impl ParameterService {
         )?;
         let set_parameters_atomically_service = node.create_service(
             &(fqn.clone() + "/set_parameters_atomically"),
-            move |req_id: &rmw_request_id_t, req: SetParametersAtomically_Request| {
+            move |_req_id: &rmw_request_id_t, req: SetParametersAtomically_Request| {
                 let mut map = parameter_map.lock().unwrap();
                 let results = req
                     .parameters
