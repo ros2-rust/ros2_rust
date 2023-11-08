@@ -10,6 +10,8 @@ path = "src/lib.rs"
 [dependencies]
 anyhow = {version = "1", features = ["backtrace"]}
 test_msgs = {version = "*"}
+rcl_interfaces = {version = "*"}
+tokio = { version = "1", features = ["macros", "rt", "rt-multi-thread", "time"] }
 
 [dependencies.rclrs]
 version = "*"
