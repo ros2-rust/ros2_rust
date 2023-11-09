@@ -21,11 +21,16 @@ fn main() {
     let ros_distro = if let Ok(value) = env::var(ROS_DISTRO) {
         value
     } else {
-        println!(
-            "{} environment variable not set - please source ROS 2 installation first.",
-            ROS_DISTRO
-        );
-        return;
+        let error_msg =
+            "ROS_DISTRO environment variable not set - please source ROS 2 installation first.";
+        cfg_if::cfg_if! {
+            if #[cfg(feature="generate_docs")] {
+                println!(error_msg);
+                return;
+            } else {
+                panic!(error_msg);
+            }
+        }
     };
 
     println!("cargo:rustc-cfg=ros_distro=\"{ros_distro}\"");
