@@ -137,11 +137,87 @@ cfg_if::cfg_if! {
         #[derive(Debug)]
         pub struct rosidl_message_type_support_t;
 
-        pub const RMW_GID_STORAGE_SIZE: usize = 16;
+        #[repr(C)]
+        #[derive(Debug)]
+        pub struct rosidl_service_type_support_t;
+
+        #[repr(C)]
+        #[derive(Debug)]
+        pub struct rosidl_typesupport_introspection_c__MessageMembers_s;
+
+        #[repr(C)]
+        #[derive(Debug)]
+        pub struct rcl_jump_callback_info_t;
+
+        pub const RMW_GID_STORAGE_SIZE: usize = 24;
 
         extern "C" {
             pub fn rcl_context_is_valid(context: *const rcl_context_t) -> bool;
         }
+
+        extern "C" {
+            pub fn rcl_arguments_get_count_unparsed(args: *const rcl_arguments_t) -> ::std::os::raw::c_int;
+        }
+
+        extern "C" {
+            pub fn rcl_arguments_get_unparsed(
+                args: *const rcl_arguments_t,
+                allocator: rcl_allocator_t,
+                output_unparsed_indices: *mut *mut ::std::os::raw::c_int,
+            ) -> rcl_ret_t;
+        }
+
+        extern "C" {
+            pub fn rcl_get_service_names_and_types_by_node(
+                node: *const rcl_node_t,
+                allocator: *mut rcl_allocator_t,
+                node_name: *const ::std::os::raw::c_char,
+                node_namespace: *const ::std::os::raw::c_char,
+                service_names_and_types: *mut rcl_names_and_types_t,
+            ) -> rcl_ret_t;
+        }
+        extern "C" {
+            pub fn rcl_get_client_names_and_types_by_node(
+                node: *const rcl_node_t,
+                allocator: *mut rcl_allocator_t,
+                node_name: *const ::std::os::raw::c_char,
+                node_namespace: *const ::std::os::raw::c_char,
+                service_names_and_types: *mut rcl_names_and_types_t,
+            ) -> rcl_ret_t;
+        }
+        extern "C" {
+            pub fn rcl_get_publishers_info_by_topic(
+                node: *const rcl_node_t,
+                allocator: *mut rcutils_allocator_t,
+                topic_name: *const ::std::os::raw::c_char,
+                no_mangle: bool,
+                publishers_info: *mut rcl_topic_endpoint_info_array_t,
+            ) -> rcl_ret_t;
+        }
+        extern "C" {
+            pub fn rcl_get_subscriptions_info_by_topic(
+                node: *const rcl_node_t,
+                allocator: *mut rcutils_allocator_t,
+                topic_name: *const ::std::os::raw::c_char,
+                no_mangle: bool,
+                subscriptions_info: *mut rcl_topic_endpoint_info_array_t,
+            ) -> rcl_ret_t;
+        }
+        extern "C" {
+            pub fn rcl_node_get_name(node: *const rcl_node_t) -> *const ::std::os::raw::c_char;
+        }
+        extern "C" {
+            pub fn rcl_node_get_namespace(node: *const rcl_node_t) -> *const ::std::os::raw::c_char;
+        }
+        extern "C" {
+            pub fn rcl_node_get_fully_qualified_name(
+                node: *const rcl_node_t,
+            ) -> *const ::std::os::raw::c_char;
+        }
+
+        #[repr(C)]
+        #[derive(Debug)]
+        pub struct rcutils_allocator_t;
     } else {
         include!(concat!(env!("OUT_DIR"), "/rcl_bindings_generated.rs"));
 
