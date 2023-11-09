@@ -5,21 +5,16 @@ use rcl_interfaces::msg::rmw::{
 use rcl_interfaces::srv::rmw::*;
 use rclrs::{
     Context, MandatoryParameter, Node, NodeBuilder, ParameterRange, ParameterValue, RclrsError,
-    ReadOnlyParameter, TopicEndpointInfo, TopicNamesAndTypes, QOS_PROFILE_SYSTEM_DEFAULT,
+    ReadOnlyParameter, TopicNamesAndTypes,
 };
 use rosidl_runtime_rs::{seq, Sequence};
 use std::sync::{Arc, RwLock};
 
-struct TestGraph {
-    node: Arc<Node>,
-    client: Arc<Node>,
-}
-
 struct TestNode {
     node: Arc<Node>,
     bool_param: MandatoryParameter<bool>,
-    ns_param: MandatoryParameter<i64>,
-    read_only_param: ReadOnlyParameter<f64>,
+    _ns_param: MandatoryParameter<i64>,
+    _read_only_param: ReadOnlyParameter<f64>,
     dynamic_param: MandatoryParameter<ParameterValue>,
 }
 
@@ -39,7 +34,7 @@ where
 }
 
 fn construct_test_nodes(context: &Context, ns: &str) -> (TestNode, Arc<Node>) {
-    let node = NodeBuilder::new(&context, "node")
+    let node = NodeBuilder::new(context, "node")
         .namespace(ns)
         .build()
         .unwrap();
@@ -53,13 +48,13 @@ fn construct_test_nodes(context: &Context, ns: &str) -> (TestNode, Arc<Node>) {
         .default(true)
         .mandatory()
         .unwrap();
-    let ns_param = node
+    let _ns_param = node
         .declare_parameter("ns1.ns2.ns3.int")
         .default(42)
         .range(range)
         .mandatory()
         .unwrap();
-    let read_only_param = node
+    let _read_only_param = node
         .declare_parameter("read_only")
         .default(1.23)
         .read_only()
@@ -70,7 +65,7 @@ fn construct_test_nodes(context: &Context, ns: &str) -> (TestNode, Arc<Node>) {
         .mandatory()
         .unwrap();
 
-    let client = NodeBuilder::new(&context, "client")
+    let client = NodeBuilder::new(context, "client")
         .namespace(ns)
         .build()
         .unwrap();
@@ -79,8 +74,8 @@ fn construct_test_nodes(context: &Context, ns: &str) -> (TestNode, Arc<Node>) {
         TestNode {
             node,
             bool_param,
-            ns_param,
-            read_only_param,
+            _ns_param,
+            _read_only_param,
             dynamic_param,
         },
         client,
@@ -90,7 +85,7 @@ fn construct_test_nodes(context: &Context, ns: &str) -> (TestNode, Arc<Node>) {
 #[test]
 fn test_parameter_services_names_and_types() -> Result<(), RclrsError> {
     let context = Context::new([]).unwrap();
-    let (node, client) = construct_test_nodes(&context, "names_types");
+    let (node, _client) = construct_test_nodes(&context, "names_types");
     let check_names_and_types = |names_and_types: TopicNamesAndTypes| {
         let types = names_and_types
             .get("/names_types/node/describe_parameters")
@@ -264,10 +259,11 @@ async fn test_get_set_parameters_service() -> Result<(), RclrsError> {
 
     let done = Arc::new(RwLock::new(false));
 
+    let inner_node = node.node.clone();
     let inner_done = done.clone();
     let rclrs_spin = tokio::task::spawn(async move {
         try_until_timeout(|| {
-            rclrs::spin_once(node.node.clone(), Some(std::time::Duration::ZERO)).ok();
+            rclrs::spin_once(inner_node.clone(), Some(std::time::Duration::ZERO)).ok();
             rclrs::spin_once(client.clone(), Some(std::time::Duration::ZERO)).ok();
             *inner_done.read().unwrap()
         })
@@ -370,19 +366,19 @@ async fn test_get_set_parameters_service() -> Result<(), RclrsError> {
         };
         let request = SetParameters_Request {
             parameters: seq![
-                bool_parameter,
-                read_only_parameter,
+                bool_parameter.clone(),
+                read_only_parameter.clone(),
                 bool_parameter_mismatched,
                 dynamic_parameter,
                 out_of_range_parameter,
                 invalid_parameter_type,
-                undeclared_bool
+                undeclared_bool.clone()
             ],
         };
         let client_finished = Arc::new(RwLock::new(false));
         let call_done = client_finished.clone();
-        // Parameter is default assigned true
-        assert_eq!(node.bool_param.get(), true);
+        // Parameter is assigned a default of true at declaration time
+        assert!(node.bool_param.get());
         set_client
             .async_send_request_with_callback(&request, move |response: SetParameters_Response| {
                 *call_done.write().unwrap() = true;
@@ -390,20 +386,63 @@ async fn test_get_set_parameters_service() -> Result<(), RclrsError> {
                 // Setting a bool value set for a bool parameter
                 assert!(response.results[0].successful);
                 // Value was set to false, node parameter get should reflect this
-                assert_eq!(node.bool_param.get(), false);
+                assert!(!node.bool_param.get());
                 // Setting a parameter to the wrong type
-                assert_eq!(response.results[1].successful, false);
+                assert!(!response.results[1].successful);
                 // Setting a read only parameter
-                assert_eq!(response.results[2].successful, false);
+                assert!(!response.results[2].successful);
                 // Setting a dynamic parameter to a new type
                 assert!(response.results[3].successful);
+                assert_eq!(node.dynamic_param.get(), ParameterValue::Bool(true));
                 // Setting a value out of range
-                assert_eq!(response.results[4].successful, false);
+                assert!(!response.results[4].successful);
                 // Setting an invalid type
-                assert_eq!(response.results[5].successful, false);
+                assert!(!response.results[5].successful);
                 // Setting an undeclared parameter, without allowing undeclared parameters
-                assert_eq!(response.results[6].successful, false);
+                assert!(!response.results[6].successful);
             })
+            .unwrap();
+        try_until_timeout(|| *client_finished.read().unwrap())
+            .await
+            .unwrap();
+
+        // Set the node to use undeclared parameters and try to set one
+        node.node.use_undeclared_parameters();
+        let request = SetParameters_Request {
+            parameters: seq![undeclared_bool],
+        };
+        let client_finished = Arc::new(RwLock::new(false));
+        let call_done = client_finished.clone();
+        set_client
+            .async_send_request_with_callback(&request, move |response: SetParameters_Response| {
+                *call_done.write().unwrap() = true;
+                assert_eq!(response.results.len(), 1);
+                // Setting the undeclared parameter is now allowed
+                assert!(response.results[0].successful);
+                assert_eq!(
+                    node.node.use_undeclared_parameters().get("undeclared_bool"),
+                    Some(ParameterValue::Bool(true))
+                );
+            })
+            .unwrap();
+        try_until_timeout(|| *client_finished.read().unwrap())
+            .await
+            .unwrap();
+
+        // With set_parameters_atomically, if one fails all should fail
+        let request = SetParametersAtomically_Request {
+            parameters: seq![bool_parameter, read_only_parameter],
+        };
+        let client_finished = Arc::new(RwLock::new(false));
+        let call_done = client_finished.clone();
+        set_atomically_client
+            .async_send_request_with_callback(
+                &request,
+                move |response: SetParametersAtomically_Response| {
+                    *call_done.write().unwrap() = true;
+                    assert!(!response.result.successful);
+                },
+            )
             .unwrap();
         try_until_timeout(|| *client_finished.read().unwrap())
             .await
