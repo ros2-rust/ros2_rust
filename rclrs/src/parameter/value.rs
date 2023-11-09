@@ -381,8 +381,8 @@ impl From<ParameterValue> for RmwParameterValue {
     }
 }
 
-/// An error that occured when trying to convert a parameter from a
-/// [crate::vendor::rcl_interfaces::msg::rmw::ParameterValue]
+/// An error that occured when trying to convert a parameter from an
+/// `rcl_interfaces::msg::ParameterValue`
 pub enum RmwParameterConversionError {
     /// The parameter type was not valid.
     InvalidParameterType,

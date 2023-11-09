@@ -46,12 +46,14 @@ fn construct_test_nodes(context: &Context, ns: &str) -> (TestNode, Arc<Node>) {
     let bool_param = node
         .declare_parameter("bool")
         .default(true)
+        .description("A boolean value")
         .mandatory()
         .unwrap();
     let _ns_param = node
         .declare_parameter("ns1.ns2.ns3.int")
         .default(42)
         .range(range)
+        .constraints("Only the answer")
         .mandatory()
         .unwrap();
     let _read_only_param = node
@@ -120,7 +122,6 @@ fn test_parameter_services_names_and_types() -> Result<(), RclrsError> {
     Ok(())
 }
 
-//#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 #[tokio::test]
 async fn test_list_parameters_service() -> Result<(), RclrsError> {
     let context = Context::new([]).unwrap();
@@ -253,9 +254,13 @@ async fn test_get_set_parameters_service() -> Result<(), RclrsError> {
     let set_atomically_client = client
         .create_client::<SetParametersAtomically>("/get_set/node/set_parameters_atomically")?;
 
-    try_until_timeout(|| get_client.service_is_ready().unwrap())
-        .await
-        .unwrap();
+    try_until_timeout(|| {
+        get_client.service_is_ready().unwrap()
+            && set_client.service_is_ready().unwrap()
+            && set_atomically_client.service_is_ready().unwrap()
+    })
+    .await
+    .unwrap();
 
     let done = Arc::new(RwLock::new(false));
 
@@ -441,6 +446,163 @@ async fn test_get_set_parameters_service() -> Result<(), RclrsError> {
                 move |response: SetParametersAtomically_Response| {
                     *call_done.write().unwrap() = true;
                     assert!(!response.result.successful);
+                },
+            )
+            .unwrap();
+        try_until_timeout(|| *client_finished.read().unwrap())
+            .await
+            .unwrap();
+        *done.write().unwrap() = true;
+    });
+
+    res.await.unwrap();
+    rclrs_spin.await.unwrap();
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_describe_get_types_parameters_service() -> Result<(), RclrsError> {
+    let context = Context::new([]).unwrap();
+    let (node, client) = construct_test_nodes(&context, "describe");
+    let describe_client =
+        client.create_client::<DescribeParameters>("/describe/node/describe_parameters")?;
+    let get_types_client =
+        client.create_client::<GetParameterTypes>("/describe/node/get_parameter_types")?;
+
+    try_until_timeout(|| {
+        describe_client.service_is_ready().unwrap() && get_types_client.service_is_ready().unwrap()
+    })
+    .await
+    .unwrap();
+
+    let done = Arc::new(RwLock::new(false));
+
+    let inner_done = done.clone();
+    let rclrs_spin = tokio::task::spawn(async move {
+        try_until_timeout(|| {
+            rclrs::spin_once(node.node.clone(), Some(std::time::Duration::ZERO)).ok();
+            rclrs::spin_once(client.clone(), Some(std::time::Duration::ZERO)).ok();
+            *inner_done.read().unwrap()
+        })
+        .await
+        .unwrap();
+    });
+
+    let res = tokio::task::spawn(async move {
+        // Desctibe all parameters
+        let request = DescribeParameters_Request {
+            names: seq![
+                "bool".into(),
+                "ns1.ns2.ns3.int".into(),
+                "read_only".into(),
+                "dynamic".into()
+            ],
+        };
+        let client_finished = Arc::new(RwLock::new(false));
+        let call_done = client_finished.clone();
+        describe_client
+            .async_send_request_with_callback(
+                &request,
+                move |response: DescribeParameters_Response| {
+                    *call_done.write().unwrap() = true;
+                    let desc = response.descriptors;
+                    assert_eq!(desc.len(), 4);
+                    // Descriptors are returned in the requested order
+                    assert_eq!(desc[0].name.to_string(), "bool");
+                    assert_eq!(desc[0].type_, ParameterType::PARAMETER_BOOL);
+                    assert_eq!(desc[0].description.to_string(), "A boolean value");
+                    assert!(!desc[0].read_only);
+                    assert!(!desc[0].dynamic_typing);
+                    assert_eq!(desc[1].name.to_string(), "ns1.ns2.ns3.int");
+                    assert_eq!(desc[1].type_, ParameterType::PARAMETER_INTEGER);
+                    assert_eq!(desc[1].integer_range.len(), 1);
+                    assert_eq!(desc[1].integer_range[0].from_value, 0);
+                    assert_eq!(desc[1].integer_range[0].to_value, 100);
+                    assert_eq!(desc[1].integer_range[0].step, 0);
+                    assert!(!desc[1].read_only);
+                    assert!(!desc[1].dynamic_typing);
+                    assert_eq!(
+                        desc[1].additional_constraints.to_string(),
+                        "Only the answer"
+                    );
+                    assert_eq!(desc[2].name.to_string(), "read_only");
+                    assert_eq!(desc[2].type_, ParameterType::PARAMETER_DOUBLE);
+                    assert!(desc[2].read_only);
+                    assert!(!desc[2].dynamic_typing);
+                    assert_eq!(desc[3].name.to_string(), "dynamic");
+                    assert_eq!(desc[3].type_, ParameterType::PARAMETER_STRING);
+                    assert!(desc[3].dynamic_typing);
+                    assert!(!desc[3].read_only);
+                },
+            )
+            .unwrap();
+        try_until_timeout(|| *client_finished.read().unwrap())
+            .await
+            .unwrap();
+
+        // If a describe parameters request is sent with a non existing parameter, an empty
+        // response should be returned
+        let request = DescribeParameters_Request {
+            names: seq!["bool".into(), "non_existing".into()],
+        };
+        let client_finished = Arc::new(RwLock::new(false));
+        let call_done = client_finished.clone();
+        describe_client
+            .async_send_request_with_callback(
+                &request,
+                move |response: DescribeParameters_Response| {
+                    *call_done.write().unwrap() = true;
+                    assert_eq!(response.descriptors.len(), 0);
+                },
+            )
+            .unwrap();
+        try_until_timeout(|| *client_finished.read().unwrap())
+            .await
+            .unwrap();
+
+        // Get all parameter types
+        let request = GetParameterTypes_Request {
+            names: seq![
+                "bool".into(),
+                "ns1.ns2.ns3.int".into(),
+                "read_only".into(),
+                "dynamic".into()
+            ],
+        };
+        let client_finished = Arc::new(RwLock::new(false));
+        let call_done = client_finished.clone();
+        get_types_client
+            .async_send_request_with_callback(
+                &request,
+                move |response: GetParameterTypes_Response| {
+                    *call_done.write().unwrap() = true;
+                    assert_eq!(response.types.len(), 4);
+                    // Types are returned in the requested order
+                    assert_eq!(response.types[0], ParameterType::PARAMETER_BOOL);
+                    assert_eq!(response.types[1], ParameterType::PARAMETER_INTEGER);
+                    assert_eq!(response.types[2], ParameterType::PARAMETER_DOUBLE);
+                    assert_eq!(response.types[3], ParameterType::PARAMETER_STRING);
+                },
+            )
+            .unwrap();
+        try_until_timeout(|| *client_finished.read().unwrap())
+            .await
+            .unwrap();
+
+        // If a get parameter types request is sent with a non existing parameter, an empty
+        // response should be returned
+        let request = GetParameterTypes_Request {
+            names: seq!["bool".into(), "non_existing".into()],
+        };
+        let client_finished = Arc::new(RwLock::new(false));
+        let call_done = client_finished.clone();
+        get_types_client
+            .async_send_request_with_callback(
+                &request,
+                move |response: GetParameterTypes_Response| {
+                    *call_done.write().unwrap() = true;
+                    assert_eq!(response.types.len(), 0);
                 },
             )
             .unwrap();
