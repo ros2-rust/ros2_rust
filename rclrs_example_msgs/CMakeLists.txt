@@ -18,9 +18,9 @@ set(msg_files
   "msg/VariousTypes.msg"
   "msg/MyMessage.idl"
 )
+
 rosidl_generate_interfaces(${PROJECT_NAME}
   ${msg_files}
-  ADD_LINTER_TESTS
 )
 
 ament_export_dependencies(rosidl_default_runtime)
