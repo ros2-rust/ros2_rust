@@ -16,6 +16,7 @@ find_package(rosidl_default_generators REQUIRED)
 set(msg_files
   "msg/NestedType.msg"
   "msg/VariousTypes.msg"
+  "msg/MyMessage.idl"
 )
 rosidl_generate_interfaces(${PROJECT_NAME}
   ${msg_files}

@@ -68,6 +68,14 @@ fn check_default_values() {
     );
 }
 
+fn check_default_idl_values() {
+    let idiomatic_msg = rclrs_example_msgs::msg::MyMessage::default();
+    let rmw_msg = rclrs_example_msgs::msg::rmw::MyMessage::default();
+
+    assert_eq!(idiomatic_msg.wchar_value, 0u16);
+    assert_eq!(rmw_msg.wchar_value, 0u16);
+}
+
 fn demonstrate_printing() {
     let default_msg = rclrs_example_msgs::msg::VariousTypes::default();
     println!("================== Compact debug representation ==================");
@@ -170,6 +178,7 @@ fn demonstrate_pubsub() -> Result<(), Error> {
 
 fn main() -> Result<(), Error> {
     check_default_values();
+    check_default_idl_values();
     demonstrate_printing();
     demonstrate_serde()?;
     demonstrate_sequences();
