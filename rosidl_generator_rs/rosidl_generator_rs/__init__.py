@@ -14,6 +14,7 @@
 
 import os
 import pathlib
+import subprocess
 
 from pathlib import Path
 
@@ -218,7 +219,6 @@ def primitive_value_to_rs(type_, value):
     if type_.type in [
             'byte',
             'char',
-            'wchar',
             'int8',
             'uint8',
             'int16',
