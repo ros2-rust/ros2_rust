@@ -47,7 +47,7 @@ use std::sync::Arc;
 use std_msgs::msg::String as StringMsg;
 
 struct RepublisherNode {
-    node: rclrs::Node,
+    node: Arc<rclrs::Node>,
     _subscription: Arc<rclrs::Subscription<StringMsg>>,
     data: Option<StringMsg>,
 }
@@ -114,7 +114,7 @@ use std::sync::{Arc, Mutex};  // (1)
 use std_msgs::msg::String as StringMsg;
 
 struct RepublisherNode {
-    node: rclrs::Node,
+    node: Arc<rclrs::Node>,
     _subscription: Arc<rclrs::Subscription<StringMsg>>,
     data: Arc<Mutex<Option<StringMsg>>>,  // (2)
 }
