@@ -104,7 +104,7 @@ jobs:
         cd $path
         echo "Running cargo test in $path"
         # Run cargo test for all features except generate_docs (needed for docs.rs)
-        if [ "$(basename $path)" = "rclrs" ]; then
+        if [ "$(basename $path)" = "rosidl_runtime_rs" ] || [ "$(basename $path)" = "rclrs" ]; then
           cargo test -F default,dyn_msg
         else
           cargo test --all-features
