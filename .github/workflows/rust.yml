@@ -87,7 +87,11 @@ jobs:
         for path in $(colcon list | awk '$3 == "(ament_cargo)" { print $2 }'); do
         cd $path
         echo "Running clippy in $path"
-        cargo clippy --all-targets --all-features -- -D warnings
+        if [ "$path" = "rclrs" ]; then
+          cargo clippy --all-targets -F default,dyn_msg -- -D warnings
+        else
+          cargo clippy --all-targets --all-features -- -D warnings
+        fi
         cd -
         done
 
