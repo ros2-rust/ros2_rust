@@ -1,16 +1,20 @@
-use std::env;
-use std::path::Path;
+cfg_if::cfg_if! {
+    if #[cfg(not(feature="generate_docs"))] {
+        use std::env;
+        use std::path::Path;
 
-const AMENT_PREFIX_PATH: &str = "AMENT_PREFIX_PATH";
+        const AMENT_PREFIX_PATH: &str = "AMENT_PREFIX_PATH";
 
-fn get_env_var_or_abort(env_var: &'static str) -> String {
-    if let Ok(value) = env::var(env_var) {
-        value
-    } else {
-        panic!(
-            "{} environment variable not set - please source ROS 2 installation first.",
-            env_var
-        );
+        fn get_env_var_or_abort(env_var: &'static str) -> String {
+            if let Ok(value) = env::var(env_var) {
+                value
+            } else {
+                panic!(
+                    "{} environment variable not set - please source ROS 2 installation first.",
+                    env_var
+                );
+            }
+        }
     }
 }
 

@@ -27,5 +27,9 @@ quickcheck = "1"
 # Needed for testing serde support
 serde_json = "1"
 
+[build-dependencies]
+# Needed for uploading documentation to docs.rs
+cfg-if = "1.0.0"
+
 [package.metadata.docs.rs]
 features = ["generate_docs"]
