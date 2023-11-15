@@ -87,7 +87,8 @@ jobs:
         for path in $(colcon list | awk '$3 == "(ament_cargo)" { print $2 }'); do
         cd $path
         echo "Running clippy in $path"
-        if [ "$path" = "rclrs" ]; then
+        # Run clippy for all features except generate_docs (needed for docs.rs)
+        if [ "$(basename $path)" = "rclrs" ]; then
           cargo clippy --all-targets -F default,dyn_msg -- -D warnings
         else
           cargo clippy --all-targets --all-features -- -D warnings
