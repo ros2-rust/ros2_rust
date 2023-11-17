@@ -21,6 +21,7 @@ TEMPLATE(
     package_name=package_name, interface_path=interface_path,
     msg_specs=action_msg_specs,
     get_rs_name=get_rs_name, get_rmw_rs_type=get_rmw_rs_type,
+    pre_field_serde=pre_field_serde,
     get_idiomatic_rs_type=get_idiomatic_rs_type,
     constant_value_to_rs=constant_value_to_rs)
 }@
@@ -32,6 +33,7 @@ TEMPLATE(
     package_name=package_name, interface_path=interface_path,
     msg_specs=action_msg_specs,
     get_rs_name=get_rs_name, get_rmw_rs_type=get_rmw_rs_type,
+    pre_field_serde=pre_field_serde,
     get_idiomatic_rs_type=get_idiomatic_rs_type,
     constant_value_to_rs=constant_value_to_rs)
 }@

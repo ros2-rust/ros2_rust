@@ -13,10 +13,10 @@ path = "src/minimal_action_client.rs"
 anyhow = {version = "1", features = ["backtrace"]}
 
 [dependencies.rclrs]
-version = "0.3"
+version = "0.4"
 
 [dependencies.rosidl_runtime_rs]
-version = "0.3"
+version = "0.4"
 
 [dependencies.example_interfaces]
 version = "*"
