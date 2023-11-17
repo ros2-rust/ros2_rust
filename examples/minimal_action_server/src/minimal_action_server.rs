@@ -76,12 +76,5 @@ fn main() -> Result<(), Error> {
         handle_accepted,
     );
 
-    let _action_server = node.create_action_server::<example_interfaces::action::Fibonacci>(
-        "fibonacci",
-        handle_goal,
-        handle_cancel,
-        handle_accepted,
-    );
-
     rclrs::spin(node).map_err(|err| err.into())
 }
