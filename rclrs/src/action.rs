@@ -71,6 +71,7 @@ where
     T: rosidl_runtime_rs::Action,
 {
     rcl_handle: Arc<rcl_action_goal_handle_t>,
+    goal_request: Arc<T>,
     _marker: PhantomData<T>,
 }
 
@@ -78,9 +79,10 @@ impl<T> ServerGoalHandle<T>
 where
     T: rosidl_runtime_rs::Action,
 {
-    pub fn new(rcl_handle: Arc<rcl_action_goal_handle_t>) -> Self {
+    pub fn new(rcl_handle: Arc<rcl_action_goal_handle_t>,  goal_request: Arc<T>) -> Self {
         Self {
             rcl_handle,
+            goal_request: Arc::clone(&goal_request),
             _marker: Default::default(),
         }
     }
@@ -95,5 +97,13 @@ where
 
     pub fn is_executing(&self) -> bool {
         false
+    }
+
+    pub fn succeed(&self, result: &T::Result) -> Result<(), RclrsError> {
+        Ok(())
+    }
+
+    pub fn canceled(&self, result: &T::Result) -> Result<(), RclrsError> {
+        Ok(())
     }
 }
