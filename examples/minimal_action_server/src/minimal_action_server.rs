@@ -27,35 +27,36 @@ fn handle_cancel(_goal_handle: Arc<GoalHandleFibonacci>) -> rclrs::CancelRespons
 fn execute(goal_handle: Arc<GoalHandleFibonacci>) {
     println!("Executing goal");
     let feedback = example_interfaces::action::Fibonacci_Feedback {
-        sequence: Vec::new(),
-    };
-    feedback.sequence.push(0);
-    feedback.sequence.push(1);
-    let result = example_interfaces::action::Fibonacci_Result {
-        sequence: Vec::new(),
+        sequence: [0, 1].to_vec(),
     };
 
-    let mut i = 1;
-    while i < goal_handle.goal().unwrap().order && rclrs::ok() {
+    for i in 1..goal_handle.goal_request.order {
         if goal_handle.is_canceling() {
-            result.sequence = feedback.sequence.clone();
+            let result = example_interfaces::action::Fibonacci_Result {
+                sequence: Vec::new(),
+            };
+
             goal_handle.canceled(&result);
             println!("Goal canceled");
             return;
         }
-        // Update sequence
-        feedback.sequence.push(feedback.sequence[i as usize] + feedback.sequence[(i - 1) as usize]);
+
+        // Update sequence sequence
+        feedback
+            .sequence
+            .push(feedback.sequence[i as usize] + feedback.sequence[(i - 1) as usize]);
         // Publish feedback
         goal_handle.publish_feedback(&feedback);
         println!("Publishing feedback");
         thread::sleep(std::time::Duration::from_millis(100));
     }
-    // Check if goal is done
-    if rclrs::ok() {
-        result.sequence = feedback.sequence.clone();
-        goal_handle.succeed(&result);
-        println!("Goal succeeded");
-    }
+
+    let result = example_interfaces::action::Fibonacci_Result {
+        sequence: Vec::new(),
+    };
+    result.sequence = feedback.sequence.clone();
+    goal_handle.succeed(&result);
+    println!("Goal succeeded");
 }
 
 fn handle_accepted(goal_handle: Arc<GoalHandleFibonacci>) {
