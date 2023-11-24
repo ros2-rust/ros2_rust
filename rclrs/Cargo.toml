@@ -40,7 +40,7 @@ cfg-if = "1.0.0"
 default = []
 dyn_msg = ["ament_rs", "libloading"]
 # This feature is solely for the purpose of being able to generate documetation without a ROS installation
-# The only intended usage of this feature is for docs.rs builders to work.
+# The only intended usage of this feature is for docs.rs builders to work, and is not intended to be used by end users
 generate_docs = ["rosidl_runtime_rs/generate_docs"]
 
 [package.metadata.docs.rs]

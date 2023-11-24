@@ -19,7 +19,8 @@ serde = { version = "1", optional = true }
 
 [features]
 default = []
-# Used solely to enable docs generate with docs.rs that does not have a ROS installation
+# This feature is solely for the purpose of being able to generate documetation without a ROS installation
+# The only intended usage of this feature is for docs.rs builders to work, and is not intended to be used by end users
 generate_docs = []
 
 [dev-dependencies]
