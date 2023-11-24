@@ -4,7 +4,7 @@
    schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>examples_rclrs_minimal_client_service</name>
-  <version>0.4.0</version>
+  <version>0.4.1</version>
   <description>Package containing an example of the client-service mechanism in rclrs.</description>
   <maintainer email="esteve@apache.org">Esteve Fernandez</maintainer>
   <license>Apache License 2.0</license>

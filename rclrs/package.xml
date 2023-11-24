@@ -4,7 +4,7 @@
    schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>rclrs</name>
-  <version>0.4.0</version>
+  <version>0.4.1</version>
   <description>Package containing the Rust client library.</description>
   <maintainer email="esteve@apache.org">Esteve Fernandez</maintainer>
   <maintainer email="nnmmgit@gmail.com">Nikolai Morin</maintainer>
