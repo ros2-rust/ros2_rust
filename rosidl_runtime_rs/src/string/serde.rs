@@ -125,7 +125,7 @@ impl Serialize for WString {
     {
         // Not particularly efficient
         // SAFETY: See the Display implementation.
-        let u16_slice = unsafe { std::slice::from_raw_parts(self.data as *mut u16, self.size) };
+        let u16_slice = unsafe { std::slice::from_raw_parts(self.data, self.size) };
         let s = std::string::String::from_utf16_lossy(u16_slice);
         serializer.serialize_str(&s)
     }

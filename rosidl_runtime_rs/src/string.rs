@@ -250,7 +250,7 @@ macro_rules! string_impl {
 
         impl PartialOrd for $string {
             fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-                self.deref().partial_cmp(other.deref())
+                Some(self.cmp(other))
             }
         }
 
