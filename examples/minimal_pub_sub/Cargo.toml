@@ -1,6 +1,6 @@
 [package]
 name = "examples_rclrs_minimal_pub_sub"
-version = "0.4.0"
+version = "0.4.1"
 # This project is not military-sponsored, Jacob's employment contract just requires him to use this email address
 authors = ["Esteve Fernandez <esteve@apache.org>", "Nikolai Morin <nnmmgit@gmail.com>", "Jacob Hassold <jacob.a.hassold.civ@army.mil>"]
 edition = "2021"
