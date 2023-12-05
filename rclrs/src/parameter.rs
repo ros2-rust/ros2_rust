@@ -36,16 +36,16 @@ use std::sync::{
 
 #[derive(Clone, Debug)]
 struct ParameterOptionsStorage {
-    description: Arc<str>,
-    constraints: Arc<str>,
+    _description: Arc<str>,
+    _constraints: Arc<str>,
     ranges: ParameterRanges,
 }
 
 impl<T: ParameterVariant> From<ParameterOptions<T>> for ParameterOptionsStorage {
     fn from(opts: ParameterOptions<T>) -> Self {
         Self {
-            description: opts.description,
-            constraints: opts.constraints,
+            _description: opts.description,
+            _constraints: opts.constraints,
             ranges: opts.ranges.into(),
         }
     }
