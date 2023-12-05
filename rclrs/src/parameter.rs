@@ -430,7 +430,7 @@ impl<T: ParameterVariant> TryFrom<ParameterBuilder<'_, T>> for OptionalParameter
             name: builder.name,
             value,
             ranges,
-            map: Arc::downgrade(&builder.interface._parameter_map),
+            map: Arc::downgrade(&builder.interface.parameter_map),
             _marker: Default::default(),
         })
     }
@@ -494,7 +494,7 @@ impl<'a, T: ParameterVariant + 'a> TryFrom<ParameterBuilder<'a, T>> for Mandator
             name: builder.name,
             value,
             ranges,
-            map: Arc::downgrade(&builder.interface._parameter_map),
+            map: Arc::downgrade(&builder.interface.parameter_map),
             _marker: Default::default(),
         })
     }
@@ -586,7 +586,7 @@ impl<'a, T: ParameterVariant + 'a> TryFrom<ParameterBuilder<'a, T>> for ReadOnly
         Ok(ReadOnlyParameter {
             name: builder.name,
             value,
-            map: Arc::downgrade(&builder.interface._parameter_map),
+            map: Arc::downgrade(&builder.interface.parameter_map),
             _marker: Default::default(),
         })
     }
@@ -703,7 +703,7 @@ impl<'a> Parameters<'a> {
     ///
     /// Returns `Some(T)` if a parameter of the requested type exists, `None` otherwise.
     pub fn get<T: ParameterVariant>(&self, name: &str) -> Option<T> {
-        let storage = &self.interface._parameter_map.lock().unwrap().storage;
+        let storage = &self.interface.parameter_map.lock().unwrap().storage;
         let storage = storage.get(name)?;
         match storage {
             ParameterStorage::Declared(storage) => match &storage.value {
@@ -728,7 +728,7 @@ impl<'a> Parameters<'a> {
         name: impl Into<Arc<str>>,
         value: T,
     ) -> Result<(), ParameterValueError> {
-        let mut map = self.interface._parameter_map.lock().unwrap();
+        let mut map = self.interface.parameter_map.lock().unwrap();
         let name: Arc<str> = name.into();
         match map.storage.entry(name) {
             Entry::Occupied(mut entry) => {
@@ -767,8 +767,8 @@ impl<'a> Parameters<'a> {
 }
 
 pub(crate) struct ParameterInterface {
-    _parameter_map: Arc<Mutex<ParameterMap>>,
-    _override_map: ParameterOverrideMap,
+    parameter_map: Arc<Mutex<ParameterMap>>,
+    override_map: ParameterOverrideMap,
     allow_undeclared: AtomicBool,
     // NOTE(luca-della-vedova) add a ParameterService field to this struct to add support for
     // services.
@@ -781,14 +781,14 @@ impl ParameterInterface {
         global_arguments: &rcl_arguments_t,
     ) -> Result<Self, RclrsError> {
         let rcl_node = rcl_node_mtx.lock().unwrap();
-        let _override_map = unsafe {
+        let override_map = unsafe {
             let fqn = call_string_getter_with_handle(&rcl_node, rcl_node_get_fully_qualified_name);
             resolve_parameter_overrides(&fqn, node_arguments, global_arguments)?
         };
 
         Ok(ParameterInterface {
-            _parameter_map: Default::default(),
-            _override_map,
+            parameter_map: Default::default(),
+            override_map,
             allow_undeclared: Default::default(),
         })
     }
@@ -820,7 +820,7 @@ impl ParameterInterface {
         ranges.validate()?;
         let override_value: Option<T> = if ignore_override {
             None
-        } else if let Some(override_value) = self._override_map.get(name).cloned() {
+        } else if let Some(override_value) = self.override_map.get(name).cloned() {
             Some(
                 override_value
                     .try_into()
@@ -831,7 +831,7 @@ impl ParameterInterface {
         };
 
         let prior_value =
-            if let Some(prior_value) = self._parameter_map.lock().unwrap().storage.get(name) {
+            if let Some(prior_value) = self.parameter_map.lock().unwrap().storage.get(name) {
                 match prior_value {
                     ParameterStorage::Declared(_) => return Err(DeclarationError::AlreadyDeclared),
                     ParameterStorage::Undeclared(param) => match param.clone().try_into() {
@@ -869,7 +869,7 @@ impl ParameterInterface {
         value: DeclaredValue,
         options: ParameterOptionsStorage,
     ) {
-        self._parameter_map.lock().unwrap().storage.insert(
+        self.parameter_map.lock().unwrap().storage.insert(
             name,
             ParameterStorage::Declared(DeclaredStorage {
                 options,

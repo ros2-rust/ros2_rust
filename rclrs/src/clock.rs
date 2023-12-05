@@ -28,15 +28,15 @@ impl From<ClockType> for rcl_clock_type_t {
 /// Struct that implements a Clock and wraps `rcl_clock_t`.
 #[derive(Clone, Debug)]
 pub struct Clock {
-    _type: ClockType,
-    _rcl_clock: Arc<Mutex<rcl_clock_t>>,
+    kind: ClockType,
+    rcl_clock: Arc<Mutex<rcl_clock_t>>,
     // TODO(luca) Implement jump callbacks
 }
 
 /// A clock source that can be used to drive the contained clock. Created when a clock of type
 /// `ClockType::RosTime` is constructed
 pub struct ClockSource {
-    _rcl_clock: Arc<Mutex<rcl_clock_t>>,
+    rcl_clock: Arc<Mutex<rcl_clock_t>>,
 }
 
 impl Clock {
@@ -54,19 +54,19 @@ impl Clock {
     /// to update it
     pub fn with_source() -> (Self, ClockSource) {
         let clock = Self::make(ClockType::RosTime);
-        let clock_source = ClockSource::new(clock._rcl_clock.clone());
+        let clock_source = ClockSource::new(clock.rcl_clock.clone());
         (clock, clock_source)
     }
 
     /// Creates a new clock of the given `ClockType`.
-    pub fn new(type_: ClockType) -> (Self, Option<ClockSource>) {
-        let clock = Self::make(type_);
+    pub fn new(kind: ClockType) -> (Self, Option<ClockSource>) {
+        let clock = Self::make(kind);
         let clock_source =
-            matches!(type_, ClockType::RosTime).then(|| ClockSource::new(clock._rcl_clock.clone()));
+            matches!(kind, ClockType::RosTime).then(|| ClockSource::new(clock.rcl_clock.clone()));
         (clock, clock_source)
     }
 
-    fn make(type_: ClockType) -> Self {
+    fn make(kind: ClockType) -> Self {
         let mut rcl_clock;
         unsafe {
             // SAFETY: Getting a default value is always safe.
@@ -74,24 +74,24 @@ impl Clock {
             let mut allocator = rcutils_get_default_allocator();
             // Function will return Err(_) only if there isn't enough memory to allocate a clock
             // object.
-            rcl_clock_init(type_.into(), &mut rcl_clock, &mut allocator)
+            rcl_clock_init(kind.into(), &mut rcl_clock, &mut allocator)
                 .ok()
                 .unwrap();
         }
         Self {
-            _type: type_,
-            _rcl_clock: Arc::new(Mutex::new(rcl_clock)),
+            kind,
+            rcl_clock: Arc::new(Mutex::new(rcl_clock)),
         }
     }
 
     /// Returns the clock's `ClockType`.
     pub fn clock_type(&self) -> ClockType {
-        self._type
+        self.kind
     }
 
     /// Returns the current clock's timestamp.
     pub fn now(&self) -> Time {
-        let mut clock = self._rcl_clock.lock().unwrap();
+        let mut clock = self.rcl_clock.lock().unwrap();
         let mut time_point: i64 = 0;
         unsafe {
             // SAFETY: No preconditions for this function
@@ -99,7 +99,7 @@ impl Clock {
         }
         Time {
             nsec: time_point,
-            clock: Arc::downgrade(&self._rcl_clock),
+            clock: Arc::downgrade(&self.rcl_clock),
         }
     }
 
@@ -128,14 +128,14 @@ impl Drop for ClockSource {
 
 impl PartialEq for ClockSource {
     fn eq(&self, other: &Self) -> bool {
-        Arc::ptr_eq(&self._rcl_clock, &other._rcl_clock)
+        Arc::ptr_eq(&self.rcl_clock, &other.rcl_clock)
     }
 }
 
 impl ClockSource {
     /// Sets the value of the current ROS time.
     pub fn set_ros_time_override(&self, nanoseconds: i64) {
-        let mut clock = self._rcl_clock.lock().unwrap();
+        let mut clock = self.rcl_clock.lock().unwrap();
         // SAFETY: Safe if clock jump callbacks are not edited, which is guaranteed
         // by the mutex
         unsafe {
@@ -147,8 +147,8 @@ impl ClockSource {
         }
     }
 
-    fn new(clock: Arc<Mutex<rcl_clock_t>>) -> Self {
-        let source = Self { _rcl_clock: clock };
+    fn new(rcl_clock: Arc<Mutex<rcl_clock_t>>) -> Self {
+        let source = Self { rcl_clock };
         source.set_ros_time_enable(true);
         source
     }
@@ -156,7 +156,7 @@ impl ClockSource {
     /// Sets the clock to use ROS Time, if enabled the clock will report the last value set through
     /// `Clock::set_ros_time_override(nanoseconds: i64)`.
     fn set_ros_time_enable(&self, enable: bool) {
-        let mut clock = self._rcl_clock.lock().unwrap();
+        let mut clock = self.rcl_clock.lock().unwrap();
         if enable {
             // SAFETY: Safe if clock jump callbacks are not edited, which is guaranteed
             // by the mutex
