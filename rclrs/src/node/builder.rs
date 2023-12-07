@@ -281,7 +281,7 @@ impl NodeBuilder {
         };
 
         let rcl_node_mtx = Arc::new(Mutex::new(rcl_node));
-        let _parameter = ParameterInterface::new(
+        let parameter = ParameterInterface::new(
             &rcl_node_mtx,
             &rcl_node_options.arguments,
             &rcl_context.global_arguments,
@@ -293,13 +293,13 @@ impl NodeBuilder {
             guard_conditions_mtx: Mutex::new(vec![]),
             services_mtx: Mutex::new(vec![]),
             subscriptions_mtx: Mutex::new(vec![]),
-            _time_source: TimeSource::builder(self.clock_type)
+            time_source: TimeSource::builder(self.clock_type)
                 .clock_qos(self.clock_qos)
                 .build(),
-            _parameter,
+            parameter,
         });
-        node._parameter.create_services(&node)?;
-        node._time_source.attach_node(&node);
+        node.time_source.attach_node(&node);
+        node.parameter.create_services(&node)?;
         Ok(node)
     }
 

@@ -69,8 +69,8 @@ pub struct Node {
     pub(crate) guard_conditions_mtx: Mutex<Vec<Weak<GuardCondition>>>,
     pub(crate) services_mtx: Mutex<Vec<Weak<dyn ServiceBase>>>,
     pub(crate) subscriptions_mtx: Mutex<Vec<Weak<dyn SubscriptionBase>>>,
-    _time_source: TimeSource,
-    _parameter: ParameterInterface,
+    time_source: TimeSource,
+    parameter: ParameterInterface,
     // Note: it's important to have those last since `drop` will be called in order of declaration
     // in the struct and both `TimeSource` and `ParameterInterface` contain subscriptions /
     // services that will fail to be dropped if the context or node is destroyed first.
@@ -105,7 +105,7 @@ impl Node {
 
     /// Returns the clock associated with this node.
     pub fn get_clock(&self) -> Clock {
-        self._time_source.get_clock()
+        self.time_source.get_clock()
     }
 
     /// Returns the name of the node.
@@ -401,16 +401,16 @@ impl Node {
         &'a self,
         name: impl Into<Arc<str>>,
     ) -> ParameterBuilder<'a, T> {
-        self._parameter.declare(name.into())
+        self.parameter.declare(name.into())
     }
 
     /// Enables usage of undeclared parameters for this node.
     ///
     /// Returns a [`Parameters`] struct that can be used to get and set all parameters.
     pub fn use_undeclared_parameters(&self) -> Parameters {
-        self._parameter.allow_undeclared();
+        self.parameter.allow_undeclared();
         Parameters {
-            interface: &self._parameter,
+            interface: &self.parameter,
         }
     }
 

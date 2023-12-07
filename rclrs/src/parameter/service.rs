@@ -52,10 +52,10 @@ impl ParameterService {
                                 ParameterDescriptor {
                                     name,
                                     type_: Default::default(),
-                                    description: storage.options._description.clone().into(),
+                                    description: storage.options.description.clone().into(),
                                     additional_constraints: storage
                                         .options
-                                        ._constraints
+                                        .constraints
                                         .clone()
                                         .into(),
                                     dynamic_typing: matches!(storage.kind, ParameterKind::Dynamic),

@@ -89,14 +89,13 @@ pub fn create_node(context: &Context, node_name: &str) -> Result<Arc<Node>, Rclr
     Node::new(context, node_name)
 }
 
-/// Creates a [`NodeBuilder`][1].
+/// Creates a [`NodeBuilder`].
 ///
-/// Convenience function equivalent to [`NodeBuilder::new()`][2] and [`Node::builder()`][3].
+/// Convenience function equivalent to [`NodeBuilder::new()`][1] and [`Node::builder()`][2].
 /// Please see that function's documentation.
 ///
-/// [1]: crate::NodeBuilder
-/// [2]: crate::NodeBuilder::new
-/// [3]: crate::Node::builder
+/// [1]: crate::NodeBuilder::new
+/// [2]: crate::Node::builder
 ///
 /// # Example
 /// ```
