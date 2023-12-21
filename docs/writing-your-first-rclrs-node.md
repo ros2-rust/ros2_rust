@@ -212,7 +212,7 @@ fn main() -> Result<(), rclrs::RclrsError> {
             republisher_other_thread.republish()?;
         }
     });
-    rclrs::spin(republisher.node)
+    rclrs::spin(Arc::clone(&republisher.node))
 }
 ```
 
