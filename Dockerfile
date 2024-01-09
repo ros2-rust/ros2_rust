@@ -1,4 +1,5 @@
-FROM ros:foxy as base
+ARG ROS_DISTRO=humble
+FROM ros:$ROS_DISTRO as base
 ARG DEBIAN_FRONTEND=noninteractive
 
 # Install dependencies
@@ -11,7 +12,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Rust and the cargo-ament-build plugin
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- --default-toolchain 1.63.0 -y
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- --default-toolchain 1.74.0 -y
 ENV PATH=/root/.cargo/bin:$PATH
 RUN cargo install cargo-ament-build
 

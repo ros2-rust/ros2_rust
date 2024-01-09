@@ -149,7 +149,7 @@ mod tests {
         .map(|x| x.to_string());
 
         let non_ros_args: Vec<String> = extract_non_ros_args(input_args).unwrap();
-        let expected = vec!["non-ros1", "non-ros2", "non-ros3"];
+        let expected = ["non-ros1", "non-ros2", "non-ros3"];
 
         if non_ros_args.len() != expected.len() {
             return Err(format!(

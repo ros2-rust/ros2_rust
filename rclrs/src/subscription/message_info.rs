@@ -27,7 +27,7 @@ use crate::rcl_bindings::*;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PublisherGid {
     /// Bytes identifying a publisher in the RMW implementation.
-    pub data: [u8; 24],
+    pub data: [u8; RMW_GID_STORAGE_SIZE],
     /// A string containing the RMW implementation's name.
     ///
     /// The `data` member only uniquely identifies the publisher within
@@ -80,7 +80,6 @@ pub struct MessageInfo {
     ///   received messages.
     ///   Those might have already been taken by other messages that were received in between or lost.
     ///   `psn2 - psn1 - 1 = 0` if and only if the messages were sent by the publisher consecutively.
-    #[cfg(all(not(ros_distro = "foxy"), not(ros_distro = "galactic")))]
     pub publication_sequence_number: u64,
     /// Sequence number of the received message set by the subscription.
     ///
@@ -98,7 +97,6 @@ pub struct MessageInfo {
     ///
     /// - `rsn2 > rsn1` (except in the case of a wrap around)
     /// - `rsn2 = rsn1 + 1` if and only if both messages were received consecutively.
-    #[cfg(all(not(ros_distro = "foxy"), not(ros_distro = "galactic")))]
     pub reception_sequence_number: u64,
     /// An identifier for the publisher that sent the message.
     pub publisher_gid: PublisherGid,
@@ -123,9 +121,7 @@ impl MessageInfo {
         Self {
             source_timestamp,
             received_timestamp,
-            #[cfg(all(not(ros_distro = "foxy"), not(ros_distro = "galactic")))]
             publication_sequence_number: rmw_message_info.publication_sequence_number,
-            #[cfg(all(not(ros_distro = "foxy"), not(ros_distro = "galactic")))]
             reception_sequence_number: rmw_message_info.reception_sequence_number,
             publisher_gid,
         }
@@ -136,7 +132,6 @@ impl MessageInfo {
 mod tests {
     use super::*;
 
-    #[cfg(all(not(ros_distro = "foxy"), not(ros_distro = "galactic")))]
     #[test]
     fn negative_durations() {
         let rmw_message_info = rmw_message_info_t {
@@ -145,7 +140,7 @@ mod tests {
             publication_sequence_number: 0,
             reception_sequence_number: 0,
             publisher_gid: rmw_gid_t {
-                data: [0; 24],
+                data: [0; RMW_GID_STORAGE_SIZE],
                 implementation_identifier: std::ptr::null(),
             },
             from_intra_process: false,

@@ -2,11 +2,12 @@ use rclrs::{
     Context, Node, NodeBuilder, RclrsError, TopicEndpointInfo, TopicNamesAndTypes,
     QOS_PROFILE_SYSTEM_DEFAULT,
 };
+use std::sync::Arc;
 use test_msgs::{msg, srv};
 
 struct TestGraph {
-    node1: Node,
-    node2: Node,
+    node1: Arc<Node>,
+    node2: Arc<Node>,
 }
 
 fn construct_test_graph(namespace: &str) -> Result<TestGraph, RclrsError> {
@@ -85,7 +86,7 @@ fn test_publishers() -> Result<(), RclrsError> {
 #[test]
 fn test_subscriptions() -> Result<(), RclrsError> {
     let namespace = "/test_subscriptions_graph";
-    let mut graph = construct_test_graph(namespace)?;
+    let graph = construct_test_graph(namespace)?;
 
     let node_2_empty_subscription = graph.node2.create_subscription::<msg::Empty, _>(
         "graph_test_topic_1",
@@ -149,7 +150,7 @@ fn test_subscriptions() -> Result<(), RclrsError> {
 
 #[test]
 fn test_topic_names_and_types() -> Result<(), RclrsError> {
-    let mut graph = construct_test_graph("test_topics_graph")?;
+    let graph = construct_test_graph("test_topics_graph")?;
 
     let _node_1_defaults_subscription = graph.node1.create_subscription::<msg::Defaults, _>(
         "graph_test_topic_3",
@@ -191,7 +192,7 @@ fn test_topic_names_and_types() -> Result<(), RclrsError> {
 #[test]
 fn test_services() -> Result<(), RclrsError> {
     let namespace = "/test_services_graph";
-    let mut graph = construct_test_graph(namespace)?;
+    let graph = construct_test_graph(namespace)?;
     let check_names_and_types = |names_and_types: TopicNamesAndTypes| {
         let types = names_and_types
             .get("/test_services_graph/graph_test_topic_4")
@@ -225,7 +226,7 @@ fn test_services() -> Result<(), RclrsError> {
 #[test]
 fn test_clients() -> Result<(), RclrsError> {
     let namespace = "/test_clients_graph";
-    let mut graph = construct_test_graph(namespace)?;
+    let graph = construct_test_graph(namespace)?;
     let _node_2_empty_client = graph
         .node2
         .create_client::<srv::Empty>("graph_test_topic_4")?;

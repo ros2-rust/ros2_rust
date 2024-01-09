@@ -2,7 +2,7 @@
 
 This is a more detailed guide on how to build ROS 2 packages written in Rust that expands on the minimal steps in the README.
 
-In this guide, the Foxy distribution of ROS 2 is used, but newer distributions can be used by simply replacing 'foxy' with the distribution name everywhere.
+In this guide, the Humble distribution of ROS 2 is used, but newer distributions can be used by simply replacing 'humble' with the distribution name everywhere.
 
 
 ## Choosing a workspace directory and cloning `ros2_rust`
@@ -24,7 +24,7 @@ git clone https://github.com/ros2-rust/ros2_rust.git src/ros2_rust
 
 ## Environment setup
 
-Building `rclrs` requires a standard [ROS 2 installation](https://docs.ros.org/en/foxy/Installation.html), and a few extensions.
+Building `rclrs` requires a standard [ROS 2 installation](https://docs.ros.org/en/humble/Installation.html), and a few extensions.
 These extensions are: `colcon-cargo`, `colcon-ros-cargo`, `cargo-ament-build`. The first two are `colcon` plugins, and the third is a `cargo` plugin.
 
 The `libclang` library is also required for automatically generating FFI bindings with `bindgen`. See the [`bindgen` docs](https://rust-lang.github.io/rust-bindgen/requirements.html) on how to install it. As a side note, on Ubuntu the `clang` package is not required, only the `libclang-dev` package.
@@ -41,7 +41,7 @@ The exact steps may differ between platforms, but as an example, here is how you
 <!--- These steps should be kept in sync with README.md --->
 ```shell
 # Install Rust, e.g. as described in https://rustup.rs/
-# Install ROS 2 as described in https://docs.ros.org/en/foxy/Installation.html
+# Install ROS 2 as described in https://docs.ros.org/en/humble/Installation.html
 # Assuming you installed the minimal version of ROS 2, you need these additional packages:
 sudo apt install -y git libclang-dev python3-pip python3-vcstool # libclang-dev is required by bindgen
 # Install these plugins for cargo and colcon:
@@ -56,7 +56,8 @@ Build the Docker image with
 
 ```shell
 # Make sure to run this in the workspace directory
-docker build -t ros2_rust_dev - < src/ros2_rust/Dockerfile
+# ROS_DISTRO can be humble|iron|rolling
+docker build -f src/ros2_rust/Dockerfile --build-arg "ROS_DISTRO=humble" -t ros2_rust_dev
 ```
 
 and then run it with
@@ -75,7 +76,7 @@ As you can see, this maps the workspace directory to `/workspace` inside the con
 
 ```shell
 # Make sure to run this in the workspace directory
-vcs import src < src/ros2_rust/ros2_rust_foxy.repos
+vcs import src < src/ros2_rust/ros2_rust_humble.repos
 ```
 
 This uses the [`vcs` tool](https://github.com/dirk-thomas/vcstool), which is preinstalled in the Docker image.
@@ -87,13 +88,13 @@ The list of needed repositories should very rarely change, so you typically only
 ### Sourcing the ROS 2 installation
 
 Before building, the ROS 2 installation, and ideally _only_ the ROS 2 installation, should be sourced.
-Sourcing an installation populates a few environment variables such as `$AMENT_PREFIX_PATH`, so if you are not sure, you can check that the `$AMENT_PREFIX_PATH` environment variable contains the ROS 2 installation, e.g. `/opt/ros/foxy`.
+Sourcing an installation populates a few environment variables such as `$AMENT_PREFIX_PATH`, so if you are not sure, you can check that the `$AMENT_PREFIX_PATH` environment variable contains the ROS 2 installation, e.g. `/opt/ros/humble`.
 
 In the pre-made Docker image, sourcing is already done for you. Otherwise, if `$AMENT_PREFIX_PATH` is empty, you need to source the ROS 2 installation yourself:
 
 ```shell
-# You can also do `source /opt/ros/foxy/setup.bash` in bash
-. /opt/ros/foxy/setup.sh
+# You can also do `source /opt/ros/humble/setup.bash` in bash
+. /opt/ros/humble/setup.sh
 ````
 
 If `$AMENT_PREFIX_PATH` contains undesired paths, exit and reopen your shell. If the problem persists, it's probably because of a sourcing command in your `~/.bashrc` or similar.

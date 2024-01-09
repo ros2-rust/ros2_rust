@@ -5,7 +5,7 @@ use anyhow::{Error, Result};
 fn main() -> Result<(), Error> {
     let context = rclrs::Context::new(env::args())?;
 
-    let mut node = rclrs::create_node(&context, "minimal_client")?;
+    let node = rclrs::create_node(&context, "minimal_client")?;
 
     let client = node.create_client::<example_interfaces::srv::AddTwoInts>("add_two_ints")?;
 
@@ -13,7 +13,9 @@ fn main() -> Result<(), Error> {
 
     println!("Starting client");
 
-    std::thread::sleep(std::time::Duration::from_millis(500));
+    while !client.service_is_ready()? {
+        std::thread::sleep(std::time::Duration::from_millis(10));
+    }
 
     client.async_send_request_with_callback(
         &request,
@@ -28,5 +30,5 @@ fn main() -> Result<(), Error> {
     std::thread::sleep(std::time::Duration::from_millis(500));
 
     println!("Waiting for response");
-    rclrs::spin(&node).map_err(|err| err.into())
+    rclrs::spin(node).map_err(|err| err.into())
 }

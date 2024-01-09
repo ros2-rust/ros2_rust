@@ -2,24 +2,28 @@ repositories:
   ros2/common_interfaces:
     type: git
     url: https://github.com/ros2/common_interfaces.git
-    version: foxy
+    version: iron
   ros2/example_interfaces:
     type: git
     url: https://github.com/ros2/example_interfaces.git
-    version: foxy
+    version: iron
   ros2/rcl_interfaces:
     type: git
     url: https://github.com/ros2/rcl_interfaces.git
-    version: foxy
+    version: iron
   ros2/test_interface_files:
     type: git
     url: https://github.com/ros2/test_interface_files.git
-    version: foxy
+    version: iron
+  ros2/rosidl_core:
+    type: git
+    url: https://github.com/ros2/rosidl_core.git
+    version: iron
   ros2/rosidl_defaults:
     type: git
     url: https://github.com/ros2/rosidl_defaults.git
-    version: foxy
+    version: iron
   ros2/unique_identifier_msgs:
     type: git
     url: https://github.com/ros2/unique_identifier_msgs.git
-    version: foxy
+    version: iron

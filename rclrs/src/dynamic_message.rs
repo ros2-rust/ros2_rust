@@ -11,10 +11,6 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use rosidl_runtime_rs::RmwMessage;
-
-#[cfg(any(ros_distro = "foxy", ros_distro = "galactic"))]
-use crate::rcl_bindings::rosidl_typesupport_introspection_c__MessageMembers as rosidl_message_members_t;
-#[cfg(all(not(ros_distro = "foxy"), not(ros_distro = "galactic")))]
 use crate::rcl_bindings::rosidl_typesupport_introspection_c__MessageMembers_s as rosidl_message_members_t;
 use crate::rcl_bindings::*;
 
@@ -96,7 +92,7 @@ fn get_type_support_library(
     let ament = ament_rs::Ament::new().map_err(|_| RequiredPrefixNotSourced {
         package: package_name.to_owned(),
     })?;
-    let prefix = PathBuf::from(ament.find_package(&package_name).ok_or(
+    let prefix = PathBuf::from(ament.find_package(package_name).ok_or(
         RequiredPrefixNotSourced {
             package: package_name.to_owned(),
         },
