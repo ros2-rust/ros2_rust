@@ -1,0 +1,86 @@
+// Taken and slightly adapted from
+// https://github.com/ros2/rosidl/blob/iron/rosidl_parser/test/msg/MyMessage.idl
+
+module rclrs_example_msgs {
+  module msg {
+    module MyMessage_Constants {
+      const short SHORT_CONSTANT = -23;
+      const unsigned long UNSIGNED_LONG_CONSTANT = 42;
+      const float FLOAT_CONSTANT = 1.25;
+      const boolean BOOLEAN_CONSTANT = TRUE;
+      const string STRING_CONSTANT = "string_value";
+      const wstring WSTRING_CONSTANT = "wstring_value_\u2122";
+      const string EMPTY_STRING_CONSTANT = "";
+    };
+
+    @verbatim ( language="comment", text="Documentation of MyMessage." "Adjacent string literal." )
+    @transfer_mode(SHMEM_REF)
+    struct MyMessage {
+      short short_value, short_value2;
+      @default ( value=123 )
+      unsigned short unsigned_short_value;
+      @key
+      @range ( min=-10, max=10 )
+      long long_value;
+      @verbatim (language="comment", text="")
+      unsigned long unsigned_long_value;
+      long long long_long_value;
+      unsigned long long unsigned_long_long_value;
+      float float_value;
+      double double_value;
+//      long double long_double_value;
+      char char_value;
+      wchar wchar_value;
+      boolean boolean_value;
+      octet octet_value;
+      int8 int8_value;
+      uint8 uint8_value;
+      int16 int16_value;
+      uint16 uint16_value;
+      int32 int32_value;
+      uint32 uint32_value;
+      int64 int64_value;
+      uint64 uint64_value;
+      string string_value;
+      string<5> bounded_string_value;
+      wstring wstring_value;
+      wstring<23> bounded_wstring_value;
+//      wstring<UNSIGNED_LONG_CONSTANT> constant_bounded_wstring_value;
+      sequence<short> unbounded_short_values;
+      sequence<short, 5> bounded_short_values;
+      sequence<string<3>> unbounded_values_of_bounded_strings;
+      sequence<string<3>, 4> bounded_values_of_bounded_strings;
+      short array_short_values[23];
+
+      // Tests of the floating point parser (7.2.6.4)
+      @default ( value=1.9e10 )
+      float int_and_frac_with_positive_scientific;
+      @default ( value=1.9e+10 )
+      float int_and_frac_with_explicit_positive_scientific;
+      @default ( value=1.1e-10)
+      float int_and_frac_with_negative_scientific;
+      @default ( value=0.00009 )
+      float int_and_frac;
+      @default ( value = 1. )
+      float int_with_empty_frac;
+      @default ( value = .1 )
+      float frac_only;
+      @default ( value=9e05 )
+      float int_with_positive_scientific;
+      @default ( value=9e+05 )
+      float int_with_explicit_positive_scientific;
+      @default ( value=9e-05 )
+      float int_with_negative_scientific;
+
+      // Tests of the fixed point parser (7.2.6.5)
+      @default ( value=8.7d )
+      float fixed_int_and_frac;
+      @default ( value=4.d )
+      float fixed_int_with_dot_only;
+      @default ( value=.3d )
+      float fixed_frac_only;
+      @default ( value=7d )
+      float fixed_int_only;
+    };
+  };
+};
