@@ -99,10 +99,13 @@ mod tests {
 
     #[test]
     fn test_conversion() {
+        let clock = Clock::system();
+        let t1 = clock.now();
         let time = Time {
             nsec: 1_000_000_100,
+            clock: t1.clock.clone(),
         };
-        let msg = time.to_msg().unwrap();
+        let msg = time.to_ros_msg().unwrap();
         assert_eq!(msg.nanosec, 100);
         assert_eq!(msg.sec, 1);
     }
