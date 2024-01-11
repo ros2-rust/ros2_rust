@@ -1,8 +1,8 @@
 use crate::rcl_bindings::*;
+use std::num::TryFromIntError;
 use std::ops::{Add, Sub};
 use std::sync::{Mutex, Weak};
 use std::time::Duration;
-use std::num::TryFromIntError;
 
 /// Struct that represents time.
 #[derive(Clone, Debug)]
@@ -12,7 +12,6 @@ pub struct Time {
     /// Weak reference to the clock that generated this time
     pub clock: Weak<Mutex<rcl_clock_t>>,
 }
-
 
 impl Time {
     /// Compares self to rhs, if they can be compared (originated from the same clock) calls f with
@@ -29,11 +28,11 @@ impl Time {
     /// Convenience function for converting time to ROS message
     pub fn to_ros_msg(&self) -> Result<builtin_interfaces::msg::Time, TryFromIntError> {
         let nanosec = self.nsec % 1_000_000_000;
-        let sec = self.nsec /  1_000_000_000;
+        let sec = self.nsec / 1_000_000_000;
 
         Ok(builtin_interfaces::msg::Time {
             nanosec: nanosec.try_into()?,
-            sec: sec.try_into()?
+            sec: sec.try_into()?,
         })
     }
 }
@@ -100,7 +99,9 @@ mod tests {
 
     #[test]
     fn test_conversion() {
-        let time = Time {nsec: 1_000_000_100};
+        let time = Time {
+            nsec: 1_000_000_100,
+        };
         let msg = time.to_msg().unwrap();
         assert_eq!(msg.nanosec, 100);
         assert_eq!(msg.sec, 1);
