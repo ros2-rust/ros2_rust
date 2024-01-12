@@ -48,5 +48,3 @@ generate_docs = ["rosidl_runtime_rs/generate_docs"]
 
 [package.metadata.docs.rs]
 features = ["generate_docs"]
-
-
