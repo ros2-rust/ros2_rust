@@ -154,7 +154,7 @@ The node still doesn't republish the received messages. First, let's add a publi
 
 ```rust
 // Add this new field to the RepublisherNode struct, after the subscription:
-publisher: rclrs::Publisher<StringMsg>,
+publisher: Arc<rclrs::Publisher<StringMsg>>,
 
 // Change the end of RepublisherNode::new() to this:
 let publisher = node.create_publisher("out_topic", rclrs::QOS_PROFILE_DEFAULT)?;
