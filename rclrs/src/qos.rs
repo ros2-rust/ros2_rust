@@ -179,6 +179,12 @@ pub struct QoSProfile {
     pub avoid_ros_namespace_conventions: bool,
 }
 
+impl Default for QoSProfile {
+    fn default() -> Self {
+        QOS_PROFILE_DEFAULT
+    }
+}
+
 impl From<QoSProfile> for rmw_qos_profile_t {
     fn from(qos: QoSProfile) -> Self {
         Self {
@@ -196,6 +202,44 @@ impl From<QoSProfile> for rmw_qos_profile_t {
             liveliness_lease_duration: qos.liveliness_lease_duration.into(),
             avoid_ros_namespace_conventions: qos.avoid_ros_namespace_conventions,
         }
+    }
+}
+
+impl QoSProfile {
+    /// Sets the QoS profile history to [QoSHistoryPolicy::KeepLast] with the specified depth.
+    pub fn keep_last(mut self, depth: u32) -> Self {
+        self.history = QoSHistoryPolicy::KeepLast { depth };
+        self
+    }
+
+    /// Sets the QoS profile history to [QoSHistoryPolicy::KeepAll].
+    pub fn keep_all(mut self) -> Self {
+        self.history = QoSHistoryPolicy::KeepAll;
+        self
+    }
+
+    /// Sets the QoS profile reliability to [QoSReliabilityPolicy::Reliable].
+    pub fn reliable(mut self) -> Self {
+        self.reliability = QoSReliabilityPolicy::Reliable;
+        self
+    }
+
+    /// Sets the QoS profile reliability to [QoSReliabilityPolicy::BestEffort].
+    pub fn best_effort(mut self) -> Self {
+        self.reliability = QoSReliabilityPolicy::BestEffort;
+        self
+    }
+
+    /// Sets the QoS profile durability to [QoSDurabilityPolicy::Volatile].
+    pub fn volatile(mut self) -> Self {
+        self.durability = QoSDurabilityPolicy::Volatile;
+        self
+    }
+
+    /// Sets the QoS profile durability to [QoSDurabilityPolicy::TransientLocal].
+    pub fn transient_local(mut self) -> Self {
+        self.durability = QoSDurabilityPolicy::TransientLocal;
+        self
     }
 }
 
