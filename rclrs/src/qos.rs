@@ -241,6 +241,24 @@ impl QoSProfile {
         self.durability = QoSDurabilityPolicy::TransientLocal;
         self
     }
+
+    /// Sets the QoS profile deadline to the specified `Duration`.
+    pub fn deadline(mut self, deadline: Duration) -> Self {
+        self.deadline = QoSDuration::Custom(deadline);
+        self
+    }
+
+    /// Sets the QoS profile liveliness lease duration to the specified `Duration`.
+    pub fn liveliness_lease_duration(mut self, lease_duration: Duration) -> Self {
+        self.liveliness_lease_duration = QoSDuration::Custom(lease_duration);
+        self
+    }
+
+    /// Sets the QoS profile lifespan to the specified `Duration`.
+    pub fn lifespan(mut self, lifespan: Duration) -> Self {
+        self.lifespan = QoSDuration::Custom(lifespan);
+        self
+    }
 }
 
 impl From<QoSHistoryPolicy> for rmw_qos_history_policy_t {
