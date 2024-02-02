@@ -179,6 +179,7 @@ pub struct QoSProfile {
     pub avoid_ros_namespace_conventions: bool,
 }
 
+/// Sets the `QoSProfile` to the RCL default.
 impl Default for QoSProfile {
     fn default() -> Self {
         QOS_PROFILE_DEFAULT
