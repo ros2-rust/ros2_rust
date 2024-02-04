@@ -10,7 +10,7 @@ mod serde;
 use crate::sequence::Sequence;
 use crate::traits::SequenceAlloc;
 
-/// A zero-terminated string of 8-bit characters.
+/// A zero-terminated UTF-8 string.
 ///
 /// The layout of this type is the same as `rosidl_runtime_c__String`. See the
 /// [`Message`](crate::Message) trait for background information on this topic.
@@ -34,7 +34,7 @@ pub struct String {
     capacity: usize,
 }
 
-/// A zero-terminated string of 16-bit characters.
+/// A zero-terminated UTF-16 string.
 ///
 /// The layout of this type is the same as `rosidl_runtime_c__U16String`. See the
 /// [`Message`](crate::Message) trait for background information on this topic.
@@ -50,15 +50,15 @@ pub struct String {
 /// ```
 #[repr(C)]
 pub struct WString {
-    data: *mut std::os::raw::c_ushort,
+    data: *mut u16,
     size: usize,
     capacity: usize,
 }
 
-/// A zero-terminated string of 8-bit characters with a length limit.
+/// A zero-terminated UTF-8 string with a length limit.
 ///
 /// The same as [`String`], but it cannot be constructed from a string that is too large.
-/// The length is measured as the number of Unicode scalar values, not bytes.
+/// The length is measured as the number of bytes.
 ///
 /// # Example
 ///
@@ -77,10 +77,10 @@ pub struct BoundedString<const N: usize> {
     inner: String,
 }
 
-/// A zero-terminated string of 16-bit characters with a length limit.
+/// A zero-terminated UTF-16 string with a length limit.
 ///
 /// The same as [`WString`], but it cannot be constructed from a string that is too large.
-/// The length is measured as the number of Unicode scalar values, not bytes.
+/// The length is measured as the number of 16-bit words.
 ///
 /// # Example
 ///
@@ -290,7 +290,7 @@ string_impl!(
 );
 string_impl!(
     WString,
-    std::os::raw::c_ushort,
+    u16,
     u16,
     from_utf16_lossy,
     rosidl_runtime_c__U16String__init,
@@ -406,7 +406,7 @@ impl<const N: usize> SequenceAlloc for BoundedString<N> {
 impl<const N: usize> TryFrom<&str> for BoundedString<N> {
     type Error = StringExceedsBoundsError;
     fn try_from(s: &str) -> Result<Self, Self::Error> {
-        let length = s.chars().count();
+        let length = s.len();
         if length <= N {
             Ok(Self {
                 inner: String::from(s),
@@ -472,14 +472,12 @@ impl<const N: usize> SequenceAlloc for BoundedWString<N> {
 impl<const N: usize> TryFrom<&str> for BoundedWString<N> {
     type Error = StringExceedsBoundsError;
     fn try_from(s: &str) -> Result<Self, Self::Error> {
-        let length = s.chars().count();
-        if length <= N {
-            Ok(Self {
-                inner: WString::from(s),
-            })
+        let inner = WString::from(s);
+        if inner.size <= N {
+            Ok(Self { inner })
         } else {
             Err(StringExceedsBoundsError {
-                len: length,
+                len: inner.size,
                 upper_bound: N,
             })
         }
