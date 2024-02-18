@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!-- UDPv4 is more reliable for unit tests than shared memory, which is the default. Force the transport to be UDPv4. -->
+<!-- For this file to be used, FastDDS needs to be the DDS provider. There is no rmw API to do this. -->
+<!-- https://fast-dds.docs.eprosima.com/en/v2.13.2/fastdds/xml_configuration/xml_configuration.html -->
+<!-- https://fast-dds.docs.eprosima.com/en/v2.13.2/fastdds/transport/udp/udp.html#enabling-udp-transport -->
+
+<dds>
+    <profiles xmlns="http://www.eprosima.com/XMLSchemas/fastRTPS_Profiles">
+        <transport_descriptors>
+            <transport_descriptor>
+                <transport_id>udp_transport</transport_id>
+                <type>UDPv4</type>
+                <sendBufferSize>9216</sendBufferSize>
+                <receiveBufferSize>9216</receiveBufferSize>
+                <non_blocking_send>true</non_blocking_send>
+                <default_reception_threads>
+                    <scheduling_policy>2</scheduling_policy>
+                    <priority>2</priority>
+                    <affinity>2</affinity>
+                    <stack_size>2</stack_size>
+                </default_reception_threads>
+                <reception_threads>
+                    <reception_thread port="12345">
+                        <scheduling_policy>3</scheduling_policy>
+                        <priority>3</priority>
+                        <affinity>3</affinity>
+                        <stack_size>3</stack_size>
+                    </reception_thread>
+                </reception_threads>
+            </transport_descriptor>
+        </transport_descriptors>
+
+        <participant profile_name="UDPParticipant">
+            <rtps>
+                <userTransports>
+                    <transport_id>udp_transport</transport_id>
+                </userTransports>
+                <useBuiltinTransports>false</useBuiltinTransports>
+            </rtps>
+        </participant>
+    </profiles>
+<dds>
