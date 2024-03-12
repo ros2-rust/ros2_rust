@@ -12,9 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-find_package(rmw_implementation_cmake REQUIRED)
-find_package(rmw REQUIRED)
-
 if(NOT WIN32)
   if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,--no-undefined")
@@ -23,17 +20,8 @@ if(NOT WIN32)
   endif()
 endif()
 
-# Get a list of typesupport implementations from valid rmw implementations.
-rosidl_generator_rs_get_typesupports(_typesupport_impls)
-
-if(_typesupport_impls STREQUAL "")
-  message(WARNING "No valid typesupport for Rust generator. Rust messages will not be generated.")
-  return()
-endif()
-
 set(_output_path
   "${CMAKE_CURRENT_BINARY_DIR}/rosidl_generator_rs/${PROJECT_NAME}")
-set(_generated_extension_files "")
 set(_generated_common_rs_files "")
 
 set(_generated_msg_rs_files "")
@@ -41,10 +29,6 @@ set(_generated_srv_rs_files "")
 
 set(_has_msg FALSE)
 set(_has_srv FALSE)
-
-foreach(_typesupport_impl ${_typesupport_impls})
-  set(_generated_extension_${_typesupport_impl}_files "")
-endforeach()
 
 foreach(_idl_file ${rosidl_generate_interfaces_ABS_IDL_FILES})
   get_filename_component(_parent_folder "${_idl_file}" DIRECTORY)
@@ -75,22 +59,12 @@ if(${_has_msg})
   list(APPEND _generated_msg_rs_files
     "${_output_path}/rust/src/msg.rs"
   )
-
-  foreach(_typesupport_impl ${_typesupport_impls})
-    list_append_unique(_generated_extension_${_typesupport_impl}_files "${_output_path}/msg_rs.ep.${_typesupport_impl}.c")
-    list_append_unique(_generated_extension_files "${_generated_extension_${_typesupport_impl}_files}")
-  endforeach()
 endif()
 
 if(${_has_srv})
   list(APPEND _generated_srv_rs_files
     "${_output_path}/rust/src/srv.rs"
   )
-
-  foreach(_typesupport_impl ${_typesupport_impls})
-    list_append_unique(_generated_extension_${_typesupport_impl}_files "${_output_path}/srv_rs.ep.${_typesupport_impl}.c")
-    list_append_unique(_generated_extension_files "${_generated_extension_${_typesupport_impl}_files}")
-  endforeach()
 endif()
 
 set(_dependency_files "")
@@ -156,23 +130,18 @@ add_dependencies(${rosidl_generate_interfaces_TARGET} ${rosidl_generate_interfac
 
 set_property(
   SOURCE
-  ${_generated_extension_files}
   ${_generated_common_rs_files}
   ${_generated_msg_rs_files}
   ${_generated_srv_rs_files}
   PROPERTY GENERATED 1)
 
 set(_rsext_suffix "__rsext")
-foreach(_typesupport_impl ${_typesupport_impls})
-  find_package(${_typesupport_impl} REQUIRED)
-
-  if(NOT rosidl_generate_interfaces_SKIP_INSTALL)
-    install(
-      DIRECTORY "${_output_path}/rust"
-      DESTINATION "share/${PROJECT_NAME}"
-    )
-  endif()
-endforeach()
+if(NOT rosidl_generate_interfaces_SKIP_INSTALL)
+  install(
+    DIRECTORY "${_output_path}/rust"
+    DESTINATION "share/${PROJECT_NAME}"
+  )
+endif()
 
 if(BUILD_TESTING AND rosidl_generate_interfaces_ADD_LINTER_TESTS)
   if(
