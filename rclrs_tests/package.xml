@@ -12,7 +12,6 @@
   <depend>test_msgs</depend>
   <depend>rclrs</depend>
   <depend>rosidl_runtime_rs</depend>
-  <depend>rcl</depend>
 
   <export>
     <build_type>ament_cargo</build_type>
