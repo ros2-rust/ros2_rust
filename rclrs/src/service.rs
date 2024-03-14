@@ -47,7 +47,7 @@ pub trait ServiceBase: Send + Sync {
 }
 
 type ServiceCallback<Request, Response> =
-    Box<dyn Fn(&rmw_request_id_t, Request) -> Response + 'static + Send>;
+    Box<dyn FnMut(&rmw_request_id_t, Request) -> Response + 'static + Send>;
 
 /// Main class responsible for responding to requests sent by ROS clients.
 ///
@@ -79,7 +79,7 @@ where
     // [`Node::create_service`], see the struct's documentation for the rationale
     where
         T: rosidl_runtime_rs::Service,
-        F: Fn(&rmw_request_id_t, T::Request) -> T::Response + 'static + Send,
+        F: FnMut(&rmw_request_id_t, T::Request) -> T::Response + 'static + Send,
     {
         // SAFETY: Getting a zero-initialized value is always safe.
         let mut rcl_service = unsafe { rcl_get_zero_initialized_service() };

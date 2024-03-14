@@ -270,7 +270,7 @@ impl Node {
     ) -> Result<Arc<Service<T>>, RclrsError>
     where
         T: rosidl_runtime_rs::Service,
-        F: Fn(&rmw_request_id_t, T::Request) -> T::Response + 'static + Send,
+        F: FnMut(&rmw_request_id_t, T::Request) -> T::Response + 'static + Send,
     {
         let service = Arc::new(Service::<T>::new(
             Arc::clone(&self.rcl_node_mtx),
