@@ -18,7 +18,7 @@ fn main() -> Result<(), Error> {
     let node = rclrs::create_node(&context, "minimal_service")?;
 
     let _server = node
-        .create_service::<example_interfaces::srv::AddTwoInts, _>("add_two_ints", handle_service)?;
+        .create_service::<example_interfaces::srv::AddTwoInts>("add_two_ints", handle_service)?;
 
     println!("Starting server");
     rclrs::spin(node).map_err(|err| err.into())

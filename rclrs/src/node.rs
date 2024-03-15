@@ -263,14 +263,13 @@ impl Node {
     ///
     /// [1]: crate::Service
     // TODO: make service's lifetime depend on node's lifetime
-    pub fn create_service<T, F>(
+    pub fn create_service<T>(
         &self,
         topic: &str,
-        callback: F,
+        callback: impl FnMut(&rmw_request_id_t, T::Request) -> T::Response + 'static + Send,
     ) -> Result<Arc<Service<T>>, RclrsError>
     where
         T: rosidl_runtime_rs::Service,
-        F: FnMut(&rmw_request_id_t, T::Request) -> T::Response + 'static + Send,
     {
         let service = Arc::new(Service::<T>::new(
             Arc::clone(&self.rcl_node_mtx),
