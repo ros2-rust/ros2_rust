@@ -266,6 +266,25 @@ impl Node {
     pub fn create_service<T>(
         &self,
         topic: &str,
+        mut callback: impl FnMut(T::Request) -> T::Response + 'static + Send,
+    ) -> Result<Arc<Service<T>>, RclrsError>
+    where
+        T: rosidl_runtime_rs::Service,
+    {
+        let callback =
+            move |_request_header: &rmw_request_id_t, request: T::Request| callback(request);
+        self.create_service_with_header(topic, callback)
+    }
+
+    /// Creates a [`Service`][1]. Same as [`create_service`][2] but the callback
+    /// also has access to the ID of the service request.
+    ///
+    /// [1]: crate::Service
+    /// [2]: Self::create_service
+    // TODO: make service's lifetime depend on node's lifetime
+    pub fn create_service_with_header<T>(
+        &self,
+        topic: &str,
         callback: impl FnMut(&rmw_request_id_t, T::Request) -> T::Response + 'static + Send,
     ) -> Result<Arc<Service<T>>, RclrsError>
     where

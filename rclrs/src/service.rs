@@ -51,11 +51,13 @@ type ServiceCallback<Request, Response> =
 
 /// Main class responsible for responding to requests sent by ROS clients.
 ///
-/// The only available way to instantiate services is via [`Node::create_service()`][1], this is to
-/// ensure that [`Node`][2]s can track all the services that have been created.
+/// The only available way to instantiate services is via [`Node::create_service()`][1] and
+/// [`Node::create_service_with_header()`][2], this is to
+/// ensure that [`Node`][3]s can track all the services that have been created.
 ///
 /// [1]: crate::Node::create_service
-/// [2]: crate::Node
+/// [2]: crate::Node::create_service_with_header
+/// [3]: crate::Node
 pub struct Service<T>
 where
     T: rosidl_runtime_rs::Service,

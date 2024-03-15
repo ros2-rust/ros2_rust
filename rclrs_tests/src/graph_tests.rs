@@ -203,7 +203,7 @@ fn test_services() -> Result<(), RclrsError> {
     let _node_1_empty_service =
         graph
             .node1
-            .create_service::<srv::Empty>("graph_test_topic_4", |_, _| srv::Empty_Response {
+            .create_service::<srv::Empty>("graph_test_topic_4", |_| srv::Empty_Response {
                 structure_needs_at_least_one_member: 0,
             })?;
     let _node_2_empty_client = graph
