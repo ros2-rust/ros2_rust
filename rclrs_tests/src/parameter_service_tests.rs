@@ -1,4 +1,3 @@
-//use rcl_interfaces::msg::rmw::*;
 use rcl_interfaces::msg::rmw::{
     Parameter as RmwParameter, ParameterType, ParameterValue as RmwParameterValue,
 };
