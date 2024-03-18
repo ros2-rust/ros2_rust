@@ -65,14 +65,17 @@ unsafe impl Send for rcl_node_t {}
 /// [3]: crate::NodeBuilder::new
 /// [4]: crate::NodeBuilder::namespace
 pub struct Node {
-    pub(crate) rcl_node_mtx: Arc<Mutex<rcl_node_t>>,
-    pub(crate) rcl_context_mtx: Arc<Mutex<rcl_context_t>>,
     pub(crate) clients_mtx: Mutex<Vec<Weak<dyn ClientBase>>>,
     pub(crate) guard_conditions_mtx: Mutex<Vec<Weak<GuardCondition>>>,
     pub(crate) services_mtx: Mutex<Vec<Weak<dyn ServiceBase>>>,
     pub(crate) subscriptions_mtx: Mutex<Vec<Weak<dyn SubscriptionBase>>>,
     time_source: TimeSource,
     parameter: ParameterInterface,
+    // Note: it's important to have those last since `drop` will be called in order of declaration
+    // in the struct and both `TimeSource` and `ParameterInterface` contain subscriptions /
+    // services that will fail to be dropped if the context or node is destroyed first.
+    pub(crate) rcl_node_mtx: Arc<Mutex<rcl_node_t>>,
+    pub(crate) rcl_context_mtx: Arc<Mutex<rcl_context_t>>,
 }
 
 impl Eq for Node {}
