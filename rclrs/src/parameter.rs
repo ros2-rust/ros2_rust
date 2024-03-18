@@ -492,7 +492,7 @@ pub(crate) struct ParameterMap {
 impl ParameterMap {
     /// Validates the requested parameter setting and returns an error if the requested value is
     /// not valid.
-    pub(crate) fn validate_parameter_setting(
+    fn validate_parameter_setting(
         &self,
         name: &str,
         value: RmwParameterValue,

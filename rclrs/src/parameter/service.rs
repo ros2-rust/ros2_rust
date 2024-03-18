@@ -43,14 +43,14 @@ impl ParameterService {
                     .names
                     .into_iter()
                     .map(|name| {
-                        // TODO(luca) Remove conversion to string and implement Borrow
-                        let storage = map.storage.get(name.to_cstr().to_str().unwrap())?;
+                        let name = name.to_cstr().to_str().ok()?;
+                        let storage = map.storage.get(name)?;
                         let mut descriptor = match storage {
                             ParameterStorage::Declared(storage) => {
                                 let (integer_range, floating_point_range) =
                                     storage.options.ranges.to_descriptor_ranges();
                                 ParameterDescriptor {
-                                    name,
+                                    name: name.into(),
                                     type_: Default::default(),
                                     description: storage.options.description.clone().into(),
                                     additional_constraints: storage
@@ -65,7 +65,7 @@ impl ParameterService {
                                 }
                             }
                             ParameterStorage::Undeclared(_) => ParameterDescriptor {
-                                name,
+                                name: name.into(),
                                 dynamic_typing: true,
                                 ..Default::default()
                             },
@@ -88,10 +88,8 @@ impl ParameterService {
                     .names
                     .into_iter()
                     .map(|name| {
-                        // TODO(luca) Remove conversion to string and implement Borrow
-                        map.storage
-                            .get(name.to_cstr().to_str().unwrap())
-                            .map(|s| s.to_parameter_type())
+                        let name = name.to_cstr().to_str().ok()?;
+                        map.storage.get(name).map(|s| s.to_parameter_type())
                     })
                     .collect::<Option<_>>()
                     .unwrap_or_default();
@@ -107,9 +105,8 @@ impl ParameterService {
                     .names
                     .into_iter()
                     .map(|name| {
-                        // TODO(luca) Remove conversion to string and implement Borrow
-                        let storage = map.storage.get(name.to_cstr().to_str().unwrap())?;
-                        match storage {
+                        let name = name.to_cstr().to_str().ok()?;
+                        match map.storage.get(name)? {
                             ParameterStorage::Declared(storage) => match &storage.value {
                                 DeclaredValue::Mandatory(v) => {
                                     Some(v.read().unwrap().clone().into())
@@ -160,7 +157,7 @@ impl ParameterService {
                                 let mut prefix = prefix.clone();
                                 prefix.extend(".".chars());
                                 if name.len() > prefix.len()
-                                    && name[0..prefix.len()] == prefix[0..]
+                                    && name.starts_with(&prefix)
                                     && check_parameter_name_depth(&name[prefix.len()..])
                                 {
                                     return true;
@@ -176,12 +173,10 @@ impl ParameterService {
                         let name = name.to_string();
                         if let Some(pos) = name.rfind('.') {
                             return Some(name[0..pos].into());
-                            //return Some(name[0..pos].iter().map(|c| *c as char).collect());
                         }
                         None
                     })
                     .collect();
-                // TODO(luca) populate prefixes in result
                 ListParameters_Response {
                     result: ListParametersResult {
                         names,
@@ -199,20 +194,25 @@ impl ParameterService {
                     .parameters
                     .into_iter()
                     .map(|param| {
-                        let name = param.name.to_cstr().to_str().unwrap();
-                        let value = map.validate_parameter_setting(name, param.value)?;
-                        map.store_parameter(name.into(), value);
-                        Ok(())
-                    })
-                    .map(|res| match res {
-                        Ok(()) => SetParametersResult {
-                            successful: true,
-                            reason: Default::default(),
-                        },
-                        Err(e) => SetParametersResult {
-                            successful: false,
-                            reason: e,
-                        },
+                        let Ok(name) = param.name.to_cstr().to_str() else {
+                            return SetParametersResult {
+                                successful: false,
+                                reason: "Failed parsing into UTF-8".into(),
+                            };
+                        };
+                        match map.validate_parameter_setting(name, param.value) {
+                            Ok(value) => {
+                                map.store_parameter(name.into(), value);
+                                SetParametersResult {
+                                    successful: true,
+                                    reason: Default::default(),
+                                }
+                            }
+                            Err(e) => SetParametersResult {
+                                successful: false,
+                                reason: e.into(),
+                            },
+                        }
                     })
                     .collect();
                 SetParameters_Response { results }
@@ -226,7 +226,9 @@ impl ParameterService {
                     .parameters
                     .into_iter()
                     .map(|param| {
-                        let name = param.name.to_cstr().to_str().unwrap();
+                        let Ok(name) = param.name.to_cstr().to_str() else {
+                            return Err("Failed parsing into UTF-8".into());
+                        };
                         let value = map.validate_parameter_setting(name, param.value)?;
                         Ok((name.into(), value))
                     })

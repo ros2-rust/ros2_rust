@@ -369,7 +369,6 @@ impl From<ParameterValue> for RmwParameterValue {
             },
             ParameterValue::StringArray(v) => RmwParameterValue {
                 type_: ParameterType::PARAMETER_STRING_ARRAY,
-                // TODO(luca) check if there is a more efficient way to perform this conversion
                 string_array_value: v
                     .iter()
                     .map(|v| v.clone().into())
