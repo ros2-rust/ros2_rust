@@ -504,7 +504,7 @@ impl ParameterMap {
             Some(entry) => {
                 if let ParameterStorage::Declared(storage) = entry {
                     if std::mem::discriminant(&storage.kind)
-                        == std::mem::discriminant(&value.static_kind())
+                        == std::mem::discriminant(&value.kind())
                         || matches!(storage.kind, ParameterKind::Dynamic)
                     {
                         if !storage.options.ranges.in_range(&value) {
@@ -538,7 +538,7 @@ impl ParameterMap {
                 ParameterStorage::Declared(storage) => match &storage.value {
                     DeclaredValue::Mandatory(p) => *p.write().unwrap() = value,
                     DeclaredValue::Optional(p) => *p.write().unwrap() = Some(value),
-                    DeclaredValue::ReadOnly(_) => {}
+                    DeclaredValue::ReadOnly(_) => unreachable!(),
                 },
                 ParameterStorage::Undeclared(param) => {
                     *param = value;

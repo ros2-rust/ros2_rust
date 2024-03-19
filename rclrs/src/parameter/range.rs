@@ -68,13 +68,12 @@ impl ParameterRanges {
             .float
             .as_ref()
             .map(|range| {
-                // TODO(luca) Double check whether we should use MIN/MAX or INFINITY/NEG_INFINITY
                 if range.is_default() {
                     Default::default()
                 } else {
                     seq![1 # FloatingPointRange {
-                        from_value: range.lower.unwrap_or(f64::MIN),
-                        to_value: range.upper.unwrap_or(f64::MAX),
+                        from_value: range.lower.unwrap_or(f64::NEG_INFINITY),
+                        to_value: range.upper.unwrap_or(f64::INFINITY),
                         step: range.step.unwrap_or(0.0),
                     }]
                 }

@@ -4,7 +4,7 @@ use rcl_interfaces::msg::rmw::{
 use rcl_interfaces::srv::rmw::*;
 use rclrs::{
     Context, MandatoryParameter, Node, NodeBuilder, ParameterRange, ParameterValue, RclrsError,
-    ReadOnlyParameter, TopicNamesAndTypes,
+    ReadOnlyParameter,
 };
 use rosidl_runtime_rs::{seq, Sequence};
 use std::sync::{Arc, RwLock};
@@ -87,37 +87,34 @@ fn construct_test_nodes(context: &Context, ns: &str) -> (TestNode, Arc<Node>) {
 fn test_parameter_services_names_and_types() -> Result<(), RclrsError> {
     let context = Context::new([]).unwrap();
     let (node, _client) = construct_test_nodes(&context, "names_types");
-    let check_names_and_types = |names_and_types: TopicNamesAndTypes| {
-        let types = names_and_types
-            .get("/names_types/node/describe_parameters")
-            .unwrap();
-        assert!(types.contains(&"rcl_interfaces/srv/DescribeParameters".to_string()));
-        let types = names_and_types
-            .get("/names_types/node/get_parameters")
-            .unwrap();
-        assert!(types.contains(&"rcl_interfaces/srv/GetParameters".to_string()));
-        let types = names_and_types
-            .get("/names_types/node/set_parameters")
-            .unwrap();
-        assert!(types.contains(&"rcl_interfaces/srv/SetParameters".to_string()));
-        let types = names_and_types
-            .get("/names_types/node/set_parameters_atomically")
-            .unwrap();
-        assert!(types.contains(&"rcl_interfaces/srv/SetParametersAtomically".to_string()));
-        let types = names_and_types
-            .get("/names_types/node/list_parameters")
-            .unwrap();
-        assert!(types.contains(&"rcl_interfaces/srv/ListParameters".to_string()));
-        let types = names_and_types
-            .get("/names_types/node/get_parameter_types")
-            .unwrap();
-        assert!(types.contains(&"rcl_interfaces/srv/GetParameterTypes".to_string()));
-    };
 
     std::thread::sleep(std::time::Duration::from_millis(100));
 
-    let service_names_and_types = node.node.get_service_names_and_types()?;
-    check_names_and_types(service_names_and_types);
+    let names_and_types = node.node.get_service_names_and_types()?;
+    let types = names_and_types
+        .get("/names_types/node/describe_parameters")
+        .unwrap();
+    assert!(types.contains(&"rcl_interfaces/srv/DescribeParameters".to_string()));
+    let types = names_and_types
+        .get("/names_types/node/get_parameters")
+        .unwrap();
+    assert!(types.contains(&"rcl_interfaces/srv/GetParameters".to_string()));
+    let types = names_and_types
+        .get("/names_types/node/set_parameters")
+        .unwrap();
+    assert!(types.contains(&"rcl_interfaces/srv/SetParameters".to_string()));
+    let types = names_and_types
+        .get("/names_types/node/set_parameters_atomically")
+        .unwrap();
+    assert!(types.contains(&"rcl_interfaces/srv/SetParametersAtomically".to_string()));
+    let types = names_and_types
+        .get("/names_types/node/list_parameters")
+        .unwrap();
+    assert!(types.contains(&"rcl_interfaces/srv/ListParameters".to_string()));
+    let types = names_and_types
+        .get("/names_types/node/get_parameter_types")
+        .unwrap();
+    assert!(types.contains(&"rcl_interfaces/srv/GetParameterTypes".to_string()));
     Ok(())
 }
 

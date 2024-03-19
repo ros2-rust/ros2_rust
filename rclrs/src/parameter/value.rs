@@ -369,11 +369,7 @@ impl From<ParameterValue> for RmwParameterValue {
             },
             ParameterValue::StringArray(v) => RmwParameterValue {
                 type_: ParameterType::PARAMETER_STRING_ARRAY,
-                string_array_value: v
-                    .iter()
-                    .map(|v| v.clone().into())
-                    .collect::<Vec<_>>()
-                    .into(),
+                string_array_value: v.iter().map(|v| v.clone().into()).collect(),
                 ..Default::default()
             },
         }
@@ -513,8 +509,8 @@ impl ParameterValue {
         }
     }
 
-    /// Returns the `ParameterKind` for the parameter as if it was a static parameter.
-    pub(crate) fn static_kind(&self) -> ParameterKind {
+    /// Returns the `ParameterKind` for the parameter.
+    pub(crate) fn kind(&self) -> ParameterKind {
         match self {
             ParameterValue::Bool(_) => ParameterKind::Bool,
             ParameterValue::Integer(_) => ParameterKind::Integer,
