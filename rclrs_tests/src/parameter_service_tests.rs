@@ -430,6 +430,23 @@ async fn test_get_set_parameters_service() -> Result<(), RclrsError> {
             .await
             .unwrap();
 
+        // Now getting an undefined parameter should work
+        let request = GetParameters_Request {
+            names: seq!["non_existing".into()],
+        };
+        let client_finished = Arc::new(RwLock::new(false));
+        let call_done = client_finished.clone();
+        get_client
+            .async_send_request_with_callback(&request, move |response: GetParameters_Response| {
+                *call_done.write().unwrap() = true;
+                assert_eq!(response.values.len(), 1);
+                assert_eq!(response.values[0].type_, ParameterType::PARAMETER_NOT_SET);
+            })
+            .unwrap();
+        try_until_timeout(|| *client_finished.read().unwrap())
+            .await
+            .unwrap();
+
         // With set_parameters_atomically, if one fails all should fail
         let request = SetParametersAtomically_Request {
             parameters: seq![bool_parameter, read_only_parameter],
@@ -475,9 +492,10 @@ async fn test_describe_get_types_parameters_service() -> Result<(), RclrsError> 
     let done = Arc::new(RwLock::new(false));
 
     let inner_done = done.clone();
+    let inner_node = node.node.clone();
     let rclrs_spin = tokio::task::spawn(async move {
         try_until_timeout(|| {
-            rclrs::spin_once(node.node.clone(), Some(std::time::Duration::ZERO)).ok();
+            rclrs::spin_once(inner_node.clone(), Some(std::time::Duration::ZERO)).ok();
             rclrs::spin_once(client.clone(), Some(std::time::Duration::ZERO)).ok();
             *inner_done.read().unwrap()
         })
@@ -586,10 +604,10 @@ async fn test_describe_get_types_parameters_service() -> Result<(), RclrsError> 
             .await
             .unwrap();
 
-        // If a get parameter types request is sent with a non existing parameter, an empty
-        // response should be returned
+        // Once undeclared parameters are allowed, non existing should return a not set type
+        node.node.use_undeclared_parameters();
         let request = GetParameterTypes_Request {
-            names: seq!["bool".into(), "non_existing".into()],
+            names: seq!["non_existing".into()],
         };
         let client_finished = Arc::new(RwLock::new(false));
         let call_done = client_finished.clone();
@@ -598,7 +616,32 @@ async fn test_describe_get_types_parameters_service() -> Result<(), RclrsError> 
                 &request,
                 move |response: GetParameterTypes_Response| {
                     *call_done.write().unwrap() = true;
-                    assert_eq!(response.types.len(), 0);
+                    assert_eq!(response.types.len(), 1);
+                    assert_eq!(response.types[0], ParameterType::PARAMETER_NOT_SET);
+                },
+            )
+            .unwrap();
+        try_until_timeout(|| *client_finished.read().unwrap())
+            .await
+            .unwrap();
+
+        // Once undeclared parameters are allowed, non existing should return a not set descriptor
+        let request = DescribeParameters_Request {
+            names: seq!["non_existing".into()],
+        };
+        let client_finished = Arc::new(RwLock::new(false));
+        let call_done = client_finished.clone();
+        describe_client
+            .async_send_request_with_callback(
+                &request,
+                move |response: DescribeParameters_Response| {
+                    *call_done.write().unwrap() = true;
+                    assert_eq!(response.descriptors.len(), 1);
+                    assert_eq!(response.descriptors[0].name.to_string(), "non_existing");
+                    assert_eq!(
+                        response.descriptors[0].type_,
+                        ParameterType::PARAMETER_NOT_SET
+                    );
                 },
             )
             .unwrap();

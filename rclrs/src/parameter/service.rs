@@ -35,7 +35,12 @@ fn describe_parameters(
         .into_iter()
         .map(|name| {
             let name = name.to_cstr().to_str().ok()?;
-            let storage = map.storage.get(name)?;
+            let Some(storage) = map.storage.get(name) else {
+                return map.allow_undeclared.then(|| ParameterDescriptor {
+                    name: name.into(),
+                    ..Default::default()
+                });
+            };
             let mut descriptor = match storage {
                 ParameterStorage::Declared(storage) => {
                     let (integer_range, floating_point_range) =
@@ -75,7 +80,13 @@ fn get_parameter_types(
         .into_iter()
         .map(|name| {
             let name = name.to_cstr().to_str().ok()?;
-            map.storage.get(name).map(|s| s.to_parameter_type())
+            map.storage
+                .get(name)
+                .map(|s| s.to_parameter_type())
+                .or_else(|| {
+                    map.allow_undeclared
+                        .then_some(ParameterType::PARAMETER_NOT_SET)
+                })
         })
         .collect::<Option<_>>()
         .unwrap_or_default();
@@ -88,7 +99,10 @@ fn get_parameters(req: GetParameters_Request, map: &ParameterMap) -> GetParamete
         .into_iter()
         .map(|name| {
             let name = name.to_cstr().to_str().ok()?;
-            match map.storage.get(name)? {
+            let Some(storage) = map.storage.get(name) else {
+                return map.allow_undeclared.then(|| ParameterValue::default());
+            };
+            match storage {
                 ParameterStorage::Declared(storage) => match &storage.value {
                     DeclaredValue::Mandatory(v) => Some(v.read().unwrap().clone().into()),
                     DeclaredValue::Optional(v) => Some(
