@@ -100,7 +100,7 @@ fn get_parameters(req: GetParameters_Request, map: &ParameterMap) -> GetParamete
         .map(|name| {
             let name = name.to_cstr().to_str().ok()?;
             let Some(storage) = map.storage.get(name) else {
-                return map.allow_undeclared.then(|| ParameterValue::default());
+                return map.allow_undeclared.then(ParameterValue::default);
             };
             match storage {
                 ParameterStorage::Declared(storage) => match &storage.value {
