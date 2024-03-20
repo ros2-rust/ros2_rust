@@ -115,9 +115,6 @@ file(MAKE_DIRECTORY "${_output_path}")
 
 set(_target_suffix "__rs")
 
-ament_index_register_resource("rust_packages")
-
-
 # needed to avoid multiple calls to the Rust generator trick copied from
 # https://github.com/ros2/rosidl/blob/master/rosidl_generator_py/cmake/rosidl_generator_py_generate_interfaces.cmake
 set(_subdir "${CMAKE_CURRENT_BINARY_DIR}/${rosidl_generate_interfaces_TARGET}${_target_suffix}")
@@ -137,6 +134,7 @@ set_property(
 
 set(_rsext_suffix "__rsext")
 if(NOT rosidl_generate_interfaces_SKIP_INSTALL)
+  ament_index_register_resource("rust_packages")
   install(
     DIRECTORY "${_output_path}/rust"
     DESTINATION "share/${PROJECT_NAME}"
