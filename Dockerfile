@@ -21,5 +21,9 @@ RUN pip install --upgrade pytest
 # Install the colcon-cargo and colcon-ros-cargo plugins
 RUN pip install git+https://github.com/colcon/colcon-cargo.git git+https://github.com/colcon/colcon-ros-cargo.git
 
+# Default source the ros environment, this correctly sets up the environment
+# For vscode and rust-analyzer to work inside the docker image
+RUN echo "source /opt/ros/$ROS_DISTRO/setup.bash" >> /root/.bashrc
+
 RUN mkdir -p /workspace && echo "Did you forget to mount the repository into the Docker container?" > /workspace/HELLO.txt
 WORKDIR /workspace
