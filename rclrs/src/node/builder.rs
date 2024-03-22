@@ -299,6 +299,7 @@ impl NodeBuilder {
             parameter,
         });
         node.time_source.attach_node(&node);
+        node.parameter.create_services(&node)?;
         Ok(node)
     }
 
