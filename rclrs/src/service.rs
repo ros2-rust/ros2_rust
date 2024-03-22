@@ -47,15 +47,17 @@ pub trait ServiceBase: Send + Sync {
 }
 
 type ServiceCallback<Request, Response> =
-    Box<dyn Fn(&rmw_request_id_t, Request) -> Response + 'static + Send>;
+    Box<dyn FnMut(&rmw_request_id_t, Request) -> Response + 'static + Send>;
 
 /// Main class responsible for responding to requests sent by ROS clients.
 ///
-/// The only available way to instantiate services is via [`Node::create_service()`][1], this is to
-/// ensure that [`Node`][2]s can track all the services that have been created.
+/// The only available way to instantiate services is via [`Node::create_service()`][1] and
+/// [`Node::create_service_with_header()`][2], this is to
+/// ensure that [`Node`][3]s can track all the services that have been created.
 ///
 /// [1]: crate::Node::create_service
-/// [2]: crate::Node
+/// [2]: crate::Node::create_service_with_header
+/// [3]: crate::Node
 pub struct Service<T>
 where
     T: rosidl_runtime_rs::Service,
@@ -79,7 +81,7 @@ where
     // [`Node::create_service`], see the struct's documentation for the rationale
     where
         T: rosidl_runtime_rs::Service,
-        F: Fn(&rmw_request_id_t, T::Request) -> T::Response + 'static + Send,
+        F: FnMut(&rmw_request_id_t, T::Request) -> T::Response + 'static + Send,
     {
         // SAFETY: Getting a zero-initialized value is always safe.
         let mut rcl_service = unsafe { rcl_get_zero_initialized_service() };
