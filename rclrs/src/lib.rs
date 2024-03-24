@@ -22,6 +22,9 @@ mod time_source;
 mod vendor;
 mod wait;
 
+#[cfg(test)]
+mod test_helpers;
+
 mod rcl_bindings;
 
 #[cfg(feature = "dyn_msg")]

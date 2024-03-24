@@ -199,3 +199,54 @@ where
         .ok()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_helpers::*;
+
+    #[test]
+    fn traits() {
+        assert_send::<Service<test_msgs::srv::Arrays>>();
+        assert_sync::<Service<test_msgs::srv::Arrays>>();
+    }
+
+    #[test]
+    fn test_services() -> Result<(), RclrsError> {
+        use crate::TopicNamesAndTypes;
+        use test_msgs::srv;
+
+        let namespace = "/test_services_graph";
+        let graph = construct_test_graph(namespace)?;
+        let check_names_and_types = |names_and_types: TopicNamesAndTypes| {
+            let types = names_and_types
+                .get("/test_services_graph/graph_test_topic_4")
+                .unwrap();
+            assert!(types.contains(&"test_msgs/srv/Empty".to_string()));
+        };
+
+        let _node_1_empty_service =
+            graph
+                .node1
+                .create_service::<srv::Empty, _>("graph_test_topic_4", |_, _| {
+                    srv::Empty_Response {
+                        structure_needs_at_least_one_member: 0,
+                    }
+                })?;
+        let _node_2_empty_client = graph
+            .node2
+            .create_client::<srv::Empty>("graph_test_topic_4")?;
+
+        std::thread::sleep(std::time::Duration::from_millis(100));
+
+        let service_names_and_types = graph.node1.get_service_names_and_types()?;
+        check_names_and_types(service_names_and_types);
+
+        let service_names_and_types = graph
+            .node1
+            .get_service_names_and_types_by_node(&graph.node1.name(), namespace)?;
+        check_names_and_types(service_names_and_types);
+
+        Ok(())
+    }
+}

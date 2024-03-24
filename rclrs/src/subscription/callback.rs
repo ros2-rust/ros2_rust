@@ -132,3 +132,43 @@ where
         AnySubscriptionCallback::LoanedWithMessageInfo(Box::new(func))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn callback_conversion() {
+        type Message = test_msgs::msg::BoundedSequences;
+        let cb = |_msg: Message| {};
+        assert!(matches!(
+            cb.into_callback(),
+            AnySubscriptionCallback::<Message>::Regular(_)
+        ));
+        let cb = |_msg: Message, _info: MessageInfo| {};
+        assert!(matches!(
+            cb.into_callback(),
+            AnySubscriptionCallback::<Message>::RegularWithMessageInfo(_)
+        ));
+        let cb = |_msg: Box<Message>| {};
+        assert!(matches!(
+            cb.into_callback(),
+            AnySubscriptionCallback::<Message>::Boxed(_)
+        ));
+        let cb = |_msg: Box<Message>, _info: MessageInfo| {};
+        assert!(matches!(
+            cb.into_callback(),
+            AnySubscriptionCallback::<Message>::BoxedWithMessageInfo(_)
+        ));
+        let cb = |_msg: ReadOnlyLoanedMessage<'_, Message>| {};
+        assert!(matches!(
+            cb.into_callback(),
+            AnySubscriptionCallback::<Message>::Loaned(_)
+        ));
+        let cb = |_msg: ReadOnlyLoanedMessage<'_, Message>, _info: MessageInfo| {};
+        assert!(matches!(
+            cb.into_callback(),
+            AnySubscriptionCallback::<Message>::LoanedWithMessageInfo(_)
+        ));
+    }
+}

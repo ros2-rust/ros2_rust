@@ -230,3 +230,81 @@ impl<'a, T: Message> MessageCow<'a, T> for &'a T {
         Cow::Borrowed(self)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_helpers::*;
+
+    #[test]
+    fn traits() {
+        assert_send::<Publisher<test_msgs::msg::BoundedSequences>>();
+        assert_sync::<Publisher<test_msgs::msg::BoundedSequences>>();
+    }
+
+    #[test]
+    fn test_publishers() -> Result<(), RclrsError> {
+        use crate::TopicEndpointInfo;
+        use crate::QOS_PROFILE_SYSTEM_DEFAULT;
+        use test_msgs::msg;
+
+        let namespace = "/test_publishers_graph";
+        let graph = construct_test_graph(namespace)?;
+
+        let node_1_empty_publisher = graph
+            .node1
+            .create_publisher::<msg::Empty>("graph_test_topic_1", QOS_PROFILE_SYSTEM_DEFAULT)?;
+        let topic1 = node_1_empty_publisher.topic_name();
+        let node_1_basic_types_publisher = graph.node1.create_publisher::<msg::BasicTypes>(
+            "graph_test_topic_2",
+            QOS_PROFILE_SYSTEM_DEFAULT,
+        )?;
+        let topic2 = node_1_basic_types_publisher.topic_name();
+        let node_2_default_publisher = graph
+            .node2
+            .create_publisher::<msg::Defaults>("graph_test_topic_3", QOS_PROFILE_SYSTEM_DEFAULT)?;
+        let topic3 = node_2_default_publisher.topic_name();
+
+        std::thread::sleep(std::time::Duration::from_millis(100));
+
+        // Test count_publishers()
+        assert_eq!(graph.node1.count_publishers(&topic1)?, 1);
+        assert_eq!(graph.node1.count_publishers(&topic2)?, 1);
+        assert_eq!(graph.node1.count_publishers(&topic3)?, 1);
+
+        // Test get_publisher_names_and_types_by_node()
+        let node_1_publisher_names_and_types = graph
+            .node1
+            .get_publisher_names_and_types_by_node(&graph.node1.name(), namespace)?;
+
+        let types = node_1_publisher_names_and_types.get(&topic1).unwrap();
+        assert!(types.contains(&"test_msgs/msg/Empty".to_string()));
+
+        let types = node_1_publisher_names_and_types.get(&topic2).unwrap();
+        assert!(types.contains(&"test_msgs/msg/BasicTypes".to_string()));
+
+        let node_2_publisher_names_and_types = graph
+            .node1
+            .get_publisher_names_and_types_by_node(&graph.node2.name(), namespace)?;
+
+        let types = node_2_publisher_names_and_types.get(&topic3).unwrap();
+        assert!(types.contains(&"test_msgs/msg/Defaults".to_string()));
+
+        // Test get_publishers_info_by_topic()
+        let expected_publishers_info = vec![TopicEndpointInfo {
+            node_name: String::from("graph_test_node_1"),
+            node_namespace: String::from(namespace),
+            topic_type: String::from("test_msgs/msg/Empty"),
+        }];
+        assert_eq!(
+            graph.node1.get_publishers_info_by_topic(&topic1)?,
+            expected_publishers_info
+        );
+        assert_eq!(
+            graph.node2.get_publishers_info_by_topic(&topic1)?,
+            expected_publishers_info
+        );
+
+        Ok(())
+    }
+}

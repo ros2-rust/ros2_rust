@@ -300,3 +300,85 @@ where
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_helpers::*;
+    use test_msgs::msg;
+
+    #[test]
+    fn traits() {
+        assert_send::<Subscription<msg::BoundedSequences>>();
+        assert_sync::<Subscription<msg::BoundedSequences>>();
+    }
+
+    #[test]
+    fn test_subscriptions() -> Result<(), RclrsError> {
+        use crate::TopicEndpointInfo;
+        use crate::QOS_PROFILE_SYSTEM_DEFAULT;
+
+        let namespace = "/test_subscriptions_graph";
+        let graph = construct_test_graph(namespace)?;
+
+        let node_2_empty_subscription = graph.node2.create_subscription::<msg::Empty, _>(
+            "graph_test_topic_1",
+            QOS_PROFILE_SYSTEM_DEFAULT,
+            |_msg: msg::Empty| {},
+        )?;
+        let topic1 = node_2_empty_subscription.topic_name();
+        let node_2_basic_types_subscription =
+            graph.node2.create_subscription::<msg::BasicTypes, _>(
+                "graph_test_topic_2",
+                QOS_PROFILE_SYSTEM_DEFAULT,
+                |_msg: msg::BasicTypes| {},
+            )?;
+        let topic2 = node_2_basic_types_subscription.topic_name();
+        let node_1_defaults_subscription = graph.node1.create_subscription::<msg::Defaults, _>(
+            "graph_test_topic_3",
+            QOS_PROFILE_SYSTEM_DEFAULT,
+            |_msg: msg::Defaults| {},
+        )?;
+        let topic3 = node_1_defaults_subscription.topic_name();
+
+        std::thread::sleep(std::time::Duration::from_millis(100));
+
+        // Test count_subscriptions()
+        assert_eq!(graph.node2.count_subscriptions(&topic1)?, 1);
+        assert_eq!(graph.node2.count_subscriptions(&topic2)?, 1);
+
+        // Test get_subscription_names_and_types_by_node()
+        let node_1_subscription_names_and_types = graph
+            .node1
+            .get_subscription_names_and_types_by_node(&graph.node1.name(), namespace)?;
+
+        let types = node_1_subscription_names_and_types.get(&topic3).unwrap();
+        assert!(types.contains(&"test_msgs/msg/Defaults".to_string()));
+
+        let node_2_subscription_names_and_types = graph
+            .node2
+            .get_subscription_names_and_types_by_node(&graph.node2.name(), namespace)?;
+
+        let types = node_2_subscription_names_and_types.get(&topic1).unwrap();
+        assert!(types.contains(&"test_msgs/msg/Empty".to_string()));
+
+        let types = node_2_subscription_names_and_types.get(&topic2).unwrap();
+        assert!(types.contains(&"test_msgs/msg/BasicTypes".to_string()));
+
+        // Test get_subscriptions_info_by_topic()
+        let expected_subscriptions_info = vec![TopicEndpointInfo {
+            node_name: String::from("graph_test_node_2"),
+            node_namespace: String::from(namespace),
+            topic_type: String::from("test_msgs/msg/Empty"),
+        }];
+        assert_eq!(
+            graph.node1.get_subscriptions_info_by_topic(&topic1)?,
+            expected_subscriptions_info
+        );
+        assert_eq!(
+            graph.node2.get_subscriptions_info_by_topic(&topic1)?,
+            expected_subscriptions_info
+        );
+        Ok(())
+    }
+}

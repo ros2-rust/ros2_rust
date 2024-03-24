@@ -32,6 +32,8 @@ version = "*"
 [dev-dependencies]
 # Needed for e.g. writing yaml files in tests
 tempfile = "3.3.0"
+# Needed for publisher and subscriber tests
+test_msgs = {version = "*"}
 
 [build-dependencies]
 # Needed for FFI

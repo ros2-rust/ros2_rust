@@ -152,11 +152,10 @@ mod tests {
         );
     }
 
-    fn assert_send<T: Send>() {}
-    fn assert_sync<T: Sync>() {}
-
     #[test]
-    fn wait_set_is_send_and_sync() {
+    fn traits() {
+        use crate::test_helpers::*;
+
         assert_send::<MessageInfo>();
         assert_sync::<MessageInfo>();
     }

@@ -54,3 +54,16 @@ where
 unsafe impl<'a, T> Send for ReadOnlyLoanedMessage<'a, T> where T: Message {}
 // SAFETY: This type has no interior mutability, in fact it has no mutability at all.
 unsafe impl<'a, T> Sync for ReadOnlyLoanedMessage<'a, T> where T: Message {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn traits() {
+        use crate::test_helpers::*;
+
+        assert_send::<ReadOnlyLoanedMessage<test_msgs::msg::rmw::BoundedSequences>>();
+        assert_sync::<ReadOnlyLoanedMessage<test_msgs::msg::rmw::BoundedSequences>>();
+    }
+}

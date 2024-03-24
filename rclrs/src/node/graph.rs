@@ -457,7 +457,6 @@ fn convert_names_and_types(
 
 #[cfg(test)]
 mod tests {
-
     use super::*;
     use crate::Context;
 
