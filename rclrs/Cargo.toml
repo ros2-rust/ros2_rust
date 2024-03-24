@@ -26,9 +26,6 @@ libloading = { version = "0.8", optional = true }
 # Needed for the Message trait, among others
 rosidl_runtime_rs = "0.4"
 
-[dependencies.builtin_interfaces]
-version = "*"
-
 [dev-dependencies]
 # Needed for e.g. writing yaml files in tests
 tempfile = "3.3.0"
