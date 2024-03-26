@@ -120,11 +120,10 @@ impl Context {
 mod tests {
     use super::*;
 
-    fn assert_send<T: Send>() {}
-    fn assert_sync<T: Sync>() {}
-
     #[test]
-    fn context_is_send_and_sync() {
+    fn traits() {
+        use crate::test_helpers::*;
+
         assert_send::<Context>();
         assert_sync::<Context>();
     }

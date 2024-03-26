@@ -1,4 +1,5 @@
 use crate::rcl_bindings::*;
+use crate::vendor::builtin_interfaces;
 use std::num::TryFromIntError;
 use std::ops::{Add, Sub};
 use std::sync::{Mutex, Weak};
@@ -70,7 +71,7 @@ mod tests {
     fn compare_times_from_same_clock() {
         let clock = Clock::system();
         let t1 = clock.now();
-        std::thread::sleep(std::time::Duration::from_micros(1));
+        std::thread::sleep(Duration::from_micros(1));
         let t2 = clock.now();
         assert_eq!(t1.compare_with(&t2, |t1, t2| t1 > t2), Some(false));
         assert_eq!(t1.compare_with(&t2, |t1, t2| t2 > t1), Some(true));

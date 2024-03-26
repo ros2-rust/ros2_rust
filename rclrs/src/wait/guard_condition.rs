@@ -179,11 +179,10 @@ mod tests {
         Ok(())
     }
 
-    fn assert_send<T: Send>() {}
-    fn assert_sync<T: Sync>() {}
-
     #[test]
-    fn test_guard_condition_is_send_and_sync() {
+    fn traits() {
+        use crate::test_helpers::*;
+
         assert_send::<GuardCondition>();
         assert_sync::<GuardCondition>();
     }

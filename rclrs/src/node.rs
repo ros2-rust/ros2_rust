@@ -454,13 +454,56 @@ pub(crate) unsafe fn call_string_getter_with_handle(
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    fn assert_send<T: Send>() {}
-    fn assert_sync<T: Sync>() {}
+    use crate::test_helpers::*;
 
     #[test]
-    fn node_is_send_and_sync() {
+    fn traits() {
         assert_send::<Node>();
         assert_sync::<Node>();
+    }
+
+    #[test]
+    fn test_topic_names_and_types() -> Result<(), RclrsError> {
+        use crate::QOS_PROFILE_SYSTEM_DEFAULT;
+        use test_msgs::msg;
+
+        let graph = construct_test_graph("test_topics_graph")?;
+
+        let _node_1_defaults_subscription = graph.node1.create_subscription::<msg::Defaults, _>(
+            "graph_test_topic_3",
+            QOS_PROFILE_SYSTEM_DEFAULT,
+            |_msg: msg::Defaults| {},
+        )?;
+        let _node_2_empty_subscription = graph.node2.create_subscription::<msg::Empty, _>(
+            "graph_test_topic_1",
+            QOS_PROFILE_SYSTEM_DEFAULT,
+            |_msg: msg::Empty| {},
+        )?;
+        let _node_2_basic_types_subscription =
+            graph.node2.create_subscription::<msg::BasicTypes, _>(
+                "graph_test_topic_2",
+                QOS_PROFILE_SYSTEM_DEFAULT,
+                |_msg: msg::BasicTypes| {},
+            )?;
+
+        std::thread::sleep(std::time::Duration::from_millis(100));
+
+        let topic_names_and_types = graph.node1.get_topic_names_and_types()?;
+
+        let types = topic_names_and_types
+            .get("/test_topics_graph/graph_test_topic_1")
+            .unwrap();
+        assert!(types.contains(&"test_msgs/msg/Empty".to_string()));
+        let types = topic_names_and_types
+            .get("/test_topics_graph/graph_test_topic_2")
+            .unwrap();
+        assert!(types.contains(&"test_msgs/msg/BasicTypes".to_string()));
+
+        let types = topic_names_and_types
+            .get("/test_topics_graph/graph_test_topic_3")
+            .unwrap();
+        assert!(types.contains(&"test_msgs/msg/Defaults".to_string()));
+
+        Ok(())
     }
 }

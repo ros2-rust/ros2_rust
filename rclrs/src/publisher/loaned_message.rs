@@ -92,3 +92,16 @@ where
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn traits() {
+        use crate::test_helpers::*;
+
+        assert_send::<LoanedMessage<test_msgs::msg::rmw::BoundedSequences>>();
+        assert_sync::<LoanedMessage<test_msgs::msg::rmw::BoundedSequences>>();
+    }
+}

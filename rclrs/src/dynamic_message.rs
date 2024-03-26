@@ -253,11 +253,10 @@ impl DynamicMessageMetadata {
 mod tests {
     use super::*;
 
-    fn assert_send<T: Send>() {}
-    fn assert_sync<T: Sync>() {}
-
     #[test]
-    fn all_types_are_sync_and_send() {
+    fn traits() {
+        use crate::test_helpers::*;
+
         assert_send::<DynamicMessageMetadata>();
         assert_sync::<DynamicMessageMetadata>();
     }

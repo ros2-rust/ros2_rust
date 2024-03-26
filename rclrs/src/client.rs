@@ -289,3 +289,38 @@ where
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_helpers::*;
+    use test_msgs::srv;
+
+    #[test]
+    fn traits() {
+        assert_send::<Client<srv::Arrays>>();
+        assert_sync::<Client<srv::Arrays>>();
+    }
+
+    #[test]
+    fn test_clients() -> Result<(), RclrsError> {
+        let namespace = "/test_clients_graph";
+        let graph = construct_test_graph(namespace)?;
+        let _node_2_empty_client = graph
+            .node2
+            .create_client::<srv::Empty>("graph_test_topic_4")?;
+
+        std::thread::sleep(std::time::Duration::from_millis(200));
+
+        let client_names_and_types = graph
+            .node2
+            .get_client_names_and_types_by_node(&graph.node2.name(), &graph.node2.namespace())?;
+        let types = client_names_and_types
+            .get("/test_clients_graph/graph_test_topic_4")
+            .unwrap();
+
+        assert!(types.contains(&"test_msgs/srv/Empty".to_string()));
+
+        Ok(())
+    }
+}
