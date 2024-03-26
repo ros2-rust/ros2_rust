@@ -160,3 +160,17 @@ pub trait Service: 'static {
     /// Get a pointer to the correct `rosidl_service_type_support_t` structure.
     fn get_type_support() -> *const std::os::raw::c_void;
 }
+
+/// Trait for actions.
+///
+/// User code never needs to call this trait's method, much less implement this trait.
+pub trait Action: 'static {
+    /// The goal message associated with this service.
+    type Goal: Message;
+
+    /// The result message associated with this service.
+    type Result: Message;
+
+    /// The feedback message associated with this service.
+    type Feedback: Message;
+}

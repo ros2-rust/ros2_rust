@@ -7,3 +7,7 @@ pub mod msg;
 @[if len(srv_specs) > 0]@
 pub mod srv;
 @[end if]@
+
+@[if len(action_specs) > 0]@
+pub mod action;
+@[end if]@
