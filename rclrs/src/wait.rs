@@ -31,7 +31,8 @@ pub use guard_condition::*;
 struct WaitSetHandle {
     rcl_wait_set: rcl_wait_set_t,
     // Used to ensure the context is alive while the wait set is alive.
-    _rcl_context_mtx: Arc<ContextHandle>,
+    #[allow(dead_code)]
+    context_handle: Arc<ContextHandle>,
 }
 
 /// A struct for waiting on subscriptions and other waitable entities to become ready.
@@ -118,7 +119,7 @@ impl WaitSet {
             services: Vec::new(),
             handle: WaitSetHandle {
                 rcl_wait_set,
-                _rcl_context_mtx: Arc::clone(&context.handle),
+                context_handle: Arc::clone(&context.handle),
             },
         })
     }
@@ -235,7 +236,7 @@ impl WaitSet {
             // SAFETY: Safe if the wait set and guard condition are initialized
             rcl_wait_set_add_guard_condition(
                 &mut self.handle.rcl_wait_set,
-                &*guard_condition.rcl_guard_condition.lock().unwrap(),
+                &*guard_condition.handle.rcl_guard_condition.lock().unwrap(),
                 std::ptr::null_mut(),
             )
             .ok()?;

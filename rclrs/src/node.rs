@@ -211,8 +211,8 @@ impl Node {
     /// [1]: crate::GuardCondition
     /// [2]: crate::spin_once
     pub fn create_guard_condition(&self) -> Arc<GuardCondition> {
-        let guard_condition = Arc::new(GuardCondition::new_with_rcl_context(
-            &mut self.handle.context_handle.rcl_context.lock().unwrap(),
+        let guard_condition = Arc::new(GuardCondition::new_with_context_handle(
+            Arc::clone(&self.handle.context_handle),
             None,
         ));
         { self.guard_conditions_mtx.lock().unwrap() }
@@ -233,8 +233,8 @@ impl Node {
     where
         F: Fn() + Send + Sync + 'static,
     {
-        let guard_condition = Arc::new(GuardCondition::new_with_rcl_context(
-            &mut self.handle.context_handle.rcl_context.lock().unwrap(),
+        let guard_condition = Arc::new(GuardCondition::new_with_context_handle(
+            Arc::clone(&self.handle.context_handle),
             Some(Box::new(callback) as Box<dyn Fn() + Send + Sync>),
         ));
         { self.guard_conditions_mtx.lock().unwrap() }
