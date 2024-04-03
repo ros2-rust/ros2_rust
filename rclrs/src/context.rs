@@ -39,7 +39,17 @@ unsafe impl Send for rcl_context_t {}
 /// - the allocator used (left as the default by `rclrs`)
 ///
 pub struct Context {
-    pub(crate) rcl_context_mtx: Arc<Mutex<rcl_context_t>>,
+    pub(crate) handle: Arc<ContextHandle>,
+}
+
+/// This struct manages the lifetime and access to the rcl context. It will also
+/// account for the lifetimes of any dependencies, if we need to add
+/// dependencies in the future (currently there are none). It is not strictly
+/// necessary to decompose `Context` and `ContextHandle` like this, but we are
+/// doing it to be consistent with the lifecycle management of other rcl
+/// bindings in this library.
+pub(crate) struct ContextHandle {
+    handle: Mutex<rcl_context_t>,
 }
 
 impl Context {

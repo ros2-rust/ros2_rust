@@ -15,7 +15,7 @@ use crate::rcl_bindings::*;
 use crate::{
     Client, ClientBase, Clock, Context, GuardCondition, ParameterBuilder, ParameterInterface,
     ParameterVariant, Parameters, Publisher, QoSProfile, RclrsError, Service, ServiceBase,
-    Subscription, SubscriptionBase, SubscriptionCallback, TimeSource, ToResult,
+    Subscription, SubscriptionBase, SubscriptionCallback, TimeSource, ToResult, ContextHandle,
 };
 
 impl Drop for rcl_node_t {
@@ -71,18 +71,21 @@ pub struct Node {
     pub(crate) subscriptions_mtx: Mutex<Vec<Weak<dyn SubscriptionBase>>>,
     time_source: TimeSource,
     parameter: ParameterInterface,
-    // Note: it's important to have those last since `drop` will be called in order of declaration
-    // in the struct and both `TimeSource` and `ParameterInterface` contain subscriptions /
-    // services that will fail to be dropped if the context or node is destroyed first.
-    pub(crate) rcl_node_mtx: Arc<Mutex<rcl_node_t>>,
-    pub(crate) rcl_context_mtx: Arc<Mutex<rcl_context_t>>,
+    pub(crate) rcl_node: Arc<NodeHandle>,
+}
+
+/// This struct manages the lifetime of the rcl node, and accounts for its
+/// dependency on the lifetime of its context.
+pub(crate) struct NodeHandle {
+    handle: Mutex<rcl_node_t>,
+    rcl_context: Arc<ContextHandle>,
 }
 
 impl Eq for Node {}
 
 impl PartialEq for Node {
     fn eq(&self, other: &Self) -> bool {
-        Arc::ptr_eq(&self.rcl_node_mtx, &other.rcl_node_mtx)
+        Arc::ptr_eq(&self.rcl_node, &other.rcl_node)
     }
 }
 
@@ -182,7 +185,7 @@ impl Node {
         &self,
         getter: unsafe extern "C" fn(*const rcl_node_t) -> *const c_char,
     ) -> String {
-        unsafe { call_string_getter_with_handle(&self.rcl_node_mtx.lock().unwrap(), getter) }
+        unsafe { call_string_getter_with_handle(&self.rcl_node.handle.lock().unwrap(), getter) }
     }
 
     /// Creates a [`Client`][1].
