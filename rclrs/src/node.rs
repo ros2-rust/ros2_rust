@@ -71,21 +71,21 @@ pub struct Node {
     pub(crate) subscriptions_mtx: Mutex<Vec<Weak<dyn SubscriptionBase>>>,
     time_source: TimeSource,
     parameter: ParameterInterface,
-    pub(crate) rcl_node: Arc<NodeHandle>,
+    pub(crate) handle: Arc<NodeHandle>,
 }
 
 /// This struct manages the lifetime of the rcl node, and accounts for its
 /// dependency on the lifetime of its context.
 pub(crate) struct NodeHandle {
-    handle: Mutex<rcl_node_t>,
-    rcl_context: Arc<ContextHandle>,
+    pub(crate) rcl_node: Mutex<rcl_node_t>,
+    pub(crate) context_handle: Arc<ContextHandle>,
 }
 
 impl Eq for Node {}
 
 impl PartialEq for Node {
     fn eq(&self, other: &Self) -> bool {
-        Arc::ptr_eq(&self.rcl_node, &other.rcl_node)
+        Arc::ptr_eq(&self.handle, &other.handle)
     }
 }
 
@@ -185,7 +185,7 @@ impl Node {
         &self,
         getter: unsafe extern "C" fn(*const rcl_node_t) -> *const c_char,
     ) -> String {
-        unsafe { call_string_getter_with_handle(&self.rcl_node.handle.lock().unwrap(), getter) }
+        unsafe { call_string_getter_with_handle(&self.handle.rcl_node.lock().unwrap(), getter) }
     }
 
     /// Creates a [`Client`][1].
@@ -196,7 +196,7 @@ impl Node {
     where
         T: rosidl_runtime_rs::Service,
     {
-        let client = Arc::new(Client::<T>::new(Arc::clone(&self.rcl_node_mtx), topic)?);
+        let client = Arc::new(Client::<T>::new(Arc::clone(&self.handle), topic)?);
         { self.clients_mtx.lock().unwrap() }.push(Arc::downgrade(&client) as Weak<dyn ClientBase>);
         Ok(client)
     }
@@ -212,7 +212,7 @@ impl Node {
     /// [2]: crate::spin_once
     pub fn create_guard_condition(&self) -> Arc<GuardCondition> {
         let guard_condition = Arc::new(GuardCondition::new_with_rcl_context(
-            &mut self.rcl_context_mtx.lock().unwrap(),
+            &mut self.handle.context_handle.rcl_context.lock().unwrap(),
             None,
         ));
         { self.guard_conditions_mtx.lock().unwrap() }
@@ -234,7 +234,7 @@ impl Node {
         F: Fn() + Send + Sync + 'static,
     {
         let guard_condition = Arc::new(GuardCondition::new_with_rcl_context(
-            &mut self.rcl_context_mtx.lock().unwrap(),
+            &mut self.handle.context_handle.rcl_context.lock().unwrap(),
             Some(Box::new(callback) as Box<dyn Fn() + Send + Sync>),
         ));
         { self.guard_conditions_mtx.lock().unwrap() }
@@ -255,7 +255,7 @@ impl Node {
         T: Message,
     {
         let publisher = Arc::new(Publisher::<T>::new(
-            Arc::clone(&self.rcl_node_mtx),
+            Arc::clone(&self.handle),
             topic,
             qos,
         )?);
@@ -276,7 +276,7 @@ impl Node {
         F: Fn(&rmw_request_id_t, T::Request) -> T::Response + 'static + Send,
     {
         let service = Arc::new(Service::<T>::new(
-            Arc::clone(&self.rcl_node_mtx),
+            Arc::clone(&self.handle),
             topic,
             callback,
         )?);
@@ -299,7 +299,7 @@ impl Node {
         T: Message,
     {
         let subscription = Arc::new(Subscription::<T>::new(
-            Arc::clone(&self.rcl_node_mtx),
+            Arc::clone(&self.handle),
             topic,
             qos,
             callback,
@@ -361,7 +361,7 @@ impl Node {
     // add description about this function is for getting actual domain_id
     // and about override of domain_id via node option
     pub fn domain_id(&self) -> usize {
-        let rcl_node = &*self.rcl_node_mtx.lock().unwrap();
+        let rcl_node = &*self.handle.rcl_node.lock().unwrap();
         let mut domain_id: usize = 0;
         let ret = unsafe {
             // SAFETY: No preconditions for this function.

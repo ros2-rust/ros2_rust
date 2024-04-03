@@ -49,7 +49,7 @@ pub struct Context {
 /// doing it to be consistent with the lifecycle management of other rcl
 /// bindings in this library.
 pub(crate) struct ContextHandle {
-    handle: Mutex<rcl_context_t>,
+    pub(crate) rcl_context: Mutex<rcl_context_t>,
 }
 
 impl Context {
@@ -109,7 +109,9 @@ impl Context {
             ret?;
         }
         Ok(Self {
-            rcl_context_mtx: Arc::new(Mutex::new(rcl_context)),
+            handle: Arc::new(ContextHandle {
+                rcl_context: Mutex::new(rcl_context),
+            })
         })
     }
 
@@ -120,7 +122,7 @@ impl Context {
     pub fn ok(&self) -> bool {
         // This will currently always return true, but once we have a signal handler, the signal
         // handler could call `rcl_shutdown()`, hence making the context invalid.
-        let rcl_context = &mut *self.rcl_context_mtx.lock().unwrap();
+        let rcl_context = &mut *self.handle.rcl_context.lock().unwrap();
         // SAFETY: No preconditions for this function.
         unsafe { rcl_context_is_valid(rcl_context) }
     }

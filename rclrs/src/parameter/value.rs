@@ -433,7 +433,7 @@ mod tests {
             let mut rcl_params = std::ptr::null_mut();
             unsafe {
                 rcl_arguments_get_param_overrides(
-                    &ctx.rcl_context_mtx.lock().unwrap().global_arguments,
+                    &ctx.handle.rcl_context.lock().unwrap().global_arguments,
                     &mut rcl_params,
                 )
                 .ok()?;

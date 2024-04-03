@@ -9,6 +9,7 @@ use rosidl_runtime_rs::{Message, RmwMessage};
 use crate::error::{RclrsError, ToResult};
 use crate::qos::QoSProfile;
 use crate::rcl_bindings::*;
+use crate::NodeHandle;
 
 mod loaned_message;
 pub use loaned_message::*;
@@ -16,6 +17,11 @@ pub use loaned_message::*;
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
 // they are running in. Therefore, this type can be safely sent to another thread.
 unsafe impl Send for rcl_publisher_t {}
+
+struct PublisherHandle {
+    rcl_publisher: Mutex<rcl_publisher_t>,
+    node_handle: Arc<NodeHandle>,
+}
 
 /// Struct for sending messages of type `T`.
 ///
@@ -31,12 +37,11 @@ pub struct Publisher<T>
 where
     T: Message,
 {
-    rcl_publisher_mtx: Mutex<rcl_publisher_t>,
-    rcl_node_mtx: Arc<Mutex<rcl_node_t>>,
     // The data pointed to by type_support_ptr has static lifetime;
     // it is global data in the type support library.
     type_support_ptr: *const rosidl_message_type_support_t,
     message: PhantomData<T>,
+    handle: PublisherHandle,
 }
 
 impl<T> Drop for Publisher<T>
@@ -47,8 +52,8 @@ where
         unsafe {
             // SAFETY: No preconditions for this function (besides the arguments being valid).
             rcl_publisher_fini(
-                self.rcl_publisher_mtx.get_mut().unwrap(),
-                &mut *self.rcl_node_mtx.lock().unwrap(),
+                self.handle.rcl_publisher.get_mut().unwrap(),
+                &mut *self.handle.node_handle.rcl_node.lock().unwrap(),
             );
         }
     }
@@ -68,8 +73,8 @@ where
     /// Creates a new `Publisher`.
     ///
     /// Node and namespace changes are always applied _before_ topic remapping.
-    pub fn new(
-        rcl_node_mtx: Arc<Mutex<rcl_node_t>>,
+    pub(crate) fn new(
+        node_handle: Arc<NodeHandle>,
         topic: &str,
         qos: QoSProfile,
     ) -> Result<Self, RclrsError>
@@ -96,7 +101,7 @@ where
             // TODO: type support?
             rcl_publisher_init(
                 &mut rcl_publisher,
-                &*rcl_node_mtx.lock().unwrap(),
+                &*node_handle.rcl_node.lock().unwrap(),
                 type_support_ptr,
                 topic_c_string.as_ptr(),
                 &publisher_options,
@@ -105,10 +110,12 @@ where
         }
 
         Ok(Self {
-            rcl_publisher_mtx: Mutex::new(rcl_publisher),
-            rcl_node_mtx,
             type_support_ptr,
             message: PhantomData,
+            handle: PublisherHandle {
+                rcl_publisher: Mutex::new(rcl_publisher),
+                node_handle,
+            }
         })
     }
 
@@ -121,7 +128,7 @@ where
         // The unsafe variables created get converted to safe types before being returned
         unsafe {
             let raw_topic_pointer =
-                rcl_publisher_get_topic_name(&*self.rcl_publisher_mtx.lock().unwrap());
+                rcl_publisher_get_topic_name(&*self.handle.rcl_publisher.lock().unwrap());
             CStr::from_ptr(raw_topic_pointer)
                 .to_string_lossy()
                 .into_owned()
@@ -146,7 +153,7 @@ where
     /// [1]: https://github.com/ros2/ros2/issues/255
     pub fn publish<'a, M: MessageCow<'a, T>>(&self, message: M) -> Result<(), RclrsError> {
         let rmw_message = T::into_rmw_message(message.into_cow());
-        let rcl_publisher = &mut *self.rcl_publisher_mtx.lock().unwrap();
+        let rcl_publisher = &mut *self.handle.rcl_publisher.lock().unwrap();
         unsafe {
             // SAFETY: The message type is guaranteed to match the publisher type by the type system.
             // The message does not need to be valid beyond the duration of this function call.
@@ -200,7 +207,7 @@ where
         unsafe {
             // SAFETY: msg_ptr contains a null ptr as expected by this function.
             rcl_borrow_loaned_message(
-                &*self.rcl_publisher_mtx.lock().unwrap(),
+                &*self.handle.rcl_publisher.lock().unwrap(),
                 self.type_support_ptr,
                 &mut msg_ptr,
             )

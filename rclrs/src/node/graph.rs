@@ -138,7 +138,7 @@ impl Node {
         // SAFETY: rcl_names_and_types is zero-initialized as expected by this call
         unsafe {
             rcl_get_topic_names_and_types(
-                &*self.rcl_node_mtx.lock().unwrap(),
+                &*self.handle.rcl_node.lock().unwrap(),
                 &mut rcutils_get_default_allocator(),
                 false,
                 &mut rcl_names_and_types,
@@ -167,7 +167,7 @@ impl Node {
         // SAFETY: node_names and node_namespaces are zero-initialized as expected by this call.
         unsafe {
             rcl_get_node_names(
-                &*self.rcl_node_mtx.lock().unwrap(),
+                &*self.handle.rcl_node.lock().unwrap(),
                 rcutils_get_default_allocator(),
                 &mut rcl_names,
                 &mut rcl_namespaces,
@@ -214,7 +214,7 @@ impl Node {
         // SAFETY: The node_names, namespaces, and enclaves are zero-initialized as expected by this call.
         unsafe {
             rcl_get_node_names_with_enclaves(
-                &*self.rcl_node_mtx.lock().unwrap(),
+                &*self.handle.rcl_node.lock().unwrap(),
                 rcutils_get_default_allocator(),
                 &mut rcl_names,
                 &mut rcl_namespaces,
@@ -263,7 +263,7 @@ impl Node {
         // SAFETY: The topic_name string was correctly allocated previously
         unsafe {
             rcl_count_publishers(
-                &*self.rcl_node_mtx.lock().unwrap(),
+                &*self.handle.rcl_node.lock().unwrap(),
                 topic_name.as_ptr(),
                 &mut count,
             )
@@ -283,7 +283,7 @@ impl Node {
         // SAFETY: The topic_name string was correctly allocated previously
         unsafe {
             rcl_count_subscribers(
-                &*self.rcl_node_mtx.lock().unwrap(),
+                &*self.handle.rcl_node.lock().unwrap(),
                 topic_name.as_ptr(),
                 &mut count,
             )
@@ -337,7 +337,7 @@ impl Node {
         // SAFETY: node_name and node_namespace have been zero-initialized.
         unsafe {
             getter(
-                &*self.rcl_node_mtx.lock().unwrap(),
+                &*self.handle.rcl_node.lock().unwrap(),
                 &mut rcutils_get_default_allocator(),
                 node_name.as_ptr(),
                 node_namespace.as_ptr(),
@@ -372,7 +372,7 @@ impl Node {
         // SAFETY: topic has been zero-initialized
         unsafe {
             getter(
-                &*self.rcl_node_mtx.lock().unwrap(),
+                &*self.handle.rcl_node.lock().unwrap(),
                 &mut rcutils_get_default_allocator(),
                 topic.as_ptr(),
                 false,

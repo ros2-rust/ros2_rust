@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex};
 
 use crate::rcl_bindings::*;
 use crate::{
-    ClockType, Context, Node, ParameterInterface, QoSProfile, RclrsError, TimeSource, ToResult,
+    ClockType, Context, ContextHandle, Node, NodeHandle, ParameterInterface, QoSProfile, RclrsError, TimeSource, ToResult,
     QOS_PROFILE_CLOCK,
 };
 
@@ -42,7 +42,7 @@ use crate::{
 /// [1]: crate::Node
 /// [2]: crate::Node::builder
 pub struct NodeBuilder {
-    context: Arc<Mutex<rcl_context_t>>,
+    context: Arc<ContextHandle>,
     name: String,
     namespace: String,
     use_global_arguments: bool,
@@ -83,14 +83,14 @@ impl NodeBuilder {
     ///     RclrsError::RclError { code: RclReturnCode::NodeInvalidName, .. }
     /// ));
     /// # Ok::<(), RclrsError>(())
-    /// ```    
-    ///    
+    /// ```
+    ///
     /// [1]: crate::Node#naming
     /// [2]: https://docs.ros2.org/latest/api/rmw/validate__node__name_8h.html#a5690a285aed9735f89ef11950b6e39e3
     /// [3]: NodeBuilder::build
     pub fn new(context: &Context, name: &str) -> NodeBuilder {
         NodeBuilder {
-            context: context.rcl_context_mtx.clone(),
+            context: Arc::clone(&context.handle),
             name: name.to_string(),
             namespace: "/".to_string(),
             use_global_arguments: true,
@@ -193,7 +193,7 @@ impl NodeBuilder {
     /// used in creating the context.
     ///
     /// For more details about command line arguments, see [here][2].
-    ///    
+    ///
     /// # Example
     /// ```
     /// # use rclrs::{Context, Node, NodeBuilder, RclrsError};
@@ -261,7 +261,7 @@ impl NodeBuilder {
                 s: self.namespace.clone(),
             })?;
         let rcl_node_options = self.create_rcl_node_options()?;
-        let rcl_context = &mut *self.context.lock().unwrap();
+        let rcl_context = &mut *self.context.rcl_context.lock().unwrap();
 
         // SAFETY: Getting a zero-initialized value is always safe.
         let mut rcl_node = unsafe { rcl_get_zero_initialized_node() };
@@ -280,15 +280,17 @@ impl NodeBuilder {
             .ok()?;
         };
 
-        let rcl_node_mtx = Arc::new(Mutex::new(rcl_node));
+        let handle = Arc::new(NodeHandle {
+            rcl_node: Mutex::new(rcl_node),
+            context_handle: Arc::clone(&self.context),
+        });
         let parameter = ParameterInterface::new(
-            &rcl_node_mtx,
+            &*handle.rcl_node.lock().unwrap(),
             &rcl_node_options.arguments,
             &rcl_context.global_arguments,
         )?;
         let node = Arc::new(Node {
-            rcl_node_mtx,
-            rcl_context_mtx: self.context.clone(),
+            handle,
             clients_mtx: Mutex::new(vec![]),
             guard_conditions_mtx: Mutex::new(vec![]),
             services_mtx: Mutex::new(vec![]),

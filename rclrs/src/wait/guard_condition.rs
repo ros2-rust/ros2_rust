@@ -80,7 +80,7 @@ unsafe impl Send for rcl_guard_condition_t {}
 impl GuardCondition {
     /// Creates a new guard condition with no callback.
     pub fn new(context: &Context) -> Self {
-        Self::new_with_rcl_context(&mut context.rcl_context_mtx.lock().unwrap(), None)
+        Self::new_with_rcl_context(&mut context.handle.rcl_context.lock().unwrap(), None)
     }
 
     /// Creates a new guard condition with a callback.
@@ -89,7 +89,7 @@ impl GuardCondition {
         F: Fn() + Send + Sync + 'static,
     {
         Self::new_with_rcl_context(
-            &mut context.rcl_context_mtx.lock().unwrap(),
+            &mut context.handle.rcl_context.lock().unwrap(),
             Some(Box::new(callback) as Box<dyn Fn() + Send + Sync>),
         )
     }

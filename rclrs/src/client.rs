@@ -9,7 +9,7 @@ use rosidl_runtime_rs::Message;
 
 use crate::error::{RclReturnCode, ToResult};
 use crate::MessageCow;
-use crate::{rcl_bindings::*, RclrsError};
+use crate::{rcl_bindings::*, RclrsError, NodeHandle};
 
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
 // they are running in. Therefore, this type can be safely sent to another thread.
@@ -17,24 +17,24 @@ unsafe impl Send for rcl_client_t {}
 
 /// Internal struct used by clients.
 pub struct ClientHandle {
-    rcl_client_mtx: Mutex<rcl_client_t>,
-    rcl_node_mtx: Arc<Mutex<rcl_node_t>>,
+    rcl_client: Mutex<rcl_client_t>,
+    node_handle: Arc<NodeHandle>,
     pub(crate) in_use_by_wait_set: Arc<AtomicBool>,
 }
 
 impl ClientHandle {
     pub(crate) fn lock(&self) -> MutexGuard<rcl_client_t> {
-        self.rcl_client_mtx.lock().unwrap()
+        self.rcl_client.lock().unwrap()
     }
 }
 
 impl Drop for ClientHandle {
     fn drop(&mut self) {
-        let rcl_client = self.rcl_client_mtx.get_mut().unwrap();
-        let rcl_node_mtx = &mut *self.rcl_node_mtx.lock().unwrap();
+        let rcl_client = self.rcl_client.get_mut().unwrap();
+        let rcl_node = &mut *self.node_handle.rcl_node.lock().unwrap();
         // SAFETY: No preconditions for this function
         unsafe {
-            rcl_client_fini(rcl_client, rcl_node_mtx);
+            rcl_client_fini(rcl_client, rcl_node);
         }
     }
 }
@@ -74,7 +74,7 @@ where
     T: rosidl_runtime_rs::Service,
 {
     /// Creates a new client.
-    pub(crate) fn new(rcl_node_mtx: Arc<Mutex<rcl_node_t>>, topic: &str) -> Result<Self, RclrsError>
+    pub(crate) fn new(node_handle: Arc<NodeHandle>, topic: &str) -> Result<Self, RclrsError>
     // This uses pub(crate) visibility to avoid instantiating this struct outside
     // [`Node::create_client`], see the struct's documentation for the rationale
     where
@@ -99,7 +99,7 @@ where
             // afterwards.
             rcl_client_init(
                 &mut rcl_client,
-                &*rcl_node_mtx.lock().unwrap(),
+                &*node_handle.rcl_node.lock().unwrap(),
                 type_support,
                 topic_c_string.as_ptr(),
                 &client_options,
@@ -108,8 +108,8 @@ where
         }
 
         let handle = Arc::new(ClientHandle {
-            rcl_client_mtx: Mutex::new(rcl_client),
-            rcl_node_mtx,
+            rcl_client: Mutex::new(rcl_client),
+            node_handle,
             in_use_by_wait_set: Arc::new(AtomicBool::new(false)),
         });
 
@@ -245,8 +245,8 @@ where
     ///
     pub fn service_is_ready(&self) -> Result<bool, RclrsError> {
         let mut is_ready = false;
-        let client = &mut *self.handle.rcl_client_mtx.lock().unwrap();
-        let node = &mut *self.handle.rcl_node_mtx.lock().unwrap();
+        let client = &mut *self.handle.rcl_client.lock().unwrap();
+        let node = &mut *self.handle.node_handle.rcl_node.lock().unwrap();
 
         unsafe {
             // SAFETY both node and client are guaranteed to be valid here
