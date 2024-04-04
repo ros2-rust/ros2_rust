@@ -1,5 +1,7 @@
-use crate::rcl_bindings::*;
-use crate::{error::ToResult, time::Time, to_rclrs_result};
+use crate::{
+    rcl_bindings::*,
+    {error::ToResult, time::Time, to_rclrs_result}
+};
 use std::sync::{Arc, Mutex};
 
 /// Enum to describe clock type. Redefined for readability and to eliminate the uninitialized case
