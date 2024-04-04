@@ -288,7 +288,7 @@ impl NodeBuilder {
         let parameter = {
             let rcl_node = handle.rcl_node.lock().unwrap();
             ParameterInterface::new(
-                &*rcl_node,
+                &rcl_node,
                 &rcl_node_options.arguments,
                 &rcl_context.global_arguments,
             )?

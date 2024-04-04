@@ -99,11 +99,11 @@ where
             // The topic name and the options are copied by this function, so they can be dropped
             // afterwards.
             {
-                let mut rcl_node = node_handle.rcl_node.lock().unwrap();
+                let rcl_node = node_handle.rcl_node.lock().unwrap();
                 let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
                 rcl_client_init(
                     &mut rcl_client,
-                    &mut *rcl_node,
+                    &*rcl_node,
                     type_support,
                     topic_c_string.as_ptr(),
                     &client_options,

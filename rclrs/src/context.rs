@@ -219,7 +219,7 @@ impl InitOptions {
             if let Some(domain_id) = self.domain_id {
                 rcl_init_options_set_domain_id(&mut rcl_init_options, domain_id as usize);
             }
-            return Ok(rcl_init_options);
+            Ok(rcl_init_options)
         }
     }
 }
