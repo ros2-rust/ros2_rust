@@ -13,9 +13,10 @@ pub use self::builder::*;
 pub use self::graph::*;
 use crate::rcl_bindings::*;
 use crate::{
-    Client, ClientBase, Clock, Context, ENTITY_LIFECYCLE_MUTEX, GuardCondition, ParameterBuilder, ParameterInterface,
-    ParameterVariant, Parameters, Publisher, QoSProfile, RclrsError, Service, ServiceBase,
-    Subscription, SubscriptionBase, SubscriptionCallback, TimeSource, ContextHandle,
+    Client, ClientBase, Clock, Context, ContextHandle, GuardCondition, ParameterBuilder,
+    ParameterInterface, ParameterVariant, Parameters, Publisher, QoSProfile, RclrsError, Service,
+    ServiceBase, Subscription, SubscriptionBase, SubscriptionCallback, TimeSource,
+    ENTITY_LIFECYCLE_MUTEX,
 };
 
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
@@ -257,11 +258,7 @@ impl Node {
     where
         T: Message,
     {
-        let publisher = Arc::new(Publisher::<T>::new(
-            Arc::clone(&self.handle),
-            topic,
-            qos,
-        )?);
+        let publisher = Arc::new(Publisher::<T>::new(Arc::clone(&self.handle), topic, qos)?);
         Ok(publisher)
     }
 

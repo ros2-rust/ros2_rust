@@ -42,7 +42,9 @@ impl SingleThreadedExecutor {
         for node in { self.nodes_mtx.lock().unwrap() }
             .iter()
             .filter_map(Weak::upgrade)
-            .filter(|node| unsafe { rcl_context_is_valid(&*node.handle.context_handle.rcl_context.lock().unwrap()) })
+            .filter(|node| unsafe {
+                rcl_context_is_valid(&*node.handle.context_handle.rcl_context.lock().unwrap())
+            })
         {
             let wait_set = WaitSet::new_for_node(&node)?;
             let ready_entities = wait_set.wait(timeout)?;

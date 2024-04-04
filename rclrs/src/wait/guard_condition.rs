@@ -139,7 +139,8 @@ impl GuardCondition {
     pub fn trigger(&self) -> Result<(), RclrsError> {
         unsafe {
             // SAFETY: The rcl_guard_condition_t is valid.
-            rcl_trigger_guard_condition(&mut *self.handle.rcl_guard_condition.lock().unwrap()).ok()?;
+            rcl_trigger_guard_condition(&mut *self.handle.rcl_guard_condition.lock().unwrap())
+                .ok()?;
         }
         if let Some(callback) = &self.callback {
             callback();

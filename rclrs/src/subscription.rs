@@ -8,7 +8,7 @@ use rosidl_runtime_rs::{Message, RmwMessage};
 
 use crate::error::{RclReturnCode, ToResult};
 use crate::qos::QoSProfile;
-use crate::{rcl_bindings::*, RclrsError, NodeHandle, ENTITY_LIFECYCLE_MUTEX};
+use crate::{rcl_bindings::*, NodeHandle, RclrsError, ENTITY_LIFECYCLE_MUTEX};
 
 mod callback;
 mod message_info;

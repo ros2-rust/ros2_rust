@@ -29,10 +29,7 @@ impl Drop for PublisherHandle {
             // SAFETY: No preconditions for this function (besides the arguments being valid).
             let mut rcl_node = self.node_handle.rcl_node.lock().unwrap();
             let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
-            rcl_publisher_fini(
-                self.rcl_publisher.get_mut().unwrap(),
-                &mut *rcl_node,
-            );
+            rcl_publisher_fini(self.rcl_publisher.get_mut().unwrap(), &mut *rcl_node);
         }
     }
 }
@@ -116,7 +113,7 @@ where
             handle: PublisherHandle {
                 rcl_publisher: Mutex::new(rcl_publisher),
                 node_handle,
-            }
+            },
         })
     }
 

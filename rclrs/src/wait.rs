@@ -21,7 +21,7 @@ use std::vec::Vec;
 
 use crate::error::{to_rclrs_result, RclReturnCode, RclrsError, ToResult};
 use crate::rcl_bindings::*;
-use crate::{ClientBase, Context, Node, ServiceBase, SubscriptionBase, ContextHandle};
+use crate::{ClientBase, Context, ContextHandle, Node, ServiceBase, SubscriptionBase};
 
 mod exclusivity_guard;
 mod guard_condition;

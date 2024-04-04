@@ -266,12 +266,7 @@ impl Node {
         // SAFETY: The topic_name string was correctly allocated previously
         unsafe {
             let rcl_node = self.handle.rcl_node.lock().unwrap();
-            rcl_count_publishers(
-                &*rcl_node,
-                topic_name.as_ptr(),
-                &mut count,
-            )
-            .ok()?
+            rcl_count_publishers(&*rcl_node, topic_name.as_ptr(), &mut count).ok()?
         };
         Ok(count)
     }
@@ -287,12 +282,7 @@ impl Node {
         // SAFETY: The topic_name string was correctly allocated previously
         unsafe {
             let rcl_node = self.handle.rcl_node.lock().unwrap();
-            rcl_count_subscribers(
-                &*rcl_node,
-                topic_name.as_ptr(),
-                &mut count,
-            )
-            .ok()?
+            rcl_count_subscribers(&*rcl_node, topic_name.as_ptr(), &mut count).ok()?
         };
         Ok(count)
     }
@@ -469,10 +459,8 @@ mod tests {
 
     #[test]
     fn test_graph_empty() {
-        let context = Context::new_with_options(
-            [],
-            InitOptions::new().with_domain_id(Some(99))
-        ).unwrap();
+        let context =
+            Context::new_with_options([], InitOptions::new().with_domain_id(Some(99))).unwrap();
         let node_name = "test_publisher_names_and_types";
         let node = Node::new(&context, node_name).unwrap();
         // Test that the graph has no publishers

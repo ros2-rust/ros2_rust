@@ -3,8 +3,8 @@ use std::sync::{Arc, Mutex};
 
 use crate::rcl_bindings::*;
 use crate::{
-    ClockType, Context, ContextHandle, ENTITY_LIFECYCLE_MUTEX, Node, NodeHandle, ParameterInterface, QoSProfile, RclrsError, TimeSource, ToResult,
-    QOS_PROFILE_CLOCK,
+    ClockType, Context, ContextHandle, Node, NodeHandle, ParameterInterface, QoSProfile,
+    RclrsError, TimeSource, ToResult, ENTITY_LIFECYCLE_MUTEX, QOS_PROFILE_CLOCK,
 };
 
 /// A builder for creating a [`Node`][1].

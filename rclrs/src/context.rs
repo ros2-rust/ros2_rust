@@ -90,7 +90,7 @@ impl Context {
     /// assert_eq!(context.domain_id(), 5);
     /// ````
     pub fn new_with_options(
-        args: impl IntoIterator<Item=String>,
+        args: impl IntoIterator<Item = String>,
         options: InitOptions,
     ) -> Result<Self, RclrsError> {
         // SAFETY: Getting a zero-initialized value is always safe
@@ -135,7 +135,7 @@ impl Context {
         Ok(Self {
             handle: Arc::new(ContextHandle {
                 rcl_context: Mutex::new(rcl_context),
-            })
+            }),
         })
     }
 
@@ -150,7 +150,7 @@ impl Context {
         let ret = unsafe {
             rcl_context_get_domain_id(
                 &mut *self.handle.rcl_context.lock().unwrap(),
-                &mut domain_id
+                &mut domain_id,
             )
         };
 

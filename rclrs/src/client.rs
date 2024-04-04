@@ -9,7 +9,7 @@ use rosidl_runtime_rs::Message;
 
 use crate::error::{RclReturnCode, ToResult};
 use crate::MessageCow;
-use crate::{rcl_bindings::*, RclrsError, NodeHandle, ENTITY_LIFECYCLE_MUTEX};
+use crate::{rcl_bindings::*, NodeHandle, RclrsError, ENTITY_LIFECYCLE_MUTEX};
 
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
 // they are running in. Therefore, this type can be safely sent to another thread.
