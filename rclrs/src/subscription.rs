@@ -8,7 +8,7 @@ use rosidl_runtime_rs::{Message, RmwMessage};
 
 use crate::error::{RclReturnCode, ToResult};
 use crate::qos::QoSProfile;
-use crate::{rcl_bindings::*, RclrsError, NodeHandle};
+use crate::{rcl_bindings::*, RclrsError, NodeHandle, ENTITY_LIFECYCLE_MUTEX};
 
 mod callback;
 mod message_info;
@@ -38,6 +38,7 @@ impl Drop for SubscriptionHandle {
     fn drop(&mut self) {
         let rcl_subscription = self.rcl_subscription.get_mut().unwrap();
         let mut rcl_node = self.node_handle.rcl_node.lock().unwrap();
+        let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
         // SAFETY: No preconditions for this function (besides the arguments being valid).
         unsafe {
             rcl_subscription_fini(rcl_subscription, &mut *rcl_node);
@@ -114,6 +115,7 @@ where
             // afterwards.
             // TODO: type support?
             let rcl_node = node_handle.rcl_node.lock().unwrap();
+            let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
             rcl_subscription_init(
                 &mut rcl_subscription,
                 &*rcl_node,

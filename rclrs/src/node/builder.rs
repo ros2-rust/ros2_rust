@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex};
 
 use crate::rcl_bindings::*;
 use crate::{
-    ClockType, Context, ContextHandle, Node, NodeHandle, ParameterInterface, QoSProfile, RclrsError, TimeSource, ToResult,
+    ClockType, Context, ContextHandle, ENTITY_LIFECYCLE_MUTEX, Node, NodeHandle, ParameterInterface, QoSProfile, RclrsError, TimeSource, ToResult,
     QOS_PROFILE_CLOCK,
 };
 
@@ -270,6 +270,7 @@ impl NodeBuilder {
             // The strings and node options are copied by this function, so we don't need
             // to keep them alive.
             // The rcl_context has to be kept alive because it is co-owned by the node.
+            let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
             rcl_node_init(
                 &mut rcl_node,
                 node_name.as_ptr(),

@@ -110,9 +110,9 @@ impl GuardCondition {
         callback: Option<Box<dyn Fn() + Send + Sync>>,
     ) -> Self {
         let rcl_guard_condition = {
-            let mut rcl_context = context_handle.rcl_context.lock().unwrap();
             // SAFETY: Getting a zero initialized value is always safe
             let mut guard_condition = unsafe { rcl_get_zero_initialized_guard_condition() };
+            let mut rcl_context = context_handle.rcl_context.lock().unwrap();
             unsafe {
                 // SAFETY: The context must be valid, and the guard condition must be zero-initialized
                 rcl_guard_condition_init(

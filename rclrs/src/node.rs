@@ -13,7 +13,7 @@ pub use self::builder::*;
 pub use self::graph::*;
 use crate::rcl_bindings::*;
 use crate::{
-    Client, ClientBase, Clock, Context, GuardCondition, ParameterBuilder, ParameterInterface,
+    Client, ClientBase, Clock, Context, ENTITY_LIFECYCLE_MUTEX, GuardCondition, ParameterBuilder, ParameterInterface,
     ParameterVariant, Parameters, Publisher, QoSProfile, RclrsError, Service, ServiceBase,
     Subscription, SubscriptionBase, SubscriptionCallback, TimeSource, ContextHandle,
 };
@@ -78,6 +78,7 @@ impl Drop for NodeHandle {
     fn drop(&mut self) {
         let _context_lock = self.context_handle.rcl_context.lock().unwrap();
         let mut rcl_node = self.rcl_node.lock().unwrap();
+        let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
         unsafe { rcl_node_fini(&mut *rcl_node) };
     }
 }

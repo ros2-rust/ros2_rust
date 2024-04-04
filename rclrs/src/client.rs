@@ -9,7 +9,7 @@ use rosidl_runtime_rs::Message;
 
 use crate::error::{RclReturnCode, ToResult};
 use crate::MessageCow;
-use crate::{rcl_bindings::*, RclrsError, NodeHandle};
+use crate::{rcl_bindings::*, RclrsError, NodeHandle, ENTITY_LIFECYCLE_MUTEX};
 
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
 // they are running in. Therefore, this type can be safely sent to another thread.
@@ -32,6 +32,7 @@ impl Drop for ClientHandle {
     fn drop(&mut self) {
         let rcl_client = self.rcl_client.get_mut().unwrap();
         let mut rcl_node = self.node_handle.rcl_node.lock().unwrap();
+        let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
         // SAFETY: No preconditions for this function
         unsafe {
             rcl_client_fini(rcl_client, &mut *rcl_node);
@@ -99,6 +100,7 @@ where
             // afterwards.
             {
                 let mut rcl_node = node_handle.rcl_node.lock().unwrap();
+                let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
                 rcl_client_init(
                     &mut rcl_client,
                     &mut *rcl_node,

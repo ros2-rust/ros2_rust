@@ -9,7 +9,7 @@ use rosidl_runtime_rs::{Message, RmwMessage};
 use crate::error::{RclrsError, ToResult};
 use crate::qos::QoSProfile;
 use crate::rcl_bindings::*;
-use crate::NodeHandle;
+use crate::{NodeHandle, ENTITY_LIFECYCLE_MUTEX};
 
 mod loaned_message;
 pub use loaned_message::*;
@@ -28,6 +28,7 @@ impl Drop for PublisherHandle {
         unsafe {
             // SAFETY: No preconditions for this function (besides the arguments being valid).
             let mut rcl_node = self.node_handle.rcl_node.lock().unwrap();
+            let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
             rcl_publisher_fini(
                 self.rcl_publisher.get_mut().unwrap(),
                 &mut *rcl_node,
@@ -98,6 +99,7 @@ where
             // afterwards.
             // TODO: type support?
             let rcl_node = node_handle.rcl_node.lock().unwrap();
+            let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
             rcl_publisher_init(
                 &mut rcl_publisher,
                 &*rcl_node,

@@ -7,7 +7,7 @@ use rosidl_runtime_rs::Message;
 
 use crate::error::{RclReturnCode, ToResult};
 use crate::{rcl_bindings::*, MessageCow, RclrsError};
-use crate::NodeHandle;
+use crate::{NodeHandle, ENTITY_LIFECYCLE_MUTEX};
 
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
 // they are running in. Therefore, this type can be safely sent to another thread.
@@ -30,6 +30,7 @@ impl Drop for ServiceHandle {
     fn drop(&mut self) {
         let rcl_service = self.rcl_service.get_mut().unwrap();
         let mut rcl_node = self.node_handle.rcl_node.lock().unwrap();
+        let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
         // SAFETY: No preconditions for this function
         unsafe {
             rcl_service_fini(rcl_service, &mut *rcl_node);
@@ -100,6 +101,7 @@ where
             // The topic name and the options are copied by this function, so they can be dropped
             // afterwards.
             let rcl_node = node_handle.rcl_node.lock().unwrap();
+            let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
             rcl_service_init(
                 &mut rcl_service,
                 &*rcl_node,

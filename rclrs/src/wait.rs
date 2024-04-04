@@ -96,6 +96,7 @@ impl WaitSet {
         let rcl_wait_set = unsafe {
             // SAFETY: Getting a zero-initialized value is always safe
             let mut rcl_wait_set = rcl_get_zero_initialized_wait_set();
+            let mut rcl_context = context.handle.rcl_context.lock().unwrap();
             // SAFETY: We're passing in a zero-initialized wait set and a valid context.
             // There are no other preconditions.
             rcl_wait_set_init(
@@ -106,7 +107,7 @@ impl WaitSet {
                 number_of_clients,
                 number_of_services,
                 number_of_events,
-                &mut *context.handle.rcl_context.lock().unwrap(),
+                &mut *rcl_context,
                 rcutils_get_default_allocator(),
             )
             .ok()?;

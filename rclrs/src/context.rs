@@ -7,6 +7,15 @@ use std::vec::Vec;
 use crate::rcl_bindings::*;
 use crate::{RclrsError, ToResult};
 
+lazy_static::lazy_static! {
+    /// This is locked whenever initializing or dropping any middleware entity
+    /// because we have found issues in RCL and some RMW implementations that
+    /// make it unsafe to simultaneously initialize and/or drop various types of
+    /// entities. It seems these C and C++ based libraries will regularly use
+    /// unprotected global variables in their object initialization and cleanup.
+    pub(crate) static ref ENTITY_LIFECYCLE_MUTEX: Mutex<()> = Mutex::new(());
+}
+
 impl Drop for rcl_context_t {
     fn drop(&mut self) {
         unsafe {
@@ -14,6 +23,7 @@ impl Drop for rcl_context_t {
             // line arguments.
             // SAFETY: No preconditions for this function.
             if rcl_context_is_valid(self) {
+                let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
                 // SAFETY: These functions have no preconditions besides a valid rcl_context
                 rcl_shutdown(self);
                 rcl_context_fini(self);
@@ -102,17 +112,20 @@ impl Context {
             let mut rcl_init_options = options.into_rcl(allocator)?;
             // SAFETY: This function does not store the ephemeral init_options and c_args
             // pointers. Passing in a zero-initialized rcl_context is expected.
-            let ret = rcl_init(
-                c_args.len() as i32,
-                if c_args.is_empty() {
-                    std::ptr::null()
-                } else {
-                    c_args.as_ptr()
-                },
-                &rcl_init_options,
-                &mut rcl_context,
-            )
-            .ok();
+            let ret = {
+                let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
+                rcl_init(
+                    c_args.len() as i32,
+                    if c_args.is_empty() {
+                        std::ptr::null()
+                    } else {
+                        c_args.as_ptr()
+                    },
+                    &rcl_init_options,
+                    &mut rcl_context,
+                )
+                .ok()
+            };
             // SAFETY: It's safe to pass in an initialized object.
             // Early return will not leak memory, because this is the last fini function.
             rcl_init_options_fini(&mut rcl_init_options).ok()?;

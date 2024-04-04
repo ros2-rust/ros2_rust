@@ -14,15 +14,21 @@ path = "src/lib.rs"
 # Please keep the list of dependencies alphabetically sorted,
 # and also state why each dependency is needed.
 [dependencies]
-# Needed for dynamically finding type support libraries 
+# Needed for dynamically finding type support libraries
 ament_rs = { version = "0.2", optional = true }
+
 # Needed for uploading documentation to docs.rs
 cfg-if = "1.0.0"
 
 # Needed for clients
 futures = "0.3"
+
+# Needed to create a global mutex for managing the lifecycles of middleware entities
+lazy_static = "1.4"
+
 # Needed for dynamic messages
 libloading = { version = "0.8", optional = true }
+
 # Needed for the Message trait, among others
 rosidl_runtime_rs = "0.4"
 
