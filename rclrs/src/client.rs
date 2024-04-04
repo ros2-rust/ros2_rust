@@ -31,10 +31,10 @@ impl ClientHandle {
 impl Drop for ClientHandle {
     fn drop(&mut self) {
         let rcl_client = self.rcl_client.get_mut().unwrap();
-        let rcl_node = &mut *self.node_handle.rcl_node.lock().unwrap();
+        let mut rcl_node = self.node_handle.rcl_node.lock().unwrap();
         // SAFETY: No preconditions for this function
         unsafe {
-            rcl_client_fini(rcl_client, rcl_node);
+            rcl_client_fini(rcl_client, &mut *rcl_node);
         }
     }
 }
@@ -97,14 +97,17 @@ where
             // The rcl_node is kept alive because it is co-owned by the client.
             // The topic name and the options are copied by this function, so they can be dropped
             // afterwards.
-            rcl_client_init(
-                &mut rcl_client,
-                &*node_handle.rcl_node.lock().unwrap(),
-                type_support,
-                topic_c_string.as_ptr(),
-                &client_options,
-            )
-            .ok()?;
+            {
+                let mut rcl_node = node_handle.rcl_node.lock().unwrap();
+                rcl_client_init(
+                    &mut rcl_client,
+                    &mut *rcl_node,
+                    type_support,
+                    topic_c_string.as_ptr(),
+                    &client_options,
+                )
+                .ok()?;
+            }
         }
 
         let handle = Arc::new(ClientHandle {

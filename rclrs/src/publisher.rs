@@ -23,6 +23,19 @@ struct PublisherHandle {
     node_handle: Arc<NodeHandle>,
 }
 
+impl Drop for PublisherHandle {
+    fn drop(&mut self) {
+        unsafe {
+            // SAFETY: No preconditions for this function (besides the arguments being valid).
+            let mut rcl_node = self.node_handle.rcl_node.lock().unwrap();
+            rcl_publisher_fini(
+                self.rcl_publisher.get_mut().unwrap(),
+                &mut *rcl_node,
+            );
+        }
+    }
+}
+
 /// Struct for sending messages of type `T`.
 ///
 /// Multiple publishers can be created for the same topic, in different nodes or the same node.
@@ -42,21 +55,6 @@ where
     type_support_ptr: *const rosidl_message_type_support_t,
     message: PhantomData<T>,
     handle: PublisherHandle,
-}
-
-impl<T> Drop for Publisher<T>
-where
-    T: Message,
-{
-    fn drop(&mut self) {
-        unsafe {
-            // SAFETY: No preconditions for this function (besides the arguments being valid).
-            rcl_publisher_fini(
-                self.handle.rcl_publisher.get_mut().unwrap(),
-                &mut *self.handle.node_handle.rcl_node.lock().unwrap(),
-            );
-        }
-    }
 }
 
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
@@ -99,9 +97,10 @@ where
             // The topic name and the options are copied by this function, so they can be dropped
             // afterwards.
             // TODO: type support?
+            let rcl_node = node_handle.rcl_node.lock().unwrap();
             rcl_publisher_init(
                 &mut rcl_publisher,
-                &*node_handle.rcl_node.lock().unwrap(),
+                &*rcl_node,
                 type_support_ptr,
                 topic_c_string.as_ptr(),
                 &publisher_options,

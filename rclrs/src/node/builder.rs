@@ -284,11 +284,14 @@ impl NodeBuilder {
             rcl_node: Mutex::new(rcl_node),
             context_handle: Arc::clone(&self.context),
         });
-        let parameter = ParameterInterface::new(
-            &*handle.rcl_node.lock().unwrap(),
-            &rcl_node_options.arguments,
-            &rcl_context.global_arguments,
-        )?;
+        let parameter = {
+            let rcl_node = handle.rcl_node.lock().unwrap();
+            ParameterInterface::new(
+                &*rcl_node,
+                &rcl_node_options.arguments,
+                &rcl_context.global_arguments,
+            )?
+        };
         let node = Arc::new(Node {
             handle,
             clients_mtx: Mutex::new(vec![]),

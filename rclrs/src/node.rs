@@ -15,15 +15,8 @@ use crate::rcl_bindings::*;
 use crate::{
     Client, ClientBase, Clock, Context, GuardCondition, ParameterBuilder, ParameterInterface,
     ParameterVariant, Parameters, Publisher, QoSProfile, RclrsError, Service, ServiceBase,
-    Subscription, SubscriptionBase, SubscriptionCallback, TimeSource, ToResult, ContextHandle,
+    Subscription, SubscriptionBase, SubscriptionCallback, TimeSource, ContextHandle,
 };
-
-impl Drop for rcl_node_t {
-    fn drop(&mut self) {
-        // SAFETY: No preconditions for this function
-        unsafe { rcl_node_fini(self).ok().unwrap() };
-    }
-}
 
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
 // they are running in. Therefore, this type can be safely sent to another thread.
@@ -79,6 +72,14 @@ pub struct Node {
 pub(crate) struct NodeHandle {
     pub(crate) rcl_node: Mutex<rcl_node_t>,
     pub(crate) context_handle: Arc<ContextHandle>,
+}
+
+impl Drop for NodeHandle {
+    fn drop(&mut self) {
+        let _context_lock = self.context_handle.rcl_context.lock().unwrap();
+        let mut rcl_node = self.rcl_node.lock().unwrap();
+        unsafe { rcl_node_fini(&mut *rcl_node) };
+    }
 }
 
 impl Eq for Node {}
@@ -185,7 +186,8 @@ impl Node {
         &self,
         getter: unsafe extern "C" fn(*const rcl_node_t) -> *const c_char,
     ) -> String {
-        unsafe { call_string_getter_with_handle(&self.handle.rcl_node.lock().unwrap(), getter) }
+        let rcl_node = self.handle.rcl_node.lock().unwrap();
+        unsafe { call_string_getter_with_handle(&rcl_node, getter) }
     }
 
     /// Creates a [`Client`][1].
@@ -361,11 +363,11 @@ impl Node {
     // add description about this function is for getting actual domain_id
     // and about override of domain_id via node option
     pub fn domain_id(&self) -> usize {
-        let rcl_node = &*self.handle.rcl_node.lock().unwrap();
+        let rcl_node = self.handle.rcl_node.lock().unwrap();
         let mut domain_id: usize = 0;
         let ret = unsafe {
             // SAFETY: No preconditions for this function.
-            rcl_node_get_domain_id(rcl_node, &mut domain_id)
+            rcl_node_get_domain_id(&*rcl_node, &mut domain_id)
         };
 
         debug_assert_eq!(ret, 0);

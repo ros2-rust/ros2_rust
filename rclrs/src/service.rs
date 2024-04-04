@@ -29,10 +29,10 @@ impl ServiceHandle {
 impl Drop for ServiceHandle {
     fn drop(&mut self) {
         let rcl_service = self.rcl_service.get_mut().unwrap();
-        let rcl_node = &mut *self.node_handle.rcl_node.lock().unwrap();
+        let mut rcl_node = self.node_handle.rcl_node.lock().unwrap();
         // SAFETY: No preconditions for this function
         unsafe {
-            rcl_service_fini(rcl_service, rcl_node);
+            rcl_service_fini(rcl_service, &mut *rcl_node);
         }
     }
 }
@@ -99,9 +99,10 @@ where
             // The rcl_node is kept alive because it is co-owned by the service.
             // The topic name and the options are copied by this function, so they can be dropped
             // afterwards.
+            let rcl_node = node_handle.rcl_node.lock().unwrap();
             rcl_service_init(
                 &mut rcl_service,
-                &*node_handle.rcl_node.lock().unwrap(),
+                &*rcl_node,
                 type_support,
                 topic_c_string.as_ptr(),
                 &service_options as *const _,

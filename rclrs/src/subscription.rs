@@ -37,10 +37,10 @@ impl SubscriptionHandle {
 impl Drop for SubscriptionHandle {
     fn drop(&mut self) {
         let rcl_subscription = self.rcl_subscription.get_mut().unwrap();
-        let rcl_node = &mut *self.node_handle.rcl_node.lock().unwrap();
+        let mut rcl_node = self.node_handle.rcl_node.lock().unwrap();
         // SAFETY: No preconditions for this function (besides the arguments being valid).
         unsafe {
-            rcl_subscription_fini(rcl_subscription, rcl_node);
+            rcl_subscription_fini(rcl_subscription, &mut *rcl_node);
         }
     }
 }
@@ -85,7 +85,7 @@ where
 {
     /// Creates a new subscription.
     pub(crate) fn new<Args>(
-        rcl_node: Arc<NodeHandle>,
+        node_handle: Arc<NodeHandle>,
         topic: &str,
         qos: QoSProfile,
         callback: impl SubscriptionCallback<T, Args>,
@@ -113,9 +113,10 @@ where
             // The topic name and the options are copied by this function, so they can be dropped
             // afterwards.
             // TODO: type support?
+            let rcl_node = node_handle.rcl_node.lock().unwrap();
             rcl_subscription_init(
                 &mut rcl_subscription,
-                &*rcl_node.rcl_node.lock().unwrap(),
+                &*rcl_node,
                 type_support,
                 topic_c_string.as_ptr(),
                 &subscription_options,
@@ -125,7 +126,7 @@ where
 
         let handle = Arc::new(SubscriptionHandle {
             rcl_subscription: Mutex::new(rcl_subscription),
-            node_handle: rcl_node,
+            node_handle,
             in_use_by_wait_set: Arc::new(AtomicBool::new(false)),
         });
 

@@ -137,8 +137,9 @@ impl Node {
 
         // SAFETY: rcl_names_and_types is zero-initialized as expected by this call
         unsafe {
+            let rcl_node = self.handle.rcl_node.lock().unwrap();
             rcl_get_topic_names_and_types(
-                &*self.handle.rcl_node.lock().unwrap(),
+                &*rcl_node,
                 &mut rcutils_get_default_allocator(),
                 false,
                 &mut rcl_names_and_types,
@@ -166,8 +167,9 @@ impl Node {
 
         // SAFETY: node_names and node_namespaces are zero-initialized as expected by this call.
         unsafe {
+            let rcl_node = self.handle.rcl_node.lock().unwrap();
             rcl_get_node_names(
-                &*self.handle.rcl_node.lock().unwrap(),
+                &*rcl_node,
                 rcutils_get_default_allocator(),
                 &mut rcl_names,
                 &mut rcl_namespaces,
@@ -213,8 +215,9 @@ impl Node {
 
         // SAFETY: The node_names, namespaces, and enclaves are zero-initialized as expected by this call.
         unsafe {
+            let rcl_node = self.handle.rcl_node.lock().unwrap();
             rcl_get_node_names_with_enclaves(
-                &*self.handle.rcl_node.lock().unwrap(),
+                &*rcl_node,
                 rcutils_get_default_allocator(),
                 &mut rcl_names,
                 &mut rcl_namespaces,
@@ -262,8 +265,9 @@ impl Node {
 
         // SAFETY: The topic_name string was correctly allocated previously
         unsafe {
+            let rcl_node = self.handle.rcl_node.lock().unwrap();
             rcl_count_publishers(
-                &*self.handle.rcl_node.lock().unwrap(),
+                &*rcl_node,
                 topic_name.as_ptr(),
                 &mut count,
             )
@@ -282,8 +286,9 @@ impl Node {
 
         // SAFETY: The topic_name string was correctly allocated previously
         unsafe {
+            let rcl_node = self.handle.rcl_node.lock().unwrap();
             rcl_count_subscribers(
-                &*self.handle.rcl_node.lock().unwrap(),
+                &*rcl_node,
                 topic_name.as_ptr(),
                 &mut count,
             )
@@ -336,8 +341,9 @@ impl Node {
 
         // SAFETY: node_name and node_namespace have been zero-initialized.
         unsafe {
+            let rcl_node = self.handle.rcl_node.lock().unwrap();
             getter(
-                &*self.handle.rcl_node.lock().unwrap(),
+                &*rcl_node,
                 &mut rcutils_get_default_allocator(),
                 node_name.as_ptr(),
                 node_namespace.as_ptr(),
@@ -371,8 +377,9 @@ impl Node {
 
         // SAFETY: topic has been zero-initialized
         unsafe {
+            let rcl_node = self.handle.rcl_node.lock().unwrap();
             getter(
-                &*self.handle.rcl_node.lock().unwrap(),
+                &*rcl_node,
                 &mut rcutils_get_default_allocator(),
                 topic.as_ptr(),
                 false,
@@ -458,14 +465,16 @@ fn convert_names_and_types(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::Context;
+    use crate::{Context, InitOptions};
 
     #[test]
     fn test_graph_empty() {
-        let context = Context::new([]).unwrap();
+        let context = Context::new_with_options(
+            [],
+            InitOptions::new().with_domain_id(Some(99))
+        ).unwrap();
         let node_name = "test_publisher_names_and_types";
         let node = Node::new(&context, node_name).unwrap();
-
         // Test that the graph has no publishers
         let names_and_topics = node
             .get_publisher_names_and_types_by_node(node_name, "")
