@@ -459,8 +459,24 @@ mod tests {
 
     #[test]
     fn test_graph_empty() {
+        let domain_id: usize = std::env::var("ROS_DOMAIN_ID")
+            .ok()
+            .and_then(|value| value.parse().ok())
+            .map(|value| {
+                if value == 99 {
+                    // The default domain ID for this application is 99, which
+                    // conflicts with our arbitrarily chosen default for the
+                    // empty graph test. Therefore we will set the empty graph
+                    // test domain ID to 98 instead.
+                    98
+                } else {
+                    99
+                }
+            })
+            .unwrap_or(99);
+
         let context =
-            Context::new_with_options([], InitOptions::new().with_domain_id(Some(99))).unwrap();
+            Context::new_with_options([], InitOptions::new().with_domain_id(Some(domain_id))).unwrap();
         let node_name = "test_publisher_names_and_types";
         let node = Node::new(&context, node_name).unwrap();
         // Test that the graph has no publishers
