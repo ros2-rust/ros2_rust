@@ -145,7 +145,7 @@ impl Context {
     /// It can be set through the `ROS_DOMAIN_ID` environment variable.
     ///
     /// [1]: https://docs.ros.org/en/rolling/Concepts/About-Domain-ID.html
-    pub fn domain_id(&self) -> u8 {
+    pub fn domain_id(&self) -> usize {
         let mut domain_id: usize = 0;
         let ret = unsafe {
             rcl_context_get_domain_id(
@@ -155,7 +155,7 @@ impl Context {
         };
 
         debug_assert_eq!(ret, 0);
-        domain_id as u8
+        domain_id
     }
 
     /// Checks if the context is still valid.
@@ -179,7 +179,7 @@ pub struct InitOptions {
     /// [ROS_DOMAIN_ID][1] environment variable.
     ///
     /// [1]: https://docs.ros.org/en/rolling/Concepts/Intermediate/About-Domain-ID.html#the-ros-domain-id
-    domain_id: Option<u8>,
+    domain_id: Option<usize>,
 }
 
 impl InitOptions {
@@ -189,19 +189,19 @@ impl InitOptions {
     }
 
     /// Transform an InitOptions into a new one with a certain domain_id
-    pub fn with_domain_id(mut self, domain_id: Option<u8>) -> InitOptions {
+    pub fn with_domain_id(mut self, domain_id: Option<usize>) -> InitOptions {
         self.domain_id = domain_id;
         self
     }
 
     /// Set the domain_id of an InitOptions, or reset it to the default behavior
     /// (determined by environment variables) by providing None.
-    pub fn set_domain_id(&mut self, domain_id: Option<u8>) {
+    pub fn set_domain_id(&mut self, domain_id: Option<usize>) {
         self.domain_id = domain_id;
     }
 
     /// Get the domain_id that will be provided by these InitOptions.
-    pub fn domain_id(&self) -> Option<u8> {
+    pub fn domain_id(&self) -> Option<usize> {
         self.domain_id
     }
 

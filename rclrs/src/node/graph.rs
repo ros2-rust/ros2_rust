@@ -462,7 +462,7 @@ mod tests {
         let domain_id: usize = std::env::var("ROS_DOMAIN_ID")
             .ok()
             .and_then(|value| value.parse().ok())
-            .map(|value| {
+            .map(|value: usize| {
                 if value == 99 {
                     // The default domain ID for this application is 99, which
                     // conflicts with our arbitrarily chosen default for the
@@ -476,7 +476,8 @@ mod tests {
             .unwrap_or(99);
 
         let context =
-            Context::new_with_options([], InitOptions::new().with_domain_id(Some(domain_id))).unwrap();
+            Context::new_with_options([], InitOptions::new().with_domain_id(Some(domain_id)))
+                .unwrap();
         let node_name = "test_publisher_names_and_types";
         let node = Node::new(&context, node_name).unwrap();
         // Test that the graph has no publishers
