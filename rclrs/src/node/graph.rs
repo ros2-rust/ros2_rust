@@ -476,7 +476,8 @@ mod tests {
             .unwrap_or(99);
 
         let context =
-            Context::new_with_options([], InitOptions::new().with_domain_id(Some(domain_id))).unwrap();
+            Context::new_with_options([], InitOptions::new().with_domain_id(Some(domain_id)))
+                .unwrap();
         let node_name = "test_publisher_names_and_types";
         let node = Node::new(&context, node_name).unwrap();
         // Test that the graph has no publishers
