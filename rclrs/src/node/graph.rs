@@ -459,20 +459,28 @@ mod tests {
 
     #[test]
     fn test_graph_empty() {
+        // cargo test by default will run all test functions in parallel using
+        // as many threads as the underlying system allows. However, the test
+        // expectations of test_graph_empty will fail if its detects any other middleware
+        // activity while it's running.
+        //
+        // If we ensure that the Context of test_graph_empty is given a different domain ID
+        // from the rest of the tests, then we can ensure that it will not observe any other
+        // middleware activity, and its expectations can pass (as long as the user is not
+        // running any other ROS executables on their system).
+        //
+        // By default we will assign 99 to the domain ID of test_graph_empty's Context.
+        // However, if the ROS_DOMAIN_ID environment variable was set to 99 by the user,
+        // then the rest of the tests will be using that value. So here we are detecting
+        // that situation and setting the domain ID of test_graph_empty's Context to 98
+        // in that situation.
+        //
+        // 99 and 98 are just chosen as arbitrary valid domain ID values. There is
+        // otherwise nothing special about either value.
         let domain_id: usize = std::env::var("ROS_DOMAIN_ID")
             .ok()
             .and_then(|value| value.parse().ok())
-            .map(|value: usize| {
-                if value == 99 {
-                    // The default domain ID for this application is 99, which
-                    // conflicts with our arbitrarily chosen default for the
-                    // empty graph test. Therefore we will set the empty graph
-                    // test domain ID to 98 instead.
-                    98
-                } else {
-                    99
-                }
-            })
+            .map(|value: usize| if value != 99 { 99 } else { 98 })
             .unwrap_or(99);
 
         let context =
