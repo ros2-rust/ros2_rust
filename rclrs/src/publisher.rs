@@ -22,7 +22,7 @@ unsafe impl Send for rcl_publisher_t {}
 /// on `rcl_node_t` and `rcl_context_t` by ensuring that these dependencies are
 /// [dropped after][1] the `rcl_publisher_t`.
 ///
-/// [1] https://doc.rust-lang.org/reference/destructors.html
+/// [1]: <https://doc.rust-lang.org/reference/destructors.html>
 struct PublisherHandle {
     rcl_publisher: Mutex<rcl_publisher_t>,
     node_handle: Arc<NodeHandle>,

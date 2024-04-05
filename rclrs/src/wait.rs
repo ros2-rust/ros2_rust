@@ -32,7 +32,7 @@ pub use guard_condition::*;
 /// on `rcl_context_t` by ensuring that this dependency is [dropped after][1] the
 /// `rcl_wait_set_t`.
 ///
-/// [1] https://doc.rust-lang.org/reference/destructors.html
+/// [1]: <https://doc.rust-lang.org/reference/destructors.html>
 struct WaitSetHandle {
     rcl_wait_set: rcl_wait_set_t,
     // Used to ensure the context is alive while the wait set is alive.

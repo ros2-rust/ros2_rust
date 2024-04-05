@@ -25,7 +25,7 @@ unsafe impl Send for rcl_subscription_t {}
 /// on `rcl_node_t` and `rcl_context_t` by ensuring that these dependencies are
 /// [dropped after][1] the `rcl_subscription_t`.
 ///
-/// [1] https://doc.rust-lang.org/reference/destructors.html
+/// [1]: <https://doc.rust-lang.org/reference/destructors.html>
 pub struct SubscriptionHandle {
     rcl_subscription: Mutex<rcl_subscription_t>,
     node_handle: Arc<NodeHandle>,

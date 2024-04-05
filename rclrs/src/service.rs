@@ -17,7 +17,7 @@ unsafe impl Send for rcl_service_t {}
 /// on `rcl_node_t` and `rcl_context_t` by ensuring that these dependencies are
 /// [dropped after][1] the `rcl_service_t`.
 ///
-/// [1] https://doc.rust-lang.org/reference/destructors.html
+/// [1]: <https://doc.rust-lang.org/reference/destructors.html>
 pub struct ServiceHandle {
     rcl_service: Mutex<rcl_service_t>,
     node_handle: Arc<NodeHandle>,

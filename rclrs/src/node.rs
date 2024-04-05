@@ -72,7 +72,7 @@ pub struct Node {
 /// dependency on the lifetime of its `rcl_context_t` by ensuring that this
 /// dependency is [dropped after][1] the `rcl_node_t`.
 ///
-/// [1] https://doc.rust-lang.org/reference/destructors.html
+/// [1]: <https://doc.rust-lang.org/reference/destructors.html>
 pub(crate) struct NodeHandle {
     pub(crate) rcl_node: Mutex<rcl_node_t>,
     pub(crate) context_handle: Arc<ContextHandle>,

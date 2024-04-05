@@ -19,7 +19,7 @@ unsafe impl Send for rcl_client_t {}
 /// on `rcl_node_t` and `rcl_context_t` by ensuring that these dependencies are
 /// [dropped after][1] the `rcl_client_t`.
 ///
-/// [1] https://doc.rust-lang.org/reference/destructors.html
+/// [1]: <https://doc.rust-lang.org/reference/destructors.html>
 pub struct ClientHandle {
     rcl_client: Mutex<rcl_client_t>,
     node_handle: Arc<NodeHandle>,
