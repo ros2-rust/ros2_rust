@@ -9,9 +9,16 @@ use crate::{RclrsError, ToResult};
 
 /// This is locked whenever initializing or dropping any middleware entity
 /// because we have found issues in RCL and some RMW implementations that
-/// make it unsafe to simultaneously initialize and/or drop various types of
-/// entities. It seems these C and C++ based libraries will regularly use
+/// make it unsafe to simultaneously initialize and/or drop middleware
+/// entities such as [`rcl_context_t`] and [`rcl_node_t`] as well middleware
+/// primitives such as [`rcl_publisher_t`], [`rcl_subscription_t`], etc.
+/// It seems these C and C++ based libraries will regularly use
 /// unprotected global variables in their object initialization and cleanup.
+///
+/// Further discussion with the RCL team may help to improve the RCL
+/// documentation to specifically call out where these risks are present. For
+/// now we lock this mutex for any RCL function that carries reasonable suspicion
+/// of a risk.
 pub(crate) static ENTITY_LIFECYCLE_MUTEX: Mutex<()> = Mutex::new(());
 
 impl Drop for rcl_context_t {
