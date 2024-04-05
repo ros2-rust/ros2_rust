@@ -7,14 +7,12 @@ use std::vec::Vec;
 use crate::rcl_bindings::*;
 use crate::{RclrsError, ToResult};
 
-lazy_static::lazy_static! {
-    /// This is locked whenever initializing or dropping any middleware entity
-    /// because we have found issues in RCL and some RMW implementations that
-    /// make it unsafe to simultaneously initialize and/or drop various types of
-    /// entities. It seems these C and C++ based libraries will regularly use
-    /// unprotected global variables in their object initialization and cleanup.
-    pub(crate) static ref ENTITY_LIFECYCLE_MUTEX: Mutex<()> = Mutex::new(());
-}
+/// This is locked whenever initializing or dropping any middleware entity
+/// because we have found issues in RCL and some RMW implementations that
+/// make it unsafe to simultaneously initialize and/or drop various types of
+/// entities. It seems these C and C++ based libraries will regularly use
+/// unprotected global variables in their object initialization and cleanup.
+pub(crate) static ENTITY_LIFECYCLE_MUTEX: Mutex<()> = Mutex::new(());
 
 impl Drop for rcl_context_t {
     fn drop(&mut self) {
