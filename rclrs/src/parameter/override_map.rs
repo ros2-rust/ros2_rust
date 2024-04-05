@@ -1,9 +1,11 @@
-use std::collections::BTreeMap;
-use std::ffi::CStr;
-use std::os::raw::c_char;
+use std::{
+    collections::BTreeMap,
+    ffi::CStr,
+    os::raw::c_char
+};
 
-use crate::rcl_bindings::*;
-use crate::{ParameterValue, RclrsError, ToResult};
+
+use crate::{rcl_bindings::*,ParameterValue, RclrsError, ToResult};
 
 // Internal helper struct, iterator for rcl_params_t
 struct RclParamsIter<'a> {
