@@ -194,7 +194,7 @@ impl Node {
         getter: unsafe extern "C" fn(*const rcl_node_t) -> *const c_char,
     ) -> String {
         let rcl_node = self.handle.rcl_node.lock().unwrap();
-        unsafe { call_string_getter_with_handle(&rcl_node, getter) }
+        unsafe { call_string_getter_with_rcl_node(&rcl_node, getter) }
     }
 
     /// Creates a [`Client`][1].
@@ -446,7 +446,7 @@ impl Node {
 // function, which is why it's not merged into Node::call_string_getter().
 // This function is unsafe since it's possible to pass in an rcl_node_t with dangling
 // pointers etc.
-pub(crate) unsafe fn call_string_getter_with_handle(
+pub(crate) unsafe fn call_string_getter_with_rcl_node(
     rcl_node: &rcl_node_t,
     getter: unsafe extern "C" fn(*const rcl_node_t) -> *const c_char,
 ) -> String {
