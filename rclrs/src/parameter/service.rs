@@ -1,11 +1,17 @@
 use std::sync::{Arc, Weak, Mutex};
 
-use crate::vendor::rcl_interfaces::srv::rmw::*;
-use crate::vendor::rcl_interfaces::msg::rmw::*;
 use rosidl_runtime_rs::{Sequence, seq};
 
-use crate::{rmw_request_id_t, Node, RclrsError, Service, ServiceBase};
-use crate::rcl_bindings::rcl_node_t;
+use crate::{
+    rcl_bindings::rcl_node_t,
+    rmw_request_id_t, 
+    Node, 
+    RclrsError, 
+    Service, 
+    ServiceBase,
+    vendor::rcl_interfaces::{srv::rmw::*,msg::rmw::*},
+};
+
 
 pub struct ParameterService {
     describe_parameters_service: Arc<Service<DescribeParameters>>,
