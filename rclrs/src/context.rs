@@ -19,10 +19,12 @@ impl Drop for rcl_context_t {
         unsafe {
             // The context may be invalid when rcl_init failed, e.g. because of invalid command
             // line arguments.
-            // SAFETY: No preconditions for this function.
+
+            // SAFETY: No preconditions for rcl_context_is_valid.
             if rcl_context_is_valid(self) {
                 let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
-                // SAFETY: These functions have no preconditions besides a valid rcl_context
+                // SAFETY: The entity lifecycle mutex is locked to protect against the risk of
+                // global variables in the rmw implementation being unsafely modified during cleanup.
                 rcl_shutdown(self);
                 rcl_context_fini(self);
             }
@@ -50,10 +52,10 @@ pub struct Context {
     pub(crate) handle: Arc<ContextHandle>,
 }
 
-/// This struct manages the lifetime and access to the rcl context. It will also
+/// This struct manages the lifetime and access to the [`rcl_context_t`]. It will also
 /// account for the lifetimes of any dependencies, if we need to add
 /// dependencies in the future (currently there are none). It is not strictly
-/// necessary to decompose `Context` and `ContextHandle` like this, but we are
+/// necessary to decompose [`Context`] and [`ContextHandle`] like this, but we are
 /// doing it to be consistent with the lifecycle management of other rcl
 /// bindings in this library.
 pub(crate) struct ContextHandle {
@@ -108,8 +110,11 @@ impl Context {
             // SAFETY: No preconditions for this function.
             let allocator = rcutils_get_default_allocator();
             let mut rcl_init_options = options.into_rcl(allocator)?;
-            // SAFETY: This function does not store the ephemeral init_options and c_args
-            // pointers. Passing in a zero-initialized rcl_context is expected.
+            // SAFETY:
+            // * This function does not store the ephemeral init_options and c_args pointers.
+            // * Passing in a zero-initialized rcl_context is mandatory.
+            // * The entity lifecycle mutex is locked to protect against the risk of global variables
+            //   in the rmw implementation being unsafely modified during initialization.
             let ret = {
                 let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
                 rcl_init(

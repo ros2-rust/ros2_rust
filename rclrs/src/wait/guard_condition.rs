@@ -52,6 +52,11 @@ pub struct GuardCondition {
     pub(crate) in_use_by_wait_set: Arc<AtomicBool>,
 }
 
+/// Manage the lifecycle of an [`rcl_guard_condition_t`], including managing its dependency
+/// on [`rcl_context_t`] by ensuring that this dependency is [dropped after][1] the
+/// [`rcl_guard_condition_t`].
+///
+/// [1] https://doc.rust-lang.org/reference/destructors.html
 pub(crate) struct GuardConditionHandle {
     pub(crate) rcl_guard_condition: Mutex<rcl_guard_condition_t>,
     /// Keep the context alive for the whole lifecycle of the guard condition

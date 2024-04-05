@@ -18,6 +18,11 @@ pub use loaned_message::*;
 // they are running in. Therefore, this type can be safely sent to another thread.
 unsafe impl Send for rcl_publisher_t {}
 
+/// Manage the lifecycle of an [`rcl_publisher_t`], including managing its dependencies
+/// on [`rcl_node_t`] and [`rcl_context_t`] by ensuring that these dependencies are
+/// [dropped after][1] the [`rcl_publisher_t`].
+///
+/// [1] https://doc.rust-lang.org/reference/destructors.html
 struct PublisherHandle {
     rcl_publisher: Mutex<rcl_publisher_t>,
     node_handle: Arc<NodeHandle>,
@@ -25,10 +30,11 @@ struct PublisherHandle {
 
 impl Drop for PublisherHandle {
     fn drop(&mut self) {
+        let mut rcl_node = self.node_handle.rcl_node.lock().unwrap();
+        let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
+        // SAFETY: The entity lifecycle mutex is locked to protect against the risk of
+        // global variables in the rmw implementation being unsafely modified during cleanup.
         unsafe {
-            // SAFETY: No preconditions for this function (besides the arguments being valid).
-            let mut rcl_node = self.node_handle.rcl_node.lock().unwrap();
-            let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
             rcl_publisher_fini(self.rcl_publisher.get_mut().unwrap(), &mut *rcl_node);
         }
     }
@@ -89,22 +95,26 @@ where
         // SAFETY: No preconditions for this function.
         let mut publisher_options = unsafe { rcl_publisher_get_default_options() };
         publisher_options.qos = qos.into();
-        unsafe {
-            // SAFETY: The rcl_publisher is zero-initialized as expected by this function.
-            // The rcl_node is kept alive because it is co-owned by the subscription.
-            // The topic name and the options are copied by this function, so they can be dropped
-            // afterwards.
-            // TODO: type support?
+
+        {
             let rcl_node = node_handle.rcl_node.lock().unwrap();
             let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
-            rcl_publisher_init(
-                &mut rcl_publisher,
-                &*rcl_node,
-                type_support_ptr,
-                topic_c_string.as_ptr(),
-                &publisher_options,
-            )
-            .ok()?;
+            unsafe {
+                // SAFETY:
+                // * The rcl_publisher is zero-initialized as mandated by this function.
+                // * The rcl_node is kept alive by the NodeHandle because it is a dependency of the publisher.
+                // * The topic name and the options are copied by this function, so they can be dropped afterwards.
+                // * The entity lifecycle mutex is locked to protect against the risk of global
+                //   variables in the rmw implementation being unsafely modified during cleanup.
+                rcl_publisher_init(
+                    &mut rcl_publisher,
+                    &*rcl_node,
+                    type_support_ptr,
+                    topic_c_string.as_ptr(),
+                    &publisher_options,
+                )
+                .ok()?;
+            }
         }
 
         Ok(Self {

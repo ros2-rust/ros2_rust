@@ -68,8 +68,11 @@ pub struct Node {
     pub(crate) handle: Arc<NodeHandle>,
 }
 
-/// This struct manages the lifetime of the rcl node, and accounts for its
-/// dependency on the lifetime of its context.
+/// This struct manages the lifetime of an [`rcl_node_t`], and accounts for its
+/// dependency on the lifetime of its [`rcl_context_t`] by ensuring that this
+/// dependency is [dropped after][1] the [`rcl_node_t`].
+///
+/// [1] https://doc.rust-lang.org/reference/destructors.html
 pub(crate) struct NodeHandle {
     pub(crate) rcl_node: Mutex<rcl_node_t>,
     pub(crate) context_handle: Arc<ContextHandle>,
@@ -80,6 +83,8 @@ impl Drop for NodeHandle {
         let _context_lock = self.context_handle.rcl_context.lock().unwrap();
         let mut rcl_node = self.rcl_node.lock().unwrap();
         let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
+        // SAFETY: The entity lifecycle mutex is locked to protect against the risk of
+        // global variables in the rmw implementation being unsafely modified during cleanup.
         unsafe { rcl_node_fini(&mut *rcl_node) };
     }
 }

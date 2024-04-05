@@ -15,7 +15,11 @@ use crate::{rcl_bindings::*, NodeHandle, RclrsError, ENTITY_LIFECYCLE_MUTEX};
 // they are running in. Therefore, this type can be safely sent to another thread.
 unsafe impl Send for rcl_client_t {}
 
-/// Internal struct used by clients.
+/// Manage the lifecycle of an [`rcl_client_t`], including managing its dependencies
+/// on [`rcl_node_t`] and [`rcl_context_t`] by ensuring that these dependencies are
+/// [dropped after][1] the [`rcl_client_t`].
+///
+/// [1] https://doc.rust-lang.org/reference/destructors.html
 pub struct ClientHandle {
     rcl_client: Mutex<rcl_client_t>,
     node_handle: Arc<NodeHandle>,
@@ -33,7 +37,8 @@ impl Drop for ClientHandle {
         let rcl_client = self.rcl_client.get_mut().unwrap();
         let mut rcl_node = self.node_handle.rcl_node.lock().unwrap();
         let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
-        // SAFETY: No preconditions for this function
+        // SAFETY: The entity lifecycle mutex is locked to protect against the risk of
+        // global variables in the rmw implementation being unsafely modified during cleanup.
         unsafe {
             rcl_client_fini(rcl_client, &mut *rcl_node);
         }
@@ -93,14 +98,18 @@ where
         // SAFETY: No preconditions for this function.
         let client_options = unsafe { rcl_client_get_default_options() };
 
-        unsafe {
-            // SAFETY: The rcl_client is zero-initialized as expected by this function.
-            // The rcl_node is kept alive because it is co-owned by the client.
-            // The topic name and the options are copied by this function, so they can be dropped
-            // afterwards.
-            {
-                let rcl_node = node_handle.rcl_node.lock().unwrap();
-                let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
+        {
+            let rcl_node = node_handle.rcl_node.lock().unwrap();
+            let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
+
+            // SAFETY:
+            // * The rcl_client was zero-initialized as expected by this function.
+            // * The rcl_node is kept alive by the NodeHandle because it is a dependency of the client.
+            // * The topic name and the options are copied by this function, so they can be dropped
+            //   afterwards.
+            // * The entity lifecycle mutex is locked to protect against the risk of global
+            //   variables in the rmw implementation being unsafely modified during initialization.
+            unsafe {
                 rcl_client_init(
                     &mut rcl_client,
                     &*rcl_node,

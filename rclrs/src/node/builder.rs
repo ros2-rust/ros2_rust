@@ -266,10 +266,12 @@ impl NodeBuilder {
         // SAFETY: Getting a zero-initialized value is always safe.
         let mut rcl_node = unsafe { rcl_get_zero_initialized_node() };
         unsafe {
-            // SAFETY: The rcl_node is zero-initialized as expected by this function.
-            // The strings and node options are copied by this function, so we don't need
-            // to keep them alive.
-            // The rcl_context has to be kept alive because it is co-owned by the node.
+            // SAFETY:
+            // * The rcl_node is zero-initialized as mandated by this function.
+            // * The strings and node options are copied by this function, so we don't need to keep them alive.
+            // * The rcl_context is kept alive by the ContextHandle because it is a dependency of the node.
+            // * The entity lifecycle mutex is locked to protect against the risk of
+            //   global variables in the rmw implementation being unsafely modified during cleanup.
             let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
             rcl_node_init(
                 &mut rcl_node,
