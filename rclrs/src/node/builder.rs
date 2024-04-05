@@ -1,8 +1,7 @@
-use std::ffi::CString;
-use std::sync::{Arc, Mutex};
+use std::{ffi::CString,sync::{Arc, Mutex}};
 
-use crate::rcl_bindings::*;
 use crate::{
+    rcl_bindings::*,
     ClockType, Context, Node, ParameterInterface, QoSProfile, RclrsError, TimeSource, ToResult,
     QOS_PROFILE_CLOCK,
 };
