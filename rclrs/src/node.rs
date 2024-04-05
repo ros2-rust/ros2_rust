@@ -68,9 +68,9 @@ pub struct Node {
     pub(crate) handle: Arc<NodeHandle>,
 }
 
-/// This struct manages the lifetime of an [`rcl_node_t`], and accounts for its
-/// dependency on the lifetime of its [`rcl_context_t`] by ensuring that this
-/// dependency is [dropped after][1] the [`rcl_node_t`].
+/// This struct manages the lifetime of an `rcl_node_t`, and accounts for its
+/// dependency on the lifetime of its `rcl_context_t` by ensuring that this
+/// dependency is [dropped after][1] the `rcl_node_t`.
 ///
 /// [1] https://doc.rust-lang.org/reference/destructors.html
 pub(crate) struct NodeHandle {

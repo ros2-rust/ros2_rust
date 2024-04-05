@@ -13,9 +13,9 @@ use crate::{NodeHandle, ENTITY_LIFECYCLE_MUTEX};
 // they are running in. Therefore, this type can be safely sent to another thread.
 unsafe impl Send for rcl_service_t {}
 
-/// Manage the lifecycle of an [`rcl_service_t`], including managing its dependencies
-/// on [`rcl_node_t`] and [`rcl_context_t`] by ensuring that these dependencies are
-/// [dropped after][1] the [`rcl_service_t`].
+/// Manage the lifecycle of an `rcl_service_t`, including managing its dependencies
+/// on `rcl_node_t` and `rcl_context_t` by ensuring that these dependencies are
+/// [dropped after][1] the `rcl_service_t`.
 ///
 /// [1] https://doc.rust-lang.org/reference/destructors.html
 pub struct ServiceHandle {

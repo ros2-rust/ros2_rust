@@ -18,9 +18,9 @@ pub use loaned_message::*;
 // they are running in. Therefore, this type can be safely sent to another thread.
 unsafe impl Send for rcl_publisher_t {}
 
-/// Manage the lifecycle of an [`rcl_publisher_t`], including managing its dependencies
-/// on [`rcl_node_t`] and [`rcl_context_t`] by ensuring that these dependencies are
-/// [dropped after][1] the [`rcl_publisher_t`].
+/// Manage the lifecycle of an `rcl_publisher_t`, including managing its dependencies
+/// on `rcl_node_t` and `rcl_context_t` by ensuring that these dependencies are
+/// [dropped after][1] the `rcl_publisher_t`.
 ///
 /// [1] https://doc.rust-lang.org/reference/destructors.html
 struct PublisherHandle {

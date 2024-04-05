@@ -10,8 +10,8 @@ use crate::{RclrsError, ToResult};
 /// This is locked whenever initializing or dropping any middleware entity
 /// because we have found issues in RCL and some RMW implementations that
 /// make it unsafe to simultaneously initialize and/or drop middleware
-/// entities such as [`rcl_context_t`] and [`rcl_node_t`] as well middleware
-/// primitives such as [`rcl_publisher_t`], [`rcl_subscription_t`], etc.
+/// entities such as `rcl_context_t` and `rcl_node_t` as well middleware
+/// primitives such as `rcl_publisher_t`, `rcl_subscription_t`, etc.
 /// It seems these C and C++ based libraries will regularly use
 /// unprotected global variables in their object initialization and cleanup.
 ///
@@ -59,10 +59,10 @@ pub struct Context {
     pub(crate) handle: Arc<ContextHandle>,
 }
 
-/// This struct manages the lifetime and access to the [`rcl_context_t`]. It will also
+/// This struct manages the lifetime and access to the `rcl_context_t`. It will also
 /// account for the lifetimes of any dependencies, if we need to add
 /// dependencies in the future (currently there are none). It is not strictly
-/// necessary to decompose [`Context`] and [`ContextHandle`] like this, but we are
+/// necessary to decompose `Context` and `ContextHandle` like this, but we are
 /// doing it to be consistent with the lifecycle management of other rcl
 /// bindings in this library.
 pub(crate) struct ContextHandle {

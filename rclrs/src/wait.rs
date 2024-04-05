@@ -28,9 +28,9 @@ mod guard_condition;
 use exclusivity_guard::*;
 pub use guard_condition::*;
 
-/// Manage the lifecycle of an [`rcl_wait_set_t`], including managing its dependency
-/// on [`rcl_context_t`] by ensuring that this dependency is [dropped after][1] the
-/// [`rcl_wait_set_t`].
+/// Manage the lifecycle of an `rcl_wait_set_t`, including managing its dependency
+/// on `rcl_context_t` by ensuring that this dependency is [dropped after][1] the
+/// `rcl_wait_set_t`.
 ///
 /// [1] https://doc.rust-lang.org/reference/destructors.html
 struct WaitSetHandle {
