@@ -7,31 +7,38 @@ use rosidl_runtime_rs::Message;
 
 use crate::error::{RclReturnCode, ToResult};
 use crate::{rcl_bindings::*, MessageCow, RclrsError};
+use crate::{NodeHandle, ENTITY_LIFECYCLE_MUTEX};
 
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
 // they are running in. Therefore, this type can be safely sent to another thread.
 unsafe impl Send for rcl_service_t {}
 
-/// Internal struct used by services.
+/// Manage the lifecycle of an `rcl_service_t`, including managing its dependencies
+/// on `rcl_node_t` and `rcl_context_t` by ensuring that these dependencies are
+/// [dropped after][1] the `rcl_service_t`.
+///
+/// [1]: <https://doc.rust-lang.org/reference/destructors.html>
 pub struct ServiceHandle {
-    rcl_service_mtx: Mutex<rcl_service_t>,
-    rcl_node_mtx: Arc<Mutex<rcl_node_t>>,
+    rcl_service: Mutex<rcl_service_t>,
+    node_handle: Arc<NodeHandle>,
     pub(crate) in_use_by_wait_set: Arc<AtomicBool>,
 }
 
 impl ServiceHandle {
     pub(crate) fn lock(&self) -> MutexGuard<rcl_service_t> {
-        self.rcl_service_mtx.lock().unwrap()
+        self.rcl_service.lock().unwrap()
     }
 }
 
 impl Drop for ServiceHandle {
     fn drop(&mut self) {
-        let rcl_service = self.rcl_service_mtx.get_mut().unwrap();
-        let rcl_node = &mut *self.rcl_node_mtx.lock().unwrap();
-        // SAFETY: No preconditions for this function
+        let rcl_service = self.rcl_service.get_mut().unwrap();
+        let mut rcl_node = self.node_handle.rcl_node.lock().unwrap();
+        let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
+        // SAFETY: The entity lifecycle mutex is locked to protect against the risk of
+        // global variables in the rmw implementation being unsafely modified during cleanup.
         unsafe {
-            rcl_service_fini(rcl_service, rcl_node);
+            rcl_service_fini(rcl_service, &mut *rcl_node);
         }
     }
 }
@@ -71,7 +78,7 @@ where
 {
     /// Creates a new service.
     pub(crate) fn new<F>(
-        rcl_node_mtx: Arc<Mutex<rcl_node_t>>,
+        node_handle: Arc<NodeHandle>,
         topic: &str,
         callback: F,
     ) -> Result<Self, RclrsError>
@@ -93,24 +100,31 @@ where
         // SAFETY: No preconditions for this function.
         let service_options = unsafe { rcl_service_get_default_options() };
 
-        unsafe {
-            // SAFETY: The rcl_service is zero-initialized as expected by this function.
-            // The rcl_node is kept alive because it is co-owned by the service.
-            // The topic name and the options are copied by this function, so they can be dropped
-            // afterwards.
-            rcl_service_init(
-                &mut rcl_service,
-                &*rcl_node_mtx.lock().unwrap(),
-                type_support,
-                topic_c_string.as_ptr(),
-                &service_options as *const _,
-            )
-            .ok()?;
+        {
+            let rcl_node = node_handle.rcl_node.lock().unwrap();
+            let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
+            unsafe {
+                // SAFETY:
+                // * The rcl_service is zero-initialized as mandated by this function.
+                // * The rcl_node is kept alive by the NodeHandle it is a dependency of the service.
+                // * The topic name and the options are copied by this function, so they can be dropped
+                //   afterwards.
+                // * The entity lifecycle mutex is locked to protect against the risk of global
+                //   variables in the rmw implementation being unsafely modified during initialization.
+                rcl_service_init(
+                    &mut rcl_service,
+                    &*rcl_node,
+                    type_support,
+                    topic_c_string.as_ptr(),
+                    &service_options as *const _,
+                )
+                .ok()?;
+            }
         }
 
         let handle = Arc::new(ServiceHandle {
-            rcl_service_mtx: Mutex::new(rcl_service),
-            rcl_node_mtx,
+            rcl_service: Mutex::new(rcl_service),
+            node_handle,
             in_use_by_wait_set: Arc::new(AtomicBool::new(false)),
         });
 
