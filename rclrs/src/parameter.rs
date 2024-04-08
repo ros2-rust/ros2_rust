@@ -3,18 +3,22 @@ mod value;
 
 pub(crate) use override_map::*;
 pub use value::*;
-
 use crate::{
     rcl_bindings::*,
-    {call_string_getter_with_handle, RclrsError}
+    {
+      call_string_getter_with_handle,call_string_getter_with_rcl_node, RclrsError
+  }
 };
 use std::{
     collections::{btree_map::Entry, BTreeMap},
     fmt::Debug,
     marker::PhantomData,
     sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc, Mutex, RwLock, Weak,}
+        atomic::{
+          AtomicBool, Ordering
+      },
+        Arc, Mutex, RwLock, Weak,
+  }
 };
 
 // This module implements the core logic of parameters in rclrs.
@@ -779,13 +783,12 @@ pub(crate) struct ParameterInterface {
 
 impl ParameterInterface {
     pub(crate) fn new(
-        rcl_node_mtx: &Arc<Mutex<rcl_node_t>>,
+        rcl_node: &rcl_node_t,
         node_arguments: &rcl_arguments_t,
         global_arguments: &rcl_arguments_t,
     ) -> Result<Self, RclrsError> {
-        let rcl_node = rcl_node_mtx.lock().unwrap();
         let override_map = unsafe {
-            let fqn = call_string_getter_with_handle(&rcl_node, rcl_node_get_fully_qualified_name);
+            let fqn = call_string_getter_with_rcl_node(rcl_node, rcl_node_get_fully_qualified_name);
             resolve_parameter_overrides(&fqn, node_arguments, global_arguments)?
         };
 

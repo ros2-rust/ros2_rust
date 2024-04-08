@@ -8,7 +8,7 @@ use rosidl_runtime_rs::{Message, RmwMessage};
 
 use crate::error::{RclReturnCode, ToResult};
 use crate::qos::QoSProfile;
-use crate::{rcl_bindings::*, RclrsError};
+use crate::{rcl_bindings::*, NodeHandle, RclrsError, ENTITY_LIFECYCLE_MUTEX};
 
 mod callback;
 mod message_info;
@@ -21,26 +21,32 @@ pub use readonly_loaned_message::*;
 // they are running in. Therefore, this type can be safely sent to another thread.
 unsafe impl Send for rcl_subscription_t {}
 
-/// Internal struct used by subscriptions.
+/// Manage the lifecycle of an `rcl_subscription_t`, including managing its dependencies
+/// on `rcl_node_t` and `rcl_context_t` by ensuring that these dependencies are
+/// [dropped after][1] the `rcl_subscription_t`.
+///
+/// [1]: <https://doc.rust-lang.org/reference/destructors.html>
 pub struct SubscriptionHandle {
-    rcl_subscription_mtx: Mutex<rcl_subscription_t>,
-    rcl_node_mtx: Arc<Mutex<rcl_node_t>>,
+    rcl_subscription: Mutex<rcl_subscription_t>,
+    node_handle: Arc<NodeHandle>,
     pub(crate) in_use_by_wait_set: Arc<AtomicBool>,
 }
 
 impl SubscriptionHandle {
     pub(crate) fn lock(&self) -> MutexGuard<rcl_subscription_t> {
-        self.rcl_subscription_mtx.lock().unwrap()
+        self.rcl_subscription.lock().unwrap()
     }
 }
 
 impl Drop for SubscriptionHandle {
     fn drop(&mut self) {
-        let rcl_subscription = self.rcl_subscription_mtx.get_mut().unwrap();
-        let rcl_node = &mut *self.rcl_node_mtx.lock().unwrap();
-        // SAFETY: No preconditions for this function (besides the arguments being valid).
+        let rcl_subscription = self.rcl_subscription.get_mut().unwrap();
+        let mut rcl_node = self.node_handle.rcl_node.lock().unwrap();
+        let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
+        // SAFETY: The entity lifecycle mutex is locked to protect against the risk of
+        // global variables in the rmw implementation being unsafely modified during cleanup.
         unsafe {
-            rcl_subscription_fini(rcl_subscription, rcl_node);
+            rcl_subscription_fini(rcl_subscription, &mut *rcl_node);
         }
     }
 }
@@ -85,7 +91,7 @@ where
 {
     /// Creates a new subscription.
     pub(crate) fn new<Args>(
-        rcl_node_mtx: Arc<Mutex<rcl_node_t>>,
+        node_handle: Arc<NodeHandle>,
         topic: &str,
         qos: QoSProfile,
         callback: impl SubscriptionCallback<T, Args>,
@@ -107,25 +113,31 @@ where
         // SAFETY: No preconditions for this function.
         let mut subscription_options = unsafe { rcl_subscription_get_default_options() };
         subscription_options.qos = qos.into();
-        unsafe {
-            // SAFETY: The rcl_subscription is zero-initialized as expected by this function.
-            // The rcl_node is kept alive because it is co-owned by the subscription.
-            // The topic name and the options are copied by this function, so they can be dropped
-            // afterwards.
-            // TODO: type support?
-            rcl_subscription_init(
-                &mut rcl_subscription,
-                &*rcl_node_mtx.lock().unwrap(),
-                type_support,
-                topic_c_string.as_ptr(),
-                &subscription_options,
-            )
-            .ok()?;
+
+        {
+            let rcl_node = node_handle.rcl_node.lock().unwrap();
+            let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
+            unsafe {
+                // SAFETY:
+                // * The rcl_subscription is zero-initialized as mandated by this function.
+                // * The rcl_node is kept alive by the NodeHandle because it is a dependency of the subscription.
+                // * The topic name and the options are copied by this function, so they can be dropped afterwards.
+                // * The entity lifecycle mutex is locked to protect against the risk of global
+                //   variables in the rmw implementation being unsafely modified during cleanup.
+                rcl_subscription_init(
+                    &mut rcl_subscription,
+                    &*rcl_node,
+                    type_support,
+                    topic_c_string.as_ptr(),
+                    &subscription_options,
+                )
+                .ok()?;
+            }
         }
 
         let handle = Arc::new(SubscriptionHandle {
-            rcl_subscription_mtx: Mutex::new(rcl_subscription),
-            rcl_node_mtx,
+            rcl_subscription: Mutex::new(rcl_subscription),
+            node_handle,
             in_use_by_wait_set: Arc::new(AtomicBool::new(false)),
         });
 
