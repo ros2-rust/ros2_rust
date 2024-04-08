@@ -13,17 +13,11 @@ pub use self::builder::*;
 pub use self::graph::*;
 use crate::rcl_bindings::*;
 use crate::{
-    Client, ClientBase, Clock, Context, GuardCondition, ParameterBuilder, ParameterInterface,
-    ParameterVariant, Parameters, Publisher, QoSProfile, RclrsError, Service, ServiceBase,
-    Subscription, SubscriptionBase, SubscriptionCallback, TimeSource, ToResult,
+    Client, ClientBase, Clock, Context, ContextHandle, GuardCondition, ParameterBuilder,
+    ParameterInterface, ParameterVariant, Parameters, Publisher, QoSProfile, RclrsError, Service,
+    ServiceBase, Subscription, SubscriptionBase, SubscriptionCallback, TimeSource,
+    ENTITY_LIFECYCLE_MUTEX,
 };
-
-impl Drop for rcl_node_t {
-    fn drop(&mut self) {
-        // SAFETY: No preconditions for this function
-        unsafe { rcl_node_fini(self).ok().unwrap() };
-    }
-}
 
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
 // they are running in. Therefore, this type can be safely sent to another thread.
@@ -71,18 +65,35 @@ pub struct Node {
     pub(crate) subscriptions_mtx: Mutex<Vec<Weak<dyn SubscriptionBase>>>,
     time_source: TimeSource,
     parameter: ParameterInterface,
-    // Note: it's important to have those last since `drop` will be called in order of declaration
-    // in the struct and both `TimeSource` and `ParameterInterface` contain subscriptions /
-    // services that will fail to be dropped if the context or node is destroyed first.
-    pub(crate) rcl_node_mtx: Arc<Mutex<rcl_node_t>>,
-    pub(crate) rcl_context_mtx: Arc<Mutex<rcl_context_t>>,
+    pub(crate) handle: Arc<NodeHandle>,
+}
+
+/// This struct manages the lifetime of an `rcl_node_t`, and accounts for its
+/// dependency on the lifetime of its `rcl_context_t` by ensuring that this
+/// dependency is [dropped after][1] the `rcl_node_t`.
+///
+/// [1]: <https://doc.rust-lang.org/reference/destructors.html>
+pub(crate) struct NodeHandle {
+    pub(crate) rcl_node: Mutex<rcl_node_t>,
+    pub(crate) context_handle: Arc<ContextHandle>,
+}
+
+impl Drop for NodeHandle {
+    fn drop(&mut self) {
+        let _context_lock = self.context_handle.rcl_context.lock().unwrap();
+        let mut rcl_node = self.rcl_node.lock().unwrap();
+        let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
+        // SAFETY: The entity lifecycle mutex is locked to protect against the risk of
+        // global variables in the rmw implementation being unsafely modified during cleanup.
+        unsafe { rcl_node_fini(&mut *rcl_node) };
+    }
 }
 
 impl Eq for Node {}
 
 impl PartialEq for Node {
     fn eq(&self, other: &Self) -> bool {
-        Arc::ptr_eq(&self.rcl_node_mtx, &other.rcl_node_mtx)
+        Arc::ptr_eq(&self.handle, &other.handle)
     }
 }
 
@@ -182,7 +193,8 @@ impl Node {
         &self,
         getter: unsafe extern "C" fn(*const rcl_node_t) -> *const c_char,
     ) -> String {
-        unsafe { call_string_getter_with_handle(&self.rcl_node_mtx.lock().unwrap(), getter) }
+        let rcl_node = self.handle.rcl_node.lock().unwrap();
+        unsafe { call_string_getter_with_rcl_node(&rcl_node, getter) }
     }
 
     /// Creates a [`Client`][1].
@@ -193,7 +205,7 @@ impl Node {
     where
         T: rosidl_runtime_rs::Service,
     {
-        let client = Arc::new(Client::<T>::new(Arc::clone(&self.rcl_node_mtx), topic)?);
+        let client = Arc::new(Client::<T>::new(Arc::clone(&self.handle), topic)?);
         { self.clients_mtx.lock().unwrap() }.push(Arc::downgrade(&client) as Weak<dyn ClientBase>);
         Ok(client)
     }
@@ -208,8 +220,8 @@ impl Node {
     /// [1]: crate::GuardCondition
     /// [2]: crate::spin_once
     pub fn create_guard_condition(&self) -> Arc<GuardCondition> {
-        let guard_condition = Arc::new(GuardCondition::new_with_rcl_context(
-            &mut self.rcl_context_mtx.lock().unwrap(),
+        let guard_condition = Arc::new(GuardCondition::new_with_context_handle(
+            Arc::clone(&self.handle.context_handle),
             None,
         ));
         { self.guard_conditions_mtx.lock().unwrap() }
@@ -230,8 +242,8 @@ impl Node {
     where
         F: Fn() + Send + Sync + 'static,
     {
-        let guard_condition = Arc::new(GuardCondition::new_with_rcl_context(
-            &mut self.rcl_context_mtx.lock().unwrap(),
+        let guard_condition = Arc::new(GuardCondition::new_with_context_handle(
+            Arc::clone(&self.handle.context_handle),
             Some(Box::new(callback) as Box<dyn Fn() + Send + Sync>),
         ));
         { self.guard_conditions_mtx.lock().unwrap() }
@@ -251,11 +263,7 @@ impl Node {
     where
         T: Message,
     {
-        let publisher = Arc::new(Publisher::<T>::new(
-            Arc::clone(&self.rcl_node_mtx),
-            topic,
-            qos,
-        )?);
+        let publisher = Arc::new(Publisher::<T>::new(Arc::clone(&self.handle), topic, qos)?);
         Ok(publisher)
     }
 
@@ -273,7 +281,7 @@ impl Node {
         F: Fn(&rmw_request_id_t, T::Request) -> T::Response + 'static + Send,
     {
         let service = Arc::new(Service::<T>::new(
-            Arc::clone(&self.rcl_node_mtx),
+            Arc::clone(&self.handle),
             topic,
             callback,
         )?);
@@ -296,7 +304,7 @@ impl Node {
         T: Message,
     {
         let subscription = Arc::new(Subscription::<T>::new(
-            Arc::clone(&self.rcl_node_mtx),
+            Arc::clone(&self.handle),
             topic,
             qos,
             callback,
@@ -358,11 +366,11 @@ impl Node {
     // add description about this function is for getting actual domain_id
     // and about override of domain_id via node option
     pub fn domain_id(&self) -> usize {
-        let rcl_node = &*self.rcl_node_mtx.lock().unwrap();
+        let rcl_node = self.handle.rcl_node.lock().unwrap();
         let mut domain_id: usize = 0;
         let ret = unsafe {
             // SAFETY: No preconditions for this function.
-            rcl_node_get_domain_id(rcl_node, &mut domain_id)
+            rcl_node_get_domain_id(&*rcl_node, &mut domain_id)
         };
 
         debug_assert_eq!(ret, 0);
@@ -438,7 +446,7 @@ impl Node {
 // function, which is why it's not merged into Node::call_string_getter().
 // This function is unsafe since it's possible to pass in an rcl_node_t with dangling
 // pointers etc.
-pub(crate) unsafe fn call_string_getter_with_handle(
+pub(crate) unsafe fn call_string_getter_with_rcl_node(
     rcl_node: &rcl_node_t,
     getter: unsafe extern "C" fn(*const rcl_node_t) -> *const c_char,
 ) -> String {
@@ -454,13 +462,56 @@ pub(crate) unsafe fn call_string_getter_with_handle(
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    fn assert_send<T: Send>() {}
-    fn assert_sync<T: Sync>() {}
+    use crate::test_helpers::*;
 
     #[test]
-    fn node_is_send_and_sync() {
+    fn traits() {
         assert_send::<Node>();
         assert_sync::<Node>();
+    }
+
+    #[test]
+    fn test_topic_names_and_types() -> Result<(), RclrsError> {
+        use crate::QOS_PROFILE_SYSTEM_DEFAULT;
+        use test_msgs::msg;
+
+        let graph = construct_test_graph("test_topics_graph")?;
+
+        let _node_1_defaults_subscription = graph.node1.create_subscription::<msg::Defaults, _>(
+            "graph_test_topic_3",
+            QOS_PROFILE_SYSTEM_DEFAULT,
+            |_msg: msg::Defaults| {},
+        )?;
+        let _node_2_empty_subscription = graph.node2.create_subscription::<msg::Empty, _>(
+            "graph_test_topic_1",
+            QOS_PROFILE_SYSTEM_DEFAULT,
+            |_msg: msg::Empty| {},
+        )?;
+        let _node_2_basic_types_subscription =
+            graph.node2.create_subscription::<msg::BasicTypes, _>(
+                "graph_test_topic_2",
+                QOS_PROFILE_SYSTEM_DEFAULT,
+                |_msg: msg::BasicTypes| {},
+            )?;
+
+        std::thread::sleep(std::time::Duration::from_millis(100));
+
+        let topic_names_and_types = graph.node1.get_topic_names_and_types()?;
+
+        let types = topic_names_and_types
+            .get("/test_topics_graph/graph_test_topic_1")
+            .unwrap();
+        assert!(types.contains(&"test_msgs/msg/Empty".to_string()));
+        let types = topic_names_and_types
+            .get("/test_topics_graph/graph_test_topic_2")
+            .unwrap();
+        assert!(types.contains(&"test_msgs/msg/BasicTypes".to_string()));
+
+        let types = topic_names_and_types
+            .get("/test_topics_graph/graph_test_topic_3")
+            .unwrap();
+        assert!(types.contains(&"test_msgs/msg/Defaults".to_string()));
+
+        Ok(())
     }
 }

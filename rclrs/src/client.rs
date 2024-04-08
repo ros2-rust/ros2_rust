@@ -9,32 +9,38 @@ use rosidl_runtime_rs::Message;
 
 use crate::error::{RclReturnCode, ToResult};
 use crate::MessageCow;
-use crate::{rcl_bindings::*, RclrsError};
+use crate::{rcl_bindings::*, NodeHandle, RclrsError, ENTITY_LIFECYCLE_MUTEX};
 
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
 // they are running in. Therefore, this type can be safely sent to another thread.
 unsafe impl Send for rcl_client_t {}
 
-/// Internal struct used by clients.
+/// Manage the lifecycle of an `rcl_client_t`, including managing its dependencies
+/// on `rcl_node_t` and `rcl_context_t` by ensuring that these dependencies are
+/// [dropped after][1] the `rcl_client_t`.
+///
+/// [1]: <https://doc.rust-lang.org/reference/destructors.html>
 pub struct ClientHandle {
-    rcl_client_mtx: Mutex<rcl_client_t>,
-    rcl_node_mtx: Arc<Mutex<rcl_node_t>>,
+    rcl_client: Mutex<rcl_client_t>,
+    node_handle: Arc<NodeHandle>,
     pub(crate) in_use_by_wait_set: Arc<AtomicBool>,
 }
 
 impl ClientHandle {
     pub(crate) fn lock(&self) -> MutexGuard<rcl_client_t> {
-        self.rcl_client_mtx.lock().unwrap()
+        self.rcl_client.lock().unwrap()
     }
 }
 
 impl Drop for ClientHandle {
     fn drop(&mut self) {
-        let rcl_client = self.rcl_client_mtx.get_mut().unwrap();
-        let rcl_node_mtx = &mut *self.rcl_node_mtx.lock().unwrap();
-        // SAFETY: No preconditions for this function
+        let rcl_client = self.rcl_client.get_mut().unwrap();
+        let mut rcl_node = self.node_handle.rcl_node.lock().unwrap();
+        let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
+        // SAFETY: The entity lifecycle mutex is locked to protect against the risk of
+        // global variables in the rmw implementation being unsafely modified during cleanup.
         unsafe {
-            rcl_client_fini(rcl_client, rcl_node_mtx);
+            rcl_client_fini(rcl_client, &mut *rcl_node);
         }
     }
 }
@@ -74,7 +80,7 @@ where
     T: rosidl_runtime_rs::Service,
 {
     /// Creates a new client.
-    pub(crate) fn new(rcl_node_mtx: Arc<Mutex<rcl_node_t>>, topic: &str) -> Result<Self, RclrsError>
+    pub(crate) fn new(node_handle: Arc<NodeHandle>, topic: &str) -> Result<Self, RclrsError>
     // This uses pub(crate) visibility to avoid instantiating this struct outside
     // [`Node::create_client`], see the struct's documentation for the rationale
     where
@@ -92,24 +98,32 @@ where
         // SAFETY: No preconditions for this function.
         let client_options = unsafe { rcl_client_get_default_options() };
 
-        unsafe {
-            // SAFETY: The rcl_client is zero-initialized as expected by this function.
-            // The rcl_node is kept alive because it is co-owned by the client.
-            // The topic name and the options are copied by this function, so they can be dropped
-            // afterwards.
-            rcl_client_init(
-                &mut rcl_client,
-                &*rcl_node_mtx.lock().unwrap(),
-                type_support,
-                topic_c_string.as_ptr(),
-                &client_options,
-            )
-            .ok()?;
+        {
+            let rcl_node = node_handle.rcl_node.lock().unwrap();
+            let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
+
+            // SAFETY:
+            // * The rcl_client was zero-initialized as expected by this function.
+            // * The rcl_node is kept alive by the NodeHandle because it is a dependency of the client.
+            // * The topic name and the options are copied by this function, so they can be dropped
+            //   afterwards.
+            // * The entity lifecycle mutex is locked to protect against the risk of global
+            //   variables in the rmw implementation being unsafely modified during initialization.
+            unsafe {
+                rcl_client_init(
+                    &mut rcl_client,
+                    &*rcl_node,
+                    type_support,
+                    topic_c_string.as_ptr(),
+                    &client_options,
+                )
+                .ok()?;
+            }
         }
 
         let handle = Arc::new(ClientHandle {
-            rcl_client_mtx: Mutex::new(rcl_client),
-            rcl_node_mtx,
+            rcl_client: Mutex::new(rcl_client),
+            node_handle,
             in_use_by_wait_set: Arc::new(AtomicBool::new(false)),
         });
 
@@ -245,8 +259,8 @@ where
     ///
     pub fn service_is_ready(&self) -> Result<bool, RclrsError> {
         let mut is_ready = false;
-        let client = &mut *self.handle.rcl_client_mtx.lock().unwrap();
-        let node = &mut *self.handle.rcl_node_mtx.lock().unwrap();
+        let client = &mut *self.handle.rcl_client.lock().unwrap();
+        let node = &mut *self.handle.node_handle.rcl_node.lock().unwrap();
 
         unsafe {
             // SAFETY both node and client are guaranteed to be valid here
@@ -286,6 +300,41 @@ where
         } else if let Some(future) = futures.remove(&req_id.sequence_number) {
             let _ = future.send(res);
         }
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_helpers::*;
+    use test_msgs::srv;
+
+    #[test]
+    fn traits() {
+        assert_send::<Client<srv::Arrays>>();
+        assert_sync::<Client<srv::Arrays>>();
+    }
+
+    #[test]
+    fn test_clients() -> Result<(), RclrsError> {
+        let namespace = "/test_clients_graph";
+        let graph = construct_test_graph(namespace)?;
+        let _node_2_empty_client = graph
+            .node2
+            .create_client::<srv::Empty>("graph_test_topic_4")?;
+
+        std::thread::sleep(std::time::Duration::from_millis(200));
+
+        let client_names_and_types = graph
+            .node2
+            .get_client_names_and_types_by_node(&graph.node2.name(), &graph.node2.namespace())?;
+        let types = client_names_and_types
+            .get("/test_clients_graph/graph_test_topic_4")
+            .unwrap();
+
+        assert!(types.contains(&"test_msgs/srv/Empty".to_string()));
+
         Ok(())
     }
 }

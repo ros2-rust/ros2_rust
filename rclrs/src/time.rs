@@ -1,4 +1,6 @@
 use crate::rcl_bindings::*;
+use crate::vendor::builtin_interfaces;
+use std::num::TryFromIntError;
 use std::ops::{Add, Sub};
 use std::sync::{Mutex, Weak};
 use std::time::Duration;
@@ -22,6 +24,17 @@ impl Time {
         self.clock
             .ptr_eq(&rhs.clock)
             .then(|| f(self.nsec, rhs.nsec))
+    }
+
+    /// Convenience function for converting time to ROS message
+    pub fn to_ros_msg(&self) -> Result<builtin_interfaces::msg::Time, TryFromIntError> {
+        let nanosec = self.nsec % 1_000_000_000;
+        let sec = self.nsec / 1_000_000_000;
+
+        Ok(builtin_interfaces::msg::Time {
+            nanosec: nanosec.try_into()?,
+            sec: sec.try_into()?,
+        })
     }
 }
 
@@ -58,7 +71,7 @@ mod tests {
     fn compare_times_from_same_clock() {
         let clock = Clock::system();
         let t1 = clock.now();
-        std::thread::sleep(std::time::Duration::from_micros(1));
+        std::thread::sleep(Duration::from_micros(1));
         let t2 = clock.now();
         assert_eq!(t1.compare_with(&t2, |t1, t2| t1 > t2), Some(false));
         assert_eq!(t1.compare_with(&t2, |t1, t2| t2 > t1), Some(true));
@@ -83,5 +96,18 @@ mod tests {
         assert_eq!(t2.nsec - t.nsec, 1_000_000_000i64);
         let t3 = t2 - Duration::from_secs(1);
         assert_eq!(t3.nsec, t.nsec);
+    }
+
+    #[test]
+    fn test_conversion() {
+        let clock = Clock::system();
+        let t1 = clock.now();
+        let time = Time {
+            nsec: 1_000_000_100,
+            clock: t1.clock.clone(),
+        };
+        let msg = time.to_ros_msg().unwrap();
+        assert_eq!(msg.nanosec, 100);
+        assert_eq!(msg.sec, 1);
     }
 }

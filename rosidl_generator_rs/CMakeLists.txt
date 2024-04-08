@@ -22,8 +22,8 @@ ament_index_register_resource("rosidl_runtime_packages")
 ament_python_install_package(${PROJECT_NAME})
 
 ament_package(
-  CONFIG_EXTRAS "rosidl_generator_rs-extras.cmake.in"
-    "cmake/rosidl_generator_rs_get_typesupports.cmake"
+  CONFIG_EXTRAS
+    "rosidl_generator_rs-extras.cmake.in"
     "cmake/register_rs.cmake"
 )
 

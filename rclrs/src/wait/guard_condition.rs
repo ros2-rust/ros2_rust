@@ -1,7 +1,7 @@
 use std::sync::{atomic::AtomicBool, Arc, Mutex};
 
 use crate::rcl_bindings::*;
-use crate::{Context, RclrsError, ToResult};
+use crate::{Context, ContextHandle, RclrsError, ToResult};
 
 /// A waitable entity used for waking up a wait set manually.
 ///
@@ -45,18 +45,30 @@ use crate::{Context, RclrsError, ToResult};
 /// ```
 pub struct GuardCondition {
     /// The rcl_guard_condition_t that this struct encapsulates.
-    pub(crate) rcl_guard_condition: Mutex<rcl_guard_condition_t>,
+    pub(crate) handle: GuardConditionHandle,
     /// An optional callback to call when this guard condition is triggered.
     callback: Option<Box<dyn Fn() + Send + Sync>>,
     /// A flag to indicate if this guard condition has already been assigned to a wait set.
     pub(crate) in_use_by_wait_set: Arc<AtomicBool>,
 }
 
+/// Manage the lifecycle of an `rcl_guard_condition_t`, including managing its dependency
+/// on `rcl_context_t` by ensuring that this dependency is [dropped after][1] the
+/// `rcl_guard_condition_t`.
+///
+/// [1]: <https://doc.rust-lang.org/reference/destructors.html>
+pub(crate) struct GuardConditionHandle {
+    pub(crate) rcl_guard_condition: Mutex<rcl_guard_condition_t>,
+    /// Keep the context alive for the whole lifecycle of the guard condition
+    #[allow(dead_code)]
+    pub(crate) context_handle: Arc<ContextHandle>,
+}
+
 impl Drop for GuardCondition {
     fn drop(&mut self) {
         unsafe {
             // SAFETY: No precondition for this function (besides passing in a valid guard condition)
-            rcl_guard_condition_fini(&mut *self.rcl_guard_condition.lock().unwrap());
+            rcl_guard_condition_fini(&mut *self.handle.rcl_guard_condition.lock().unwrap());
         }
     }
 }
@@ -66,8 +78,8 @@ impl PartialEq for GuardCondition {
         // Because GuardCondition controls the creation of the rcl_guard_condition, each unique GuardCondition should have a unique
         // rcl_guard_condition. Thus comparing equality of this member should be enough.
         std::ptr::eq(
-            &self.rcl_guard_condition.lock().unwrap().impl_,
-            &other.rcl_guard_condition.lock().unwrap().impl_,
+            &self.handle.rcl_guard_condition.lock().unwrap().impl_,
+            &other.handle.rcl_guard_condition.lock().unwrap().impl_,
         )
     }
 }
@@ -80,7 +92,7 @@ unsafe impl Send for rcl_guard_condition_t {}
 impl GuardCondition {
     /// Creates a new guard condition with no callback.
     pub fn new(context: &Context) -> Self {
-        Self::new_with_rcl_context(&mut context.rcl_context_mtx.lock().unwrap(), None)
+        Self::new_with_context_handle(Arc::clone(&context.handle), None)
     }
 
     /// Creates a new guard condition with a callback.
@@ -88,8 +100,8 @@ impl GuardCondition {
     where
         F: Fn() + Send + Sync + 'static,
     {
-        Self::new_with_rcl_context(
-            &mut context.rcl_context_mtx.lock().unwrap(),
+        Self::new_with_context_handle(
+            Arc::clone(&context.handle),
             Some(Box::new(callback) as Box<dyn Fn() + Send + Sync>),
         )
     }
@@ -98,23 +110,31 @@ impl GuardCondition {
     /// Note this function enables calling `Node::create_guard_condition`[1] without providing the Context separately
     ///
     /// [1]: Node::create_guard_condition
-    pub(crate) fn new_with_rcl_context(
-        context: &mut rcl_context_t,
+    pub(crate) fn new_with_context_handle(
+        context_handle: Arc<ContextHandle>,
         callback: Option<Box<dyn Fn() + Send + Sync>>,
     ) -> Self {
-        // SAFETY: Getting a zero initialized value is always safe
-        let mut guard_condition = unsafe { rcl_get_zero_initialized_guard_condition() };
-        unsafe {
-            // SAFETY: The context must be valid, and the guard condition must be zero-initialized
-            rcl_guard_condition_init(
-                &mut guard_condition,
-                context,
-                rcl_guard_condition_get_default_options(),
-            );
-        }
+        let rcl_guard_condition = {
+            // SAFETY: Getting a zero initialized value is always safe
+            let mut guard_condition = unsafe { rcl_get_zero_initialized_guard_condition() };
+            let mut rcl_context = context_handle.rcl_context.lock().unwrap();
+            unsafe {
+                // SAFETY: The context must be valid, and the guard condition must be zero-initialized
+                rcl_guard_condition_init(
+                    &mut guard_condition,
+                    &mut *rcl_context,
+                    rcl_guard_condition_get_default_options(),
+                );
+            }
+
+            Mutex::new(guard_condition)
+        };
 
         Self {
-            rcl_guard_condition: Mutex::new(guard_condition),
+            handle: GuardConditionHandle {
+                rcl_guard_condition,
+                context_handle,
+            },
             callback,
             in_use_by_wait_set: Arc::new(AtomicBool::new(false)),
         }
@@ -124,7 +144,8 @@ impl GuardCondition {
     pub fn trigger(&self) -> Result<(), RclrsError> {
         unsafe {
             // SAFETY: The rcl_guard_condition_t is valid.
-            rcl_trigger_guard_condition(&mut *self.rcl_guard_condition.lock().unwrap()).ok()?;
+            rcl_trigger_guard_condition(&mut *self.handle.rcl_guard_condition.lock().unwrap())
+                .ok()?;
         }
         if let Some(callback) = &self.callback {
             callback();
@@ -179,11 +200,10 @@ mod tests {
         Ok(())
     }
 
-    fn assert_send<T: Send>() {}
-    fn assert_sync<T: Sync>() {}
-
     #[test]
-    fn test_guard_condition_is_send_and_sync() {
+    fn traits() {
+        use crate::test_helpers::*;
+
         assert_send::<GuardCondition>();
         assert_sync::<GuardCondition>();
     }
