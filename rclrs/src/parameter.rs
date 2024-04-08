@@ -11,7 +11,7 @@ pub use value::*;
 use crate::vendor::rcl_interfaces::msg::rmw::{ParameterType, ParameterValue as RmwParameterValue};
 
 use crate::rcl_bindings::*;
-use crate::{Node, call_string_getter_with_rcl_node, RclrsError};
+use crate::{call_string_getter_with_rcl_node, Node, RclrsError};
 use std::collections::{btree_map::Entry, BTreeMap};
 use std::fmt::Debug;
 use std::marker::PhantomData;

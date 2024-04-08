@@ -457,21 +457,24 @@ mod tests {
             let client_finished = Arc::new(RwLock::new(false));
             let call_done = client_finished.clone();
             list_client
-                .async_send_request_with_callback(&request, move |response: ListParameters_Response| {
-                    // use_sim_time + all the manually defined ones
-                    *call_done.write().unwrap() = true;
-                    let names = response.result.names;
-                    assert_eq!(names.len(), 5);
-                    // Parameter names are returned in alphabetical order
-                    assert_eq!(names[0].to_string(), "bool");
-                    assert_eq!(names[1].to_string(), "dynamic");
-                    assert_eq!(names[2].to_string(), "ns1.ns2.ns3.int");
-                    assert_eq!(names[3].to_string(), "read_only");
-                    assert_eq!(names[4].to_string(), "use_sim_time");
-                    // Only one prefix
-                    assert_eq!(response.result.prefixes.len(), 1);
-                    assert_eq!(response.result.prefixes[0].to_string(), "ns1.ns2.ns3");
-                })
+                .async_send_request_with_callback(
+                    &request,
+                    move |response: ListParameters_Response| {
+                        // use_sim_time + all the manually defined ones
+                        *call_done.write().unwrap() = true;
+                        let names = response.result.names;
+                        assert_eq!(names.len(), 5);
+                        // Parameter names are returned in alphabetical order
+                        assert_eq!(names[0].to_string(), "bool");
+                        assert_eq!(names[1].to_string(), "dynamic");
+                        assert_eq!(names[2].to_string(), "ns1.ns2.ns3.int");
+                        assert_eq!(names[3].to_string(), "read_only");
+                        assert_eq!(names[4].to_string(), "use_sim_time");
+                        // Only one prefix
+                        assert_eq!(response.result.prefixes.len(), 1);
+                        assert_eq!(response.result.prefixes[0].to_string(), "ns1.ns2.ns3");
+                    },
+                )
                 .unwrap();
             try_until_timeout(|| *client_finished.read().unwrap())
                 .await
@@ -485,13 +488,16 @@ mod tests {
             let call_done = client_finished.clone();
             *call_done.write().unwrap() = false;
             list_client
-                .async_send_request_with_callback(&request, move |response: ListParameters_Response| {
-                    *call_done.write().unwrap() = true;
-                    let names = response.result.names;
-                    assert_eq!(names.len(), 4);
-                    assert!(names.iter().all(|n| n.to_string() != "ns1.ns2.ns3.int"));
-                    assert_eq!(response.result.prefixes.len(), 0);
-                })
+                .async_send_request_with_callback(
+                    &request,
+                    move |response: ListParameters_Response| {
+                        *call_done.write().unwrap() = true;
+                        let names = response.result.names;
+                        assert_eq!(names.len(), 4);
+                        assert!(names.iter().all(|n| n.to_string() != "ns1.ns2.ns3.int"));
+                        assert_eq!(response.result.prefixes.len(), 0);
+                    },
+                )
                 .unwrap();
             try_until_timeout(|| *client_finished.read().unwrap())
                 .await
@@ -505,14 +511,17 @@ mod tests {
             let call_done = client_finished.clone();
             *call_done.write().unwrap() = false;
             list_client
-                .async_send_request_with_callback(&request, move |response: ListParameters_Response| {
-                    *call_done.write().unwrap() = true;
-                    let names = response.result.names;
-                    assert_eq!(names.len(), 1);
-                    assert_eq!(names[0].to_string(), "ns1.ns2.ns3.int");
-                    assert_eq!(response.result.prefixes.len(), 1);
-                    assert_eq!(response.result.prefixes[0].to_string(), "ns1.ns2.ns3");
-                })
+                .async_send_request_with_callback(
+                    &request,
+                    move |response: ListParameters_Response| {
+                        *call_done.write().unwrap() = true;
+                        let names = response.result.names;
+                        assert_eq!(names.len(), 1);
+                        assert_eq!(names[0].to_string(), "ns1.ns2.ns3.int");
+                        assert_eq!(response.result.prefixes.len(), 1);
+                        assert_eq!(response.result.prefixes[0].to_string(), "ns1.ns2.ns3");
+                    },
+                )
                 .unwrap();
             try_until_timeout(|| *client_finished.read().unwrap())
                 .await
@@ -526,15 +535,18 @@ mod tests {
             let call_done = client_finished.clone();
             *call_done.write().unwrap() = false;
             list_client
-                .async_send_request_with_callback(&request, move |response: ListParameters_Response| {
-                    *call_done.write().unwrap() = true;
-                    let names = response.result.names;
-                    dbg!(&names);
-                    assert_eq!(names.len(), 2);
-                    assert_eq!(names[0].to_string(), "bool");
-                    assert_eq!(names[1].to_string(), "use_sim_time");
-                    assert_eq!(response.result.prefixes.len(), 0);
-                })
+                .async_send_request_with_callback(
+                    &request,
+                    move |response: ListParameters_Response| {
+                        *call_done.write().unwrap() = true;
+                        let names = response.result.names;
+                        dbg!(&names);
+                        assert_eq!(names.len(), 2);
+                        assert_eq!(names[0].to_string(), "bool");
+                        assert_eq!(names[1].to_string(), "use_sim_time");
+                        assert_eq!(response.result.prefixes.len(), 0);
+                    },
+                )
                 .unwrap();
             try_until_timeout(|| *client_finished.read().unwrap())
                 .await
@@ -587,13 +599,16 @@ mod tests {
             let client_finished = Arc::new(RwLock::new(false));
             let call_done = client_finished.clone();
             get_client
-                .async_send_request_with_callback(&request, move |response: GetParameters_Response| {
-                    *call_done.write().unwrap() = true;
-                    assert_eq!(response.values.len(), 1);
-                    let param = &response.values[0];
-                    assert_eq!(param.type_, ParameterType::PARAMETER_BOOL);
-                    assert!(param.bool_value);
-                })
+                .async_send_request_with_callback(
+                    &request,
+                    move |response: GetParameters_Response| {
+                        *call_done.write().unwrap() = true;
+                        assert_eq!(response.values.len(), 1);
+                        let param = &response.values[0];
+                        assert_eq!(param.type_, ParameterType::PARAMETER_BOOL);
+                        assert!(param.bool_value);
+                    },
+                )
                 .unwrap();
             try_until_timeout(|| *client_finished.read().unwrap())
                 .await
@@ -606,10 +621,13 @@ mod tests {
             let client_finished = Arc::new(RwLock::new(false));
             let call_done = client_finished.clone();
             get_client
-                .async_send_request_with_callback(&request, move |response: GetParameters_Response| {
-                    *call_done.write().unwrap() = true;
-                    assert_eq!(response.values.len(), 0);
-                })
+                .async_send_request_with_callback(
+                    &request,
+                    move |response: GetParameters_Response| {
+                        *call_done.write().unwrap() = true;
+                        assert_eq!(response.values.len(), 0);
+                    },
+                )
                 .unwrap();
             try_until_timeout(|| *client_finished.read().unwrap())
                 .await
@@ -688,27 +706,30 @@ mod tests {
             // Parameter is assigned a default of true at declaration time
             assert!(node.bool_param.get());
             set_client
-                .async_send_request_with_callback(&request, move |response: SetParameters_Response| {
-                    *call_done.write().unwrap() = true;
-                    assert_eq!(response.results.len(), 7);
-                    // Setting a bool value set for a bool parameter
-                    assert!(response.results[0].successful);
-                    // Value was set to false, node parameter get should reflect this
-                    assert!(!node.bool_param.get());
-                    // Setting a parameter to the wrong type
-                    assert!(!response.results[1].successful);
-                    // Setting a read only parameter
-                    assert!(!response.results[2].successful);
-                    // Setting a dynamic parameter to a new type
-                    assert!(response.results[3].successful);
-                    assert_eq!(node.dynamic_param.get(), ParameterValue::Bool(true));
-                    // Setting a value out of range
-                    assert!(!response.results[4].successful);
-                    // Setting an invalid type
-                    assert!(!response.results[5].successful);
-                    // Setting an undeclared parameter, without allowing undeclared parameters
-                    assert!(!response.results[6].successful);
-                })
+                .async_send_request_with_callback(
+                    &request,
+                    move |response: SetParameters_Response| {
+                        *call_done.write().unwrap() = true;
+                        assert_eq!(response.results.len(), 7);
+                        // Setting a bool value set for a bool parameter
+                        assert!(response.results[0].successful);
+                        // Value was set to false, node parameter get should reflect this
+                        assert!(!node.bool_param.get());
+                        // Setting a parameter to the wrong type
+                        assert!(!response.results[1].successful);
+                        // Setting a read only parameter
+                        assert!(!response.results[2].successful);
+                        // Setting a dynamic parameter to a new type
+                        assert!(response.results[3].successful);
+                        assert_eq!(node.dynamic_param.get(), ParameterValue::Bool(true));
+                        // Setting a value out of range
+                        assert!(!response.results[4].successful);
+                        // Setting an invalid type
+                        assert!(!response.results[5].successful);
+                        // Setting an undeclared parameter, without allowing undeclared parameters
+                        assert!(!response.results[6].successful);
+                    },
+                )
                 .unwrap();
             try_until_timeout(|| *client_finished.read().unwrap())
                 .await
@@ -722,16 +743,19 @@ mod tests {
             let client_finished = Arc::new(RwLock::new(false));
             let call_done = client_finished.clone();
             set_client
-                .async_send_request_with_callback(&request, move |response: SetParameters_Response| {
-                    *call_done.write().unwrap() = true;
-                    assert_eq!(response.results.len(), 1);
-                    // Setting the undeclared parameter is now allowed
-                    assert!(response.results[0].successful);
-                    assert_eq!(
-                        node.node.use_undeclared_parameters().get("undeclared_bool"),
-                        Some(ParameterValue::Bool(true))
-                    );
-                })
+                .async_send_request_with_callback(
+                    &request,
+                    move |response: SetParameters_Response| {
+                        *call_done.write().unwrap() = true;
+                        assert_eq!(response.results.len(), 1);
+                        // Setting the undeclared parameter is now allowed
+                        assert!(response.results[0].successful);
+                        assert_eq!(
+                            node.node.use_undeclared_parameters().get("undeclared_bool"),
+                            Some(ParameterValue::Bool(true))
+                        );
+                    },
+                )
                 .unwrap();
             try_until_timeout(|| *client_finished.read().unwrap())
                 .await
@@ -744,11 +768,14 @@ mod tests {
             let client_finished = Arc::new(RwLock::new(false));
             let call_done = client_finished.clone();
             get_client
-                .async_send_request_with_callback(&request, move |response: GetParameters_Response| {
-                    *call_done.write().unwrap() = true;
-                    assert_eq!(response.values.len(), 1);
-                    assert_eq!(response.values[0].type_, ParameterType::PARAMETER_NOT_SET);
-                })
+                .async_send_request_with_callback(
+                    &request,
+                    move |response: GetParameters_Response| {
+                        *call_done.write().unwrap() = true;
+                        assert_eq!(response.values.len(), 1);
+                        assert_eq!(response.values[0].type_, ParameterType::PARAMETER_NOT_SET);
+                    },
+                )
                 .unwrap();
             try_until_timeout(|| *client_finished.read().unwrap())
                 .await
@@ -791,7 +818,8 @@ mod tests {
             client.create_client::<GetParameterTypes>("/describe/node/get_parameter_types")?;
 
         try_until_timeout(|| {
-            describe_client.service_is_ready().unwrap() && get_types_client.service_is_ready().unwrap()
+            describe_client.service_is_ready().unwrap()
+                && get_types_client.service_is_ready().unwrap()
         })
         .await
         .unwrap();
