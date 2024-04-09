@@ -30,8 +30,7 @@ mod rcl_bindings;
 #[cfg(feature = "dyn_msg")]
 pub mod dynamic_message;
 
-use std::sync::Arc;
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
 pub use arguments::*;
 pub use client::*;
@@ -55,8 +54,8 @@ pub use wait::*;
 /// See [`WaitSet::wait`] for the meaning of the `timeout` parameter.
 ///
 /// This may under some circumstances return
-/// [`SubscriptionTakeFailed`][1], [`ClientTakeFailed`][1], [`ServiceTakeFailed`][1] when the wait
-/// set spuriously wakes up.
+/// [`SubscriptionTakeFailed`][1], [`ClientTakeFailed`][1],
+/// [`ServiceTakeFailed`][1] when the wait set spuriously wakes up.
 /// This can usually be ignored.
 ///
 /// [1]: crate::RclReturnCode
@@ -94,8 +93,8 @@ pub fn create_node(context: &Context, node_name: &str) -> Result<Arc<Node>, Rclr
 
 /// Creates a [`NodeBuilder`].
 ///
-/// Convenience function equivalent to [`NodeBuilder::new()`][1] and [`Node::builder()`][2].
-/// Please see that function's documentation.
+/// Convenience function equivalent to [`NodeBuilder::new()`][1] and
+/// [`Node::builder()`][2]. Please see that function's documentation.
 ///
 /// [1]: crate::NodeBuilder::new
 /// [2]: crate::Node::builder
