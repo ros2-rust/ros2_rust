@@ -11,8 +11,8 @@ use crate::{rcl_bindings::*, RclrsError, ToResult};
 impl Drop for rcl_context_t {
     fn drop(&mut self) {
         unsafe {
-            // The context may be invalid when rcl_init failed, e.g. because of invalid command
-            // line arguments.
+            // The context may be invalid when rcl_init failed, e.g. because of invalid
+            // command line arguments.
             // SAFETY: No preconditions for this function.
             if rcl_context_is_valid(self) {
                 // SAFETY: These functions have no preconditions besides a valid rcl_context
@@ -23,22 +23,24 @@ impl Drop for rcl_context_t {
     }
 }
 
-// SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
-// they are running in. Therefore, this type can be safely sent to another thread.
+// SAFETY: The functions accessing this type, including drop(), shouldn't care
+// about the thread they are running in. Therefore, this type can be safely sent
+// to another thread.
 unsafe impl Send for rcl_context_t {}
 
 /// Shared state between nodes and similar entities.
 ///
-/// It is possible, but not usually necessary, to have several contexts in an application.
+/// It is possible, but not usually necessary, to have several contexts in an
+/// application.
 ///
-/// Ownership of the context is shared by the `Context` itself and all nodes created from it.
+/// Ownership of the context is shared by the `Context` itself and all nodes
+/// created from it.
 ///
 /// # Details
 /// A context stores, among other things
 /// - command line arguments (used for e.g. name remapping)
 /// - middleware-specific data, e.g. the domain participant in DDS
 /// - the allocator used (left as the default by `rclrs`)
-///
 pub struct Context {
     pub(crate) rcl_context_mtx: Arc<Mutex<rcl_context_t>>,
 }
@@ -46,10 +48,12 @@ pub struct Context {
 impl Context {
     /// Creates a new context.
     ///
-    /// Usually, this would be called with `std::env::args()`, analogously to `rclcpp::init()`.
-    /// See also the official "Passing ROS arguments to nodes via the command-line" tutorial.
+    /// Usually, this would be called with `std::env::args()`, analogously to
+    /// `rclcpp::init()`. See also the official "Passing ROS arguments to
+    /// nodes via the command-line" tutorial.
     ///
-    /// Creating a context can fail in case the args contain invalid ROS arguments.
+    /// Creating a context can fail in case the args contain invalid ROS
+    /// arguments.
     ///
     /// # Example
     /// ```
@@ -106,11 +110,12 @@ impl Context {
 
     /// Checks if the context is still valid.
     ///
-    /// This will return `false` when a signal has caused the context to shut down (currently
-    /// unimplemented).
+    /// This will return `false` when a signal has caused the context to shut
+    /// down (currently unimplemented).
     pub fn ok(&self) -> bool {
-        // This will currently always return true, but once we have a signal handler, the signal
-        // handler could call `rcl_shutdown()`, hence making the context invalid.
+        // This will currently always return true, but once we have a signal handler,
+        // the signal handler could call `rcl_shutdown()`, hence making the
+        // context invalid.
         let rcl_context = &mut *self.rcl_context_mtx.lock().unwrap();
         // SAFETY: No preconditions for this function.
         unsafe { rcl_context_is_valid(rcl_context) }
