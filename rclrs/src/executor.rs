@@ -1,7 +1,4 @@
-use crate::{
-    rcl_bindings::rcl_context_is_valid,
-    {Node, RclReturnCode, RclrsError, WaitSet},
-};
+use crate::{rcl_bindings::rcl_context_is_valid, Node, RclReturnCode, RclrsError, WaitSet};
 use std::{
     sync::{Arc, Mutex, Weak},
     time::Duration,
