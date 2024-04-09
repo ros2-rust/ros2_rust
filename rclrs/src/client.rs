@@ -14,8 +14,9 @@ use crate::{
     MessageCow, RclrsError,
 };
 
-// SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
-// they are running in. Therefore, this type can be safely sent to another thread.
+// SAFETY: The functions accessing this type, including drop(), shouldn't care
+// about the thread they are running in. Therefore, this type can be safely sent
+// to another thread.
 unsafe impl Send for rcl_client_t {}
 
 /// Internal struct used by clients.
@@ -58,8 +59,9 @@ type RequestId = i64;
 
 /// Main class responsible for sending requests to a ROS service.
 ///
-/// The only available way to instantiate clients is via [`Node::create_client`][1], this is to
-/// ensure that [`Node`][2]s can track all the clients that have been created.
+/// The only available way to instantiate clients is via
+/// [`Node::create_client`][1], this is to ensure that [`Node`][2]s can track
+/// all the clients that have been created.
 ///
 /// [1]: crate::Node::create_client
 /// [2]: crate::Node
@@ -98,8 +100,8 @@ where
         unsafe {
             // SAFETY: The rcl_client is zero-initialized as expected by this function.
             // The rcl_node is kept alive because it is co-owned by the client.
-            // The topic name and the options are copied by this function, so they can be dropped
-            // afterwards.
+            // The topic name and the options are copied by this function, so they can be
+            // dropped afterwards.
             rcl_client_init(
                 &mut rcl_client,
                 &*rcl_node_mtx.lock().unwrap(),
@@ -130,13 +132,14 @@ where
     /// The [`MessageCow`] trait is implemented by any
     /// [`Message`] as well as any reference to a `Message`.
     ///
-    /// The reason for allowing owned messages is that publishing owned messages can be more
-    /// efficient in the case of idiomatic messages[^note].
+    /// The reason for allowing owned messages is that publishing owned messages
+    /// can be more efficient in the case of idiomatic messages[^note].
     ///
     /// [^note]: See the [`Message`] trait for an explanation of "idiomatic".
     ///
-    /// Hence, when a message will not be needed anymore after publishing, pass it by value.
-    /// When a message will be needed again after publishing, pass it by reference, instead of cloning and passing by value.
+    /// Hence, when a message will not be needed anymore after publishing, pass
+    /// it by value. When a message will be needed again after publishing,
+    /// pass it by reference, instead of cloning and passing by value.
     pub fn async_send_request_with_callback<'a, M: MessageCow<'a, T::Request>, F>(
         &self,
         message: M,
@@ -148,7 +151,8 @@ where
         let rmw_message = T::Request::into_rmw_message(message.into_cow());
         let mut sequence_number = -1;
         unsafe {
-            // SAFETY: The request type is guaranteed to match the client type by the type system.
+            // SAFETY: The request type is guaranteed to match the client type by the type
+            // system.
             rcl_send_request(
                 &*self.handle.lock() as *const _,
                 rmw_message.as_ref() as *const <T::Request as Message>::RmwMsg as *mut _,
@@ -166,13 +170,14 @@ where
     /// The [`MessageCow`] trait is implemented by any
     /// [`Message`] as well as any reference to a `Message`.
     ///
-    /// The reason for allowing owned messages is that publishing owned messages can be more
-    /// efficient in the case of idiomatic messages[^note].
+    /// The reason for allowing owned messages is that publishing owned messages
+    /// can be more efficient in the case of idiomatic messages[^note].
     ///
     /// [^note]: See the [`Message`] trait for an explanation of "idiomatic".
     ///
-    /// Hence, when a message will not be needed anymore after publishing, pass it by value.
-    /// When a message will be needed again after publishing, pass it by reference, instead of cloning and passing by value.
+    /// Hence, when a message will not be needed anymore after publishing, pass
+    /// it by value. When a message will be needed again after publishing,
+    /// pass it by reference, instead of cloning and passing by value.
     pub async fn call_async<'a, R: MessageCow<'a, T::Request>>(
         &self,
         request: R,
@@ -183,7 +188,8 @@ where
         let rmw_message = T::Request::into_rmw_message(request.into_cow());
         let mut sequence_number = -1;
         unsafe {
-            // SAFETY: The request type is guaranteed to match the client type by the type system.
+            // SAFETY: The request type is guaranteed to match the client type by the type
+            // system.
             rcl_send_request(
                 &*self.handle.lock() as *const _,
                 rmw_message.as_ref() as *const <T::Request as Message>::RmwMsg as *mut _,
@@ -193,8 +199,8 @@ where
         .ok()?;
         let (tx, rx) = oneshot::channel::<T::Response>();
         self.futures.lock().unwrap().insert(sequence_number, tx);
-        // It is safe to call unwrap() here since the `Canceled` error will only happen when the
-        // `Sender` is dropped
+        // It is safe to call unwrap() here since the `Canceled` error will only happen
+        // when the `Sender` is dropped
         // https://docs.rs/futures/latest/futures/channel/oneshot/struct.Canceled.html
         Ok(rx.await.unwrap())
     }
@@ -244,8 +250,8 @@ where
 
     /// Check if a service server is available.
     ///
-    /// Will return true if there is a service server available, false if unavailable.
-    ///
+    /// Will return true if there is a service server available, false if
+    /// unavailable.
     pub fn service_is_ready(&self) -> Result<bool, RclrsError> {
         let mut is_ready = false;
         let client = &mut *self.handle.rcl_client_mtx.lock().unwrap();
