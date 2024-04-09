@@ -1,8 +1,6 @@
-use std::ffi::CStr;
-use std::sync::Arc;
+use std::{ffi::CStr, sync::Arc};
 
-use crate::rcl_bindings::*;
-use crate::{ParameterRange, ParameterRanges, ParameterValueError};
+use crate::{rcl_bindings::*, ParameterRange, ParameterRanges, ParameterValueError};
 
 /// A parameter value.
 ///
