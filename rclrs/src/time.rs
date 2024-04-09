@@ -1,9 +1,10 @@
-use crate::rcl_bindings::*;
-use crate::vendor::builtin_interfaces;
-use std::num::TryFromIntError;
-use std::ops::{Add, Sub};
-use std::sync::{Mutex, Weak};
-use std::time::Duration;
+use crate::{rcl_bindings::*, vendor::builtin_interfaces};
+use std::{
+    num::TryFromIntError,
+    ops::{Add, Sub},
+    sync::{Mutex, Weak},
+    time::Duration,
+};
 
 /// Struct that represents time.
 #[derive(Clone, Debug)]
@@ -15,8 +16,8 @@ pub struct Time {
 }
 
 impl Time {
-    /// Compares self to rhs, if they can be compared (originated from the same clock) calls f with
-    /// the values of the timestamps.
+    /// Compares self to rhs, if they can be compared (originated from the same
+    /// clock) calls f with the values of the timestamps.
     pub fn compare_with<U, F>(&self, rhs: &Time, f: F) -> Option<U>
     where
         F: FnOnce(i64, i64) -> U,
