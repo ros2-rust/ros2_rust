@@ -1,22 +1,22 @@
 mod builder;
 mod graph;
-use std::cmp::PartialEq;
-use std::ffi::CStr;
-use std::fmt;
-use std::os::raw::c_char;
-use std::sync::{Arc, Mutex, Weak};
-use std::vec::Vec;
+use std::{
+    cmp::PartialEq,
+    ffi::CStr,
+    fmt,
+    os::raw::c_char,
+    sync::{Arc, Mutex, Weak},
+    vec::Vec,
+};
 
 use rosidl_runtime_rs::Message;
 
-pub use self::builder::*;
-pub use self::graph::*;
-use crate::rcl_bindings::*;
+pub use self::{builder::*, graph::*};
 use crate::{
-    Client, ClientBase, Clock, Context, ContextHandle, GuardCondition, ParameterBuilder,
-    ParameterInterface, ParameterVariant, Parameters, Publisher, QoSProfile, RclrsError, Service,
-    ServiceBase, Subscription, SubscriptionBase, SubscriptionCallback, TimeSource,
-    ENTITY_LIFECYCLE_MUTEX,
+    rcl_bindings::*, Client, ClientBase, Clock, Context, ContextHandle, GuardCondition,
+    ParameterBuilder, ParameterInterface, ParameterVariant, Parameters, Publisher, QoSProfile,
+    RclrsError, Service, ServiceBase, Subscription, SubscriptionBase, SubscriptionCallback,
+    TimeSource, ENTITY_LIFECYCLE_MUTEX,
 };
 
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
