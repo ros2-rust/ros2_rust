@@ -8,13 +8,15 @@ use crate::{error::*, rcl_bindings::*};
 
 /// Extract non-ROS arguments from program's input arguments.
 ///
-/// `args` is expected to be the input arguments of the program (e.g. [`std::env::args()`]),
-/// which are expected to contain at least one element - the executable name.
+/// `args` is expected to be the input arguments of the program (e.g.
+/// [`std::env::args()`]), which are expected to contain at least one element -
+/// the executable name.
 ///
-/// ROS arguments are arguments between `--ros-args` and `--`, with the final `--` being optional.
-/// Everything else is considered as non-ROS arguments and will be left unparsed by
-/// [`Context::new()`][1] etc.
-/// Extracted non-ROS arguments are returned in the order that they appear by this function.
+/// ROS arguments are arguments between `--ros-args` and `--`, with the final
+/// `--` being optional. Everything else is considered as non-ROS arguments and
+/// will be left unparsed by [`Context::new()`][1] etc.
+/// Extracted non-ROS arguments are returned in the order that they appear by
+/// this function.
 ///
 /// # Example
 /// ```
@@ -79,14 +81,16 @@ pub fn extract_non_ros_args(
     ret
 }
 
-/// Returns arguments type held by `rcl_arguments` basing on `rcl_get_count` and `rcl_get_indices` function pointers.
+/// Returns arguments type held by `rcl_arguments` basing on `rcl_get_count` and
+/// `rcl_get_indices` function pointers.
 ///
-/// This function must be called after `rcl_arguments` was initialized. `args` must be array of input arguments passed to node/program.
+/// This function must be called after `rcl_arguments` was initialized. `args`
+/// must be array of input arguments passed to node/program.
 ///
-/// SAFETY: `rcl_get_count` and `rcl_get_indices` has to be corresponding rcl API functions, e.g.:
-/// `rcl_arguments_get_count_unparsed` -> `rcl_arguments_get_unparsed`
-/// `rcl_arguments_get_count_unparsed_ros` -> `rcl_arguments_get_count_ros`
-/// ...
+/// SAFETY: `rcl_get_count` and `rcl_get_indices` has to be corresponding rcl
+/// API functions, e.g.: `rcl_arguments_get_count_unparsed` ->
+/// `rcl_arguments_get_unparsed` `rcl_arguments_get_count_unparsed_ros` ->
+/// `rcl_arguments_get_count_ros` ...
 pub(crate) fn get_rcl_arguments(
     rcl_get_count: unsafe extern "C" fn(*const rcl_arguments_t) -> std::os::raw::c_int,
     rcl_get_indices: unsafe extern "C" fn(
@@ -110,13 +114,14 @@ pub(crate) fn get_rcl_arguments(
     unsafe {
         // SAFETY: No preconditions for this function.
         let allocator = rcutils_get_default_allocator();
-        // SAFETY: The indices_ptr is an output parameter, so it is expected that it contains null.
-        // The indices_ptr will need to be freed by the caller, which happens later in this function.
+        // SAFETY: The indices_ptr is an output parameter, so it is expected that it
+        // contains null. The indices_ptr will need to be freed by the caller,
+        // which happens later in this function.
         rcl_get_indices(rcl_arguments, allocator, &mut indices_ptr).ok()?;
 
         for i in 0..args_count {
-            // SAFETY: rcl_get_indices finished with success and rcl_get_count is matching function
-            // according to documentation of this function
+            // SAFETY: rcl_get_indices finished with success and rcl_get_count is matching
+            // function according to documentation of this function
             let index = *(indices_ptr.add(i));
             // SAFETY: rcl_get_indices and rcl_get_count are matching functions according
             // to documentation of this function
@@ -137,7 +142,8 @@ mod tests {
 
     #[test]
     fn test_non_ros_arguments() -> Result<(), String> {
-        // ROS args are expected to be between '--ros-args' and '--'. Everything beside that is 'non-ROS'.
+        // ROS args are expected to be between '--ros-args' and '--'. Everything beside
+        // that is 'non-ROS'.
         let input_args: [String; 6] = [
             "non-ros1",
             "--ros-args",
