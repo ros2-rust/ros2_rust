@@ -1,11 +1,10 @@
 use std::{
     collections::HashMap,
     ffi::{CStr, CString},
-    slice
+    slice,
 };
 
-
-use crate::{rcl_bindings::*,Node, RclrsError, ToResult};
+use crate::{rcl_bindings::*, Node, RclrsError, ToResult};
 
 impl Drop for rmw_names_and_types_t {
     fn drop(&mut self) {
