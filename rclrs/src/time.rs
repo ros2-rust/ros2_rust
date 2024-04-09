@@ -16,8 +16,8 @@ pub struct Time {
 }
 
 impl Time {
-    /// Compares self to rhs, if they can be compared (originated from the same clock) calls f with
-    /// the values of the timestamps.
+    /// Compares self to rhs, if they can be compared (originated from the same
+    /// clock) calls f with the values of the timestamps.
     pub fn compare_with<U, F>(&self, rhs: &Time, f: F) -> Option<U>
     where
         F: FnOnce(i64, i64) -> U,
