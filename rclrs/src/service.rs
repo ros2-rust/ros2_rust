@@ -12,8 +12,9 @@ use crate::{
     MessageCow, RclrsError,
 };
 
-// SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
-// they are running in. Therefore, this type can be safely sent to another thread.
+// SAFETY: The functions accessing this type, including drop(), shouldn't care
+// about the thread they are running in. Therefore, this type can be safely sent
+// to another thread.
 unsafe impl Send for rcl_service_t {}
 
 /// Internal struct used by services.
@@ -55,8 +56,9 @@ type ServiceCallback<Request, Response> =
 
 /// Main class responsible for responding to requests sent by ROS clients.
 ///
-/// The only available way to instantiate services is via [`Node::create_service()`][1], this is to
-/// ensure that [`Node`][2]s can track all the services that have been created.
+/// The only available way to instantiate services is via
+/// [`Node::create_service()`][1], this is to ensure that [`Node`][2]s can track
+/// all the services that have been created.
 ///
 /// [1]: crate::Node::create_service
 /// [2]: crate::Node
@@ -100,8 +102,8 @@ where
         unsafe {
             // SAFETY: The rcl_service is zero-initialized as expected by this function.
             // The rcl_node is kept alive because it is co-owned by the service.
-            // The topic name and the options are copied by this function, so they can be dropped
-            // afterwards.
+            // The topic name and the options are copied by this function, so they can be
+            // dropped afterwards.
             rcl_service_init(
                 &mut rcl_service,
                 &*rcl_node_mtx.lock().unwrap(),
@@ -193,7 +195,8 @@ where
         let rmw_message = <T::Response as Message>::into_rmw_message(res.into_cow());
         let handle = &*self.handle.lock();
         unsafe {
-            // SAFETY: The response type is guaranteed to match the service type by the type system.
+            // SAFETY: The response type is guaranteed to match the service type by the type
+            // system.
             rcl_send_response(
                 handle,
                 &mut req_id,
