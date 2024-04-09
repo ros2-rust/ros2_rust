@@ -20,8 +20,9 @@ pub use callback::*;
 pub use message_info::*;
 pub use readonly_loaned_message::*;
 
-// SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
-// they are running in. Therefore, this type can be safely sent to another thread.
+// SAFETY: The functions accessing this type, including drop(), shouldn't care
+// about the thread they are running in. Therefore, this type can be safely sent
+// to another thread.
 unsafe impl Send for rcl_subscription_t {}
 
 /// Internal struct used by subscriptions.
@@ -41,7 +42,8 @@ impl Drop for SubscriptionHandle {
     fn drop(&mut self) {
         let rcl_subscription = self.rcl_subscription_mtx.get_mut().unwrap();
         let rcl_node = &mut *self.rcl_node_mtx.lock().unwrap();
-        // SAFETY: No preconditions for this function (besides the arguments being valid).
+        // SAFETY: No preconditions for this function (besides the arguments being
+        // valid).
         unsafe {
             rcl_subscription_fini(rcl_subscription, rcl_node);
         }
@@ -58,15 +60,18 @@ pub trait SubscriptionBase: Send + Sync {
 
 /// Struct for receiving messages of type `T`.
 ///
-/// There can be multiple subscriptions for the same topic, in different nodes or the same node.
+/// There can be multiple subscriptions for the same topic, in different nodes
+/// or the same node.
 ///
-/// Receiving messages requires calling [`spin_once`][1] or [`spin`][2] on the subscription's node.
+/// Receiving messages requires calling [`spin_once`][1] or [`spin`][2] on the
+/// subscription's node.
 ///
-/// When a subscription is created, it may take some time to get "matched" with a corresponding
-/// publisher.
+/// When a subscription is created, it may take some time to get "matched" with
+/// a corresponding publisher.
 ///
-/// The only available way to instantiate subscriptions is via [`Node::create_subscription()`][3], this
-/// is to ensure that [`Node`][4]s can track all the subscriptions that have been created.
+/// The only available way to instantiate subscriptions is via
+/// [`Node::create_subscription()`][3], this is to ensure that [`Node`][4]s can
+/// track all the subscriptions that have been created.
 ///
 /// [1]: crate::spin_once
 /// [2]: crate::spin
@@ -111,10 +116,10 @@ where
         let mut subscription_options = unsafe { rcl_subscription_get_default_options() };
         subscription_options.qos = qos.into();
         unsafe {
-            // SAFETY: The rcl_subscription is zero-initialized as expected by this function.
-            // The rcl_node is kept alive because it is co-owned by the subscription.
-            // The topic name and the options are copied by this function, so they can be dropped
-            // afterwards.
+            // SAFETY: The rcl_subscription is zero-initialized as expected by this
+            // function. The rcl_node is kept alive because it is co-owned by
+            // the subscription. The topic name and the options are copied by
+            // this function, so they can be dropped afterwards.
             // TODO: type support?
             rcl_subscription_init(
                 &mut rcl_subscription,
@@ -141,8 +146,8 @@ where
 
     /// Returns the topic name of the subscription.
     ///
-    /// This returns the topic name after remapping, so it is not necessarily the
-    /// topic name which was used when creating the subscription.
+    /// This returns the topic name after remapping, so it is not necessarily
+    /// the topic name which was used when creating the subscription.
     pub fn topic_name(&self) -> String {
         // SAFETY: No preconditions for the function used
         // The unsafe variables get converted to safe types before being returned
@@ -202,8 +207,8 @@ where
         let mut message_info = unsafe { rmw_get_zero_initialized_message_info() };
         let rcl_subscription = &mut *self.handle.lock();
         unsafe {
-            // SAFETY: The first two pointers are valid/initialized, and do not need to be valid
-            // beyond the function call.
+            // SAFETY: The first two pointers are valid/initialized, and do not need to be
+            // valid beyond the function call.
             // The latter two pointers are explicitly allowed to be NULL.
             rcl_take(
                 rcl_subscription,
@@ -221,8 +226,8 @@ where
     /// When there is no new message, this will return a
     /// [`SubscriptionTakeFailed`][1].
     ///
-    /// This is the counterpart to [`Publisher::borrow_loaned_message()`][2]. See its documentation
-    /// for more information.
+    /// This is the counterpart to [`Publisher::borrow_loaned_message()`][2].
+    /// See its documentation for more information.
     ///
     /// [1]: crate::RclrsError
     /// [2]: crate::Publisher::borrow_loaned_message
@@ -230,8 +235,9 @@ where
         let mut msg_ptr = std::ptr::null_mut();
         let mut message_info = unsafe { rmw_get_zero_initialized_message_info() };
         unsafe {
-            // SAFETY: The third argument (message_info) and fourth argument (allocation) may be null.
-            // The second argument (loaned_message) contains a null ptr as expected.
+            // SAFETY: The third argument (message_info) and fourth argument (allocation)
+            // may be null. The second argument (loaned_message) contains a null
+            // ptr as expected.
             rcl_take_loaned_message(
                 &*self.handle.lock(),
                 &mut msg_ptr,
