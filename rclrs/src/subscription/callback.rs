@@ -16,7 +16,8 @@ where
     fn into_callback(self) -> AnySubscriptionCallback<T>;
 }
 
-/// An enum capturing the various possible function signatures for subscription callbacks.
+/// An enum capturing the various possible function signatures for subscription
+/// callbacks.
 ///
 /// The correct enum variant is deduced by the [`SubscriptionCallback`] trait.
 pub enum AnySubscriptionCallback<T>
