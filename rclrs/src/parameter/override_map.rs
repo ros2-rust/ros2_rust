@@ -1,9 +1,6 @@
-use std::collections::BTreeMap;
-use std::ffi::CStr;
-use std::os::raw::c_char;
+use std::{collections::BTreeMap, ffi::CStr, os::raw::c_char};
 
-use crate::rcl_bindings::*;
-use crate::{ParameterValue, RclrsError, ToResult};
+use crate::{rcl_bindings::*, ParameterValue, RclrsError, ToResult};
 
 // Internal helper struct, iterator for rcl_params_t
 struct RclParamsIter<'a> {
@@ -25,8 +22,8 @@ impl<'a> Iterator for RclParamsIter<'a> {
         let (next_node_name_ptr, rest) = self.node_name_ptrs.split_first()?;
         self.node_name_ptrs = rest;
         debug_assert!(!next_node_name_ptr.is_null());
-        // SAFETY: Pointer can be assumed to be valid. No lifetime issues due to immediate
-        // conversion to owned string.
+        // SAFETY: Pointer can be assumed to be valid. No lifetime issues due to
+        // immediate conversion to owned string.
         let mut next_node_name = unsafe {
             CStr::from_ptr(*next_node_name_ptr)
                 .to_string_lossy()
@@ -40,8 +37,8 @@ impl<'a> Iterator for RclParamsIter<'a> {
 }
 
 impl RclParamsIter<'_> {
-    // This function is unsafe since the rcl_params argument might contain incorrect array sizes or
-    // dangling pointers.
+    // This function is unsafe since the rcl_params argument might contain incorrect
+    // array sizes or dangling pointers.
     pub unsafe fn new(rcl_params: *const rcl_params_t) -> Self {
         // The params will be null if none were given on the command line.
         // So, semantically, this can be treated like a struct with no parameters.
@@ -70,8 +67,8 @@ impl<'a> Iterator for RclNodeParamsIter<'a> {
         self.param_name_ptrs = rest;
         let (next_rcl_variant, rest) = self.rcl_variants.split_first()?;
         self.rcl_variants = rest;
-        // SAFETY: Pointer can be assumed to be valid. No lifetime issues due to immediate
-        // conversion to owned string.
+        // SAFETY: Pointer can be assumed to be valid. No lifetime issues due to
+        // immediate conversion to owned string.
         let next_param_name = unsafe {
             CStr::from_ptr(*next_param_name_ptr)
                 .to_string_lossy()
@@ -82,8 +79,8 @@ impl<'a> Iterator for RclNodeParamsIter<'a> {
 }
 
 impl<'a> RclNodeParamsIter<'a> {
-    // This function is unsafe since the rcl_node_params argument might contain incorrect array
-    // sizes or dangling pointers.
+    // This function is unsafe since the rcl_node_params argument might contain
+    // incorrect array sizes or dangling pointers.
     pub unsafe fn new(rcl_node_params: &'a rcl_node_params_t) -> Self {
         let param_name_ptrs =
             std::slice::from_raw_parts(rcl_node_params.parameter_names, rcl_node_params.num_params);
@@ -100,16 +97,16 @@ impl<'a> RclNodeParamsIter<'a> {
 
 /// A map of parameters for this node.
 /// The key for this map is the parameter name.
-/// A parameter override "overrides" the default value set from within the node, hence the name.
-/// A BTreeMap is used because it supports range queries, making it easy to fetch all parameters
-/// with a given prefix.
+/// A parameter override "overrides" the default value set from within the node,
+/// hence the name. A BTreeMap is used because it supports range queries, making
+/// it easy to fetch all parameters with a given prefix.
 pub(crate) type ParameterOverrideMap = BTreeMap<String, ParameterValue>;
 
-/// Similar to `rclcpp::detail::resolve_parameter_overrides`, but returns a map instead of
-/// a vector.
+/// Similar to `rclcpp::detail::resolve_parameter_overrides`, but returns a map
+/// instead of a vector.
 ///
-/// This function is unsafe since the rcl_global_arguments argument might contain incorrect array
-/// sizes or dangling pointers.
+/// This function is unsafe since the rcl_global_arguments argument might
+/// contain incorrect array sizes or dangling pointers.
 pub(crate) unsafe fn resolve_parameter_overrides(
     node_fqn: &str,
     rcl_node_arguments: &rcl_arguments_t,
@@ -138,15 +135,14 @@ pub(crate) unsafe fn resolve_parameter_overrides(
 
 #[cfg(test)]
 mod tests {
-    use std::error::Error;
-    use std::ffi::CString;
-    use std::io::Write;
+    use std::{error::Error, ffi::CString, io::Write};
 
     use tempfile::NamedTempFile;
 
     use super::*;
 
-    // These files have values for every possible four-bit number, with the four bits being
+    // These files have values for every possible four-bit number, with the four
+    // bits being
     // * `/**` global params
     // * named global params
     // * `/**` node params
@@ -197,7 +193,8 @@ mod tests {
         o: 4
 "#;
 
-    // The returned rcl_arguments need to be manually finalized with rcl_arguments_fini
+    // The returned rcl_arguments need to be manually finalized with
+    // rcl_arguments_fini
     fn convert_to_rcl_arguments(
         param_file_contents: &str,
     ) -> Result<rcl_arguments_t, Box<dyn Error>> {
