@@ -15,22 +15,22 @@
 // DISTRIBUTION A. Approved for public release; distribution unlimited.
 // OPSEC #4584.
 
-use std::sync::Arc;
-use std::time::Duration;
-use std::vec::Vec;
+use std::{sync::Arc, time::Duration, vec::Vec};
 
-use crate::error::{to_rclrs_result, RclReturnCode, RclrsError, ToResult};
-use crate::rcl_bindings::*;
-use crate::{ClientBase, Context, ContextHandle, Node, ServiceBase, SubscriptionBase};
+use crate::{
+    error::{to_rclrs_result, RclReturnCode, RclrsError, ToResult},
+    rcl_bindings::*,
+    ClientBase, Context, ContextHandle, Node, ServiceBase, SubscriptionBase,
+};
 
 mod exclusivity_guard;
 mod guard_condition;
 use exclusivity_guard::*;
 pub use guard_condition::*;
 
-/// Manage the lifecycle of an `rcl_wait_set_t`, including managing its dependency
-/// on `rcl_context_t` by ensuring that this dependency is [dropped after][1] the
-/// `rcl_wait_set_t`.
+/// Manage the lifecycle of an `rcl_wait_set_t`, including managing its
+/// dependency on `rcl_context_t` by ensuring that this dependency is [dropped
+/// after][1] the `rcl_wait_set_t`.
 ///
 /// [1]: <https://doc.rust-lang.org/reference/destructors.html>
 struct WaitSetHandle {
@@ -40,7 +40,8 @@ struct WaitSetHandle {
     context_handle: Arc<ContextHandle>,
 }
 
-/// A struct for waiting on subscriptions and other waitable entities to become ready.
+/// A struct for waiting on subscriptions and other waitable entities to become
+/// ready.
 pub struct WaitSet {
     // The subscriptions that are currently registered in the wait set.
     // This correspondence is an invariant that must be maintained by all functions,
@@ -67,7 +68,8 @@ pub struct ReadyEntities {
 
 impl Drop for rcl_wait_set_t {
     fn drop(&mut self) {
-        // SAFETY: No preconditions for this function (besides passing in a valid wait set).
+        // SAFETY: No preconditions for this function (besides passing in a valid wait
+        // set).
         let rc = unsafe { rcl_wait_set_fini(self) };
         if let Err(e) = to_rclrs_result(rc) {
             panic!("Unable to release WaitSet. {:?}", e)
@@ -75,20 +77,22 @@ impl Drop for rcl_wait_set_t {
     }
 }
 
-// SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
-// they are running in. Therefore, this type can be safely sent to another thread.
+// SAFETY: The functions accessing this type, including drop(), shouldn't care
+// about the thread they are running in. Therefore, this type can be safely sent
+// to another thread.
 unsafe impl Send for rcl_wait_set_t {}
 
-// SAFETY: While the rcl_wait_set_t does have some interior mutability (because it has
-// members of non-const pointer type), this interior mutability is hidden/not used by
-// the WaitSet type. Therefore, sharing &WaitSet between threads does not risk data races.
+// SAFETY: While the rcl_wait_set_t does have some interior mutability (because
+// it has members of non-const pointer type), this interior mutability is
+// hidden/not used by the WaitSet type. Therefore, sharing &WaitSet between
+// threads does not risk data races.
 unsafe impl Sync for WaitSet {}
 
 impl WaitSet {
     /// Creates a new wait set.
     ///
-    /// The given number of subscriptions is a capacity, corresponding to how often
-    /// [`WaitSet::add_subscription`] may be called.
+    /// The given number of subscriptions is a capacity, corresponding to how
+    /// often [`WaitSet::add_subscription`] may be called.
     pub fn new(
         number_of_subscriptions: usize,
         number_of_guard_conditions: usize,
@@ -132,7 +136,8 @@ impl WaitSet {
 
     /// Creates a new wait set and adds all waitable entities in the node to it.
     ///
-    /// The wait set is sized to fit the node exactly, so there is no capacity for adding other entities.
+    /// The wait set is sized to fit the node exactly, so there is no capacity
+    /// for adding other entities.
     pub fn new_for_node(node: &Node) -> Result<Self, RclrsError> {
         let live_subscriptions = node.live_subscriptions();
         let live_clients = node.live_clients();
@@ -171,17 +176,18 @@ impl WaitSet {
 
     /// Removes all entities from the wait set.
     ///
-    /// This effectively resets the wait set to the state it was in after being created by
-    /// [`WaitSet::new`].
+    /// This effectively resets the wait set to the state it was in after being
+    /// created by [`WaitSet::new`].
     pub fn clear(&mut self) {
         self.subscriptions.clear();
         self.guard_conditions.clear();
         self.clients.clear();
         self.services.clear();
-        // This cannot fail – the rcl_wait_set_clear function only checks that the input handle is
-        // valid, which it always is in our case. Hence, only debug_assert instead of returning
-        // Result.
-        // SAFETY: No preconditions for this function (besides passing in a valid wait set).
+        // This cannot fail – the rcl_wait_set_clear function only checks that the input
+        // handle is valid, which it always is in our case. Hence, only
+        // debug_assert instead of returning Result.
+        // SAFETY: No preconditions for this function (besides passing in a valid wait
+        // set).
         let ret = unsafe { rcl_wait_set_clear(&mut self.handle.rcl_wait_set) };
         debug_assert_eq!(ret, 0);
     }
@@ -205,9 +211,10 @@ impl WaitSet {
             Arc::clone(&subscription.handle().in_use_by_wait_set),
         )?;
         unsafe {
-            // SAFETY: I'm not sure if it's required, but the subscription pointer will remain valid
-            // for as long as the wait set exists, because it's stored in self.subscriptions.
-            // Passing in a null pointer for the third argument is explicitly allowed.
+            // SAFETY: I'm not sure if it's required, but the subscription pointer will
+            // remain valid for as long as the wait set exists, because it's
+            // stored in self.subscriptions. Passing in a null pointer for the
+            // third argument is explicitly allowed.
             rcl_wait_set_add_subscription(
                 &mut self.handle.rcl_wait_set,
                 &*subscription.handle().lock(),
@@ -222,8 +229,8 @@ impl WaitSet {
     /// Adds a guard condition to the wait set.
     ///
     /// # Errors
-    /// - If the guard condition was already added to this wait set or another one,
-    ///   [`AlreadyAddedToWaitSet`][1] will be returned
+    /// - If the guard condition was already added to this wait set or another
+    ///   one, [`AlreadyAddedToWaitSet`][1] will be returned
     /// - If the number of guard conditions in the wait set is larger than the
     ///   capacity set in [`WaitSet::new`], [`WaitSetFull`][2] will be returned
     ///
@@ -256,8 +263,8 @@ impl WaitSet {
     /// # Errors
     /// - If the client was already added to this wait set or another one,
     ///   [`AlreadyAddedToWaitSet`][1] will be returned
-    /// - If the number of clients in the wait set is larger than the
-    ///   capacity set in [`WaitSet::new`], [`WaitSetFull`][2] will be returned
+    /// - If the number of clients in the wait set is larger than the capacity
+    ///   set in [`WaitSet::new`], [`WaitSetFull`][2] will be returned
     ///
     /// [1]: crate::RclrsError
     /// [2]: crate::RclReturnCode
@@ -267,9 +274,10 @@ impl WaitSet {
             Arc::clone(&client.handle().in_use_by_wait_set),
         )?;
         unsafe {
-            // SAFETY: I'm not sure if it's required, but the client pointer will remain valid
-            // for as long as the wait set exists, because it's stored in self.clients.
-            // Passing in a null pointer for the third argument is explicitly allowed.
+            // SAFETY: I'm not sure if it's required, but the client pointer will remain
+            // valid for as long as the wait set exists, because it's stored in
+            // self.clients. Passing in a null pointer for the third argument is
+            // explicitly allowed.
             rcl_wait_set_add_client(
                 &mut self.handle.rcl_wait_set,
                 &*client.handle().lock() as *const _,
@@ -286,8 +294,8 @@ impl WaitSet {
     /// # Errors
     /// - If the service was already added to this wait set or another one,
     ///   [`AlreadyAddedToWaitSet`][1] will be returned
-    /// - If the number of services in the wait set is larger than the
-    ///   capacity set in [`WaitSet::new`], [`WaitSetFull`][2] will be returned
+    /// - If the number of services in the wait set is larger than the capacity
+    ///   set in [`WaitSet::new`], [`WaitSetFull`][2] will be returned
     ///
     /// [1]: crate::RclrsError
     /// [2]: crate::RclReturnCode
@@ -297,9 +305,10 @@ impl WaitSet {
             Arc::clone(&service.handle().in_use_by_wait_set),
         )?;
         unsafe {
-            // SAFETY: I'm not sure if it's required, but the service pointer will remain valid
-            // for as long as the wait set exists, because it's stored in self.services.
-            // Passing in a null pointer for the third argument is explicitly allowed.
+            // SAFETY: I'm not sure if it's required, but the service pointer will remain
+            // valid for as long as the wait set exists, because it's stored in
+            // self.services. Passing in a null pointer for the third argument
+            // is explicitly allowed.
             rcl_wait_set_add_service(
                 &mut self.handle.rcl_wait_set,
                 &*service.handle().lock() as *const _,
@@ -311,27 +320,31 @@ impl WaitSet {
         Ok(())
     }
 
-    /// Blocks until the wait set is ready, or until the timeout has been exceeded.
+    /// Blocks until the wait set is ready, or until the timeout has been
+    /// exceeded.
     ///
-    /// If the timeout is `None` then this function will block indefinitely until
-    /// something in the wait set is valid or it is interrupted.
+    /// If the timeout is `None` then this function will block indefinitely
+    /// until something in the wait set is valid or it is interrupted.
     ///
-    /// If the timeout is [`Duration::ZERO`][1] then this function will be non-blocking; checking what's
-    /// ready now, but not waiting if nothing is ready yet.
+    /// If the timeout is [`Duration::ZERO`][1] then this function will be
+    /// non-blocking; checking what's ready now, but not waiting if nothing
+    /// is ready yet.
     ///
-    /// If the timeout is greater than [`Duration::ZERO`][1] then this function will return after
-    /// that period of time has elapsed or the wait set becomes ready, which ever
-    /// comes first.
+    /// If the timeout is greater than [`Duration::ZERO`][1] then this function
+    /// will return after that period of time has elapsed or the wait set
+    /// becomes ready, which ever comes first.
     ///
     /// This function does not change the entities registered in the wait set.
     ///
     /// # Errors
     ///
     /// - Passing a wait set with no wait-able items in it will return an error.
-    /// - The timeout must not be so large so as to overflow an `i64` with its nanosecond
+    /// - The timeout must not be so large so as to overflow an `i64` with its
+    ///   nanosecond
     /// representation, or an error will occur.
     ///
-    /// This list is not comprehensive, since further errors may occur in the `rmw` or `rcl` layers.
+    /// This list is not comprehensive, since further errors may occur in the
+    /// `rmw` or `rcl` layers.
     ///
     /// [1]: std::time::Duration::ZERO
     pub fn wait(mut self, timeout: Option<Duration>) -> Result<ReadyEntities, RclrsError> {
@@ -345,11 +358,11 @@ impl WaitSet {
                 })
             }
         };
-        // SAFETY: The comments in rcl mention "This function cannot operate on the same wait set
-        // in multiple threads, and the wait sets may not share content."
-        // We cannot currently guarantee that the wait sets may not share content, but it is
-        // mentioned in the doc comment for `add_subscription`.
-        // Also, the rcl_wait_set is obviously valid.
+        // SAFETY: The comments in rcl mention "This function cannot operate on the same
+        // wait set in multiple threads, and the wait sets may not share
+        // content." We cannot currently guarantee that the wait sets may not
+        // share content, but it is mentioned in the doc comment for
+        // `add_subscription`. Also, the rcl_wait_set is obviously valid.
         match unsafe { rcl_wait(&mut self.handle.rcl_wait_set, timeout_ns) }.ok() {
             Ok(_) => (),
             Err(error) => match error {
@@ -367,8 +380,8 @@ impl WaitSet {
             services: Vec::new(),
         };
         for (i, subscription) in self.subscriptions.iter().enumerate() {
-            // SAFETY: The `subscriptions` entry is an array of pointers, and this dereferencing is
-            // equivalent to
+            // SAFETY: The `subscriptions` entry is an array of pointers, and this
+            // dereferencing is equivalent to
             // https://github.com/ros2/rcl/blob/35a31b00a12f259d492bf53c0701003bd7f1745c/rcl/include/rcl/wait.h#L419
             let wait_set_entry = unsafe { *self.handle.rcl_wait_set.subscriptions.add(i) };
             if !wait_set_entry.is_null() {
@@ -379,8 +392,8 @@ impl WaitSet {
         }
 
         for (i, client) in self.clients.iter().enumerate() {
-            // SAFETY: The `clients` entry is an array of pointers, and this dereferencing is
-            // equivalent to
+            // SAFETY: The `clients` entry is an array of pointers, and this dereferencing
+            // is equivalent to
             // https://github.com/ros2/rcl/blob/35a31b00a12f259d492bf53c0701003bd7f1745c/rcl/include/rcl/wait.h#L419
             let wait_set_entry = unsafe { *self.handle.rcl_wait_set.clients.add(i) };
             if !wait_set_entry.is_null() {
@@ -389,8 +402,8 @@ impl WaitSet {
         }
 
         for (i, guard_condition) in self.guard_conditions.iter().enumerate() {
-            // SAFETY: The `clients` entry is an array of pointers, and this dereferencing is
-            // equivalent to
+            // SAFETY: The `clients` entry is an array of pointers, and this dereferencing
+            // is equivalent to
             // https://github.com/ros2/rcl/blob/35a31b00a12f259d492bf53c0701003bd7f1745c/rcl/include/rcl/wait.h#L419
             let wait_set_entry = unsafe { *self.handle.rcl_wait_set.guard_conditions.add(i) };
             if !wait_set_entry.is_null() {
@@ -401,8 +414,8 @@ impl WaitSet {
         }
 
         for (i, service) in self.services.iter().enumerate() {
-            // SAFETY: The `services` entry is an array of pointers, and this dereferencing is
-            // equivalent to
+            // SAFETY: The `services` entry is an array of pointers, and this dereferencing
+            // is equivalent to
             // https://github.com/ros2/rcl/blob/35a31b00a12f259d492bf53c0701003bd7f1745c/rcl/include/rcl/wait.h#L419
             let wait_set_entry = unsafe { *self.handle.rcl_wait_set.services.add(i) };
             if !wait_set_entry.is_null() {
