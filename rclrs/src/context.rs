@@ -6,10 +6,7 @@ use std::{
     vec::Vec,
 };
 
-use crate::{
-    rcl_bindings::*,
-    {RclrsError, ToResult},
-};
+use crate::{rcl_bindings::*, RclrsError, ToResult};
 
 impl Drop for rcl_context_t {
     fn drop(&mut self) {
