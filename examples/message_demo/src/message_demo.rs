@@ -1,6 +1,4 @@
-use std::convert::TryInto;
-use std::env;
-use std::sync::Arc;
+use std::{convert::TryInto, env, sync::Arc};
 
 use anyhow::{Error, Result};
 use rosidl_runtime_rs::{seq, BoundedSequence, Message, Sequence};
@@ -126,7 +124,8 @@ fn demonstrate_sequences() {
     assert_eq!(float_vec_1, float_vec_2);
     // Sequences also implement FromIterator.
     let mut int_seq_unbounded: Sequence<i32> = [42; 4].into_iter().collect();
-    // Bounded sequences will ignore remaining items once the length bound is reached
+    // Bounded sequences will ignore remaining items once the length bound is
+    // reached
     let mut int_seq_bounded: BoundedSequence<i32, 3> = [42; 4].into_iter().collect();
     // Sequences deref to slices
     int_seq_bounded[2] = 24;
