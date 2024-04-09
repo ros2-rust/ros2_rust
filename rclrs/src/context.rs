@@ -1,11 +1,12 @@
-use std::ffi::CString;
-use std::os::raw::c_char;
-use std::string::String;
-use std::sync::{Arc, Mutex};
-use std::vec::Vec;
+use std::{
+    ffi::CString,
+    os::raw::c_char,
+    string::String,
+    sync::{Arc, Mutex},
+    vec::Vec,
+};
 
-use crate::rcl_bindings::*;
-use crate::{RclrsError, ToResult};
+use crate::{rcl_bindings::*, RclrsError, ToResult};
 
 /// This is locked whenever initializing or dropping any middleware entity
 /// because we have found issues in RCL and some RMW implementations that
