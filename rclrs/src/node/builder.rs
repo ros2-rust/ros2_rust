@@ -1,9 +1,11 @@
-use std::{ffi::CString,sync::{Arc, Mutex}};
+use std::{
+    ffi::CString,
+    sync::{Arc, Mutex},
+};
 
 use crate::{
-    rcl_bindings::*,
-    ClockType, Context, Node, ParameterInterface, QoSProfile, RclrsError, TimeSource, ToResult,
-    QOS_PROFILE_CLOCK,
+    rcl_bindings::*, ClockType, Context, Node, ParameterInterface, QoSProfile, RclrsError,
+    TimeSource, ToResult, QOS_PROFILE_CLOCK,
 };
 
 /// A builder for creating a [`Node`][1].
