@@ -4,3 +4,4 @@ attr_fn_like_width = 70
 brace_style = "SameLineWhere"
 combine_control_expr = false
 comment_width = 80
+wrap_comments = true
