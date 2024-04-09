@@ -1,4 +1,7 @@
-use std::sync::{atomic::{AtomicBool, Ordering},Arc};
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
 
 use crate::RclrsError;
 
