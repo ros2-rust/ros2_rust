@@ -1,7 +1,7 @@
 use std::{
     error::Error,
     ffi::{CStr, NulError},
-    fmt::{self, Display}
+    fmt::{self, Display},
 };
 
 use crate::rcl_bindings::*;

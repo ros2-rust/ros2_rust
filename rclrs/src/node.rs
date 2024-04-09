@@ -6,21 +6,19 @@ use std::{
     fmt,
     os::raw::c_char,
     sync::{Arc, Mutex, Weak},
-    vec::Vec};
+    vec::Vec,
+};
 
 use rosidl_runtime_rs::Message;
 
-pub use self::{
-    builder::*,
-    graph::*
-};
+pub use self::{builder::*, graph::*};
 use crate::{
     rcl_bindings::*,
     {
         Client, ClientBase, Clock, Context, GuardCondition, ParameterBuilder, ParameterInterface,
         ParameterVariant, Parameters, Publisher, QoSProfile, RclrsError, Service, ServiceBase,
         Subscription, SubscriptionBase, SubscriptionCallback, TimeSource, ToResult,
-    }
+    },
 };
 
 impl Drop for rcl_node_t {

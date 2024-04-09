@@ -1,10 +1,10 @@
 use std::{
     ffi::CString,
-    os::raw::{c_char,c_void},
-    ptr::null_mut
+    os::raw::{c_char, c_void},
+    ptr::null_mut,
 };
 
-use crate::{error::*,rcl_bindings::*};
+use crate::{error::*, rcl_bindings::*};
 
 /// Extract non-ROS arguments from program's input arguments.
 ///

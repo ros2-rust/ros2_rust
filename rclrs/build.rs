@@ -1,7 +1,7 @@
 use std::{
     env,
     fs::read_dir,
-    path::{Path, PathBuf}
+    path::{Path, PathBuf},
 };
 
 const AMENT_PREFIX_PATH: &str = "AMENT_PREFIX_PATH";

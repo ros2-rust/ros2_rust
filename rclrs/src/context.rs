@@ -2,12 +2,13 @@ use std::{
     ffi::CString,
     os::raw::c_char,
     string::String,
-    sync::{Arc, Mutex},vec::Vec
+    sync::{Arc, Mutex},
+    vec::Vec,
 };
 
 use crate::{
     rcl_bindings::*,
-    {RclrsError, ToResult}
+    {RclrsError, ToResult},
 };
 
 impl Drop for rcl_context_t {

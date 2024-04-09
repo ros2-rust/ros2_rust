@@ -6,7 +6,7 @@ pub use value::*;
 
 use crate::{
     rcl_bindings::*,
-    {call_string_getter_with_handle, RclrsError}
+    {call_string_getter_with_handle, RclrsError},
 };
 use std::{
     collections::{btree_map::Entry, BTreeMap},
@@ -14,7 +14,8 @@ use std::{
     marker::PhantomData,
     sync::{
         atomic::{AtomicBool, Ordering},
-        Arc, Mutex, RwLock, Weak,}
+        Arc, Mutex, RwLock, Weak,
+    },
 };
 
 // This module implements the core logic of parameters in rclrs.

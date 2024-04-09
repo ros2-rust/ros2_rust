@@ -1,6 +1,6 @@
 use crate::{
     rcl_bindings::*,
-    {error::ToResult, time::Time, to_rclrs_result}
+    {error::ToResult, time::Time, to_rclrs_result},
 };
 use std::sync::{Arc, Mutex};
 

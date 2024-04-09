@@ -4,8 +4,9 @@ use std::{
     ffi::CString,
     sync::{
         atomic::AtomicBool,
-        {Arc, Mutex, MutexGuard}
-    }};
+        {Arc, Mutex, MutexGuard},
+    },
+};
 
 use futures::channel::oneshot;
 use rosidl_runtime_rs::Message;
@@ -13,7 +14,7 @@ use rosidl_runtime_rs::Message;
 use crate::{
     error::{RclReturnCode, ToResult},
     MessageCow,
-    {rcl_bindings::*, RclrsError}
+    {rcl_bindings::*, RclrsError},
 };
 
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread

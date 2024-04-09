@@ -8,7 +8,7 @@
 use std::{
     fmt::{self, Display},
     path::PathBuf,
-    sync::Arc
+    sync::Arc,
 };
 
 use crate::rcl_bindings::*;
