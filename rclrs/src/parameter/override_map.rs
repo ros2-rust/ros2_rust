@@ -135,9 +135,7 @@ pub(crate) unsafe fn resolve_parameter_overrides(
 
 #[cfg(test)]
 mod tests {
-    use std::error::Error;
-    use std::ffi::CString;
-    use std::io::Write;
+    use std::{error::Error, ffi::CString, io::Write};
 
     use tempfile::NamedTempFile;
 
