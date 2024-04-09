@@ -303,13 +303,14 @@ pub mod rmw {
     }
 
     impl Log {
-        /// Debug is for pedantic information, which is useful when debugging issues.
+        /// Debug is for pedantic information, which is useful when debugging
+        /// issues.
         pub const DEBUG: u8 = 10;
-        /// Info is the standard informational level and is used to report expected
-        /// information.
+        /// Info is the standard informational level and is used to report
+        /// expected information.
         pub const INFO: u8 = 20;
-        /// Warning is for information that may potentially cause issues or possibly unexpected
-        /// behavior.
+        /// Warning is for information that may potentially cause issues or
+        /// possibly unexpected behavior.
         pub const WARN: u8 = 30;
         /// Error is for information that this node cannot resolve.
         pub const ERROR: u8 = 40;
@@ -1195,13 +1196,14 @@ pub struct Log {
 }
 
 impl Log {
-    /// Debug is for pedantic information, which is useful when debugging issues.
+    /// Debug is for pedantic information, which is useful when debugging
+    /// issues.
     pub const DEBUG: u8 = 10;
     /// Info is the standard informational level and is used to report expected
     /// information.
     pub const INFO: u8 = 20;
-    /// Warning is for information that may potentially cause issues or possibly unexpected
-    /// behavior.
+    /// Warning is for information that may potentially cause issues or possibly
+    /// unexpected behavior.
     pub const WARN: u8 = 30;
     /// Error is for information that this node cannot resolve.
     pub const ERROR: u8 = 40;

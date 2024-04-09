@@ -1,14 +1,15 @@
-use std::cmp::Ordering;
-use std::ffi::CStr;
-use std::fmt::{self, Debug, Display};
-use std::hash::{Hash, Hasher};
-use std::ops::{Deref, DerefMut};
+use std::{
+    cmp::Ordering,
+    ffi::CStr,
+    fmt::{self, Debug, Display},
+    hash::{Hash, Hasher},
+    ops::{Deref, DerefMut},
+};
 
 #[cfg(feature = "serde")]
 mod serde;
 
-use crate::sequence::Sequence;
-use crate::traits::SequenceAlloc;
+use crate::{sequence::Sequence, traits::SequenceAlloc};
 
 /// A zero-terminated string of 8-bit characters.
 ///
@@ -27,8 +28,9 @@ use crate::traits::SequenceAlloc;
 /// ```
 #[repr(C)]
 pub struct String {
-    /// Dynamic memory in this type is allocated and deallocated by C, but this is a detail that is managed by
-    /// the relevant functions and trait impls.
+    /// Dynamic memory in this type is allocated and deallocated by C, but this
+    /// is a detail that is managed by the relevant functions and trait
+    /// impls.
     data: *mut std::os::raw::c_char,
     size: usize,
     capacity: usize,
@@ -36,8 +38,9 @@ pub struct String {
 
 /// A zero-terminated string of 16-bit characters.
 ///
-/// The layout of this type is the same as `rosidl_runtime_c__U16String`. See the
-/// [`Message`](crate::Message) trait for background information on this topic.
+/// The layout of this type is the same as `rosidl_runtime_c__U16String`. See
+/// the [`Message`](crate::Message) trait for background information on this
+/// topic.
 ///
 /// # Example
 ///
@@ -57,8 +60,9 @@ pub struct WString {
 
 /// A zero-terminated string of 8-bit characters with a length limit.
 ///
-/// The same as [`String`], but it cannot be constructed from a string that is too large.
-/// The length is measured as the number of Unicode scalar values, not bytes.
+/// The same as [`String`], but it cannot be constructed from a string that is
+/// too large. The length is measured as the number of Unicode scalar values,
+/// not bytes.
 ///
 /// # Example
 ///
@@ -79,8 +83,9 @@ pub struct BoundedString<const N: usize> {
 
 /// A zero-terminated string of 16-bit characters with a length limit.
 ///
-/// The same as [`WString`], but it cannot be constructed from a string that is too large.
-/// The length is measured as the number of Unicode scalar values, not bytes.
+/// The same as [`WString`], but it cannot be constructed from a string that is
+/// too large. The length is measured as the number of Unicode scalar values,
+/// not bytes.
 ///
 /// # Example
 ///
@@ -99,7 +104,8 @@ pub struct BoundedWString<const N: usize> {
     inner: WString,
 }
 
-/// Error type for [`BoundedString::try_from()`] and [`BoundedWString::try_from()`].
+/// Error type for [`BoundedString::try_from()`] and
+/// [`BoundedWString::try_from()`].
 #[derive(Debug)]
 pub struct StringExceedsBoundsError {
     /// The actual length the string would have after the operation.
@@ -108,9 +114,11 @@ pub struct StringExceedsBoundsError {
     pub upper_bound: usize,
 }
 
-// ========================= impls for String and WString =========================
+// ========================= impls for String and WString
+// =========================
 
-// There is a lot of redundancy between String and WString, which this macro aims to reduce.
+// There is a lot of redundancy between String and WString, which this macro
+// aims to reduce.
 macro_rules! string_impl {
     ($string:ty, $char_type:ty, $unsigned_char_type:ty, $string_conversion_func:ident, $init:ident, $fini:ident, $assignn:ident, $sequence_init:ident, $sequence_fini:ident, $sequence_copy:ident) => {
         #[link(name = "rosidl_runtime_c")]
@@ -158,8 +166,8 @@ macro_rules! string_impl {
             }
         }
 
-        // It's not guaranteed that there are no interior null bytes, hence no Deref to CStr.
-        // This does not include the null byte at the end!
+        // It's not guaranteed that there are no interior null bytes, hence no Deref to
+        // CStr. This does not include the null byte at the end!
         impl Deref for $string {
             type Target = [$char_type];
             fn deref(&self) -> &Self::Target {
@@ -254,7 +262,8 @@ macro_rules! string_impl {
             }
         }
 
-        // SAFETY: A string is a simple data structure, and therefore not thread-specific.
+        // SAFETY: A string is a simple data structure, and therefore not
+        // thread-specific.
         unsafe impl Send for $string {}
         // SAFETY: A string does not have interior mutability, so it can be shared.
         unsafe impl Sync for $string {}
@@ -308,8 +317,9 @@ impl From<&str> for String {
             size: 0,
             capacity: 0,
         };
-        // SAFETY: It's okay to pass a non-zero-terminated string here since assignn uses the
-        // specified length and will append the 0 byte to the dest string itself.
+        // SAFETY: It's okay to pass a non-zero-terminated string here since assignn
+        // uses the specified length and will append the 0 byte to the dest
+        // string itself.
         if !unsafe {
             rosidl_runtime_c__String__assignn(&mut msg as *mut _, s.as_ptr() as *const _, s.len())
         } {
@@ -322,8 +332,8 @@ impl From<&str> for String {
 impl String {
     /// Creates a CStr from this String.
     ///
-    /// This scales with the length of the string but does not create copy of the string.
-    /// See also [`CStr::from_ptr()`].
+    /// This scales with the length of the string but does not create copy of
+    /// the string. See also [`CStr::from_ptr()`].
     pub fn to_cstr(&self) -> &CStr {
         // SAFETY: self.data is a valid pointer and won't change.
         // Also, the lifetime of the CStr is the same as self, which is correct.
@@ -339,8 +349,9 @@ impl From<&str> for WString {
             capacity: 0,
         };
         let buf: Vec<u16> = s.encode_utf16().collect();
-        // SAFETY: It's okay to pass a non-zero-terminated string here since assignn uses the
-        // specified length and will append the 0 to the dest string itself.
+        // SAFETY: It's okay to pass a non-zero-terminated string here since assignn
+        // uses the specified length and will append the 0 to the dest string
+        // itself.
         if !unsafe {
             rosidl_runtime_c__U16String__assignn(
                 &mut msg as *mut _,
@@ -383,13 +394,15 @@ impl<const N: usize> Display for BoundedString<N> {
 
 impl<const N: usize> SequenceAlloc for BoundedString<N> {
     fn sequence_init(seq: &mut Sequence<Self>, size: usize) -> bool {
-        // SAFETY: There are no special preconditions to the rosidl_runtime_c__String__Sequence__init function.
+        // SAFETY: There are no special preconditions to the
+        // rosidl_runtime_c__String__Sequence__init function.
         unsafe {
             rosidl_runtime_c__String__Sequence__init(seq as *mut Sequence<Self> as *mut _, size)
         }
     }
     fn sequence_fini(seq: &mut Sequence<Self>) {
-        // SAFETY: There are no special preconditions to the rosidl_runtime_c__String__Sequence__fini function.
+        // SAFETY: There are no special preconditions to the
+        // rosidl_runtime_c__String__Sequence__fini function.
         unsafe { rosidl_runtime_c__String__Sequence__fini(seq as *mut Sequence<Self> as *mut _) }
     }
     fn sequence_copy(in_seq: &Sequence<Self>, out_seq: &mut Sequence<Self>) -> bool {
@@ -449,13 +462,15 @@ impl<const N: usize> Display for BoundedWString<N> {
 
 impl<const N: usize> SequenceAlloc for BoundedWString<N> {
     fn sequence_init(seq: &mut Sequence<Self>, size: usize) -> bool {
-        // SAFETY: There are no special preconditions to the rosidl_runtime_c__U16String__Sequence__init function.
+        // SAFETY: There are no special preconditions to the
+        // rosidl_runtime_c__U16String__Sequence__init function.
         unsafe {
             rosidl_runtime_c__U16String__Sequence__init(seq as *mut Sequence<Self> as *mut _, size)
         }
     }
     fn sequence_fini(seq: &mut Sequence<Self>) {
-        // SAFETY: There are no special preconditions to the rosidl_runtime_c__U16String__Sequence__fini function.
+        // SAFETY: There are no special preconditions to the
+        // rosidl_runtime_c__U16String__Sequence__fini function.
         unsafe { rosidl_runtime_c__U16String__Sequence__fini(seq as *mut Sequence<Self> as *mut _) }
     }
     fn sequence_copy(in_seq: &Sequence<Self>, out_seq: &mut Sequence<Self>) -> bool {
@@ -486,7 +501,8 @@ impl<const N: usize> TryFrom<&str> for BoundedWString<N> {
     }
 }
 
-// ========================= impl for StringExceedsBoundsError =========================
+// ========================= impl for StringExceedsBoundsError
+// =========================
 
 impl Display for StringExceedsBoundsError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {

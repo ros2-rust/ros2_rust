@@ -1,23 +1,27 @@
-use std::boxed::Box;
-use std::collections::HashMap;
-use std::ffi::CString;
-use std::sync::atomic::AtomicBool;
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::{
+    boxed::Box,
+    collections::HashMap,
+    ffi::CString,
+    sync::{atomic::AtomicBool, Arc, Mutex, MutexGuard},
+};
 
 use futures::channel::oneshot;
 use rosidl_runtime_rs::Message;
 
-use crate::error::{RclReturnCode, ToResult};
-use crate::MessageCow;
-use crate::{rcl_bindings::*, NodeHandle, RclrsError, ENTITY_LIFECYCLE_MUTEX};
+use crate::{
+    error::{RclReturnCode, ToResult},
+    rcl_bindings::*,
+    MessageCow, NodeHandle, RclrsError, ENTITY_LIFECYCLE_MUTEX,
+};
 
-// SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
-// they are running in. Therefore, this type can be safely sent to another thread.
+// SAFETY: The functions accessing this type, including drop(), shouldn't care
+// about the thread they are running in. Therefore, this type can be safely sent
+// to another thread.
 unsafe impl Send for rcl_client_t {}
 
-/// Manage the lifecycle of an `rcl_client_t`, including managing its dependencies
-/// on `rcl_node_t` and `rcl_context_t` by ensuring that these dependencies are
-/// [dropped after][1] the `rcl_client_t`.
+/// Manage the lifecycle of an `rcl_client_t`, including managing its
+/// dependencies on `rcl_node_t` and `rcl_context_t` by ensuring that these
+/// dependencies are [dropped after][1] the `rcl_client_t`.
 ///
 /// [1]: <https://doc.rust-lang.org/reference/destructors.html>
 pub struct ClientHandle {
@@ -38,7 +42,8 @@ impl Drop for ClientHandle {
         let mut rcl_node = self.node_handle.rcl_node.lock().unwrap();
         let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
         // SAFETY: The entity lifecycle mutex is locked to protect against the risk of
-        // global variables in the rmw implementation being unsafely modified during cleanup.
+        // global variables in the rmw implementation being unsafely modified during
+        // cleanup.
         unsafe {
             rcl_client_fini(rcl_client, &mut *rcl_node);
         }
@@ -61,8 +66,9 @@ type RequestId = i64;
 
 /// Main class responsible for sending requests to a ROS service.
 ///
-/// The only available way to instantiate clients is via [`Node::create_client`][1], this is to
-/// ensure that [`Node`][2]s can track all the clients that have been created.
+/// The only available way to instantiate clients is via
+/// [`Node::create_client`][1], this is to ensure that [`Node`][2]s can track
+/// all the clients that have been created.
 ///
 /// [1]: crate::Node::create_client
 /// [2]: crate::Node
@@ -104,11 +110,13 @@ where
 
             // SAFETY:
             // * The rcl_client was zero-initialized as expected by this function.
-            // * The rcl_node is kept alive by the NodeHandle because it is a dependency of the client.
-            // * The topic name and the options are copied by this function, so they can be dropped
-            //   afterwards.
+            // * The rcl_node is kept alive by the NodeHandle because it is a dependency of
+            //   the client.
+            // * The topic name and the options are copied by this function, so they can be
+            //   dropped afterwards.
             // * The entity lifecycle mutex is locked to protect against the risk of global
-            //   variables in the rmw implementation being unsafely modified during initialization.
+            //   variables in the rmw implementation being unsafely modified during
+            //   initialization.
             unsafe {
                 rcl_client_init(
                     &mut rcl_client,
@@ -141,13 +149,14 @@ where
     /// The [`MessageCow`] trait is implemented by any
     /// [`Message`] as well as any reference to a `Message`.
     ///
-    /// The reason for allowing owned messages is that publishing owned messages can be more
-    /// efficient in the case of idiomatic messages[^note].
+    /// The reason for allowing owned messages is that publishing owned messages
+    /// can be more efficient in the case of idiomatic messages[^note].
     ///
     /// [^note]: See the [`Message`] trait for an explanation of "idiomatic".
     ///
-    /// Hence, when a message will not be needed anymore after publishing, pass it by value.
-    /// When a message will be needed again after publishing, pass it by reference, instead of cloning and passing by value.
+    /// Hence, when a message will not be needed anymore after publishing, pass
+    /// it by value. When a message will be needed again after publishing,
+    /// pass it by reference, instead of cloning and passing by value.
     pub fn async_send_request_with_callback<'a, M: MessageCow<'a, T::Request>, F>(
         &self,
         message: M,
@@ -159,7 +168,8 @@ where
         let rmw_message = T::Request::into_rmw_message(message.into_cow());
         let mut sequence_number = -1;
         unsafe {
-            // SAFETY: The request type is guaranteed to match the client type by the type system.
+            // SAFETY: The request type is guaranteed to match the client type by the type
+            // system.
             rcl_send_request(
                 &*self.handle.lock() as *const _,
                 rmw_message.as_ref() as *const <T::Request as Message>::RmwMsg as *mut _,
@@ -177,13 +187,14 @@ where
     /// The [`MessageCow`] trait is implemented by any
     /// [`Message`] as well as any reference to a `Message`.
     ///
-    /// The reason for allowing owned messages is that publishing owned messages can be more
-    /// efficient in the case of idiomatic messages[^note].
+    /// The reason for allowing owned messages is that publishing owned messages
+    /// can be more efficient in the case of idiomatic messages[^note].
     ///
     /// [^note]: See the [`Message`] trait for an explanation of "idiomatic".
     ///
-    /// Hence, when a message will not be needed anymore after publishing, pass it by value.
-    /// When a message will be needed again after publishing, pass it by reference, instead of cloning and passing by value.
+    /// Hence, when a message will not be needed anymore after publishing, pass
+    /// it by value. When a message will be needed again after publishing,
+    /// pass it by reference, instead of cloning and passing by value.
     pub async fn call_async<'a, R: MessageCow<'a, T::Request>>(
         &self,
         request: R,
@@ -194,7 +205,8 @@ where
         let rmw_message = T::Request::into_rmw_message(request.into_cow());
         let mut sequence_number = -1;
         unsafe {
-            // SAFETY: The request type is guaranteed to match the client type by the type system.
+            // SAFETY: The request type is guaranteed to match the client type by the type
+            // system.
             rcl_send_request(
                 &*self.handle.lock() as *const _,
                 rmw_message.as_ref() as *const <T::Request as Message>::RmwMsg as *mut _,
@@ -204,8 +216,8 @@ where
         .ok()?;
         let (tx, rx) = oneshot::channel::<T::Response>();
         self.futures.lock().unwrap().insert(sequence_number, tx);
-        // It is safe to call unwrap() here since the `Canceled` error will only happen when the
-        // `Sender` is dropped
+        // It is safe to call unwrap() here since the `Canceled` error will only happen
+        // when the `Sender` is dropped
         // https://docs.rs/futures/latest/futures/channel/oneshot/struct.Canceled.html
         Ok(rx.await.unwrap())
     }
@@ -255,8 +267,8 @@ where
 
     /// Check if a service server is available.
     ///
-    /// Will return true if there is a service server available, false if unavailable.
-    ///
+    /// Will return true if there is a service server available, false if
+    /// unavailable.
     pub fn service_is_ready(&self) -> Result<bool, RclrsError> {
         let mut is_ready = false;
         let client = &mut *self.handle.rcl_client.lock().unwrap();

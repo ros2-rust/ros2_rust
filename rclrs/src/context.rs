@@ -1,11 +1,12 @@
-use std::ffi::CString;
-use std::os::raw::c_char;
-use std::string::String;
-use std::sync::{Arc, Mutex};
-use std::vec::Vec;
+use std::{
+    ffi::CString,
+    os::raw::c_char,
+    string::String,
+    sync::{Arc, Mutex},
+    vec::Vec,
+};
 
-use crate::rcl_bindings::*;
-use crate::{RclrsError, ToResult};
+use crate::{rcl_bindings::*, RclrsError, ToResult};
 
 /// This is locked whenever initializing or dropping any middleware entity
 /// because we have found issues in RCL and some RMW implementations that
@@ -17,21 +18,22 @@ use crate::{RclrsError, ToResult};
 ///
 /// Further discussion with the RCL team may help to improve the RCL
 /// documentation to specifically call out where these risks are present. For
-/// now we lock this mutex for any RCL function that carries reasonable suspicion
-/// of a risk.
+/// now we lock this mutex for any RCL function that carries reasonable
+/// suspicion of a risk.
 pub(crate) static ENTITY_LIFECYCLE_MUTEX: Mutex<()> = Mutex::new(());
 
 impl Drop for rcl_context_t {
     fn drop(&mut self) {
         unsafe {
-            // The context may be invalid when rcl_init failed, e.g. because of invalid command
-            // line arguments.
+            // The context may be invalid when rcl_init failed, e.g. because of invalid
+            // command line arguments.
 
             // SAFETY: No preconditions for rcl_context_is_valid.
             if rcl_context_is_valid(self) {
                 let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
                 // SAFETY: The entity lifecycle mutex is locked to protect against the risk of
-                // global variables in the rmw implementation being unsafely modified during cleanup.
+                // global variables in the rmw implementation being unsafely modified during
+                // cleanup.
                 rcl_shutdown(self);
                 rcl_context_fini(self);
             }
@@ -39,28 +41,30 @@ impl Drop for rcl_context_t {
     }
 }
 
-// SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
-// they are running in. Therefore, this type can be safely sent to another thread.
+// SAFETY: The functions accessing this type, including drop(), shouldn't care
+// about the thread they are running in. Therefore, this type can be safely sent
+// to another thread.
 unsafe impl Send for rcl_context_t {}
 
 /// Shared state between nodes and similar entities.
 ///
-/// It is possible, but not usually necessary, to have several contexts in an application.
+/// It is possible, but not usually necessary, to have several contexts in an
+/// application.
 ///
-/// Ownership of the context is shared by the `Context` itself and all nodes created from it.
+/// Ownership of the context is shared by the `Context` itself and all nodes
+/// created from it.
 ///
 /// # Details
 /// A context stores, among other things
 /// - command line arguments (used for e.g. name remapping)
 /// - middleware-specific data, e.g. the domain participant in DDS
 /// - the allocator used (left as the default by `rclrs`)
-///
 pub struct Context {
     pub(crate) handle: Arc<ContextHandle>,
 }
 
-/// This struct manages the lifetime and access to the `rcl_context_t`. It will also
-/// account for the lifetimes of any dependencies, if we need to add
+/// This struct manages the lifetime and access to the `rcl_context_t`. It will
+/// also account for the lifetimes of any dependencies, if we need to add
 /// dependencies in the future (currently there are none). It is not strictly
 /// necessary to decompose `Context` and `ContextHandle` like this, but we are
 /// doing it to be consistent with the lifecycle management of other rcl
@@ -72,8 +76,9 @@ pub(crate) struct ContextHandle {
 impl Context {
     /// Creates a new context.
     ///
-    /// Usually this would be called with `std::env::args()`, analogously to `rclcpp::init()`.
-    /// See also the official "Passing ROS arguments to nodes via the command-line" tutorial.
+    /// Usually this would be called with `std::env::args()`, analogously to
+    /// `rclcpp::init()`. See also the official "Passing ROS arguments to
+    /// nodes via the command-line" tutorial.
     ///
     /// Creating a context will fail if the args contain invalid ROS arguments.
     ///
@@ -88,7 +93,8 @@ impl Context {
         Self::new_with_options(args, InitOptions::new())
     }
 
-    /// Same as [`Context::new`] except you can additionally provide initialization options.
+    /// Same as [`Context::new`] except you can additionally provide
+    /// initialization options.
     ///
     /// # Example
     /// ```
@@ -118,10 +124,12 @@ impl Context {
             let allocator = rcutils_get_default_allocator();
             let mut rcl_init_options = options.into_rcl(allocator)?;
             // SAFETY:
-            // * This function does not store the ephemeral init_options and c_args pointers.
+            // * This function does not store the ephemeral init_options and c_args
+            //   pointers.
             // * Passing in a zero-initialized rcl_context is mandatory.
-            // * The entity lifecycle mutex is locked to protect against the risk of global variables
-            //   in the rmw implementation being unsafely modified during initialization.
+            // * The entity lifecycle mutex is locked to protect against the risk of global
+            //   variables in the rmw implementation being unsafely modified during
+            //   initialization.
             let ret = {
                 let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
                 rcl_init(
@@ -151,8 +159,9 @@ impl Context {
 
     /// Returns the ROS domain ID that the context is using.
     ///
-    /// The domain ID controls which nodes can send messages to each other, see the [ROS 2 concept article][1].
-    /// It can be set through the `ROS_DOMAIN_ID` environment variable.
+    /// The domain ID controls which nodes can send messages to each other, see
+    /// the [ROS 2 concept article][1]. It can be set through the
+    /// `ROS_DOMAIN_ID` environment variable.
     ///
     /// [1]: https://docs.ros.org/en/rolling/Concepts/About-Domain-ID.html
     pub fn domain_id(&self) -> usize {
@@ -170,11 +179,12 @@ impl Context {
 
     /// Checks if the context is still valid.
     ///
-    /// This will return `false` when a signal has caused the context to shut down (currently
-    /// unimplemented).
+    /// This will return `false` when a signal has caused the context to shut
+    /// down (currently unimplemented).
     pub fn ok(&self) -> bool {
-        // This will currently always return true, but once we have a signal handler, the signal
-        // handler could call `rcl_shutdown()`, hence making the context invalid.
+        // This will currently always return true, but once we have a signal handler,
+        // the signal handler could call `rcl_shutdown()`, hence making the
+        // context invalid.
         let rcl_context = &mut *self.handle.rcl_context.lock().unwrap();
         // SAFETY: No preconditions for this function.
         unsafe { rcl_context_is_valid(rcl_context) }

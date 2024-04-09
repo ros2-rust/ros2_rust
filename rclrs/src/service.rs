@@ -1,21 +1,25 @@
-use std::boxed::Box;
-use std::ffi::CString;
-use std::sync::atomic::AtomicBool;
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::{
+    boxed::Box,
+    ffi::CString,
+    sync::{atomic::AtomicBool, Arc, Mutex, MutexGuard},
+};
 
 use rosidl_runtime_rs::Message;
 
-use crate::error::{RclReturnCode, ToResult};
-use crate::{rcl_bindings::*, MessageCow, RclrsError};
-use crate::{NodeHandle, ENTITY_LIFECYCLE_MUTEX};
+use crate::{
+    error::{RclReturnCode, ToResult},
+    rcl_bindings::*,
+    MessageCow, NodeHandle, RclrsError, ENTITY_LIFECYCLE_MUTEX,
+};
 
-// SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
-// they are running in. Therefore, this type can be safely sent to another thread.
+// SAFETY: The functions accessing this type, including drop(), shouldn't care
+// about the thread they are running in. Therefore, this type can be safely sent
+// to another thread.
 unsafe impl Send for rcl_service_t {}
 
-/// Manage the lifecycle of an `rcl_service_t`, including managing its dependencies
-/// on `rcl_node_t` and `rcl_context_t` by ensuring that these dependencies are
-/// [dropped after][1] the `rcl_service_t`.
+/// Manage the lifecycle of an `rcl_service_t`, including managing its
+/// dependencies on `rcl_node_t` and `rcl_context_t` by ensuring that these
+/// dependencies are [dropped after][1] the `rcl_service_t`.
 ///
 /// [1]: <https://doc.rust-lang.org/reference/destructors.html>
 pub struct ServiceHandle {
@@ -36,7 +40,8 @@ impl Drop for ServiceHandle {
         let mut rcl_node = self.node_handle.rcl_node.lock().unwrap();
         let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
         // SAFETY: The entity lifecycle mutex is locked to protect against the risk of
-        // global variables in the rmw implementation being unsafely modified during cleanup.
+        // global variables in the rmw implementation being unsafely modified during
+        // cleanup.
         unsafe {
             rcl_service_fini(rcl_service, &mut *rcl_node);
         }
@@ -58,8 +63,9 @@ type ServiceCallback<Request, Response> =
 
 /// Main class responsible for responding to requests sent by ROS clients.
 ///
-/// The only available way to instantiate services is via [`Node::create_service()`][1], this is to
-/// ensure that [`Node`][2]s can track all the services that have been created.
+/// The only available way to instantiate services is via
+/// [`Node::create_service()`][1], this is to ensure that [`Node`][2]s can track
+/// all the services that have been created.
 ///
 /// [1]: crate::Node::create_service
 /// [2]: crate::Node
@@ -106,11 +112,13 @@ where
             unsafe {
                 // SAFETY:
                 // * The rcl_service is zero-initialized as mandated by this function.
-                // * The rcl_node is kept alive by the NodeHandle it is a dependency of the service.
-                // * The topic name and the options are copied by this function, so they can be dropped
-                //   afterwards.
+                // * The rcl_node is kept alive by the NodeHandle it is a dependency of the
+                //   service.
+                // * The topic name and the options are copied by this function, so they can be
+                //   dropped afterwards.
                 // * The entity lifecycle mutex is locked to protect against the risk of global
-                //   variables in the rmw implementation being unsafely modified during initialization.
+                //   variables in the rmw implementation being unsafely modified during
+                //   initialization.
                 rcl_service_init(
                     &mut rcl_service,
                     &*rcl_node,
@@ -203,7 +211,8 @@ where
         let rmw_message = <T::Response as Message>::into_rmw_message(res.into_cow());
         let handle = &*self.handle.lock();
         unsafe {
-            // SAFETY: The response type is guaranteed to match the service type by the type system.
+            // SAFETY: The response type is guaranteed to match the service type by the type
+            // system.
             rcl_send_response(
                 handle,
                 &mut req_id,

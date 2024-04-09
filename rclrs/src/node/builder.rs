@@ -1,16 +1,18 @@
-use std::ffi::CString;
-use std::sync::{Arc, Mutex};
+use std::{
+    ffi::CString,
+    sync::{Arc, Mutex},
+};
 
-use crate::rcl_bindings::*;
 use crate::{
-    ClockType, Context, ContextHandle, Node, NodeHandle, ParameterInterface, QoSProfile,
-    RclrsError, TimeSource, ToResult, ENTITY_LIFECYCLE_MUTEX, QOS_PROFILE_CLOCK,
+    rcl_bindings::*, ClockType, Context, ContextHandle, Node, NodeHandle, ParameterInterface,
+    QoSProfile, RclrsError, TimeSource, ToResult, ENTITY_LIFECYCLE_MUTEX, QOS_PROFILE_CLOCK,
 };
 
 /// A builder for creating a [`Node`][1].
 ///
-/// The builder pattern allows selectively setting some fields, and leaving all others at their default values.
-/// This struct instance can be created via [`Node::builder()`][2].
+/// The builder pattern allows selectively setting some fields, and leaving all
+/// others at their default values. This struct instance can be created via
+/// [`Node::builder()`][2].
 ///
 /// The default values for optional fields are:
 /// - `namespace: "/"`
@@ -59,13 +61,15 @@ impl NodeBuilder {
     ///
     /// # Rules for valid node names
     ///
-    /// The rules for a valid node name are checked by the [`rmw_validate_node_name()`][2]
-    /// function. They are:
+    /// The rules for a valid node name are checked by the
+    /// [`rmw_validate_node_name()`][2] function. They are:
     /// - Must contain only the `a-z`, `A-Z`, `0-9`, and `_` characters
-    /// - Must not be empty and not be longer than `RMW_NODE_NAME_MAX_NAME_LENGTH`
+    /// - Must not be empty and not be longer than
+    ///   `RMW_NODE_NAME_MAX_NAME_LENGTH`
     /// - Must not start with a number
     ///
-    /// Note that node name validation is delayed until [`NodeBuilder::build()`][3].
+    /// Note that node name validation is delayed until
+    /// [`NodeBuilder::build()`][3].
     ///
     /// # Example
     /// ```
@@ -107,18 +111,21 @@ impl NodeBuilder {
     ///
     /// # Rules for valid namespaces
     ///
-    /// The rules for a valid node namespace are based on the [rules for a valid topic][2]
-    /// and are checked by the [`rmw_validate_namespace()`][3] function. However, a namespace
-    /// without a leading forward slash is automatically changed to have a leading forward slash
-    /// before it is checked with this function.
+    /// The rules for a valid node namespace are based on the [rules for a valid
+    /// topic][2] and are checked by the [`rmw_validate_namespace()`][3]
+    /// function. However, a namespace without a leading forward slash is
+    /// automatically changed to have a leading forward slash before it is
+    /// checked with this function.
     ///
     /// Thus, the effective rules are:
     /// - Must contain only the `a-z`, `A-Z`, `0-9`, `_`, and `/` characters
     /// - Must not have a number at the beginning, or after a `/`
     /// - Must not contain two or more `/` characters in a row
-    /// - Must not have a `/` character at the end, except if `/` is the full namespace
+    /// - Must not have a `/` character at the end, except if `/` is the full
+    ///   namespace
     ///
-    /// Note that namespace validation is delayed until [`NodeBuilder::build()`][4].
+    /// Note that namespace validation is delayed until
+    /// [`NodeBuilder::build()`][4].
     ///
     /// # Example
     /// ```
@@ -188,9 +195,10 @@ impl NodeBuilder {
 
     /// Sets node-specific command line arguments.
     ///
-    /// These arguments are parsed the same way as those for [`Context::new()`][1].
-    /// However, the node-specific command line arguments have higher precedence than the arguments
-    /// used in creating the context.
+    /// These arguments are parsed the same way as those for
+    /// [`Context::new()`][1]. However, the node-specific command line
+    /// arguments have higher precedence than the arguments used in creating
+    /// the context.
     ///
     /// For more details about command line arguments, see [here][2].
     ///
@@ -221,8 +229,8 @@ impl NodeBuilder {
 
     /// Enables or disables logging to rosout.
     ///
-    /// When enabled, log messages are published to the `/rosout` topic in addition to
-    /// standard output.
+    /// When enabled, log messages are published to the `/rosout` topic in
+    /// addition to standard output.
     ///
     /// This option is currently unused in `rclrs`.
     pub fn enable_rosout(mut self, enable: bool) -> Self {
@@ -268,10 +276,12 @@ impl NodeBuilder {
         unsafe {
             // SAFETY:
             // * The rcl_node is zero-initialized as mandated by this function.
-            // * The strings and node options are copied by this function, so we don't need to keep them alive.
-            // * The rcl_context is kept alive by the ContextHandle because it is a dependency of the node.
-            // * The entity lifecycle mutex is locked to protect against the risk of
-            //   global variables in the rmw implementation being unsafely modified during cleanup.
+            // * The strings and node options are copied by this function, so we don't need
+            //   to keep them alive.
+            // * The rcl_context is kept alive by the ContextHandle because it is a
+            //   dependency of the node.
+            // * The entity lifecycle mutex is locked to protect against the risk of global
+            //   variables in the rmw implementation being unsafely modified during cleanup.
             let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
             rcl_node_init(
                 &mut rcl_node,

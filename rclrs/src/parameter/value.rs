@@ -1,13 +1,12 @@
-use std::ffi::CStr;
-use std::sync::Arc;
+use std::{ffi::CStr, sync::Arc};
 
-use crate::rcl_bindings::*;
-use crate::{ParameterRange, ParameterRanges, ParameterValueError};
+use crate::{rcl_bindings::*, ParameterRange, ParameterRanges, ParameterValueError};
 
 /// A parameter value.
 ///
-/// Such a value can be specified in YAML format on the command line, or in a parameter file.
-/// For instance `--param foo:='[1, 2, 3]'` specfies an `IntegerArray` value for the `foo` parameter.
+/// Such a value can be specified in YAML format on the command line, or in a
+/// parameter file. For instance `--param foo:='[1, 2, 3]'` specfies an
+/// `IntegerArray` value for the `foo` parameter.
 #[derive(Clone, Debug, PartialEq)]
 pub enum ParameterValue {
     /// A boolean value.
@@ -51,8 +50,8 @@ pub enum ParameterValue {
     StringArray(Arc<[Arc<str>]>),
 }
 
-/// Describes the parameter's type. Similar to `ParameterValue` but also includes a `Dynamic`
-/// variant for dynamic parameters.
+/// Describes the parameter's type. Similar to `ParameterValue` but also
+/// includes a `Dynamic` variant for dynamic parameters.
 #[derive(Clone, Debug, PartialEq)]
 pub enum ParameterKind {
     /// A boolean parameter.
@@ -342,12 +341,14 @@ impl ParameterValue {
         assert_eq!(num_active, 1);
         // Note: This code has no unsafe blocks because it is inside an unsafe function.
         // In general, the following operations are as safe as they can be, because
-        // only non-null pointers are dereferenced, and strings and arrays are copied immediately,
-        // so there are no concerns about choosing the correct lifetime.
+        // only non-null pointers are dereferenced, and strings and arrays are copied
+        // immediately, so there are no concerns about choosing the correct
+        // lifetime.
         //
-        // Of course, a pointer being not null is not a guarantee that it points to a valid value.
-        // However, it cannot be checked that it points to a valid value. Similarly for array sizes.
-        // This is why this function must be unsafe itself.
+        // Of course, a pointer being not null is not a guarantee that it points to a
+        // valid value. However, it cannot be checked that it points to a valid
+        // value. Similarly for array sizes. This is why this function must be
+        // unsafe itself.
         if !var.bool_value.is_null() {
             ParameterValue::Bool(*var.bool_value)
         } else if !var.integer_value.is_null() {
@@ -403,8 +404,9 @@ mod tests {
 
     #[test]
     fn test_parameter_value() -> Result<(), RclrsError> {
-        // This test is not a test of the YAML parser or argument parser, only a test that the
-        // correct ParameterValue variant is obtained from rcl_variants found in the wild.
+        // This test is not a test of the YAML parser or argument parser, only a test
+        // that the correct ParameterValue variant is obtained from rcl_variants
+        // found in the wild.
         let input_output_pairs = [
             ("true", ParameterValue::Bool(true)),
             ("1", ParameterValue::Integer(1)),

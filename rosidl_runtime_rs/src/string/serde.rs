@@ -43,7 +43,8 @@ impl<'de> Visitor<'de> for StringVisitor {
         Ok(msg)
     }
 
-    // We don't implement visit_bytes_buf, since the data in a string must always be managed by C.
+    // We don't implement visit_bytes_buf, since the data in a string must always be
+    // managed by C.
 }
 
 impl<'de> Visitor<'de> for WStringVisitor {
@@ -84,7 +85,8 @@ impl<'de> Visitor<'de> for WStringVisitor {
         Ok(msg)
     }
 
-    // We don't implement visit_bytes_buf, since the data in a string must always be managed by C.
+    // We don't implement visit_bytes_buf, since the data in a string must always be
+    // managed by C.
 }
 
 impl<'de> Deserialize<'de> for String {

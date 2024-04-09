@@ -1,10 +1,11 @@
-use std::error::Error;
-use std::fmt;
+use std::{error::Error, fmt};
 
-/// An error related to creating a dynamic message based on the name of the message's type.
+/// An error related to creating a dynamic message based on the name of the
+/// message's type.
 #[derive(Debug)]
 pub enum DynamicMessageError {
-    /// The type support library was not found because no matching prefix was sourced.
+    /// The type support library was not found because no matching prefix was
+    /// sourced.
     RequiredPrefixNotSourced {
         /// The package that was not found.
         package: String,

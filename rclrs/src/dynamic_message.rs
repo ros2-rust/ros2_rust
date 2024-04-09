@@ -1,40 +1,45 @@
 //! Functionality for working with messages whose type is not statically known.
 //!
-//! This is useful for writing generic tools such as introspection tools, bridges to
-//! other communication systems, or nodes that manipulate messages à la `topic_tools`.
+//! This is useful for writing generic tools such as introspection tools,
+//! bridges to other communication systems, or nodes that manipulate messages à
+//! la `topic_tools`.
 //!
 //! The central type of this module is [`DynamicMessage`].
 
-use std::fmt::{self, Display};
-use std::path::PathBuf;
-use std::sync::Arc;
+use std::{
+    fmt::{self, Display},
+    path::PathBuf,
+    sync::Arc,
+};
 
-use crate::rcl_bindings::rosidl_typesupport_introspection_c__MessageMembers_s as rosidl_message_members_t;
-use crate::rcl_bindings::*;
+use crate::rcl_bindings::{
+    rosidl_typesupport_introspection_c__MessageMembers_s as rosidl_message_members_t, *,
+};
 
 mod error;
 pub use error::*;
 
 /// Factory for constructing messages in a certain package dynamically.
 ///
-/// This is the result of loading the introspection type support library (which is a per-package
-/// operation), whereas [`DynamicMessageMetadata`] is the result of loading the data related to
-/// the message from the library.
+/// This is the result of loading the introspection type support library (which
+/// is a per-package operation), whereas [`DynamicMessageMetadata`] is the
+/// result of loading the data related to the message from the library.
 //
-// Theoretically it could be beneficial to make this struct public so users can "cache"
-// the library loading, but unless a compelling use case comes up, I don't think it's
-// worth the complexity.
+// Theoretically it could be beneficial to make this struct public so users can
+// "cache" the library loading, but unless a compelling use case comes up, I
+// don't think it's worth the complexity.
 //
-// Under the hood, this is an `Arc<libloading::Library>`, so if this struct and the
-// [`DynamicMessageMetadata`] and [`DynamicMessage`] structs created from it are dropped,
-// the library will be unloaded. This shared ownership ensures that the type_support_ptr
-// is always valid.
+// Under the hood, this is an `Arc<libloading::Library>`, so if this struct and
+// the [`DynamicMessageMetadata`] and [`DynamicMessage`] structs created from it
+// are dropped, the library will be unloaded. This shared ownership ensures that
+// the type_support_ptr is always valid.
 struct DynamicMessagePackage {
     introspection_type_support_library: Arc<libloading::Library>,
     package: String,
 }
 
-/// A parsed/validated message type name of the form `<package_name>/msg/<type_name>`.
+/// A parsed/validated message type name of the form
+/// `<package_name>/msg/<type_name>`.
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct MessageTypeName {
     /// The package name, which acts as a namespace.
@@ -60,7 +65,8 @@ pub struct DynamicMessageMetadata {
     fini_function: unsafe extern "C" fn(*mut std::os::raw::c_void),
 }
 
-// ========================= impl for DynamicMessagePackage =========================
+// ========================= impl for DynamicMessagePackage
+// =========================
 
 /// This is an analogue of rclcpp::get_typesupport_library.
 fn get_type_support_library(
@@ -93,8 +99,9 @@ fn get_type_support_library(
         &package_name, type_support_identifier
     ));
     Ok({
-        // SAFETY: This function is unsafe because it may execute initialization/termination routines
-        // contained in the library. A type support library should not cause problems there.
+        // SAFETY: This function is unsafe because it may execute
+        // initialization/termination routines contained in the library. A type
+        // support library should not cause problems there.
         let lib = unsafe { libloading::Library::new(library_path) };
         let lib = lib.map_err(DynamicMessageError::LibraryLoadingError)?;
         Arc::new(lib)
@@ -103,8 +110,8 @@ fn get_type_support_library(
 
 /// This is an analogue of rclcpp::get_typesupport_handle.
 ///
-/// It is unsafe because it would be theoretically possible to pass in a library that has
-/// the expected symbol defined, but with an unexpected type.
+/// It is unsafe because it would be theoretically possible to pass in a library
+/// that has the expected symbol defined, but with an unexpected type.
 unsafe fn get_type_support_handle(
     type_support_library: &libloading::Library,
     type_support_identifier: &str,
@@ -115,7 +122,8 @@ unsafe fn get_type_support_handle(
         type_support_identifier, &message_type.package_name, &message_type.type_name
     );
 
-    // SAFETY: We know that the symbol has this type, from the safety requirement of this function.
+    // SAFETY: We know that the symbol has this type, from the safety requirement of
+    // this function.
     let getter: libloading::Symbol<unsafe extern "C" fn() -> *const rosidl_message_type_support_t> = /* unsafe */ {
         type_support_library
             .get(symbol_name.as_bytes())
@@ -155,7 +163,8 @@ impl DynamicMessagePackage {
         };
         // SAFETY: The symbol type of the type support getter function can be trusted
         // assuming the install dir hasn't been tampered with.
-        // The pointer returned by this function is kept valid by keeping the library loaded.
+        // The pointer returned by this function is kept valid by keeping the library
+        // loaded.
         let type_support_ptr = unsafe {
             get_type_support_handle(
                 self.introspection_type_support_library.as_ref(),
@@ -225,20 +234,23 @@ impl Display for MessageTypeName {
     }
 }
 
-// ========================= impl for DynamicMessageMetadata =========================
+// ========================= impl for DynamicMessageMetadata
+// =========================
 
-// SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
-// they are running in. Therefore, this type can be safely sent to another thread.
+// SAFETY: The functions accessing this type, including drop(), shouldn't care
+// about the thread they are running in. Therefore, this type can be safely sent
+// to another thread.
 unsafe impl Send for DynamicMessageMetadata {}
 
-// SAFETY: The type_support_ptr member is the one that makes this type not implement Sync
-// automatically, but it is not used for interior mutability.
+// SAFETY: The type_support_ptr member is the one that makes this type not
+// implement Sync automatically, but it is not used for interior mutability.
 unsafe impl Sync for DynamicMessageMetadata {}
 
 impl DynamicMessageMetadata {
     /// Loads the metadata for the given message type.
     ///
-    /// See [`DynamicMessage::new()`] for the expected format of the `full_message_type`.
+    /// See [`DynamicMessage::new()`] for the expected format of the
+    /// `full_message_type`.
     pub fn new(full_message_type: &str) -> Result<Self, DynamicMessageError> {
         let MessageTypeName {
             package_name,

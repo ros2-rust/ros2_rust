@@ -2,14 +2,13 @@ use std::ops::Deref;
 
 use rosidl_runtime_rs::Message;
 
-use crate::rcl_bindings::*;
-use crate::{Subscription, ToResult};
+use crate::{rcl_bindings::*, Subscription, ToResult};
 
 /// A message that is owned by the middleware, loaned out for reading.
 ///
 /// It dereferences to a `&T::RmwMsg`. That is, if `T` is already an RMW-native
-/// message, it's the same as `&T`, and otherwise it's the corresponding RMW-native
-/// message.
+/// message, it's the same as `&T`, and otherwise it's the corresponding
+/// RMW-native message.
 ///
 /// This type is returned by [`Subscription::take_loaned()`] and may be used in
 /// subscription callbacks.
@@ -49,10 +48,12 @@ where
     }
 }
 
-// SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
-// they are running in. Therefore, this type can be safely sent to another thread.
+// SAFETY: The functions accessing this type, including drop(), shouldn't care
+// about the thread they are running in. Therefore, this type can be safely sent
+// to another thread.
 unsafe impl<'a, T> Send for ReadOnlyLoanedMessage<'a, T> where T: Message {}
-// SAFETY: This type has no interior mutability, in fact it has no mutability at all.
+// SAFETY: This type has no interior mutability, in fact it has no mutability at
+// all.
 unsafe impl<'a, T> Sync for ReadOnlyLoanedMessage<'a, T> where T: Message {}
 
 #[cfg(test)]

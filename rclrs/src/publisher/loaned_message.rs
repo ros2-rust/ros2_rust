@@ -2,15 +2,14 @@ use std::ops::{Deref, DerefMut};
 
 use rosidl_runtime_rs::RmwMessage;
 
-use crate::rcl_bindings::*;
-use crate::{Publisher, RclrsError, ToResult};
+use crate::{rcl_bindings::*, Publisher, RclrsError, ToResult};
 
 /// A message that is owned by the middleware, loaned for publishing.
 ///
 /// It dereferences to a `&mut T`.
 ///
-/// This type is returned by [`Publisher::borrow_loaned_message()`], see the documentation of
-/// that function for more information.
+/// This type is returned by [`Publisher::borrow_loaned_message()`], see the
+/// documentation of that function for more information.
 ///
 /// The loan is returned by dropping the message or [publishing it][1].
 ///
@@ -29,7 +28,8 @@ where
 {
     type Target = T;
     fn deref(&self) -> &Self::Target {
-        // SAFETY: msg_ptr is a valid pointer, obtained through rcl_borrow_loaned_message.
+        // SAFETY: msg_ptr is a valid pointer, obtained through
+        // rcl_borrow_loaned_message.
         unsafe { &*self.msg_ptr }
     }
 }
@@ -39,7 +39,8 @@ where
     T: RmwMessage,
 {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        // SAFETY: msg_ptr is a valid pointer, obtained through rcl_borrow_loaned_message.
+        // SAFETY: msg_ptr is a valid pointer, obtained through
+        // rcl_borrow_loaned_message.
         unsafe { &mut *self.msg_ptr }
     }
 }
@@ -65,17 +66,20 @@ where
     }
 }
 
-// SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
-// they are running in. Therefore, this type can be safely sent to another thread.
+// SAFETY: The functions accessing this type, including drop(), shouldn't care
+// about the thread they are running in. Therefore, this type can be safely sent
+// to another thread.
 unsafe impl<'a, T> Send for LoanedMessage<'a, T> where T: RmwMessage {}
-// SAFETY: There is no interior mutability in this type. All mutation happens through &mut references.
+// SAFETY: There is no interior mutability in this type. All mutation happens
+// through &mut references.
 unsafe impl<'a, T> Sync for LoanedMessage<'a, T> where T: RmwMessage {}
 
 impl<'a, T> LoanedMessage<'a, T>
 where
     T: RmwMessage,
 {
-    /// Publishes the loaned message, falling back to regular publishing if needed.
+    /// Publishes the loaned message, falling back to regular publishing if
+    /// needed.
     pub fn publish(mut self) -> Result<(), RclrsError> {
         unsafe {
             // SAFETY: These two pointers are valid, and the msg_ptr is not used afterwards.

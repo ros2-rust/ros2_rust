@@ -1,14 +1,17 @@
-use std::ffi::CStr;
-use std::ffi::CString;
-use std::marker::PhantomData;
-use std::sync::atomic::AtomicBool;
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::{
+    ffi::{CStr, CString},
+    marker::PhantomData,
+    sync::{atomic::AtomicBool, Arc, Mutex, MutexGuard},
+};
 
 use rosidl_runtime_rs::{Message, RmwMessage};
 
-use crate::error::{RclReturnCode, ToResult};
-use crate::qos::QoSProfile;
-use crate::{rcl_bindings::*, NodeHandle, RclrsError, ENTITY_LIFECYCLE_MUTEX};
+use crate::{
+    error::{RclReturnCode, ToResult},
+    qos::QoSProfile,
+    rcl_bindings::*,
+    NodeHandle, RclrsError, ENTITY_LIFECYCLE_MUTEX,
+};
 
 mod callback;
 mod message_info;
@@ -17,13 +20,14 @@ pub use callback::*;
 pub use message_info::*;
 pub use readonly_loaned_message::*;
 
-// SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
-// they are running in. Therefore, this type can be safely sent to another thread.
+// SAFETY: The functions accessing this type, including drop(), shouldn't care
+// about the thread they are running in. Therefore, this type can be safely sent
+// to another thread.
 unsafe impl Send for rcl_subscription_t {}
 
-/// Manage the lifecycle of an `rcl_subscription_t`, including managing its dependencies
-/// on `rcl_node_t` and `rcl_context_t` by ensuring that these dependencies are
-/// [dropped after][1] the `rcl_subscription_t`.
+/// Manage the lifecycle of an `rcl_subscription_t`, including managing its
+/// dependencies on `rcl_node_t` and `rcl_context_t` by ensuring that these
+/// dependencies are [dropped after][1] the `rcl_subscription_t`.
 ///
 /// [1]: <https://doc.rust-lang.org/reference/destructors.html>
 pub struct SubscriptionHandle {
@@ -44,7 +48,8 @@ impl Drop for SubscriptionHandle {
         let mut rcl_node = self.node_handle.rcl_node.lock().unwrap();
         let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
         // SAFETY: The entity lifecycle mutex is locked to protect against the risk of
-        // global variables in the rmw implementation being unsafely modified during cleanup.
+        // global variables in the rmw implementation being unsafely modified during
+        // cleanup.
         unsafe {
             rcl_subscription_fini(rcl_subscription, &mut *rcl_node);
         }
@@ -61,15 +66,18 @@ pub trait SubscriptionBase: Send + Sync {
 
 /// Struct for receiving messages of type `T`.
 ///
-/// There can be multiple subscriptions for the same topic, in different nodes or the same node.
+/// There can be multiple subscriptions for the same topic, in different nodes
+/// or the same node.
 ///
-/// Receiving messages requires calling [`spin_once`][1] or [`spin`][2] on the subscription's node.
+/// Receiving messages requires calling [`spin_once`][1] or [`spin`][2] on the
+/// subscription's node.
 ///
-/// When a subscription is created, it may take some time to get "matched" with a corresponding
-/// publisher.
+/// When a subscription is created, it may take some time to get "matched" with
+/// a corresponding publisher.
 ///
-/// The only available way to instantiate subscriptions is via [`Node::create_subscription()`][3], this
-/// is to ensure that [`Node`][4]s can track all the subscriptions that have been created.
+/// The only available way to instantiate subscriptions is via
+/// [`Node::create_subscription()`][3], this is to ensure that [`Node`][4]s can
+/// track all the subscriptions that have been created.
 ///
 /// [1]: crate::spin_once
 /// [2]: crate::spin
@@ -120,8 +128,10 @@ where
             unsafe {
                 // SAFETY:
                 // * The rcl_subscription is zero-initialized as mandated by this function.
-                // * The rcl_node is kept alive by the NodeHandle because it is a dependency of the subscription.
-                // * The topic name and the options are copied by this function, so they can be dropped afterwards.
+                // * The rcl_node is kept alive by the NodeHandle because it is a dependency of
+                //   the subscription.
+                // * The topic name and the options are copied by this function, so they can be
+                //   dropped afterwards.
                 // * The entity lifecycle mutex is locked to protect against the risk of global
                 //   variables in the rmw implementation being unsafely modified during cleanup.
                 rcl_subscription_init(
@@ -150,8 +160,8 @@ where
 
     /// Returns the topic name of the subscription.
     ///
-    /// This returns the topic name after remapping, so it is not necessarily the
-    /// topic name which was used when creating the subscription.
+    /// This returns the topic name after remapping, so it is not necessarily
+    /// the topic name which was used when creating the subscription.
     pub fn topic_name(&self) -> String {
         // SAFETY: No preconditions for the function used
         // The unsafe variables get converted to safe types before being returned
@@ -211,8 +221,8 @@ where
         let mut message_info = unsafe { rmw_get_zero_initialized_message_info() };
         let rcl_subscription = &mut *self.handle.lock();
         unsafe {
-            // SAFETY: The first two pointers are valid/initialized, and do not need to be valid
-            // beyond the function call.
+            // SAFETY: The first two pointers are valid/initialized, and do not need to be
+            // valid beyond the function call.
             // The latter two pointers are explicitly allowed to be NULL.
             rcl_take(
                 rcl_subscription,
@@ -230,8 +240,8 @@ where
     /// When there is no new message, this will return a
     /// [`SubscriptionTakeFailed`][1].
     ///
-    /// This is the counterpart to [`Publisher::borrow_loaned_message()`][2]. See its documentation
-    /// for more information.
+    /// This is the counterpart to [`Publisher::borrow_loaned_message()`][2].
+    /// See its documentation for more information.
     ///
     /// [1]: crate::RclrsError
     /// [2]: crate::Publisher::borrow_loaned_message
@@ -239,8 +249,9 @@ where
         let mut msg_ptr = std::ptr::null_mut();
         let mut message_info = unsafe { rmw_get_zero_initialized_message_info() };
         unsafe {
-            // SAFETY: The third argument (message_info) and fourth argument (allocation) may be null.
-            // The second argument (loaned_message) contains a null ptr as expected.
+            // SAFETY: The third argument (message_info) and fourth argument (allocation)
+            // may be null. The second argument (loaned_message) contains a null
+            // ptr as expected.
             rcl_take_loaned_message(
                 &*self.handle.lock(),
                 &mut msg_ptr,
@@ -327,8 +338,7 @@ mod tests {
 
     #[test]
     fn test_subscriptions() -> Result<(), RclrsError> {
-        use crate::TopicEndpointInfo;
-        use crate::QOS_PROFILE_SYSTEM_DEFAULT;
+        use crate::{TopicEndpointInfo, QOS_PROFILE_SYSTEM_DEFAULT};
 
         let namespace = "/test_subscriptions_graph";
         let graph = construct_test_graph(namespace)?;

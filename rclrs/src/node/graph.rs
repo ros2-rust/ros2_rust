@@ -1,9 +1,10 @@
-use std::collections::HashMap;
-use std::ffi::{CStr, CString};
-use std::slice;
+use std::{
+    collections::HashMap,
+    ffi::{CStr, CString},
+    slice,
+};
 
-use crate::rcl_bindings::*;
-use crate::{Node, RclrsError, ToResult};
+use crate::{rcl_bindings::*, Node, RclrsError, ToResult};
 
 impl Drop for rmw_names_and_types_t {
     fn drop(&mut self) {
@@ -58,7 +59,8 @@ pub struct TopicEndpointInfo {
 }
 
 impl Node {
-    /// Returns a list of topic names and types for publishers associated with a node.
+    /// Returns a list of topic names and types for publishers associated with a
+    /// node.
     pub fn get_publisher_names_and_types_by_node(
         &self,
         node: &str,
@@ -85,7 +87,8 @@ impl Node {
         self.get_names_and_types_by_node(node, namespace, wrapper)
     }
 
-    /// Returns a list of topic names and types for subscriptions associated with a node.
+    /// Returns a list of topic names and types for subscriptions associated
+    /// with a node.
     pub fn get_subscription_names_and_types_by_node(
         &self,
         node: &str,
@@ -112,7 +115,8 @@ impl Node {
         self.get_names_and_types_by_node(node, namespace, wrapper)
     }
 
-    /// Returns a list of topic names and types for services associated with a node.
+    /// Returns a list of topic names and types for services associated with a
+    /// node.
     pub fn get_service_names_and_types_by_node(
         &self,
         node: &str,
@@ -121,7 +125,8 @@ impl Node {
         self.get_names_and_types_by_node(node, namespace, rcl_get_service_names_and_types_by_node)
     }
 
-    /// Returns a list of topic names and types for clients associated with a node.
+    /// Returns a list of topic names and types for clients associated with a
+    /// node.
     pub fn get_client_names_and_types_by_node(
         &self,
         node: &str,
@@ -165,7 +170,8 @@ impl Node {
             )
         };
 
-        // SAFETY: node_names and node_namespaces are zero-initialized as expected by this call.
+        // SAFETY: node_names and node_namespaces are zero-initialized as expected by
+        // this call.
         unsafe {
             let rcl_node = self.handle.rcl_node.lock().unwrap();
             rcl_get_node_names(
@@ -177,8 +183,8 @@ impl Node {
             .ok()?;
         };
 
-        // SAFETY: Because the previous function call successfully returned, the names and
-        // namespaces are populated with valid data
+        // SAFETY: Because the previous function call successfully returned, the names
+        // and namespaces are populated with valid data
         let (names_slice, namespaces_slice) = unsafe {
             (
                 slice::from_raw_parts(rcl_names.data, rcl_names.size),
@@ -186,8 +192,8 @@ impl Node {
             )
         };
 
-        // SAFETY: Because rcl_get_node_names successfully returned, the name and namespace pointers
-        // point to valid C strings
+        // SAFETY: Because rcl_get_node_names successfully returned, the name and
+        // namespace pointers point to valid C strings
         let zipped_names = names_slice
             .iter()
             .zip(namespaces_slice.iter())
@@ -213,7 +219,8 @@ impl Node {
             )
         };
 
-        // SAFETY: The node_names, namespaces, and enclaves are zero-initialized as expected by this call.
+        // SAFETY: The node_names, namespaces, and enclaves are zero-initialized as
+        // expected by this call.
         unsafe {
             let rcl_node = self.handle.rcl_node.lock().unwrap();
             rcl_get_node_names_with_enclaves(
@@ -235,8 +242,8 @@ impl Node {
             )
         };
 
-        // SAFETY: The rcl function call successfully returned, so each element of the arrays points to
-        // a valid C string
+        // SAFETY: The rcl function call successfully returned, so each element of the
+        // arrays points to a valid C string
         let zipped_names = names_slice
             .iter()
             .zip(namespaces_slice.iter())
@@ -303,7 +310,8 @@ impl Node {
         self.get_publisher_subscriber_info_by_topic(topic, rcl_get_subscriptions_info_by_topic)
     }
 
-    /// Returns an rcl names_and_types function, without a "no_demangle" argument.
+    /// Returns an rcl names_and_types function, without a "no_demangle"
+    /// argument.
     fn get_names_and_types_by_node(
         &self,
         node: &str,
@@ -383,8 +391,9 @@ impl Node {
             slice::from_raw_parts(rcl_publishers_info.info_array, rcl_publishers_info.size)
         };
 
-        // SAFETY: Because the rcl call returned successfully, each element of the slice points
-        // to a valid topic_endpoint_info object, which contains valid C strings
+        // SAFETY: Because the rcl call returned successfully, each element of the slice
+        // points to a valid topic_endpoint_info object, which contains valid C
+        // strings
         let topic_endpoint_infos_vec = topic_endpoint_infos_slice
             .iter()
             .map(|info| {
@@ -419,7 +428,8 @@ fn convert_names_and_types(
 ) -> HashMap<String, Vec<String>> {
     let mut names_and_types: TopicNamesAndTypes = HashMap::new();
 
-    // SAFETY: Safe if the rcl_names_and_types arg has been initialized by the caller
+    // SAFETY: Safe if the rcl_names_and_types arg has been initialized by the
+    // caller
     let name_slice = unsafe {
         slice::from_raw_parts(
             rcl_names_and_types.names.data,
@@ -428,7 +438,8 @@ fn convert_names_and_types(
     };
 
     for (idx, name) in name_slice.iter().enumerate() {
-        // SAFETY: The slice contains valid C string pointers if it was populated by the caller
+        // SAFETY: The slice contains valid C string pointers if it was populated by the
+        // caller
         let name: String = unsafe {
             let cstr = CStr::from_ptr(*name);
             cstr.to_string_lossy().into_owned()
@@ -461,13 +472,14 @@ mod tests {
     fn test_graph_empty() {
         // cargo test by default will run all test functions in parallel using
         // as many threads as the underlying system allows. However, the test
-        // expectations of test_graph_empty will fail if its detects any other middleware
-        // activity while it's running.
+        // expectations of test_graph_empty will fail if its detects any other
+        // middleware activity while it's running.
         //
-        // If we ensure that the Context of test_graph_empty is given a different domain ID
-        // from the rest of the tests, then we can ensure that it will not observe any other
-        // middleware activity, and its expectations can pass (as long as the user is not
-        // running any other ROS executables on their system).
+        // If we ensure that the Context of test_graph_empty is given a different domain
+        // ID from the rest of the tests, then we can ensure that it will not
+        // observe any other middleware activity, and its expectations can pass
+        // (as long as the user is not running any other ROS executables on
+        // their system).
         //
         // By default we will assign 99 to the domain ID of test_graph_empty's Context.
         // However, if the ROS_DOMAIN_ID environment variable was set to 99 by the user,
