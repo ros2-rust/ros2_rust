@@ -56,7 +56,7 @@ where
             unsafe {
                 // SAFETY: These two pointers are valid, and the msg_ptr is not used afterwards.
                 rcl_return_loaned_message_from_publisher(
-                    &*self.publisher.rcl_publisher_mtx.lock().unwrap(),
+                    &*self.publisher.handle.rcl_publisher.lock().unwrap(),
                     self.msg_ptr as *mut _,
                 )
                 .ok()
@@ -84,7 +84,7 @@ where
         unsafe {
             // SAFETY: These two pointers are valid, and the msg_ptr is not used afterwards.
             rcl_publish_loaned_message(
-                &*self.publisher.rcl_publisher_mtx.lock().unwrap(),
+                &*self.publisher.handle.rcl_publisher.lock().unwrap(),
                 self.msg_ptr as *mut _,
                 std::ptr::null_mut(),
             )
