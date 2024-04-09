@@ -1,6 +1,8 @@
-use std::error::Error;
-use std::ffi::{CStr, NulError};
-use std::fmt::{self, Display};
+use std::{
+    error::Error,
+    ffi::{CStr, NulError},
+    fmt::{self, Display},
+};
 
 use crate::rcl_bindings::*;
 
