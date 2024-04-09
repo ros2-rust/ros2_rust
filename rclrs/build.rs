@@ -67,8 +67,9 @@ fn main() {
     // #############
     //
     // For each prefix in ${AMENT_PREFIX_PATH}:
-    // Search through ament index at ${prefix}/share/ament_index/resource_index/packages/ to find packages to include
-    // The include root will be located at either:
+    // Search through ament index at
+    // ${prefix}/share/ament_index/resource_index/packages/ to find packages to
+    // include The include root will be located at either:
     // - ${prefix}/include/ (old style)
     // - ${prefix}/include/${package_name} (new style)
     // - ${prefix}/include/CycloneDDS (special case, match for this)
@@ -99,9 +100,10 @@ fn main() {
             if package_include_dir.is_dir() {
                 let new_style_include_dir = package_include_dir.join(&package);
 
-                // CycloneDDS is a special case - it needs to be included as if it were a new-style path, but
-                // doesn't actually have a secondary folder within it called "CycloneDDS"
-                // TODO(jhdcs): if this changes in future, remove this check
+                // CycloneDDS is a special case - it needs to be included as if it were a
+                // new-style path, but doesn't actually have a secondary folder
+                // within it called "CycloneDDS" TODO(jhdcs): if this changes in
+                // future, remove this check
                 if package == "CycloneDDS" || new_style_include_dir.is_dir() {
                     builder =
                         builder.clang_arg(format!("-isystem{}", package_include_dir.display()));
