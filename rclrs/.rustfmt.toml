@@ -1,3 +1,4 @@
  imports_granularity = "Crate"
  array_width = 60
  attr_fn_like_width = 70
+ brace_style = "SameLineWhere"
