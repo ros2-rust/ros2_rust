@@ -1,8 +1,8 @@
-use std::ffi::CStr;
-use std::ffi::CString;
-use std::marker::PhantomData;
-use std::sync::atomic::AtomicBool;
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::{
+    ffi::{CStr, CString},
+    marker::PhantomData,
+    sync::{atomic::AtomicBool, Arc, Mutex, MutexGuard},
+};
 
 use rosidl_runtime_rs::{Message, RmwMessage};
 
