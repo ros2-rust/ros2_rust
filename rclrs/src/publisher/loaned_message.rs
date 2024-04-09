@@ -2,8 +2,7 @@ use std::ops::{Deref, DerefMut};
 
 use rosidl_runtime_rs::RmwMessage;
 
-use crate::rcl_bindings::*;
-use crate::{Publisher, RclrsError, ToResult};
+use crate::{rcl_bindings::*, Publisher, RclrsError, ToResult};
 
 /// A message that is owned by the middleware, loaned for publishing.
 ///
