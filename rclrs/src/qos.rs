@@ -4,15 +4,18 @@ use crate::rcl_bindings::*;
 
 /// The `HISTORY` DDS QoS policy.
 ///
-/// A subscription internally maintains a queue of messages (called "samples" in DDS) that have not
-/// been processed yet by the application, and likewise a publisher internally maintains a queue.
+/// A subscription internally maintains a queue of messages (called "samples" in
+/// DDS) that have not been processed yet by the application, and likewise a
+/// publisher internally maintains a queue.
 ///
-/// If the history policy is `KeepAll`, this queue is unbounded, and if it is `KeepLast`, it is
-/// bounded and old values are discarded when the queue is overfull.
+/// If the history policy is `KeepAll`, this queue is unbounded, and if it is
+/// `KeepLast`, it is bounded and old values are discarded when the queue is
+/// overfull.
 ///
-/// The `rmw` layer may not be able to handle very large queue depths, e.g. greater than
-/// `i32::MAX`.
-/// In this case, the functions taking the QoS profile as an argument will return an error.
+/// The `rmw` layer may not be able to handle very large queue depths, e.g.
+/// greater than `i32::MAX`.
+/// In this case, the functions taking the QoS profile as an argument will
+/// return an error.
 ///
 /// # Compatibility
 /// | Publisher | Subscription | Compatible |
@@ -21,7 +24,6 @@ use crate::rcl_bindings::*;
 /// | KeepLast | KeepAll | yes |
 /// | KeepAll | KeepLast | yes |
 /// | KeepAll | KeepAll | yes |
-///
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum QoSHistoryPolicy {
     /// Use the default policy of the RMW layer.
@@ -42,8 +44,9 @@ pub enum QoSHistoryPolicy {
 
 /// The `RELIABILITY` DDS QoS policy.
 ///
-/// This policy determines whether delivery between a publisher and a subscription will be retried
-/// until successful, or whether messages may be lost in a trade off for better performance.
+/// This policy determines whether delivery between a publisher and a
+/// subscription will be retried until successful, or whether messages may be
+/// lost in a trade off for better performance.
 ///
 /// # Compatibility
 /// | Publisher | Subscription | Compatible | Behavior |
@@ -52,7 +55,6 @@ pub enum QoSHistoryPolicy {
 /// | Reliable | BestEffort | yes | Best effort |
 /// | BestEffort | Reliable | no | - |
 /// | BestEffort | BestEffort | yes | Best effort |
-///
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum QoSReliabilityPolicy {
     /// Use the default policy of the RMW layer.
@@ -65,10 +67,11 @@ pub enum QoSReliabilityPolicy {
 
 /// The `DURABILITY` DDS QoS policy.
 ///
-/// If a subscription is created after some messages have already been published, it is possible
-/// for the subscription to receive a number of previously-published messages by using the
-/// "transient local" durability kind on both ends. For this, the publisher must still exist when
-/// the subscription is created.
+/// If a subscription is created after some messages have already been
+/// published, it is possible for the subscription to receive a number of
+/// previously-published messages by using the "transient local" durability kind
+/// on both ends. For this, the publisher must still exist when the subscription
+/// is created.
 ///
 /// # Compatibility
 /// | Publisher | Subscription | Compatible | Behavior |
@@ -77,7 +80,6 @@ pub enum QoSReliabilityPolicy {
 /// | TransientLocal | Volatile | yes | Deliver only new messages |
 /// | Volatile | TransientLocal | no | - |
 /// | Volatile | Volatile | yes | Deliver only new messages |
-///
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum QoSDurabilityPolicy {
     /// Use the default policy of the RMW layer.
@@ -102,16 +104,17 @@ pub enum QoSDurabilityPolicy {
 /// | Automatic | ManualByTopic | no |
 /// | ManualByTopic | Automatic | yes |
 /// | ManualByTopic | ManualByTopic | yes |
-///
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum QoSLivelinessPolicy {
     /// Use the default policy of the RMW layer.
     SystemDefault = 0,
-    /// The signal that establishes that a topic is alive comes from the ROS `rmw` layer.
+    /// The signal that establishes that a topic is alive comes from the ROS
+    /// `rmw` layer.
     Automatic = 1,
-    /// The signal that establishes that a topic is alive is sent explicitly. Only publishing a message
-    /// on the topic or an explicit signal from the application to assert liveliness on the topic
-    /// will mark the topic as being alive.
+    /// The signal that establishes that a topic is alive is sent explicitly.
+    /// Only publishing a message on the topic or an explicit signal from
+    /// the application to assert liveliness on the topic will mark the
+    /// topic as being alive.
     ManualByTopic = 3,
 }
 
@@ -131,8 +134,9 @@ pub enum QoSDuration {
 ///
 /// See [docs.ros.org][1] on Quality of Service settings in general.
 ///
-/// In the general case, a topic can have multiple publishers and multiple subscriptions, each with
-/// an individual QoS profile. For each publisher-subscription pair, messages are only delivered if
+/// In the general case, a topic can have multiple publishers and multiple
+/// subscriptions, each with an individual QoS profile. For each
+/// publisher-subscription pair, messages are only delivered if
 /// their QoS profiles are compatible.
 ///
 /// # Example
@@ -207,7 +211,8 @@ impl From<QoSProfile> for rmw_qos_profile_t {
 }
 
 impl QoSProfile {
-    /// Sets the QoS profile history to [QoSHistoryPolicy::KeepLast] with the specified depth.
+    /// Sets the QoS profile history to [QoSHistoryPolicy::KeepLast] with the
+    /// specified depth.
     pub fn keep_last(mut self, depth: u32) -> Self {
         self.history = QoSHistoryPolicy::KeepLast { depth };
         self
@@ -237,7 +242,8 @@ impl QoSProfile {
         self
     }
 
-    /// Sets the QoS profile durability to [QoSDurabilityPolicy::TransientLocal].
+    /// Sets the QoS profile durability to
+    /// [QoSDurabilityPolicy::TransientLocal].
     pub fn transient_local(mut self) -> Self {
         self.durability = QoSDurabilityPolicy::TransientLocal;
         self
@@ -249,7 +255,8 @@ impl QoSProfile {
         self
     }
 
-    /// Sets the QoS profile liveliness lease duration to the specified `Duration`.
+    /// Sets the QoS profile liveliness lease duration to the specified
+    /// `Duration`.
     pub fn liveliness_lease_duration(mut self, lease_duration: Duration) -> Self {
         self.liveliness_lease_duration = QoSDuration::Custom(lease_duration);
         self
@@ -402,7 +409,8 @@ pub const QOS_PROFILE_DEFAULT: QoSProfile = QoSProfile {
     avoid_ros_namespace_conventions: false,
 };
 
-/// Equivalent to `rmw_qos_profile_services_default` from the [`rmw` package][1].
+/// Equivalent to `rmw_qos_profile_services_default` from the [`rmw`
+/// package][1].
 ///
 /// [1]: https://github.com/ros2/rmw/blob/master/rmw/include/rmw/qos_profiles.h
 pub const QOS_PROFILE_SERVICES_DEFAULT: QoSProfile = QoSProfile {
@@ -416,7 +424,8 @@ pub const QOS_PROFILE_SERVICES_DEFAULT: QoSProfile = QoSProfile {
     avoid_ros_namespace_conventions: false,
 };
 
-/// Equivalent to `rmw_qos_profile_parameter_events` from the [`rmw` package][1].
+/// Equivalent to `rmw_qos_profile_parameter_events` from the [`rmw`
+/// package][1].
 ///
 /// [1]: https://github.com/ros2/rmw/blob/master/rmw/include/rmw/qos_profiles.h
 pub const QOS_PROFILE_PARAMETER_EVENTS: QoSProfile = QoSProfile {
