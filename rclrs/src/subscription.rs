@@ -6,9 +6,12 @@ use std::{
 
 use rosidl_runtime_rs::{Message, RmwMessage};
 
-use crate::error::{RclReturnCode, ToResult};
-use crate::qos::QoSProfile;
-use crate::{rcl_bindings::*, RclrsError};
+use crate::{
+    error::{RclReturnCode, ToResult},
+    qos::QoSProfile,
+    rcl_bindings::*,
+    RclrsError,
+};
 
 mod callback;
 mod message_info;
@@ -315,8 +318,7 @@ mod tests {
 
     #[test]
     fn test_subscriptions() -> Result<(), RclrsError> {
-        use crate::TopicEndpointInfo;
-        use crate::QOS_PROFILE_SYSTEM_DEFAULT;
+        use crate::{TopicEndpointInfo, QOS_PROFILE_SYSTEM_DEFAULT};
 
         let namespace = "/test_subscriptions_graph";
         let graph = construct_test_graph(namespace)?;
