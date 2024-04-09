@@ -59,7 +59,8 @@ pub struct TopicEndpointInfo {
 }
 
 impl Node {
-    /// Returns a list of topic names and types for publishers associated with a node.
+    /// Returns a list of topic names and types for publishers associated with a
+    /// node.
     pub fn get_publisher_names_and_types_by_node(
         &self,
         node: &str,
@@ -86,7 +87,8 @@ impl Node {
         self.get_names_and_types_by_node(node, namespace, wrapper)
     }
 
-    /// Returns a list of topic names and types for subscriptions associated with a node.
+    /// Returns a list of topic names and types for subscriptions associated
+    /// with a node.
     pub fn get_subscription_names_and_types_by_node(
         &self,
         node: &str,
@@ -113,7 +115,8 @@ impl Node {
         self.get_names_and_types_by_node(node, namespace, wrapper)
     }
 
-    /// Returns a list of topic names and types for services associated with a node.
+    /// Returns a list of topic names and types for services associated with a
+    /// node.
     pub fn get_service_names_and_types_by_node(
         &self,
         node: &str,
@@ -122,7 +125,8 @@ impl Node {
         self.get_names_and_types_by_node(node, namespace, rcl_get_service_names_and_types_by_node)
     }
 
-    /// Returns a list of topic names and types for clients associated with a node.
+    /// Returns a list of topic names and types for clients associated with a
+    /// node.
     pub fn get_client_names_and_types_by_node(
         &self,
         node: &str,
@@ -165,7 +169,8 @@ impl Node {
             )
         };
 
-        // SAFETY: node_names and node_namespaces are zero-initialized as expected by this call.
+        // SAFETY: node_names and node_namespaces are zero-initialized as expected by
+        // this call.
         unsafe {
             rcl_get_node_names(
                 &*self.rcl_node_mtx.lock().unwrap(),
@@ -176,8 +181,8 @@ impl Node {
             .ok()?;
         };
 
-        // SAFETY: Because the previous function call successfully returned, the names and
-        // namespaces are populated with valid data
+        // SAFETY: Because the previous function call successfully returned, the names
+        // and namespaces are populated with valid data
         let (names_slice, namespaces_slice) = unsafe {
             (
                 slice::from_raw_parts(rcl_names.data, rcl_names.size),
@@ -185,8 +190,8 @@ impl Node {
             )
         };
 
-        // SAFETY: Because rcl_get_node_names successfully returned, the name and namespace pointers
-        // point to valid C strings
+        // SAFETY: Because rcl_get_node_names successfully returned, the name and
+        // namespace pointers point to valid C strings
         let zipped_names = names_slice
             .iter()
             .zip(namespaces_slice.iter())
@@ -212,7 +217,8 @@ impl Node {
             )
         };
 
-        // SAFETY: The node_names, namespaces, and enclaves are zero-initialized as expected by this call.
+        // SAFETY: The node_names, namespaces, and enclaves are zero-initialized as
+        // expected by this call.
         unsafe {
             rcl_get_node_names_with_enclaves(
                 &*self.rcl_node_mtx.lock().unwrap(),
@@ -233,8 +239,8 @@ impl Node {
             )
         };
 
-        // SAFETY: The rcl function call successfully returned, so each element of the arrays points to
-        // a valid C string
+        // SAFETY: The rcl function call successfully returned, so each element of the
+        // arrays points to a valid C string
         let zipped_names = names_slice
             .iter()
             .zip(namespaces_slice.iter())
@@ -309,7 +315,8 @@ impl Node {
         self.get_publisher_subscriber_info_by_topic(topic, rcl_get_subscriptions_info_by_topic)
     }
 
-    /// Returns an rcl names_and_types function, without a "no_demangle" argument.
+    /// Returns an rcl names_and_types function, without a "no_demangle"
+    /// argument.
     fn get_names_and_types_by_node(
         &self,
         node: &str,
@@ -387,8 +394,9 @@ impl Node {
             slice::from_raw_parts(rcl_publishers_info.info_array, rcl_publishers_info.size)
         };
 
-        // SAFETY: Because the rcl call returned successfully, each element of the slice points
-        // to a valid topic_endpoint_info object, which contains valid C strings
+        // SAFETY: Because the rcl call returned successfully, each element of the slice
+        // points to a valid topic_endpoint_info object, which contains valid C
+        // strings
         let topic_endpoint_infos_vec = topic_endpoint_infos_slice
             .iter()
             .map(|info| {
@@ -423,7 +431,8 @@ fn convert_names_and_types(
 ) -> HashMap<String, Vec<String>> {
     let mut names_and_types: TopicNamesAndTypes = HashMap::new();
 
-    // SAFETY: Safe if the rcl_names_and_types arg has been initialized by the caller
+    // SAFETY: Safe if the rcl_names_and_types arg has been initialized by the
+    // caller
     let name_slice = unsafe {
         slice::from_raw_parts(
             rcl_names_and_types.names.data,
@@ -432,7 +441,8 @@ fn convert_names_and_types(
     };
 
     for (idx, name) in name_slice.iter().enumerate() {
-        // SAFETY: The slice contains valid C string pointers if it was populated by the caller
+        // SAFETY: The slice contains valid C string pointers if it was populated by the
+        // caller
         let name: String = unsafe {
             let cstr = CStr::from_ptr(*name);
             cstr.to_string_lossy().into_owned()
