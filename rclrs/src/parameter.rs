@@ -16,21 +16,26 @@ use std::{
 };
 
 // This module implements the core logic of parameters in rclrs.
-// The implementation is fairly different from the existing ROS 2 client libraries. A detailed
-// explanation of the core differences and why they have been implemented is available at:
-// https://github.com/ros2-rust/ros2_rust/pull/332
+// The implementation is fairly different from the existing ROS 2 client
+// libraries. A detailed explanation of the core differences and why they have
+// been implemented is available at: https://github.com/ros2-rust/ros2_rust/pull/332
 // Among the most relevant ones:
 //
-// * Parameter declaration returns an object which will be the main accessor to the parameter,
-// providing getters and, except for read only parameters, setters. Object destruction will
-// undeclare the parameter.
-// * Declaration uses a builder pattern to specify ranges, description, human readable constraints
+// * Parameter declaration returns an object which will be the main accessor to
+//   the parameter,
+// providing getters and, except for read only parameters, setters. Object
+// destruction will undeclare the parameter.
+// * Declaration uses a builder pattern to specify ranges, description, human
+//   readable constraints
 // instead of an ParameterDescriptor argument.
-// * Parameters properties of read only and dynamic are embedded in their type rather than being a
+// * Parameters properties of read only and dynamic are embedded in their type
+//   rather than being a
 // boolean parameter.
-// * There are no runtime exceptions for common cases such as undeclared parameter, already
+// * There are no runtime exceptions for common cases such as undeclared
+//   parameter, already
 // declared, or uninitialized.
-// * There is no "parameter not set" type, users can instead decide to have a `Mandatory` parameter
+// * There is no "parameter not set" type, users can instead decide to have a
+//   `Mandatory` parameter
 // that must always have a value or `Optional` parameter that can be unset.
 // * Explicit API for access to undeclared parameters by having a
 // `node.use_undeclared_parameters()` API that allows access to all parameters.
@@ -96,11 +101,14 @@ impl From<()> for ParameterRanges {
 }
 
 /// Contains all the possible type of ranges that can be applied to a value.
-/// Usually only one of these ranges will be applied, but all have to be stored since:
+/// Usually only one of these ranges will be applied, but all have to be stored
+/// since:
 ///
-/// * A dynamic parameter can change its type at runtime, in which case a different range could be
+/// * A dynamic parameter can change its type at runtime, in which case a
+///   different range could be
 /// applied.
-/// * Introspection through service calls requires all the ranges to be reported to the user.
+/// * Introspection through service calls requires all the ranges to be reported
+///   to the user.
 #[derive(Clone, Debug, Default)]
 pub struct ParameterRanges {
     float: Option<ParameterRange<f64>>,
@@ -147,11 +155,11 @@ pub struct ParameterRange<T: ParameterVariant + PartialOrd> {
     pub lower: Option<T>,
     /// Upper limit, if set the parameter must be <= u.
     pub upper: Option<T>,
-    /// Step size, if set and `lower` is set the parameter must be within an integer number of
-    /// steps of size `step` from `lower`, or equal to the upper limit if set.
-    /// Example:
-    /// If lower is `Some(0)`, upper is `Some(10)` and step is `Some(3)`, acceptable values are:
-    /// `[0, 3, 6, 9, 10]`.
+    /// Step size, if set and `lower` is set the parameter must be within an
+    /// integer number of steps of size `step` from `lower`, or equal to the
+    /// upper limit if set. Example:
+    /// If lower is `Some(0)`, upper is `Some(10)` and step is `Some(3)`,
+    /// acceptable values are: `[0, 3, 6, 9, 10]`.
     pub step: Option<T>,
 }
 
@@ -306,14 +314,16 @@ impl<'a, T: ParameterVariant> ParameterBuilder<'a, T> {
     }
 
     /// Sets the parameter's human readable constraints.
-    /// These are not enforced by the library but are displayed on parameter description requests
-    /// and can be used by integrators to understand complex constraints.
+    /// These are not enforced by the library but are displayed on parameter
+    /// description requests and can be used by integrators to understand
+    /// complex constraints.
     pub fn constraints(mut self, constraints: impl Into<Arc<str>>) -> Self {
         self.options.constraints = constraints.into();
         self
     }
 
-    /// Declares the parameter as a Mandatory parameter, that must always have a value.
+    /// Declares the parameter as a Mandatory parameter, that must always have a
+    /// value.
     ///
     /// ## See also
     /// * [`Self::optional()`]
@@ -333,7 +343,8 @@ impl<'a, T: ParameterVariant> ParameterBuilder<'a, T> {
 
     /// Declares the parameter as an Optional parameter, that can be unset.
     ///
-    /// This will never return the [`DeclarationError::NoValueAvailable`] variant.
+    /// This will never return the [`DeclarationError::NoValueAvailable`]
+    /// variant.
     ///
     /// ## See also
     /// * [`Self::mandatory()`]
@@ -371,7 +382,8 @@ impl<'a> ParameterBuilder<'a, Arc<[Arc<str>]>> {
 pub struct AvailableValues<'a, T> {
     /// The value given to the parameter builder as the default value.
     pub default_value: Option<T>,
-    /// The value given as an override value, usually as a command line argument.
+    /// The value given as an override value, usually as a command line
+    /// argument.
     pub override_value: Option<T>,
     /// A prior value that the parameter was set to before it was declared.
     pub prior_value: Option<T>,
@@ -438,8 +450,9 @@ impl<T: ParameterVariant> TryFrom<ParameterBuilder<'_, T>> for OptionalParameter
 }
 
 /// A parameter that must have a value
-/// This struct has ownership of the declared parameter. Additional parameter declaration will fail
-/// while this struct exists and the parameter will be undeclared when it is dropped.
+/// This struct has ownership of the declared parameter. Additional parameter
+/// declaration will fail while this struct exists and the parameter will be
+/// undeclared when it is dropped.
 pub struct MandatoryParameter<T: ParameterVariant> {
     name: Arc<str>,
     value: Arc<RwLock<ParameterValue>>,
@@ -502,8 +515,9 @@ impl<'a, T: ParameterVariant + 'a> TryFrom<ParameterBuilder<'a, T>> for Mandator
 }
 
 /// A parameter that might not have a value, represented by `Option<T>`.
-/// This struct has ownership of the declared parameter. Additional parameter declaration will fail
-/// while this struct exists and the parameter will be undeclared when it is dropped.
+/// This struct has ownership of the declared parameter. Additional parameter
+/// declaration will fail while this struct exists and the parameter will be
+/// undeclared when it is dropped.
 pub struct OptionalParameter<T: ParameterVariant> {
     name: Arc<str>,
     value: Arc<RwLock<Option<ParameterValue>>>,
@@ -533,8 +547,9 @@ impl<T: ParameterVariant> Drop for OptionalParameter<T> {
 }
 
 /// A parameter that must have a value and cannot be written to
-/// This struct has ownership of the declared parameter. Additional parameter declaration will fail
-/// while this struct exists and the parameter will be undeclared when it is dropped.
+/// This struct has ownership of the declared parameter. Additional parameter
+/// declaration will fail while this struct exists and the parameter will be
+/// undeclared when it is dropped.
 pub struct ReadOnlyParameter<T: ParameterVariant> {
     name: Arc<str>,
     value: ParameterValue,
@@ -618,7 +633,8 @@ impl<T: ParameterVariant> MandatoryParameter<T> {
     }
 
     /// Sets the parameter value.
-    /// Returns [`ParameterValueError::OutOfRange`] if the value is out of the parameter's range.
+    /// Returns [`ParameterValueError::OutOfRange`] if the value is out of the
+    /// parameter's range.
     pub fn set<U: Into<T>>(&self, value: U) -> Result<(), ParameterValueError> {
         let value = value.into().into();
         if !self.ranges.in_range(&value) {
@@ -647,7 +663,8 @@ impl<T: ParameterVariant> OptionalParameter<T> {
     }
 
     /// Assigns a value to the optional parameter, setting it to `Some(value)`.
-    /// Returns [`ParameterValueError::OutOfRange`] if the value is out of the parameter's range.
+    /// Returns [`ParameterValueError::OutOfRange`] if the value is out of the
+    /// parameter's range.
     pub fn set<U: Into<T>>(&self, value: U) -> Result<(), ParameterValueError> {
         let value = value.into().into();
         if !self.ranges.in_range(&value) {
@@ -663,17 +680,20 @@ impl<T: ParameterVariant> OptionalParameter<T> {
     }
 }
 
-/// Allows access to all parameters via get / set functions, using their name as a key.
+/// Allows access to all parameters via get / set functions, using their name as
+/// a key.
 pub struct Parameters<'a> {
     pub(crate) interface: &'a ParameterInterface,
 }
 
-/// Describes errors that can be generated when trying to set a parameter's value.
+/// Describes errors that can be generated when trying to set a parameter's
+/// value.
 #[derive(Debug)]
 pub enum ParameterValueError {
     /// Parameter value was out of the parameter's range.
     OutOfRange,
-    /// Parameter was stored in a static type and an operation on a different type was attempted.
+    /// Parameter was stored in a static type and an operation on a different
+    /// type was attempted.
     TypeMismatch,
     /// A write on a read-only parameter was attempted.
     ReadOnly,
@@ -684,25 +704,29 @@ pub enum ParameterValueError {
 pub enum DeclarationError {
     /// Parameter was already declared and a new declaration was attempted.
     AlreadyDeclared,
-    /// Parameter was declared as non optional but no value was available, either through a user
-    /// specified default, a command-line override, or a previously set value.
+    /// Parameter was declared as non optional but no value was available,
+    /// either through a user specified default, a command-line override, or
+    /// a previously set value.
     NoValueAvailable,
-    /// The override value that was provided has the wrong type. This error is bypassed
-    /// when using [`ParameterBuilder::ignore_override()`].
+    /// The override value that was provided has the wrong type. This error is
+    /// bypassed when using [`ParameterBuilder::ignore_override()`].
     OverrideValueTypeMismatch,
-    /// The value that the parameter was already set to has the wrong type. This error
-    /// is bypassed when using [`ParameterBuilder::discard_mismatching_prior_value`].
+    /// The value that the parameter was already set to has the wrong type. This
+    /// error is bypassed when using
+    /// [`ParameterBuilder::discard_mismatching_prior_value`].
     PriorValueTypeMismatch,
     /// The initial value that was selected is out of range.
     InitialValueOutOfRange,
-    /// An invalid range was provided to a parameter declaration (i.e. lower bound > higher bound).
+    /// An invalid range was provided to a parameter declaration (i.e. lower
+    /// bound > higher bound).
     InvalidRange,
 }
 
 impl<'a> Parameters<'a> {
     /// Tries to read a parameter of the requested type.
     ///
-    /// Returns `Some(T)` if a parameter of the requested type exists, `None` otherwise.
+    /// Returns `Some(T)` if a parameter of the requested type exists, `None`
+    /// otherwise.
     pub fn get<T: ParameterVariant>(&self, name: &str) -> Option<T> {
         let storage = &self.interface.parameter_map.lock().unwrap().storage;
         let storage = storage.get(name)?;
@@ -722,7 +746,8 @@ impl<'a> Parameters<'a> {
     ///
     /// Returns:
     /// * `Ok(())` if setting was successful.
-    /// * [`Err(DeclarationError::TypeMismatch)`] if the type of the requested value is different
+    /// * [`Err(DeclarationError::TypeMismatch)`] if the type of the requested
+    ///   value is different
     /// from the parameter's type.
     pub fn set<T: ParameterVariant>(
         &self,
@@ -901,8 +926,8 @@ mod tests {
         .unwrap();
         let node = create_node(&ctx, "param_test_node").unwrap();
 
-        // Declaring a parameter with a different type than what was overridden should return an
-        // error
+        // Declaring a parameter with a different type than what was overridden should
+        // return an error
         assert!(matches!(
             node.declare_parameter("declared_int")
                 .default(1.0)
@@ -989,8 +1014,8 @@ mod tests {
             Err(ParameterValueError::TypeMismatch)
         ));
 
-        // Setting a parameter should update both existing parameter objects and be reflected in
-        // new node.use_undeclared_parameters().get() calls
+        // Setting a parameter should update both existing parameter objects and be
+        // reflected in new node.use_undeclared_parameters().get() calls
         assert!(node
             .use_undeclared_parameters()
             .set("new_param", 10.0)
@@ -1011,16 +1036,16 @@ mod tests {
             None
         );
 
-        // Getting a parameter that was not declared should not work, even if a value was provided
-        // as a parameter override
+        // Getting a parameter that was not declared should not work, even if a value
+        // was provided as a parameter override
         assert_eq!(
             node.use_undeclared_parameters()
                 .get::<Arc<str>>("non_declared_string"),
             None
         );
 
-        // If a param is set when undeclared, the following declared value should have the
-        // previously set value.
+        // If a param is set when undeclared, the following declared value should have
+        // the previously set value.
         {
             node.use_undeclared_parameters()
                 .set("new_bool", true)
@@ -1086,8 +1111,8 @@ mod tests {
         assert_eq!(array_param.get()[0], "Hello".into());
         assert_eq!(array_param.get()[1], "World".into());
 
-        // If a value is set when undeclared, the following declare_parameter should have the
-        // previously set value.
+        // If a value is set when undeclared, the following declare_parameter should
+        // have the previously set value.
         node.use_undeclared_parameters()
             .set("undeclared_int", 42)
             .unwrap();
@@ -1108,8 +1133,8 @@ mod tests {
         ])
         .unwrap();
         let node = create_node(&ctx, "param_test_node").unwrap();
-        // If a parameter was set as an override and as an undeclared parameter, the undeclared
-        // value should get priority
+        // If a parameter was set as an override and as an undeclared parameter, the
+        // undeclared value should get priority
         node.use_undeclared_parameters()
             .set("declared_int", 20)
             .unwrap();
@@ -1157,8 +1182,9 @@ mod tests {
                 .unwrap();
             assert_eq!(param.get(), 10);
         }
-        // After a declared parameter went out of scope and was cleared, it should still be
-        // possible to use it as an undeclared parameter, type can now be changed
+        // After a declared parameter went out of scope and was cleared, it should still
+        // be possible to use it as an undeclared parameter, type can now be
+        // changed
         assert!(node
             .use_undeclared_parameters()
             .get::<i64>("declared_int")
