@@ -1,17 +1,18 @@
-use crate::rcl_bindings::*;
-use crate::{error::ToResult, time::Time, to_rclrs_result};
+use crate::{error::ToResult, rcl_bindings::*, time::Time, to_rclrs_result};
 use std::sync::{Arc, Mutex};
 
-/// Enum to describe clock type. Redefined for readability and to eliminate the uninitialized case
-/// from the `rcl_clock_type_t` enum in the binding.
+/// Enum to describe clock type. Redefined for readability and to eliminate the
+/// uninitialized case from the `rcl_clock_type_t` enum in the binding.
 #[derive(Clone, Debug, Copy)]
 pub enum ClockType {
-    /// Time with behavior dependent on the `set_ros_time(bool)` function. If called with `true`
-    /// it will be driven by a manual value override, otherwise it will be System Time
+    /// Time with behavior dependent on the `set_ros_time(bool)` function. If
+    /// called with `true` it will be driven by a manual value override,
+    /// otherwise it will be System Time
     RosTime = 1,
     /// Wall time depending on the current system
     SystemTime = 2,
-    /// Steady time, monotonically increasing but not necessarily equal to wall time.
+    /// Steady time, monotonically increasing but not necessarily equal to wall
+    /// time.
     SteadyTime = 3,
 }
 
@@ -33,8 +34,8 @@ pub struct Clock {
     // TODO(luca) Implement jump callbacks
 }
 
-/// A clock source that can be used to drive the contained clock. Created when a clock of type
-/// `ClockType::RosTime` is constructed
+/// A clock source that can be used to drive the contained clock. Created when a
+/// clock of type `ClockType::RosTime` is constructed
 pub struct ClockSource {
     rcl_clock: Arc<Mutex<rcl_clock_t>>,
 }
@@ -50,8 +51,8 @@ impl Clock {
         Self::make(ClockType::SteadyTime)
     }
 
-    /// Creates a new Clock with `ClockType::RosTime` and a matching `ClockSource` that can be used
-    /// to update it
+    /// Creates a new Clock with `ClockType::RosTime` and a matching
+    /// `ClockSource` that can be used to update it
     pub fn with_source() -> (Self, ClockSource) {
         let clock = Self::make(ClockType::RosTime);
         let clock_source = ClockSource::new(clock.rcl_clock.clone());
@@ -72,8 +73,8 @@ impl Clock {
             // SAFETY: Getting a default value is always safe.
             rcl_clock = Self::init_generic_clock();
             let mut allocator = rcutils_get_default_allocator();
-            // Function will return Err(_) only if there isn't enough memory to allocate a clock
-            // object.
+            // Function will return Err(_) only if there isn't enough memory to allocate a
+            // clock object.
             rcl_clock_init(kind.into(), &mut rcl_clock, &mut allocator)
                 .ok()
                 .unwrap();
@@ -103,9 +104,10 @@ impl Clock {
         }
     }
 
-    /// Helper function to privately initialize a default clock, with the same behavior as
-    /// `rcl_init_generic_clock`. By defining a private function instead of implementing
-    /// `Default`,  we avoid exposing a public API to create an invalid clock.
+    /// Helper function to privately initialize a default clock, with the same
+    /// behavior as `rcl_init_generic_clock`. By defining a private function
+    /// instead of implementing `Default`,  we avoid exposing a public API
+    /// to create an invalid clock.
     // SAFETY: Getting a default value is always safe.
     unsafe fn init_generic_clock() -> rcl_clock_t {
         let allocator = rcutils_get_default_allocator();
@@ -139,8 +141,8 @@ impl ClockSource {
         // SAFETY: Safe if clock jump callbacks are not edited, which is guaranteed
         // by the mutex
         unsafe {
-            // Function will only fail if timer was uninitialized or not RosTime, which should
-            // not happen
+            // Function will only fail if timer was uninitialized or not RosTime, which
+            // should not happen
             rcl_set_ros_time_override(&mut *clock, nanoseconds)
                 .ok()
                 .unwrap();
@@ -153,24 +155,25 @@ impl ClockSource {
         source
     }
 
-    /// Sets the clock to use ROS Time, if enabled the clock will report the last value set through
-    /// `Clock::set_ros_time_override(nanoseconds: i64)`.
+    /// Sets the clock to use ROS Time, if enabled the clock will report the
+    /// last value set through `Clock::set_ros_time_override(nanoseconds:
+    /// i64)`.
     fn set_ros_time_enable(&self, enable: bool) {
         let mut clock = self.rcl_clock.lock().unwrap();
         if enable {
             // SAFETY: Safe if clock jump callbacks are not edited, which is guaranteed
             // by the mutex
             unsafe {
-                // Function will only fail if timer was uninitialized or not RosTime, which should
-                // not happen
+                // Function will only fail if timer was uninitialized or not RosTime, which
+                // should not happen
                 rcl_enable_ros_time_override(&mut *clock).ok().unwrap();
             }
         } else {
             // SAFETY: Safe if clock jump callbacks are not edited, which is guaranteed
             // by the mutex
             unsafe {
-                // Function will only fail if timer was uninitialized or not RosTime, which should
-                // not happen
+                // Function will only fail if timer was uninitialized or not RosTime, which
+                // should not happen
                 rcl_disable_ros_time_override(&mut *clock).ok().unwrap();
             }
         }
@@ -187,8 +190,9 @@ impl Drop for rcl_clock_t {
     }
 }
 
-// SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
-// they are running in. Therefore, this type can be safely sent to another thread.
+// SAFETY: The functions accessing this type, including drop(), shouldn't care
+// about the thread they are running in. Therefore, this type can be safely sent
+// to another thread.
 unsafe impl Send for rcl_clock_t {}
 
 #[cfg(test)]
