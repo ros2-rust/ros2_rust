@@ -54,11 +54,12 @@ impl Display for RclrsError {
 
 /// Struct encapsulating an error message from the rcl layer or below.
 ///
-/// This struct is intended to be returned by the `source` method in the implementation of the
-/// standard [`Error`][1] trait for [`RclrsError`][2].
-/// By doing this, the error message is printed as a separate item in the error chain.
-/// This avoids an unreadable, inconsistent formatting of error codes and messages that would
-/// likely be produced by a combined display of `RclReturnCode` and message.
+/// This struct is intended to be returned by the `source` method in the
+/// implementation of the standard [`Error`][1] trait for [`RclrsError`][2].
+/// By doing this, the error message is printed as a separate item in the error
+/// chain. This avoids an unreadable, inconsistent formatting of error codes and
+/// messages that would likely be produced by a combined display of
+/// `RclReturnCode` and message.
 ///
 /// [1]: std::error::Error
 /// [2]: crate::RclrsError
@@ -325,7 +326,8 @@ pub(crate) fn to_rclrs_result(ret: i32) -> Result<(), RclrsError> {
     let error_state_ptr = unsafe { rcutils_get_error_state() };
     // The returned pointer may be null if the error state has not been set.
     if !error_state_ptr.is_null() {
-        // SAFETY: Dereferencing the pointer is safe since it was checked to be non-null.
+        // SAFETY: Dereferencing the pointer is safe since it was checked to be
+        // non-null.
         let msg_ptr = unsafe { (*error_state_ptr).message.as_ptr() };
         // SAFETY: Pointer has been created from an array, no lifetime issues due to
         // immediate conversion to owned string.
