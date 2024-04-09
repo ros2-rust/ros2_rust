@@ -15,13 +15,17 @@
 // DISTRIBUTION A. Approved for public release; distribution unlimited.
 // OPSEC #4584.
 
-use std::sync::{Arc, Mutex};
-use std::time::Duration;
-use std::vec::Vec;
+use std::{
+    sync::{Arc, Mutex},
+    time::Duration,
+    vec::Vec,
+};
 
-use crate::error::{to_rclrs_result, RclReturnCode, RclrsError, ToResult};
-use crate::rcl_bindings::*;
-use crate::{ClientBase, Context, Node, ServiceBase, SubscriptionBase};
+use crate::{
+    error::{to_rclrs_result, RclReturnCode, RclrsError, ToResult},
+    rcl_bindings::*,
+    ClientBase, Context, Node, ServiceBase, SubscriptionBase,
+};
 
 mod exclusivity_guard;
 mod guard_condition;
