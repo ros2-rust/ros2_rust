@@ -138,9 +138,15 @@ mod tests {
     #[test]
     fn test_non_ros_arguments() -> Result<(), String> {
         // ROS args are expected to be between '--ros-args' and '--'. Everything beside that is 'non-ROS'.
-        let input_args: [String; 6] =
-            ["non-ros1", "--ros-args", "ros-args", "--", "non-ros2", "non-ros3"]
-                .map(|x| x.to_string());
+        let input_args: [String; 6] = [
+            "non-ros1",
+            "--ros-args",
+            "ros-args",
+            "--",
+            "non-ros2",
+            "non-ros3",
+        ]
+        .map(|x| x.to_string());
 
         let non_ros_args: Vec<String> = extract_non_ros_args(input_args).unwrap();
         let expected = ["non-ros1", "non-ros2", "non-ros3"];
