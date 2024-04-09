@@ -6,8 +6,8 @@ use crate::{
 use std::sync::{Arc, Mutex, RwLock, Weak};
 
 /// Time source for a node that drives the attached clock.
-/// If the node's `use_sim_time` parameter is set to `true`, the `TimeSource` will subscribe
-/// to the `/clock` topic and drive the attached clock
+/// If the node's `use_sim_time` parameter is set to `true`, the `TimeSource`
+/// will subscribe to the `/clock` topic and drive the attached clock
 pub(crate) struct TimeSource {
     node: Mutex<Weak<Node>>,
     clock: RwLock<Clock>,
@@ -21,8 +21,9 @@ pub(crate) struct TimeSource {
 
 /// A builder for creating a [`TimeSource`][1].
 ///
-/// The builder pattern allows selectively setting some fields, and leaving all others at their default values.
-/// This struct instance can be created via [`TimeSource::builder()`][2].
+/// The builder pattern allows selectively setting some fields, and leaving all
+/// others at their default values. This struct instance can be created via
+/// [`TimeSource::builder()`][2].
 ///
 /// The default values for optional fields are:
 /// - `clock_qos: QOS_PROFILE_CLOCK`[3]
@@ -81,11 +82,11 @@ impl TimeSource {
         self.clock.read().unwrap().clone()
     }
 
-    /// Attaches the given node to to the `TimeSource`, using its interface to read the
-    /// `use_sim_time` parameter and create the clock subscription.
+    /// Attaches the given node to to the `TimeSource`, using its interface to
+    /// read the `use_sim_time` parameter and create the clock subscription.
     pub(crate) fn attach_node(&self, node: &Arc<Node>) {
-        // TODO(luca) register a parameter callback that calls set_ros_time(bool) once parameter
-        // callbacks are implemented.
+        // TODO(luca) register a parameter callback that calls set_ros_time(bool) once
+        // parameter callbacks are implemented.
         let param = node
             .declare_parameter("use_sim_time")
             .default(false)
@@ -123,7 +124,8 @@ impl TimeSource {
     fn create_clock_sub(&self) -> Arc<Subscription<ClockMsg>> {
         let clock = self.clock_source.clone();
         let last_received_time = self.last_received_time.clone();
-        // Safe to unwrap since the function will only fail if invalid arguments are provided
+        // Safe to unwrap since the function will only fail if invalid arguments are
+        // provided
         self.node
             .lock()
             .unwrap()
