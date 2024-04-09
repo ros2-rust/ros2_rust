@@ -4,14 +4,15 @@ mod value;
 pub(crate) use override_map::*;
 pub use value::*;
 
-use crate::rcl_bindings::*;
-use crate::{call_string_getter_with_rcl_node, RclrsError};
-use std::collections::{btree_map::Entry, BTreeMap};
-use std::fmt::Debug;
-use std::marker::PhantomData;
-use std::sync::{
-    atomic::{AtomicBool, Ordering},
-    Arc, Mutex, RwLock, Weak,
+use crate::{call_string_getter_with_rcl_node, rcl_bindings::*, RclrsError};
+use std::{
+    collections::{btree_map::Entry, BTreeMap},
+    fmt::Debug,
+    marker::PhantomData,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Mutex, RwLock, Weak,
+    },
 };
 
 // This module implements the core logic of parameters in rclrs.

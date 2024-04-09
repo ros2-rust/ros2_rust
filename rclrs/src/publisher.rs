@@ -1,15 +1,18 @@
-use std::borrow::Cow;
-use std::ffi::CStr;
-use std::ffi::CString;
-use std::marker::PhantomData;
-use std::sync::{Arc, Mutex};
+use std::{
+    borrow::Cow,
+    ffi::{CStr, CString},
+    marker::PhantomData,
+    sync::{Arc, Mutex},
+};
 
 use rosidl_runtime_rs::{Message, RmwMessage};
 
-use crate::error::{RclrsError, ToResult};
-use crate::qos::QoSProfile;
-use crate::rcl_bindings::*;
-use crate::{NodeHandle, ENTITY_LIFECYCLE_MUTEX};
+use crate::{
+    error::{RclrsError, ToResult},
+    qos::QoSProfile,
+    rcl_bindings::*,
+    NodeHandle, ENTITY_LIFECYCLE_MUTEX,
+};
 
 mod loaned_message;
 pub use loaned_message::*;
@@ -259,8 +262,7 @@ mod tests {
 
     #[test]
     fn test_publishers() -> Result<(), RclrsError> {
-        use crate::TopicEndpointInfo;
-        use crate::QOS_PROFILE_SYSTEM_DEFAULT;
+        use crate::{TopicEndpointInfo, QOS_PROFILE_SYSTEM_DEFAULT};
         use test_msgs::msg;
 
         let namespace = "/test_publishers_graph";

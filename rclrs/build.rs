@@ -1,6 +1,8 @@
-use std::env;
-use std::fs::read_dir;
-use std::path::{Path, PathBuf};
+use std::{
+    env,
+    fs::read_dir,
+    path::{Path, PathBuf},
+};
 
 const AMENT_PREFIX_PATH: &str = "AMENT_PREFIX_PATH";
 const ROS_DISTRO: &str = "ROS_DISTRO";

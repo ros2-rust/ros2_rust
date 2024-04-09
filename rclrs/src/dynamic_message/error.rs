@@ -1,5 +1,4 @@
-use std::error::Error;
-use std::fmt;
+use std::{error::Error, fmt};
 
 /// An error related to creating a dynamic message based on the name of the message's type.
 #[derive(Debug)]

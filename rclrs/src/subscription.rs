@@ -1,14 +1,17 @@
-use std::ffi::CStr;
-use std::ffi::CString;
-use std::marker::PhantomData;
-use std::sync::atomic::AtomicBool;
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::{
+    ffi::{CStr, CString},
+    marker::PhantomData,
+    sync::{atomic::AtomicBool, Arc, Mutex, MutexGuard},
+};
 
 use rosidl_runtime_rs::{Message, RmwMessage};
 
-use crate::error::{RclReturnCode, ToResult};
-use crate::qos::QoSProfile;
-use crate::{rcl_bindings::*, NodeHandle, RclrsError, ENTITY_LIFECYCLE_MUTEX};
+use crate::{
+    error::{RclReturnCode, ToResult},
+    qos::QoSProfile,
+    rcl_bindings::*,
+    NodeHandle, RclrsError, ENTITY_LIFECYCLE_MUTEX,
+};
 
 mod callback;
 mod message_info;
@@ -327,8 +330,7 @@ mod tests {
 
     #[test]
     fn test_subscriptions() -> Result<(), RclrsError> {
-        use crate::TopicEndpointInfo;
-        use crate::QOS_PROFILE_SYSTEM_DEFAULT;
+        use crate::{TopicEndpointInfo, QOS_PROFILE_SYSTEM_DEFAULT};
 
         let namespace = "/test_subscriptions_graph";
         let graph = construct_test_graph(namespace)?;

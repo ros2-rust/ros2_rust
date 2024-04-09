@@ -1,9 +1,6 @@
-use std::collections::BTreeMap;
-use std::ffi::CStr;
-use std::os::raw::c_char;
+use std::{collections::BTreeMap, ffi::CStr, os::raw::c_char};
 
-use crate::rcl_bindings::*;
-use crate::{ParameterValue, RclrsError, ToResult};
+use crate::{rcl_bindings::*, ParameterValue, RclrsError, ToResult};
 
 // Internal helper struct, iterator for rcl_params_t
 struct RclParamsIter<'a> {
@@ -138,9 +135,7 @@ pub(crate) unsafe fn resolve_parameter_overrides(
 
 #[cfg(test)]
 mod tests {
-    use std::error::Error;
-    use std::ffi::CString;
-    use std::io::Write;
+    use std::{error::Error, ffi::CString, io::Write};
 
     use tempfile::NamedTempFile;
 

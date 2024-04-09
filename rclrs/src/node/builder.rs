@@ -1,10 +1,11 @@
-use std::ffi::CString;
-use std::sync::{Arc, Mutex};
+use std::{
+    ffi::CString,
+    sync::{Arc, Mutex},
+};
 
-use crate::rcl_bindings::*;
 use crate::{
-    ClockType, Context, ContextHandle, Node, NodeHandle, ParameterInterface, QoSProfile,
-    RclrsError, TimeSource, ToResult, ENTITY_LIFECYCLE_MUTEX, QOS_PROFILE_CLOCK,
+    rcl_bindings::*, ClockType, Context, ContextHandle, Node, NodeHandle, ParameterInterface,
+    QoSProfile, RclrsError, TimeSource, ToResult, ENTITY_LIFECYCLE_MUTEX, QOS_PROFILE_CLOCK,
 };
 
 /// A builder for creating a [`Node`][1].
