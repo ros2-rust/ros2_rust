@@ -5,10 +5,11 @@ use std::sync::{
 
 use crate::RclrsError;
 
-/// A helper struct for tracking whether the waitable is currently in a wait set.
+/// A helper struct for tracking whether the waitable is currently in a wait
+/// set.
 ///
-/// When this struct is constructed, which happens when adding an entity to the wait set,
-/// it checks that the atomic boolean is false and sets it to true.
+/// When this struct is constructed, which happens when adding an entity to the
+/// wait set, it checks that the atomic boolean is false and sets it to true.
 /// When it is dropped, which happens when it is removed from the wait set,
 /// or the wait set itself is dropped, it sets the atomic bool to false.
 pub(super) struct ExclusivityGuard<T> {
