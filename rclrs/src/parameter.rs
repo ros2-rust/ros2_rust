@@ -4,10 +4,7 @@ mod value;
 pub(crate) use override_map::*;
 pub use value::*;
 
-use crate::{
-    rcl_bindings::*,
-    {call_string_getter_with_handle, RclrsError},
-};
+use crate::{call_string_getter_with_handle, rcl_bindings::*, RclrsError};
 use std::{
     collections::{btree_map::Entry, BTreeMap},
     fmt::Debug,
