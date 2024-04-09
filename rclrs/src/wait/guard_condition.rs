@@ -4,12 +4,13 @@ use crate::{rcl_bindings::*, Context, RclrsError, ToResult};
 
 /// A waitable entity used for waking up a wait set manually.
 ///
-/// If a wait set that is currently waiting on events should be interrupted from a separate thread, this can be done
-/// by adding an `Arc<GuardCondition>` to the wait set, and calling `trigger()` on the same `GuardCondition` while
-/// the wait set is waiting.
+/// If a wait set that is currently waiting on events should be interrupted from
+/// a separate thread, this can be done by adding an `Arc<GuardCondition>` to
+/// the wait set, and calling `trigger()` on the same `GuardCondition` while the
+/// wait set is waiting.
 ///
-/// The guard condition may be reused multiple times, but like other waitable entities, can not be used in
-/// multiple wait sets concurrently.
+/// The guard condition may be reused multiple times, but like other waitable
+/// entities, can not be used in multiple wait sets concurrently.
 ///
 /// # Example
 /// ```
@@ -47,14 +48,16 @@ pub struct GuardCondition {
     pub(crate) rcl_guard_condition: Mutex<rcl_guard_condition_t>,
     /// An optional callback to call when this guard condition is triggered.
     callback: Option<Box<dyn Fn() + Send + Sync>>,
-    /// A flag to indicate if this guard condition has already been assigned to a wait set.
+    /// A flag to indicate if this guard condition has already been assigned to
+    /// a wait set.
     pub(crate) in_use_by_wait_set: Arc<AtomicBool>,
 }
 
 impl Drop for GuardCondition {
     fn drop(&mut self) {
         unsafe {
-            // SAFETY: No precondition for this function (besides passing in a valid guard condition)
+            // SAFETY: No precondition for this function (besides passing in a valid guard
+            // condition)
             rcl_guard_condition_fini(&mut *self.rcl_guard_condition.lock().unwrap());
         }
     }
@@ -62,8 +65,9 @@ impl Drop for GuardCondition {
 
 impl PartialEq for GuardCondition {
     fn eq(&self, other: &Self) -> bool {
-        // Because GuardCondition controls the creation of the rcl_guard_condition, each unique GuardCondition should have a unique
-        // rcl_guard_condition. Thus comparing equality of this member should be enough.
+        // Because GuardCondition controls the creation of the rcl_guard_condition, each
+        // unique GuardCondition should have a unique rcl_guard_condition. Thus
+        // comparing equality of this member should be enough.
         std::ptr::eq(
             &self.rcl_guard_condition.lock().unwrap().impl_,
             &other.rcl_guard_condition.lock().unwrap().impl_,
@@ -73,7 +77,8 @@ impl PartialEq for GuardCondition {
 
 impl Eq for GuardCondition {}
 
-// SAFETY: rcl_guard_condition is the only member that doesn't implement Send, and it is designed to be accessed from other threads
+// SAFETY: rcl_guard_condition is the only member that doesn't implement Send,
+// and it is designed to be accessed from other threads
 unsafe impl Send for rcl_guard_condition_t {}
 
 impl GuardCondition {
@@ -93,8 +98,10 @@ impl GuardCondition {
         )
     }
 
-    /// Creates a new guard condition by providing the rcl_context_t and an optional callback.
-    /// Note this function enables calling `Node::create_guard_condition`[1] without providing the Context separately
+    /// Creates a new guard condition by providing the rcl_context_t and an
+    /// optional callback. Note this function enables calling
+    /// `Node::create_guard_condition`[1] without providing the Context
+    /// separately
     ///
     /// [1]: Node::create_guard_condition
     pub(crate) fn new_with_rcl_context(
@@ -104,7 +111,8 @@ impl GuardCondition {
         // SAFETY: Getting a zero initialized value is always safe
         let mut guard_condition = unsafe { rcl_get_zero_initialized_guard_condition() };
         unsafe {
-            // SAFETY: The context must be valid, and the guard condition must be zero-initialized
+            // SAFETY: The context must be valid, and the guard condition must be
+            // zero-initialized
             rcl_guard_condition_init(
                 &mut guard_condition,
                 context,
@@ -119,7 +127,8 @@ impl GuardCondition {
         }
     }
 
-    /// Triggers this guard condition, activating the wait set, and calling the optionally assigned callback.
+    /// Triggers this guard condition, activating the wait set, and calling the
+    /// optionally assigned callback.
     pub fn trigger(&self) -> Result<(), RclrsError> {
         unsafe {
             // SAFETY: The rcl_guard_condition_t is valid.
