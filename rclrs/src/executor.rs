@@ -1,7 +1,8 @@
-use crate::rcl_bindings::rcl_context_is_valid;
-use crate::{Node, RclReturnCode, RclrsError, WaitSet};
-use std::sync::{Arc, Mutex, Weak};
-use std::time::Duration;
+use crate::{rcl_bindings::rcl_context_is_valid, Node, RclReturnCode, RclrsError, WaitSet};
+use std::{
+    sync::{Arc, Mutex, Weak},
+    time::Duration,
+};
 
 /// Single-threaded executor implementation.
 pub struct SingleThreadedExecutor {
@@ -35,7 +36,8 @@ impl SingleThreadedExecutor {
         Ok(())
     }
 
-    /// Polls the nodes for new messages and executes the corresponding callbacks.
+    /// Polls the nodes for new messages and executes the corresponding
+    /// callbacks.
     ///
     /// This function additionally checks that the context is still valid.
     pub fn spin_once(&self, timeout: Option<Duration>) -> Result<(), RclrsError> {
@@ -65,7 +67,8 @@ impl SingleThreadedExecutor {
         Ok(())
     }
 
-    /// Convenience function for calling [`SingleThreadedExecutor::spin_once`] in a loop.
+    /// Convenience function for calling [`SingleThreadedExecutor::spin_once`]
+    /// in a loop.
     pub fn spin(&self) -> Result<(), RclrsError> {
         while !{ self.nodes_mtx.lock().unwrap() }.is_empty() {
             match self.spin_once(None) {
