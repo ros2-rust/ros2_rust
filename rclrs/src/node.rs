@@ -25,36 +25,40 @@ impl Drop for rcl_node_t {
     }
 }
 
-// SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
-// they are running in. Therefore, this type can be safely sent to another thread.
+// SAFETY: The functions accessing this type, including drop(), shouldn't care
+// about the thread they are running in. Therefore, this type can be safely sent
+// to another thread.
 unsafe impl Send for rcl_node_t {}
 
 /// A processing unit that can communicate with other nodes.
 ///
-/// Nodes are a core concept in ROS 2. Refer to the official ["Understanding ROS 2 nodes"][1]
-/// tutorial for an introduction.
+/// Nodes are a core concept in ROS 2. Refer to the official ["Understanding ROS
+/// 2 nodes"][1] tutorial for an introduction.
 ///
-/// Ownership of the node is shared with all [`Publisher`]s and [`Subscription`]s created from it.
-/// That means that even after the node itself is dropped, it will continue to exist and be
-/// displayed by e.g. `ros2 topic` as long as its publishers and subscriptions are not dropped.
+/// Ownership of the node is shared with all [`Publisher`]s and
+/// [`Subscription`]s created from it. That means that even after the node
+/// itself is dropped, it will continue to exist and be displayed by e.g. `ros2
+/// topic` as long as its publishers and subscriptions are not dropped.
 ///
 /// # Naming
 /// A node has a *name* and a *namespace*.
-/// The node namespace will be prefixed to the node name to form the *fully qualified
-/// node name*. This is the name that is shown e.g. in `ros2 node list`.
-/// Similarly, the node namespace will be prefixed to all names of topics and services
-/// created from this node.
+/// The node namespace will be prefixed to the node name to form the *fully
+/// qualified node name*. This is the name that is shown e.g. in `ros2 node
+/// list`. Similarly, the node namespace will be prefixed to all names of topics
+/// and services created from this node.
 ///
-/// By convention, a node name with a leading underscore marks the node as hidden.
+/// By convention, a node name with a leading underscore marks the node as
+/// hidden.
 ///
 /// It's a good idea for node names in the same executable to be unique.
 ///
 /// ## Remapping
-/// The namespace and name given when creating the node can be overriden through the command line.
-/// In that sense, the parameters to the node creation functions are only the _default_ namespace and
-/// name.
-/// See also the [official tutorial][1] on the command line arguments for ROS nodes, and the
-/// [`Node::namespace()`] and [`Node::name()`] functions for examples.
+/// The namespace and name given when creating the node can be overriden through
+/// the command line. In that sense, the parameters to the node creation
+/// functions are only the _default_ namespace and name.
+/// See also the [official tutorial][1] on the command line arguments for ROS
+/// nodes, and the [`Node::namespace()`] and [`Node::name()`] functions for
+/// examples.
 ///
 /// ## Rules for valid names
 /// The rules for valid node names and node namespaces are explained in
@@ -110,8 +114,8 @@ impl Node {
 
     /// Returns the name of the node.
     ///
-    /// This returns the name after remapping, so it is not necessarily the same as the name that
-    /// was used when creating the node.
+    /// This returns the name after remapping, so it is not necessarily the same
+    /// as the name that was used when creating the node.
     ///
     /// # Example
     /// ```
@@ -133,8 +137,8 @@ impl Node {
 
     /// Returns the namespace of the node.
     ///
-    /// This returns the namespace after remapping, so it is not necessarily the same as the
-    /// namespace that was used when creating the node.
+    /// This returns the namespace after remapping, so it is not necessarily the
+    /// same as the namespace that was used when creating the node.
     ///
     /// # Example
     /// ```
@@ -159,8 +163,9 @@ impl Node {
 
     /// Returns the fully qualified name of the node.
     ///
-    /// The fully qualified name of the node is the node namespace combined with the node name.
-    /// It is subject to the remappings shown in [`Node::name()`] and [`Node::namespace()`].
+    /// The fully qualified name of the node is the node namespace combined with
+    /// the node name. It is subject to the remappings shown in
+    /// [`Node::name()`] and [`Node::namespace()`].
     ///
     /// # Example
     /// ```
@@ -338,8 +343,9 @@ impl Node {
 
     /// Returns the ROS domain ID that the node is using.
     ///
-    /// The domain ID controls which nodes can send messages to each other, see the [ROS 2 concept article][1].
-    /// It can be set through the `ROS_DOMAIN_ID` environment variable.
+    /// The domain ID controls which nodes can send messages to each other, see
+    /// the [ROS 2 concept article][1]. It can be set through the
+    /// `ROS_DOMAIN_ID` environment variable.
     ///
     /// [1]: https://docs.ros.org/en/rolling/Concepts/About-Domain-ID.html
     ///
@@ -369,8 +375,9 @@ impl Node {
         domain_id
     }
 
-    /// Creates a [`ParameterBuilder`] that can be used to set parameter declaration options and
-    /// declare a parameter as [`OptionalParameter`](crate::parameter::OptionalParameter),
+    /// Creates a [`ParameterBuilder`] that can be used to set parameter
+    /// declaration options and declare a parameter as
+    /// [`OptionalParameter`](crate::parameter::OptionalParameter),
     /// [`MandatoryParameter`](crate::parameter::MandatoryParameter), or
     /// [`ReadOnly`](crate::parameter::ReadOnlyParameter).
     ///
@@ -406,7 +413,8 @@ impl Node {
 
     /// Enables usage of undeclared parameters for this node.
     ///
-    /// Returns a [`Parameters`] struct that can be used to get and set all parameters.
+    /// Returns a [`Parameters`] struct that can be used to get and set all
+    /// parameters.
     pub fn use_undeclared_parameters(&self) -> Parameters {
         self.parameter.allow_undeclared();
         Parameters {
@@ -434,10 +442,10 @@ impl Node {
     }
 }
 
-// Helper used to implement call_string_getter(), but also used to get the FQN in the Node::new()
-// function, which is why it's not merged into Node::call_string_getter().
-// This function is unsafe since it's possible to pass in an rcl_node_t with dangling
-// pointers etc.
+// Helper used to implement call_string_getter(), but also used to get the FQN
+// in the Node::new() function, which is why it's not merged into
+// Node::call_string_getter(). This function is unsafe since it's possible to
+// pass in an rcl_node_t with dangling pointers etc.
 pub(crate) unsafe fn call_string_getter_with_handle(
     rcl_node: &rcl_node_t,
     getter: unsafe extern "C" fn(*const rcl_node_t) -> *const c_char,
