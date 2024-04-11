@@ -4,7 +4,7 @@
 * Time: 20 minutes
 <details><summary>Background</summary>
 
-In this tutorial you will create a 
+In this tutorial you will create a pair of 
 [nodes](https://docs.ros.org/en/humble/Tutorials/Beginner-CLI-Tools/Understanding-ROS2-Nodes/Understanding-ROS2-Nodes.html) that pass information to each other via a 
 [topic](https://docs.ros.org/en/humble/Tutorials/Beginner-CLI-Tools/Understanding-ROS2-Topics/Understanding-ROS2-Topics.html) in the form of string messages. The example used here is a simple "talker" and "listener" system; one node publishes data and the other subscribes to the topic to receive that data.
 
@@ -12,7 +12,7 @@ Since Rust doesn't have inheritance, it's not possible to inherit from `Node` as
 
 The code used in these examples can be found [here](https://gitlab.com/ros21923912/simple_ros2_node)  
 <div style="margin-left:20px;">
-<details><summary>Sidenode to dependencies</summary>
+<details><summary>Side-note on dependencies</summary>
 
 You may be wondering why you can't just add all your ros2-specific dependencies to `cargo.toml` with `cargo add ${dependencie}` and have to edit this file manually. Here is why:
 Almost none of the ROS2 dependencies you'll need for your ros2 rust node development currently exist on [crates.io](https://crates.io/), the main source for rust depencies. So the add command simply can't find the dependency targets. What colcon does by compiling the ros2 rust dependencies and your ros2 rust project is redirect the cargo search for dependencies directly into your `workspace/install` folder, where it'll find locally generated rust projects to use as dependencies. In particular, almost all message types will be called as dependencies for your ros2 rust project this way.
@@ -27,7 +27,7 @@ In previous tutorials, you learned how to create a [workspace](https://docs.ros.
 
 A basic understanding of [RUST](https://www.rust-lang.org/) is recommended, but not entirely necessary.
 Before developing ROS2 RUST nodes, you must follow the 
-[installation instructions](https://github.com/ros2-rust/ros2_rust/blob/main/README.md) for them.
+[installation instructions](https://github.com/ros2-rust/ros2_rust/blob/main/README.md) for [`rclrs`](https://docs.rs/rclrs/latest/rclrs/).
 
 
 </details>
@@ -41,7 +41,7 @@ from building packages for Python or C/C++.
 First, you'll need to create and go into a standard [cargo](https://doc.rust-lang.org/cargo/) 
 project as follows:
 ```
-cargo new your_project_name && your_project_name
+cargo new your_project_name && cd your_project_name
 ```
 In the [`Cargo.toml`](https://doc.rust-lang.org/book/ch01-03-hello-cargo.html) file, add a dependency on `rclrs = "*"` and `std_msgs = "*"` by editing this file. For a full Introduction into RUST, please read the very good [RUST book](https://doc.rust-lang.org/book/title-page.html). Your `Cargo.toml` could now look like this:
 ```
@@ -63,9 +63,9 @@ Additionally, create a new `package.xml` if you want your node to be buildable w
 <package format="3">
   <name>your_project_name</name>
   <version>0.0.0</version>
-  <description>TODO: Package description. Seriously. Please make a Package description. We all will thank for it.</description>
+  <description>TODO: Package description.</description>
   <maintainer email="user@todo.todo">user</maintainer>
-  <license>TODO: License declaration. Licenses are Great. Please add a Licence</license>
+  <license>TODO: License declaration.</license>
 
   <depend>rclrs</depend>
   <depend>std_msgs</depend>
@@ -90,7 +90,7 @@ Of course, you can use any capable editor or even your file explorer to do this.
 
 <details><summary>Write the publisher node</summary>
 
-To construct a node, replace the code in your main.rs with the [following](https://gitlab.com/ros21923912/simple_ros2_node/-/raw/more_simple_nodes/src/simple_publisher.rs?ref_type=heads):  
+To construct a node, replace the code in your `main.rs` file with the [following](https://gitlab.com/ros21923912/simple_ros2_node/-/raw/more_simple_nodes/src/simple_publisher.rs?ref_type=heads):  
 ```
 /// Creates a SimplePublisherNode, initializes a node and publisher, and provides
 /// methods to publish a simple "Hello World" message on a loop in separate threads.
@@ -106,7 +106,7 @@ struct SimplePublisherNode {
     node: Arc<Node>,
     _publisher: Arc<Publisher<StringMsg>>,
 }
-/// Creates a new SimplePublisherNode by initializing a node and publisher.
+/// An impl block in Rust defines methods or associated functions for a specific type.
 ///
 /// The `new` function takes a context and returns a Result containing the
 /// initialized SimplePublisherNode or an error. It creates a node with the
@@ -134,13 +134,13 @@ impl SimplePublisherNode {
     /// Creates a StringMsg with "Hello World" as the data, publishes it on
     /// the `_publisher`, and returns a Result. This allows regularly publishing
     /// a simple message on a loop.
-    fn publish_data(&self,inkrement:i32) -> Result<i32,RclrsError> {
+    fn publish_data(&self,increment:i32) -> Result<i32,RclrsError> {
 
         let msg: StringMsg = StringMsg {
-            data: format!("Hello World {}",inkrement),
+            data: format!("Hello World {}",increment),
         };
         self._publisher.publish(msg).unwrap();
-        Ok(inkrement+1_i32)
+        Ok(increment+1_i32)
     }
 }
 
@@ -157,43 +157,49 @@ fn main() -> Result<(),RclrsError> {
     let context = Context::new(std::env::args()).unwrap();
     let publisher = Arc::new(SimplePublisherNode::new(&context).unwrap());
     let publisher_other_thread = Arc::clone(&publisher);
-    let mut iterator: i32=0;
+    let mut count: i32=0;
     thread::spawn(move || -> () {
         iter::repeat(()).for_each(|()| {
             thread::sleep(Duration::from_millis(1000));
-            iterator=publisher_other_thread.publish_data(iterator).unwrap();
+            count=publisher_other_thread.publish_data(count).unwrap();
         });
     });
     rclrs::spin(publisher.node.clone())
 }
 ```
 
-<details><summary>Examine the Code:</summary>
+<details><summary>Examining the code in detail:</summary>
 
-#### This first 3 lines of the Rust code imports tools for thread synchronization, time handling, iteration, threading, ROS 2 communication, and string message publishing. It's likely setting up a ROS 2 node that publishes string messages.
+#### The first 3 lines of the Rust code imports tools for thread synchronization, time handling, iteration, threading, ROS 2 communication, and string message publishing.
 ```
 use std::{sync::Arc,time::Duration,iter,thread};
 use rclrs::{RclrsError,QOS_PROFILE_DEFAULT,Context,create_node,Node,Publisher};
 use std_msgs::msg::String as StringMsg;
 ```
-* use std::{sync::Arc, time::Duration, iter, thread};: - Imports specific features from the standard library: - Arc is for thread-safe shared ownership of data. - Duration represents a time span. - iter provides tools for working with iterators. - thread enables creating and managing threads.
-* use rclrs::{RclrsError, QOS_PROFILE_DEFAULT, Context, create_node, Node, Publisher};: - Imports elements for ROS 2 communication: - RclrsError for handling errors. - QOS_PROFILE_DEFAULT likely for default Quality of Service settings. - Context, create_node, Node, Publisher are for ROS 2 node creation and publishing.
-* use std_msgs::msg::String as StringMsg;: - Imports the StringMsg type for publishing string messages.  
+* use std::{sync::Arc, time::Duration, iter, thread};: Imports specific features from the standard library: 
+    - Arc is for thread-safe shared ownership of data. 
+    - Duration represents a time span. 
+    - iter provides tools for working with iterators. - thread enables creating and managing threads.
+* use rclrs::{RclrsError, QOS_PROFILE_DEFAULT, Context, create_node, Node, Publisher};: 
+    - Imports elements for ROS 2 communication: 
+        - RclrsError for handling errors. 
+        - QOS_PROFILE_DEFAULT for default Quality of Service settings. 
+        - Context, create_node, Node, Publisher are for ROS 2 node creation and publishing. publishing.
+* use std_msgs::msg::String as StringMsg;: Imports the StringMsg type for publishing string messages.  
 
-#### Next this struct defines a SimplePublisherNode which holds references to a ROS 2 node and a publisher for string messages.
+#### Next, this structure defines a SimplePublisherNode which holds references to a ROS 2 node and a publisher for string messages.
 ```
 struct SimplePublisherNode {
     node: Arc<Node>,
     _publisher: Arc<Publisher<StringMsg>>,
 }
 ```
-1. Structure:
-struct SimplePublisherNode: This line defines a new struct named SimplePublisherNode. It serves as a blueprint for creating objects that hold information related to a simple publisher node in ROS 2.
+1. Structure:  
+struct SimplePublisherNode: This line defines a new struct named SimplePublisherNode. It serves as a blueprint for creating objects that hold information related to a simple publisher node in ROS 2.  
 
 2. Members:
 * node: Arc<Node>: This member stores a reference to a ROS 2 node, wrapped in an Arc (Atomic Reference Counted) smart pointer. This allows for safe sharing of the node reference across multiple threads.  
 * _publisher: Arc<Publisher<StringMsg>>: This member stores a reference to a publisher specifically for string messages (StringMsg), also wrapped in an Arc for thread safety. The publisher is responsible for sending string messages to other nodes in the ROS 2 system.  
-
 3. This code defines methods for the SimplePublisherNode struct. The new method creates a ROS 2 node and publisher, storing them in the struct. The publish_data method publishes a string message with a counter and returns the incremented counter.
 ```
 impl SimplePublisherNode {
@@ -204,53 +210,51 @@ impl SimplePublisherNode {
             .unwrap();
         Ok(Self { node, _publisher, })
     }
-    fn publish_data(&self,inkrement:i32) -> Result<i32,RclrsError> {
+    fn publish_data(&self,increment:i32) -> Result<i32,RclrsError> {
 
         let msg: StringMsg = StringMsg {
-            data: format!("Hello World {}",inkrement),
+            data: format!("Hello World {}",increment),
         };
         self._publisher.publish(msg).unwrap();
-        Ok(inkrement+1_i32)
+        Ok(increment+1_i32)
     }
 }
 ```
 
-1. Implementation Block:
-`impl SimplePublisherNode { ... }`: This line indicates that methods are being defined for the `SimplePublisherNode` struct.
-
-2. Constructor Method:
-* `fn new(context: &Context) -> Result<Self, RclrsError> { ... }`: This method serves as a constructor for creating instances of SimplePublisherNode.
-    * It takes a Context object as input, which is necessary for interacting with the ROS 2 system.
-    * It returns a Result type, indicating either a successful Self (the created SimplePublisherNode object) or an RclrsError if something goes wrong.
-    * Inside the new method:
-        * `let node = create_node(context, "simple_publisher").unwrap();`: Creates a new ROS 2 node named "simple_publisher" within the given context. The unwrap() unwraps the result, handling any errors immediately.
-        * `let _publisher = node.create_publisher("publish_hello", QOS_PROFILE_DEFAULT).unwrap();`: Creates a publisher for string messages on the topic "publish_hello" with default quality of service settings.
-        * `Ok(Self { node, _publisher, })`: Returns a Result with the newly created SimplePublisherNode object, containing the node and publisher references.
-
+1. Implementation Block:   
+`impl SimplePublisherNode { ... }`: This line indicates that methods are being defined for the `SimplePublisherNode` struct.  
+2. Constructor Method:  
+* `fn new(context: &Context) -> Result<Self, RclrsError> { ... }`: This method serves as a constructor for creating instances of SimplePublisherNode.  
+    * It takes a Context object as input, which is necessary for interacting with the ROS 2 syste.  
+    * It returns a Result type, indicating either a successful Self (the created SimplePublisherNode object) or an RclrsError if something goes wrong.  
+    * Inside the new method:  
+        * `let node = create_node(context, "simple_publisher").unwrap();`: Creates a new ROS 2 node named "simple_publisher" within the given context. The unwrap() unwraps the result, handling any errors immediately by forcing the program to abort (`panic`) if something goes wrong. Since our code can't function properly if the node is not able to be created, this is a valid error-handling response for our use-case.  
+        * `let _publisher = node.create_publisher("publish_hello", QOS_PROFILE_DEFAULT).unwrap();`: Creates a publisher for string messages on the topic "publish_hello" with default quality of service settings.  
+        * `Ok(Self { node, _publisher, })`: Returns an `Ok` Result with the newly created SimplePublisherNode object, containing the node and publisher references.  
 3. Publishing Method:
-* `fn publish_data(&self, inkrement: i32) -> Result<i32, RclrsError> { ... }`: This method publishes a string message and increments a counter.
-    * It takes an inkrement value (an integer) as input, which is likely used for counting purposes within the message content.
-    * It also returns a Result type, indicating either the incremented inkrement value or an RclrsError if publishing fails.
+* `fn publish_data(&self, increment: i32) -> Result<i32, RclrsError> { ... }`: This method publishes a string message and increments a counter.
+    * It takes an inkrement value (an integer) as input, which is used for counting purposes within the message content.
+    * It also returns a Result type, indicating either the incremented value or an RclrsError if publishing fails.
     * Inside the publish_data method:
-        * `let msg: StringMsg = StringMsg { data: format!("Hello World {}", inkrement), };`:tCreates a string message with the content "Hello World" followed by the inkrement value.
+        * `let msg: StringMsg = StringMsg { data: format!("Hello World {}", increment), };`: Creates a string message with the content "Hello World" followed by the inkrement value.
         * self._publisher.publish(msg).unwrap();: Publishes the created message onto the topic associated with the publisher.
-        * Ok(inkrement + 1_i32): Returns a Result with the incremented inkrement value.  
+        * Ok(increment + 1_i32): Returns a Result with the incremented increment value.  
 
 #### The main Method creates a ROS 2 node that publishes string messages at a rate of 1 Hz.
 
 ```
 fn main() -> Result<(),RclrsError> {
-   let context = Context::new(std::env::args()).unwrap();
-   let publisher = Arc::new(SimplePublisherNode::new(&context).unwrap());
-   let publisher_other_thread = Arc::clone(&publisher);
-   let mut iterator: i32=0;
-   thread::spawn(move || -> () {
-       iter::repeat(()).for_each(|()| {
-           thread::sleep(Duration::from_millis(1000));
-           iterator=publisher_other_thread.publish_data(iterator).unwrap();
-       });
-   });
-   rclrs::spin(publisher.node.clone())
+    let context = Context::new(std::env::args()).unwrap();
+    let publisher = Arc::new(SimplePublisherNode::new(&context).unwrap());
+    let publisher_other_thread = Arc::clone(&publisher);
+    let mut count: i32=0;
+    thread::spawn(move || -> () {
+        iter::repeat(()).for_each(|()| {
+            thread::sleep(Duration::from_millis(1000));
+            count=publisher_other_thread.publish_data(count).unwrap();
+        });
+    });
+    rclrs::spin(publisher.node.clone())
 }
 ```
 
@@ -278,22 +282,10 @@ fn main() -> Result<(),RclrsError> {
 * `rclrs::spin(publisher.node.clone());`: Keeps the main thread running, processing ROS 2 events and messages. Uses a cloned reference to the node to ensure it remains active even with other threads.
 
 </details>
-
-Once you have implemented the code, you are ready to run it:
-```
-cd ${MainFolderOfWorkspace}
-colcon build
-source install/setub.bash
-```
-And finally run with:
-```
-ros2 run your_project_name your_project_name
-```
-(Please give your package a better name than me ;) )
 </details>
 <details><summary>Having several Ros2 rust nodes in one Package</summary>
 
-Of course, you can write for each node you want to implement its own package, and that can have it's advantages. I implore you to use some cargo tricks and add some binary targets to your `cargo.toml`. this could look like this:
+Of course, you can write for each node you want to implement its own package, and that can have it's advantages. I implore you to use some cargo tricks and add some binary targets to your `cargo.toml`. That could look like this:
 ```
 [package]
 name = "your_package_name"
@@ -315,7 +307,7 @@ cd ${MainFolderOfWorkspace}
 colcon build
 source install/setub.bash
 ```
-node will look like this:
+Running the node will look like this:
 ```
 ros2 run your_package_name simple_publisher
 ```
@@ -324,13 +316,13 @@ As you can see, you are now calling your node by the name declared in `[[bin]]` 
 <details><summary>Write the subscriber node</summary> 
 
 Of course, you can implement a new ros2 rust package for this node. You can find out how to do this in the section called 'Create a package'.
-Or you can add a new binary target to your package. Then just add a new `<file>.rs` to your source directory - for simplicity I'll call this file `simple_subscriber.rs` - and add a corresponding binary target to your `Cargo.toml`:
+Or you can add a new binary target to your package. To do so, just add a new `<file>.rs` to your source directory - for simplicity I'll call this file `simple_subscriber.rs` - and add a corresponding binary target to your `Cargo.toml`:
 ```
 [[bin]]
 name="simple_subscriber"
 path="src/simple_subscriber.rs"
 ```
-To construct the subscriber node, put the [following](https://gitlab.com/ros21923912/simple_ros2_node/-/raw/more_simple_nodes/src/simple_subscriber.rs?ref_type=heads) code into a file.rs - in my case its the `src/simple_subscriber.rs`:
+To construct the subscriber node, put the [following](https://gitlab.com/ros21923912/simple_ros2_node/-/blob/more_simple_nodes/src/simple_subscriber.rs?ref_type=heads) code into a file.rs - in my case its the `src/simple_subscriber.rs`:
 ```
 use rclrs::{create_node, Context, Node, RclrsError, Subscription, QOS_PROFILE_DEFAULT};
 use std::{
@@ -403,16 +395,130 @@ fn main() -> Result<(), RclrsError> {
     rclrs::spin(subscription.node.clone())
 }
 ```
-Once you've implemented the code, you're ready to make it runnable:
+<details><summary>Examining the code in detail:</summary>
+
+#### The main Construct:
+```
+pub struct SimpleSubscriptionNode {
+    node: Arc<Node>,
+    _subscriber: Arc<Subscription<StringMsg>>,
+    data: Arc<Mutex<Option<StringMsg>>>,
+}
+```
+Instead of a Publisher, there is a Subscription object in the Subscriber node. The data needs to be an `Arc<Mutex<Option<StringMsg>>>` because there can be errors in the data transfer process and this can be caught by including the value of the incoming subscription in an optional.
+#### This code defines a function named new that likely creates an instance of some SimpleSubscriptionNode.
+```
+    fn new(context: &Context) -> Result<Self, RclrsError> {
+        let node = create_node(context, "simple_subscription").unwrap();
+        let data: Arc<Mutex<Option<StringMsg>>> = Arc::new(Mutex::new(None));
+        let data_mut: Arc<Mutex<Option<StringMsg>>> = Arc::clone(&data);
+        let _subscriber = node
+            .create_subscription::<StringMsg, _>(
+                "publish_hello",
+                QOS_PROFILE_DEFAULT,
+                move |msg: StringMsg| {
+                    *data_mut.lock().unwrap() = Some(msg);
+                },
+            )
+            .unwrap();
+        Ok(Self {
+            node,
+            _subscriber,
+            data,
+        })
+    }
+
+```
+A few special features:
+1. Initializing Shared Data:
+    * `let data: Arc<Mutex<Option<StringMsg>>> = Arc::new(Mutex::new(None));`
+        This line creates a shared data structure that will hold the received message.
+        * `Arc<Mutex<Option<StringMsg>>>`: This is a complex type combining several functionalities:  
+            * `Arc<T>`: An atomically reference-counted pointer (Arc) allows multiple parts of the code to safely access the same data (T).
+            * `Mutex<T>`: A mutual exclusion lock (`Mutex`) ensures only one thread can modify the data (`T`) at a time, preventing race conditions.  
+            * `Option<StringMsg>`: This represents an optional value that can either hold a message of type `StringMsg` or be `None` if no message has been received yet.
+    * `Arc::new(Mutex::new(None))`: This creates a new instance of `Arc<Mutex<Option<StringMsg>>>` and initializes the inner `Mutex` with `None`.
+2. Creating a Subscription:
+    * `let _subscriber = node.create_subscription::<StringMsg, _>(...`
+        This line attempts to create a subscription using the created ROS node (`node`).
+        * `create_subscription`: This is creates a subscription to a specific topic.
+        * `<StringMsg, _>`: This specifies the type of message the subscription is interested in (`StringMsg`) and a placeholder (`_`) for the callback closure type.
+            `"publish_hello"`: This is the name of the ROS topic this node wants to subscribe to. Messages of type StringMsg are expected on this topic.  
+        * `move |msg: StringMsg| { ... }`: This is a [closure](https://doc.rust-lang.org/book/ch13-01-closures.html) (anonymous function) that will be called whenever a new message arrives on the subscribed topic.
+        * `msg: StringMsg`: This parameter receives the received message of type `StringMsg`. The closure body (`{...}`) uses the `Mutex` to access and update the shared data (`data_mut`) with the received message.  
+3. Cloning the Shared Data:
+    * `let data_mut: Arc<Mutex<Option<StringMsg>>> = Arc::clone(&data)`; This line creates another `Arc` reference (`data_mut`) pointing to the same underlying data structure as data. This allows the closure to access and modify the shared data.
+#### this function provides a way to access and potentially use the received message data stored within the `Arc<Mutex<Option<StringMsg>>>` member variable of the struct. It checks if a message exists, prints it if available, or informs the user there's no message yet.
+```
+fn data_callback(&self) -> Result<(), RclrsError> {
+    if let Some(data) = self.data.lock().unwrap().as_ref() {
+         println!("{}", data.data);
+    } else {
+        println!("No message available yet.");
+    }
+    Ok(())
+}
+
+```
+A few special features:
+
+
+1. Checking for Received Message:
+    * `if let Some(data) = self.data.lock().unwrap().as_ref() { ... }`: This is an if-let statement used for pattern matching on optional values.
+    * `self.data`: This accesses the member variable data of the struct (likely the `Arc<Mutex<Option<StringMsg>>>` created earlier).
+    * `.lock().unwrap()`: This calls the lock method on the `Mutex` to gain exclusive access to the shared data. If another thread already holds the lock, lock might block until the lock is released.
+        `.as_ref()`: This converts the borrowed `MutexGuard` (returned by `.lock()`) into a reference to the inner value (`Option<StringMsg>`).
+    * `Some(data)`: This pattern attempts to match the value inside the Option with `Some(data)`. If there's a message (`Some(data)`), the code block after the if is executed, and data is bound to the actual message content of type `StringMsg`.
+
+</details>
+</details>
+<details><summary>Build and Run</summary>
+
+Once you have implemented the code, you are ready to make it runnable:
 ```
 cd ${MainFolderOfWorkspace}
 colcon build
-source install/setub.bash
 ```
-And finally run with:
+Please note that you'll need to run your nodes in separate terminals. In each terminal, you'll need to source your ros2 installation separately. So for each of the two nodes you've built so far, open a terminal and type the following:
 ```
+cd ${MainFolderOfWorkspace}
+source install/setup.bash
 ros2 run your_project_name your_node_name
 ```
-(Please give your package a better name than me ;) )
-</details>
+In my case, the nodes are called `simple_publisher` and `simple_subscriber`. You can name your nodes whatever you like. It is important that the publisher and subscriber use the same topic type and name.
+If you haven't had any errors so far and have successfully started the Publisher and Subscriber, you should see something similar in the Subscriber's Terminal window:
+```
+Hello World 230
+Hello World 231
+Hello World 232
+Hello World 233
+Hello World 234
+Hello World 235
+Hello World 236
+Hello World 237
+Hello World 238
+Hello World 239
+Hello World 240
+Hello World 241
+Hello World 242
+Hello World 243
+Hello World 244
+Hello World 245
+Hello World 246
+```
+My nodes have been running for some time.
+Enter `Ctrl+C` in each terminal to stop the nodes from spinning.
 </details></div>
+</details>
+
+<details><summary>Summary</summary>
+
+You created two nodes to publish and subscribe to data over a topic. Before running them, you added their dependencies and entry points to the package configuration files.
+
+</details></details>
+
+<details><summary>Last thoughts</summary>
+
+At the end of the day, tools must not only work more safely and efficiently from a purely rational point of view, but they must also give the end user, as well as the developer, a good time. Hopefully you had fun developing the two nodes. Without fun, software development can be boring and will often prevent you from using this tool again. 
+
+</details>
