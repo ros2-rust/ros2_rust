@@ -5,12 +5,15 @@
 //!
 //! The central type of this module is [`DynamicMessage`].
 
-use std::fmt::{self, Display};
-use std::path::PathBuf;
-use std::sync::Arc;
+use std::{
+    fmt::{self, Display},
+    path::PathBuf,
+    sync::Arc,
+};
 
-use crate::rcl_bindings::rosidl_typesupport_introspection_c__MessageMembers_s as rosidl_message_members_t;
-use crate::rcl_bindings::*;
+use crate::rcl_bindings::{
+    rosidl_typesupport_introspection_c__MessageMembers_s as rosidl_message_members_t, *,
+};
 
 mod error;
 pub use error::*;

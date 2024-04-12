@@ -1,15 +1,18 @@
-use std::boxed::Box;
-use std::collections::HashMap;
-use std::ffi::CString;
-use std::sync::atomic::AtomicBool;
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::{
+    boxed::Box,
+    collections::HashMap,
+    ffi::CString,
+    sync::{atomic::AtomicBool, Arc, Mutex, MutexGuard},
+};
 
 use futures::channel::oneshot;
 use rosidl_runtime_rs::Message;
 
-use crate::error::{RclReturnCode, ToResult};
-use crate::MessageCow;
-use crate::{rcl_bindings::*, NodeHandle, RclrsError, ENTITY_LIFECYCLE_MUTEX};
+use crate::{
+    error::{RclReturnCode, ToResult},
+    rcl_bindings::*,
+    MessageCow, NodeHandle, RclrsError, ENTITY_LIFECYCLE_MUTEX,
+};
 
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
 // they are running in. Therefore, this type can be safely sent to another thread.

@@ -1,7 +1,6 @@
 use std::sync::{atomic::AtomicBool, Arc, Mutex};
 
-use crate::rcl_bindings::*;
-use crate::{Context, ContextHandle, RclrsError, ToResult};
+use crate::{rcl_bindings::*, Context, ContextHandle, RclrsError, ToResult};
 
 /// A waitable entity used for waking up a wait set manually.
 ///

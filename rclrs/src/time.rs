@@ -1,9 +1,10 @@
-use crate::rcl_bindings::*;
-use crate::vendor::builtin_interfaces;
-use std::num::TryFromIntError;
-use std::ops::{Add, Sub};
-use std::sync::{Mutex, Weak};
-use std::time::Duration;
+use crate::{rcl_bindings::*, vendor::builtin_interfaces};
+use std::{
+    num::TryFromIntError,
+    ops::{Add, Sub},
+    sync::{Mutex, Weak},
+    time::Duration,
+};
 
 /// Struct that represents time.
 #[derive(Clone, Debug)]

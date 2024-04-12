@@ -1,7 +1,8 @@
-use crate::rcl_bindings::rcl_context_is_valid;
-use crate::{Node, RclReturnCode, RclrsError, WaitSet};
-use std::sync::{Arc, Mutex, Weak};
-use std::time::Duration;
+use crate::{rcl_bindings::rcl_context_is_valid, Node, RclReturnCode, RclrsError, WaitSet};
+use std::{
+    sync::{Arc, Mutex, Weak},
+    time::Duration,
+};
 
 /// Single-threaded executor implementation.
 pub struct SingleThreadedExecutor {
