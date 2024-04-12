@@ -1,0 +1,14 @@
+<package format="3">
+  <name>your_project_name</name>
+  <version>0.0.0</version>
+  <description>TODO: Package description. Seriously. Please make a Package description. We all will thank for it.</description>
+  <maintainer email="user@todo.todo">user</maintainer>
+  <license>TODO: License declaration. Licenses are Great. Please add a Licence</license>
+
+  <depend>rclrs</depend>
+  <depend>std_msgs</depend>
+
+  <export>
+    <build_type>ament_cargo</build_type>
+  </export>
+</package>
