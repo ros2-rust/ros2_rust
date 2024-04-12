@@ -1,5 +1,5 @@
 # Writing a simple publisher and subscriber (RUST)
-* Goal: Create and run a publisher and subscriber node using Python.
+* Goal: Create and run a publisher and subscriber node using RUST.
 * Tutorial level: Beginner
 * Time: 20 minutes
 <details><summary>Background</summary>
@@ -8,14 +8,14 @@ In this tutorial you will create a pair of
 [nodes](https://docs.ros.org/en/humble/Tutorials/Beginner-CLI-Tools/Understanding-ROS2-Nodes/Understanding-ROS2-Nodes.html) that pass information to each other via a 
 [topic](https://docs.ros.org/en/humble/Tutorials/Beginner-CLI-Tools/Understanding-ROS2-Topics/Understanding-ROS2-Topics.html) in the form of string messages. The example used here is a simple "talker" and "listener" system; one node publishes data and the other subscribes to the topic to receive that data.
 
-Since Rust doesn't have inheritance, it's not possible to inherit from `Node` as is common practice in [`rclcpp`](https://docs.ros.org/en/humble/Tutorials/Beginner-Client-Libraries/Writing-A-Simple-Cpp-Publisher-And-Subscriber.html) or [`rclpy`](https://docs.ros.org/en/humble/Tutorials/Beginner-Client-Libraries/Writing-A-Simple-Py-Publisher-And-Subscriber.html).
+Since RUST doesn't have inheritance, it's not possible to inherit from `Node` as is common practice in [`rclcpp`](https://docs.ros.org/en/humble/Tutorials/Beginner-Client-Libraries/Writing-A-Simple-Cpp-Publisher-And-Subscriber.html) or [`rclpy`](https://docs.ros.org/en/humble/Tutorials/Beginner-Client-Libraries/Writing-A-Simple-Py-Publisher-And-Subscriber.html).
 
-The code used in these examples can be found [here](https://gitlab.com/ros21923912/simple_ros2_node)  
+The code used in these examples can be found [here](https://gitlab.com/ROS21923912/simple_ROS2_node)  
 <div style="margin-left:20px;">
 <details><summary>Side-note on dependencies</summary>
 
-You may be wondering why you can't just add all your ros2-specific dependencies to `cargo.toml` with `cargo add ${dependencie}` and have to edit this file manually. Here is why:
-Almost none of the ROS2 dependencies you'll need for your ros2 rust node development currently exist on [crates.io](https://crates.io/), the main source for rust depencies. So the add command simply can't find the dependency targets. What colcon does by compiling the ros2 rust dependencies and your ros2 rust project is redirect the cargo search for dependencies directly into your `workspace/install` folder, where it'll find locally generated rust projects to use as dependencies. In particular, almost all message types will be called as dependencies for your ros2 rust project this way.
+You may be wondering why you can't just add all your ROS2-specific dependencies to `Cargo.toml` with `cargo add YOUR_DEPENDENCIES` and have to edit this file manually. Here is why:
+Almost none of the ROS2 dependencies you'll need for your ROS2 RUST node development currently exist on [crates.io](https://crates.io/), the main source for RUST depencies. So the add command simply can't find the dependency targets. What colcon does by compiling the ROS2 RUST dependencies and your ROS2 RUST project is redirect the cargo search for dependencies directly into your `workspace/install` folder, where it'll find locally generated RUST projects to use as dependencies. In particular, almost all message types will be called as dependencies for your ROS2 RUST project this way.
 
 </details></div>
 
@@ -23,11 +23,13 @@ Almost none of the ROS2 dependencies you'll need for your ros2 rust node develop
 
 <details><summary>Prerequisites </summary> 
 
-In previous tutorials, you learned how to create a [workspace](https://docs.ros.org/en/humble/Tutorials/Beginner-Client-Libraries/Creating-A-Workspace/Creating-A-Workspace.html) and [create a package](https://docs.ros.org/en/humble/Tutorials/Beginner-Client-Libraries/Creating-Your-First-ROS2-Package.html).
+Basic concepts of development with ROS2 should be known:
+* [workspaces](https://docs.ros.org/en/humble/Tutorials/Beginner-Client-Libraries/Creating-A-Workspace/Creating-A-Workspace.html)
+* [packages](https://docs.ros.org/en/humble/Tutorials/Beginner-Client-Libraries/Creating-Your-First-ROS2-Package.html).
 
-A basic understanding of [RUST](https://www.rust-lang.org/) is recommended, but not entirely necessary.
-Before developing ROS2 RUST nodes, you must follow the 
-[installation instructions](https://github.com/ros2-rust/ros2_rust/blob/main/README.md) for [`rclrs`](https://docs.rs/rclrs/latest/rclrs/).
+A basic understanding of [RUST](https://doc.rust-lang.org/book/) is recommended, but not entirely necessary.
+Before developing [ros2-rust](https://github.com/ros2-rust/ros2_rust) nodes, you must follow the 
+[installation instructions](https://github.com/ros2-rust/ros2-rust/blob/main/README.md) for [`rclrs`](https://docs.rs/rclrs/latest/rclrs/).
 
 
 </details>
@@ -35,13 +37,13 @@ Before developing ROS2 RUST nodes, you must follow the
 <details><summary>Tasks </summary> 
 <div style="margin-left:20px;"><details><summary>Create a Package</summary>
 
-Currently, building a package for ROS2 RUST is different 
-from building packages for Python or C/C++.  
+Currently, building a package for ros2-rust is different 
+from building packages for [Python](https://docs.ros.org/en/humble/Tutorials/Beginner-Client-Libraries/Writing-A-Simple-Py-Publisher-And-Subscriber.html) or [C/C++](https://docs.ros.org/en/humble/Tutorials/Beginner-Client-Libraries/Writing-A-Simple-Cpp-Publisher-And-Subscriber.html).  
 
 First, you'll need to create and go into a standard [cargo](https://doc.rust-lang.org/cargo/) 
 project as follows:
 ```
-cargo new your_project_name && cd your_project_name
+cargo new your_package_name && cd your_package_name
 ```
 In the [`Cargo.toml`](https://doc.rust-lang.org/book/ch01-03-hello-cargo.html) file, add a dependency on `rclrs = "*"` and `std_msgs = "*"` by editing this file. For a full Introduction into RUST, please read the very good [RUST book](https://doc.rust-lang.org/book/title-page.html). Your `Cargo.toml` could now look like this:
 ```
@@ -61,7 +63,7 @@ std_msgs = "*"
 Additionally, create a new `package.xml` if you want your node to be buildable with [`colcon`](https://colcon.readthedocs.io/en/released/user/installation.html). Make sure to change the build type to `ament_cargo` and to include the two packages mentioned above in the dependencies, as such:
 ```xml
 <package format="3">
-  <name>your_project_name</name>
+  <name>your_package_name</name>
   <version>0.0.0</version>
   <description>TODO: Package description.</description>
   <maintainer email="user@todo.todo">user</maintainer>
@@ -106,7 +108,7 @@ struct SimplePublisherNode {
     node: Arc<Node>,
     _publisher: Arc<Publisher<StringMsg>>,
 }
-/// An impl block in Rust defines methods or associated functions for a specific type.
+/// An impl block in RUST defines methods or associated functions for a specific type.
 ///
 /// The `new` function takes a context and returns a Result containing the
 /// initialized SimplePublisherNode or an error. It creates a node with the
@@ -170,7 +172,7 @@ fn main() -> Result<(),RclrsError> {
 
 <details><summary>Examining the code in detail:</summary>
 
-#### The first 3 lines of the Rust code imports tools for thread synchronization, time handling, iteration, threading, ROS 2 communication, and string message publishing.
+#### The first 3 lines of the RUST code imports tools for thread synchronization, time handling, iteration, threading, ROS 2 communication, and string message publishing.
 ```
 use std::{sync::Arc,time::Duration,iter,thread};
 use rclrs::{RclrsError,QOS_PROFILE_DEFAULT,Context,create_node,Node,Publisher};
@@ -283,7 +285,7 @@ fn main() -> Result<(),RclrsError> {
 
 </details>
 </details>
-<details><summary>Having several Ros2 rust nodes in one Package</summary>
+<details><summary>Having several ROS2 RUST nodes in one Package</summary>
 
 Of course, you can write for each node you want to implement its own package, and that can have it's advantages. I implore you to use some cargo tricks and add some binary targets to your `cargo.toml`. That could look like this:
 ```
@@ -300,7 +302,7 @@ path="src/main.rs"
 rclrs = "*"
 std_msgs = "*"
 ```
-You'll find the name of your executable and the corresponding file name under the `[[bin]]` tag. As you can see, the filename and the name you want to call your node don't have to match. Please remember to include your executable name with snake_cases. The rust compiler will be a bit grumpy if you don't.  
+You'll find the name of your executable and the corresponding file name under the `[[bin]]` tag. As you can see, the filename and the name you want to call your node don't have to match. Please remember to include your executable name with snake_cases. The RUST compiler will be a bit grumpy if you don't.  
 Now, by recompiling the package from the previous chapter and making it usable:  
 ```
 cd ${MainFolderOfWorkspace}
@@ -315,7 +317,7 @@ As you can see, you are now calling your node by the name declared in `[[bin]]` 
 </details>
 <details><summary>Write the subscriber node</summary> 
 
-Of course, you can implement a new ros2 rust package for this node. You can find out how to do this in the section called 'Create a package'.
+Of course, you can implement a new ROS2 RUST package for this node. You can find out how to do this in the section called 'Create a package'.
 Or you can add a new binary target to your package. To do so, just add a new `<file>.rs` to your source directory - for simplicity I'll call this file `simple_subscriber.rs` - and add a corresponding binary target to your `Cargo.toml`:
 ```
 [[bin]]
@@ -479,11 +481,11 @@ Once you have implemented the code, you are ready to make it runnable:
 cd ${MainFolderOfWorkspace}
 colcon build
 ```
-Please note that you'll need to run your nodes in separate terminals. In each terminal, you'll need to source your ros2 installation separately. So for each of the two nodes you've built so far, open a terminal and type the following:
+Please note that you'll need to run your nodes in separate terminals. In each terminal, you'll need to source your ROS2 installation separately. So for each of the two nodes you've built so far, open a terminal and type the following:
 ```
 cd ${MainFolderOfWorkspace}
 source install/setup.bash
-ros2 run your_project_name your_node_name
+ros2 run your_package_name your_node_name
 ```
 In my case, the nodes are called `simple_publisher` and `simple_subscriber`. You can name your nodes whatever you like. It is important that the publisher and subscriber use the same topic type and name.
 If you haven't had any errors so far and have successfully started the Publisher and Subscriber, you should see something similar in the Subscriber's Terminal window:
