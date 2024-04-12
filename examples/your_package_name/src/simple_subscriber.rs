@@ -1,8 +1,8 @@
 use rclrs::{create_node, Context, Node, RclrsError, Subscription, QOS_PROFILE_DEFAULT};
 use std::{
-    env,
-    iter,thread,
+    env, iter,
     sync::{Arc, Mutex},
+    thread,
     time::Duration,
 };
 use std_msgs::msg::String as StringMsg;
