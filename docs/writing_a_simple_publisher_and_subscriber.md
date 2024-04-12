@@ -1,5 +1,5 @@
-# Writing a simple publisher and subscriber (RUST)
-* Goal: Create and run a publisher and subscriber node using RUST.
+# Writing a simple publisher and subscriber (Rust)
+* Goal: Create and run a publisher and subscriber node using Rust.
 * Tutorial level: Beginner
 * Time: 20 minutes
 <details><summary>Background</summary>
@@ -8,14 +8,14 @@ In this tutorial you will create a pair of
 [nodes](https://docs.ros.org/en/humble/Tutorials/Beginner-CLI-Tools/Understanding-ROS2-Nodes/Understanding-ROS2-Nodes.html) that pass information to each other via a 
 [topic](https://docs.ros.org/en/humble/Tutorials/Beginner-CLI-Tools/Understanding-ROS2-Topics/Understanding-ROS2-Topics.html) in the form of string messages. The example used here is a simple "talker" and "listener" system; one node publishes data and the other subscribes to the topic to receive that data.
 
-Since RUST doesn't have inheritance, it's not possible to inherit from `Node` as is common practice in [`rclcpp`](https://docs.ros.org/en/humble/Tutorials/Beginner-Client-Libraries/Writing-A-Simple-Cpp-Publisher-And-Subscriber.html) or [`rclpy`](https://docs.ros.org/en/humble/Tutorials/Beginner-Client-Libraries/Writing-A-Simple-Py-Publisher-And-Subscriber.html).
+Since Rust doesn't have inheritance, it's not possible to inherit from `Node` as is common practice in [`rclcpp`](https://docs.ros.org/en/humble/Tutorials/Beginner-Client-Libraries/Writing-A-Simple-Cpp-Publisher-And-Subscriber.html) or [`rclpy`](https://docs.ros.org/en/humble/Tutorials/Beginner-Client-Libraries/Writing-A-Simple-Py-Publisher-And-Subscriber.html).
 
 The code used in these examples can be found [here](https://github.com/Guelakais/ros2_rust/tree/better_tutorial/examples/your_package_name)  
 <div style="margin-left:20px;">
 <details><summary>Side-note on dependencies</summary>
 
 You may be wondering why you can't just add all your ROS2-specific dependencies to `Cargo.toml` with `cargo add YOUR_DEPENDENCIES` and have to edit this file manually. Here is why:
-Almost none of the ROS2 dependencies you'll need for your ROS2 RUST node development currently exist on [crates.io](https://crates.io/), the main source for RUST depencies. So the add command simply can't find the dependency targets. What colcon does by compiling the ROS2 RUST dependencies and your ROS2 RUST project is redirect the cargo search for dependencies directly into your `workspace/install` folder, where it'll find locally generated RUST projects to use as dependencies. In particular, almost all message types will be called as dependencies for your ROS2 RUST project this way.
+Almost none of the ROS2 dependencies you'll need for your ROS2 Rust node development currently exist on [crates.io](https://crates.io/), the main source for Rust depencies. So the add command simply can't find the dependency targets. What colcon does by compiling the ROS2 Rust dependencies and your ROS2 Rust project is redirect the cargo search for dependencies directly into your `workspace/install` folder, where it'll find locally generated Rust projects to use as dependencies. In particular, almost all message types will be called as dependencies for your ROS2 Rust project this way.
 
 </details></div>
 
@@ -27,7 +27,7 @@ Basic concepts of development with ROS2 should be known:
 * [workspaces](https://docs.ros.org/en/humble/Tutorials/Beginner-Client-Libraries/Creating-A-Workspace/Creating-A-Workspace.html)
 * [packages](https://docs.ros.org/en/humble/Tutorials/Beginner-Client-Libraries/Creating-Your-First-ROS2-Package.html).
 
-A basic understanding of [RUST](https://doc.rust-lang.org/book/) is recommended, but not entirely necessary.
+A basic understanding of [Rust](https://doc.rust-lang.org/book/) is recommended, but not entirely necessary.
 Before developing [ros2-rust](https://github.com/ros2-rust/ros2_rust) nodes, you must follow the 
 [installation instructions](https://github.com/ros2-rust/ros2-rust/blob/main/README.md) for [`rclrs`](https://docs.rs/rclrs/latest/rclrs/).
 
@@ -45,7 +45,7 @@ project as follows:
 ```
 cargo new your_package_name && cd your_package_name
 ```
-In the [`Cargo.toml`](https://doc.rust-lang.org/book/ch01-03-hello-cargo.html) file, add a dependency on `rclrs = "*"` and `std_msgs = "*"` by editing this file. For a full Introduction into RUST, please read the very good [RUST book](https://doc.rust-lang.org/book/title-page.html). Your `Cargo.toml` could now look like this:
+In the [`Cargo.toml`](https://doc.rust-lang.org/book/ch01-03-hello-cargo.html) file, add a dependency on `rclrs = "*"` and `std_msgs = "*"` by editing this file. For a full Introduction into Rust, please read the very good [Rust book](https://doc.rust-lang.org/book/title-page.html). Your `Cargo.toml` could now look like this:
 ```
 [package]
 name = "your_package_name"
@@ -108,7 +108,7 @@ struct SimplePublisherNode {
     node: Arc<Node>,
     _publisher: Arc<Publisher<StringMsg>>,
 }
-/// An impl block in RUST defines methods or associated functions for a specific type.
+/// An impl block in Rust defines methods or associated functions for a specific type.
 ///
 /// The `new` function takes a context and returns a Result containing the
 /// initialized SimplePublisherNode or an error. It creates a node with the
@@ -172,7 +172,7 @@ fn main() -> Result<(),RclrsError> {
 
 <details><summary>Examining the code in detail:</summary>
 
-#### The first 3 lines of the RUST code imports tools for thread synchronization, time handling, iteration, threading, ROS 2 communication, and string message publishing.
+#### The first 3 lines of the Rust code imports tools for thread synchronization, time handling, iteration, threading, ROS 2 communication, and string message publishing.
 ```
 use std::{sync::Arc,time::Duration,iter,thread};
 use rclrs::{RclrsError,QOS_PROFILE_DEFAULT,Context,create_node,Node,Publisher};
@@ -285,7 +285,7 @@ fn main() -> Result<(),RclrsError> {
 
 </details>
 </details>
-<details><summary>Having several ROS2 RUST nodes in one Package</summary>
+<details><summary>Having several ROS2 Rust nodes in one Package</summary>
 
 Of course, you can write for each node you want to implement its own package, and that can have it's advantages. I implore you to use some cargo tricks and add some binary targets to your `cargo.toml`. That could look like this:
 ```
@@ -302,7 +302,7 @@ path="src/main.rs"
 rclrs = "*"
 std_msgs = "*"
 ```
-You'll find the name of your executable and the corresponding file name under the `[[bin]]` tag. As you can see, the filename and the name you want to call your node don't have to match. Please remember to include your executable name with snake_cases. The RUST compiler will be a bit grumpy if you don't.  
+You'll find the name of your executable and the corresponding file name under the `[[bin]]` tag. As you can see, the filename and the name you want to call your node don't have to match. Please remember to include your executable name with snake_cases. The Rust compiler will be a bit grumpy if you don't.  
 Now, by recompiling the package from the previous chapter and making it usable:  
 ```
 cd ${MainFolderOfWorkspace}
@@ -318,7 +318,7 @@ As you can see, you are now calling your node by the name declared in `[[bin]]` 
 </details>
 <details><summary>Write the subscriber node</summary> 
 
-Of course, you can implement a new ROS2 RUST package for this node. You can find out how to do this in the section called 'Create a package'.
+Of course, you can implement a new ROS2 Rust package for this node. You can find out how to do this in the section called 'Create a package'.
 Or you can add a new binary target to your package. To do so, just add a new `<file>.rs` to your source directory - for simplicity I'll call this file `simple_subscriber.rs` - and add a corresponding binary target to your `Cargo.toml`:
 ```
 [[bin]]
