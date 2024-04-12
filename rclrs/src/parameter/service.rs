@@ -839,7 +839,7 @@ mod tests {
         });
 
         let res = tokio::task::spawn(async move {
-            // Desctibe all parameters
+            // Describe all parameters
             let request = DescribeParameters_Request {
                 names: seq![
                     "bool".into(),
