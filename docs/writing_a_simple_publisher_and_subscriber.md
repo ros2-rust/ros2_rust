@@ -10,7 +10,7 @@ In this tutorial you will create a pair of
 
 Since RUST doesn't have inheritance, it's not possible to inherit from `Node` as is common practice in [`rclcpp`](https://docs.ros.org/en/humble/Tutorials/Beginner-Client-Libraries/Writing-A-Simple-Cpp-Publisher-And-Subscriber.html) or [`rclpy`](https://docs.ros.org/en/humble/Tutorials/Beginner-Client-Libraries/Writing-A-Simple-Py-Publisher-And-Subscriber.html).
 
-The code used in these examples can be found [here](https://gitlab.com/ROS21923912/simple_ROS2_node)  
+The code used in these examples can be found [here](https://github.com/Guelakais/ros2_rust/tree/better_tutorial/examples/your_package_name)  
 <div style="margin-left:20px;">
 <details><summary>Side-note on dependencies</summary>
 
@@ -92,7 +92,7 @@ Of course, you can use any capable editor or even your file explorer to do this.
 
 <details><summary>Write the publisher node</summary>
 
-To construct a node, replace the code in your `main.rs` file with the [following](https://gitlab.com/ros21923912/simple_ros2_node/-/raw/more_simple_nodes/src/simple_publisher.rs?ref_type=heads):  
+To construct a node, replace the code in your `main.rs` file with the [following](https://github.com/Guelakais/ros2_rust/blob/better_tutorial/examples/your_package_name/src/main.rs):  
 ```
 /// Creates a SimplePublisherNode, initializes a node and publisher, and provides
 /// methods to publish a simple "Hello World" message on a loop in separate threads.
@@ -314,6 +314,7 @@ Running the node will look like this:
 ros2 run your_package_name simple_publisher
 ```
 As you can see, you are now calling your node by the name declared in `[[bin]]` using the `name` variable.
+
 </details>
 <details><summary>Write the subscriber node</summary> 
 
@@ -324,7 +325,7 @@ Or you can add a new binary target to your package. To do so, just add a new `<f
 name="simple_subscriber"
 path="src/simple_subscriber.rs"
 ```
-To construct the subscriber node, put the [following](https://gitlab.com/ros21923912/simple_ros2_node/-/blob/more_simple_nodes/src/simple_subscriber.rs?ref_type=heads) code into a file.rs - in my case its the `src/simple_subscriber.rs`:
+To construct the subscriber node, put the [following](https://github.com/Guelakais/ros2_rust/blob/better_tutorial/examples/your_package_name/src/simple_subscriber.rs) code into a file.rs - in my case its the `src/simple_subscriber.rs`:
 ```
 use rclrs::{create_node, Context, Node, RclrsError, Subscription, QOS_PROFILE_DEFAULT};
 use std::{
