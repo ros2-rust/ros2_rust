@@ -291,7 +291,7 @@ edition = "2021"
 
 [[bin]]
 name="simple_publisher"
-path="src/main.rs"
+path="src/simple_publisher.rs"
 [dependencies]
 rclrs = "*"
 std_msgs = "*"
