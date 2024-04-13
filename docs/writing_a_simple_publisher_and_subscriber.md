@@ -476,8 +476,8 @@ cd WORKSPACE
 colcon build
 ```
 Please note that you'll need to run your nodes in separate terminals. In each terminal, you'll need to source your ROS2 installation separately. So for each of the two nodes you've built so far, open a terminal and type the following:
-```
-cd ${MainFolderOfWorkspace}
+```sh
+cd WORKSPACE
 source install/setup.bash
 ros2 run your_package_name your_node_name
 ```
