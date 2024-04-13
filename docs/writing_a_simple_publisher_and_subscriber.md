@@ -320,7 +320,7 @@ Or you can add a new binary target to your package. To do so, just add a new `FI
 name="simple_subscriber"
 path="src/simple_subscriber.rs"
 ```
-To construct the subscriber node, put the [following](https://gitlab.com/ros21923912/simple_ros2_node/-/blob/more_simple_nodes/src/simple_subscriber.rs?ref_type=heads) code into a file.rs - in my case its the `src/simple_subscriber.rs`:
+To construct the subscriber node, put the [following](https://gitlab.com/ros21923912/simple_ros2_node/-/blob/more_simple_nodes/src/simple_subscriber.rs?ref_type=heads) code into a `FILE.rs` - in my case its the `src/simple_subscriber.rs`:
 ```
 use rclrs::{create_node, Context, Node, RclrsError, Subscription, QOS_PROFILE_DEFAULT};
 use std::{
