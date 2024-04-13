@@ -93,7 +93,7 @@ Of course, you can use any capable editor or even your file explorer to do this.
 <details><summary>Write the publisher node</summary>
 
 To construct a node, replace the code in your `main.rs` file with the [following](https://gitlab.com/ros21923912/simple_ros2_node/-/blob/more_simple_nodes/src/simple_publisher.rs?ref_type=heads):  
-```
+```rust
 /// Creates a SimplePublisherNode, initializes a node and publisher, and provides
 /// methods to publish a simple "Hello World" message on a loop in separate threads.
 
