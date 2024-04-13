@@ -46,7 +46,7 @@ project as follows:
 cargo new your_package_name && cd your_package_name
 ```
 In the [`Cargo.toml`](https://doc.rust-lang.org/book/ch01-03-hello-cargo.html) file, add a dependency on `rclrs = "*"` and `std_msgs = "*"` by editing this file. For a full Introduction into Rust, please read the very good [Rust book](https://doc.rust-lang.org/book/title-page.html). Your `Cargo.toml` could now look like this:
-```
+```toml
 [package]
 name = "your_package_name"
 version = "0.1.0"
