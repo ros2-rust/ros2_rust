@@ -178,16 +178,16 @@ use std::{sync::Arc,time::Duration,iter,thread};
 use rclrs::{RclrsError,QOS_PROFILE_DEFAULT,Context,create_node,Node,Publisher};
 use std_msgs::msg::String as StringMsg;
 ```
-* use std::{sync::Arc, time::Duration, iter, thread};: Imports specific features from the standard library: 
-    - Arc is for thread-safe shared ownership of data. 
-    - Duration represents a time span. 
-    - iter provides tools for working with iterators. - thread enables creating and managing threads.
-* use rclrs::{RclrsError, QOS_PROFILE_DEFAULT, Context, create_node, Node, Publisher};: 
+* `use std::{sync::Arc, time::Duration, iter, thread};`: Imports specific features from the standard library: 
+    - `Arc` is for thread-safe shared ownership of data. 
+    - `Duration` represents a time span. 
+    - `iter` provides tools for working with iterators. - thread enables creating and managing threads.
+* `use rclrs::{RclrsError, QOS_PROFILE_DEFAULT, Context, create_node, Node, Publisher};`: 
     - Imports elements for ROS 2 communication: 
-        - RclrsError for handling errors. 
-        - QOS_PROFILE_DEFAULT for default Quality of Service settings. 
-        - Context, create_node, Node, Publisher are for ROS 2 node creation and publishing. publishing.
-* use std_msgs::msg::String as StringMsg;: Imports the StringMsg type for publishing string messages.  
+        - `RclrsError` for handling errors. 
+        - `QOS_PROFILE_DEFAULT` for default Quality of Service settings. 
+        - `Context, create_node, Node, Publisher` are for ROS 2 node creation and publishing. publishing.
+* `use std_msgs::msg::String as StringMsg;`: Imports the `StringMsg` type for publishing string messages.  
 
 #### Next, this structure defines a SimplePublisherNode which holds references to a ROS 2 node and a publisher for string messages.
 ```
