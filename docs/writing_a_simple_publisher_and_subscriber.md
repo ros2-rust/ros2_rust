@@ -429,7 +429,7 @@ Instead of a Publisher, there is a Subscription object in the Subscriber node. T
 ```
 A few special features:
 1. Initializing Shared Data:
-    * `let data: Arc<Mutex<Option<StringMsg>>> = Arc::new(Mutex::new(None));`
+    * `let data: Arc<Mutex<Option<StringMsg>>> = Arc::new(Mutex::new(None));`  
         This line creates a shared data structure that will hold the received message.  
         * `Arc<Mutex<Option<StringMsg>>>`: This is a complex type combining several functionalities:  
             * `Arc<T>`: An atomically reference-counted pointer (Arc) allows multiple parts of the code to safely access the same data (T).
