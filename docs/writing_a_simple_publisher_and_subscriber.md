@@ -396,7 +396,7 @@ fn main() -> Result<(), RclrsError> {
 <details><summary>Examining the code in detail:</summary>
 
 #### The main Construct:
-```
+```rust
 pub struct SimpleSubscriptionNode {
     node: Arc<Node>,
     _subscriber: Arc<Subscription<StringMsg>>,
