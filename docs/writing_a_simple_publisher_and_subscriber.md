@@ -286,9 +286,9 @@ Of course, you can write for each node you want to implement its own package, an
 name = "your_package_name"
 version = "0.1.0"
 edition = "2021"
-```
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
 [[bin]]
 name="simple_publisher"
 path="src/main.rs"
