@@ -197,12 +197,12 @@ struct SimplePublisherNode {
 }
 ```
 1. Structure:  
-struct SimplePublisherNode: This line defines a new struct named SimplePublisherNode. It serves as a blueprint for creating objects that hold information related to a simple publisher node in ROS 2.  
+`struct SimplePublisherNode`: This line defines a new [`struct`](https://doc.rust-lang.org/rust-by-example/custom_types/structs.html) named `SimplePublisherNode`. It serves as a blueprint for creating objects that hold information related to a simple publisher node in ROS 2.  
 
 2. Members:
-* node: Arc<Node>: This member stores a reference to a ROS 2 node, wrapped in an Arc (Atomic Reference Counted) smart pointer. This allows for safe sharing of the node reference across multiple threads.  
-* _publisher: Arc<Publisher<StringMsg>>: This member stores a reference to a publisher specifically for string messages (StringMsg), also wrapped in an Arc for thread safety. The publisher is responsible for sending string messages to other nodes in the ROS 2 system.  
-3. This code defines methods for the SimplePublisherNode struct. The new method creates a ROS 2 node and publisher, storing them in the struct. The publish_data method publishes a string message with a counter and returns the incremented counter.
+* `node: Arc<Node>`: This member stores a reference to a ROS 2 node, wrapped in an [`Arc` (Atomic Reference Counted)](https://doc.rust-lang.org/std/sync/struct.Arc.html) smart pointer. This allows for safe sharing of the node reference across multiple threads.  
+* `_publisher: Arc<Publisher<StringMsg>>`: This member stores a reference to a publisher specifically for string messages (`StringMsg`), also wrapped in an `Arc` for thread safety. The publisher is responsible for sending string messages to other nodes in the ROS 2 system.  
+#### This code defines methods for the `SimplePublisherNode` `struct`. The `new` method creates a ROS 2 node and publisher, storing them in the `struct`. The `publish_data` method publishes a string message with a `counter` and returns the incremented `counter`.
 ```
 impl SimplePublisherNode {
     fn new(context: &Context) -> Result<Self,RclrsError> {
