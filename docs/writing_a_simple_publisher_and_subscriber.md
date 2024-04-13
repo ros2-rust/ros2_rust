@@ -203,7 +203,7 @@ struct SimplePublisherNode {
 * `node: Arc<Node>`: This member stores a reference to a ROS 2 node, wrapped in an [`Arc` (Atomic Reference Counted)](https://doc.rust-lang.org/std/sync/struct.Arc.html) smart pointer. This allows for safe sharing of the node reference across multiple threads.  
 * `_publisher: Arc<Publisher<StringMsg>>`: This member stores a reference to a publisher specifically for string messages (`StringMsg`), also wrapped in an `Arc` for thread safety. The publisher is responsible for sending string messages to other nodes in the ROS 2 system.  
 #### This code defines methods for the `SimplePublisherNode` `struct`. The `new` method creates a ROS 2 node and publisher, storing them in the `struct`. The `publish_data` method publishes a string message with a `counter` and returns the incremented `counter`.
-```
+```rust
 impl SimplePublisherNode {
     fn new(context: &Context) -> Result<Self,RclrsError> {
         let node = create_node(context, "simple_publisher").unwrap();
