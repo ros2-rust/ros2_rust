@@ -502,8 +502,8 @@ Hello World 244
 Hello World 245
 Hello World 246
 ```
-My nodes have been running for some time.
-Enter `Ctrl+C` in each terminal to stop the nodes from spinning.
+(My nodes have been running for some time.)  
+Enter `Ctrl+c` in each terminal to stop the nodes from spinning.
 </details></div>
 </details>
 
