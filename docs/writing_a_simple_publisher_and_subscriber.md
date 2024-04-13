@@ -244,7 +244,7 @@ impl SimplePublisherNode {
 
 #### The main Method creates a ROS 2 node that publishes string messages at a rate of 1 Hz.
 
-```
+```rust
 fn main() -> Result<(),RclrsError> {
     let context = Context::new(std::env::args()).unwrap();
     let publisher = Arc::new(SimplePublisherNode::new(&context).unwrap());
