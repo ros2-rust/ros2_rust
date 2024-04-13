@@ -296,6 +296,7 @@ path="src/simple_publisher.rs"
 rclrs = "*"
 std_msgs = "*"
 ```
+
 You'll find the name of your executable and the corresponding file name under the `[[bin]]` tag. As you can see, the filename and the name you want to call your node don't have to match. Please remember to include your executable name with snake_cases. The Rust compiler will be a bit grumpy if you don't.  
 Now, by recompiling the package from the previous chapter and making it usable:  
 ```
