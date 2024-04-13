@@ -458,15 +458,13 @@ fn data_callback(&self) -> Result<(), RclrsError> {
 }
 
 ```
-A few special features:
-
-
-1. Checking for Received Message:
-    * `if let Some(data) = self.data.lock().unwrap().as_ref() { ... }`: This is an if-let statement used for pattern matching on optional values.
-    * `self.data`: This accesses the member variable data of the struct (likely the `Arc<Mutex<Option<StringMsg>>>` created earlier).
-    * `.lock().unwrap()`: This calls the lock method on the `Mutex` to gain exclusive access to the shared data. If another thread already holds the lock, lock might block until the lock is released.
-        `.as_ref()`: This converts the borrowed `MutexGuard` (returned by `.lock()`) into a reference to the inner value (`Option<StringMsg>`).
-    * `Some(data)`: This pattern attempts to match the value inside the Option with `Some(data)`. If there's a message (`Some(data)`), the code block after the if is executed, and data is bound to the actual message content of type `StringMsg`.
+A few special features:  
+1. Checking for Received Message:  
+    * `if let Some(data) = self.data.lock().unwrap().as_ref() { ... }`: This is an [`if-let`](https://doc.rust-lang.org/rust-by-example/flow_control/if_let.html) statement used for pattern matching on optional values.  
+    * `self.data`: This accesses the member variable data of the `struct` (likely the `Arc<Mutex<Option<StringMsg>>>` created earlier).  
+    * `.lock().unwrap()`: This calls the lock method on the `Mutex` to gain exclusive access to the shared data. If another thread already holds the lock, lock might block until the lock is released.  
+        `.as_ref()`: This converts the borrowed `MutexGuard` (returned by `.lock()`) into a reference to the inner value (`Option<StringMsg>`).  
+    * `Some(data)`: This pattern attempts to match the value inside the Option with `Some(data)`. If there's a message (`Some(data)`), the code block after the if is executed, and data is bound to the actual message content of type `StringMsg`.  
 
 </details>
 </details>
