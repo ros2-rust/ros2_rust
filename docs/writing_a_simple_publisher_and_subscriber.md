@@ -472,7 +472,7 @@ A few special features:
 
 Once you have implemented the code, you are ready to make it runnable:
 ```
-cd ${MainFolderOfWorkspace}
+cd WORKSPACE
 colcon build
 ```
 Please note that you'll need to run your nodes in separate terminals. In each terminal, you'll need to source your ROS2 installation separately. So for each of the two nodes you've built so far, open a terminal and type the following:
