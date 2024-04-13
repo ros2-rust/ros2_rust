@@ -305,7 +305,7 @@ colcon build
 source install/setub.bash
 ```
 Running the node will look like this:
-```
+```shell
 ros2 run your_package_name simple_publisher
 ```
 As you can see, you are now calling your node by the name declared in `[[bin]]` using the `name` variable.
