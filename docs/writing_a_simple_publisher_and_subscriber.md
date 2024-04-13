@@ -481,7 +481,7 @@ cd WORKSPACE
 source install/setup.bash
 ros2 run your_package_name your_node_name
 ```
-In my case, the nodes are called `simple_publisher` and `simple_subscriber`. You can name your nodes whatever you like. It is important that the publisher and subscriber use the same topic type and name.
+In my case, the nodes are called `simple_publisher` and `simple_subscriber`. You can name your nodes whatever you like. It is important that the publisher and subscriber use the same topic type and name.  
 If you haven't had any errors so far and have successfully started the Publisher and Subscriber, you should see something similar in the Subscriber's Terminal window:
 ```
 Hello World 230
