@@ -242,8 +242,7 @@ impl SimplePublisherNode {
         * `self._publisher.publish(msg).unwrap();`: Publishes the created message onto the topic associated with the publisher.
         * `Ok(increment + 1_i32)`: Returns a Result with the incremented increment value.  
 
-#### The main Method creates a ROS 2 node that publishes string messages at a rate of 1 Hz.
-
+#### The main Method creates a ROS 2 node that publishes string messages at a rate of 1 Hz.  
 ```rust
 fn main() -> Result<(),RclrsError> {
     let context = Context::new(std::env::args()).unwrap();
@@ -261,27 +260,21 @@ fn main() -> Result<(),RclrsError> {
 ```
 
 1. Main Function:
-* `fn main() -> Result<(), RclrsError> { ... }`: This defines the main entry point of the program. It returns a Result type, indicating either successful execution or an RclrsError.
-
-2. Context and Node Setup:
-
-* `let context = Context::new(std::env::args()).unwrap();`: Creates a ROS 2 context using command-line arguments.
-* `let publisher = Arc::new(SimplePublisherNode::new(&context).unwrap());`:
-    * Creates an [Arc (atomic reference counted)](https://doc.rust-lang.org/std/sync/struct.Arc.html) pointer to a `SimplePublisherNode` object.
-    * Calls the new method on SimplePublisherNode to construct the node and publisher within the context.
-
-3. Thread and Iterator:
-* `let publisher_other_thread = Arc::clone(&publisher);`: Clones the shared publisher pointer for use in a separate thread.
-* `let mut iterator: i32 = 0;`: Initializes a counter variable for message content.
-* `thread::spawn(move || -> () { ... });`: Spawns a new thread with a closure: `iter::repeat(()).for_each(|()| { ... });`: Creates an infinite loop using `iter::repeat`.
-
-4. Publishing Loop within Thread:
-
-* `thread::sleep(Duration::from_millis(1000));`: Pauses the thread for 1 second (1 Hz publishing rate).
-* `iterator = publisher_other_thread.publish_data(iterator).unwrap();`: Calls the publish_data method on the publisher_other_thread to publish a message with the current counter value. Increments the iterator for the next message.
-
-5. Main Thread Spin:
-* `rclrs::spin(publisher.node.clone());`: Keeps the main thread running, processing ROS 2 events and messages. Uses a cloned reference to the node to ensure it remains active even with other threads.
+* `fn main() -> Result<(), RclrsError> { ... }`: This defines the main entry point of the program. It returns a `Result` type, indicating either successful execution or an `RclrsError`.  
+2. Context and Node Setup:  
+* `let context = Context::new(std::env::args()).unwrap();`: Creates a ROS 2 context using command-line arguments.  
+* `let publisher = Arc::new(SimplePublisherNode::new(&context).unwrap());`:  
+    * Creates an [Arc (atomic reference counted)](https://doc.rust-lang.org/std/sync/struct.Arc.html) pointer to a `SimplePublisherNode` object.  
+    * Calls the new method on `SimplePublisherNode` to construct the node and publisher within the context.  
+3. Thread and Iterator:  
+* `let publisher_other_thread = Arc::clone(&publisher);`: Clones the shared publisher pointer for use in a separate thread.  
+* `let mut iterator: i32 = 0;`: Initializes a counter variable for message content.  
+* `thread::spawn(move || -> () { ... });`: Spawns a new thread with a [closure](https://doc.rust-lang.org/book/ch13-01-closures.html): `iter::repeat(()).for_each(|()| { ... });`: Creates an infinite loop using `iter::repeat`.  
+4. Publishing Loop within Thread:  
+* `thread::sleep(Duration::from_millis(1000));`: Pauses the thread for 1 second (1 Hz publishing rate).  
+* `iterator = publisher_other_thread.publish_data(count).unwrap();`: Calls the `publish_data` method on the `publisher_other_thread` to publish a message with the current counter value. Increments the iterator for the next message.  
+5. Main Thread Spin:  
+* `rclrs::spin(publisher.node.clone());`: Keeps the main thread running, processing ROS 2 events and messages. Uses a cloned reference to the node to ensure it remains active even with other threads.  
 
 </details>
 </details>
