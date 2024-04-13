@@ -403,7 +403,7 @@ pub struct SimpleSubscriptionNode {
     data: Arc<Mutex<Option<StringMsg>>>,
 }
 ```
-Instead of a Publisher, there is a Subscription object in the Subscriber node. The data needs to be an `Arc<Mutex<Option<StringMsg>>>` because there can be errors in the data transfer process and this can be caught by including the value of the incoming subscription in an optional.
+Instead of a Publisher, there is a Subscription object in the Subscriber node. The data needs to be an `Arc<Mutex<Option<StringMsg>>>` because there can be errors in the data transfer process and this can be caught by including the value of the incoming subscription in an optional.  
 #### This code defines a function named new that likely creates an instance of some SimpleSubscriptionNode.
 ```
     fn new(context: &Context) -> Result<Self, RclrsError> {
