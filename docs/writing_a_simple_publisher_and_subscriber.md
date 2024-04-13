@@ -314,7 +314,7 @@ As you can see, you are now calling your node by the name declared in `[[bin]]` 
 <details><summary>Write the subscriber node</summary> 
 
 Of course, you can implement a new ROS2 Rust package for this node. You can find out how to do this in the section called 'Create a package'.
-Or you can add a new binary target to your package. To do so, just add a new `<file>.rs` to your source directory - for simplicity I'll call this file `simple_subscriber.rs` - and add a corresponding binary target to your `Cargo.toml`:
+Or you can add a new binary target to your package. To do so, just add a new `FILE.rs` to your source directory - for simplicity I'll call this file `simple_subscriber.rs` - and add a corresponding binary target to your `Cargo.toml`:
 ```
 [[bin]]
 name="simple_subscriber"
