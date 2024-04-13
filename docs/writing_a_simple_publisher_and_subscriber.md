@@ -228,19 +228,19 @@ impl SimplePublisherNode {
 2. Constructor Method:  
 * `fn new(context: &Context) -> Result<Self, RclrsError> { ... }`: This method serves as a constructor for creating instances of SimplePublisherNode.  
     * It takes a Context object as input, which is necessary for interacting with the ROS 2 syste.  
-    * It returns a Result type, indicating either a successful Self (the created SimplePublisherNode object) or an RclrsError if something goes wrong.  
+    * It returns a Result type, indicating either a successful Self (the created `SimplePublisherNode` object) or an `RclrsError` if something goes wrong.  
     * Inside the new method:  
-        * `let node = create_node(context, "simple_publisher").unwrap();`: Creates a new ROS 2 node named "simple_publisher" within the given context. The unwrap() unwraps the result, handling any errors immediately by forcing the program to abort (`panic`) if something goes wrong. Since our code can't function properly if the node is not able to be created, this is a valid error-handling response for our use-case.  
-        * `let _publisher = node.create_publisher("publish_hello", QOS_PROFILE_DEFAULT).unwrap();`: Creates a publisher for string messages on the topic "publish_hello" with default quality of service settings.  
-        * `Ok(Self { node, _publisher, })`: Returns an `Ok` Result with the newly created SimplePublisherNode object, containing the node and publisher references.  
+        * `let node = create_node(context, "simple_publisher").unwrap();`: Creates a new ROS 2 node named `"simple_publisher"` within the given context. The [`unwrap()`](https://doc.rust-lang.org/rust-by-example/error/option_unwrap.html) unwraps the [`Result`](https://doc.rust-lang.org/std/result/), handling any errors immediately by forcing the program to abort (`panic`) if something goes wrong. Since our code can't function properly if the node is not able to be created, this is a valid error-handling response for our use-case.  
+        * `let _publisher = node.create_publisher("publish_hello", QOS_PROFILE_DEFAULT).unwrap();`: Creates a publisher for string messages on the topic `"publish_hello"` with default quality of service settings.  
+        * `Ok(Self { node, _publisher, })`: Returns an `Ok` Result with the newly created `SimplePublisherNode` object, containing the node and publisher references.  
 3. Publishing Method:
-* `fn publish_data(&self, increment: i32) -> Result<i32, RclrsError> { ... }`: This method publishes a string message and increments a counter.
+* `fn publish_data(&self, increment: i32) -> Result<i32, RclrsError> { ... }`: This method publishes a string message and increments a `counter`.
     * It takes an inkrement value (an integer) as input, which is used for counting purposes within the message content.
     * It also returns a Result type, indicating either the incremented value or an RclrsError if publishing fails.
     * Inside the publish_data method:
-        * `let msg: StringMsg = StringMsg { data: format!("Hello World {}", increment), };`: Creates a string message with the content "Hello World" followed by the inkrement value.
-        * self._publisher.publish(msg).unwrap();: Publishes the created message onto the topic associated with the publisher.
-        * Ok(increment + 1_i32): Returns a Result with the incremented increment value.  
+        * `let msg: StringMsg = StringMsg { data: format!("Hello World {}", increment), };`: Creates a string message with the content `"Hello World"` followed by the increment value.
+        * `self._publisher.publish(msg).unwrap();`: Publishes the created message onto the topic associated with the publisher.
+        * `Ok(increment + 1_i32)`: Returns a Result with the incremented increment value.  
 
 #### The main Method creates a ROS 2 node that publishes string messages at a rate of 1 Hz.
 
