@@ -471,7 +471,7 @@ A few special features:
 <details><summary>Build and Run</summary>
 
 Once you have implemented the code, you are ready to make it runnable:
-```
+```sh
 cd WORKSPACE
 colcon build
 ```
