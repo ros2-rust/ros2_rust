@@ -437,16 +437,16 @@ A few special features:
             * `Option<StringMsg>`: This represents an optional value that can either hold a message of type `StringMsg` or be `None` if no message has been received yet.
     * `Arc::new(Mutex::new(None))`: This creates a new instance of `Arc<Mutex<Option<StringMsg>>>` and initializes the inner `Mutex` with `None`.
 2. Creating a Subscription:  
-    * `let _subscriber = node.create_subscription::<StringMsg, _>(...`
-        This line attempts to create a subscription using the created ROS node (`node`).
-        * `create_subscription`: This is creates a subscription to a specific topic.
-        * `<StringMsg, _>`: This specifies the type of message the subscription is interested in (`StringMsg`) and a placeholder (`_`) for the callback closure type.
-            `"publish_hello"`: This is the name of the ROS topic this node wants to subscribe to. Messages of type StringMsg are expected on this topic.  
-        * `move |msg: StringMsg| { ... }`: This is a [closure](https://doc.rust-lang.org/book/ch13-01-closures.html) (anonymous function) that will be called whenever a new message arrives on the subscribed topic.
+    * `let _subscriber = node.create_subscription::<StringMsg, _>(...`  
+        This line attempts to create a subscription using the created ROS node (`node`).  
+        * `create_subscription`: This is creates a subscription to a specific topic.  
+        * `<StringMsg, _>`: This specifies the type of message the subscription is interested in (`StringMsg`) and a placeholder (`_`) for the callback [`closure`](https://doc.rust-lang.org/book/ch13-01-closures.html) type.  
+            `"publish_hello"`: This is the name of the ROS topic this node wants to subscribe to. Messages of type `StringMsg` are expected on this topic.  
+        * `move |msg: StringMsg| { ... }`: This is a closure ([anonymous function](https://en.wikipedia.org/wiki/Anonymous_function)) that will be called whenever a new message arrives on the subscribed topic.
         * `msg: StringMsg`: This parameter receives the received message of type `StringMsg`. The closure body (`{...}`) uses the `Mutex` to access and update the shared data (`data_mut`) with the received message.  
 3. Cloning the Shared Data:
-    * `let data_mut: Arc<Mutex<Option<StringMsg>>> = Arc::clone(&data)`; This line creates another `Arc` reference (`data_mut`) pointing to the same underlying data structure as data. This allows the closure to access and modify the shared data.
-#### this function provides a way to access and potentially use the received message data stored within the `Arc<Mutex<Option<StringMsg>>>` member variable of the struct. It checks if a message exists, prints it if available, or informs the user there's no message yet.
+    * `let data_mut: Arc<Mutex<Option<StringMsg>>> = Arc::clone(&data)`; This line creates another `Arc` reference (`data_mut`) pointing to the same underlying data structure as data. This allows the closure to access and modify the shared data.  
+#### this function provides a way to access and potentially use the received message data stored within the `Arc<Mutex<Option<StringMsg>>>` member variable of the `struct`. It checks if a message exists, prints it if available, or informs the user there's no message yet.
 ```
 fn data_callback(&self) -> Result<(), RclrsError> {
     if let Some(data) = self.data.lock().unwrap().as_ref() {
