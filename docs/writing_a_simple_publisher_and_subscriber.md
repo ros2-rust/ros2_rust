@@ -281,7 +281,7 @@ fn main() -> Result<(),RclrsError> {
 <details><summary>Having several ROS2 Rust nodes in one Package</summary>
 
 Of course, you can write for each node you want to implement its own package, and that can have it's advantages. I implore you to use some cargo tricks and add some binary targets to your `cargo.toml`. That could look like this:
-```
+```toml
 [package]
 name = "your_package_name"
 version = "0.1.0"
