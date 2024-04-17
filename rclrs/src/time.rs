@@ -27,17 +27,37 @@ impl Time {
             .then(|| f(self.nsec, rhs.nsec))
     }
 
-    /// Convenience function for converting time to ROS message
-    pub fn to_ros_msg(&self) -> Result<builtin_interfaces::msg::Time, TryFromIntError> {
-        let nanosec = self.nsec % 1_000_000_000;
-        let sec = self.nsec / 1_000_000_000;
-
+}
+trait ToRosMsg {
+    fn time_to_ros_msg(&self) -> Result<builtin_interfaces::msg::Time, TryFromIntError>;
+}
+#[cfg(feature = "rclrs_time")]
+impl ToRosMsg for Time {
+    pub fn time_to_ros_msg(&self) -> Result<builtin_interfaces::msg::Time, TryFromIntError> {
         Ok(builtin_interfaces::msg::Time {
-            nanosec: nanosec.try_into()?,
-            sec: sec.try_into()?,
+            nanosec: self.nsec % 1_000_000_000 as i32,
+            sec: self.nsec / 1_000_000_000 as u32,
         })
     }
 }
+#[cfg(feature = "builtin_interfaces_time")]
+impl ToRosMsg for builtin_interfaces::msg::Time {
+    fn time_to_ros_msg(&self) -> Result<builtin_interfaces::msg::Time, TryFromIntError> {
+        // Since it's the same type, simply return Ok(self)
+        Ok(*self)
+    }
+}
+#[cfg(feature = "builtin_interfaces_rmw_time")]
+impl ToRosMsg for builtin_interfaces::msg::rmw::Time {
+    fn time_to_ros_msg(&self) -> Result<builtin_interfaces::msg::Time, TryFromIntError> {
+        // Assuming rmw::Time has the same structure as builtin_interfaces::msg::Time
+        Ok(builtin_interfaces::msg::Time {
+            nanosec: self.nsec % 1_000_000_000 as i32,
+            sec: self.nsec / 1_000_000_000 as u32,
+        })
+    }
+}
+
 
 impl Add<Duration> for Time {
     type Output = Self;
