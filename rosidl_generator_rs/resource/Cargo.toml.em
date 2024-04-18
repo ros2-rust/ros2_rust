@@ -3,8 +3,8 @@ name = "@(package_name)"
 version = "@(package_version)"
 edition = "2021"
 description = "@(package_name) ros2 rust generated dependencies"
-license = "@license"
-
+license = "@(license)"
+authors= @(authors)
 [dependencies]
 rosidl_runtime_rs = "0.4"
 serde = { version = "1", optional = true, features = ["derive"] }
