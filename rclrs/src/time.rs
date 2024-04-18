@@ -1,10 +1,11 @@
-use crate::{rcl_bindings::*,};
+use crate::{rcl_bindings::*};
 use std::{
     num::TryFromIntError,
     ops::{Add, Sub},
     sync::{Mutex, Weak},
     time::Duration,
 };
+use builtin_interfaces::msg::Time as timeMsg;
 /// Struct that represents time.
 #[derive(Clone, Debug)]
 pub struct Time {
@@ -25,31 +26,11 @@ impl Time {
             .ptr_eq(&rhs.clock)
             .then(|| f(self.nsec, rhs.nsec))
     }
-    pub fn to_ros_msg<T::FromSecNano>(&self) -> Result<T, TryFromIntError> {
-        Ok(T::time_stamp {
+    /// Convenient method to create builtin_interfaces::msg::Time objects from rclrs::Time
+    pub fn to_ros_msg(&self) -> Result<timeMsg, TryFromIntError> {
+        Ok(timeMsg {
             nanosec: (self.nsec %10_i64.pow(9)) as u32,
             sec: (self.nsec /10_i64.pow(9)) as i32,
-        })
-    }
-}
-trait FromSecNano {
-    fn time_stamp(nsec:u32,sec:i32) -> Result<T, TryFromIntError>;
-}
-#[cfg(feature="builtin_interfaces")]
-impl FromSecNano for builtin_interfaces::msg::Time {
-    fn time_stamp(nsec:u32,sec:i32) -> Result<Self, TryFromIntError> {
-        Ok(Self {
-            nanosec: nsec,
-            sec: sec,
-        })
-    }
-}
-#[cfg(feature="builtin_interfaces")]
-impl FromSecNano for builtin_interfaces::msg::rmw::Time {
-    fn time_stamp(nsec:u32,sec:i32) -> Result<Self, TryFromIntError> {
-        Ok(Self {
-            nanosec: nsec,
-            sec: sec,
         })
     }
 }
