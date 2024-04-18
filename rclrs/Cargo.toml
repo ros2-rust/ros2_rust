@@ -22,6 +22,7 @@ cfg-if = "1.0.0"
 
 # Needed for clients
 futures = "0.3"
+builtin_interfaces="*"
 
 # Needed for dynamic messages
 libloading = { version = "0.8", optional = true }
@@ -34,7 +35,7 @@ rosidl_runtime_rs = "0.4"
 tempfile = "3.3.0"
 # Needed for publisher and subscriber tests
 test_msgs = {version = "*"}
-
+builtin_interfaces="*"
 [build-dependencies]
 # Needed for FFI
 bindgen = "0.66.1"
