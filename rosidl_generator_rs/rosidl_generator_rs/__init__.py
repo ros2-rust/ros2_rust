@@ -284,11 +284,11 @@ def make_get_idiomatic_rs_type(package_name):
         if isinstance(type_, UnboundedString) or isinstance(type_, UnboundedWString):
             return 'std::string::String'
         elif isinstance(type_, UnboundedSequence):
-            return 'Vec<{}>'.format(get_idiomatic_rs_type(type_.value_type))
+            return f'Vec<{get_idiomatic_rs_type(type_.value_type)}>'        
         elif isinstance(type_, NamespacedType):
             return '::'.join(type_.namespaced_name()).replace(package_name, 'crate')
         elif isinstance(type_, Array):
-            return '[{}; {}]'.format(get_idiomatic_rs_type(type_.value_type), type_.size)
+            return f'[{get_idiomatic_rs_type(type_.value_type)}; {type_.size}]'
         else:
             return get_rmw_rs_type(type_)
     return get_idiomatic_rs_type
@@ -333,15 +333,15 @@ def make_get_rmw_rs_type(package_name):
         elif isinstance(type_, UnboundedWString):
             return 'rosidl_runtime_rs::WString'
         elif isinstance(type_, BoundedString):
-            return 'rosidl_runtime_rs::BoundedString<{}>'.format(type_.maximum_size)
+            return f'rosidl_runtime_rs::BoundedString<{type_.maximum_size}>'
         elif isinstance(type_, BoundedWString):
-            return 'rosidl_runtime_rs::BoundedWString<{}>'.format(type_.maximum_size)
+            return f'rosidl_runtime_rs::BoundedWString<{type_.maximum_size}>'
         elif isinstance(type_, Array):
-            return '[{}; {}]'.format(get_rmw_rs_type(type_.value_type), type_.size)
+                    return f"[{get_rmw_rs_type(type_.value_type)}; {type_.size}]"
         elif isinstance(type_, UnboundedSequence):
-            return 'rosidl_runtime_rs::Sequence<{}>'.format(get_rmw_rs_type(type_.value_type))
+            return f'rosidl_runtime_rs::Sequence<{get_rmw_rs_type(type_.value_type)}>'
         elif isinstance(type_, BoundedSequence):
-            return 'rosidl_runtime_rs::BoundedSequence<{}, {}>'.format(get_rmw_rs_type(type_.value_type), type_.maximum_size)
+            return f'rosidl_runtime_rs::BoundedSequence<{get_rmw_rs_type(type_.value_type)}, {type_.maximum_size}>'
 
-        assert False, "unknown type '%s'" % type_.typename
+        assert False, f"unknown type '{type_.typename}'"
     return get_rmw_rs_type
