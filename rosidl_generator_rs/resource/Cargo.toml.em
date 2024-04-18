@@ -2,7 +2,7 @@
 name = "@(package_name)"
 version = "@(package_version)"
 edition = "2021"
-description = "Ros2 builtin_interfaces"
+description = "@(package_name) ros2 rust generated dependencies"
 license = "Apache-2.0"
 
 [dependencies]
