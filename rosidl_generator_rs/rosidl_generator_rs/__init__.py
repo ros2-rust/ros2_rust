@@ -153,6 +153,9 @@ def generate_rs(generator_arguments_file, typesupport_impls):
         'dependency_packages': dependency_packages,
         'package_name': args['package_name'],
         'package_version': args['package_version'],
+        'license':"Apache-2.0",
+        'authors':'["GueLaKais <koryeldiores@gmail.com>"]'
+
     }
     rosidl_pycommon.expand_template(
         os.path.join(template_dir, 'Cargo.toml.em'),
