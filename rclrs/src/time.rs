@@ -1,11 +1,11 @@
-use crate::{rcl_bindings::*};
+use crate::rcl_bindings::*;
+use builtin_interfaces::msg::Time as timeMsg;
 use std::{
     num::TryFromIntError,
     ops::{Add, Sub},
     sync::{Mutex, Weak},
     time::Duration,
 };
-use builtin_interfaces::msg::Time as timeMsg;
 /// Struct that represents time.
 #[derive(Clone, Debug)]
 pub struct Time {
@@ -29,8 +29,8 @@ impl Time {
     /// Convenient method to create builtin_interfaces::msg::Time objects from rclrs::Time
     pub fn to_ros_msg(&self) -> Result<timeMsg, TryFromIntError> {
         Ok(timeMsg {
-            nanosec: (self.nsec %10_i64.pow(9)) as u32,
-            sec: (self.nsec /10_i64.pow(9)) as i32,
+            nanosec: (self.nsec % 10_i64.pow(9)) as u32,
+            sec: (self.nsec / 10_i64.pow(9)) as i32,
         })
     }
 }

@@ -1223,9 +1223,9 @@ impl rosidl_runtime_rs::Message for Log {
     fn into_rmw_message(msg_cow: std::borrow::Cow<'_, Self>) -> std::borrow::Cow<'_, Self::RmwMsg> {
         match msg_cow {
             std::borrow::Cow::Owned(msg) => std::borrow::Cow::Owned(Self::RmwMsg {
-                stamp: builtin_interfaces::msg::Time::into_rmw_message(
-                    std::borrow::Cow::Owned(msg.stamp),
-                )
+                stamp: builtin_interfaces::msg::Time::into_rmw_message(std::borrow::Cow::Owned(
+                    msg.stamp,
+                ))
                 .into_owned(),
                 level: msg.level,
                 name: msg.name.as_str().into(),
@@ -1235,9 +1235,9 @@ impl rosidl_runtime_rs::Message for Log {
                 line: msg.line,
             }),
             std::borrow::Cow::Borrowed(msg) => std::borrow::Cow::Owned(Self::RmwMsg {
-                stamp: builtin_interfaces::msg::Time::into_rmw_message(
-                    std::borrow::Cow::Borrowed(&msg.stamp),
-                )
+                stamp: builtin_interfaces::msg::Time::into_rmw_message(std::borrow::Cow::Borrowed(
+                    &msg.stamp,
+                ))
                 .into_owned(),
                 level: msg.level,
                 name: msg.name.as_str().into(),
@@ -1464,9 +1464,9 @@ impl rosidl_runtime_rs::Message for ParameterEvent {
     fn into_rmw_message(msg_cow: std::borrow::Cow<'_, Self>) -> std::borrow::Cow<'_, Self::RmwMsg> {
         match msg_cow {
             std::borrow::Cow::Owned(msg) => std::borrow::Cow::Owned(Self::RmwMsg {
-                stamp: builtin_interfaces::msg::Time::into_rmw_message(
-                    std::borrow::Cow::Owned(msg.stamp),
-                )
+                stamp: builtin_interfaces::msg::Time::into_rmw_message(std::borrow::Cow::Owned(
+                    msg.stamp,
+                ))
                 .into_owned(),
                 node: msg.node.as_str().into(),
                 new_parameters: msg
@@ -1501,9 +1501,9 @@ impl rosidl_runtime_rs::Message for ParameterEvent {
                     .collect(),
             }),
             std::borrow::Cow::Borrowed(msg) => std::borrow::Cow::Owned(Self::RmwMsg {
-                stamp: builtin_interfaces::msg::Time::into_rmw_message(
-                    std::borrow::Cow::Borrowed(&msg.stamp),
-                )
+                stamp: builtin_interfaces::msg::Time::into_rmw_message(std::borrow::Cow::Borrowed(
+                    &msg.stamp,
+                ))
                 .into_owned(),
                 node: msg.node.as_str().into(),
                 new_parameters: msg

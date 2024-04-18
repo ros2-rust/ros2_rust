@@ -111,15 +111,12 @@ impl rosidl_runtime_rs::Message for Clock {
     fn into_rmw_message(msg_cow: std::borrow::Cow<'_, Self>) -> std::borrow::Cow<'_, Self::RmwMsg> {
         match msg_cow {
             std::borrow::Cow::Owned(msg) => std::borrow::Cow::Owned(Self::RmwMsg {
-                clock: Time::into_rmw_message(
-                    std::borrow::Cow::Owned(msg.clock),
-                )
-                .into_owned(),
+                clock: Time::into_rmw_message(std::borrow::Cow::Owned(msg.clock)).into_owned(),
             }),
             std::borrow::Cow::Borrowed(msg) => std::borrow::Cow::Owned(Self::RmwMsg {
-                clock: builtin_interfaces::msg::Time::into_rmw_message(
-                    std::borrow::Cow::Borrowed(&msg.clock),
-                )
+                clock: builtin_interfaces::msg::Time::into_rmw_message(std::borrow::Cow::Borrowed(
+                    &msg.clock,
+                ))
                 .into_owned(),
             }),
         }
