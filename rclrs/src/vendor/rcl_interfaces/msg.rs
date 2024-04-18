@@ -293,7 +293,7 @@ pub mod rmw {
     #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
     #[derive(Clone, Debug, PartialEq, PartialOrd)]
     pub struct Log {
-        pub stamp: crate::vendor::builtin_interfaces::msg::rmw::Time,
+        pub stamp: builtin_interfaces::msg::rmw::Time,
         pub level: u8,
         pub name: rosidl_runtime_rs::String,
         pub msg: rosidl_runtime_rs::String,
@@ -601,7 +601,7 @@ pub mod rmw {
     #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
     #[derive(Clone, Debug, PartialEq, PartialOrd)]
     pub struct ParameterEvent {
-        pub stamp: crate::vendor::builtin_interfaces::msg::rmw::Time,
+        pub stamp: builtin_interfaces::msg::rmw::Time,
         pub node: rosidl_runtime_rs::String,
         pub new_parameters:
             rosidl_runtime_rs::Sequence<crate::vendor::rcl_interfaces::msg::rmw::Parameter>,
@@ -1185,7 +1185,7 @@ impl rosidl_runtime_rs::Message for ListParametersResult {
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Clone, Debug, PartialEq, PartialOrd)]
 pub struct Log {
-    pub stamp: crate::vendor::builtin_interfaces::msg::Time,
+    pub stamp: builtin_interfaces::msg::Time,
     pub level: u8,
     pub name: std::string::String,
     pub msg: std::string::String,
@@ -1223,7 +1223,7 @@ impl rosidl_runtime_rs::Message for Log {
     fn into_rmw_message(msg_cow: std::borrow::Cow<'_, Self>) -> std::borrow::Cow<'_, Self::RmwMsg> {
         match msg_cow {
             std::borrow::Cow::Owned(msg) => std::borrow::Cow::Owned(Self::RmwMsg {
-                stamp: crate::vendor::builtin_interfaces::msg::Time::into_rmw_message(
+                stamp: builtin_interfaces::msg::Time::into_rmw_message(
                     std::borrow::Cow::Owned(msg.stamp),
                 )
                 .into_owned(),
@@ -1235,7 +1235,7 @@ impl rosidl_runtime_rs::Message for Log {
                 line: msg.line,
             }),
             std::borrow::Cow::Borrowed(msg) => std::borrow::Cow::Owned(Self::RmwMsg {
-                stamp: crate::vendor::builtin_interfaces::msg::Time::into_rmw_message(
+                stamp: builtin_interfaces::msg::Time::into_rmw_message(
                     std::borrow::Cow::Borrowed(&msg.stamp),
                 )
                 .into_owned(),
@@ -1251,7 +1251,7 @@ impl rosidl_runtime_rs::Message for Log {
 
     fn from_rmw_message(msg: Self::RmwMsg) -> Self {
         Self {
-            stamp: crate::vendor::builtin_interfaces::msg::Time::from_rmw_message(msg.stamp),
+            stamp: builtin_interfaces::msg::Time::from_rmw_message(msg.stamp),
             level: msg.level,
             name: msg.name.to_string(),
             msg: msg.msg.to_string(),
@@ -1443,7 +1443,7 @@ impl rosidl_runtime_rs::Message for ParameterEventDescriptors {
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Clone, Debug, PartialEq, PartialOrd)]
 pub struct ParameterEvent {
-    pub stamp: crate::vendor::builtin_interfaces::msg::Time,
+    pub stamp: builtin_interfaces::msg::Time,
     pub node: std::string::String,
     pub new_parameters: Vec<crate::vendor::rcl_interfaces::msg::Parameter>,
     pub changed_parameters: Vec<crate::vendor::rcl_interfaces::msg::Parameter>,
@@ -1464,7 +1464,7 @@ impl rosidl_runtime_rs::Message for ParameterEvent {
     fn into_rmw_message(msg_cow: std::borrow::Cow<'_, Self>) -> std::borrow::Cow<'_, Self::RmwMsg> {
         match msg_cow {
             std::borrow::Cow::Owned(msg) => std::borrow::Cow::Owned(Self::RmwMsg {
-                stamp: crate::vendor::builtin_interfaces::msg::Time::into_rmw_message(
+                stamp: builtin_interfaces::msg::Time::into_rmw_message(
                     std::borrow::Cow::Owned(msg.stamp),
                 )
                 .into_owned(),
@@ -1501,7 +1501,7 @@ impl rosidl_runtime_rs::Message for ParameterEvent {
                     .collect(),
             }),
             std::borrow::Cow::Borrowed(msg) => std::borrow::Cow::Owned(Self::RmwMsg {
-                stamp: crate::vendor::builtin_interfaces::msg::Time::into_rmw_message(
+                stamp: builtin_interfaces::msg::Time::into_rmw_message(
                     std::borrow::Cow::Borrowed(&msg.stamp),
                 )
                 .into_owned(),
@@ -1542,7 +1542,7 @@ impl rosidl_runtime_rs::Message for ParameterEvent {
 
     fn from_rmw_message(msg: Self::RmwMsg) -> Self {
         Self {
-            stamp: crate::vendor::builtin_interfaces::msg::Time::from_rmw_message(msg.stamp),
+            stamp: builtin_interfaces::msg::Time::from_rmw_message(msg.stamp),
             node: msg.node.to_string(),
             new_parameters: msg
                 .new_parameters
