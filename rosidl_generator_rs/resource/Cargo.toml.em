@@ -3,7 +3,7 @@ name = "@(package_name)"
 version = "@(package_version)"
 edition = "2021"
 description = "@(package_name) ros2 rust generated dependencies"
-license = "Apache-2.0"
+license = "@license"
 
 [dependencies]
 rosidl_runtime_rs = "0.4"
