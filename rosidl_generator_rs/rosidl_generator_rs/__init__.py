@@ -230,10 +230,9 @@ def primitive_value_to_rs(type_, value):
         return '%sf' % value
 
     if type_.type == 'string':
-        return '"%s"' % escape_string(value)
+        return f'"{escape_string(value)}"'
 
-    assert False, "unknown primitive type '%s'" % type_
-
+    assert False, f"unknown primitive type '{type_}'" 
 
 def constant_value_to_rs(type_, value):
     assert value is not None
