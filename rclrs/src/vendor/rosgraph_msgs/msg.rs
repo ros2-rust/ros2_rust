@@ -1,3 +1,5 @@
+use builtin_interfaces::msg::Time;
+
 pub mod rmw {
     #[cfg(feature = "serde")]
     use serde::{Deserialize, Serialize};
@@ -27,7 +29,7 @@ pub mod rmw {
     #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
     #[derive(Clone, Debug, PartialEq, PartialOrd)]
     pub struct Clock {
-        pub clock: crate::vendor::builtin_interfaces::msg::rmw::Time,
+        pub clock: builtin_interfaces::msg::rmw::Time,
     }
 
     impl Default for Clock {
@@ -92,7 +94,7 @@ use serde::{Deserialize, Serialize};
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Clone, Debug, PartialEq, PartialOrd)]
 pub struct Clock {
-    pub clock: crate::vendor::builtin_interfaces::msg::Time,
+    pub clock: builtin_interfaces::msg::Time,
 }
 
 impl Default for Clock {
@@ -109,13 +111,13 @@ impl rosidl_runtime_rs::Message for Clock {
     fn into_rmw_message(msg_cow: std::borrow::Cow<'_, Self>) -> std::borrow::Cow<'_, Self::RmwMsg> {
         match msg_cow {
             std::borrow::Cow::Owned(msg) => std::borrow::Cow::Owned(Self::RmwMsg {
-                clock: crate::vendor::builtin_interfaces::msg::Time::into_rmw_message(
+                clock: Time::into_rmw_message(
                     std::borrow::Cow::Owned(msg.clock),
                 )
                 .into_owned(),
             }),
             std::borrow::Cow::Borrowed(msg) => std::borrow::Cow::Owned(Self::RmwMsg {
-                clock: crate::vendor::builtin_interfaces::msg::Time::into_rmw_message(
+                clock: builtin_interfaces::msg::Time::into_rmw_message(
                     std::borrow::Cow::Borrowed(&msg.clock),
                 )
                 .into_owned(),
@@ -125,7 +127,7 @@ impl rosidl_runtime_rs::Message for Clock {
 
     fn from_rmw_message(msg: Self::RmwMsg) -> Self {
         Self {
-            clock: crate::vendor::builtin_interfaces::msg::Time::from_rmw_message(msg.clock),
+            clock: Time::from_rmw_message(msg.clock),
         }
     }
 }
