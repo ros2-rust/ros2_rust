@@ -193,14 +193,12 @@ def value_to_rs(type_, value):
     assert type_.is_primitive_type()
     assert value is not None
 
-    if not type_.is_array:
-        return primitive_value_to_rs(type_, value)
+    return primitive_value_to_rs(type_, value) if(
+        not type_.is_array
+    )else '{%s}' % ', '.join(
+        [primitive_value_to_rs(type_, single_value) for single_value in value]
+    )
 
-    rs_values = []
-    for single_value in value:
-        rs_value = primitive_value_to_rs(type_, single_value)
-        rs_values.append(rs_value)
-    return '{%s}' % ', '.join(rs_values)
 
 
 def primitive_value_to_rs(type_, value):
