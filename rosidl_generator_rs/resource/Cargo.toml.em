@@ -2,6 +2,9 @@
 name = "@(package_name)"
 version = "@(package_version)"
 edition = "2021"
+authors= ["GueLaKais <koryeldiores@gmail.com>"]
+description = "Ros2 builtin_interfaces"
+license = "Apache-2.0"
 
 [dependencies]
 rosidl_runtime_rs = "0.4"
