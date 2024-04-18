@@ -1,11 +1,10 @@
-use crate::{rcl_bindings::*, vendor::builtin_interfaces};
+use crate::{rcl_bindings::*,};
 use std::{
     num::TryFromIntError,
     ops::{Add, Sub},
     sync::{Mutex, Weak},
     time::Duration,
 };
-
 /// Struct that represents time.
 #[derive(Clone, Debug)]
 pub struct Time {
@@ -26,38 +25,34 @@ impl Time {
             .ptr_eq(&rhs.clock)
             .then(|| f(self.nsec, rhs.nsec))
     }
-
-}
-trait ToRosMsg {
-    fn time_to_ros_msg(&self) -> Result<builtin_interfaces::msg::Time, TryFromIntError>;
-}
-#[cfg(feature = "rclrs_time")]
-impl ToRosMsg for Time {
-    pub fn time_to_ros_msg(&self) -> Result<builtin_interfaces::msg::Time, TryFromIntError> {
-        Ok(builtin_interfaces::msg::Time {
-            nanosec: self.nsec % 1_000_000_000 as i32,
-            sec: self.nsec / 1_000_000_000 as u32,
+    pub fn to_ros_msg<T::FromSecNano>(&self) -> Result<T, TryFromIntError> {
+        Ok(T::time_stamp {
+            nanosec: (self.nsec %10_i64.pow(9)) as u32,
+            sec: (self.nsec /10_i64.pow(9)) as i32,
         })
     }
 }
-#[cfg(feature = "builtin_interfaces_time")]
-impl ToRosMsg for builtin_interfaces::msg::Time {
-    fn time_to_ros_msg(&self) -> Result<builtin_interfaces::msg::Time, TryFromIntError> {
-        // Since it's the same type, simply return Ok(self)
-        Ok(*self)
-    }
+trait FromSecNano {
+    fn time_stamp(nsec:u32,sec:i32) -> Result<T, TryFromIntError>;
 }
-#[cfg(feature = "builtin_interfaces_rmw_time")]
-impl ToRosMsg for builtin_interfaces::msg::rmw::Time {
-    fn time_to_ros_msg(&self) -> Result<builtin_interfaces::msg::Time, TryFromIntError> {
-        // Assuming rmw::Time has the same structure as builtin_interfaces::msg::Time
-        Ok(builtin_interfaces::msg::Time {
-            nanosec: self.nsec % 1_000_000_000 as i32,
-            sec: self.nsec / 1_000_000_000 as u32,
+#[cfg(feature="builtin_interfaces")]
+impl FromSecNano for builtin_interfaces::msg::Time {
+    fn time_stamp(nsec:u32,sec:i32) -> Result<Self, TryFromIntError> {
+        Ok(Self {
+            nanosec: nsec,
+            sec: sec,
         })
     }
 }
-
+#[cfg(feature="builtin_interfaces")]
+impl FromSecNano for builtin_interfaces::msg::rmw::Time {
+    fn time_stamp(nsec:u32,sec:i32) -> Result<Self, TryFromIntError> {
+        Ok(Self {
+            nanosec: nsec,
+            sec: sec,
+        })
+    }
+}
 
 impl Add<Duration> for Time {
     type Output = Self;
