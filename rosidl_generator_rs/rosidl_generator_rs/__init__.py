@@ -87,11 +87,9 @@ def generate_rs(generator_arguments_file, typesupport_impls):
 
     # Ensure the required templates exist
     for template_file in mapping_msgs.keys():
-        assert os.path.exists(template_file), \
-            'Messages template file %s not found' % template_file
+        assert os.path.exists(template_file), f'Messages template file {template_file} not found'
     for template_file in mapping_srvs.keys():
-        assert os.path.exists(template_file), \
-            'Services template file %s not found' % template_file
+        assert os.path.exists(template_file), f'Services template file {template_file} not found' 
 
     data = {
         'pre_field_serde': pre_field_serde,
@@ -104,8 +102,8 @@ def generate_rs(generator_arguments_file, typesupport_impls):
         rosidl_pycommon.convert_camel_case_to_lower_case_underscore,
         'convert_lower_case_underscore_to_camel_case':
         convert_lower_case_underscore_to_camel_case,
-        'msg_specs': [],
-        'srv_specs': [],
+        'msg_specs': [('msg', message) for message in idl_content.get_elements_of_type(Message)],
+        'srv_specs': [('srv', service) for service in idl_content.get_elements_of_type(Service)],
         'package_name': args['package_name'],
         'typesupport_impls': typesupport_impls,
         'interface_path': idl_rel_path,
@@ -113,12 +111,6 @@ def generate_rs(generator_arguments_file, typesupport_impls):
 
     latest_target_timestamp = rosidl_pycommon.get_newest_modification_time(
         args['target_dependencies'])
-
-    for message in idl_content.get_elements_of_type(Message):
-        data['msg_specs'].append(('msg', message))
-
-    for service in idl_content.get_elements_of_type(Service):
-        data['srv_specs'].append(('srv', service))
 
     if data['msg_specs']:
         for template_file, generated_filenames in mapping_msgs.items():
