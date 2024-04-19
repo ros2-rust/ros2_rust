@@ -14,10 +14,12 @@
 
 import os
 import pathlib
-
 from pathlib import Path
 
-import rosidl_cmake as rosidl_pycommon if os.environ['ROS_DISTRO'] <= 'humble' else rosidl_pycommon
+if os.environ['ROS_DISTRO'] <= 'humble':
+    import rosidl_cmake as rosidl_pycommon  
+else: 
+    import rosidl_pycommon
 
 from rosidl_parser.definition import (
     AbstractGenericString,
@@ -145,7 +147,7 @@ def generate_rs(generator_arguments_file, typesupport_impls):
         'package_name': args['package_name'],
         'package_version': args['package_version'],
         'license':"Apache-2.0",
-        'authors':'["GueLaKais <koryeldiores@gmail.com>"]'
+        'authors':'["DefaultUser <DefaultUser@gmail.com>"]'
 
     }
     rosidl_pycommon.expand_template(
@@ -178,9 +180,7 @@ def get_rs_name(name):
     return name if not name in keywords else name + '_'
 
 def escape_string(s):
-    s = s.replace('\\', '\\\\')
-    s = s.replace("'", "\\'")
-    return s
+    return s.replace('\\', '\\\\').replace("'", "\\'")
 
 
 def value_to_rs(type_, value):
@@ -219,7 +219,7 @@ def primitive_value_to_rs(type_, value):
         return str(value)
 
     if type_.type == 'float32':
-        return '%sf' % value
+        return f'{value}f' 
 
     if type_.type == 'string':
         return f'"{escape_string(value)}"'
@@ -233,13 +233,13 @@ def constant_value_to_rs(type_, value):
         if type_.typename == 'boolean':
             return 'true' if value else 'false'
         elif type_.typename == 'float32':
-            return '%sf' % value
+            return f'{value}f'
         return str(value)
 
     if isinstance(type_, AbstractGenericString):
-        return '"%s"' % escape_string(value)
+        return f'"{escape_string(value)}"'
 
-    assert False, "unknown constant type '%s'" % type_
+    assert False, f"unknown constant type '{type_}'"
 
 # Type hierarchy:
 # 
@@ -263,10 +263,7 @@ def constant_value_to_rs(type_, value):
 
 
 def pre_field_serde(type_):
-    if isinstance(type_, Array) and type_.size > 32:
-        return '#[cfg_attr(feature = "serde", serde(with = "serde_big_array::BigArray"))]\n    '
-    else:
-        return ''
+    return '#[cfg_attr(feature = "serde", serde(with = "serde_big_array::BigArray"))]\n    'if isinstance(type_, Array) and type_.size > 32 else ''
 
 
 def make_get_idiomatic_rs_type(package_name):
