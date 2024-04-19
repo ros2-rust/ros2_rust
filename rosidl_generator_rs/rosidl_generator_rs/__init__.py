@@ -22,20 +22,22 @@ if os.environ['ROS_DISTRO'] <= 'humble':
 else:
     import rosidl_pycommon
 
-from rosidl_parser.definition import AbstractGenericString
-from rosidl_parser.definition import Array
-from rosidl_parser.definition import BasicType
-from rosidl_parser.definition import BoundedSequence
-from rosidl_parser.definition import BoundedString
-from rosidl_parser.definition import BoundedWString
-from rosidl_parser.definition import IdlContent
-from rosidl_parser.definition import IdlLocator
-from rosidl_parser.definition import Message
-from rosidl_parser.definition import NamespacedType
-from rosidl_parser.definition import Service
-from rosidl_parser.definition import UnboundedSequence
-from rosidl_parser.definition import UnboundedString
-from rosidl_parser.definition import UnboundedWString
+from rosidl_parser.definition import (
+    AbstractGenericString,
+    Array,
+    BasicType,
+    BoundedSequence,
+    BoundedString,
+    BoundedWString,
+    IdlContent,
+    IdlLocator,
+    Message,
+    NamespacedType,
+    Service,
+    UnboundedSequence,
+    UnboundedString,
+    UnboundedWString,
+)
 
 from rosidl_parser.parser import parse_idl_file
 
