@@ -17,10 +17,7 @@ import pathlib
 
 from pathlib import Path
 
-if os.environ['ROS_DISTRO'] <= 'humble':
-    import rosidl_cmake as rosidl_pycommon
-else:
-    import rosidl_pycommon
+import rosidl_cmake as rosidl_pycommon if os.environ['ROS_DISTRO'] <= 'humble' else rosidl_pycommon
 
 from rosidl_parser.definition import (
     AbstractGenericString,
