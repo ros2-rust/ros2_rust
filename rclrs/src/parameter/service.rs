@@ -36,7 +36,7 @@ fn describe_parameters(
         .map(|name| {
             let name = name.to_cstr().to_str().ok()?;
             let Some(storage) = map.storage.get(name) else {
-                return map.allow_undeclared.then(|| ParameterDescriptor {
+                return Some(ParameterDescriptor {
                     name: name.into(),
                     ..Default::default()
                 });
@@ -83,10 +83,7 @@ fn get_parameter_types(
             map.storage
                 .get(name)
                 .map(|s| s.to_parameter_type())
-                .or_else(|| {
-                    map.allow_undeclared
-                        .then_some(ParameterType::PARAMETER_NOT_SET)
-                })
+                .or(Some(ParameterType::PARAMETER_NOT_SET))
         })
         .collect::<Option<_>>()
         .unwrap_or_default();
@@ -100,7 +97,7 @@ fn get_parameters(req: GetParameters_Request, map: &ParameterMap) -> GetParamete
         .map(|name| {
             let name = name.to_cstr().to_str().ok()?;
             let Some(storage) = map.storage.get(name) else {
-                return map.allow_undeclared.then(ParameterValue::default);
+                return Some(ParameterValue::default());
             };
             match storage {
                 ParameterStorage::Declared(storage) => match &storage.value {
@@ -614,7 +611,8 @@ mod tests {
                 .await
                 .unwrap();
 
-            // Getting both existing and non existing parameters should fail
+            // Getting both existing and non existing parameters, missing one should return
+            // PARAMETER_NOT_SET
             let request = GetParameters_Request {
                 names: seq!["bool".into(), "non_existing".into()],
             };
@@ -625,7 +623,11 @@ mod tests {
                     &request,
                     move |response: GetParameters_Response| {
                         *call_done.write().unwrap() = true;
-                        assert_eq!(response.values.len(), 0);
+                        assert_eq!(response.values.len(), 2);
+                        let param = &response.values[0];
+                        assert_eq!(param.type_, ParameterType::PARAMETER_BOOL);
+                        assert!(param.bool_value);
+                        assert_eq!(response.values[1].type_, ParameterType::PARAMETER_NOT_SET);
                     },
                 )
                 .unwrap();
@@ -761,26 +763,6 @@ mod tests {
                 .await
                 .unwrap();
 
-            // Now getting an undefined parameter should work
-            let request = GetParameters_Request {
-                names: seq!["non_existing".into()],
-            };
-            let client_finished = Arc::new(RwLock::new(false));
-            let call_done = client_finished.clone();
-            get_client
-                .async_send_request_with_callback(
-                    &request,
-                    move |response: GetParameters_Response| {
-                        *call_done.write().unwrap() = true;
-                        assert_eq!(response.values.len(), 1);
-                        assert_eq!(response.values[0].type_, ParameterType::PARAMETER_NOT_SET);
-                    },
-                )
-                .unwrap();
-            try_until_timeout(|| *client_finished.read().unwrap())
-                .await
-                .unwrap();
-
             // With set_parameters_atomically, if one fails all should fail
             let request = SetParametersAtomically_Request {
                 parameters: seq![bool_parameter, read_only_parameter],
@@ -902,7 +884,14 @@ mod tests {
                     &request,
                     move |response: DescribeParameters_Response| {
                         *call_done.write().unwrap() = true;
-                        assert_eq!(response.descriptors.len(), 0);
+                        assert_eq!(response.descriptors[0].name.to_string(), "bool");
+                        assert_eq!(response.descriptors[0].type_, ParameterType::PARAMETER_BOOL);
+                        assert_eq!(response.descriptors.len(), 2);
+                        assert_eq!(response.descriptors[1].name.to_string(), "non_existing");
+                        assert_eq!(
+                            response.descriptors[1].type_,
+                            ParameterType::PARAMETER_NOT_SET
+                        );
                     },
                 )
                 .unwrap();
@@ -910,13 +899,14 @@ mod tests {
                 .await
                 .unwrap();
 
-            // Get all parameter types
+            // Get all parameter types, including a non existing one that will be NOT_SET
             let request = GetParameterTypes_Request {
                 names: seq![
                     "bool".into(),
                     "ns1.ns2.ns3.int".into(),
                     "read_only".into(),
-                    "dynamic".into()
+                    "dynamic".into(),
+                    "non_existing".into()
                 ],
             };
             let client_finished = Arc::new(RwLock::new(false));
@@ -926,12 +916,13 @@ mod tests {
                     &request,
                     move |response: GetParameterTypes_Response| {
                         *call_done.write().unwrap() = true;
-                        assert_eq!(response.types.len(), 4);
+                        assert_eq!(response.types.len(), 5);
                         // Types are returned in the requested order
                         assert_eq!(response.types[0], ParameterType::PARAMETER_BOOL);
                         assert_eq!(response.types[1], ParameterType::PARAMETER_INTEGER);
                         assert_eq!(response.types[2], ParameterType::PARAMETER_DOUBLE);
                         assert_eq!(response.types[3], ParameterType::PARAMETER_STRING);
+                        assert_eq!(response.types[4], ParameterType::PARAMETER_NOT_SET);
                     },
                 )
                 .unwrap();
@@ -939,50 +930,6 @@ mod tests {
                 .await
                 .unwrap();
 
-            // Once undeclared parameters are allowed, non existing should return a not set type
-            node.node.use_undeclared_parameters();
-            let request = GetParameterTypes_Request {
-                names: seq!["non_existing".into()],
-            };
-            let client_finished = Arc::new(RwLock::new(false));
-            let call_done = client_finished.clone();
-            get_types_client
-                .async_send_request_with_callback(
-                    &request,
-                    move |response: GetParameterTypes_Response| {
-                        *call_done.write().unwrap() = true;
-                        assert_eq!(response.types.len(), 1);
-                        assert_eq!(response.types[0], ParameterType::PARAMETER_NOT_SET);
-                    },
-                )
-                .unwrap();
-            try_until_timeout(|| *client_finished.read().unwrap())
-                .await
-                .unwrap();
-
-            // Once undeclared parameters are allowed, non existing should return a not set descriptor
-            let request = DescribeParameters_Request {
-                names: seq!["non_existing".into()],
-            };
-            let client_finished = Arc::new(RwLock::new(false));
-            let call_done = client_finished.clone();
-            describe_client
-                .async_send_request_with_callback(
-                    &request,
-                    move |response: DescribeParameters_Response| {
-                        *call_done.write().unwrap() = true;
-                        assert_eq!(response.descriptors.len(), 1);
-                        assert_eq!(response.descriptors[0].name.to_string(), "non_existing");
-                        assert_eq!(
-                            response.descriptors[0].type_,
-                            ParameterType::PARAMETER_NOT_SET
-                        );
-                    },
-                )
-                .unwrap();
-            try_until_timeout(|| *client_finished.read().unwrap())
-                .await
-                .unwrap();
             *done.write().unwrap() = true;
         });
 
