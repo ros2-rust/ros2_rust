@@ -469,6 +469,9 @@ impl ParameterStorage {
                 ParameterKind::DoubleArray => ParameterType::PARAMETER_DOUBLE_ARRAY,
                 ParameterKind::StringArray => ParameterType::PARAMETER_STRING_ARRAY,
                 ParameterKind::Dynamic => match &s.value {
+                    // Unwraps here are safe because None will only be returned if the RwLock is
+                    // poisoned, but it is only written in internal set(value) calls that have no
+                    // way to panic.
                     DeclaredValue::Mandatory(v) => v.read().unwrap().rcl_parameter_type(),
                     DeclaredValue::Optional(v) => v
                         .read()
