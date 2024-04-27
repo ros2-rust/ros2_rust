@@ -91,12 +91,12 @@ By taking a look at your package, for example by typing [`tree .`](https://www.g
 
 To construct a node, replace the code in your `main.rs` file with the [following](https://gitlab.com/ros21923912/simple_ros2_node/-/blob/more_simple_nodes/src/simple_publisher.rs?ref_type=heads):  
 ```rust
-use rclrs::{create_node, Context, Node, Publisher, RclrsError, QOS_PROFILE_DEFAULT};
 /// Creates a SimplePublisherNode, initializes a node and publisher, and provides
 /// methods to publish a simple "Hello World" message on a loop in separate threads.
 
 /// Imports the Arc type from std::sync, used for thread-safe reference counting pointers,
 /// and the StringMsg message type from std_msgs for publishing string messages.
+use rclrs::{create_node, Context, Node, Publisher, RclrsError, QOS_PROFILE_DEFAULT};
 use std::{env, sync::Arc, thread, time::Duration};
 use std_msgs::msg::String as StringMsg;
 // / SimplePublisherNode struct contains node and publisher members.
@@ -161,14 +161,15 @@ fn main() -> Result<(), RclrsError> {
         count = publisher_other_thread.publish_data(count).unwrap();
     });
     rclrs::spin(publisher.node.clone())
-}```
+}
+```
 
 <details><summary>Examining the code in detail:</summary>
 
 #### The first 3 lines of the Rust code imports tools for thread synchronization, time handling, iteration, threading, ROS 2 communication, and string message publishing.
 ```rust
-use std::{sync::Arc,time::Duration,iter,thread};
-use rclrs::{RclrsError,QOS_PROFILE_DEFAULT,Context,create_node,Node,Publisher};
+use rclrs::{create_node, Context, Node, Publisher, RclrsError, QOS_PROFILE_DEFAULT};
+use std::{env, sync::Arc, thread, time::Duration};
 use std_msgs::msg::String as StringMsg;
 ```
 * `use std::{sync::Arc, time::Duration, iter, thread};`: Imports specific features from the standard library: 
