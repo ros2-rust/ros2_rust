@@ -120,12 +120,12 @@ impl SimplePublisherNode {
     /// given name and creates a publisher on the "publish_hello" topic.
     ///
     /// The SimplePublisherNode contains the node and publisher members.
-    fn new(context: &Context) -> Result<Self, RclrsError> {
+    fn new(context: &context) -> result<self, RclrsError> {
         let node = create_node(context, "simple_publisher").unwrap();
         let publisher = node
-            .create_publisher("publish_hello", QOS_PROFILE_DEFAULT)
+            .create_publisher("publish_hello", qos_profile_default)
             .unwrap();
-        Ok(Self { node, publisher })
+        ok(self { node, publisher })
     }
 
     /// Publishes a "Hello World" message on the publisher.
@@ -200,12 +200,12 @@ struct SimplePublisherNode {
 #### This code defines methods for the `SimplePublisherNode` `struct`. The `new` method creates a ROS 2 node and publisher, storing them in the `struct`. The `publish_data` method publishes a string message with a `counter` and returns the incremented `counter`.
 ```rust
 impl SimplePublisherNode {
-    fn new(context: &Context) -> Result<Self,RclrsError> {
+    fn new(context: &context) -> result<self, RclrsError> {
         let node = create_node(context, "simple_publisher").unwrap();
-        let _publisher = node
-            .create_publisher("publish_hello", QOS_PROFILE_DEFAULT)
+        let publisher = node
+            .create_publisher("publish_hello", qos_profile_default)
             .unwrap();
-        Ok(Self { node, _publisher, })
+        ok(self { node, publisher })
     }
     fn publish_data(&self,increment:i32) -> Result<i32,RclrsError> {
 
