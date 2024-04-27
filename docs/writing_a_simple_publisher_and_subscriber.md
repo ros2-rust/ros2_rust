@@ -238,16 +238,14 @@ impl SimplePublisherNode {
 
 #### The main Method creates a ROS 2 node that publishes string messages at a rate of 1 Hz.  
 ```rust
-fn main() -> Result<(),RclrsError> {
-    let context = Context::new(std::env::args()).unwrap();
+fn main() -> Result<(), RclrsError> {
+    let context = Context::new(env::args()).unwrap();
     let publisher = Arc::new(SimplePublisherNode::new(&context).unwrap());
     let publisher_other_thread = Arc::clone(&publisher);
-    let mut count: i32=0;
-    thread::spawn(move || -> () {
-        iter::repeat(()).for_each(|()| {
-            thread::sleep(Duration::from_millis(1000));
-            count=publisher_other_thread.publish_data(count).unwrap();
-        });
+    let mut count: i32 = 0;
+    thread::spawn(move || loop {
+        thread::sleep(Duration::from_millis(1000));
+        count = publisher_other_thread.publish_data(count).unwrap();
     });
     rclrs::spin(publisher.node.clone())
 }
