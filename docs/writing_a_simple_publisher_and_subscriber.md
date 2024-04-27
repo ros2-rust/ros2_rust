@@ -83,10 +83,7 @@ By taking a look at your package, for example by typing [`tree .`](https://www.g
 ├── package.xml
 └── src
     └── main.rs
-
-2 directories, 3 files
 ```
-Of course, you can use any capable editor or even your file explorer to do this.  
 
 </details>
 
