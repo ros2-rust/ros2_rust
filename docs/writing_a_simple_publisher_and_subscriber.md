@@ -442,7 +442,8 @@ A few special features:
         * `msg: StringMsg`: This parameter receives the received message of type `StringMsg`. The closure body (`{...}`) uses the `Mutex` to access and update the shared data (`data_mut`) with the received message.  
 3. Cloning the Shared Data:
     * `let data_mut: Arc<Mutex<Option<StringMsg>>> = Arc::clone(&data)`; This line creates another `Arc` reference (`data_mut`) pointing to the same underlying data structure as data. This allows the closure to access and modify the shared data.  
-#### this function provides a way to access and potentially use the received message data stored within the `Arc<Mutex<Option<StringMsg>>>` member variable of the `struct`. It checks if a message exists, prints it if available, or informs the user there's no message yet.
+##### data_callback
+This function provides a way to access and potentially use the received message data stored within the `data` member variable of the `SimpleSubscriptionNode`. It checks if a message exists, prints it if available, or informs the user there's no message yet.
 ```rust
 fn data_callback(&self) -> Result<(), RclrsError> {
     if let Some(data) = self.data.lock().unwrap().as_ref() {
