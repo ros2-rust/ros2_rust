@@ -30,7 +30,7 @@ Basic concepts of development with ROS2 should be known:
 A basic understanding of [Rust](https://doc.rust-lang.org/book/) is recommended, but not entirely necessary.
 Before developing [ros2-rust](https://github.com/ros2-rust/ros2_rust) nodes, you must follow the 
 [installation instructions](https://github.com/ros2-rust/ros2-rust/blob/main/README.md) for [`rclrs`](https://docs.rs/rclrs/latest/rclrs/).
-
+For a full Introduction into Rust, please read the very good [Rust book](https://doc.rust-lang.org/book/title-page.html).
 
 </details>
 
@@ -45,7 +45,7 @@ project as follows:
 ```
 cargo new your_package_name && cd your_package_name
 ```
-In the [`Cargo.toml`](https://doc.rust-lang.org/book/ch01-03-hello-cargo.html) file, add a dependency on `rclrs = "*"` and `std_msgs = "*"` by editing this file. For a full Introduction into Rust, please read the very good [Rust book](https://doc.rust-lang.org/book/title-page.html). Your `Cargo.toml` could now look like this:
+In the [`Cargo.toml`](https://doc.rust-lang.org/book/ch01-03-hello-cargo.html) file, add a dependency on `rclrs = "*"` and `std_msgs = "*"` by editing this file. Your `Cargo.toml` could now look like this:
 ```toml
 [package]
 name = "your_package_name"
@@ -181,7 +181,8 @@ use std_msgs::msg::String as StringMsg;
 * `use std::{sync::Arc, time::Duration, iter, thread};`: Imports specific features from the standard library: 
     - `Arc` is for thread-safe shared ownership of data. 
     - `Duration` represents a time span. 
-    - `iter` provides tools for working with iterators. - thread enables creating and managing threads.
+    - `iter` provides tools for working with iterators.
+    - `thread` enables creating and managing threads.
 * `use rclrs::{RclrsError, QOS_PROFILE_DEFAULT, Context, create_node, Node, Publisher};`: 
     - Imports elements for ROS 2 communication: 
         - `RclrsError` for handling errors. 
