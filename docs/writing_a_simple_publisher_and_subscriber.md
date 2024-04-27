@@ -188,7 +188,7 @@ use std_msgs::msg::String as StringMsg;
 ```rust
 struct SimplePublisherNode {
     node: Arc<Node>,
-    _publisher: Arc<Publisher<StringMsg>>,
+    publisher: Arc<Publisher<StringMsg>>,
 }
 ```
 1. Structure:  
