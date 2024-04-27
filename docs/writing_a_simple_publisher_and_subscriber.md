@@ -207,13 +207,12 @@ impl SimplePublisherNode {
             .unwrap();
         ok(self { node, publisher })
     }
-    fn publish_data(&self,increment:i32) -> Result<i32,RclrsError> {
-
+    fn publish_data(&self, increment: i32) -> Result<i32, RclrsError> {
         let msg: StringMsg = StringMsg {
-            data: format!("Hello World {}",increment),
+            data: format!("Hello World {}", increment),
         };
-        self._publisher.publish(msg).unwrap();
-        Ok(increment+1_i32)
+        self.publisher.publish(msg).unwrap();
+        Ok(increment + 1_i32)
     }
 }
 ```
