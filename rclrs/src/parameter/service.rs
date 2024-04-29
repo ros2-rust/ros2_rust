@@ -1,13 +1,16 @@
-use std::collections::BTreeSet;
-use std::sync::{Arc, Mutex};
+use std::{
+    collections::BTreeSet,
+    sync::{Arc, Mutex},
+};
 
-use crate::vendor::rcl_interfaces::msg::rmw::*;
-use crate::vendor::rcl_interfaces::srv::rmw::*;
+use crate::vendor::rcl_interfaces::{msg::rmw::*, srv::rmw::*};
 use rosidl_runtime_rs::Sequence;
 
 use super::ParameterMap;
-use crate::parameter::{DeclaredValue, ParameterKind, ParameterStorage};
-use crate::{rmw_request_id_t, Node, RclrsError, Service};
+use crate::{
+    parameter::{DeclaredValue, ParameterKind, ParameterStorage},
+    rmw_request_id_t, Node, RclrsError, Service,
+};
 
 // The variables only exist to keep a strong reference to the services and are technically unused.
 // What is used is the Weak that is stored in the node, and is upgraded when spinning.
@@ -302,11 +305,13 @@ impl ParameterService {
 
 #[cfg(test)]
 mod tests {
-    use crate::vendor::rcl_interfaces::msg::rmw::{
-        Parameter as RmwParameter, ParameterType, ParameterValue as RmwParameterValue,
-    };
-    use crate::vendor::rcl_interfaces::srv::rmw::*;
     use crate::{
+        vendor::rcl_interfaces::{
+            msg::rmw::{
+                Parameter as RmwParameter, ParameterType, ParameterValue as RmwParameterValue,
+            },
+            srv::rmw::*,
+        },
         Context, MandatoryParameter, Node, NodeBuilder, ParameterRange, ParameterValue, RclrsError,
         ReadOnlyParameter,
     };

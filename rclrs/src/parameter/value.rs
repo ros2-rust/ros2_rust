@@ -1,10 +1,9 @@
 use std::{ffi::CStr, sync::Arc};
 
-use crate::rcl_bindings::*;
-use crate::vendor::rcl_interfaces::msg::rmw::ParameterType;
-use crate::vendor::rcl_interfaces::msg::rmw::ParameterValue as RmwParameterValue;
 use crate::{
     parameter::{ParameterRange, ParameterRanges},
+    rcl_bindings::*,
+    vendor::rcl_interfaces::msg::rmw::{ParameterType, ParameterValue as RmwParameterValue},
     ParameterValueError,
 };
 
