@@ -1,6 +1,4 @@
-use std::convert::TryInto;
-use std::env;
-use std::sync::Arc;
+use std::{convert::TryInto, env, sync::Arc};
 
 use anyhow::{Error, Result};
 use rosidl_runtime_rs::{seq, BoundedSequence, Message, Sequence};
