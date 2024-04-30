@@ -1,8 +1,10 @@
-use std::cmp::Ordering;
-use std::fmt::{self, Debug, Display};
-use std::hash::{Hash, Hasher};
-use std::iter::{Extend, FromIterator, FusedIterator};
-use std::ops::{Deref, DerefMut};
+use std::{
+    cmp::Ordering,
+    fmt::{self, Debug, Display},
+    hash::{Hash, Hasher},
+    iter::{Extend, FromIterator, FusedIterator},
+    ops::{Deref, DerefMut},
+};
 
 #[cfg(feature = "serde")]
 mod serde;
