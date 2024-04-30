@@ -64,6 +64,7 @@ jobs:
       run: |
         for path in $(colcon list | awk '$3 == "(ament_cargo)" { print $2 }'); do
         cd $path
+        rustup toolchain install nightly
         cargo +nightly fmt -- --check
         cd -
         done
