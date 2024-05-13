@@ -1,14 +1,15 @@
-use std::cmp::Ordering;
-use std::ffi::CStr;
-use std::fmt::{self, Debug, Display};
-use std::hash::{Hash, Hasher};
-use std::ops::{Deref, DerefMut};
+use std::{
+    cmp::Ordering,
+    ffi::CStr,
+    fmt::{self, Debug, Display},
+    hash::{Hash, Hasher},
+    ops::{Deref, DerefMut},
+};
 
 #[cfg(feature = "serde")]
 mod serde;
 
-use crate::sequence::Sequence;
-use crate::traits::SequenceAlloc;
+use crate::{sequence::Sequence, traits::SequenceAlloc};
 
 /// A zero-terminated UTF-8 string.
 ///

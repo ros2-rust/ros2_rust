@@ -1,6 +1,10 @@
-use std::env;
-use std::sync::atomic::{AtomicU32, Ordering};
-use std::sync::{Arc, Mutex};
+use std::{
+    env,
+    sync::{
+        atomic::{AtomicU32, Ordering},
+        Arc, Mutex,
+    },
+};
 
 use anyhow::{Error, Result};
 
