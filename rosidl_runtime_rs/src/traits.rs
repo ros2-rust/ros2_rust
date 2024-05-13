@@ -15,8 +15,7 @@
 // DISTRIBUTION A. Approved for public release; distribution unlimited.
 // OPSEC #4584.
 //
-use std::borrow::Cow;
-use std::fmt::Debug;
+use std::{borrow::Cow, fmt::Debug};
 
 /// Internal trait that connects a particular `Sequence<T>` instance to generated C functions
 /// that allocate and deallocate memory.
