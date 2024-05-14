@@ -1,4 +1,5 @@
 use std::{
+    borrow::Borrow,
     cmp::Ordering,
     ffi::CStr,
     fmt::{self, Debug, Display},
@@ -302,13 +303,17 @@ string_impl!(
     rosidl_runtime_c__U16String__Sequence__copy
 );
 
-impl From<&str> for String {
-    fn from(s: &str) -> Self {
+impl<T> From<T> for String
+where
+    T: Borrow<str>,
+{
+    fn from(s: T) -> Self {
         let mut msg = Self {
             data: std::ptr::null_mut(),
             size: 0,
             capacity: 0,
         };
+        let s = s.borrow();
         // SAFETY: It's okay to pass a non-zero-terminated string here since assignn uses the
         // specified length and will append the 0 byte to the dest string itself.
         if !unsafe {

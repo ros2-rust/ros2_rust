@@ -1,7 +1,7 @@
 use crate::{
     clock::{Clock, ClockSource, ClockType},
     vendor::rosgraph_msgs::msg::Clock as ClockMsg,
-    MandatoryParameter, Node, QoSProfile, Subscription, QOS_PROFILE_CLOCK,
+    Node, QoSProfile, ReadOnlyParameter, Subscription, QOS_PROFILE_CLOCK,
 };
 use std::sync::{Arc, Mutex, RwLock, Weak};
 
@@ -16,7 +16,9 @@ pub(crate) struct TimeSource {
     clock_qos: QoSProfile,
     clock_subscription: Mutex<Option<Arc<Subscription<ClockMsg>>>>,
     last_received_time: Arc<Mutex<Option<i64>>>,
-    use_sim_time: Mutex<Option<MandatoryParameter<bool>>>,
+    // TODO(luca) Make this parameter editable when we have parameter callbacks implemented and can
+    // safely change clock type at runtime
+    use_sim_time: Mutex<Option<ReadOnlyParameter<bool>>>,
 }
 
 /// A builder for creating a [`TimeSource`][1].
@@ -84,12 +86,12 @@ impl TimeSource {
     /// Attaches the given node to to the `TimeSource`, using its interface to read the
     /// `use_sim_time` parameter and create the clock subscription.
     pub(crate) fn attach_node(&self, node: &Arc<Node>) {
-        // TODO(luca) register a parameter callback that calls set_ros_time(bool) once parameter
-        // callbacks are implemented.
+        // TODO(luca) Make this parameter editable and register a parameter callback
+        // that calls set_ros_time(bool) once parameter callbacks are implemented.
         let param = node
             .declare_parameter("use_sim_time")
             .default(false)
-            .mandatory()
+            .read_only()
             .unwrap();
         *self.node.lock().unwrap() = Arc::downgrade(node);
         self.set_ros_time_enable(param.get());

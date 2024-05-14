@@ -1,18 +1,21 @@
 mod override_map;
+mod range;
+mod service;
 mod value;
 
 pub(crate) use override_map::*;
+pub use range::*;
+use service::*;
 pub use value::*;
 
-use crate::{call_string_getter_with_rcl_node, rcl_bindings::*, RclrsError};
+use crate::vendor::rcl_interfaces::msg::rmw::{ParameterType, ParameterValue as RmwParameterValue};
+
+use crate::{call_string_getter_with_rcl_node, rcl_bindings::*, Node, RclrsError};
 use std::{
     collections::{btree_map::Entry, BTreeMap},
     fmt::Debug,
     marker::PhantomData,
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc, Mutex, RwLock, Weak,
-    },
+    sync::{Arc, Mutex, RwLock, Weak},
 };
 
 // This module implements the core logic of parameters in rclrs.
@@ -37,16 +40,16 @@ use std::{
 
 #[derive(Clone, Debug)]
 struct ParameterOptionsStorage {
-    _description: Arc<str>,
-    _constraints: Arc<str>,
+    description: Arc<str>,
+    constraints: Arc<str>,
     ranges: ParameterRanges,
 }
 
 impl<T: ParameterVariant> From<ParameterOptions<T>> for ParameterOptionsStorage {
     fn from(opts: ParameterOptions<T>) -> Self {
         Self {
-            _description: opts.description,
-            _constraints: opts.constraints,
+            description: opts.description,
+            constraints: opts.constraints,
             ranges: opts.ranges.into(),
         }
     }
@@ -68,159 +71,6 @@ impl<T: ParameterVariant> Default for ParameterOptions<T> {
             constraints: Arc::from(""),
             ranges: Default::default(),
         }
-    }
-}
-
-impl From<ParameterRange<f64>> for ParameterRanges {
-    fn from(params: ParameterRange<f64>) -> Self {
-        Self {
-            float: Some(params),
-            ..Default::default()
-        }
-    }
-}
-
-impl From<ParameterRange<i64>> for ParameterRanges {
-    fn from(params: ParameterRange<i64>) -> Self {
-        Self {
-            integer: Some(params),
-            ..Default::default()
-        }
-    }
-}
-
-impl From<()> for ParameterRanges {
-    fn from(_empty: ()) -> Self {
-        Self::default()
-    }
-}
-
-/// Contains all the possible type of ranges that can be applied to a value.
-/// Usually only one of these ranges will be applied, but all have to be stored since:
-///
-/// * A dynamic parameter can change its type at runtime, in which case a different range could be
-/// applied.
-/// * Introspection through service calls requires all the ranges to be reported to the user.
-#[derive(Clone, Debug, Default)]
-pub struct ParameterRanges {
-    float: Option<ParameterRange<f64>>,
-    integer: Option<ParameterRange<i64>>,
-}
-
-impl ParameterRanges {
-    fn validate(&self) -> Result<(), DeclarationError> {
-        if let Some(integer) = &self.integer {
-            integer.validate()?;
-        }
-        if let Some(float) = &self.float {
-            float.validate()?;
-        }
-        Ok(())
-    }
-
-    fn in_range(&self, value: &ParameterValue) -> bool {
-        match value {
-            ParameterValue::Integer(v) => {
-                if let Some(range) = &self.integer {
-                    if !range.in_range(*v) {
-                        return false;
-                    }
-                }
-            }
-            ParameterValue::Double(v) => {
-                if let Some(range) = &self.float {
-                    if !range.in_range(*v) {
-                        return false;
-                    }
-                }
-            }
-            _ => {}
-        }
-        true
-    }
-}
-
-/// Describes the range for paramter type T.
-#[derive(Clone, Debug, Default)]
-pub struct ParameterRange<T: ParameterVariant + PartialOrd> {
-    /// Lower limit, if set the parameter must be >= l.
-    pub lower: Option<T>,
-    /// Upper limit, if set the parameter must be <= u.
-    pub upper: Option<T>,
-    /// Step size, if set and `lower` is set the parameter must be within an integer number of
-    /// steps of size `step` from `lower`, or equal to the upper limit if set.
-    /// Example:
-    /// If lower is `Some(0)`, upper is `Some(10)` and step is `Some(3)`, acceptable values are:
-    /// `[0, 3, 6, 9, 10]`.
-    pub step: Option<T>,
-}
-
-impl<T: ParameterVariant + PartialOrd + Default> ParameterRange<T> {
-    fn inside_boundary(&self, value: &T) -> bool {
-        if self.lower.as_ref().is_some_and(|l| value < l) {
-            return false;
-        }
-        if self.upper.as_ref().is_some_and(|u| value > u) {
-            return false;
-        }
-        true
-    }
-
-    fn validate(&self) -> Result<(), DeclarationError> {
-        if self
-            .lower
-            .as_ref()
-            .zip(self.upper.as_ref())
-            .is_some_and(|(l, u)| l > u)
-        {
-            return Err(DeclarationError::InvalidRange);
-        }
-        if self.step.as_ref().is_some_and(|s| s <= &T::default()) {
-            return Err(DeclarationError::InvalidRange);
-        }
-        Ok(())
-    }
-}
-
-impl ParameterRange<i64> {
-    fn in_range(&self, value: i64) -> bool {
-        if !self.inside_boundary(&value) {
-            return false;
-        }
-        if self.upper.is_some_and(|u| u == value) {
-            return true;
-        }
-        if let (Some(l), Some(s)) = (self.lower, self.step) {
-            if (value - l) % s != 0 {
-                return false;
-            }
-        }
-        true
-    }
-}
-
-impl ParameterRange<f64> {
-    // Same comparison function as rclcpp.
-    fn are_close(v1: f64, v2: f64) -> bool {
-        const ULP_TOL: f64 = 100.0;
-        (v1 - v2).abs() <= (f64::EPSILON * (v1 + v2).abs() * ULP_TOL)
-    }
-
-    fn in_range(&self, value: f64) -> bool {
-        if self.upper.is_some_and(|u| Self::are_close(u, value))
-            || self.lower.is_some_and(|l| Self::are_close(l, value))
-        {
-            return true;
-        }
-        if !self.inside_boundary(&value) {
-            return false;
-        }
-        if let (Some(l), Some(s)) = (self.lower, self.step) {
-            if !Self::are_close(((value - l) / s).round() * s + l, value) {
-                return false;
-            }
-        }
-        true
     }
 }
 
@@ -606,9 +456,104 @@ enum ParameterStorage {
     Undeclared(ParameterValue),
 }
 
+impl ParameterStorage {
+    pub(crate) fn to_parameter_type(&self) -> u8 {
+        match self {
+            ParameterStorage::Declared(s) => match s.kind {
+                ParameterKind::Bool => ParameterType::PARAMETER_BOOL,
+                ParameterKind::Integer => ParameterType::PARAMETER_INTEGER,
+                ParameterKind::Double => ParameterType::PARAMETER_DOUBLE,
+                ParameterKind::String => ParameterType::PARAMETER_STRING,
+                ParameterKind::ByteArray => ParameterType::PARAMETER_BYTE_ARRAY,
+                ParameterKind::BoolArray => ParameterType::PARAMETER_BOOL_ARRAY,
+                ParameterKind::IntegerArray => ParameterType::PARAMETER_INTEGER_ARRAY,
+                ParameterKind::DoubleArray => ParameterType::PARAMETER_DOUBLE_ARRAY,
+                ParameterKind::StringArray => ParameterType::PARAMETER_STRING_ARRAY,
+                ParameterKind::Dynamic => match &s.value {
+                    // Unwraps here are safe because None will only be returned if the RwLock is
+                    // poisoned, but it is only written in internal set(value) calls that have no
+                    // way to panic.
+                    DeclaredValue::Mandatory(v) => v.read().unwrap().rcl_parameter_type(),
+                    DeclaredValue::Optional(v) => v
+                        .read()
+                        .unwrap()
+                        .as_ref()
+                        .map(|v| v.rcl_parameter_type())
+                        .unwrap_or(ParameterType::PARAMETER_NOT_SET),
+                    DeclaredValue::ReadOnly(v) => v.rcl_parameter_type(),
+                },
+            },
+            ParameterStorage::Undeclared(value) => value.rcl_parameter_type(),
+        }
+    }
+}
+
 #[derive(Debug, Default)]
-struct ParameterMap {
+pub(crate) struct ParameterMap {
     storage: BTreeMap<Arc<str>, ParameterStorage>,
+    allow_undeclared: bool,
+}
+
+impl ParameterMap {
+    /// Validates the requested parameter setting and returns an error if the requested value is
+    /// not valid.
+    fn validate_parameter_setting(
+        &self,
+        name: &str,
+        value: RmwParameterValue,
+    ) -> Result<ParameterValue, &str> {
+        let Ok(value): Result<ParameterValue, _> = value.try_into() else {
+            return Err("Invalid parameter type");
+        };
+        match self.storage.get(name) {
+            Some(entry) => {
+                if let ParameterStorage::Declared(storage) = entry {
+                    if std::mem::discriminant(&storage.kind)
+                        == std::mem::discriminant(&value.kind())
+                        || matches!(storage.kind, ParameterKind::Dynamic)
+                    {
+                        if !storage.options.ranges.in_range(&value) {
+                            return Err("Parameter value is out of range");
+                        }
+                        if matches!(&storage.value, DeclaredValue::ReadOnly(_)) {
+                            return Err("Parameter is read only");
+                        }
+                    } else {
+                        return Err(
+                            "Parameter set to different type and dynamic typing is disabled",
+                        );
+                    }
+                }
+            }
+            None => {
+                if !self.allow_undeclared {
+                    return Err(
+                        "Parameter was not declared and undeclared parameters are not allowed",
+                    );
+                }
+            }
+        }
+        Ok(value)
+    }
+
+    /// Stores the requested parameter in the map.
+    fn store_parameter(&mut self, name: Arc<str>, value: ParameterValue) {
+        match self.storage.entry(name) {
+            Entry::Occupied(mut entry) => match entry.get_mut() {
+                ParameterStorage::Declared(storage) => match &storage.value {
+                    DeclaredValue::Mandatory(p) => *p.write().unwrap() = value,
+                    DeclaredValue::Optional(p) => *p.write().unwrap() = Some(value),
+                    DeclaredValue::ReadOnly(_) => unreachable!(),
+                },
+                ParameterStorage::Undeclared(param) => {
+                    *param = value;
+                }
+            },
+            Entry::Vacant(entry) => {
+                entry.insert(ParameterStorage::Undeclared(value));
+            }
+        }
+    }
 }
 
 impl<T: ParameterVariant> MandatoryParameter<T> {
@@ -724,6 +669,9 @@ impl<'a> Parameters<'a> {
     /// * `Ok(())` if setting was successful.
     /// * [`Err(DeclarationError::TypeMismatch)`] if the type of the requested value is different
     /// from the parameter's type.
+    /// * [`Err(DeclarationError::OutOfRange)`] if the requested value is out of the parameter's
+    /// range.
+    /// * [`Err(DeclarationError::ReadOnly)`] if the parameter is read only.
     pub fn set<T: ParameterVariant>(
         &self,
         name: impl Into<Arc<str>>,
@@ -762,7 +710,6 @@ impl<'a> Parameters<'a> {
                 entry.insert(ParameterStorage::Undeclared(value.into()));
             }
         }
-
         Ok(())
     }
 }
@@ -770,9 +717,7 @@ impl<'a> Parameters<'a> {
 pub(crate) struct ParameterInterface {
     parameter_map: Arc<Mutex<ParameterMap>>,
     override_map: ParameterOverrideMap,
-    allow_undeclared: AtomicBool,
-    // NOTE(luca-della-vedova) add a ParameterService field to this struct to add support for
-    // services.
+    services: Mutex<Option<ParameterService>>,
 }
 
 impl ParameterInterface {
@@ -789,7 +734,7 @@ impl ParameterInterface {
         Ok(ParameterInterface {
             parameter_map: Default::default(),
             override_map,
-            allow_undeclared: Default::default(),
+            services: Mutex::new(None),
         })
     }
 
@@ -806,6 +751,12 @@ impl ParameterInterface {
             options: Default::default(),
             interface: self,
         }
+    }
+
+    pub(crate) fn create_services(&self, node: &Node) -> Result<(), RclrsError> {
+        *self.services.lock().unwrap() =
+            Some(ParameterService::new(node, self.parameter_map.clone())?);
+        Ok(())
     }
 
     fn get_declaration_initial_value<'a, T: ParameterVariant + 'a>(
@@ -880,7 +831,7 @@ impl ParameterInterface {
     }
 
     pub(crate) fn allow_undeclared(&self) {
-        self.allow_undeclared.store(true, Ordering::Relaxed);
+        self.parameter_map.lock().unwrap().allow_undeclared = true;
     }
 }
 

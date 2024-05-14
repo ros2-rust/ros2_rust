@@ -519,16 +519,16 @@ mod tests {
 
         assert!(subscription_infos.is_empty());
 
-        // Test that the graph has no services
+        // Test that the graph only has 6 services (parameter services)
         let names_and_topics = node
             .get_service_names_and_types_by_node(node_name, "")
             .unwrap();
 
-        assert_eq!(names_and_topics.len(), 0);
+        assert_eq!(names_and_topics.len(), 6);
 
         let names_and_topics = node.get_service_names_and_types().unwrap();
 
-        assert_eq!(names_and_topics.len(), 0);
+        assert_eq!(names_and_topics.len(), 6);
 
         // Test that the graph has no clients
         let names_and_topics = node
