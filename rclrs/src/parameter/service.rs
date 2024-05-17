@@ -123,11 +123,11 @@ fn get_parameters(req: GetParameters_Request, map: &ParameterMap) -> GetParamete
 }
 
 fn list_parameters(req: ListParameters_Request, map: &ParameterMap) -> ListParameters_Response {
-    let check_parameter_name_depth = |substring: &[i8]| {
+    let check_parameter_name_depth = |substring: &[std::os::raw::c_char]| {
         if req.depth == ListParameters_Request::DEPTH_RECURSIVE {
             return true;
         }
-        u64::try_from(substring.iter().filter(|c| **c == ('.' as i8)).count()).unwrap() < req.depth
+        u64::try_from(substring.iter().filter(|c| **c == ('.' as _)).count()).unwrap() < req.depth
     };
     let names: Sequence<_> = map
         .storage
