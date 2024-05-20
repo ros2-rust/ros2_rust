@@ -10,6 +10,7 @@ use rosidl_runtime_rs::Message;
 
 use crate::{
     error::{RclReturnCode, ToResult},
+    qos::QoSProfile,
     rcl_bindings::*,
     MessageCow, NodeHandle, RclrsError, ENTITY_LIFECYCLE_MUTEX,
 };
@@ -83,7 +84,11 @@ where
     T: rosidl_runtime_rs::Service,
 {
     /// Creates a new client.
-    pub(crate) fn new(node_handle: Arc<NodeHandle>, topic: &str) -> Result<Self, RclrsError>
+    pub(crate) fn new(
+        node_handle: Arc<NodeHandle>,
+        topic: &str,
+        qos: QoSProfile,
+    ) -> Result<Self, RclrsError>
     // This uses pub(crate) visibility to avoid instantiating this struct outside
     // [`Node::create_client`], see the struct's documentation for the rationale
     where
@@ -99,7 +104,8 @@ where
         })?;
 
         // SAFETY: No preconditions for this function.
-        let client_options = unsafe { rcl_client_get_default_options() };
+        let mut client_options = unsafe { rcl_client_get_default_options() };
+        client_options.qos = qos.into();
 
         {
             let rcl_node = node_handle.rcl_node.lock().unwrap();
@@ -311,6 +317,7 @@ where
 mod tests {
     use super::*;
     use crate::test_helpers::*;
+    use crate::QOS_PROFILE_SERVICES_DEFAULT;
     use test_msgs::srv;
 
     #[test]
@@ -325,7 +332,7 @@ mod tests {
         let graph = construct_test_graph(namespace)?;
         let _node_2_empty_client = graph
             .node2
-            .create_client::<srv::Empty>("graph_test_topic_4")?;
+            .create_client::<srv::Empty>("graph_test_topic_4", QOS_PROFILE_SERVICES_DEFAULT)?;
 
         std::thread::sleep(std::time::Duration::from_millis(200));
 

@@ -201,11 +201,15 @@ impl Node {
     ///
     /// [1]: crate::Client
     // TODO: make client's lifetime depend on node's lifetime
-    pub fn create_client<T>(&self, topic: &str) -> Result<Arc<Client<T>>, RclrsError>
+    pub fn create_client<T>(
+        &self,
+        topic: &str,
+        qos: QoSProfile,
+    ) -> Result<Arc<Client<T>>, RclrsError>
     where
         T: rosidl_runtime_rs::Service,
     {
-        let client = Arc::new(Client::<T>::new(Arc::clone(&self.handle), topic)?);
+        let client = Arc::new(Client::<T>::new(Arc::clone(&self.handle), topic, qos)?);
         { self.clients_mtx.lock().unwrap() }.push(Arc::downgrade(&client) as Weak<dyn ClientBase>);
         Ok(client)
     }
@@ -274,6 +278,7 @@ impl Node {
     pub fn create_service<T, F>(
         &self,
         topic: &str,
+        qos: QoSProfile,
         callback: F,
     ) -> Result<Arc<Service<T>>, RclrsError>
     where
@@ -283,6 +288,7 @@ impl Node {
         let service = Arc::new(Service::<T>::new(
             Arc::clone(&self.handle),
             topic,
+            qos,
             callback,
         )?);
         { self.services_mtx.lock().unwrap() }
