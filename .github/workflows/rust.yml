@@ -62,8 +62,10 @@ jobs:
 
     - name: Install colcon-cargo and colcon-ros-cargo
       run: |
-        sudo pip3 install git+https://github.com/colcon/colcon-cargo.git
-        sudo pip3 install git+https://github.com/colcon/colcon-ros-cargo.git
+        sudo apt-get install -y pipx
+        pipx ensurepath
+        pipx install git+https://github.com/colcon/colcon-cargo.git
+        pipx install git+https://github.com/colcon/colcon-ros-cargo.git
 
     - name: Check formatting of Rust packages
       run: |
