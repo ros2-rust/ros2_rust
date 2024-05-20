@@ -8,7 +8,10 @@ async fn main() -> Result<(), Error> {
 
     let node = rclrs::create_node(&context, "minimal_client")?;
 
-    let client = node.create_client::<example_interfaces::srv::AddTwoInts>("add_two_ints")?;
+    let client = node.create_client::<example_interfaces::srv::AddTwoInts>(
+        "add_two_ints",
+        rclrs::QOS_PROFILE_SERVICES_DEFAULT,
+    )?;
 
     println!("Starting client");
 
