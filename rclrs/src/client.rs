@@ -316,8 +316,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_helpers::*;
-    use crate::QOS_PROFILE_SERVICES_DEFAULT;
+    use crate::{test_helpers::*, QOS_PROFILE_SERVICES_DEFAULT};
     use test_msgs::srv;
 
     #[test]

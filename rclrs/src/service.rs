@@ -233,8 +233,7 @@ mod tests {
 
     #[test]
     fn test_services() -> Result<(), RclrsError> {
-        use crate::TopicNamesAndTypes;
-        use crate::QOS_PROFILE_SERVICES_DEFAULT;
+        use crate::{TopicNamesAndTypes, QOS_PROFILE_SERVICES_DEFAULT};
         use test_msgs::srv;
 
         let namespace = "/test_services_graph";
