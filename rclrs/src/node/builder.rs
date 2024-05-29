@@ -18,6 +18,7 @@ use crate::{
 /// - `use_global_arguments: true`
 /// - `arguments: []`
 /// - `enable_rosout: true`
+/// - `start_parameter_services: true`
 /// - `clock_type: ClockType::RosTime`
 /// - `clock_qos: QOS_PROFILE_CLOCK`
 ///
@@ -49,6 +50,7 @@ pub struct NodeBuilder {
     use_global_arguments: bool,
     arguments: Vec<String>,
     enable_rosout: bool,
+    start_parameter_services: bool,
     clock_type: ClockType,
     clock_qos: QoSProfile,
 }
@@ -97,6 +99,7 @@ impl NodeBuilder {
             use_global_arguments: true,
             arguments: vec![],
             enable_rosout: true,
+            start_parameter_services: true,
             clock_type: ClockType::RosTime,
             clock_qos: QOS_PROFILE_CLOCK,
         }
@@ -231,6 +234,15 @@ impl NodeBuilder {
         self
     }
 
+    /// Enables or disables parameter services.
+    ///
+    /// Parameter services can be used to allow external nodes to list, get and set
+    /// parameters for this node.
+    pub fn start_parameter_services(mut self, start: bool) -> Self {
+        self.start_parameter_services = start;
+        self
+    }
+
     /// Sets the node's clock type.
     pub fn clock_type(mut self, clock_type: ClockType) -> Self {
         self.clock_type = clock_type;
@@ -308,6 +320,9 @@ impl NodeBuilder {
             parameter,
         });
         node.time_source.attach_node(&node);
+        if self.start_parameter_services {
+            node.parameter.create_services(&node)?;
+        }
         Ok(node)
     }
 

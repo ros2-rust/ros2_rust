@@ -34,6 +34,8 @@ rosidl_runtime_rs = "0.4"
 tempfile = "3.3.0"
 # Needed for publisher and subscriber tests
 test_msgs = {version = "*"}
+# Needed for parameter service tests
+tokio = { version = "*", features = ["rt", "time", "macros"] }
 
 [build-dependencies]
 # Needed for FFI
