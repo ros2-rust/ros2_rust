@@ -43,12 +43,12 @@ from building packages for [Python](https://docs.ros.org/en/humble/Tutorials/Beg
 First, you'll need to create and go into a standard [cargo](https://doc.rust-lang.org/cargo/) 
 project as follows:
 ```
-cargo new your_package_name && cd your_package_name
+cargo new rust_pub_sub && cd rust_pub_sub
 ```
 In the [`Cargo.toml`](https://doc.rust-lang.org/book/ch01-03-hello-cargo.html) file, add a dependency on `rclrs = "*"` and `std_msgs = "*"` by editing this file. Your `Cargo.toml` could now look like this:
 ```toml
 [package]
-name = "your_package_name"
+name = "rust_pub_sub"
 version = "0.1.0"
 edition = "2021"
 
@@ -63,7 +63,7 @@ std_msgs = "*"
 Additionally, create a new `package.xml` if you want your node to be buildable with [`colcon`](https://colcon.readthedocs.io/en/released/user/installation.html). Make sure to change the build type to `ament_cargo` and to include the two packages mentioned above in the dependencies, as such:
 ```xml
 <package format="3">
-  <name>your_package_name</name>
+  <name>rust_pub_sub</name>
   <version>0.0.0</version>
   <description>TODO: Package description.</description>
   <maintainer email="user@todo.todo">user</maintainer>
@@ -275,7 +275,7 @@ fn main() -> Result<(), RclrsError> {
 Of course, you can write for each node you want to implement its own package, and that can have it's advantages. I implore you to use some cargo tricks and add some binary targets to your `cargo.toml`. That could look like this:
 ```toml
 [package]
-name = "your_package_name"
+name = "rust_pub_sub"
 version = "0.1.0"
 edition = "2021"
 
@@ -298,7 +298,7 @@ source install/setub.bash
 ```
 Running the node will look like this:
 ```shell
-ros2 run your_package_name simple_publisher
+ros2 run rust_pub_sub simple_publisher
 ```
 As you can see, you are now calling your node by the name declared in `[[bin]]` using the `name` variable.
 
@@ -476,7 +476,7 @@ Please note that you'll need to run your nodes in separate terminals. In each te
 ```sh
 cd WORKSPACE
 source install/setup.bash
-ros2 run your_package_name your_node_name
+ros2 run rust_pub_sub your_node_name
 ```
 In my case, the nodes are called `simple_publisher` and `simple_subscriber`. You can name your nodes whatever you like. It is important that the publisher and subscriber use the same topic type and name.  
 If you haven't had any errors so far and have successfully started the Publisher and Subscriber, you should see something similar in the Subscriber's Terminal window:
