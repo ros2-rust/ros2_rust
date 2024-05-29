@@ -94,32 +94,16 @@ To construct a node, replace the code in your `main.rs` file with the [following
 /// Creates a SimplePublisherNode, initializes a node and publisher, and provides
 /// methods to publish a simple "Hello World" message on a loop in separate threads.
 
-/// Imports the Arc type from std::sync, used for thread-safe reference counting pointers,
-/// and the StringMsg message type from std_msgs for publishing string messages.
 use rclrs::{create_node, Context, Node, Publisher, RclrsError, QOS_PROFILE_DEFAULT};
 use std::{env, sync::Arc, thread, time::Duration};
 use std_msgs::msg::String as StringMsg;
-// / SimplePublisherNode struct contains node and publisher members.
-// / Used to initialize a ROS 2 node and publisher, and publish messages.
+/// SimplePublisherNode struct contains node and publisher members.
+/// Used to initialize a ROS 2 node and publisher, and publish messages.
 struct SimplePublisherNode {
     node: Arc<Node>,
     publisher: Arc<Publisher<StringMsg>>,
 }
-/// Creates a new SimplePublisherNode by initializing a node and publisher.
-///
-/// The `new` function takes a context and returns a Result containing the
-/// initialized SimplePublisherNode or an error. It creates a node with the
-/// given name and creates a publisher on the "publish_hello" topic.
-///
-/// The SimplePublisherNode contains the node and publisher members.
 impl SimplePublisherNode {
-    /// Creates a new SimplePublisherNode by initializing a node and publisher.
-    ///
-    /// This function takes a context and returns a Result containing the
-    /// initialized SimplePublisherNode or an error. It creates a node with the
-    /// given name and creates a publisher on the "publish_hello" topic.
-    ///
-    /// The SimplePublisherNode contains the node and publisher members.
     fn new(context: &context) -> result<self, RclrsError> {
         let node = create_node(context, "simple_publisher").unwrap();
         let publisher = node
@@ -127,12 +111,6 @@ impl SimplePublisherNode {
             .unwrap();
         ok(self { node, publisher })
     }
-
-    /// Publishes a "Hello World" message on the publisher.
-    ///
-    /// Creates a StringMsg with "Hello World" as the data, publishes it on
-    /// the `_publisher`, and returns a Result. This allows regularly publishing
-    /// a simple message on a loop.
     fn publish_data(&self, increment: i32) -> Result<i32, RclrsError> {
         let msg: StringMsg = StringMsg {
             data: format!("Hello World {}", increment),
@@ -141,16 +119,6 @@ impl SimplePublisherNode {
         Ok(increment + 1_i32)
     }
 }
-
-/// The main function initializes a ROS 2 context, node and publisher,
-/// spawns a thread to publish messages repeatedly, and spins the node
-/// to receive callbacks.
-///
-/// It creates a context, initializes a SimplePublisherNode which creates
-/// a node and publisher, clones the publisher to pass to the thread,  
-/// spawns a thread to publish "Hello World" messages repeatedly, and
-/// calls spin() on the node to receive callbacks. This allows publishing
-/// messages asynchronously while spinning the node.
 fn main() -> Result<(), RclrsError> {
     let context = Context::new(env::args()).unwrap();
     let publisher = Arc::new(SimplePublisherNode::new(&context).unwrap());
