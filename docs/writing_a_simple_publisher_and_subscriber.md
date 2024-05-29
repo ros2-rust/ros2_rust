@@ -15,7 +15,7 @@ The code used in these examples can be found [here](https://gitlab.com/ros219239
 <details><summary>Side-note on dependencies</summary>
 
 You may be wondering why you can't just add all your ROS2-specific dependencies to `Cargo.toml` with `cargo add YOUR_DEPENDENCIES` and have to edit this file manually. Here is why:
-Almost none of the ROS2 dependencies you'll need for your ROS2 Rust node development currently exist on [crates.io](https://crates.io/), the main source for Rust depencies. So the add command simply can't find the dependency targets. What colcon does by compiling the ROS2 Rust dependencies and your ROS2 Rust project is redirect the cargo search for dependencies directly into your `workspace/install` folder, where it'll find locally generated Rust projects to use as dependencies. In particular, almost all message types will be called as dependencies for your ROS2 Rust project this way.
+Almost none of the ROS2 dependencies you'll need for your ROS2 Rust node development currently exist on [crates.io](https://crates.io/), the main source for Rust dependencies. So the add command simply can't find the dependency targets. What colcon does by compiling the ROS2 Rust dependencies and your ROS2 Rust project is redirect the cargo search for dependencies directly into your `workspace/install` folder, where it'll find locally generated Rust projects to use as dependencies. In particular, almost all message types will be called as dependencies for your ROS2 Rust project this way.
 
 </details></div>
 
@@ -89,7 +89,7 @@ By taking a look at your package, for example by typing [`tree .`](https://www.g
 
 <details><summary>Write the publisher node</summary>
 
-To construct a node, replace the code in your `main.rs` file with the [following](https://gitlab.com/ros21923912/simple_ros2_node/-/blob/more_simple_nodes/src/simple_publisher.rs?ref_type=heads):  
+To construct a node, replace the code in your `main.rs` file with the following:  
 ```rust
 /// Creates a SimplePublisherNode, initializes a node and publisher, and provides
 /// methods to publish a simple "Hello World" message on a loop in separate threads.
@@ -280,7 +280,7 @@ Or you can add a new binary target to your package. To do so, just add a new `FI
 name="simple_subscriber"
 path="src/simple_subscriber.rs"
 ```
-To construct the subscriber node, put the [following](https://gitlab.com/ros21923912/simple_ros2_node/-/blob/more_simple_nodes/src/simple_subscriber.rs?ref_type=heads) code into a `FILE.rs` - in my case its the `src/simple_subscriber.rs`:
+To construct the subscriber node, put the following code into a `FILE.rs` - in my case its the `src/simple_subscriber.rs`:
 ```rust
 use rclrs::{create_node, Context, Node, RclrsError, Subscription, QOS_PROFILE_DEFAULT};
 use std::{
