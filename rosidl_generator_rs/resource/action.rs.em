@@ -51,6 +51,11 @@ type_name = action_spec.namespaced_type.name
     type Goal = crate::@(subfolder)::rmw::@(type_name)_Goal;
     type Result = crate::@(subfolder)::rmw::@(type_name)_Result;
     type Feedback = crate::@(subfolder)::rmw::@(type_name)_Feedback;
+
+    fn get_type_support() -> *const std::os::raw::c_void {
+      // SAFETY: No preconditions for this function.
+      unsafe { rosidl_typesupport_c__get_action_type_support_handle__@(package_name)__@(subfolder)__@(type_name)() }
+    }
   }
 
 @[end for]
