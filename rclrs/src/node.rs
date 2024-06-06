@@ -215,17 +215,11 @@ impl Node {
     ///
     /// [1]: crate::ActionClient
     // TODO: make action client's lifetime depend on node's lifetime
-    pub fn create_action_client<T>(
-        &self,
-        topic: &str,
-    ) -> Result<Arc<ActionClient<T>>, RclrsError>
+    pub fn create_action_client<T>(&self, topic: &str) -> Result<Arc<ActionClient<T>>, RclrsError>
     where
         T: rosidl_runtime_rs::Action,
     {
-        let action_client = Arc::new(ActionClient::<T>::new(
-            Arc::clone(&self.rcl_node_mtx),
-            topic,
-        )?);
+        let action_client = Arc::new(ActionClient::<T>::new(Arc::clone(&self.handle), topic)?);
         // self.clients
         //     .push(Arc::downgrade(&client) as Weak<dyn ClientBase>);
         Ok(action_client)
@@ -245,10 +239,7 @@ impl Node {
     where
         T: rosidl_runtime_rs::Action,
     {
-        let action_server = Arc::new(ActionServer::<T>::new(
-            Arc::clone(&self.rcl_node_mtx),
-            topic,
-        )?);
+        let action_server = Arc::new(ActionServer::<T>::new(Arc::clone(&self.handle), topic)?);
         // self.servers
         //     .push(Arc::downgrade(&server) as Weak<dyn ClientBase>);
         Ok(action_server)

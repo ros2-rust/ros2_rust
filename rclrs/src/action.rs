@@ -1,4 +1,4 @@
-use crate::{rcl_bindings::*, RclrsError};
+use crate::{rcl_bindings::*, NodeHandle, RclrsError};
 use std::sync::{Arc, Mutex, MutexGuard};
 
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
@@ -34,7 +34,7 @@ where
     T: rosidl_runtime_rs::Action,
 {
     /// Creates a new action client.
-    pub(crate) fn new(rcl_node_mtx: Arc<Mutex<rcl_node_t>>, topic: &str) -> Result<Self, RclrsError>
+    pub(crate) fn new(node_handle: Arc<NodeHandle>, topic: &str) -> Result<Self, RclrsError>
     where
         T: rosidl_runtime_rs::Action,
     {
@@ -56,7 +56,7 @@ where
     T: rosidl_runtime_rs::Action,
 {
     /// Creates a new action server.
-    pub(crate) fn new(rcl_node_mtx: Arc<Mutex<rcl_node_t>>, topic: &str) -> Result<Self, RclrsError>
+    pub(crate) fn new(node_handle: Arc<NodeHandle>, topic: &str) -> Result<Self, RclrsError>
     where
         T: rosidl_runtime_rs::Action,
     {
@@ -79,7 +79,7 @@ impl<T> ServerGoalHandle<T>
 where
     T: rosidl_runtime_rs::Action,
 {
-    pub fn new(rcl_handle: Arc<rcl_action_goal_handle_t>,  goal_request: Arc<T>) -> Self {
+    pub fn new(rcl_handle: Arc<rcl_action_goal_handle_t>, goal_request: Arc<T>) -> Self {
         Self {
             rcl_handle,
             goal_request: Arc::clone(&goal_request),
