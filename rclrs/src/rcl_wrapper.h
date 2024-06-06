@@ -1,7 +1,6 @@
 #include <rcl/graph.h>
 #include <rcl/rcl.h>
-#include <rcl_action/types.h>
-#include <rcl_action/goal_handle.h>
+#include <rcl_action/rcl_action.h>
 #include <rcl_yaml_param_parser/parser.h>
 #include <rcutils/error_handling.h>
 #include <rcl/logging.h>
