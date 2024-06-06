@@ -1,4 +1,4 @@
-use crate::{error::ToResult, rcl_bindings::*, Node, RclrsError, ENTITY_LIFECYCLE_MUTEX};
+use crate::{error::ToResult, rcl_bindings::*, Clock, Node, RclrsError, ENTITY_LIFECYCLE_MUTEX};
 use std::{
     ffi::CString,
     sync::{atomic::AtomicBool, Arc, Mutex, MutexGuard},
@@ -203,7 +203,7 @@ where
     T: rosidl_runtime_rs::Action,
 {
     /// Creates a new action server.
-    pub(crate) fn new(node: &Node, topic: &str) -> Result<Self, RclrsError>
+    pub(crate) fn new(node: &Node, clock: Clock, topic: &str) -> Result<Self, RclrsError>
     where
         T: rosidl_runtime_rs::Action,
     {
@@ -221,6 +221,8 @@ where
 
         {
             let mut rcl_node = node.handle.rcl_node.lock().unwrap();
+            let rcl_clock = clock.rcl_clock();
+            let mut rcl_clock = rcl_clock.lock().unwrap();
             let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
             unsafe {
                 // SAFETY:
@@ -233,7 +235,7 @@ where
                 rcl_action_server_init(
                     &mut rcl_action_server,
                     &mut *rcl_node,
-                    todo!("pass in a rcl_clock_t"),
+                    &mut *rcl_clock,
                     type_support,
                     topic_c_string.as_ptr(),
                     &action_server_options,

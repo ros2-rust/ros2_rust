@@ -320,7 +320,7 @@ impl NodeState {
     where
         T: rosidl_runtime_rs::Action,
     {
-        let action_server = Arc::new(ActionServer::<T>::new(self, topic)?);
+        let action_server = Arc::new(ActionServer::<T>::new(self, self.get_clock(), topic)?);
         // self.servers
         //     .push(Arc::downgrade(&server) as Weak<dyn ClientBase>);
         Ok(action_server)

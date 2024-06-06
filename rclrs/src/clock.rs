@@ -88,6 +88,11 @@ impl Clock {
         self.kind
     }
 
+    /// Returns the clock's `rcl_clock_t`.
+    pub(crate) fn rcl_clock(&self) -> Arc<Mutex<rcl_clock_t>> {
+        Arc::clone(&self.rcl_clock)
+    }
+
     /// Returns the current clock's timestamp.
     pub fn now(&self) -> Time {
         let mut clock = self.rcl_clock.lock().unwrap();
