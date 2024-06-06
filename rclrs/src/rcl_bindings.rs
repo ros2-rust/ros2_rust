@@ -138,7 +138,7 @@ cfg_if::cfg_if! {
         pub struct rosidl_message_type_support_t;
 
         pub const RMW_GID_STORAGE_SIZE: usize = 24;
-        pub const RCL_ACTION_UUID_SIZE: usize = 24;
+        pub const RCL_ACTION_UUID_SIZE: usize = 16;
 
         extern "C" {
             pub fn rcl_context_is_valid(context: *const rcl_context_t) -> bool;

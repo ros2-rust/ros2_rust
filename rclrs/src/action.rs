@@ -79,7 +79,7 @@ impl<T> ServerGoalHandle<T>
 where
     T: rosidl_runtime_rs::Action,
 {
-    pub fn new(rcl_handle: Arc<rcl_action_goal_handle_t>,  goal_request: Arc<T>) -> Self {
+    pub fn new(rcl_handle: Arc<rcl_action_goal_handle_t>, goal_request: Arc<T>) -> Self {
         Self {
             rcl_handle,
             goal_request: Arc::clone(&goal_request),
