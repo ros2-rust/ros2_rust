@@ -1,4 +1,4 @@
-use crate::{rcl_bindings::*, RclrsError, ToResult};
+use crate::{rcl_bindings::*, GoalUuid, RclrsError, ToResult};
 use std::{
     marker::PhantomData,
     sync::{Arc, Mutex},
@@ -29,16 +29,22 @@ where
 {
     rcl_handle: Arc<Mutex<rcl_action_goal_handle_t>>,
     goal_request: Arc<T>,
+    uuid: GoalUuid,
 }
 
 impl<T> ServerGoalHandle<T>
 where
     T: rosidl_runtime_rs::Action,
 {
-    pub fn new(rcl_handle: Arc<Mutex<rcl_action_goal_handle_t>>, goal_request: Arc<T>) -> Self {
+    pub(crate) fn new(
+        rcl_handle: Arc<Mutex<rcl_action_goal_handle_t>>,
+        goal_request: Arc<T>,
+        uuid: GoalUuid,
+    ) -> Self {
         Self {
             rcl_handle,
             goal_request: Arc::clone(&goal_request),
+            uuid,
         }
     }
 
@@ -126,6 +132,10 @@ where
         } else {
             Ok(false)
         }
+    }
+
+    pub fn goal_id(&self) -> GoalUuid {
+        self.uuid
     }
 }
 

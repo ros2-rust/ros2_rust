@@ -20,7 +20,7 @@ use rosidl_runtime_rs::Message;
 
 use crate::{
     rcl_bindings::*, ActionClient, ActionServer, CancelResponse, Client, ClientBase, ClientOptions,
-    ClientState, Clock, ContextHandle, GoalResponse, GoalUUID, GuardCondition, LogParams, Logger,
+    ClientState, Clock, ContextHandle, GoalResponse, GoalUuid, GuardCondition, LogParams, Logger,
     ParameterBuilder, ParameterInterface, ParameterVariant, Parameters, Publisher,
     PublisherOptions, PublisherState, RclrsError, ServerGoalHandle, Service, ServiceBase,
     ServiceOptions, ServiceState, Subscription, SubscriptionBase, SubscriptionCallback,
@@ -311,7 +311,7 @@ impl NodeState {
         self: &Arc<Self>,
         topic: &str,
         handle_goal: fn(
-            &crate::action::GoalUUID,
+            &crate::action::GoalUuid,
             Arc<<T::Goal as Message>::RmwMsg>,
         ) -> GoalResponse,
         handle_cancel: fn(Arc<ServerGoalHandle<T>>) -> CancelResponse,
