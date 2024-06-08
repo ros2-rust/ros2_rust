@@ -23,22 +23,28 @@ enum GoalStatus {
     Aborted = 6,
 }
 
-pub struct ServerGoalHandle<T>
+/// Handle to interact with goals on a server.
+///
+/// Use this to check the status of a goal and to set its result.
+///
+/// This type will only be created by an [`ActionServer`] when a goal is accepted and will be
+/// passed to the user in the associated `handle_accepted` callback.
+pub struct ServerGoalHandle<ActionT>
 where
-    T: rosidl_runtime_rs::Action,
+    ActionT: rosidl_runtime_rs::Action,
 {
     rcl_handle: Arc<Mutex<rcl_action_goal_handle_t>>,
-    goal_request: Arc<T>,
+    goal_request: Arc<ActionT::Goal>,
     uuid: GoalUuid,
 }
 
-impl<T> ServerGoalHandle<T>
+impl<ActionT> ServerGoalHandle<ActionT>
 where
-    T: rosidl_runtime_rs::Action,
+    ActionT: rosidl_runtime_rs::Action,
 {
     pub(crate) fn new(
         rcl_handle: Arc<Mutex<rcl_action_goal_handle_t>>,
-        goal_request: Arc<T>,
+        goal_request: Arc<ActionT::Goal>,
         uuid: GoalUuid,
     ) -> Self {
         Self {
@@ -86,28 +92,52 @@ where
         unsafe { rcl_action_update_goal_state(&mut *rcl_handle, event).ok() }
     }
 
-    pub fn abort(&self, result: &T::Result) -> Result<(), RclrsError> {
+    /// Indicate that the goal could not be reached and has been aborted.
+    ///
+    /// Only call this if the goal is executing but cannot be completed. This is a terminal state,
+    /// so no more methods may be called on a goal handle after this is called.
+    ///
+    /// Returns an error if the goal is in any state other than executing.
+    pub fn abort(&self, result: &ActionT::Result) -> Result<(), RclrsError> {
         self.update_state(rcl_action_goal_event_t::GOAL_EVENT_ABORT)?;
 
         // TODO: Invoke on_terminal_state callback
         Ok(())
     }
 
-    pub fn succeed(&self, result: &T::Result) -> Result<(), RclrsError> {
+    /// Indicate that the goal has succeeded.
+    ///
+    /// Only call this if the goal is executing and has reached the desired final state. This is a
+    /// terminal state, so no more methods may be called on a goal handle after this is called.
+    ///
+    /// Returns an error if the goal is in any state other than executing.
+    pub fn succeed(&self, result: &ActionT::Result) -> Result<(), RclrsError> {
         self.update_state(rcl_action_goal_event_t::GOAL_EVENT_SUCCEED)?;
 
         // TODO: Invoke on_terminal_state callback
         Ok(())
     }
 
-    pub fn canceled(&self, result: &T::Result) -> Result<(), RclrsError> {
+    /// Indicate that the goal has been cancelled.
+    ///
+    /// Only call this if the goal is executing or pending, but has been cancelled. This is a
+    /// terminal state, so no more methods may be called on a goal handle after this is called.
+    ///
+    /// Returns an error if the goal is in any state other than executing or pending.
+    pub fn canceled(&self, result: &ActionT::Result) -> Result<(), RclrsError> {
         self.update_state(rcl_action_goal_event_t::GOAL_EVENT_CANCELED)?;
 
         // TODO: Invoke on_terminal_state callback
         Ok(())
     }
 
-    pub fn execute(&self, result: &T::Result) -> Result<(), RclrsError> {
+    /// Indicate that the server is starting to execute the goal.
+    ///
+    /// Only call this if the goal is pending. This is a terminal state, so no more methods may be
+    /// called on a goal handle after this is called.
+    ///
+    /// Returns an error if the goal is in any state other than pending.
+    pub fn execute(&self, result: &ActionT::Result) -> Result<(), RclrsError> {
         self.update_state(rcl_action_goal_event_t::GOAL_EVENT_EXECUTE)?;
 
         // TODO: Invoke on_executing callback
@@ -134,14 +164,20 @@ where
         }
     }
 
+    /// Get the unique identifier of the goal.
     pub fn goal_id(&self) -> GoalUuid {
         self.uuid
     }
+
+    /// Get the user-provided message describing the goal.
+    pub fn goal(&self) -> Arc<ActionT::Goal> {
+        Arc::clone(&self.goal_request)
+    }
 }
 
-impl<T> Drop for ServerGoalHandle<T>
+impl<ActionT> Drop for ServerGoalHandle<ActionT>
 where
-    T: rosidl_runtime_rs::Action,
+    ActionT: rosidl_runtime_rs::Action,
 {
     /// Cancel the goal if its handle is dropped without reaching a terminal state.
     fn drop(&mut self) {
