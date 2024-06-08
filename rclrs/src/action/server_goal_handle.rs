@@ -1,8 +1,5 @@
 use crate::{rcl_bindings::*, GoalUuid, RclrsError, ToResult};
-use std::{
-    marker::PhantomData,
-    sync::{Arc, Mutex},
-};
+use std::sync::{Arc, Mutex};
 
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
 // they are running in. Therefore, this type can be safely sent to another thread.
@@ -172,6 +169,16 @@ where
     /// Get the user-provided message describing the goal.
     pub fn goal(&self) -> Arc<ActionT::Goal> {
         Arc::clone(&self.goal_request)
+    }
+
+    /// Send an update about the goal's progress.
+    ///
+    /// This may only be called when the goal is executing.
+    ///
+    /// Returns an error if the goal is in any state other than executing.
+    pub fn publish_feedback(&self, feedback: Arc<ActionT::Feedback>) -> Result<(), RclrsError> {
+        // TODO: Invoke public_feedback callback
+        todo!()
     }
 }
 

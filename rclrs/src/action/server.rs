@@ -71,8 +71,7 @@ where
     {
         // SAFETY: Getting a zero-initialized value is always safe.
         let mut rcl_action_server = unsafe { rcl_action_get_zero_initialized_server() };
-        let type_support = <T as rosidl_runtime_rs::Action>::get_type_support()
-            as *const rosidl_action_type_support_t;
+        let type_support = T::get_type_support() as *const rosidl_action_type_support_t;
         let topic_c_string = CString::new(topic).map_err(|err| RclrsError::StringContainsNul {
             err,
             s: topic.into(),

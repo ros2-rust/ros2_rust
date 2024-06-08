@@ -9,6 +9,7 @@ pub use client::{ActionClient, ActionClientBase};
 pub use server::{ActionServer, ActionServerBase};
 pub use server_goal_handle::ServerGoalHandle;
 
+/// A unique identifier for a goal request.
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct GoalUuid(pub [u8; RCL_ACTION_UUID_SIZE]);
 
@@ -35,13 +36,20 @@ impl fmt::Display for GoalUuid {
     }
 }
 
+/// The response returned by an [`ActionServer`]'s goal callback when a goal request is received.
 pub enum GoalResponse {
+    /// The goal is rejected and will not be executed.
     Reject = 1,
+    /// The server accepts the goal and will begin executing it immediately.
     AcceptAndExecute = 2,
+    /// The server accepts the goal and will begin executing it later.
     AcceptAndDefer = 3,
 }
 
+/// The response returned by an [`ActionServer`]'s cancel callback when a goal is requested to be cancelled.
 pub enum CancelResponse {
+    /// The server will not try to cancel the goal.
     Reject = 1,
+    /// The server will try to cancel the goal.
     Accept = 2,
 }
