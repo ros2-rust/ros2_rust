@@ -45,7 +45,6 @@ pub use parameter::*;
 pub use publisher::*;
 pub use qos::*;
 pub use rcl_bindings::rmw_request_id_t;
-use rcl_bindings::{rcl_action_goal_handle_t, rcl_context_is_valid};
 pub use service::*;
 pub use subscription::*;
 pub use time::*;
