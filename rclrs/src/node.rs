@@ -14,7 +14,7 @@ use rosidl_runtime_rs::Message;
 pub use self::{builder::*, graph::*};
 use crate::{
     rcl_bindings::*, ActionClient, ActionServer, CancelResponse, Client, ClientBase, Clock,
-    Context, ContextHandle, GoalResponse, GoalUUID, GuardCondition, ParameterBuilder,
+    Context, ContextHandle, GoalResponse, GoalUuid, GuardCondition, ParameterBuilder,
     ParameterInterface, ParameterVariant, Parameters, Publisher, QoSProfile, RclrsError,
     ServerGoalHandle, Service, ServiceBase, Subscription, SubscriptionBase, SubscriptionCallback,
     TimeSource, ENTITY_LIFECYCLE_MUTEX,
@@ -232,7 +232,7 @@ impl Node {
     pub fn create_action_server<T>(
         &mut self,
         topic: &str,
-        handle_goal: fn(&crate::action::GoalUUID, Arc<T::Goal>) -> GoalResponse,
+        handle_goal: fn(&crate::action::GoalUuid, Arc<T::Goal>) -> GoalResponse,
         handle_cancel: fn(Arc<ServerGoalHandle<T>>) -> CancelResponse,
         handle_accepted: fn(Arc<ServerGoalHandle<T>>),
     ) -> Result<Arc<ActionServer<T>>, RclrsError>
