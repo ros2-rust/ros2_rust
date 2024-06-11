@@ -44,18 +44,23 @@ TEMPLATE(
 type_name = action_spec.namespaced_type.name
 }@
 
-  // Corresponds to @(package_name)__@(subfolder)__@(type_name)
-  pub struct @(type_name);
+#[link(name = "@(package_name)__rosidl_typesupport_c")]
+extern "C" {
+    fn rosidl_typesupport_c__get_action_type_support_handle__@(package_name)__@(subfolder)__@(type_name)() -> *const std::os::raw::c_void;
+}
 
-  impl rosidl_runtime_rs::Action for @(type_name) {
-    type Goal = crate::@(subfolder)::rmw::@(type_name)_Goal;
-    type Result = crate::@(subfolder)::rmw::@(type_name)_Result;
-    type Feedback = crate::@(subfolder)::rmw::@(type_name)_Feedback;
+// Corresponds to @(package_name)__@(subfolder)__@(type_name)
+pub struct @(type_name);
 
-    fn get_type_support() -> *const std::os::raw::c_void {
-      // SAFETY: No preconditions for this function.
-      unsafe { rosidl_typesupport_c__get_action_type_support_handle__@(package_name)__@(subfolder)__@(type_name)() }
-    }
+impl rosidl_runtime_rs::Action for @(type_name) {
+  type Goal = crate::@(subfolder)::rmw::@(type_name)_Goal;
+  type Result = crate::@(subfolder)::rmw::@(type_name)_Result;
+  type Feedback = crate::@(subfolder)::rmw::@(type_name)_Feedback;
+
+  fn get_type_support() -> *const std::os::raw::c_void {
+    // SAFETY: No preconditions for this function.
+    unsafe { rosidl_typesupport_c__get_action_type_support_handle__@(package_name)__@(subfolder)__@(type_name)() }
   }
+}
 
 @[end for]
