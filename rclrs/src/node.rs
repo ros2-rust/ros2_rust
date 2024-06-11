@@ -220,8 +220,8 @@ impl Node {
         T: rosidl_runtime_rs::Action,
     {
         let action_client = Arc::new(ActionClient::<T>::new(Arc::clone(&self.handle), topic)?);
-        // self.clients
-        //     .push(Arc::downgrade(&client) as Weak<dyn ClientBase>);
+        // self.action_clients
+        //     .push(Arc::downgrade(&action_client) as Weak<dyn ActionClientBase>);
         Ok(action_client)
     }
 
@@ -229,23 +229,29 @@ impl Node {
     ///
     /// [1]: crate::ActionServer
     // TODO: make action server's lifetime depend on node's lifetime
-    pub fn create_action_server<T>(
+    pub fn create_action_server<ActionT, GoalCallback, CancelCallback, AcceptedCallback>(
         &mut self,
         topic: &str,
-        handle_goal: fn(&crate::action::GoalUuid, Arc<T::Goal>) -> GoalResponse,
-        handle_cancel: fn(Arc<ServerGoalHandle<T>>) -> CancelResponse,
-        handle_accepted: fn(Arc<ServerGoalHandle<T>>),
-    ) -> Result<Arc<ActionServer<T>>, RclrsError>
+        handle_goal: GoalCallback,
+        handle_cancel: CancelCallback,
+        handle_accepted: AcceptedCallback,
+    ) -> Result<Arc<ActionServer<ActionT>>, RclrsError>
     where
-        T: rosidl_runtime_rs::Action,
+        ActionT: rosidl_runtime_rs::Action,
+        GoalCallback: Fn(GoalUuid, <ActionT as rosidl_runtime_rs::Action>::Goal) -> GoalResponse + 'static + Send + Sync,
+        CancelCallback: Fn(ServerGoalHandle<ActionT>) -> CancelResponse + 'static + Send + Sync,
+        AcceptedCallback: Fn(ServerGoalHandle<ActionT>) + 'static + Send + Sync,
     {
-        let action_server = Arc::new(ActionServer::<T>::new(
+        let action_server = Arc::new(ActionServer::<ActionT>::new(
             Arc::clone(&self.handle),
             self.get_clock(),
             topic,
+            handle_goal,
+            handle_cancel,
+            handle_accepted,
         )?);
-        // self.servers
-        //     .push(Arc::downgrade(&server) as Weak<dyn ClientBase>);
+        // self.action_servers
+        //     .push(Arc::downgrade(&action_server) as Weak<dyn ActionClientBase>);
         Ok(action_server)
     }
 
