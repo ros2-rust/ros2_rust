@@ -1,5 +1,5 @@
 mod client;
-mod server;
+pub(crate) mod server;
 mod server_goal_handle;
 
 use crate::rcl_bindings::RCL_ACTION_UUID_SIZE;

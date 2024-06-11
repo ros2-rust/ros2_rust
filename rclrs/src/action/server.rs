@@ -1,7 +1,6 @@
-use crate::{error::ToResult, rcl_bindings::*, Clock, Node, RclrsError, ENTITY_LIFECYCLE_MUTEX};
+use crate::{action::{GoalResponse, GoalUuid, CancelResponse, ServerGoalHandle}, error::ToResult, rcl_bindings::*, Clock, Node, RclrsError, ENTITY_LIFECYCLE_MUTEX};
 use std::{
     ffi::CString,
-    marker::PhantomData,
     sync::{atomic::AtomicBool, Arc, Mutex, MutexGuard},
 };
 
@@ -49,15 +48,18 @@ pub trait ActionServerBase: Send + Sync {
     // fn execute(&self) -> Result<(), RclrsError>;
 }
 
-pub struct ActionServer<T>
+pub type GoalCallback<ActionT> = dyn Fn(GoalUuid, <ActionT as rosidl_runtime_rs::Action>::Goal) -> GoalResponse + 'static + Send + Sync;
+pub type CancelCallback<ActionT> = dyn Fn(ServerGoalHandle<ActionT>) -> CancelResponse + 'static + Send + Sync;
+pub type AcceptedCallback<ActionT> = dyn Fn(ServerGoalHandle<ActionT>) + 'static + Send + Sync;
+
+pub struct ActionServer<ActionT>
 where
-    T: rosidl_runtime_rs::Action,
+    ActionT: rosidl_runtime_rs::Action,
 {
-    _marker: PhantomData<fn() -> T>,
     pub(crate) handle: Arc<ActionServerHandle>,
-    // goal_callback: (),
-    // cancel_callback: (),
-    // accepted_callback: (),
+    goal_callback: Box<GoalCallback<ActionT>>,
+    cancel_callback: Box<CancelCallback<ActionT>>,
+    accepted_callback: Box<AcceptedCallback<ActionT>>,
 }
 
 impl<T> ActionServer<T>
@@ -65,7 +67,14 @@ where
     T: rosidl_runtime_rs::Action,
 {
     /// Creates a new action server.
-    pub(crate) fn new(node: &Node, clock: Clock, topic: &str) -> Result<Self, RclrsError>
+    pub(crate) fn new(
+        node: &Node,
+        clock: Clock,
+        topic: &str,
+        goal_callback: impl Fn(GoalUuid, T::Goal) -> GoalResponse + 'static + Send + Sync,
+        cancel_callback: impl Fn(ServerGoalHandle<T>) -> CancelResponse + 'static + Send + Sync,
+        accepted_callback: impl Fn(ServerGoalHandle<T>) + 'static + Send + Sync,
+    ) -> Result<Self, RclrsError>
     where
         T: rosidl_runtime_rs::Action,
     {
@@ -113,8 +122,10 @@ where
         });
 
         Ok(Self {
-            _marker: Default::default(),
             handle,
+            goal_callback: Box::new(goal_callback),
+            cancel_callback: Box::new(cancel_callback),
+            accepted_callback: Box::new(accepted_callback),
         })
     }
 }
