@@ -510,8 +510,10 @@ macro_rules! impl_sequence_alloc_for_primitive_type {
                 unsafe {
                     // This allocates space and sets seq.size and seq.capacity to size
                     let ret = $init_func(seq as *mut _, size);
-                    // Zero memory, since it will be uninitialized if there is no default value
-                    std::ptr::write_bytes(seq.data, 0u8, size);
+                    if !seq.data.is_null() {
+                        // Zero memory, since it will be uninitialized if there is no default value
+                        std::ptr::write_bytes(seq.data, 0u8, size);
+                    }
                     ret
                 }
             }
