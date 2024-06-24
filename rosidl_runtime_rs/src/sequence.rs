@@ -559,6 +559,16 @@ macro_rules! impl_sequence_alloc_for_primitive_type {
                     ret
                 }
             }
+            /// Finalizes a sequence, freeing any associated resources.
+            ///
+            /// # Safety
+            ///
+            /// This function is unsafe because it calls an unsafe function `$fini_func`.
+            /// The caller must ensure that `$fini_func` is safe to call with the provided arguments.
+            ///
+            /// # Arguments
+            ///
+            /// * `seq` - A mutable reference to the sequence to be finalized.
             fn sequence_fini(seq: &mut Sequence<Self>) {
                 // SAFETY: There are no special preconditions to the sequence_fini function.
                 unsafe { $fini_func(seq as *mut _) }
