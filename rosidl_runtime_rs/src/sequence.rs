@@ -522,7 +522,7 @@ impl std::error::Error for SequenceExceedsBoundsError {}
 /// * `$copy_func:ident` - The name of the extern "C" function used to copy a sequence.
 macro_rules! impl_sequence_alloc_for_primitive_type {
     ($rust_type:ty, $init_func:ident, $fini_func:ident, $copy_func:ident) => {
-        /// Provides default implementations for SequenceAlloc for primitive types.
+        // Provides default implementations for SequenceAlloc for primitive types.
         #[link(name = "rosidl_runtime_c")]
         extern "C" {
             fn $init_func(seq: *mut Sequence<$rust_type>, size: usize) -> bool;
