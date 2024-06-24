@@ -469,8 +469,8 @@ impl<T: SequenceAlloc> Iterator for SequenceIterator<T> {
         (len, Some(len))
     }
 }
-
 impl<T: SequenceAlloc> ExactSizeIterator for SequenceIterator<T> {
+    /// Returns the length of the sequence as unsigned integer.
     fn len(&self) -> usize {
         (self.seq.size + 1) - self.idx
     }
@@ -489,7 +489,6 @@ impl Display for SequenceExceedsBoundsError {
         )
     }
 }
-
 impl std::error::Error for SequenceExceedsBoundsError {}
 
 macro_rules! impl_sequence_alloc_for_primitive_type {
