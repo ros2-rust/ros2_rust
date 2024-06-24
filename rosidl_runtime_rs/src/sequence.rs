@@ -559,6 +559,7 @@ macro_rules! impl_sequence_alloc_for_primitive_type {
                     ret
                 }
             }
+
             /// Finalizes a sequence, freeing any associated resources.
             ///
             /// # Safety
@@ -573,6 +574,22 @@ macro_rules! impl_sequence_alloc_for_primitive_type {
                 // SAFETY: There are no special preconditions to the sequence_fini function.
                 unsafe { $fini_func(seq as *mut _) }
             }
+
+            /// Copies the contents of one sequence to another.
+            ///
+            /// # Safety
+            ///
+            /// This function is unsafe because it calls an unsafe function `$copy_func`.
+            /// The caller must ensure that `$copy_func` is safe to call with the provided arguments.
+            ///
+            /// # Arguments
+            ///
+            /// * `in_seq` - A reference to the sequence to be copied from.
+            /// * `out_seq` - A mutable reference to the sequence to be copied to.
+            ///
+            /// # Returns
+            ///
+            /// `true` if the copy was successful, `false` otherwise.
             fn sequence_copy(in_seq: &Sequence<Self>, out_seq: &mut Sequence<Self>) -> bool {
                 // SAFETY: There are no special preconditions to the sequence_copy function.
                 unsafe { $copy_func(in_seq as *const _, out_seq as *mut _) }
