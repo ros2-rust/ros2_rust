@@ -534,6 +534,21 @@ macro_rules! impl_sequence_alloc_for_primitive_type {
         }
 
         impl SequenceAlloc for $rust_type {
+            /// Initializes a sequence with a given size.
+            ///
+            /// # Safety
+            ///
+            /// This function is unsafe because it calls an unsafe function `$init_func`.
+            /// The caller must ensure that `$init_func` is safe to call with the provided arguments.
+            ///
+            /// # Arguments
+            ///
+            /// * `seq` - A mutable reference to the sequence to be initialized.
+            /// * `size` - The size of the sequence to be initialized.
+            ///
+            /// # Returns
+            ///
+            /// `true` if the sequence was successfully initialized, `false` otherwise.
             fn sequence_init(seq: &mut Sequence<Self>, size: usize) -> bool {
                 // SAFETY: There are no special preconditions to the sequence_init function.
                 unsafe {
