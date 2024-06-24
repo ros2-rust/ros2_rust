@@ -463,7 +463,7 @@ impl<T: SequenceAlloc> Iterator for SequenceIterator<T> {
         self.idx += 1;
         Some(elem)
     }
-
+    /// returns the remaining length of the sequence
     fn size_hint(&self) -> (usize, Option<usize>) {
         let len = (self.seq.size + 1) - self.idx;
         (len, Some(len))
