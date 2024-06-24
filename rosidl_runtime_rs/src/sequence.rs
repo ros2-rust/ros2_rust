@@ -489,6 +489,7 @@ impl Display for SequenceExceedsBoundsError {
         )
     }
 }
+/// Implements the `std::error::Error` trait for the `SequenceExceedsBoundsError` struct.
 impl std::error::Error for SequenceExceedsBoundsError {}
 
 macro_rules! impl_sequence_alloc_for_primitive_type {
