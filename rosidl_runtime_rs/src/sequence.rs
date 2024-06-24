@@ -491,7 +491,35 @@ impl Display for SequenceExceedsBoundsError {
 }
 /// Implements the `std::error::Error` trait for the `SequenceExceedsBoundsError` struct.
 impl std::error::Error for SequenceExceedsBoundsError {}
-
+/// Macro to provide default implementations for the `SequenceAlloc` trait for primitive types.
+///
+/// This macro generates an implementation of the `SequenceAlloc` trait for a given primitive type.
+/// It defines three extern "C" functions (`$init_func`, `$fini_func`, and `$copy_func`) that are
+/// linked from the "rosidl_runtime_c" library and used to initialize, finalize, and copy sequences
+/// of the specified type.
+///
+/// The `sequence_init` function allocates space for the sequence and sets its size and capacity.
+/// If the sequence's data pointer is null, it calls `$init_func` to allocate memory. Otherwise,
+/// it writes zero bytes to the existing memory region.
+///
+/// The `sequence_fini` function finalizes the sequence by calling `$fini_func`.
+///
+/// The `sequence_copy` function copies the contents of one sequence to another by calling
+/// `$copy_func`.
+///
+/// # Safety
+///
+/// The implementations of `sequence_init`, `sequence_fini`, and `sequence_copy` are marked as
+/// `unsafe` because they call the corresponding extern "C" functions, which may have undefined
+/// behavior if their preconditions are not met. However, the macro assumes that there are no
+/// special preconditions for these functions.
+///
+/// # Arguments
+///
+/// * `$rust_type:ty` - The Rust type for which the `SequenceAlloc` trait should be implemented.
+/// * `$init_func:ident` - The name of the extern "C" function used to initialize a sequence.
+/// * `$fini_func:ident` - The name of the extern "C" function used to finalize a sequence.
+/// * `$copy_func:ident` - The name of the extern "C" function used to copy a sequence.
 macro_rules! impl_sequence_alloc_for_primitive_type {
     ($rust_type:ty, $init_func:ident, $fini_func:ident, $copy_func:ident) => {
         #[link(name = "rosidl_runtime_c")]
