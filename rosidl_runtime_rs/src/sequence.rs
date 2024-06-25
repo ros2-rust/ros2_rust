@@ -222,7 +222,7 @@ impl<T: SequenceAlloc + Clone> From<&[T]> for Sequence<T> {
     /// # Examples
     ///
     /// ```
-    /// use sequence::Sequence;
+    /// use rosidl_runtime_rs::Sequence;
     ///
     /// let slice = [1, 2, 3, 4, 5];
     /// let seq: Sequence<i32> = (&slice).into();
