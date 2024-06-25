@@ -98,6 +98,26 @@ where
     T: rosidl_runtime_rs::Service,
 {
     /// Creates a new client.
+    ///
+    /// # Arguments
+    ///
+    /// * `node_handle` - An `Arc` reference to the `NodeHandle` associated with this client.
+    /// * `topic` - The name of the topic to which the client will send requests.
+    ///
+    /// # Returns
+    ///
+    /// A `Result` containing the newly created `Client` instance or an `RclrsError` if an error occurred
+    /// during initialization.
+    ///
+    /// # Errors
+    ///
+    /// This function may return an error if:
+    ///
+    /// - The `topic` string contains a null character.
+    /// - The initialization of the underlying `rcl_client_t` instance fails.
+    pub(crate) fn new(node_handle: Arc<NodeHandle>, topic: &str) -> Result<Self, RclrsError>
+    // This uses pub(crate) visibility to avoid instantiating this struct outside
+    // [`Node::create_client`], see the struct's documentation for the rationale
     pub(crate) fn new(node_handle: Arc<NodeHandle>, topic: &str) -> Result<Self, RclrsError>
     // This uses pub(crate) visibility to avoid instantiating this struct outside
     // [`Node::create_client`], see the struct's documentation for the rationale
