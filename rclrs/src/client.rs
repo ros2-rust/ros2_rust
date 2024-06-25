@@ -314,6 +314,7 @@ impl<T> ClientBase for Client<T>
 where
     T: rosidl_runtime_rs::Service,
 {
+    /// Returns a reference to the `ClientHandle` associated with this client.
     fn handle(&self) -> &ClientHandle {
         &self.handle
     }
