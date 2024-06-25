@@ -92,6 +92,16 @@ pub struct SequenceIterator<T: SequenceAlloc> {
 // ========================= impl for Sequence =========================
 
 impl<T: SequenceAlloc> Clone for Sequence<T> {
+    /// Creates a deep copy of the sequence.
+    ///
+    /// # Panics
+    ///
+    /// This function will panic if the cloning operation fails, as indicated by the
+    /// `sequence_copy` function returning `false`.
+    ///
+    /// # Returns
+    ///
+    /// A new `Sequence` instance that is a deep copy of the original sequence.
     fn clone(&self) -> Self {
         let mut seq = Self::default();
         if T::sequence_copy(self, &mut seq) {
