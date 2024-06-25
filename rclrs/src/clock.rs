@@ -51,6 +51,10 @@ impl Clock {
 
     /// Creates a new Clock with `ClockType::RosTime` and a matching `ClockSource` that can be used
     /// to update it
+    ///
+    /// # Returns
+    ///
+    /// A tuple of Clock and ClockSource
     pub fn with_source() -> (Self, ClockSource) {
         let clock = Self::make(ClockType::RosTime);
         let clock_source = ClockSource::new(clock.rcl_clock.clone());
@@ -58,6 +62,15 @@ impl Clock {
     }
 
     /// Creates a new clock of the given `ClockType`.
+    ///
+    /// # Arguments
+    ///
+    /// * `kind` - The `ClockType` to use for the new `Clock` instance.
+    ///
+    /// # Returns
+    ///
+    /// A tuple containing the new `Clock` instance and an `Option<ClockSource>`. If the `ClockType` is `RosTime`,
+    /// the `ClockSource` will be `Some`, otherwise it will be `None`.
     pub fn new(kind: ClockType) -> (Self, Option<ClockSource>) {
         let clock = Self::make(kind);
         let clock_source =
