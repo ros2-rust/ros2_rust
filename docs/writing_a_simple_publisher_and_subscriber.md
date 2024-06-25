@@ -43,12 +43,12 @@ from building packages for [Python](https://docs.ros.org/en/humble/Tutorials/Beg
 First, you'll need to go and create into a standard [cargo](https://doc.rust-lang.org/cargo/) 
 project as follows:
 ```
-cargo new rust_pub_sub && cd rust_pub_sub
+cargo new rust_pubsub && cd rust_pubsub
 ```
 In the [`Cargo.toml`](https://doc.rust-lang.org/book/ch01-03-hello-cargo.html) file, add a dependency on `rclrs = "*"` and `std_msgs = "*"` by editing this file. Your `Cargo.toml` could now look like this:
 ```toml
 [package]
-name = "rust_pub_sub"
+name = "rust_pubsub"
 version = "0.1.0"
 edition = "2021"
 
@@ -63,7 +63,7 @@ std_msgs = "*"
 Additionally, create a new `package.xml` if you want your node to be buildable with [`colcon`](https://colcon.readthedocs.io/en/released/user/installation.html). Make sure to change the build type to `ament_cargo` and to include the two packages mentioned above in the dependencies, as such:
 ```xml
 <package format="3">
-  <name>rust_pub_sub</name>
+  <name>rust_pubsub</name>
   <version>0.0.0</version>
   <description>TODO: Package description.</description>
   <maintainer email="user@todo.todo">user</maintainer>
