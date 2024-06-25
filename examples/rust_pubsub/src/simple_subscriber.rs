@@ -1,6 +1,6 @@
 use rclrs::{create_node, Context, Node, RclrsError, Subscription, QOS_PROFILE_DEFAULT};
 use std::{
-    env, iter,
+    env,
     sync::{Arc, Mutex},
     thread,
     time::Duration,
