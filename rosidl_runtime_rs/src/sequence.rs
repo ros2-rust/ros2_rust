@@ -224,8 +224,8 @@ impl<T: SequenceAlloc + Clone> From<&[T]> for Sequence<T> {
     /// ```
     /// use rosidl_runtime_rs::Sequence;
     ///
-    /// let slice = [1, 2, 3, 4, 5];
-    /// let seq: Sequence<i32> = (&slice).into();
+    /// let slice:Vec<i32> = vec![1, 2, 3, 4, 5];
+    /// let seq: Sequence<i32> = (&slice[..]).into();
     ///
     /// assert_eq!(seq.len(), 5);
     /// assert_eq!(seq[0], 1);
