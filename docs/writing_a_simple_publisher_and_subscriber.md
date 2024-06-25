@@ -40,7 +40,7 @@ For a full Introduction into Rust, please read the very good [Rust book](https:/
 Currently, building a package for ros2-rust is different 
 from building packages for [Python](https://docs.ros.org/en/humble/Tutorials/Beginner-Client-Libraries/Writing-A-Simple-Py-Publisher-And-Subscriber.html) or [C/C++](https://docs.ros.org/en/humble/Tutorials/Beginner-Client-Libraries/Writing-A-Simple-Cpp-Publisher-And-Subscriber.html).  
 
-First, you'll need to create and go into a standard [cargo](https://doc.rust-lang.org/cargo/) 
+First, you'll need to go and create into a standard [cargo](https://doc.rust-lang.org/cargo/) 
 project as follows:
 ```
 cargo new rust_pub_sub && cd rust_pub_sub
