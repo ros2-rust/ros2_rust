@@ -41,6 +41,16 @@ impl ClientHandle {
 }
 
 impl Drop for ClientHandle {
+    /// Cleans up the ROS client when the `ClientHandle` instance is dropped.
+    ///
+    /// This implementation finalizes the `rcl_client_t` instance by calling `rcl_client_fini`.
+    /// It also acquires the entity lifecycle mutex to protect against the risk of global variables
+    /// in the rmw implementation being unsafely modified during cleanup.
+    ///
+    /// # Safety
+    ///
+    /// This function calls an unsafe function (`rcl_client_fini`) from the ROS client library.
+    /// The entity lifecycle mutex is locked to ensure thread safety during the cleanup process.
     fn drop(&mut self) {
         let rcl_client = self.rcl_client.get_mut().unwrap();
         let mut rcl_node = self.node_handle.rcl_node.lock().unwrap();
