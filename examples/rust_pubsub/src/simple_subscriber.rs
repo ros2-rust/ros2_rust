@@ -6,11 +6,6 @@ use std::{
     time::Duration,
 };
 use std_msgs::msg::String as StringMsg;
-/// A simple ROS2 subscriber node that receives and prints "hello" messages.
-///
-/// This node creates a subscription to the "publish_hello" topic and prints the
-/// received messages to the console. It runs the subscription in a separate
-/// thread, while the main thread calls `rclrs::spin()` to keep the node running.
 pub struct SimpleSubscriptionNode {
     node: Arc<Node>,
     _subscriber: Arc<Subscription<StringMsg>>,
