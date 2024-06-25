@@ -209,6 +209,28 @@ impl<T: SequenceAlloc> Extend<T> for Sequence<T> {
 }
 
 impl<T: SequenceAlloc + Clone> From<&[T]> for Sequence<T> {
+    /// Creates a new `Sequence` from a slice of elements.
+    ///
+    /// # Arguments
+    ///
+    /// * `slice` - A slice of elements to be used to initialize the new `Sequence`.
+    ///
+    /// # Returns
+    ///
+    /// A new `Sequence` instance containing a copy of the elements from the input slice.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use sequence::Sequence;
+    ///
+    /// let slice = [1, 2, 3, 4, 5];
+    /// let seq: Sequence<i32> = (&slice).into();
+    ///
+    /// assert_eq!(seq.len(), 5);
+    /// assert_eq!(seq[0], 1);
+    /// assert_eq!(seq[4], 5);
+    /// ```
     fn from(slice: &[T]) -> Self {
         let mut seq = Sequence::new(slice.len());
         seq.clone_from_slice(slice);
