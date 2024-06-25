@@ -77,7 +77,7 @@ Additionally, create a new `package.xml` if you want your node to be buildable w
   </export>
 </package>
 ```
-By taking a look at your package, for example by typing [`tree .`](https://www.geeksforgeeks.org/tree-command-unixlinux/) inside your package, and you'll see a structure similar to the following:  
+Your package should now have a similar structure:  
 ```shell
 ├── Cargo.toml
 ├── package.xml
