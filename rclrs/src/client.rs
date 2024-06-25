@@ -30,6 +30,11 @@ pub struct ClientHandle {
 }
 
 impl ClientHandle {
+    /// Locks the `rcl_client_t` instance and returns a mutable reference to it.
+    ///
+    /// # Returns
+    ///
+    /// A `MutexGuard` holding a mutable reference to the `rcl_client_t` instance.
     pub(crate) fn lock(&self) -> MutexGuard<rcl_client_t> {
         self.rcl_client.lock().unwrap()
     }
