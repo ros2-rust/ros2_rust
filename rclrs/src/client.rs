@@ -315,7 +315,20 @@ where
     fn handle(&self) -> &ClientHandle {
         &self.handle
     }
-
+    /// Executes the client by taking a response from the underlying `rcl_client_t` instance
+    /// and handling it appropriately.
+    ///
+    /// This method attempts to take a response from the client using `take_response`. If a response
+    /// is successfully taken, it is processed by either calling the associated callback or sending
+    /// the response to the associated future.
+    ///
+    /// If the `take_response` method returns a `ClientTakeFailed` error, it is treated as a
+    /// spurious wakeup and is not considered an error.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` if the response was successfully processed or if a spurious wakeup occurred.
+    /// `Err(RclrsError)` if an error occurred while taking or processing the response.
     fn execute(&self) -> Result<(), RclrsError> {
         let (res, req_id) = match self.take_response() {
             Ok((res, req_id)) => (res, req_id),
