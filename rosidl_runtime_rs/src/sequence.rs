@@ -150,6 +150,22 @@ impl<T: SequenceAlloc> Drop for Sequence<T> {
 impl<T: SequenceAlloc + Eq> Eq for Sequence<T> {}
 
 impl<T: SequenceAlloc> Extend<T> for Sequence<T> {
+    /// Extends the sequence by appending elements from an iterator.
+    ///
+    /// # Arguments
+    ///
+    /// * `&mut self` - The mutable sequence to be extended.
+    /// * `iter` - The iterator containing the elements to be appended.
+    ///
+    /// # Panics
+    ///
+    /// This function does not panic.
+    ///
+    /// # Safety
+    ///
+    /// This function is safe to call, but it may reallocate the underlying memory
+    /// of the sequence, which could potentially invalidate any existing references
+    /// or pointers to the sequence's elements.
     fn extend<I>(&mut self, iter: I)
     where
         I: IntoIterator<Item = T>,
