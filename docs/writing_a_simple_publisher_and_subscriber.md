@@ -385,8 +385,8 @@ A few special features:
     * `let data: Arc<Mutex<Option<StringMsg>>> = Arc::new(Mutex::new(None));`  
         This line creates a shared data structure that will hold the received message.  
         * `Arc<Mutex<Option<StringMsg>>>`: This is a complex type combining several functionalities:  
-            * `Arc<T>`: An atomically reference-counted pointer ([`Arc`](https://www.google.com/url?sa=t&source=web&rct=j&opi=89978449&url=https://doc.rust-lang.org/std/sync/struct.Arc.html&ved=2ahUKEwiJz_n3876FAxXZg_0HHc-yDZ8QFnoECAYQAQ&usg=AOvVaw2ZAPxD2olFejU3a_Ngb4f5)) allows multiple parts of the code to safely access the same data (`T`).
-            * `Mutex<T>`: A mutual exclusion lock ([`Mutex`](https://www.google.com/url?sa=t&source=web&rct=j&opi=89978449&url=https://doc.rust-lang.org/std/sync/struct.Mutex.html&ved=2ahUKEwjNx8uP9L6FAxVrhP0HHY4DB3YQFnoECAcQAQ&usg=AOvVaw3gOprM5PxBUUZd_3W6wFaG)) ensures only one thread can modify the data (`T`) at a time, preventing race conditions.  
+            * `Arc<T>`: An atomically reference-counted pointer ([`Arc`](https://doc.rust-lang.org/std/sync/struct.Arc.html)) allows multiple parts of the code to safely access the same data (`T`).
+            * `Mutex<T>`: A mutual exclusion lock ([`Mutex`](https://doc.rust-lang.org/std/sync/struct.Mutex.html)) ensures only one thread can modify the data (`T`) at a time, preventing race conditions.  
             * `Option<StringMsg>`: This represents an optional value that can either hold a message of type `StringMsg` or be `None` if no message has been received yet.
     * `Arc::new(Mutex::new(None))`: This creates a new instance of `Arc<Mutex<Option<StringMsg>>>` and initializes the inner `Mutex` with `None`.
 2. Creating a Subscription:  
