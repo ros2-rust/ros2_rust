@@ -229,7 +229,7 @@ fn main() -> Result<(), RclrsError> {
 ```
 
 1. Main Function:
-`fn main() -> Result<(), RclrsError> { ... }`: This defines the main entry point of the program. It returns a `Result` type, indicating either successful execution or an `RclrsError`.  
+`fn main() -> Result<(), RclrsError> { ... }`: This defines the main entry point of the program. It returns a [`Result`](https://doc.rust-lang.org/std/result/) type, indicating either successful execution or an [`RclrsError`](https://docs.rs/rclrs/latest/rclrs/enum.RclrsError.html).  
 2. Context and Node Setup:  
 * `let context = Context::new(std::env::args()).unwrap();`: Creates a ROS 2 context using command-line arguments.  
 * `let publisher = Arc::new(SimplePublisherNode::new(&context).unwrap());`:  
@@ -238,7 +238,7 @@ fn main() -> Result<(), RclrsError> {
 3. Thread and Iterator:  
 * `let publisher_other_thread = Arc::clone(&publisher);`: Clones the shared publisher pointer for use in a separate thread.  
 * `let mut iterator: i32 = 0;`: Initializes a counter variable for message content.  
-* `thread::spawn(move || -> () { ... });`: Spawns a new thread with a [closure](https://doc.rust-lang.org/book/ch13-01-closures.html): `loop { ... }`: Creates an infinite loop using `loop`.  
+* `thread::spawn(move || -> () { ... });`: Spawns a new [thread](https://doc.rust-lang.org/std/thread/index.html) with a [closure](https://doc.rust-lang.org/book/ch13-01-closures.html): `loop { ... }`: Creates an infinite loop using [`loop`](https://doc.rust-lang.org/std/keyword.loop.html).  
 4. Publishing Loop within Thread:  
 * `thread::sleep(Duration::from_millis(1000));`: Pauses the thread for 1 second (1 Hz publishing rate).  
 * `iterator = publisher_other_thread.publish_data(count).unwrap();`: Calls the `publish_data` method on the `publisher_other_thread` to publish a message with the current counter value. Increments the iterator for the next message.  
