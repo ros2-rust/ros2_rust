@@ -10,6 +10,8 @@ In this tutorial you will create a pair of
 
 Since Rust doesn't have inheritance, it's not possible to inherit from `Node` as is common practice in [`rclcpp`](https://docs.ros.org/en/humble/Tutorials/Beginner-Client-Libraries/Writing-A-Simple-Cpp-Publisher-And-Subscriber.html) or [`rclpy`](https://docs.ros.org/en/humble/Tutorials/Beginner-Client-Libraries/Writing-A-Simple-Py-Publisher-And-Subscriber.html).
 
+The code used in these examples can be found [here](https://github.com/ros2-rust/ros2_rust/tree/main/examples/rust_pubsub)
+
 <div style="margin-left:20px;">
 <details><summary>Side-note on dependencies</summary>
 
@@ -299,10 +301,6 @@ use std::{
 };
 use std_msgs::msg::String as StringMsg;
 /// A simple ROS2 subscriber node that receives and prints "hello" messages.
-///
-/// This node creates a subscription to the "publish_hello" topic and prints the
-/// received messages to the console. It runs the subscription in a separate
-/// thread, while the main thread calls `rclrs::spin()` to keep the node running.
 pub struct SimpleSubscriptionNode {
     node: Arc<Node>,
     _subscriber: Arc<Subscription<StringMsg>>,
