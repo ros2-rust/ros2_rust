@@ -1,5 +1,5 @@
 [package]
-name = "rust_pub_sub"
+name = "rust_pubsub"
 version = "0.1.0"
 edition = "2021"
 
