@@ -14,8 +14,12 @@ The code used in these examples can be found [here](https://gitlab.com/ros219239
 <div style="margin-left:20px;">
 <details><summary>Side-note on dependencies</summary>
 
-You may be wondering why you can't just add all your ROS2-specific dependencies to `Cargo.toml` with `cargo add YOUR_DEPENDENCIES` and have to edit this file manually. Here is why:
-Almost none of the ROS2 dependencies you'll need for your ROS2 Rust node development currently exist on [crates.io](https://crates.io/), the main source for Rust dependencies. So the add command simply can't find the dependency targets. What colcon does by compiling the ROS2 Rust dependencies and your ROS2 Rust project is redirect the cargo search for dependencies directly into your `workspace/install` folder, where it'll find locally generated Rust projects to use as dependencies. In particular, almost all message types will be called as dependencies for your ROS2 Rust project this way.
+You may be wondering why you can't just add all your ROS 2-specific dependencies to `Cargo.toml` with `cargo add YOUR_DEPENDENCIES` and have to edit this file manually. Here is why:
+Almost none of the ROS 2 dependencies you'll need for your ROS 2 Rust node development currently exist on [crates.io](https://crates.io/), the 
+main source for Rust dependencies. So the add command simply can't find the dependency targets. What colcon does by compiling 
+the ROS 2 Rust dependencies and your ROS 2 Rust project is redirect the cargo search for dependencies directly into your 
+`workspace/install` folder, where it'll find locally generated Rust projects to use as dependencies. In particular, almost 
+all message types will be called as dependencies for your ROS 2 Rust project this way.
 
 </details></div>
 
