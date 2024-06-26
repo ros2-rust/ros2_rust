@@ -247,7 +247,7 @@ fn main() -> Result<(), RclrsError> {
 
 </details>
 </details>
-<details><summary>Having several ROS2 Rust nodes in one Package</summary>
+<details><summary>Having several ROS 2 Rust nodes in one Package</summary>
 
 Of course, you can write for each node you want to implement its own package, and that can have it's advantages. I implore you to use some cargo tricks and add some binary targets to your `cargo.toml`. That could look like this:
 ```toml
@@ -282,7 +282,7 @@ As you can see, you are now calling your node by the name declared in `[[bin]]` 
 </details>
 <details><summary>Write the subscriber node</summary> 
 
-Of course, you can implement a new ROS2 Rust package for this node. You can find out how to do this in the section called 'Create a package'.
+Of course, you can implement a new ROS 2 Rust package for this node. You can find out how to do this in the section called 'Create a package'.
 Or you can add a new binary target to your package. To do so, just add a new `FILE.rs` to your source directory - for simplicity I'll call this file `simple_subscriber.rs` - and add a corresponding binary target to your `Cargo.toml`:
 ```toml
 [[bin]]
@@ -299,7 +299,7 @@ use std::{
     time::Duration,
 };
 use std_msgs::msg::String as StringMsg;
-/// A simple ROS2 subscriber node that receives and prints "hello" messages.
+/// A simple ROS 2 subscriber node that receives and prints "hello" messages.
 pub struct SimpleSubscriptionNode {
     node: Arc<Node>,
     _subscriber: Arc<Subscription<StringMsg>>,
@@ -434,7 +434,7 @@ Once you have implemented the code, you are ready to make it runnable:
 cd WORKSPACE
 colcon build
 ```
-Please note that you'll need to run your nodes in separate terminals. In each terminal, you'll need to source your ROS2 installation separately. So for each of the two nodes you've built so far, open a terminal and type the following:
+Please note that you'll need to run your nodes in separate terminals. In each terminal, you'll need to source your ROS 2 installation separately. So for each of the two nodes you've built so far, open a terminal and type the following:
 ```sh
 cd WORKSPACE
 source install/setup.bash
