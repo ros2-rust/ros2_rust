@@ -49,7 +49,7 @@ package:
 ```sh
 cargo new rust_pubsub && cd rust_pubsub
 ```
-In the [`Cargo.toml`](https://doc.rust-lang.org/book/ch01-03-hello-cargo.html) file, add a dependency on `rclrs = "*"` and `std_msgs = "*"` by editing this file. Your `Cargo.toml` could now look like this:
+In the [`Cargo.toml`](https://doc.rust-lang.org/book/ch01-03-hello-cargo.html) file, add a dependency on `rclrs = "*"` and `std_msgs = "*"` by editing this file. Your `Cargo.toml` should now look like this:
 ```toml
 [package]
 name = "rust_pubsub"
