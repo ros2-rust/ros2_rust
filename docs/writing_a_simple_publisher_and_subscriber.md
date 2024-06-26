@@ -10,7 +10,6 @@ In this tutorial you will create a pair of
 
 Since Rust doesn't have inheritance, it's not possible to inherit from `Node` as is common practice in [`rclcpp`](https://docs.ros.org/en/humble/Tutorials/Beginner-Client-Libraries/Writing-A-Simple-Cpp-Publisher-And-Subscriber.html) or [`rclpy`](https://docs.ros.org/en/humble/Tutorials/Beginner-Client-Libraries/Writing-A-Simple-Py-Publisher-And-Subscriber.html).
 
-The code used in these examples can be found [here](https://gitlab.com/ros21923912/simple_ros2_node/-/tree/more_simple_nodes?ref_type=heads)  
 <div style="margin-left:20px;">
 <details><summary>Side-note on dependencies</summary>
 
@@ -158,7 +157,8 @@ use std_msgs::msg::String as StringMsg;
         - `Context, create_node, Node, Publisher` are for ROS 2 node creation and publishing. publishing.
 * `use std_msgs::msg::String as StringMsg;`: Imports the `StringMsg` type for publishing string messages.  
 
-#### Next, this structure defines a SimplePublisherNode which holds references to a ROS 2 node and a publisher for string messages.
+#### SimplePublisherNode 
+Next, this structure defines a SimplePublisherNode which holds references to a ROS 2 node and a publisher for string messages.
 ```rust
 struct SimplePublisherNode {
     node: Arc<Node>,
@@ -171,7 +171,8 @@ struct SimplePublisherNode {
 2. Members:
 * `node: Arc<Node>`: This member stores a reference to a ROS 2 node, wrapped in an [`Arc` (Atomic Reference Counted)](https://doc.rust-lang.org/std/sync/struct.Arc.html) smart pointer. This allows for safe sharing of the node reference across multiple threads.  
 * `_publisher: Arc<Publisher<StringMsg>>`: This member stores a reference to a publisher specifically for string messages (`StringMsg`), also wrapped in an `Arc` for thread safety. The publisher is responsible for sending string messages to other nodes in the ROS 2 system.  
-#### This code defines methods for the `SimplePublisherNode` `struct`. The `new` method creates a ROS 2 node and publisher, storing them in the `struct`. The `publish_data` method publishes a string message with a `counter` and returns the incremented `counter`.
+#### Implemenation 
+This code defines methods for the `SimplePublisherNode` `struct`. The `new` method creates a ROS 2 node and publisher, storing them in the `struct`. The `publish_data` method publishes a string message with a `counter` and returns the incremented `counter`.
 ```rust
 impl SimplePublisherNode {
     fn new(context: &context) -> result<self, RclrsError> {
@@ -210,7 +211,8 @@ impl SimplePublisherNode {
         * `self._publisher.publish(msg).unwrap();`: Publishes the created message onto the topic associated with the publisher.
         * `Ok(increment + 1_i32)`: Returns a Result with the incremented increment value.  
 
-#### The main Method creates a ROS 2 node that publishes string messages at a rate of 1 Hz.  
+#### Main
+The main Method creates a ROS 2 node that publishes string messages at a rate of 1 Hz.  
 ```rust
 fn main() -> Result<(), RclrsError> {
     let context = Context::new(env::args()).unwrap();
