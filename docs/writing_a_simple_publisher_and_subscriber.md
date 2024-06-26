@@ -206,7 +206,7 @@ impl SimplePublisherNode {
 3. Publishing Method:
 * `fn publish_data(&self, increment: i32) -> Result<i32, RclrsError> { ... }`: This method publishes a string message and increments a `counter`.
     * It takes an increment value (an integer) as input, which is used for counting purposes within the message content.
-    * It also returns a Result type, indicating either the incremented value or an RclrsError if publishing fails.
+    * It also returns a Result type, indicating either the incremented value or an [`RclrsError`](https://docs.rs/rclrs/latest/rclrs/enum.RclrsError.html) if publishing fails.
     * Inside the publish_data method:
         * `let msg: StringMsg = StringMsg { data: format!("Hello World {}", increment), };`: Creates a string message with the content `"Hello World"` followed by the increment value.
         * `self._publisher.publish(msg).unwrap();`: Publishes the created message onto the topic associated with the publisher.
