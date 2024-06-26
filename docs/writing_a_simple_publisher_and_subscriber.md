@@ -11,7 +11,6 @@ In this tutorial you will create a pair of
 Since Rust doesn't have inheritance, it's not possible to inherit from `Node` as is common practice in [`rclcpp`](https://docs.ros.org/en/humble/Tutorials/Beginner-Client-Libraries/Writing-A-Simple-Cpp-Publisher-And-Subscriber.html) or [`rclpy`](https://docs.ros.org/en/humble/Tutorials/Beginner-Client-Libraries/Writing-A-Simple-Py-Publisher-And-Subscriber.html).
 
 The code used in these examples can be found [here](https://github.com/ros2-rust/ros2_rust/tree/main/examples/rust_pubsub)
-
 <div style="margin-left:20px;">
 <details><summary>Side-note on dependencies</summary>
 
