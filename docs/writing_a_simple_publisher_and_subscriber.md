@@ -158,8 +158,8 @@ use std_msgs::msg::String as StringMsg;
 - `Context, create_node, Node, Publisher` are for ROS 2 node creation and publishing.
 * `use std_msgs::msg::String as StringMsg;`: Imports the `StringMsg` type for publishing string messages.  
 
-#### SimplePublisherNode
-Next, this structure defines a SimplePublisherNode which holds references to a ROS 2 node and a publisher for string messages.
+#### `SimplePublisherNode`
+Next, this structure defines a `SimplePublisherNode` which holds references to a ROS 2 node and a publisher for string messages.
 ```rust
 struct SimplePublisherNode {
     node: Arc<Node>,
