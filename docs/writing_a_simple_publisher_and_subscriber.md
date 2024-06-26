@@ -205,7 +205,7 @@ impl SimplePublisherNode {
         * `Ok(Self { node, _publisher, })`: Returns an [`Ok(T)`](https://doc.rust-lang.org/std/result/) Result with the newly created `SimplePublisherNode` as `T` object, containing the node and publisher references.  
 3. Publishing Method:
 * `fn publish_data(&self, increment: i32) -> Result<i32, RclrsError> { ... }`: This method publishes a string message and increments a `counter`.
-    * It takes an inkrement value (an integer) as input, which is used for counting purposes within the message content.
+    * It takes an increment value (an integer) as input, which is used for counting purposes within the message content.
     * It also returns a Result type, indicating either the incremented value or an RclrsError if publishing fails.
     * Inside the publish_data method:
         * `let msg: StringMsg = StringMsg { data: format!("Hello World {}", increment), };`: Creates a string message with the content `"Hello World"` followed by the increment value.
