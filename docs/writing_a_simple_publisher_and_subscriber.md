@@ -196,11 +196,11 @@ impl SimplePublisherNode {
 1. Implementation Block:   
 `impl SimplePublisherNode { ... }`: This line indicates that methods are being defined for the `SimplePublisherNode` struct.  
 2. Constructor Method:  
-* `fn new(context: &Context) -> Result<Self, RclrsError> { ... }`: This method serves as a constructor for creating instances of SimplePublisherNode.  
-    * It takes a Context object as input, which is necessary for interacting with the ROS 2 syste.  
+* `fn new(context: &Context) -> Result<Self, RclrsError> { ... }`: This method serves as a constructor for creating instances of `SimplePublisherNode`.  
+    * It takes a Context object as input, which is necessary for interacting with the ROS 2 system.
     * It returns a Result type, indicating either a successful Self (the created `SimplePublisherNode` object) or an `RclrsError` if something goes wrong.  
     * Inside the new method:  
-        * `let node = create_node(context, "simple_publisher").unwrap();`: Creates a new ROS 2 node named `"simple_publisher"` within the given context. The [`unwrap()`](https://doc.rust-lang.org/rust-by-example/error/option_unwrap.html) unwraps the [`Result`](https://doc.rust-lang.org/std/result/), handling any errors immediately by forcing the program to abort ([`panic`](https://doc.rust-lang.org/book/ch09-01-unrecoverable-errors-with-panic.html)) if something goes wrong. Since our code can't function properly if the node is not able to be created, this is a valid error-handling response for our use-case.
+        * `let node = create_node(context, "simple_publisher").unwrap();`: Creates a new ROS 2 node named `"simple_publisher"` within the given context. The [`unwrap()`](https://doc.rust-lang.org/rust-by-example/error/option_unwrap.html) unwraps the [`Result`](https://doc.rust-lang.org/std/result/), handling any errors immediately by forcing the program to abort ([`panic`](https://doc.rust-lang.org/book/ch09-01-unrecoverable-errors-with-panic.html)) if something goes wrong. Since your code can't function properly if the node is not able to be created, this is a valid error-handling response for our use-case.
         * `let _publisher = node.create_publisher("publish_hello", QOS_PROFILE_DEFAULT).unwrap();`: Creates a publisher for string messages on the topic `"publish_hello"` with default quality of service settings.  
         * `Ok(Self { node, _publisher, })`: Returns an `Ok` Result with the newly created `SimplePublisherNode` object, containing the node and publisher references.  
 3. Publishing Method:
