@@ -36,6 +36,13 @@ pub struct SubscriptionHandle {
 }
 
 impl SubscriptionHandle {
+    /// Acquires the lock on the `rcl_subscription_t` and returns a mutable reference to it.
+    ///
+    /// # Safety
+    ///
+    /// This function is marked as unsafe because it returns a mutable reference to the
+    /// `rcl_subscription_t` struct, which could potentially be misused to violate safety
+    /// guarantees.
     pub(crate) fn lock(&self) -> MutexGuard<rcl_subscription_t> {
         self.rcl_subscription.lock().unwrap()
     }
