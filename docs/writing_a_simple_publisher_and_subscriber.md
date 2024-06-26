@@ -134,7 +134,9 @@ fn main() -> Result<(), RclrsError> {
 
 <details><summary>Examining the code in detail:</summary>
 
-#### The first 3 lines of the Rust code imports tools for thread synchronization, time handling, iteration, threading, ROS 2 communication, and string message publishing.
+#### Importing 
+The first 3 lines of the Rust code imports tools for thread synchronization, time 
+handling, iteration, threading, ROS 2 communication, and string message publishing.
 ```rust
 use rclrs::{create_node, Context, Node, Publisher, RclrsError, QOS_PROFILE_DEFAULT};
 use std::{env, sync::Arc, thread, time::Duration};
