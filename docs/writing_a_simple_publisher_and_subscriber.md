@@ -27,7 +27,7 @@ all message types will be called as dependencies for your ROS 2 Rust project thi
 
 <details><summary>Prerequisites </summary> 
 
-Basic concepts of development with ROS2 should be known:
+Basic concepts of development with ROS 2 should be known:
 * [workspaces](https://docs.ros.org/en/humble/Tutorials/Beginner-Client-Libraries/Creating-A-Workspace/Creating-A-Workspace.html)
 * [packages](https://docs.ros.org/en/humble/Tutorials/Beginner-Client-Libraries/Creating-Your-First-ROS2-Package.html).
 
@@ -249,7 +249,7 @@ fn main() -> Result<(), RclrsError> {
 Of course, you can write for each node you want to implement its own package, and that can have it's advantages. I implore you to use some cargo tricks and add some binary targets to your `cargo.toml`. That could look like this:
 ```toml
 [package]
-name = "rust_pub_sub"
+name = "rust_pubsub"
 version = "0.1.0"
 edition = "2021"
 
@@ -272,7 +272,7 @@ source install/setub.bash
 ```
 Running the node will look like this:
 ```shell
-ros2 run rust_pub_sub simple_publisher
+ros2 run rust_pubsub simple_publisher
 ```
 As you can see, you are now calling your node by the name declared in `[[bin]]` using the `name` variable.
 
@@ -439,7 +439,7 @@ Please note that you'll need to run your nodes in separate terminals. In each te
 ```sh
 cd WORKSPACE
 source install/setup.bash
-ros2 run rust_pub_sub your_node_name
+ros2 run rust_pubsub your_node_name
 ```
 In my case, the nodes are called `simple_publisher` and `simple_subscriber`. You can name your nodes whatever you like. It is important that the publisher and subscriber use the same topic type and name.  
 If you haven't had any errors so far and have successfully started the Publisher and Subscriber, you should see something similar in the Subscriber's Terminal window:
