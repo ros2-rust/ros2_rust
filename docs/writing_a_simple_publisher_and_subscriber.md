@@ -46,7 +46,7 @@ from building packages for [Python](https://docs.ros.org/en/humble/Tutorials/Beg
 
 First, you'll need to create a standard [cargo](https://doc.rust-lang.org/cargo/) 
 package:
-```
+```console
 cargo new rust_pubsub && cd rust_pubsub
 ```
 In the [`Cargo.toml`](https://doc.rust-lang.org/book/ch01-03-hello-cargo.html) file, add a dependency on `rclrs = "*"` and `std_msgs = "*"` by editing this file. Your `Cargo.toml` could now look like this:
