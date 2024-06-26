@@ -46,7 +46,7 @@ from building packages for [Python](https://docs.ros.org/en/humble/Tutorials/Beg
 
 First, you'll need to create a standard [cargo](https://doc.rust-lang.org/cargo/) 
 package:
-```
+```sh
 cargo new rust_pubsub && cd rust_pubsub
 ```
 In the [`Cargo.toml`](https://doc.rust-lang.org/book/ch01-03-hello-cargo.html) file, add a dependency on `rclrs = "*"` and `std_msgs = "*"` by editing this file. Your `Cargo.toml` could now look like this:
@@ -82,7 +82,7 @@ Additionally, create a new `package.xml` if you want your node to be buildable w
 </package>
 ```
 Your package should now have a similar structure:  
-```shell
+```sh
 ├── Cargo.toml
 ├── package.xml
 └── src
@@ -268,13 +268,13 @@ std_msgs = "*"
 
 You'll find the name of your executable and the corresponding file name under the `[[bin]]` tag. As you can see, the filename and the name you want to call your node don't have to match. Please remember to include your executable name with snake_cases. The Rust compiler will be a bit grumpy if you don't.  
 Now, by recompiling the package from the previous chapter and making it usable:  
-```shell
+```sh
 cd WORKSPACE
 colcon build
 source install/setub.bash
 ```
 Running the node will look like this:
-```shell
+```sh
 ros2 run rust_pubsub simple_publisher
 ```
 As you can see, you are now calling your node by the name declared in `[[bin]]` using the `name` variable.
