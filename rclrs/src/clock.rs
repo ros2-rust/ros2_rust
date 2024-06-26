@@ -15,6 +15,7 @@ pub enum ClockType {
 }
 
 impl From<ClockType> for rcl_clock_type_t {
+    /// Converts a `ClockType` enum variant to the corresponding `rcl_clock_type_t` variant.
     fn from(clock_type: ClockType) -> Self {
         match clock_type {
             ClockType::RosTime => rcl_clock_type_t::RCL_ROS_TIME,
@@ -45,6 +46,11 @@ impl Clock {
     }
 
     /// Creates a new Clock with `ClockType::SteadyTime`
+    /// to update it
+    ///
+    /// # Returns
+    ///
+    /// A tuple of Clock and ClockSource
     pub fn steady() -> Self {
         Self::make(ClockType::SteadyTime)
     }
