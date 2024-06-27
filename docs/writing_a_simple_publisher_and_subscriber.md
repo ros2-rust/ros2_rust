@@ -62,8 +62,6 @@ edition = "2021"
 rclrs = "*"
 std_msgs = "*"
 ```
-
-
 Additionally, create a new `package.xml` if you want your node to be buildable with [`colcon`](https://colcon.readthedocs.io/en/released/user/installation.html). Make sure to change the build type to `ament_cargo` and to include the two packages mentioned above in the dependencies, as such:
 ```xml
 <package format="3">
