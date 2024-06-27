@@ -1,8 +1,6 @@
 use rclrs::{create_node, Context, Node, Publisher, RclrsError, QOS_PROFILE_DEFAULT};
 use std::{sync::Arc, thread, time::Duration};
 use std_msgs::msg::String as StringMsg;
-/// SimplePublisherNode struct contains node and publisher members.
-/// Used to initialize a ROS 2 node and publisher, and publish messages.
 struct SimplePublisherNode {
     node: Arc<Node>,
     _publisher: Arc<Publisher<StringMsg>>,
