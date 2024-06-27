@@ -149,7 +149,6 @@ use std_msgs::msg::String as StringMsg;
 * `use std::{sync::Arc, time::Duration, iter, thread};`: Imports specific features from the standard library: 
     - `Arc` is for thread-safe shared ownership of data. 
     - `Duration` represents a time span. 
-    - `iter` provides tools for working with iterators.
     - `thread` enables creating and managing threads.
 * `use rclrs::{RclrsError, QOS_PROFILE_DEFAULT, Context, create_node, Node, Publisher};`: 
     - Imports elements for ROS 2 communication: 
