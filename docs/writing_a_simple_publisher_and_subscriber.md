@@ -55,9 +55,6 @@ In the [`Cargo.toml`](https://doc.rust-lang.org/book/ch01-03-hello-cargo.html) f
 name = "rust_pubsub"
 version = "0.1.0"
 edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 rclrs = "*"
 std_msgs = "*"
