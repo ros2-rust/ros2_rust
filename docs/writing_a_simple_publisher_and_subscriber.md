@@ -294,12 +294,11 @@ To construct the subscriber node, put the following code into a `FILE.rs` - in m
 use rclrs::{create_node, Context, Node, RclrsError, Subscription, QOS_PROFILE_DEFAULT};
 use std::{
     env,
-    iter,thread,
     sync::{Arc, Mutex},
+    thread,
     time::Duration,
 };
 use std_msgs::msg::String as StringMsg;
-/// A simple ROS 2 subscriber node that receives and prints "hello" messages.
 pub struct SimpleSubscriptionNode {
     node: Arc<Node>,
     _subscriber: Arc<Subscription<StringMsg>>,
@@ -338,11 +337,9 @@ fn main() -> Result<(), RclrsError> {
     let context = Context::new(env::args()).unwrap();
     let subscription = Arc::new(SimpleSubscriptionNode::new(&context).unwrap());
     let subscription_other_thread = Arc::clone(&subscription);
-    thread::spawn(move || -> () {
-        iter::repeat(()).for_each(|()| {
-            thread::sleep(Duration::from_millis(1000));
-            subscription_other_thread.data_callback().unwrap()
-        });
+    thread::spawn(move || loop {
+        thread::sleep(Duration::from_millis(1000));
+        subscription_other_thread.data_callback().unwrap()
     });
     rclrs::spin(subscription.node.clone())
 }
@@ -383,7 +380,6 @@ The `new` method creates a ROS 2 node, subscriber, and a storage location for re
             data,
         })
     }
-
 ```
 A few special features:  
 1. Initializing Shared Data:  
