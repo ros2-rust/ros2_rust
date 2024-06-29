@@ -30,12 +30,27 @@ pub struct ClientHandle {
 }
 
 impl ClientHandle {
+    /// Locks the `rcl_client_t` instance and returns a mutable reference to it.
+    ///
+    /// # Returns
+    ///
+    /// A `MutexGuard` holding a mutable reference to the `rcl_client_t` instance.
     pub(crate) fn lock(&self) -> MutexGuard<rcl_client_t> {
         self.rcl_client.lock().unwrap()
     }
 }
 
 impl Drop for ClientHandle {
+    /// Cleans up the ROS client when the `ClientHandle` instance is dropped.
+    ///
+    /// This implementation finalizes the `rcl_client_t` instance by calling `rcl_client_fini`.
+    /// It also acquires the entity lifecycle mutex to protect against the risk of global variables
+    /// in the rmw implementation being unsafely modified during cleanup.
+    ///
+    /// # Safety
+    ///
+    /// This function calls an unsafe function (`rcl_client_fini`) from the ROS client library.
+    /// The entity lifecycle mutex is locked to ensure thread safety during the cleanup process.
     fn drop(&mut self) {
         let rcl_client = self.rcl_client.get_mut().unwrap();
         let mut rcl_node = self.node_handle.rcl_node.lock().unwrap();
@@ -83,6 +98,23 @@ where
     T: rosidl_runtime_rs::Service,
 {
     /// Creates a new client.
+    ///
+    /// # Arguments
+    ///
+    /// * `node_handle` - An `Arc` reference to the `NodeHandle` associated with this client.
+    /// * `topic` - The name of the topic to which the client will send requests.
+    ///
+    /// # Returns
+    ///
+    /// A `Result` containing the newly created `Client` instance or an `RclrsError` if an error occurred
+    /// during initialization.
+    ///
+    /// # Errors
+    ///
+    /// This function may return an error if:
+    ///
+    /// - The `topic` string contains a null character.
+    /// - The initialization of the underlying `rcl_client_t` instance fails.
     pub(crate) fn new(node_handle: Arc<NodeHandle>, topic: &str) -> Result<Self, RclrsError>
     // This uses pub(crate) visibility to avoid instantiating this struct outside
     // [`Node::create_client`], see the struct's documentation for the rationale
@@ -279,10 +311,24 @@ impl<T> ClientBase for Client<T>
 where
     T: rosidl_runtime_rs::Service,
 {
+    /// Returns a reference to the `ClientHandle` associated with this client.
     fn handle(&self) -> &ClientHandle {
         &self.handle
     }
-
+    /// Executes the client by taking a response from the underlying `rcl_client_t` instance
+    /// and handling it appropriately.
+    ///
+    /// This method attempts to take a response from the client using `take_response`. If a response
+    /// is successfully taken, it is processed by either calling the associated callback or sending
+    /// the response to the associated future.
+    ///
+    /// If the `take_response` method returns a `ClientTakeFailed` error, it is treated as a
+    /// spurious wakeup and is not considered an error.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` if the response was successfully processed or if a spurious wakeup occurred.
+    /// `Err(RclrsError)` if an error occurred while taking or processing the response.
     fn execute(&self) -> Result<(), RclrsError> {
         let (res, req_id) = match self.take_response() {
             Ok((res, req_id)) => (res, req_id),

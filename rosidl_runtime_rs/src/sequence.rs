@@ -92,6 +92,16 @@ pub struct SequenceIterator<T: SequenceAlloc> {
 // ========================= impl for Sequence =========================
 
 impl<T: SequenceAlloc> Clone for Sequence<T> {
+    /// Creates a deep copy of the sequence.
+    ///
+    /// # Panics
+    ///
+    /// This function will panic if the cloning operation fails, as indicated by the
+    /// `sequence_copy` function returning `false`.
+    ///
+    /// # Returns
+    ///
+    /// A new `Sequence` instance that is a deep copy of the original sequence.
     fn clone(&self) -> Self {
         let mut seq = Self::default();
         if T::sequence_copy(self, &mut seq) {
@@ -140,6 +150,22 @@ impl<T: SequenceAlloc> Drop for Sequence<T> {
 impl<T: SequenceAlloc + Eq> Eq for Sequence<T> {}
 
 impl<T: SequenceAlloc> Extend<T> for Sequence<T> {
+    /// Extends the sequence by appending elements from an iterator.
+    ///
+    /// # Arguments
+    ///
+    /// * `&mut self` - The mutable sequence to be extended.
+    /// * `iter` - The iterator containing the elements to be appended.
+    ///
+    /// # Panics
+    ///
+    /// This function does not panic.
+    ///
+    /// # Safety
+    ///
+    /// This function is safe to call, but it may reallocate the underlying memory
+    /// of the sequence, which could potentially invalidate any existing references
+    /// or pointers to the sequence's elements.
     fn extend<I>(&mut self, iter: I)
     where
         I: IntoIterator<Item = T>,
@@ -183,6 +209,28 @@ impl<T: SequenceAlloc> Extend<T> for Sequence<T> {
 }
 
 impl<T: SequenceAlloc + Clone> From<&[T]> for Sequence<T> {
+    /// Creates a new `Sequence` from a slice of elements.
+    ///
+    /// # Arguments
+    ///
+    /// * `slice` - A slice of elements to be used to initialize the new `Sequence`.
+    ///
+    /// # Returns
+    ///
+    /// A new `Sequence` instance containing a copy of the elements from the input slice.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rosidl_runtime_rs::Sequence;
+    ///
+    /// let slice:Vec<i32> = vec![1, 2, 3, 4, 5];
+    /// let seq: Sequence<i32> = (&slice[..]).into();
+    ///
+    /// assert_eq!(seq.len(), 5);
+    /// assert_eq!(seq[0], 1);
+    /// assert_eq!(seq[4], 5);
+    /// ```
     fn from(slice: &[T]) -> Self {
         let mut seq = Sequence::new(slice.len());
         seq.clone_from_slice(slice);
@@ -463,14 +511,14 @@ impl<T: SequenceAlloc> Iterator for SequenceIterator<T> {
         self.idx += 1;
         Some(elem)
     }
-
+    /// returns the remaining length of the sequence
     fn size_hint(&self) -> (usize, Option<usize>) {
         let len = (self.seq.size + 1) - self.idx;
         (len, Some(len))
     }
 }
-
 impl<T: SequenceAlloc> ExactSizeIterator for SequenceIterator<T> {
+    /// Returns the length of the sequence as unsigned integer.
     fn len(&self) -> usize {
         (self.seq.size + 1) - self.idx
     }
@@ -489,11 +537,40 @@ impl Display for SequenceExceedsBoundsError {
         )
     }
 }
-
+/// Implements the `std::error::Error` trait for the `SequenceExceedsBoundsError` struct.
 impl std::error::Error for SequenceExceedsBoundsError {}
-
+/// Macro to provide default implementations for the `SequenceAlloc` trait for primitive types.
+///
+/// This macro generates an implementation of the `SequenceAlloc` trait for a given primitive type.
+/// It defines three extern "C" functions (`$init_func`, `$fini_func`, and `$copy_func`) that are
+/// linked from the "rosidl_runtime_c" library and used to initialize, finalize, and copy sequences
+/// of the specified type.
+///
+/// The `sequence_init` function allocates space for the sequence and sets its size and capacity.
+/// If the sequence's data pointer is null, it calls `$init_func` to allocate memory. Otherwise,
+/// it writes zero bytes to the existing memory region.
+///
+/// The `sequence_fini` function finalizes the sequence by calling `$fini_func`.
+///
+/// The `sequence_copy` function copies the contents of one sequence to another by calling
+/// `$copy_func`.
+///
+/// # Safety
+///
+/// The implementations of `sequence_init`, `sequence_fini`, and `sequence_copy` are marked as
+/// `unsafe` because they call the corresponding extern "C" functions, which may have undefined
+/// behavior if their preconditions are not met. However, the macro assumes that there are no
+/// special preconditions for these functions.
+///
+/// # Arguments
+///
+/// * `$rust_type:ty` - The Rust type for which the `SequenceAlloc` trait should be implemented.
+/// * `$init_func:ident` - The name of the extern "C" function used to initialize a sequence.
+/// * `$fini_func:ident` - The name of the extern "C" function used to finalize a sequence.
+/// * `$copy_func:ident` - The name of the extern "C" function used to copy a sequence.
 macro_rules! impl_sequence_alloc_for_primitive_type {
     ($rust_type:ty, $init_func:ident, $fini_func:ident, $copy_func:ident) => {
+        // Provides default implementations for SequenceAlloc for primitive types.
         #[link(name = "rosidl_runtime_c")]
         extern "C" {
             fn $init_func(seq: *mut Sequence<$rust_type>, size: usize) -> bool;
@@ -505,6 +582,21 @@ macro_rules! impl_sequence_alloc_for_primitive_type {
         }
 
         impl SequenceAlloc for $rust_type {
+            /// Initializes a sequence with a given size.
+            ///
+            /// # Safety
+            ///
+            /// This function is unsafe because it calls an unsafe function `$init_func`.
+            /// The caller must ensure that `$init_func` is safe to call with the provided arguments.
+            ///
+            /// # Arguments
+            ///
+            /// * `seq` - A mutable reference to the sequence to be initialized.
+            /// * `size` - The size of the sequence to be initialized.
+            ///
+            /// # Returns
+            ///
+            /// `true` if the sequence was successfully initialized, `false` otherwise.
             fn sequence_init(seq: &mut Sequence<Self>, size: usize) -> bool {
                 // SAFETY: There are no special preconditions to the sequence_init function.
                 unsafe {
@@ -517,10 +609,37 @@ macro_rules! impl_sequence_alloc_for_primitive_type {
                     ret
                 }
             }
+
+            /// Finalizes a sequence, freeing any associated resources.
+            ///
+            /// # Safety
+            ///
+            /// This function is unsafe because it calls an unsafe function `$fini_func`.
+            /// The caller must ensure that `$fini_func` is safe to call with the provided arguments.
+            ///
+            /// # Arguments
+            ///
+            /// * `seq` - A mutable reference to the sequence to be finalized.
             fn sequence_fini(seq: &mut Sequence<Self>) {
                 // SAFETY: There are no special preconditions to the sequence_fini function.
                 unsafe { $fini_func(seq as *mut _) }
             }
+
+            /// Copies the contents of one sequence to another.
+            ///
+            /// # Safety
+            ///
+            /// This function is unsafe because it calls an unsafe function `$copy_func`.
+            /// The caller must ensure that `$copy_func` is safe to call with the provided arguments.
+            ///
+            /// # Arguments
+            ///
+            /// * `in_seq` - A reference to the sequence to be copied from.
+            /// * `out_seq` - A mutable reference to the sequence to be copied to.
+            ///
+            /// # Returns
+            ///
+            /// `true` if the copy was successful, `false` otherwise.
             fn sequence_copy(in_seq: &Sequence<Self>, out_seq: &mut Sequence<Self>) -> bool {
                 // SAFETY: There are no special preconditions to the sequence_copy function.
                 unsafe { $copy_func(in_seq as *const _, out_seq as *mut _) }
