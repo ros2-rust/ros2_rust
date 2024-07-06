@@ -19,7 +19,7 @@ use std::{
 use rosidl_runtime_rs::Message;
 
 use crate::{
-    rcl_bindings::*, ActionClient, ActionServer, CancelResponse, Client, ClientBase, ClientOptions,
+    rcl_bindings::*, ActionClient, ActionClientBase, ActionServer, ActionServerBase, CancelResponse, Client, ClientBase, ClientOptions,
     ClientState, Clock, ContextHandle, GoalResponse, GoalUuid, GuardCondition, LogParams, Logger,
     ParameterBuilder, ParameterInterface, ParameterVariant, Parameters, Publisher,
     PublisherOptions, PublisherState, RclrsError, ServerGoalHandle, Service, ServiceBase,
@@ -88,6 +88,8 @@ pub struct NodeState {
     pub(crate) guard_conditions_mtx: Mutex<Vec<Weak<GuardCondition>>>,
     pub(crate) services_mtx: Mutex<Vec<Weak<dyn ServiceBase>>>,
     pub(crate) subscriptions_mtx: Mutex<Vec<Weak<dyn SubscriptionBase>>>,
+    pub(crate) action_servers_mtx: Mutex<Vec<Weak<dyn ActionServerBase>>>,
+    pub(crate) action_clients_mtx: Mutex<Vec<Weak<dyn ActionClientBase>>>,
     time_source: TimeSource,
     parameter: ParameterInterface,
     logger: Logger,
@@ -282,7 +284,7 @@ impl NodeState {
         T: rosidl_runtime_rs::Service,
     {
         let client = Arc::new(ClientState::<T>::new(self, options)?);
-        { self.clients_mtx.lock().unwrap() }.push(Arc::downgrade(&client) as Weak<dyn ClientBase>);
+        self.clients_mtx.lock().unwrap().push(Arc::downgrade(&client) as Weak<dyn ClientBase>);
         Ok(client)
     }
 
@@ -298,8 +300,8 @@ impl NodeState {
         T: rosidl_runtime_rs::Action,
     {
         let action_client = Arc::new(ActionClient::<T>::new(self, topic)?);
-        // self.action_clients
-        //     .push(Arc::downgrade(&action_client) as Weak<dyn ActionClientBase>);
+        self.action_clients_mtx.lock().unwrap()
+            .push(Arc::downgrade(&action_client) as Weak<dyn ActionClientBase>);
         Ok(action_client)
     }
 
@@ -328,8 +330,8 @@ impl NodeState {
             handle_cancel,
             handle_accepted,
         )?);
-        // self.action_servers
-        //     .push(Arc::downgrade(&action_server) as Weak<dyn ActionClientBase>);
+        self.action_servers_mtx.lock().unwrap()
+            .push(Arc::downgrade(&action_server) as Weak<dyn ActionServerBase>);
         Ok(action_server)
     }
 
@@ -346,7 +348,7 @@ impl NodeState {
             Arc::clone(&self.handle.context_handle),
             None,
         ));
-        { self.guard_conditions_mtx.lock().unwrap() }
+        self.guard_conditions_mtx.lock().unwrap()
             .push(Arc::downgrade(&guard_condition) as Weak<GuardCondition>);
         guard_condition
     }
@@ -367,7 +369,7 @@ impl NodeState {
             Arc::clone(&self.handle.context_handle),
             Some(Box::new(callback) as Box<dyn Fn() + Send + Sync>),
         ));
-        { self.guard_conditions_mtx.lock().unwrap() }
+        self.guard_conditions_mtx.lock().unwrap()
             .push(Arc::downgrade(&guard_condition) as Weak<GuardCondition>);
         guard_condition
     }
@@ -467,7 +469,7 @@ impl NodeState {
         F: Fn(&rmw_request_id_t, T::Request) -> T::Response + 'static + Send,
     {
         let service = Arc::new(ServiceState::<T>::new(self, options, callback)?);
-        { self.services_mtx.lock().unwrap() }
+        self.services_mtx.lock().unwrap()
             .push(Arc::downgrade(&service) as Weak<dyn ServiceBase>);
         Ok(service)
     }
@@ -522,7 +524,7 @@ impl NodeState {
         T: Message,
     {
         let subscription = Arc::new(SubscriptionState::<T>::new(self, options, callback)?);
-        { self.subscriptions_mtx.lock() }
+        self.subscriptions_mtx.lock()
             .unwrap()
             .push(Arc::downgrade(&subscription) as Weak<dyn SubscriptionBase>);
         Ok(subscription)
@@ -530,28 +532,28 @@ impl NodeState {
 
     /// Returns the subscriptions that have not been dropped yet.
     pub(crate) fn live_subscriptions(&self) -> Vec<Arc<dyn SubscriptionBase>> {
-        { self.subscriptions_mtx.lock().unwrap() }
+        self.subscriptions_mtx.lock().unwrap()
             .iter()
             .filter_map(Weak::upgrade)
             .collect()
     }
 
     pub(crate) fn live_clients(&self) -> Vec<Arc<dyn ClientBase>> {
-        { self.clients_mtx.lock().unwrap() }
+        self.clients_mtx.lock().unwrap()
             .iter()
             .filter_map(Weak::upgrade)
             .collect()
     }
 
     pub(crate) fn live_guard_conditions(&self) -> Vec<Arc<GuardCondition>> {
-        { self.guard_conditions_mtx.lock().unwrap() }
+        self.guard_conditions_mtx.lock().unwrap()
             .iter()
             .filter_map(Weak::upgrade)
             .collect()
     }
 
     pub(crate) fn live_services(&self) -> Vec<Arc<dyn ServiceBase>> {
-        { self.services_mtx.lock().unwrap() }
+        self.services_mtx.lock().unwrap()
             .iter()
             .filter_map(Weak::upgrade)
             .collect()
