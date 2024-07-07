@@ -1,4 +1,7 @@
-use crate::{error::ToResult, rcl_bindings::*, Node, RclrsError, ENTITY_LIFECYCLE_MUTEX};
+use crate::{
+    error::ToResult, rcl_bindings::*, wait::WaitableNumEntities, Node, RclrsError,
+    ENTITY_LIFECYCLE_MUTEX,
+};
 use std::{
     ffi::CString,
     marker::PhantomData,
@@ -45,16 +48,18 @@ impl Drop for ActionClientHandle {
 pub trait ActionClientBase: Send + Sync {
     /// Internal function to get a reference to the `rcl` handle.
     fn handle(&self) -> &ActionClientHandle;
+    fn num_entities(&self) -> &WaitableNumEntities;
     // /// Tries to take a new request and run the callback with it.
     // fn execute(&self) -> Result<(), RclrsError>;
 }
 
-pub struct ActionClient<T>
+pub struct ActionClient<ActionT>
 where
-    T: rosidl_runtime_rs::Action,
+    ActionT: rosidl_runtime_rs::Action,
 {
-    _marker: PhantomData<fn() -> T>,
+    _marker: PhantomData<fn() -> ActionT>,
     pub(crate) handle: Arc<ActionClientHandle>,
+    num_entities: WaitableNumEntities,
 }
 
 impl<T> ActionClient<T>
@@ -106,9 +111,23 @@ where
             in_use_by_wait_set: Arc::new(AtomicBool::new(false)),
         });
 
+        let mut num_entities = WaitableNumEntities::default();
+        unsafe {
+            rcl_action_client_wait_set_get_num_entities(
+                &*handle.lock(),
+                &mut num_entities.num_subscriptions,
+                &mut num_entities.num_guard_conditions,
+                &mut num_entities.num_timers,
+                &mut num_entities.num_clients,
+                &mut num_entities.num_services,
+            )
+            .ok()?;
+        }
+
         Ok(Self {
             _marker: Default::default(),
             handle,
+            num_entities,
         })
     }
 }
@@ -119,5 +138,9 @@ where
 {
     fn handle(&self) -> &ActionClientHandle {
         &self.handle
+    }
+
+    fn num_entities(&self) -> &WaitableNumEntities {
+        &self.num_entities
     }
 }

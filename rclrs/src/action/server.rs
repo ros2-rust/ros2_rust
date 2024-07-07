@@ -1,4 +1,10 @@
-use crate::{action::{GoalResponse, GoalUuid, CancelResponse, ServerGoalHandle}, error::ToResult, rcl_bindings::*, Clock, Node, RclrsError, ENTITY_LIFECYCLE_MUTEX};
+use crate::{
+    action::{CancelResponse, GoalResponse, GoalUuid, ServerGoalHandle},
+    error::ToResult,
+    rcl_bindings::*,
+    wait::WaitableNumEntities,
+    Clock, Node, RclrsError, ENTITY_LIFECYCLE_MUTEX,
+};
 use std::{
     ffi::CString,
     sync::{atomic::AtomicBool, Arc, Mutex, MutexGuard},
@@ -44,6 +50,7 @@ impl Drop for ActionServerHandle {
 pub trait ActionServerBase: Send + Sync {
     /// Internal function to get a reference to the `rcl` handle.
     fn handle(&self) -> &ActionServerHandle;
+    fn num_entities(&self) -> &WaitableNumEntities;
     // /// Tries to take a new request and run the callback with it.
     // fn execute(&self) -> Result<(), RclrsError>;
 }
@@ -57,6 +64,7 @@ where
     ActionT: rosidl_runtime_rs::Action,
 {
     pub(crate) handle: Arc<ActionServerHandle>,
+    num_entities: WaitableNumEntities,
     goal_callback: Box<GoalCallback<ActionT>>,
     cancel_callback: Box<CancelCallback<ActionT>>,
     accepted_callback: Box<AcceptedCallback<ActionT>>,
@@ -121,8 +129,22 @@ where
             in_use_by_wait_set: Arc::new(AtomicBool::new(false)),
         });
 
+        let mut num_entities = WaitableNumEntities::default();
+        unsafe {
+            rcl_action_server_wait_set_get_num_entities(
+                &*handle.lock(),
+                &mut num_entities.num_subscriptions,
+                &mut num_entities.num_guard_conditions,
+                &mut num_entities.num_timers,
+                &mut num_entities.num_clients,
+                &mut num_entities.num_services,
+            )
+            .ok()?;
+        }
+
         Ok(Self {
             handle,
+            num_entities,
             goal_callback: Box::new(goal_callback),
             cancel_callback: Box::new(cancel_callback),
             accepted_callback: Box::new(accepted_callback),
@@ -136,5 +158,9 @@ where
 {
     fn handle(&self) -> &ActionServerHandle {
         &self.handle
+    }
+
+    fn num_entities(&self) -> &WaitableNumEntities {
+        &self.num_entities
     }
 }

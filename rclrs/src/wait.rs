@@ -20,7 +20,8 @@ use std::{sync::Arc, time::Duration, vec::Vec};
 use crate::{
     error::{to_rclrs_result, RclReturnCode, RclrsError, ToResult},
     rcl_bindings::*,
-    ClientBase, Context, ContextHandle, Node, ServiceBase, SubscriptionBase,
+    ActionClientBase, ActionServerBase, ClientBase, Context, ContextHandle, Node, ServiceBase,
+    SubscriptionBase,
 };
 
 mod exclusivity_guard;
@@ -50,6 +51,8 @@ pub struct WaitSet {
     // The guard conditions that are currently registered in the wait set.
     guard_conditions: Vec<ExclusivityGuard<Arc<GuardCondition>>>,
     services: Vec<ExclusivityGuard<Arc<dyn ServiceBase>>>,
+    action_clients: Vec<ExclusivityGuard<Arc<dyn ActionClientBase>>>,
+    action_servers: Vec<ExclusivityGuard<Arc<dyn ActionServerBase>>>,
     handle: WaitSetHandle,
 }
 
@@ -123,6 +126,8 @@ impl WaitSet {
             guard_conditions: Vec::new(),
             clients: Vec::new(),
             services: Vec::new(),
+            action_clients: Vec::new(),
+            action_servers: Vec::new(),
             handle: WaitSetHandle {
                 rcl_wait_set,
                 context_handle: Arc::clone(&context.handle),
@@ -138,16 +143,37 @@ impl WaitSet {
         let live_clients = node.live_clients();
         let live_guard_conditions = node.live_guard_conditions();
         let live_services = node.live_services();
+        let live_action_clients = node.live_action_clients();
+        let live_action_servers = node.live_action_servers();
         let ctx = Context {
             handle: Arc::clone(&node.handle.context_handle),
         };
+
+        let mut num_subscriptions = live_subscriptions.len();
+        let mut num_guard_conditions = live_guard_conditions.len();
+        let mut num_timers = 0;
+        let mut num_clients = live_clients.len();
+        let mut num_services = live_services.len();
+        let mut num_events = 0;
+
+        let action_client_entities = live_action_clients.iter().map(|client| client.num_entities());
+        let action_server_entities = live_action_servers.iter().map(|server| server.num_entities());
+        for num_entities in action_client_entities.chain(action_server_entities) {
+            num_subscriptions += num_entities.num_subscriptions;
+            num_timers += num_entities.num_timers;
+            num_guard_conditions += num_entities.num_guard_conditions;
+            num_clients += num_entities.num_clients;
+            num_services += num_entities.num_services;
+            num_events += num_entities.num_events;
+        }
+
         let mut wait_set = WaitSet::new(
-            live_subscriptions.len(),
-            live_guard_conditions.len(),
-            0,
-            live_clients.len(),
-            live_services.len(),
-            0,
+            num_subscriptions,
+            num_guard_conditions,
+            num_timers,
+            num_clients,
+            num_services,
+            num_events,
             &ctx,
         )?;
 
@@ -166,6 +192,15 @@ impl WaitSet {
         for live_service in &live_services {
             wait_set.add_service(live_service.clone())?;
         }
+
+        for live_action_client in &live_action_clients {
+            wait_set.add_action_client(live_action_client.clone())?;
+        }
+
+        for live_action_server in &live_action_servers {
+            wait_set.add_action_server(live_action_server.clone())?;
+        }
+
         Ok(wait_set)
     }
 
@@ -178,6 +213,8 @@ impl WaitSet {
         self.guard_conditions.clear();
         self.clients.clear();
         self.services.clear();
+        self.action_clients.clear();
+        self.action_servers.clear();
         // This cannot fail – the rcl_wait_set_clear function only checks that the input handle is
         // valid, which it always is in our case. Hence, only debug_assert instead of returning
         // Result.
@@ -311,6 +348,73 @@ impl WaitSet {
         Ok(())
     }
 
+    /// Adds an action client to the wait set.
+    ///
+    /// # Errors
+    /// - If the action client was already added to this wait set or another one,
+    ///   [`AlreadyAddedToWaitSet`][1] will be returned
+    /// - If the number of entities in the wait set would be larger than the
+    ///   capacity set in [`WaitSet::new`], [`WaitSetFull`][2] will be returned
+    ///
+    /// [1]: crate::RclrsError
+    /// [2]: crate::RclReturnCode
+    pub fn add_action_client(
+        &mut self,
+        action_client: Arc<dyn ActionClientBase>,
+    ) -> Result<(), RclrsError> {
+        let exclusive_client = ExclusivityGuard::new(
+            Arc::clone(&action_client),
+            Arc::clone(&action_client.handle().in_use_by_wait_set),
+        )?;
+        unsafe {
+            // SAFETY: I'm not sure if it's required, but the action client pointer will remain
+            // valid for as long as the wait set exists, because it's stored in self.action_clients.
+            // Passing in a null pointer for the third and fourth arguments is explicitly allowed.
+            rcl_action_wait_set_add_action_client(
+                &mut self.handle.rcl_wait_set,
+                &*action_client.handle().lock(),
+                core::ptr::null_mut(),
+                core::ptr::null_mut(),
+            )
+        }
+        .ok()?;
+        self.action_clients.push(exclusive_client);
+        Ok(())
+    }
+
+    /// Adds an action server to the wait set.
+    ///
+    /// # Errors
+    /// - If the action server was already added to this wait set or another one,
+    ///   [`AlreadyAddedToWaitSet`][1] will be returned
+    /// - If the number of entities in the wait set would be larger than the
+    ///   capacity set in [`WaitSet::new`], [`WaitSetFull`][2] will be returned
+    ///
+    /// [1]: crate::RclrsError
+    /// [2]: crate::RclReturnCode
+    pub fn add_action_server(
+        &mut self,
+        action_server: Arc<dyn ActionServerBase>,
+    ) -> Result<(), RclrsError> {
+        let exclusive_server = ExclusivityGuard::new(
+            Arc::clone(&action_server),
+            Arc::clone(&action_server.handle().in_use_by_wait_set),
+        )?;
+        unsafe {
+            // SAFETY: I'm not sure if it's required, but the action server pointer will remain
+            // valid for as long as the wait set exists, because it's stored in self.action_servers.
+            // Passing in a null pointer for the third argument is explicitly allowed.
+            rcl_action_wait_set_add_action_server(
+                &mut self.handle.rcl_wait_set,
+                &*action_server.handle().lock(),
+                core::ptr::null_mut(),
+            )
+        }
+        .ok()?;
+        self.action_servers.push(exclusive_server);
+        Ok(())
+    }
+
     /// Blocks until the wait set is ready, or until the timeout has been exceeded.
     ///
     /// If the timeout is `None` then this function will block indefinitely until
@@ -411,6 +515,16 @@ impl WaitSet {
         }
         Ok(ready_entities)
     }
+}
+
+#[derive(Default)]
+pub struct WaitableNumEntities {
+    pub(crate) num_subscriptions: usize,
+    pub(crate) num_guard_conditions: usize,
+    pub(crate) num_timers: usize,
+    pub(crate) num_clients: usize,
+    pub(crate) num_services: usize,
+    pub(crate) num_events: usize,
 }
 
 #[cfg(test)]
