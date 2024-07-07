@@ -18,6 +18,9 @@
 use std::{sync::Arc, time::Duration, vec::Vec};
 
 use crate::{
+    action::{
+        client::ReadyMode as ActionClientReadyMode, server::ReadyMode as ActionServerReadyMode,
+    },
     error::{to_rclrs_result, RclReturnCode, RclrsError, ToResult},
     rcl_bindings::*,
     ActionClientBase, ActionServerBase, ClientBase, Context, ContextHandle, Node, ServiceBase,
@@ -66,6 +69,10 @@ pub struct ReadyEntities {
     pub guard_conditions: Vec<Arc<GuardCondition>>,
     /// A list of services that have potentially received requests.
     pub services: Vec<Arc<dyn ServiceBase>>,
+    /// A list of action clients and the ways in which they are ready.
+    pub action_clients: Vec<(Arc<dyn ActionClientBase>, ActionClientReadyMode)>,
+    /// A list of action servers and the ways in which they are ready.
+    pub action_servers: Vec<(Arc<dyn ActionServerBase>, ActionServerReadyMode)>,
 }
 
 impl Drop for rcl_wait_set_t {
@@ -156,8 +163,12 @@ impl WaitSet {
         let mut num_services = live_services.len();
         let mut num_events = 0;
 
-        let action_client_entities = live_action_clients.iter().map(|client| client.num_entities());
-        let action_server_entities = live_action_servers.iter().map(|server| server.num_entities());
+        let action_client_entities = live_action_clients
+            .iter()
+            .map(|client| client.num_entities());
+        let action_server_entities = live_action_servers
+            .iter()
+            .map(|server| server.num_entities());
         for num_entities in action_client_entities.chain(action_server_entities) {
             num_subscriptions += num_entities.num_subscriptions;
             num_timers += num_entities.num_timers;
@@ -451,8 +462,9 @@ impl WaitSet {
         };
         // SAFETY: The comments in rcl mention "This function cannot operate on the same wait set
         // in multiple threads, and the wait sets may not share content."
-        // We cannot currently guarantee that the wait sets may not share content, but it is
-        // mentioned in the doc comment for `add_subscription`.
+        // By taking exclusive ownership of `self`, we can guarantee that the wait set is not in
+        // use from another thread. We guarantee that waits sets may not share content using
+        // `ExclusivityGuard`s on each entity added.
         // Also, the rcl_wait_set is obviously valid.
         match unsafe { rcl_wait(&mut self.handle.rcl_wait_set, timeout_ns) }.ok() {
             Ok(_) => (),
@@ -469,6 +481,8 @@ impl WaitSet {
             clients: Vec::new(),
             guard_conditions: Vec::new(),
             services: Vec::new(),
+            action_clients: Vec::new(),
+            action_servers: Vec::new(),
         };
         for (i, subscription) in self.subscriptions.iter().enumerate() {
             // SAFETY: The `subscriptions` entry is an array of pointers, and this dereferencing is
@@ -513,6 +527,103 @@ impl WaitSet {
                 ready_entities.services.push(Arc::clone(&service.waitable));
             }
         }
+
+        for action_client in &self.action_clients {
+            let mut is_feedback_ready = false;
+            let mut is_status_ready = false;
+            let mut is_goal_response_ready = false;
+            let mut is_cancel_response_ready = false;
+            let mut is_result_response_ready = false;
+            // SAFETY: The wait set is exclusively owned by this function, which guarantees thread
+            // safety.
+            unsafe {
+                rcl_action_client_wait_set_get_entities_ready(
+                    &self.handle.rcl_wait_set,
+                    &*action_client.waitable.handle().lock(),
+                    &mut is_feedback_ready,
+                    &mut is_status_ready,
+                    &mut is_goal_response_ready,
+                    &mut is_cancel_response_ready,
+                    &mut is_result_response_ready,
+                )
+                .ok()?;
+            }
+            if is_feedback_ready {
+                ready_entities.action_clients.push((
+                    Arc::clone(&action_client.waitable),
+                    ActionClientReadyMode::Feedback,
+                ));
+            }
+            if is_status_ready {
+                ready_entities.action_clients.push((
+                    Arc::clone(&action_client.waitable),
+                    ActionClientReadyMode::Status,
+                ));
+            }
+            if is_goal_response_ready {
+                ready_entities.action_clients.push((
+                    Arc::clone(&action_client.waitable),
+                    ActionClientReadyMode::GoalResponse,
+                ));
+            }
+            if is_cancel_response_ready {
+                ready_entities.action_clients.push((
+                    Arc::clone(&action_client.waitable),
+                    ActionClientReadyMode::CancelResponse,
+                ));
+            }
+            if is_result_response_ready {
+                ready_entities.action_clients.push((
+                    Arc::clone(&action_client.waitable),
+                    ActionClientReadyMode::ResultResponse,
+                ));
+            }
+        }
+
+        for action_server in &self.action_servers {
+            let mut is_goal_request_ready = false;
+            let mut is_cancel_request_ready = false;
+            let mut is_result_request_ready = false;
+            let mut is_goal_expired = false;
+            // SAFETY: The wait set is exclusively owned by this function, which guarantees thread
+            // safety.
+            unsafe {
+                rcl_action_server_wait_set_get_entities_ready(
+                    &self.handle.rcl_wait_set,
+                    &*action_server.waitable.handle().lock(),
+                    &mut is_goal_request_ready,
+                    &mut is_cancel_request_ready,
+                    &mut is_result_request_ready,
+                    &mut is_goal_expired,
+                )
+                .ok()?;
+            }
+            if is_goal_request_ready {
+                ready_entities.action_servers.push((
+                    Arc::clone(&action_server.waitable),
+                    ActionServerReadyMode::GoalRequest,
+                ));
+            }
+            if is_cancel_request_ready {
+                ready_entities.action_servers.push((
+                    Arc::clone(&action_server.waitable),
+                    ActionServerReadyMode::CancelRequest,
+                ));
+            }
+            if is_result_request_ready {
+                ready_entities.action_servers.push((
+                    Arc::clone(&action_server.waitable),
+                    ActionServerReadyMode::ResultRequest,
+                ));
+            }
+            if is_goal_expired {
+                ready_entities.action_servers.push((
+                    Arc::clone(&action_server.waitable),
+                    ActionServerReadyMode::GoalExpired,
+                ));
+            }
+        }
+
         Ok(ready_entities)
     }
 }

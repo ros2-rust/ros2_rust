@@ -50,9 +50,17 @@ impl Drop for ActionServerHandle {
 pub trait ActionServerBase: Send + Sync {
     /// Internal function to get a reference to the `rcl` handle.
     fn handle(&self) -> &ActionServerHandle;
+    /// Returns the number of underlying entities for the action server.
     fn num_entities(&self) -> &WaitableNumEntities;
-    // /// Tries to take a new request and run the callback with it.
-    // fn execute(&self) -> Result<(), RclrsError>;
+    /// Tries to run the callback for the given readiness mode.
+    fn execute(&self, mode: ReadyMode) -> Result<(), RclrsError>;
+}
+
+pub(crate) enum ReadyMode {
+    GoalRequest,
+    CancelRequest,
+    ResultRequest,
+    GoalExpired,
 }
 
 pub type GoalCallback<ActionT> = dyn Fn(GoalUuid, <ActionT as rosidl_runtime_rs::Action>::Goal) -> GoalResponse + 'static + Send + Sync;
@@ -162,5 +170,9 @@ where
 
     fn num_entities(&self) -> &WaitableNumEntities {
         &self.num_entities
+    }
+
+    fn execute(&self, mode: ReadyMode) -> Result<(), RclrsError> {
+        todo!()
     }
 }
