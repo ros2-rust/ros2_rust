@@ -1,4 +1,4 @@
-mod client;
+pub(crate) mod client;
 pub(crate) mod server;
 mod server_goal_handle;
 

@@ -48,9 +48,18 @@ impl Drop for ActionClientHandle {
 pub trait ActionClientBase: Send + Sync {
     /// Internal function to get a reference to the `rcl` handle.
     fn handle(&self) -> &ActionClientHandle;
+    /// Returns the number of underlying entities for the action client.
     fn num_entities(&self) -> &WaitableNumEntities;
-    // /// Tries to take a new request and run the callback with it.
-    // fn execute(&self) -> Result<(), RclrsError>;
+    /// Tries to run the callback for the given readiness mode.
+    fn execute(&self, mode: ReadyMode) -> Result<(), RclrsError>;
+}
+
+pub(crate) enum ReadyMode {
+    Feedback,
+    Status,
+    GoalResponse,
+    CancelResponse,
+    ResultResponse,
 }
 
 pub struct ActionClient<ActionT>
@@ -142,5 +151,9 @@ where
 
     fn num_entities(&self) -> &WaitableNumEntities {
         &self.num_entities
+    }
+
+    fn execute(&self, mode: ReadyMode) -> Result<(), RclrsError> {
+        todo!()
     }
 }

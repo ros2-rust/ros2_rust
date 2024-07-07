@@ -25,13 +25,15 @@ impl SingleThreadedExecutor {
 
     /// Add a node to the executor.
     pub fn add_node(&self, node: &Arc<Node>) -> Result<(), RclrsError> {
-        { self.nodes_mtx.lock().unwrap() }.push(Arc::downgrade(node));
+        self.nodes_mtx.lock().unwrap().push(Arc::downgrade(node));
         Ok(())
     }
 
     /// Remove a node from the executor.
     pub fn remove_node(&self, node: Arc<Node>) -> Result<(), RclrsError> {
-        { self.nodes_mtx.lock().unwrap() }
+        self.nodes_mtx
+            .lock()
+            .unwrap()
             .retain(|n| !n.upgrade().map(|n| Arc::ptr_eq(&n, &node)).unwrap_or(false));
         Ok(())
     }
@@ -40,7 +42,10 @@ impl SingleThreadedExecutor {
     ///
     /// This function additionally checks that the context is still valid.
     pub fn spin_once(&self, timeout: Option<Duration>) -> Result<(), RclrsError> {
-        for node in { self.nodes_mtx.lock().unwrap() }
+        for node in self
+            .nodes_mtx
+            .lock()
+            .unwrap()
             .iter()
             .filter_map(Weak::upgrade)
             .filter(|node| unsafe {
@@ -61,6 +66,14 @@ impl SingleThreadedExecutor {
             for ready_service in ready_entities.services {
                 ready_service.execute()?;
             }
+
+            for (ready_action_client, mode) in ready_entities.action_clients {
+                ready_action_client.execute(mode)?;
+            }
+
+            for (ready_action_server, mode) in ready_entities.action_servers {
+                ready_action_server.execute(mode)?;
+            }
         }
 
         Ok(())
@@ -68,7 +81,7 @@ impl SingleThreadedExecutor {
 
     /// Convenience function for calling [`SingleThreadedExecutor::spin_once`] in a loop.
     pub fn spin(&self) -> Result<(), RclrsError> {
-        while !{ self.nodes_mtx.lock().unwrap() }.is_empty() {
+        while !self.nodes_mtx.lock().unwrap().is_empty() {
             match self.spin_once(None) {
                 Ok(_)
                 | Err(RclrsError::RclError {
