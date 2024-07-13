@@ -163,16 +163,36 @@ pub trait Service: 'static {
 /// Trait for actions.
 ///
 /// User code never needs to call this trait's method, much less implement this trait.
-pub trait Action: 'static {
-    /// The goal message associated with this service.
+pub trait Action: 'static + ActionImpl {
+    /// The goal message associated with this action.
     type Goal: Message;
 
-    /// The result message associated with this service.
+    /// The result message associated with this action.
     type Result: Message;
 
-    /// The feedback message associated with this service.
+    /// The feedback message associated with this action.
     type Feedback: Message;
 
     /// Get a pointer to the correct `rosidl_action_type_support_t` structure.
     fn get_type_support() -> *const std::os::raw::c_void;
+}
+
+/// Trait for action implementation details.
+///
+/// User code never needs to implement this trait, nor use its associated types.
+pub trait ActionImpl: 'static {
+    /// The goal_status message associated with this action.
+    type GoalStatusMessage: Message;
+
+    /// The feedback message associated with this action.
+    type FeedbackMessage: Message;
+
+    /// The send_goal service associated with this action.
+    type SendGoalService: Service;
+
+    /// The cancel_goal service associated with this action.
+    type CancelGoalService: Service;
+
+    /// The get_result service associated with this action.
+    type GetResultService: Service;
 }
