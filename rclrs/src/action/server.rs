@@ -1,6 +1,6 @@
 use crate::{
     action::{CancelResponse, GoalResponse, GoalUuid, ServerGoalHandle},
-    error::ToResult,
+    error::{RclReturnCode, ToResult},
     rcl_bindings::*,
     wait::WaitableNumEntities,
     Clock, Node, RclrsError, ENTITY_LIFECYCLE_MUTEX,
@@ -158,6 +158,50 @@ where
             accepted_callback: Box::new(accepted_callback),
         })
     }
+
+    fn execute_goal_request(&self) -> Result<(), RclrsError> {
+        // Take pending goal request
+        let (request_id, request) = {
+            let mut request_id = rmw_request_id_t {
+                writer_guid: [0; 16],
+                sequence_number: 0,
+            };
+            type RmwMsg<T> =
+                <<T as rosidl_runtime_rs::Action>::Goal as rosidl_runtime_rs::Message>::RmwMsg;
+            let mut request_rmw = RmwMsg::<T>::default();
+            let handle = &*self.handle.lock();
+            let take_result = unsafe {
+                // SAFETY: The three pointers are valid/initialized
+                rcl_action_take_goal_request(
+                    handle,
+                    &mut request_id,
+                    &mut request_rmw as *mut RmwMsg<T> as *mut _,
+                )
+            };
+            match take_result.try_into().unwrap() {
+                RclReturnCode::Ok => (),
+                // Spurious wakeup – this may happen even when a waitset indicated that this
+                // service was ready, so it shouldn't be an error.
+                RclReturnCode::ServiceTakeFailed => return Ok(()),
+                _ => return take_result.ok(),
+            }
+            let request = todo!("Convert request_rmw to expected type");
+            (request_id, request)
+        };
+        todo!()
+    }
+
+    fn execute_cancel_request(&self) -> Result<(), RclrsError> {
+        todo!()
+    }
+
+    fn execute_result_request(&self) -> Result<(), RclrsError> {
+        todo!()
+    }
+
+    fn execute_goal_expired(&self) -> Result<(), RclrsError> {
+        todo!()
+    }
 }
 
 impl<T> ActionServerBase for ActionServer<T>
@@ -173,6 +217,11 @@ where
     }
 
     fn execute(&self, mode: ReadyMode) -> Result<(), RclrsError> {
-        todo!()
+        match mode {
+            ReadyMode::GoalRequest => self.execute_goal_request(),
+            ReadyMode::CancelRequest => self.execute_cancel_request(),
+            ReadyMode::ResultRequest => self.execute_result_request(),
+            ReadyMode::GoalExpired => self.execute_goal_expired(),
+        }
     }
 }
