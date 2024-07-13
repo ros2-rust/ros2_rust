@@ -139,6 +139,26 @@ where
             num_entities,
         })
     }
+
+    fn execute_feedback(&self) -> Result<(), RclrsError> {
+        todo!()
+    }
+
+    fn execute_status(&self) -> Result<(), RclrsError> {
+        todo!()
+    }
+
+    fn execute_goal_response(&self) -> Result<(), RclrsError> {
+        todo!()
+    }
+
+    fn execute_cancel_response(&self) -> Result<(), RclrsError> {
+        todo!()
+    }
+
+    fn execute_result_response(&self) -> Result<(), RclrsError> {
+        todo!()
+    }
 }
 
 impl<T> ActionClientBase for ActionClient<T>
@@ -154,6 +174,12 @@ where
     }
 
     fn execute(&self, mode: ReadyMode) -> Result<(), RclrsError> {
-        todo!()
+        match mode {
+            ReadyMode::Feedback => self.execute_feedback(),
+            ReadyMode::Status => self.execute_status(),
+            ReadyMode::GoalResponse => self.execute_goal_response(),
+            ReadyMode::CancelResponse => self.execute_cancel_response(),
+            ReadyMode::ResultResponse => self.execute_result_response(),
+        }
     }
 }
