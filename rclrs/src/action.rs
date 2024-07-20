@@ -37,6 +37,7 @@ impl fmt::Display for GoalUuid {
 }
 
 /// The response returned by an [`ActionServer`]'s goal callback when a goal request is received.
+#[derive(PartialEq, Eq)]
 pub enum GoalResponse {
     /// The goal is rejected and will not be executed.
     Reject = 1,
