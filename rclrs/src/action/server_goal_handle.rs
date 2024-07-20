@@ -30,7 +30,7 @@ pub struct ServerGoalHandle<ActionT>
 where
     ActionT: rosidl_runtime_rs::Action,
 {
-    rcl_handle: Arc<Mutex<rcl_action_goal_handle_t>>,
+    rcl_handle: Mutex<*mut rcl_action_goal_handle_t>,
     goal_request: Arc<ActionT::Goal>,
     uuid: GoalUuid,
 }
@@ -40,12 +40,12 @@ where
     ActionT: rosidl_runtime_rs::Action,
 {
     pub(crate) fn new(
-        rcl_handle: Arc<Mutex<rcl_action_goal_handle_t>>,
+        rcl_handle: *mut rcl_action_goal_handle_t,
         goal_request: Arc<ActionT::Goal>,
         uuid: GoalUuid,
     ) -> Self {
         Self {
-            rcl_handle,
+            rcl_handle: Mutex::new(rcl_handle),
             goal_request: Arc::clone(&goal_request),
             uuid,
         }
@@ -57,7 +57,7 @@ where
         {
             let rcl_handle = self.rcl_handle.lock().unwrap();
             // SAFETY: The provided goal handle is properly initialized by construction.
-            unsafe { rcl_action_goal_handle_get_status(&*rcl_handle, &mut state).ok()? }
+            unsafe { rcl_action_goal_handle_get_status(*rcl_handle, &mut state).ok()? }
         }
         // SAFETY: state is initialized to a valid GoalStatus value and will only ever by set by
         // rcl_action_goal_handle_get_status to a valid GoalStatus value.
@@ -74,7 +74,7 @@ where
     pub fn is_active(&self) -> bool {
         let rcl_handle = self.rcl_handle.lock().unwrap();
         // SAFETY: The provided goal handle is properly initialized by construction.
-        unsafe { rcl_action_goal_handle_is_active(&*rcl_handle) }
+        unsafe { rcl_action_goal_handle_is_active(*rcl_handle) }
     }
 
     /// Returns whether the goal is executing.
@@ -86,7 +86,7 @@ where
     fn update_state(&self, event: rcl_action_goal_event_t) -> Result<(), RclrsError> {
         let mut rcl_handle = self.rcl_handle.lock().unwrap();
         // SAFETY: The provided goal handle is properly initialized by construction.
-        unsafe { rcl_action_update_goal_state(&mut *rcl_handle, event).ok() }
+        unsafe { rcl_action_update_goal_state(*rcl_handle, event).ok() }
     }
 
     /// Indicate that the goal could not be reached and has been aborted.
@@ -147,7 +147,7 @@ where
 
         // If the goal is in a cancelable state, transition to canceling.
         // SAFETY: The provided goal handle is properly initialized by construction.
-        let is_cancelable = unsafe { rcl_action_goal_handle_is_cancelable(&*rcl_handle) };
+        let is_cancelable = unsafe { rcl_action_goal_handle_is_cancelable(*rcl_handle) };
         if is_cancelable {
             self.update_state(rcl_action_goal_event_t::GOAL_EVENT_CANCEL_GOAL)?;
         }
@@ -190,6 +190,12 @@ where
     fn drop(&mut self) {
         if self.try_canceling() == Ok(true) {
             // TODO: Invoke on_terminal_state callback
+        }
+        {
+            let rcl_handle = self.rcl_handle.lock().unwrap();
+            // SAFETY: The provided goal handle is properly initialized by construction. It will
+            // not be accessed beyond this point.
+            unsafe { rcl_action_goal_handle_fini(*rcl_handle); }
         }
     }
 }
