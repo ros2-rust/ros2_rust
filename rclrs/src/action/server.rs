@@ -5,6 +5,7 @@ use crate::{
     wait::WaitableNumEntities,
     Clock, Node, RclrsError, ENTITY_LIFECYCLE_MUTEX,
 };
+use rosidl_runtime_rs::{Action, Message, Service};
 use std::{
     ffi::CString,
     sync::{atomic::AtomicBool, Arc, Mutex, MutexGuard},
@@ -159,36 +160,115 @@ where
         })
     }
 
-    fn execute_goal_request(&self) -> Result<(), RclrsError> {
-        // Take pending goal request
-        let (request_id, request) = {
-            let mut request_id = rmw_request_id_t {
-                writer_guid: [0; 16],
-                sequence_number: 0,
-            };
-            type RmwMsg<T> =
-                <<T as rosidl_runtime_rs::Action>::Goal as rosidl_runtime_rs::Message>::RmwMsg;
-            let mut request_rmw = RmwMsg::<T>::default();
-            let handle = &*self.handle.lock();
-            let take_result = unsafe {
-                // SAFETY: The three pointers are valid/initialized
-                rcl_action_take_goal_request(
-                    handle,
-                    &mut request_id,
-                    &mut request_rmw as *mut RmwMsg<T> as *mut _,
+    fn take_goal_request(&self) -> Result<(<<T::SendGoalService as Service>::Request as Message>::RmwMsg, rmw_request_id_t), RclrsError> {
+        let mut request_id = rmw_request_id_t {
+            writer_guid: [0; 16],
+            sequence_number: 0,
+        };
+        type RmwRequest<T> = <<<T as rosidl_runtime_rs::ActionImpl>::SendGoalService as Service>::Request as Message>::RmwMsg;
+        let mut request_rmw = RmwRequest::<T>::default();
+        let handle = &*self.handle.lock();
+        unsafe {
+            // SAFETY: The three pointers are valid/initialized
+            rcl_action_take_goal_request(
+                handle,
+                &mut request_id,
+                &mut request_rmw as *mut RmwRequest<T> as *mut _,
+            )
+        }.ok()?;
+
+        Ok((request_rmw, request_id))
+    }
+
+    fn send_goal_response(&self, response: GoalResponse, request: &<<T::SendGoalService as Service>::Request as Message>::RmwMsg, mut request_id: rmw_request_id_t) -> Result<(), RclrsError> {
+        let accepted = response != GoalResponse::Reject;
+
+        // SAFETY: No preconditions
+        let mut goal_info = unsafe { rcl_action_get_zero_initialized_goal_info() };
+        // Populate the goal UUID; the other fields will be populated by rcl_action later on.
+        // TODO(nwn): Check this claim.
+        rosidl_runtime_rs::ExtractUuid::extract_uuid(request, &mut goal_info.goal_id.uuid);
+
+        let goal_handle = if accepted {
+            let server_handle = &mut *self.handle.lock();
+            let goal_handle_ptr = unsafe {
+                // SAFETY: The action server handle is locked and so synchronized with other
+                // functions. The request_id and response message are uniquely owned, and so will
+                // not mutate during this function call. The returned goal handle pointer should be
+                // valid unless it is null.
+                rcl_action_accept_new_goal(
+                    server_handle,
+                    &goal_info,
                 )
             };
-            match take_result.try_into().unwrap() {
-                RclReturnCode::Ok => (),
-                // Spurious wakeup – this may happen even when a waitset indicated that this
-                // service was ready, so it shouldn't be an error.
-                RclReturnCode::ServiceTakeFailed => return Ok(()),
-                _ => return take_result.ok(),
+            if goal_handle_ptr.is_null() {
+                // Other than rcl_get_error_string(), there's no indication what happened.
+                panic!("Failed to accept goal");
+            } else {
+                Some(ServerGoalHandle::<T>::new(goal_handle_ptr, todo!(""), GoalUuid(goal_info.goal_id.uuid)))
             }
-            let request = todo!("Convert request_rmw to expected type");
-            (request_id, request)
+        } else {
+            None
         };
-        todo!()
+
+        {
+            type RmwResponse<T> = <<<T as rosidl_runtime_rs::ActionImpl>::SendGoalService as Service>::Response as Message>::RmwMsg;
+            let mut response_rmw = RmwResponse::<T>::default();
+            // TODO(nwn): Set the `accepted` field through a trait, similarly to how we extracted the UUID.
+            // response_rmw.accepted = accepted;
+            let handle = &*self.handle.lock();
+            unsafe {
+                // SAFETY: The action server handle is locked and so synchronized with other
+                // functions. The request_id and response message are uniquely owned, and so will
+                // not mutate during this function call.
+                // Also, `rcl_action_accept_new_goal()` has been called beforehand, as specified in
+                // the `rcl_action` docs.
+                rcl_action_send_goal_response(
+                    handle,
+                    &mut request_id,
+                    &mut response_rmw as *mut RmwResponse<T> as *mut _,
+                )
+            }.ok()?; // TODO(nwn): Suppress RclReturnCode::Timeout?
+        }
+
+        if let Some(goal_handle) = goal_handle {
+            // Goal was accepted
+
+            // TODO: Add a UUID->goal_handle entry to a server goal map.
+
+            // TODO: If accept_and_execute, update goal state
+
+            // TODO: Call publish_status()
+
+            // TODO: Call the goal_accepted callback
+        }
+
+        Ok(())
+    }
+
+    fn execute_goal_request(&self) -> Result<(), RclrsError> {
+        let (request, request_id) = match self.take_goal_request() {
+            Ok(res) => res,
+            Err(RclrsError::RclError { code: RclReturnCode::ServiceTakeFailed, .. }) => {
+                // Spurious wakeup – this may happen even when a waitset indicated that this
+                // action was ready, so it shouldn't be an error.
+                return Ok(());
+            },
+            Err(err) => return Err(err),
+        };
+
+        let response: GoalResponse = 
+        {
+            let mut uuid = GoalUuid::default();
+            rosidl_runtime_rs::ExtractUuid::extract_uuid(&request, &mut uuid.0);
+
+            todo!("Optionally convert request to an idiomatic type for the user's callback.");
+            todo!("Call self.goal_callback(uuid, request)");
+        };
+
+        self.send_goal_response(response, &request, request_id)?;
+
+        Ok(())
     }
 
     fn execute_cancel_request(&self) -> Result<(), RclrsError> {
