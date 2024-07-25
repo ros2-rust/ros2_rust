@@ -134,7 +134,7 @@ where
     /// called on a goal handle after this is called.
     ///
     /// Returns an error if the goal is in any state other than pending.
-    pub fn execute(&self, result: &ActionT::Result) -> Result<(), RclrsError> {
+    pub fn execute(&self) -> Result<(), RclrsError> {
         self.update_state(rcl_action_goal_event_t::GOAL_EVENT_EXECUTE)?;
 
         // TODO: Invoke on_executing callback
