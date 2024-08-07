@@ -3,7 +3,7 @@ use crate::{
     error::{RclReturnCode, ToResult},
     rcl_bindings::*,
     wait::WaitableNumEntities,
-    Clock, Node, RclrsError, ENTITY_LIFECYCLE_MUTEX,
+    Clock, DropGuard, Node, RclrsError, ENTITY_LIFECYCLE_MUTEX,
 };
 use rosidl_runtime_rs::{Action, Message, Service};
 use std::{
@@ -286,43 +286,26 @@ where
     }
 
     fn publish_status(&self) -> Result<(), RclrsError> {
-        // We need to hold the lock across this entire method because
-        // rcl_action_server_get_goal_handles() returns an internal pointer to the
-        // goal data.
-        let handle = &*self.handle.lock();
-
-        let mut goal_handles = std::ptr::null_mut::<*mut rcl_action_goal_handle_t>();
-        let mut num_goal_handles = 0;
-        unsafe {
-            // SAFETY: The action server is locked for this entire function, ensuring that the
-            // goal_handles array remains valid, unless rcl_shutdown is called. However, that is
-            // outside our control.
-            rcl_action_server_get_goal_handles(handle, &mut goal_handles, &mut num_goal_handles)
-        }.ok()?;
-
-        let mut goal_statuses = unsafe {
+        let mut goal_statuses = DropGuard::new(unsafe {
             // SAFETY: No preconditions
             rcl_action_get_zero_initialized_goal_status_array()
-        };
+        }, |mut goal_status| unsafe { 
+            // SAFETY: The goal_status array is either zero-initialized and empty or populated by
+            // `rcl_action_get_goal_status_array`. In either case, it can be safely finalized.
+            rcl_action_goal_status_array_fini(&mut goal_status);
+        });
+
         unsafe {
             // SAFETY: The action server is locked through the handle and goal_statuses is
             // zero-initialized.
-            rcl_action_get_goal_status_array(handle, &mut goal_statuses)
+            rcl_action_get_goal_status_array(&*self.handle.lock(), &mut *goal_statuses)
         }.ok()?;
-        // TODO(nwn): Ensure that rcl_action_goal_status_array_fini() is always called on exit.
 
-        let goal_status_slice = unsafe {
-            // SAFETY: rcl_action_get_goal_status_array initializes goal_statues.msg.status_list as
-            // an array of goal statuses with the indicated size. The memory backing this array is
-            // not modified by anything else during the lifetime of the slice.
-            std::slice::from_raw_parts(goal_statuses.msg.status_list.data, goal_statuses.msg.status_list.size)
-        };
-        for goal_status in goal_status_slice {
-            // Copy into the correct message type to pass to rcl_action_publish_status().
-        }
-        // Call rcl_action_publish_status().
-
-        todo!()
+        unsafe {
+            // SAFETY: The action server is locked through the handle and goal_statuses.msg is a
+            // valid `action_msgs__msg__GoalStatusArray` by construction.
+            rcl_action_publish_status(&*self.handle.lock(), &goal_statuses.msg as *const _ as *const std::ffi::c_void)
+        }.ok()
     }
 }
 
