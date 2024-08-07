@@ -175,100 +175,115 @@ where
                 &mut request_id,
                 &mut request_rmw as *mut RmwRequest<T> as *mut _,
             )
-        }.ok()?;
+        }
+        .ok()?;
 
         Ok((request_rmw, request_id))
     }
 
-    fn send_goal_response(&self, response: GoalResponse, request: &<<T::SendGoalService as Service>::Request as Message>::RmwMsg, mut request_id: rmw_request_id_t) -> Result<(), RclrsError> {
-        let accepted = response != GoalResponse::Reject;
+    fn send_goal_response(
+        &self,
+        mut request_id: rmw_request_id_t,
+        accepted: bool,
+    ) -> Result<(), RclrsError> {
+        type RmwResponse<T> = <<<T as rosidl_runtime_rs::ActionImpl>::SendGoalService as Service>::Response as Message>::RmwMsg;
+        let mut response_rmw = RmwResponse::<T>::default();
+        // TODO(nwn): Set the `accepted` field through a trait, similarly to how we extracted the UUID.
+        // response_rmw.accepted = accepted;
+        let handle = &*self.handle.lock();
+        let result = unsafe {
+            // SAFETY: The action server handle is locked and so synchronized with other
+            // functions. The request_id and response message are uniquely owned, and so will
+            // not mutate during this function call.
+            // Also, when appropriate, `rcl_action_accept_new_goal()` has been called beforehand,
+            // as specified in the `rcl_action` docs.
+            rcl_action_send_goal_response(
+                handle,
+                &mut request_id,
+                &mut response_rmw as *mut RmwResponse<T> as *mut _,
+            )
+        }
+        .ok();
+        match result {
+            Ok(()) => Ok(()),
+            Err(RclrsError::RclError {
+                code: RclReturnCode::Timeout,
+                ..
+            }) => {
+                // TODO(nwn): Log an error and continue.
+                // (See https://github.com/ros2/rclcpp/pull/2215 for reasoning.)
+                Ok(())
+            }
+            _ => result,
+        }
+    }
+
+    fn execute_goal_request(&self) -> Result<(), RclrsError> {
+        let (request, request_id) = match self.take_goal_request() {
+            Ok(res) => res,
+            Err(RclrsError::RclError {
+                code: RclReturnCode::ServiceTakeFailed,
+                ..
+            }) => {
+                // Spurious wakeup – this may happen even when a waitset indicated that this
+                // action was ready, so it shouldn't be an error.
+                return Ok(());
+            }
+            Err(err) => return Err(err),
+        };
+
+        let mut uuid = GoalUuid::default();
+        rosidl_runtime_rs::ExtractUuid::extract_uuid(&request, &mut uuid.0);
+
+        let response: GoalResponse = {
+            todo!("Optionally convert request to an idiomatic type for the user's callback.");
+            todo!("Call self.goal_callback(uuid, request)");
+        };
+
+        // Don't continue if the goal was rejected by the user.
+        if response == GoalResponse::Reject {
+            return self.send_goal_response(request_id, false);
+        }
 
         // SAFETY: No preconditions
         let mut goal_info = unsafe { rcl_action_get_zero_initialized_goal_info() };
         // Populate the goal UUID; the other fields will be populated by rcl_action later on.
         // TODO(nwn): Check this claim.
-        rosidl_runtime_rs::ExtractUuid::extract_uuid(request, &mut goal_info.goal_id.uuid);
+        goal_info.goal_id.uuid = uuid.0;
 
-        let goal_handle = if accepted {
+        let goal_handle = {
             let server_handle = &mut *self.handle.lock();
             let goal_handle_ptr = unsafe {
                 // SAFETY: The action server handle is locked and so synchronized with other
                 // functions. The request_id and response message are uniquely owned, and so will
                 // not mutate during this function call. The returned goal handle pointer should be
                 // valid unless it is null.
-                rcl_action_accept_new_goal(
-                    server_handle,
-                    &goal_info,
-                )
+                rcl_action_accept_new_goal(server_handle, &goal_info)
             };
             if goal_handle_ptr.is_null() {
                 // Other than rcl_get_error_string(), there's no indication what happened.
                 panic!("Failed to accept goal");
             } else {
-                Some(ServerGoalHandle::<T>::new(goal_handle_ptr, todo!(""), GoalUuid(goal_info.goal_id.uuid)))
-            }
-        } else {
-            None
-        };
-
-        {
-            type RmwResponse<T> = <<<T as rosidl_runtime_rs::ActionImpl>::SendGoalService as Service>::Response as Message>::RmwMsg;
-            let mut response_rmw = RmwResponse::<T>::default();
-            // TODO(nwn): Set the `accepted` field through a trait, similarly to how we extracted the UUID.
-            // response_rmw.accepted = accepted;
-            let handle = &*self.handle.lock();
-            unsafe {
-                // SAFETY: The action server handle is locked and so synchronized with other
-                // functions. The request_id and response message are uniquely owned, and so will
-                // not mutate during this function call.
-                // Also, `rcl_action_accept_new_goal()` has been called beforehand, as specified in
-                // the `rcl_action` docs.
-                rcl_action_send_goal_response(
-                    handle,
-                    &mut request_id,
-                    &mut response_rmw as *mut RmwResponse<T> as *mut _,
+                ServerGoalHandle::<T>::new(
+                    goal_handle_ptr,
+                    todo!(""),
+                    GoalUuid(goal_info.goal_id.uuid),
                 )
-            }.ok()?; // TODO(nwn): Suppress RclReturnCode::Timeout?
-        }
-
-        if let Some(goal_handle) = goal_handle {
-            // Goal was accepted
-
-            // TODO: Add a UUID->goal_handle entry to a server goal map.
-
-            if response == GoalResponse::AcceptAndExecute {
-                goal_handle.execute()?;
             }
+        };
 
-            // TODO: Call publish_status()
+        self.send_goal_response(request_id, true)?;
 
-            // TODO: Call the goal_accepted callback
+        // TODO: Add a UUID->goal_handle entry to a server goal map.
+
+        if response == GoalResponse::AcceptAndExecute {
+            goal_handle.execute()?;
         }
 
-        Ok(())
-    }
+        self.publish_status()?;
 
-    fn execute_goal_request(&self) -> Result<(), RclrsError> {
-        let (request, request_id) = match self.take_goal_request() {
-            Ok(res) => res,
-            Err(RclrsError::RclError { code: RclReturnCode::ServiceTakeFailed, .. }) => {
-                // Spurious wakeup – this may happen even when a waitset indicated that this
-                // action was ready, so it shouldn't be an error.
-                return Ok(());
-            },
-            Err(err) => return Err(err),
-        };
-
-        let response: GoalResponse = 
-        {
-            let mut uuid = GoalUuid::default();
-            rosidl_runtime_rs::ExtractUuid::extract_uuid(&request, &mut uuid.0);
-
-            todo!("Optionally convert request to an idiomatic type for the user's callback.");
-            todo!("Call self.goal_callback(uuid, request)");
-        };
-
-        self.send_goal_response(response, &request, request_id)?;
+        // TODO: Call the user's goal_accepted callback.
+        todo!("Call self.accepted_callback(goal_handle)");
 
         Ok(())
     }
@@ -286,26 +301,34 @@ where
     }
 
     fn publish_status(&self) -> Result<(), RclrsError> {
-        let mut goal_statuses = DropGuard::new(unsafe {
-            // SAFETY: No preconditions
-            rcl_action_get_zero_initialized_goal_status_array()
-        }, |mut goal_status| unsafe { 
-            // SAFETY: The goal_status array is either zero-initialized and empty or populated by
-            // `rcl_action_get_goal_status_array`. In either case, it can be safely finalized.
-            rcl_action_goal_status_array_fini(&mut goal_status);
-        });
+        let mut goal_statuses = DropGuard::new(
+            unsafe {
+                // SAFETY: No preconditions
+                rcl_action_get_zero_initialized_goal_status_array()
+            },
+            |mut goal_statuses| unsafe {
+                // SAFETY: The goal_status array is either zero-initialized and empty or populated by
+                // `rcl_action_get_goal_status_array`. In either case, it can be safely finalized.
+                rcl_action_goal_status_array_fini(&mut goal_statuses);
+            },
+        );
 
         unsafe {
             // SAFETY: The action server is locked through the handle and goal_statuses is
             // zero-initialized.
             rcl_action_get_goal_status_array(&*self.handle.lock(), &mut *goal_statuses)
-        }.ok()?;
+        }
+        .ok()?;
 
         unsafe {
             // SAFETY: The action server is locked through the handle and goal_statuses.msg is a
             // valid `action_msgs__msg__GoalStatusArray` by construction.
-            rcl_action_publish_status(&*self.handle.lock(), &goal_statuses.msg as *const _ as *const std::ffi::c_void)
-        }.ok()
+            rcl_action_publish_status(
+                &*self.handle.lock(),
+                &goal_statuses.msg as *const _ as *const std::ffi::c_void,
+            )
+        }
+        .ok()
     }
 }
 
