@@ -188,19 +188,17 @@ pub trait ActionImpl: 'static {
     type FeedbackMessage: Message;
 
     /// The send_goal service associated with this action.
-    type SendGoalService: Service<Request: Message<RmwMsg: ExtractUuid>>;
+    type SendGoalService: Service;
 
     /// The cancel_goal service associated with this action.
     type CancelGoalService: Service;
 
     /// The get_result service associated with this action.
     type GetResultService: Service;
-}
 
-/// Trait for types containing a special UUID field.
-///
-/// User code never needs to implement this trait, nor call its method.
-pub trait ExtractUuid: 'static {
-    /// Copies the UUID field from `self` into the provided buffer.
-    fn extract_uuid(&self, bytes: &mut [u8; 16]);
+    /// Get the UUID of a goal request.
+    fn get_goal_request_uuid(request: &<<Self::SendGoalService as Service>::Request as Message>::RmwMsg) -> [u8; 16];
+
+    /// Sets the `accepted` field of a goal response.
+    fn set_goal_response_accepted(response: &mut <<Self::SendGoalService as Service>::Response as Message>::RmwMsg, accepted: bool);
 }
