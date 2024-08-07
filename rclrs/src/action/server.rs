@@ -5,7 +5,7 @@ use crate::{
     wait::WaitableNumEntities,
     Clock, DropGuard, Node, RclrsError, ENTITY_LIFECYCLE_MUTEX,
 };
-use rosidl_runtime_rs::{Action, Message, Service};
+use rosidl_runtime_rs::{Action, ActionImpl, Message, Service};
 use std::{
     ffi::CString,
     sync::{atomic::AtomicBool, Arc, Mutex, MutexGuard},
@@ -165,7 +165,7 @@ where
             writer_guid: [0; 16],
             sequence_number: 0,
         };
-        type RmwRequest<T> = <<<T as rosidl_runtime_rs::ActionImpl>::SendGoalService as Service>::Request as Message>::RmwMsg;
+        type RmwRequest<T> = <<<T as ActionImpl>::SendGoalService as Service>::Request as Message>::RmwMsg;
         let mut request_rmw = RmwRequest::<T>::default();
         let handle = &*self.handle.lock();
         unsafe {
@@ -186,10 +186,9 @@ where
         mut request_id: rmw_request_id_t,
         accepted: bool,
     ) -> Result<(), RclrsError> {
-        type RmwResponse<T> = <<<T as rosidl_runtime_rs::ActionImpl>::SendGoalService as Service>::Response as Message>::RmwMsg;
+        type RmwResponse<T> = <<<T as ActionImpl>::SendGoalService as Service>::Response as Message>::RmwMsg;
         let mut response_rmw = RmwResponse::<T>::default();
-        // TODO(nwn): Set the `accepted` field through a trait, similarly to how we extracted the UUID.
-        // response_rmw.accepted = accepted;
+        <T as ActionImpl>::set_goal_response_accepted(&mut response_rmw, accepted);
         let handle = &*self.handle.lock();
         let result = unsafe {
             // SAFETY: The action server handle is locked and so synchronized with other
@@ -232,8 +231,7 @@ where
             Err(err) => return Err(err),
         };
 
-        let mut uuid = GoalUuid::default();
-        rosidl_runtime_rs::ExtractUuid::extract_uuid(&request, &mut uuid.0);
+        let uuid = GoalUuid(<T as ActionImpl>::get_goal_request_uuid(&request));
 
         let response: GoalResponse = {
             todo!("Optionally convert request to an idiomatic type for the user's callback.");
