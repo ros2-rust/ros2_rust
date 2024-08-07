@@ -1,12 +1,6 @@
 use crate::{rcl_bindings::*, GoalUuid, RclrsError, ToResult};
 use std::sync::{Arc, Mutex};
 
-// SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
-// they are running in. Therefore, this type can be safely sent to another thread.
-unsafe impl Send for rcl_action_goal_handle_t {}
-
-unsafe impl Sync for rcl_action_goal_handle_t {}
-
 // Values defined by `action_msgs/msg/GoalStatus`
 #[repr(i8)]
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
@@ -34,6 +28,14 @@ where
     goal_request: Arc<ActionT::Goal>,
     uuid: GoalUuid,
 }
+
+// SAFETY: Send/Sync are not automatically implemented due to the contained raw pointer
+// (specifically, `*mut rcl_action_goal_handle_t`). However, the `rcl_handle` field is wrapped in a
+// mutex, guaranteeing that the underlying data is never simultaneously accessed on the rclrs side
+// by multiple threads. Moreover, the rcl_action functions taking these handles are able to be run
+// from any thread.
+unsafe impl<ActionT> Send for ServerGoalHandle<ActionT> where ActionT: rosidl_runtime_rs::Action {}
+unsafe impl<ActionT> Sync for ServerGoalHandle<ActionT> where ActionT: rosidl_runtime_rs::Action {}
 
 impl<ActionT> ServerGoalHandle<ActionT>
 where

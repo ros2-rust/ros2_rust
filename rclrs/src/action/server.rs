@@ -7,6 +7,7 @@ use crate::{
 };
 use rosidl_runtime_rs::{Action, ActionImpl, Message, Service};
 use std::{
+    collections::HashMap,
     ffi::CString,
     sync::{atomic::AtomicBool, Arc, Mutex, MutexGuard},
 };
@@ -77,6 +78,7 @@ where
     goal_callback: Box<GoalCallback<ActionT>>,
     cancel_callback: Box<CancelCallback<ActionT>>,
     accepted_callback: Box<AcceptedCallback<ActionT>>,
+    goal_handles: Mutex<HashMap<GoalUuid, Arc<ServerGoalHandle<ActionT>>>>,
 }
 
 impl<T> ActionServer<T>
@@ -157,6 +159,7 @@ where
             goal_callback: Box::new(goal_callback),
             cancel_callback: Box::new(cancel_callback),
             accepted_callback: Box::new(accepted_callback),
+            goal_handles: Mutex::new(HashMap::new()),
         })
     }
 
@@ -243,13 +246,13 @@ where
             return self.send_goal_response(request_id, false);
         }
 
-        // SAFETY: No preconditions
-        let mut goal_info = unsafe { rcl_action_get_zero_initialized_goal_info() };
-        // Populate the goal UUID; the other fields will be populated by rcl_action later on.
-        // TODO(nwn): Check this claim.
-        goal_info.goal_id.uuid = uuid.0;
-
         let goal_handle = {
+            // SAFETY: No preconditions
+            let mut goal_info = unsafe { rcl_action_get_zero_initialized_goal_info() };
+            // Only populate the goal UUID; the timestamp will be set internally by
+            // rcl_action_accept_new_goal().
+            goal_info.goal_id.uuid = uuid.0;
+
             let server_handle = &mut *self.handle.lock();
             let goal_handle_ptr = unsafe {
                 // SAFETY: The action server handle is locked and so synchronized with other
@@ -262,17 +265,17 @@ where
                 // Other than rcl_get_error_string(), there's no indication what happened.
                 panic!("Failed to accept goal");
             } else {
-                ServerGoalHandle::<T>::new(
+                Arc::new(ServerGoalHandle::<T>::new(
                     goal_handle_ptr,
-                    todo!(""),
-                    GoalUuid(goal_info.goal_id.uuid),
-                )
+                    todo!("Create an Arc holding the goal message"),
+                    uuid,
+                ))
             }
         };
 
         self.send_goal_response(request_id, true)?;
 
-        // TODO: Add a UUID->goal_handle entry to a server goal map.
+        self.goal_handles.lock().unwrap().insert(uuid, Arc::clone(&goal_handle));
 
         if response == GoalResponse::AcceptAndExecute {
             goal_handle.execute()?;
