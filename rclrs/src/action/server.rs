@@ -298,7 +298,32 @@ where
     }
 
     fn execute_goal_expired(&self) -> Result<(), RclrsError> {
-        todo!()
+        // We assume here that only one goal expires at a time. If not, the only consequence is
+        // that we'll call rcl_action_expire_goals() more than necessary.
+
+        // SAFETY: No preconditions
+        let mut expired_goal = unsafe { rcl_action_get_zero_initialized_goal_info() };
+        let mut num_expired = 1;
+
+        loop {
+            unsafe {
+                // SAFETY: The action server is locked through the handle. The `expired_goal`
+                // argument points to an array of one rcl_action_goal_info_t and num_expired points
+                // to a `size_t`.
+                rcl_action_expire_goals(&*self.handle.lock(), &mut expired_goal, 1, &mut num_expired)
+            }
+            .ok()?;
+
+            if num_expired > 0 {
+                // Clean up the expired goal.
+                let uuid = GoalUuid(expired_goal.goal_id.uuid);
+                self.goal_handles.lock().unwrap().remove(&uuid);
+            } else {
+                break
+            }
+        }
+
+        Ok(())
     }
 
     fn publish_status(&self) -> Result<(), RclrsError> {
