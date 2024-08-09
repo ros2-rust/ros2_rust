@@ -331,6 +331,22 @@ where
         }
         .ok()
     }
+
+    pub(crate) fn publish_feedback(&self, goal_id: &GoalUuid, feedback: &<T as rosidl_runtime_rs::Action>::Feedback) -> Result<(), RclrsError> {
+        let feedback_rmw = <<T as rosidl_runtime_rs::Action>::Feedback as Message>::into_rmw_message(std::borrow::Cow::Borrowed(feedback));
+        let mut feedback_msg = <T as rosidl_runtime_rs::ActionImpl>::create_feedback_message(&goal_id.0, &*feedback_rmw);
+        unsafe {
+            // SAFETY: The action server is locked through the handle, meaning that no other
+            // non-thread-safe functions can be called on it at the same time. The feedback_msg is
+            // exclusively owned here, ensuring that it won't be modified during the call.
+            // rcl_action_publish_feedback() guarantees that it won't modify `feedback_msg`.
+            rcl_action_publish_feedback(
+                &*self.handle.lock(),
+                &mut feedback_msg as *mut _ as *mut std::ffi::c_void,
+            )
+        }
+        .ok()
+    }
 }
 
 impl<T> ActionServerBase for ActionServer<T>
