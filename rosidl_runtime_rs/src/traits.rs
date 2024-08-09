@@ -163,7 +163,7 @@ pub trait Service: 'static {
 /// Trait for actions.
 ///
 /// User code never needs to call this trait's method, much less implement this trait.
-pub trait Action: 'static + ActionImpl {
+pub trait Action: 'static {
     /// The goal message associated with this action.
     type Goal: Message;
 
@@ -180,7 +180,7 @@ pub trait Action: 'static + ActionImpl {
 /// Trait for action implementation details.
 ///
 /// User code never needs to implement this trait, nor use its associated types.
-pub trait ActionImpl: 'static {
+pub trait ActionImpl: 'static + Action {
     /// The goal_status message associated with this action.
     type GoalStatusMessage: Message;
 
@@ -201,4 +201,7 @@ pub trait ActionImpl: 'static {
 
     /// Sets the `accepted` field of a goal response.
     fn set_goal_response_accepted(response: &mut <<Self::SendGoalService as Service>::Response as Message>::RmwMsg, accepted: bool);
+
+    /// Create a feedback message with the given goal ID and contents.
+    fn create_feedback_message(goal_id: &[u8; 16], feedback: &<<Self as Action>::Feedback as Message>::RmwMsg) -> <Self::FeedbackMessage as Message>::RmwMsg;
 }
