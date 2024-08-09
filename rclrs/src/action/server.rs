@@ -83,7 +83,7 @@ where
 
 impl<T> ActionServer<T>
 where
-    T: rosidl_runtime_rs::Action,
+    T: rosidl_runtime_rs::Action + rosidl_runtime_rs::ActionImpl,
 {
     /// Creates a new action server.
     pub(crate) fn new(
@@ -95,7 +95,7 @@ where
         accepted_callback: impl Fn(ServerGoalHandle<T>) + 'static + Send + Sync,
     ) -> Result<Self, RclrsError>
     where
-        T: rosidl_runtime_rs::Action,
+        T: rosidl_runtime_rs::Action + rosidl_runtime_rs::ActionImpl,
     {
         // SAFETY: Getting a zero-initialized value is always safe.
         let mut rcl_action_server = unsafe { rcl_action_get_zero_initialized_server() };
@@ -335,7 +335,7 @@ where
 
 impl<T> ActionServerBase for ActionServer<T>
 where
-    T: rosidl_runtime_rs::Action,
+    T: rosidl_runtime_rs::Action + rosidl_runtime_rs::ActionImpl,
 {
     fn handle(&self) -> &ActionServerHandle {
         &self.handle
