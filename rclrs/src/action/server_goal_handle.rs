@@ -91,6 +91,15 @@ where
         unsafe { rcl_action_update_goal_state(*rcl_handle, event).ok() }
     }
 
+    /// Indicate that the goal is being cancelled.
+    ///
+    /// This is called when a cancel request for the goal has been accepted.
+    ///
+    /// Returns an error if the goal is in any state other than accepted or executing.
+    pub(crate) fn cancel(&self) -> Result<(), RclrsError> {
+        self.update_state(rcl_action_goal_event_t::GOAL_EVENT_CANCEL_GOAL)
+    }
+
     /// Indicate that the goal could not be reached and has been aborted.
     ///
     /// Only call this if the goal is executing but cannot be completed. This is a terminal state,

@@ -275,7 +275,10 @@ where
 
         self.send_goal_response(request_id, true)?;
 
-        self.goal_handles.lock().unwrap().insert(uuid, Arc::clone(&goal_handle));
+        self.goal_handles
+            .lock()
+            .unwrap()
+            .insert(uuid, Arc::clone(&goal_handle));
 
         if response == GoalResponse::AcceptAndExecute {
             goal_handle.execute()?;
@@ -289,8 +292,157 @@ where
         Ok(())
     }
 
+    fn take_cancel_request(&self) -> Result<(action_msgs__srv__CancelGoal_Request, rmw_request_id_t), RclrsError> {
+        let mut request_id = rmw_request_id_t {
+            writer_guid: [0; 16],
+            sequence_number: 0,
+        };
+        // SAFETY: No preconditions
+        let mut request_rmw = unsafe { rcl_action_get_zero_initialized_cancel_request() };
+        let handle = &*self.handle.lock();
+        unsafe {
+            // SAFETY: The action server is locked by the handle. The request_id is a
+            // zero-initialized rmw_request_id_t, and the request_rmw is a zero-initialized
+            // action_msgs__srv__CancelGoal_Request.
+            rcl_action_take_cancel_request(
+                handle,
+                &mut request_id,
+                &mut request_rmw as *mut _ as *mut _,
+            )
+        }
+        .ok()?;
+
+        Ok((request_rmw, request_id))
+    }
+
+    fn send_cancel_response(
+        &self,
+        mut request_id: rmw_request_id_t,
+        response_rmw: &mut action_msgs__srv__CancelGoal_Response,
+    ) -> Result<(), RclrsError> {
+        let handle = &*self.handle.lock();
+        let result = unsafe {
+            // SAFETY: The action server handle is locked and so synchronized with other functions.
+            // The request_id and response are both uniquely owned or borrowed, and so neither will
+            // mutate during this function call.
+            rcl_action_send_cancel_response(
+                handle,
+                &mut request_id,
+                response_rmw as *mut _ as *mut _,
+            )
+        }
+        .ok();
+        match result {
+            Ok(()) => Ok(()),
+            Err(RclrsError::RclError {
+                code: RclReturnCode::Timeout,
+                ..
+            }) => {
+                // TODO(nwn): Log an error and continue.
+                // (See https://github.com/ros2/rclcpp/pull/2215 for reasoning.)
+                Ok(())
+            }
+            _ => result,
+        }
+    }
+
     fn execute_cancel_request(&self) -> Result<(), RclrsError> {
-        todo!()
+        let (request, request_id) = match self.take_cancel_request() {
+            Ok(res) => res,
+            Err(RclrsError::RclError {
+                code: RclReturnCode::ServiceTakeFailed,
+                ..
+            }) => {
+                // Spurious wakeup – this may happen even when a waitset indicated that this
+                // action was ready, so it shouldn't be an error.
+                return Ok(());
+            }
+            Err(err) => return Err(err),
+        };
+
+        let mut response_rmw = {
+            // SAFETY: No preconditions
+            let mut response_rmw = unsafe { rcl_action_get_zero_initialized_cancel_response() };
+            unsafe {
+                // SAFETY: The action server is locked by the handle. The request was initialized
+                // by rcl_action, and the response is a zero-initialized
+                // rcl_action_cancel_response_t.
+                rcl_action_process_cancel_request(
+                    &*self.handle.lock(),
+                    &request,
+                    &mut response_rmw as *mut _,
+                )
+            }
+            .ok()?;
+
+            DropGuard::new(response_rmw, |mut response_rmw| unsafe {
+                // SAFETY: The response was initialized by rcl_action_process_cancel_request().
+                // Later modifications only truncate the size of the array and shift elements,
+                // without modifying the data pointer or capacity.
+                rcl_action_cancel_response_fini(&mut response_rmw);
+            })
+        };
+
+        let num_candidates = response_rmw.msg.goals_canceling.size;
+        let mut num_accepted = 0;
+        for idx in 0..response_rmw.msg.goals_canceling.size {
+            let goal_info = unsafe {
+                // SAFETY: The array pointed to by response_rmw.msg.goals_canceling.data is
+                // guaranteed to contain at least response_rmw.msg.goals_canceling.size members.
+                &*response_rmw.msg.goals_canceling.data.add(idx)
+            };
+            let goal_uuid = GoalUuid(goal_info.goal_id.uuid);
+
+            let response = {
+                if let Some(goal_handle) = self.goal_handles.lock().unwrap().get(&goal_uuid) {
+                    let response: CancelResponse = todo!("Call self.cancel_callback(goal_handle)");
+                    if response == CancelResponse::Accept {
+                        // Still reject the request if the goal is no longer cancellable.
+                        if goal_handle.cancel().is_ok() {
+                            CancelResponse::Accept
+                        } else {
+                            CancelResponse::Reject
+                        }
+                    } else {
+                        CancelResponse::Reject
+                    }
+                } else {
+                    CancelResponse::Reject
+                }
+            };
+
+            if response == CancelResponse::Accept {
+                // Shift the accepted entry back to the first rejected slot, if necessary.
+                if num_accepted < idx {
+                    let goal_info_slot = unsafe {
+                        // SAFETY: The array pointed to by response_rmw.msg.goals_canceling.data is
+                        // guaranteed to contain at least response_rmw.msg.goals_canceling.size
+                        // members. Since `num_accepted` is strictly less than `idx`, it is a
+                        // distinct element of the array, so there is no mutable aliasing.
+                        &mut *response_rmw.msg.goals_canceling.data.add(num_accepted)
+                    };
+                }
+                num_accepted += 1;
+            }
+        }
+        response_rmw.msg.goals_canceling.size = num_accepted;
+
+        // If the user rejects all individual cancel requests, consider the entire request as
+        // having been rejected.
+        if num_accepted == 0 && num_candidates > 0 {
+            // TODO(nwn): Include action_msgs__srv__CancelGoal_Response__ERROR_REJECTED in the rcl
+            // bindings.
+            response_rmw.msg.return_code = 1;
+        }
+
+        // If any goal states changed, publish a status update.
+        if num_accepted > 0 {
+            self.publish_status()?;
+        }
+
+        self.send_cancel_response(request_id, &mut response_rmw.msg)?;
+
+        Ok(())
     }
 
     fn execute_result_request(&self) -> Result<(), RclrsError> {
@@ -319,7 +471,7 @@ where
                 let uuid = GoalUuid(expired_goal.goal_id.uuid);
                 self.goal_handles.lock().unwrap().remove(&uuid);
             } else {
-                break
+                break;
             }
         }
 

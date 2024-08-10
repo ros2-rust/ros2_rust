@@ -48,6 +48,7 @@ pub enum GoalResponse {
 }
 
 /// The response returned by an [`ActionServer`]'s cancel callback when a goal is requested to be cancelled.
+#[derive(PartialEq, Eq)]
 pub enum CancelResponse {
     /// The server will not try to cancel the goal.
     Reject = 1,
