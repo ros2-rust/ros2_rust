@@ -376,10 +376,23 @@ impl From<ParameterValue> for RmwParameterValue {
 
 /// An error that occured when trying to convert a parameter from an
 /// `rcl_interfaces::msg::ParameterValue`
+#[derive(Debug)]
 pub enum RmwParameterConversionError {
     /// The parameter type was not valid.
     InvalidParameterType,
 }
+
+impl std::fmt::Display for RmwParameterConversionError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            RmwParameterConversionError::InvalidParameterType => {
+                write!(f, "the parameter type was not valid")
+            }
+        }
+    }
+}
+
+impl std::error::Error for RmwParameterConversionError {}
 
 impl TryFrom<RmwParameterValue> for ParameterValue {
     type Error = RmwParameterConversionError;
