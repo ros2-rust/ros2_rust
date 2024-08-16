@@ -71,14 +71,18 @@ pub type AcceptedCallback<ActionT> = dyn Fn(ServerGoalHandle<ActionT>) + 'static
 
 pub struct ActionServer<ActionT>
 where
-    ActionT: rosidl_runtime_rs::Action,
+    ActionT: rosidl_runtime_rs::Action + rosidl_runtime_rs::ActionImpl,
 {
     pub(crate) handle: Arc<ActionServerHandle>,
     num_entities: WaitableNumEntities,
     goal_callback: Box<GoalCallback<ActionT>>,
     cancel_callback: Box<CancelCallback<ActionT>>,
     accepted_callback: Box<AcceptedCallback<ActionT>>,
+    // TODO(nwn): Audit these three mutexes to ensure there's no deadlocks or broken invariants. We
+    // may want to join them behind a shared mutex, at least for the `goal_results` and `result_requests`.
     goal_handles: Mutex<HashMap<GoalUuid, Arc<ServerGoalHandle<ActionT>>>>,
+    goal_results: Mutex<HashMap<GoalUuid, <<ActionT::GetResultService as Service>::Response as Message>::RmwMsg>>,
+    result_requests: Mutex<HashMap<GoalUuid, Vec<rmw_request_id_t>>>,
 }
 
 impl<T> ActionServer<T>
@@ -160,6 +164,8 @@ where
             cancel_callback: Box::new(cancel_callback),
             accepted_callback: Box::new(accepted_callback),
             goal_handles: Mutex::new(HashMap::new()),
+            goal_results: Mutex::new(HashMap::new()),
+            result_requests: Mutex::new(HashMap::new()),
         })
     }
 
@@ -172,7 +178,9 @@ where
         let mut request_rmw = RmwRequest::<T>::default();
         let handle = &*self.handle.lock();
         unsafe {
-            // SAFETY: The three pointers are valid/initialized
+            // SAFETY: The action server is locked by the handle. The request_id is a
+            // zero-initialized rmw_request_id_t, and the request_rmw is a default-initialized
+            // SendGoalService request message.
             rcl_action_take_goal_request(
                 handle,
                 &mut request_id,
@@ -445,8 +453,104 @@ where
         Ok(())
     }
 
+    fn take_result_request(&self) -> Result<(<<T::GetResultService as Service>::Request as Message>::RmwMsg, rmw_request_id_t), RclrsError> {
+        let mut request_id = rmw_request_id_t {
+            writer_guid: [0; 16],
+            sequence_number: 0,
+        };
+        type RmwRequest<T> = <<<T as ActionImpl>::GetResultService as Service>::Request as Message>::RmwMsg;
+        let mut request_rmw = RmwRequest::<T>::default();
+        let handle = &*self.handle.lock();
+        unsafe {
+            // SAFETY: The action server is locked by the handle. The request_id is a
+            // zero-initialized rmw_request_id_t, and the request_rmw is a default-initialized
+            // GetResultService request message.
+            rcl_action_take_result_request(
+                handle,
+                &mut request_id,
+                &mut request_rmw as *mut RmwRequest<T> as *mut _,
+            )
+        }
+        .ok()?;
+
+        Ok((request_rmw, request_id))
+    }
+
+    fn send_result_response(
+        &self,
+        mut request_id: rmw_request_id_t,
+        response_rmw: &mut <<<T as ActionImpl>::GetResultService as rosidl_runtime_rs::Service>::Response as Message>::RmwMsg,
+    ) -> Result<(), RclrsError> {
+        let handle = &*self.handle.lock();
+        let result = unsafe {
+            // SAFETY: The action server handle is locked and so synchronized with other functions.
+            // The request_id and response are both uniquely owned or borrowed, and so neither will
+            // mutate during this function call.
+            rcl_action_send_result_response(
+                handle,
+                &mut request_id,
+                response_rmw as *mut _ as *mut _,
+            )
+        }
+        .ok();
+        match result {
+            Ok(()) => Ok(()),
+            Err(RclrsError::RclError {
+                code: RclReturnCode::Timeout,
+                ..
+            }) => {
+                // TODO(nwn): Log an error and continue.
+                // (See https://github.com/ros2/rclcpp/pull/2215 for reasoning.)
+                Ok(())
+            }
+            _ => result,
+        }
+    }
+
     fn execute_result_request(&self) -> Result<(), RclrsError> {
-        todo!()
+        let (request, request_id) = match self.take_result_request() {
+            Ok(res) => res,
+            Err(RclrsError::RclError {
+                code: RclReturnCode::ServiceTakeFailed,
+                ..
+            }) => {
+                // Spurious wakeup – this may happen even when a waitset indicated that this
+                // action was ready, so it shouldn't be an error.
+                return Ok(());
+            }
+            Err(err) => return Err(err),
+        };
+
+        let uuid = GoalUuid(<T as ActionImpl>::get_result_request_uuid(&request));
+
+        let goal_exists = unsafe {
+            // SAFETY: No preconditions
+            let mut goal_info = rcl_action_get_zero_initialized_goal_info();
+            goal_info.goal_id.uuid = uuid.0;
+
+            // SAFETY: The action server is locked through the handle. The `goal_info`
+            // argument points to a rcl_action_goal_info_t with the desired UUID.
+            rcl_action_server_goal_exists(&*self.handle.lock(), &goal_info)
+        };
+
+        if goal_exists {
+            if let Some(result) = self.goal_results.lock().unwrap().get_mut(&uuid) {
+                // Respond immediately if the goal already has a response.
+                self.send_result_response(request_id, result)?;
+            } else {
+                // Queue up the request for a response once the goal terminates.
+                self.result_requests.lock().unwrap().entry(uuid).or_insert(vec![]).push(request_id);
+            }
+        } else {
+            type RmwResponse<T> = <<<T as ActionImpl>::GetResultService as rosidl_runtime_rs::Service>::Response as Message>::RmwMsg;
+            let mut response_rmw = RmwResponse::<T>::default();
+            // TODO(nwn): Include action_msgs__msg__GoalStatus__STATUS_UNKNOWN in the rcl
+            // bindings.
+            <T as ActionImpl>::set_result_response_status(&mut response_rmw, 0);
+            self.send_result_response(request_id, &mut response_rmw)?;
+        }
+
+        Ok(())
     }
 
     fn execute_goal_expired(&self) -> Result<(), RclrsError> {
