@@ -204,4 +204,10 @@ pub trait ActionImpl: 'static + Action {
 
     /// Create a feedback message with the given goal ID and contents.
     fn create_feedback_message(goal_id: &[u8; 16], feedback: &<<Self as Action>::Feedback as Message>::RmwMsg) -> <Self::FeedbackMessage as Message>::RmwMsg;
+
+    /// Get the UUID of a result request.
+    fn get_result_request_uuid(request: &<<Self::GetResultService as Service>::Request as Message>::RmwMsg) -> [u8; 16];
+
+    /// Sets the `status` field of a result response.
+    fn set_result_response_status(response: &mut <<Self::GetResultService as Service>::Response as Message>::RmwMsg, status: i8);
 }
