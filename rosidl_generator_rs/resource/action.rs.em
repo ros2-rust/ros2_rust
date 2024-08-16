@@ -99,6 +99,29 @@ impl rosidl_runtime_rs::ActionImpl for @(type_name) {
   type SendGoalService = crate::@(subfolder)::rmw::@(type_name)@(ACTION_GOAL_SERVICE_SUFFIX);
   type CancelGoalService = action_msgs::srv::rmw::CancelGoal;
   type GetResultService = crate::@(subfolder)::rmw::@(type_name)@(ACTION_RESULT_SERVICE_SUFFIX);
+
+  fn get_goal_request_uuid(request: &<<Self::SendGoalService as rosidl_runtime_rs::Service>::Request as rosidl_runtime_rs::Message>::RmwMsg) -> [u8; 16] {
+    request.goal_id.uuid
+  }
+
+  fn set_goal_response_accepted(response: &mut <<Self::SendGoalService as rosidl_runtime_rs::Service>::Response as rosidl_runtime_rs::Message>::RmwMsg, accepted: bool) {
+    response.accepted = accepted;
+  }
+
+  fn create_feedback_message(goal_id: &[u8; 16], feedback: &<<Self as rosidl_runtime_rs::Action>::Feedback as rosidl_runtime_rs::Message>::RmwMsg) -> <Self::FeedbackMessage as rosidl_runtime_rs::Message>::RmwMsg {
+    let mut message = <Self::FeedbackMessage as rosidl_runtime_rs::Message>::RmwMsg::default();
+    message.goal_id.uuid = *goal_id;
+    message.feedback = feedback.clone();
+    message
+  }
+
+  fn get_result_request_uuid(request: &<<Self::GetResultService as rosidl_runtime_rs::Service>::Request as rosidl_runtime_rs::Message>::RmwMsg) -> [u8; 16] {
+    request.goal_id.uuid
+  }
+
+  fn set_result_response_status(response: &mut <<Self::GetResultService as rosidl_runtime_rs::Service>::Response as rosidl_runtime_rs::Message>::RmwMsg, status: i8) {
+    response.status = status;
+  }
 }
 
 @[end for]
