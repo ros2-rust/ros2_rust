@@ -543,11 +543,10 @@ where
                 self.result_requests.lock().unwrap().entry(uuid).or_insert(vec![]).push(request_id);
             }
         } else {
-            type RmwResponse<T> = <<<T as ActionImpl>::GetResultService as rosidl_runtime_rs::Service>::Response as Message>::RmwMsg;
-            let mut response_rmw = RmwResponse::<T>::default();
             // TODO(nwn): Include action_msgs__msg__GoalStatus__STATUS_UNKNOWN in the rcl
             // bindings.
-            <T as ActionImpl>::set_result_response_status(&mut response_rmw, 0);
+            let null_response = <T::Result as Message>::RmwMsg::default();
+            let mut response_rmw = <T as ActionImpl>::create_result_response(0, null_response);
             self.send_result_response(request_id, &mut response_rmw)?;
         }
 
