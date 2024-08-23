@@ -1,5 +1,5 @@
-use crate::{rcl_bindings::*, GoalUuid, RclrsError, ToResult};
-use std::sync::{Arc, Mutex};
+use crate::{action::ActionServer, rcl_bindings::*, GoalUuid, RclrsError, ToResult};
+use std::sync::{Arc, Mutex, Weak};
 
 // Values defined by `action_msgs/msg/GoalStatus`
 #[repr(i8)]
@@ -22,9 +22,10 @@ enum GoalStatus {
 /// passed to the user in the associated `handle_accepted` callback.
 pub struct ServerGoalHandle<ActionT>
 where
-    ActionT: rosidl_runtime_rs::Action,
+    ActionT: rosidl_runtime_rs::Action + rosidl_runtime_rs::ActionImpl,
 {
     rcl_handle: Mutex<*mut rcl_action_goal_handle_t>,
+    action_server: Weak<ActionServer<ActionT>>,
     goal_request: Arc<ActionT::Goal>,
     uuid: GoalUuid,
 }
@@ -34,20 +35,22 @@ where
 // mutex, guaranteeing that the underlying data is never simultaneously accessed on the rclrs side
 // by multiple threads. Moreover, the rcl_action functions taking these handles are able to be run
 // from any thread.
-unsafe impl<ActionT> Send for ServerGoalHandle<ActionT> where ActionT: rosidl_runtime_rs::Action {}
-unsafe impl<ActionT> Sync for ServerGoalHandle<ActionT> where ActionT: rosidl_runtime_rs::Action {}
+unsafe impl<ActionT> Send for ServerGoalHandle<ActionT> where ActionT: rosidl_runtime_rs::Action + rosidl_runtime_rs::ActionImpl {}
+unsafe impl<ActionT> Sync for ServerGoalHandle<ActionT> where ActionT: rosidl_runtime_rs::Action + rosidl_runtime_rs::ActionImpl {}
 
 impl<ActionT> ServerGoalHandle<ActionT>
 where
-    ActionT: rosidl_runtime_rs::Action,
+    ActionT: rosidl_runtime_rs::Action + rosidl_runtime_rs::ActionImpl,
 {
     pub(crate) fn new(
         rcl_handle: *mut rcl_action_goal_handle_t,
+        action_server: Weak<ActionServer<ActionT>>,
         goal_request: Arc<ActionT::Goal>,
         uuid: GoalUuid,
     ) -> Self {
         Self {
             rcl_handle: Mutex::new(rcl_handle),
+            action_server,
             goal_request: Arc::clone(&goal_request),
             uuid,
         }
@@ -148,7 +151,10 @@ where
     pub fn execute(&self) -> Result<(), RclrsError> {
         self.update_state(rcl_action_goal_event_t::GOAL_EVENT_EXECUTE)?;
 
-        // TODO: Invoke on_executing callback
+        // Publish the state change.
+        if let Some(action_server) = self.action_server.upgrade() {
+            action_server.publish_status()?;
+        }
         Ok(())
     }
 
@@ -188,14 +194,17 @@ where
     ///
     /// Returns an error if the goal is in any state other than executing.
     pub fn publish_feedback(&self, feedback: Arc<ActionT::Feedback>) -> Result<(), RclrsError> {
-        // TODO: Invoke public_feedback callback
-        todo!()
+        // If the action server no longer exists, simply drop the message.
+        if let Some(action_server) = self.action_server.upgrade() {
+            action_server.publish_feedback(&self.uuid, &*feedback)?;
+        }
+        Ok(())
     }
 }
 
 impl<ActionT> Drop for ServerGoalHandle<ActionT>
 where
-    ActionT: rosidl_runtime_rs::Action,
+    ActionT: rosidl_runtime_rs::Action + rosidl_runtime_rs::ActionImpl,
 {
     /// Cancel the goal if its handle is dropped without reaching a terminal state.
     fn drop(&mut self) {

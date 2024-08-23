@@ -55,7 +55,7 @@ pub trait ActionServerBase: Send + Sync {
     /// Returns the number of underlying entities for the action server.
     fn num_entities(&self) -> &WaitableNumEntities;
     /// Tries to run the callback for the given readiness mode.
-    fn execute(&self, mode: ReadyMode) -> Result<(), RclrsError>;
+    fn execute(self: Arc<Self>, mode: ReadyMode) -> Result<(), RclrsError>;
 }
 
 pub(crate) enum ReadyMode {
@@ -228,7 +228,7 @@ where
         }
     }
 
-    fn execute_goal_request(&self) -> Result<(), RclrsError> {
+    fn execute_goal_request(self: Arc<Self>) -> Result<(), RclrsError> {
         let (request, request_id) = match self.take_goal_request() {
             Ok(res) => res,
             Err(RclrsError::RclError {
@@ -275,6 +275,7 @@ where
             } else {
                 Arc::new(ServerGoalHandle::<T>::new(
                     goal_handle_ptr,
+                    Arc::downgrade(&self),
                     todo!("Create an Arc holding the goal message"),
                     uuid,
                 ))
@@ -582,7 +583,7 @@ where
         Ok(())
     }
 
-    fn publish_status(&self) -> Result<(), RclrsError> {
+    pub(crate) fn publish_status(&self) -> Result<(), RclrsError> {
         let mut goal_statuses = DropGuard::new(
             unsafe {
                 // SAFETY: No preconditions
@@ -642,7 +643,7 @@ where
         &self.num_entities
     }
 
-    fn execute(&self, mode: ReadyMode) -> Result<(), RclrsError> {
+    fn execute(self: Arc<Self>, mode: ReadyMode) -> Result<(), RclrsError> {
         match mode {
             ReadyMode::GoalRequest => self.execute_goal_request(),
             ReadyMode::CancelRequest => self.execute_cancel_request(),
