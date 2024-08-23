@@ -1,7 +1,6 @@
 use anyhow::{Error, Result};
 use rclrs::*;
-use std::sync::Arc;
-use std::thread;
+use std::{env, sync::Arc, thread};
 
 type Fibonacci = example_interfaces::action::Fibonacci;
 type GoalHandleFibonacci = rclrs::ServerGoalHandle<Fibonacci>;
