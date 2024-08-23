@@ -119,8 +119,11 @@ impl rosidl_runtime_rs::ActionImpl for @(type_name) {
     request.goal_id.uuid
   }
 
-  fn set_result_response_status(response: &mut <<Self::GetResultService as rosidl_runtime_rs::Service>::Response as rosidl_runtime_rs::Message>::RmwMsg, status: i8) {
-    response.status = status;
+  fn create_result_response(status: i8, result: <<Self as Action>::Result as Message>::RmwMsg) -> <<Self::GetResultService as Service>::Response as Message>::RmwMsg {
+    <<Self::GetResultService as rosidl_runtime_rs::Service>::Response as rosidl_runtime_rs::Message>::RmwMsg {
+      status,
+      result,
+    }
   }
 }
 

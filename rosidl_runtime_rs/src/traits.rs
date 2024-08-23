@@ -208,6 +208,6 @@ pub trait ActionImpl: 'static + Action {
     /// Get the UUID of a result request.
     fn get_result_request_uuid(request: &<<Self::GetResultService as Service>::Request as Message>::RmwMsg) -> [u8; 16];
 
-    /// Sets the `status` field of a result response.
-    fn set_result_response_status(response: &mut <<Self::GetResultService as Service>::Response as Message>::RmwMsg, status: i8);
+    /// Create a result response message with the given status and contents.
+    fn create_result_response(status: i8, result: <<Self as Action>::Result as Message>::RmwMsg) -> <<Self::GetResultService as Service>::Response as Message>::RmwMsg;
 }
