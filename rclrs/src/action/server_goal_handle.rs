@@ -112,7 +112,12 @@ where
     pub fn abort(&self, result: &ActionT::Result) -> Result<(), RclrsError> {
         self.update_state(rcl_action_goal_event_t::GOAL_EVENT_ABORT)?;
 
-        // TODO: Invoke on_terminal_state callback
+        if let Some(action_server) = self.action_server.upgrade() {
+            let result_rmw = <ActionT::Result as rosidl_runtime_rs::Message>::into_rmw_message(std::borrow::Cow::Borrowed(result)).into_owned();
+            // TODO(nwn): Include action_msgs__msg__GoalStatus__STATUS_ABORTED in the rcl
+            // bindings.
+            action_server.terminate_goal(&self.uuid, 6, result_rmw)?;
+        }
         Ok(())
     }
 
@@ -125,7 +130,12 @@ where
     pub fn succeed(&self, result: &ActionT::Result) -> Result<(), RclrsError> {
         self.update_state(rcl_action_goal_event_t::GOAL_EVENT_SUCCEED)?;
 
-        // TODO: Invoke on_terminal_state callback
+        if let Some(action_server) = self.action_server.upgrade() {
+            let result_rmw = <ActionT::Result as rosidl_runtime_rs::Message>::into_rmw_message(std::borrow::Cow::Borrowed(result)).into_owned();
+            // TODO(nwn): Include action_msgs__msg__GoalStatus__STATUS_SUCCEEDED in the rcl
+            // bindings.
+            action_server.terminate_goal(&self.uuid, 4, result_rmw)?;
+        }
         Ok(())
     }
 
@@ -138,7 +148,12 @@ where
     pub fn canceled(&self, result: &ActionT::Result) -> Result<(), RclrsError> {
         self.update_state(rcl_action_goal_event_t::GOAL_EVENT_CANCELED)?;
 
-        // TODO: Invoke on_terminal_state callback
+        if let Some(action_server) = self.action_server.upgrade() {
+            let result_rmw = <ActionT::Result as rosidl_runtime_rs::Message>::into_rmw_message(std::borrow::Cow::Borrowed(result)).into_owned();
+            // TODO(nwn): Include action_msgs__msg__GoalStatus__STATUS_CANCELED in the rcl
+            // bindings.
+            action_server.terminate_goal(&self.uuid, 5, result_rmw)?;
+        }
         Ok(())
     }
 
@@ -209,7 +224,12 @@ where
     /// Cancel the goal if its handle is dropped without reaching a terminal state.
     fn drop(&mut self) {
         if self.try_canceling() == Ok(true) {
-            // TODO: Invoke on_terminal_state callback
+            if let Some(action_server) = self.action_server.upgrade() {
+                let response_rmw = <ActionT::Result as rosidl_runtime_rs::Message>::RmwMsg::default();
+                // TODO(nwn): Include action_msgs__msg__GoalStatus__STATUS_CANCELED in the rcl
+                // bindings.
+                action_server.terminate_goal(&self.uuid, 5, response_rmw);
+            }
         }
         {
             let rcl_handle = self.rcl_handle.lock().unwrap();

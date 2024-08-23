@@ -573,11 +573,36 @@ where
             if num_expired > 0 {
                 // Clean up the expired goal.
                 let uuid = GoalUuid(expired_goal.goal_id.uuid);
+                self.goal_results.lock().unwrap().remove(&uuid);
+                self.result_requests.lock().unwrap().remove(&uuid);
                 self.goal_handles.lock().unwrap().remove(&uuid);
             } else {
                 break;
             }
         }
+
+        Ok(())
+    }
+
+    // TODO(nwn): Replace `status` with a "properly typed" action_msgs::msg::GoalStatus enum.
+    pub(crate) fn terminate_goal(&self, goal_id: &GoalUuid, status: i8, result: <T::Result as Message>::RmwMsg) -> Result<(), RclrsError> {
+        let response_rmw = <T as ActionImpl>::create_result_response(status, result);
+
+        // Publish the result to anyone listening.
+        self.publish_result(goal_id, response_rmw);
+
+        // Publish the state change.
+        self.publish_status();
+
+        // Notify rcl that a goal has terminated and to therefore recalculate the expired goal timer.
+        unsafe {
+            // SAFETY: The action server is locked and valid. No other preconditions.
+            rcl_action_notify_goal_done(&*self.handle.lock())
+        }
+        .ok()?;
+
+        // Release ownership of the goal handle. It will persist until the user also drops it.
+        self.goal_handles.lock().unwrap().remove(&goal_id);
 
         Ok(())
     }
@@ -627,6 +652,37 @@ where
             )
         }
         .ok()
+    }
+
+    fn publish_result(&self, goal_id: &GoalUuid, mut result: <<<T as ActionImpl>::GetResultService as Service>::Response as Message>::RmwMsg) -> Result<(), RclrsError> {
+        let goal_exists = unsafe {
+            // SAFETY: No preconditions
+            let mut goal_info = rcl_action_get_zero_initialized_goal_info();
+            goal_info.goal_id.uuid = goal_id.0;
+
+            // SAFETY: The action server is locked through the handle. The `goal_info`
+            // argument points to a rcl_action_goal_info_t with the desired UUID.
+            rcl_action_server_goal_exists(&*self.handle.lock(), &goal_info)
+        };
+        if !goal_exists {
+            panic!("Cannot publish result for unknown goal")
+        }
+
+        // TODO(nwn): Fix synchronization problem between goal_results and result_requests.
+        // Currently, there is a gap between the request queue being drained and the result being
+        // stored for future requests. Any requests received during that gap would never receive a
+        // response. Fixing this means we'll need combined locking over these two hash maps.
+
+        // Respond to all queued requests.
+        if let Some(result_requests) = self.result_requests.lock().unwrap().remove(&goal_id) {
+            for mut result_request in result_requests {
+                self.send_result_response(result_request, &mut result)?;
+            }
+        }
+
+        self.goal_results.lock().unwrap().insert(*goal_id, result);
+
+        Ok(())
     }
 }
 
