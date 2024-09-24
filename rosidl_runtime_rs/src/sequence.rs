@@ -674,6 +674,12 @@ mod tests {
         }
     }
 
+    #[test]
+    fn test_empty_sequence() {
+        assert!(Sequence::<i32>::default().is_empty());
+        assert!(BoundedSequence::<i32, 5>::default().is_empty());
+    }
+
     quickcheck! {
         fn test_extend(xs: Vec<i32>, ys: Vec<i32>) -> bool {
             let mut xs_seq = Sequence::new(xs.len());
