@@ -197,9 +197,7 @@ where
         mut request_id: rmw_request_id_t,
         accepted: bool,
     ) -> Result<(), RclrsError> {
-        type RmwResponse<T> = <<<T as ActionImpl>::SendGoalService as Service>::Response as Message>::RmwMsg;
-        let mut response_rmw = RmwResponse::<T>::default();
-        <T as ActionImpl>::set_goal_response_accepted(&mut response_rmw, accepted);
+        let mut response_rmw = <T as ActionImpl>::create_goal_response(accepted, (0, 0));
         let handle = &*self.handle.lock();
         let result = unsafe {
             // SAFETY: The action server handle is locked and so synchronized with other
@@ -210,7 +208,7 @@ where
             rcl_action_send_goal_response(
                 handle,
                 &mut request_id,
-                &mut response_rmw as *mut RmwResponse<T> as *mut _,
+                &mut response_rmw as *mut _ as *mut _,
             )
         }
         .ok();
@@ -242,7 +240,7 @@ where
             Err(err) => return Err(err),
         };
 
-        let uuid = GoalUuid(<T as ActionImpl>::get_goal_request_uuid(&request));
+        let uuid = GoalUuid(*<T as ActionImpl>::get_goal_request_uuid(&request));
 
         let response: GoalResponse = {
             todo!("Optionally convert request to an idiomatic type for the user's callback.");
@@ -522,7 +520,7 @@ where
             Err(err) => return Err(err),
         };
 
-        let uuid = GoalUuid(<T as ActionImpl>::get_result_request_uuid(&request));
+        let uuid = GoalUuid(*<T as ActionImpl>::get_result_request_uuid(&request));
 
         let goal_exists = unsafe {
             // SAFETY: No preconditions
@@ -640,7 +638,7 @@ where
 
     pub(crate) fn publish_feedback(&self, goal_id: &GoalUuid, feedback: &<T as rosidl_runtime_rs::Action>::Feedback) -> Result<(), RclrsError> {
         let feedback_rmw = <<T as rosidl_runtime_rs::Action>::Feedback as Message>::into_rmw_message(std::borrow::Cow::Borrowed(feedback));
-        let mut feedback_msg = <T as rosidl_runtime_rs::ActionImpl>::create_feedback_message(&goal_id.0, &*feedback_rmw);
+        let mut feedback_msg = <T as rosidl_runtime_rs::ActionImpl>::create_feedback_message(&goal_id.0, feedback_rmw.into_owned());
         unsafe {
             // SAFETY: The action server is locked through the handle, meaning that no other
             // non-thread-safe functions can be called on it at the same time. The feedback_msg is
