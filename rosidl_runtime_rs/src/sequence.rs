@@ -261,18 +261,26 @@ where
     ///
     /// Equivalent to `&seq[..]`.
     pub fn as_slice(&self) -> &[T] {
-        // SAFETY: self.data points to self.size consecutive, initialized elements and
-        // isn't modified externally.
-        unsafe { std::slice::from_raw_parts(self.data, self.size) }
+        if self.data.is_null() {
+            &[]
+        } else {
+            // SAFETY: self.data is not null and points to self.size consecutive,
+            // initialized elements and isn't modified externally.
+            unsafe { std::slice::from_raw_parts(self.data, self.size) }
+        }
     }
 
     /// Extracts a mutable slice containing the entire sequence.
     ///
     /// Equivalent to `&mut seq[..]`.
     pub fn as_mut_slice(&mut self) -> &mut [T] {
-        // SAFETY: self.data points to self.size consecutive, initialized elements and
-        // isn't modified externally.
-        unsafe { std::slice::from_raw_parts_mut(self.data, self.size) }
+        if self.data.is_null() {
+            &mut []
+        } else {
+            // SAFETY: self.data is not null and points to self.size consecutive,
+            // initialized elements and isn't modified externally.
+            unsafe { std::slice::from_raw_parts_mut(self.data, self.size) }
+        }
     }
 }
 
@@ -664,6 +672,12 @@ mod tests {
             let len = u8::arbitrary(g);
             (0..len).map(|_| T::arbitrary(g)).collect()
         }
+    }
+
+    #[test]
+    fn test_empty_sequence() {
+        assert!(Sequence::<i32>::default().is_empty());
+        assert!(BoundedSequence::<i32, 5>::default().is_empty());
     }
 
     quickcheck! {
