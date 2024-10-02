@@ -696,9 +696,9 @@ impl<'a> Parameters<'a> {
     /// Returns:
     /// * `Ok(())` if setting was successful.
     /// * [`Err(DeclarationError::TypeMismatch)`] if the type of the requested value is different
-    /// from the parameter's type.
+    ///   from the parameter's type.
     /// * [`Err(DeclarationError::OutOfRange)`] if the requested value is out of the parameter's
-    /// range.
+    ///   range.
     /// * [`Err(DeclarationError::ReadOnly)`] if the parameter is read only.
     pub fn set<T: ParameterVariant>(
         &self,

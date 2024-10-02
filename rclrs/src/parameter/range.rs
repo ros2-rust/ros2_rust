@@ -32,7 +32,7 @@ impl From<()> for ParameterRanges {
 /// Usually only one of these ranges will be applied, but all have to be stored since:
 ///
 /// * A dynamic parameter can change its type at runtime, in which case a different range could be
-/// applied.
+///   applied.
 /// * Introspection through service calls requires all the ranges to be reported to the user.
 #[derive(Clone, Debug, Default)]
 pub struct ParameterRanges {
