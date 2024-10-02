@@ -479,15 +479,11 @@ mod tests {
         //
         // 99 and 98 are just chosen as arbitrary valid domain ID values. There is
         // otherwise nothing special about either value.
-        let domain_id: usize = std::env::var("ROS_DOMAIN_ID")
-            .ok()
-            .and_then(|value| value.parse().ok())
-            .map(|value: usize| if value != 99 { 99 } else { 98 })
-            .unwrap_or(99);
-
-        let context =
-            Context::new_with_options([], InitOptions::new().with_domain_id(Some(domain_id)))
-                .unwrap();
+        let domain_id = env::var("ROS_DOMAIN_ID")
+            .map_err(|e| format!("Failed to parse ROS_DOMAIN_ID: {}", e))
+            .and_then(|val| val.parse::<usize>().map_err(|e| format!("{}", e)))
+            .map(|id| if id != 99 { 99 } else { 98 })
+            .expect("Error setting domain_id");
         let node_name = "test_publisher_names_and_types";
         let node = Node::new(&context, node_name).unwrap();
         // Test that the graph has no publishers
