@@ -493,8 +493,7 @@ mod tests {
         // Test that the graph has no publishers
         let names_and_topics = node
             .get_publisher_names_and_types_by_node(node_name, "")
-            .unwrap();
-
+            .unwrap_or_else(|error| panic!("Failed to get publisher names and types: {}", error));
         assert_eq!(names_and_topics.len(), 0);
 
         let num_publishers = node.count_publishers("/test").unwrap();
