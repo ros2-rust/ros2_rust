@@ -50,8 +50,7 @@ impl RclParamsIter<'_> {
         } else {
             let node_name_ptrs =
                 rcl_from_raw_parts((*rcl_params).node_names, (*rcl_params).num_nodes);
-            let rcl_node_params =
-                rcl_from_raw_parts((*rcl_params).params, (*rcl_params).num_nodes);
+            let rcl_node_params = rcl_from_raw_parts((*rcl_params).params, (*rcl_params).num_nodes);
             Self {
                 node_name_ptrs,
                 rcl_node_params,
@@ -84,10 +83,8 @@ impl<'a> RclNodeParamsIter<'a> {
     pub unsafe fn new(rcl_node_params: &'a rcl_node_params_t) -> Self {
         let param_name_ptrs =
             rcl_from_raw_parts(rcl_node_params.parameter_names, rcl_node_params.num_params);
-        let rcl_variants = rcl_from_raw_parts(
-            rcl_node_params.parameter_values,
-            rcl_node_params.num_params,
-        );
+        let rcl_variants =
+            rcl_from_raw_parts(rcl_node_params.parameter_values, rcl_node_params.num_params);
         Self {
             param_name_ptrs,
             rcl_variants,

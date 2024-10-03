@@ -468,8 +468,7 @@ impl ParameterValue {
             ParameterValue::BoolArray(slice.into())
         } else if !var.integer_array_value.is_null() {
             let rcl_integer_array = &*var.integer_array_value;
-            let slice =
-                rcl_from_raw_parts(rcl_integer_array.values, rcl_integer_array.size);
+            let slice = rcl_from_raw_parts(rcl_integer_array.values, rcl_integer_array.size);
             ParameterValue::IntegerArray(slice.into())
         } else if !var.double_array_value.is_null() {
             let rcl_double_array = &*var.double_array_value;
@@ -477,8 +476,7 @@ impl ParameterValue {
             ParameterValue::DoubleArray(slice.into())
         } else if !var.string_array_value.is_null() {
             let rcutils_string_array = &*var.string_array_value;
-            let slice =
-                rcl_from_raw_parts(rcutils_string_array.data, rcutils_string_array.size);
+            let slice = rcl_from_raw_parts(rcutils_string_array.data, rcutils_string_array.size);
             let strings = slice
                 .iter()
                 .map(|&ptr| {

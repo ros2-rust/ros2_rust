@@ -165,8 +165,6 @@ pub(crate) unsafe fn rcl_from_raw_parts<'a, T>(data: *const T, len: usize) -> &'
         // SAFETY: The user of this function is instructed to abide by all the
         // safety requirements of slice::from_raw_parts except for null pointer
         // values, which are checked above.
-        unsafe {
-            std::slice::from_raw_parts(data, len)
-        }
+        unsafe { std::slice::from_raw_parts(data, len) }
     }
 }

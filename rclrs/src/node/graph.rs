@@ -379,9 +379,8 @@ impl Node {
         }
 
         // SAFETY: The previous call returned successfully, so the data is valid
-        let topic_endpoint_infos_slice = unsafe {
-            rcl_from_raw_parts(rcl_publishers_info.info_array, rcl_publishers_info.size)
-        };
+        let topic_endpoint_infos_slice =
+            unsafe { rcl_from_raw_parts(rcl_publishers_info.info_array, rcl_publishers_info.size) };
 
         // SAFETY: Because the rcl call returned successfully, each element of the slice points
         // to a valid topic_endpoint_info object, which contains valid C strings
