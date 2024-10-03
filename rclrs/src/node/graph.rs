@@ -1,7 +1,6 @@
 use std::{
     collections::HashMap,
     ffi::{CStr, CString},
-    slice,
 };
 
 use crate::{rcl_bindings::*, Node, RclrsError, ToResult};
@@ -182,8 +181,8 @@ impl Node {
         // namespaces are populated with valid data
         let (names_slice, namespaces_slice) = unsafe {
             (
-                slice::from_raw_parts(rcl_names.data, rcl_names.size),
-                slice::from_raw_parts(rcl_namespaces.data, rcl_namespaces.size),
+                rcl_from_raw_parts(rcl_names.data, rcl_names.size),
+                rcl_from_raw_parts(rcl_namespaces.data, rcl_namespaces.size),
             )
         };
 
@@ -230,9 +229,9 @@ impl Node {
         // SAFETY: The previous function successfully returned, so the arrays are valid
         let (names_slice, namespaces_slice, enclaves_slice) = unsafe {
             (
-                slice::from_raw_parts(rcl_names.data, rcl_names.size),
-                slice::from_raw_parts(rcl_namespaces.data, rcl_namespaces.size),
-                slice::from_raw_parts(rcl_enclaves.data, rcl_enclaves.size),
+                rcl_from_raw_parts(rcl_names.data, rcl_names.size),
+                rcl_from_raw_parts(rcl_namespaces.data, rcl_namespaces.size),
+                rcl_from_raw_parts(rcl_enclaves.data, rcl_enclaves.size),
             )
         };
 
@@ -379,10 +378,9 @@ impl Node {
             .ok()?;
         }
 
-        // SAFETY: The previous call returned successfully, so the slice is valid
-        let topic_endpoint_infos_slice = unsafe {
-            slice::from_raw_parts(rcl_publishers_info.info_array, rcl_publishers_info.size)
-        };
+        // SAFETY: The previous call returned successfully, so the data is valid
+        let topic_endpoint_infos_slice =
+            unsafe { rcl_from_raw_parts(rcl_publishers_info.info_array, rcl_publishers_info.size) };
 
         // SAFETY: Because the rcl call returned successfully, each element of the slice points
         // to a valid topic_endpoint_info object, which contains valid C strings
@@ -422,7 +420,7 @@ fn convert_names_and_types(
 
     // SAFETY: Safe if the rcl_names_and_types arg has been initialized by the caller
     let name_slice = unsafe {
-        slice::from_raw_parts(
+        rcl_from_raw_parts(
             rcl_names_and_types.names.data,
             rcl_names_and_types.names.size,
         )
@@ -438,7 +436,7 @@ fn convert_names_and_types(
         // SAFETY: Safe as long as rcl_names_and_types was populated by the caller
         let types: Vec<String> = unsafe {
             let p = rcl_names_and_types.types.add(idx);
-            slice::from_raw_parts((*p).data, (*p).size)
+            rcl_from_raw_parts((*p).data, (*p).size)
                 .iter()
                 .map(|s| {
                     let cstr = CStr::from_ptr(*s);

@@ -148,3 +148,23 @@ cfg_if::cfg_if! {
         pub const RMW_GID_STORAGE_SIZE: usize = rmw_gid_storage_size_constant;
     }
 }
+
+/// Wrapper around [`std::slice::from_raw_parts`] that accommodates the rcl
+/// convention of providing a null pointer to represent empty arrays. This
+/// violates the safety requirements of [`std::slice::from_raw_parts`].
+///
+/// # Safety
+///
+/// Behavior is undefined in all the same scenarios as [`slice::from_raw_parts`]
+/// (see its safety section) except that null pointers are allowed and will
+/// return a slice to an empty array.
+pub(crate) unsafe fn rcl_from_raw_parts<'a, T>(data: *const T, len: usize) -> &'a [T] {
+    if data.is_null() {
+        &[]
+    } else {
+        // SAFETY: The user of this function is instructed to abide by all the
+        // safety requirements of slice::from_raw_parts except for null pointer
+        // values, which are checked above.
+        unsafe { std::slice::from_raw_parts(data, len) }
+    }
+}
