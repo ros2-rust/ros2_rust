@@ -199,69 +199,81 @@ pub trait ActionImpl: 'static + Action {
     /// Create a goal request message with the given UUID and goal.
     fn create_goal_request(
         goal_id: &[u8; 16],
-        goal: <<Self as Action>::Goal as Message>::RmwMsg,
-    ) -> <<Self::SendGoalService as Service>::Request as Message>::RmwMsg;
+        goal: RmwGoalData<Self>,
+    ) -> RmwGoalRequest<Self>;
 
     /// Get the UUID of a goal request.
     fn get_goal_request_uuid(
-        request: &<<Self::SendGoalService as Service>::Request as Message>::RmwMsg,
+        request: &RmwGoalRequest<Self>,
     ) -> &[u8; 16];
 
     /// Create a goal response message with the given acceptance and timestamp.
     fn create_goal_response(
         accepted: bool,
         stamp: (i32, u32),
-    ) -> <<Self::SendGoalService as Service>::Response as Message>::RmwMsg;
+    ) -> RmwGoalResponse<Self>;
 
     /// Get the `accepted` field of a goal response.
     fn get_goal_response_accepted(
-        response: &<<Self::SendGoalService as Service>::Response as Message>::RmwMsg,
+        response: &RmwGoalResponse<Self>,
     ) -> bool;
 
     /// Get the `stamp` field of a goal response.
     fn get_goal_response_stamp(
-        response: &<<Self::SendGoalService as Service>::Response as Message>::RmwMsg,
+        response: &RmwGoalResponse<Self>,
     ) -> (i32, u32);
 
     /// Create a feedback message with the given goal ID and contents.
     fn create_feedback_message(
         goal_id: &[u8; 16],
-        feedback: <<Self as Action>::Feedback as Message>::RmwMsg,
-    ) -> <Self::FeedbackMessage as Message>::RmwMsg;
+        feedback: RmwFeedback<Self>,
+    ) -> RmwFeedbackMessage<Self>;
 
     /// Get the UUID of a feedback message.
     fn get_feedback_message_uuid(
-        feedback: &<Self::FeedbackMessage as Message>::RmwMsg,
+        feedback: &RmwFeedbackMessage<Self>,
     ) -> &[u8; 16];
 
     /// Get the feedback of a feedback message.
     fn get_feedback_message_feedback(
-        feedback: &<Self::FeedbackMessage as Message>::RmwMsg,
-    ) -> &<<Self as Action>::Feedback as Message>::RmwMsg;
+        feedback: &RmwFeedbackMessage<Self>,
+    ) -> &RmwFeedback<Self>;
 
     /// Create a result request message with the given goal ID.
     fn create_result_request(
         goal_id: &[u8; 16],
-    ) -> <<Self::GetResultService as Service>::Request as Message>::RmwMsg;
+    ) -> RmwResultRequest<Self>;
 
     /// Get the UUID of a result request.
     fn get_result_request_uuid(
-        request: &<<Self::GetResultService as Service>::Request as Message>::RmwMsg,
+        request: &RmwResultRequest<Self>,
     ) -> &[u8; 16];
 
     /// Create a result response message with the given status and contents.
     fn create_result_response(
         status: i8,
-        result: <<Self as Action>::Result as Message>::RmwMsg,
-    ) -> <<Self::GetResultService as Service>::Response as Message>::RmwMsg;
+        result: RmwResultData<Self>,
+    ) -> RmwResultResponse<Self>;
 
     /// Get the result of a result response.
     fn get_result_response_result(
-        response: &<<Self::GetResultService as Service>::Response as Message>::RmwMsg,
-    ) -> &<<Self as Action>::Result as Message>::RmwMsg;
+        response: &RmwResultResponse<Self>,
+    ) -> &RmwResultData<Self>;
 
     /// Get the status of a result response.
     fn get_result_response_status(
-        response: &<<Self::GetResultService as Service>::Response as Message>::RmwMsg,
+        response: &RmwResultResponse<Self>,
     ) -> i8;
 }
+
+// Type definitions to simplify the ActionImpl trait
+pub type RmwServiceRequest<S> = <<S as Service>::Request as Message>::RmwMsg;
+pub type RmwServiceResponse<S> = <<S as Service>::Response as Message>::RmwMsg;
+pub type RmwGoalRequest<A> = RmwServiceRequest<<A as ActionImpl>::SendGoalService>;
+pub type RmwGoalResponse<A> = RmwServiceResponse<<A as ActionImpl>::SendGoalService>;
+pub type RmwGoalData<A> = <<A as Action>::Goal as Message>::RmwMsg;
+pub type RmwFeedback<A> = <<A as Action>::Feedback as Message>::RmwMsg;
+pub type RmwFeedbackMessage<A> = <<A as ActionImpl>::FeedbackMessage as Message>::RmwMsg;
+pub type RmwResultRequest<A> = RmwServiceRequest<<A as ActionImpl>::GetResultService>;
+pub type RmwResultResponse<A> = RmwServiceResponse<<A as ActionImpl>::GetResultService>;
+pub type RmwResultData<A> = <<A as Action>::Result as Message>::RmwMsg;
