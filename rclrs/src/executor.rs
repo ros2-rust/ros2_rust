@@ -1,8 +1,67 @@
-use crate::{rcl_bindings::rcl_context_is_valid, Node, RclReturnCode, RclrsError, WaitSet};
+use crate::{
+    rcl_bindings::rcl_context_is_valid,
+    Node, RclReturnCode, RclrsError, WaitSet, ContextHandle,
+};
 use std::{
     sync::{Arc, Mutex, Weak},
     time::Duration,
 };
+pub use futures::channel::oneshot::Receiver as Promise;
+use futures::future::BoxFuture;
+
+/// An executor that can be used to run nodes.
+pub struct Executor {
+    context: Arc<ContextHandle>,
+    inner: Box<dyn ExecutorRuntime>,
+}
+
+impl Executor {
+
+
+
+    /// Creates a new executor using the provided runtime. Users of rclrs should
+    /// use [`Context::create_executor`].
+    pub(crate) fn new<E>(context: Arc<ContextHandle>, inner: E) -> Self
+    where
+        E: 'static + ExecutorRuntime,
+    {
+        Self { context, inner: Box::new(inner) }
+    }
+}
+
+/// This allows commands, such as creating a new node, to be run on the executor
+/// while the executor is spinning.
+pub struct ExecutorCommands {
+    context: Arc<ContextHandle>,
+    channel: Box<dyn ExecutorChannel>,
+}
+
+/// This trait defines the interface for passing new items into an executor to
+/// run.
+pub trait ExecutorChannel {
+    /// Add a new item for the executor to run.
+    fn add(&self, f: BoxFuture<'static, ()>) -> Promise<()>;
+}
+
+/// This trait defines the interface for having an executor run.
+pub trait ExecutorRuntime {
+    /// Get a channel that can add new items for the executor to run.
+    fn channel(&self) -> Arc<dyn ExecutorChannel>;
+
+    /// Tell the executor to spin.
+    fn spin(&mut self, conditions: SpinConditions);
+}
+
+/// A bundle of conditions that a user may want to impose on how long an
+/// executor spins for.
+#[non_exhaustive]
+pub struct SpinConditions {
+    /// A limit on how many times the executor should spin before stopping. A
+    /// [`None`] value will allow the executor to keep spinning indefinitely.
+    pub spin_limit: Option<usize>,
+    /// The executor will stop spinning if the future is resolved.
+    pub until_future_resolved: BoxFuture<'static, ()>,
+}
 
 /// Single-threaded executor implementation.
 pub struct SingleThreadedExecutor {
