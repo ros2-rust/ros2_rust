@@ -1,66 +1,163 @@
+mod basic_executor;
+pub use self::basic_executor::*;
+
 use crate::{
     rcl_bindings::rcl_context_is_valid,
-    Node, RclReturnCode, RclrsError, WaitSet, ContextHandle,
+    Node, NodeOptions, RclReturnCode, RclrsError, WaitSet, Context,
+    ContextHandle,
 };
 use std::{
     sync::{Arc, Mutex, Weak},
     time::Duration,
+    sync::atomic::{AtomicBool, Ordering},
+    future::Future,
 };
 pub use futures::channel::oneshot::Receiver as Promise;
-use futures::future::BoxFuture;
+use futures::{future::{BoxFuture, Either, select}, channel::oneshot};
 
-/// An executor that can be used to run nodes.
+/// An executor that can be used to create nodes and run their callbacks.
 pub struct Executor {
     context: Arc<ContextHandle>,
-    inner: Box<dyn ExecutorRuntime>,
+    commands: Arc<ExecutorCommands>,
+    runtime: Box<dyn ExecutorRuntime>,
 }
 
 impl Executor {
+    /// Access the commands interface for this executor. Use the returned
+    /// [`ExecutorCommands`] to create [nodes][Node].
+    pub fn commands(&self) -> &Arc<ExecutorCommands> {
+        &self.commands
+    }
 
-
+    /// Spin the Executor.
+    pub fn spin(&mut self, options: SpinOptions) {
+        self.runtime.spin(SpinConditions {
+            options,
+            halt: Arc::clone(&self.commands.halt),
+            context: Context { handle: Arc::clone(&self.context) },
+        });
+    }
 
     /// Creates a new executor using the provided runtime. Users of rclrs should
     /// use [`Context::create_executor`].
-    pub(crate) fn new<E>(context: Arc<ContextHandle>, inner: E) -> Self
+    pub(crate) fn new<E>(context: Arc<ContextHandle>, runtime: E) -> Self
     where
         E: 'static + ExecutorRuntime,
     {
-        Self { context, inner: Box::new(inner) }
+        let commands = Arc::new(ExecutorCommands {
+            context: Context { handle: Arc::clone(&context) },
+            channel: runtime.channel(),
+            halt: Arc::new(AtomicBool::new(false)),
+        });
+
+        Self {
+            context,
+            commands,
+            runtime: Box::new(runtime),
+        }
     }
 }
 
 /// This allows commands, such as creating a new node, to be run on the executor
 /// while the executor is spinning.
 pub struct ExecutorCommands {
-    context: Arc<ContextHandle>,
+    context: Context,
     channel: Box<dyn ExecutorChannel>,
+    halt: Arc<AtomicBool>,
+}
+
+impl ExecutorCommands {
+
+    pub fn create_node(
+        self: &Arc<Self>,
+        options: NodeOptions,
+    ) -> Result<Arc<Node>, RclrsError> {
+        options.build(self)
+    }
+
+    /// Tell the [`Executor`] to halt its spinning.
+    pub fn halt(&self) {
+        self.halt.store(true, Ordering::Relaxed);
+    }
+
+    /// Run a task on the [`Executor`]. If the returned [`Promise`] is dropped
+    /// then the task will stop running.
+    pub fn run<F>(&self, f: F) -> Promise<F::Output>
+    where
+        F: 'static + Future + Send + Unpin,
+        F::Output: Send,
+    {
+        let (mut sender, receiver) = oneshot::channel();
+        self.channel.add(Box::pin(
+            async move {
+                let cancellation = sender.cancellation();
+                let result = select(cancellation, f).await;
+                let output = match result {
+                    Either::Left(_) => return,
+                    Either::Right((output, _)) => output,
+                };
+                sender.send(output).ok();
+            }
+        ));
+
+        receiver
+    }
+
+    pub fn context(&self) -> &Context {
+        &self.context
+    }
 }
 
 /// This trait defines the interface for passing new items into an executor to
 /// run.
 pub trait ExecutorChannel {
     /// Add a new item for the executor to run.
-    fn add(&self, f: BoxFuture<'static, ()>) -> Promise<()>;
+    fn add(&self, f: BoxFuture<'static, ()>);
 }
 
 /// This trait defines the interface for having an executor run.
 pub trait ExecutorRuntime {
     /// Get a channel that can add new items for the executor to run.
-    fn channel(&self) -> Arc<dyn ExecutorChannel>;
+    fn channel(&self) -> Box<dyn ExecutorChannel>;
 
     /// Tell the executor to spin.
     fn spin(&mut self, conditions: SpinConditions);
+
+    fn async_spin(
+        self: Box<Self>,
+        conditions: SpinConditions,
+    ) -> BoxFuture<'static, Box<dyn ExecutorRuntime>>;
 }
 
-/// A bundle of conditions that a user may want to impose on how long an
-/// executor spins for.
+/// A bundle of optional conditions that a user may want to impose on how long
+/// an executor spins for.
+///
+/// By default the executor will be allowed to spin indefinitely.
 #[non_exhaustive]
-pub struct SpinConditions {
+#[derive(Default)]
+pub struct SpinOptions {
     /// A limit on how many times the executor should spin before stopping. A
     /// [`None`] value will allow the executor to keep spinning indefinitely.
     pub spin_limit: Option<usize>,
     /// The executor will stop spinning if the future is resolved.
-    pub until_future_resolved: BoxFuture<'static, ()>,
+    pub until_future_resolved: Option<BoxFuture<'static, ()>>,
+}
+
+/// A bundle of conditions that tell the [`ExecutorRuntime`] how long to keep
+/// spinning. This combines conditions that users specify with [`SpinOptions`]
+/// and standard conditions that are set by the [`Executor`].
+///
+/// This struct is for users who are implementing custom executors. Users who
+/// are writing applications should use [`SpinOptions`].
+#[non_exhaustive]
+pub struct SpinConditions {
+    /// User-specified optional conditions for spinning.
+    pub options: SpinOptions,
+    /// Halt trigger that gets set by [`ExecutorCommands`].
+    pub halt: Arc<AtomicBool>,
+    /// Check ok to make sure that the context is still valid. When the context
+    /// is invalid, the executor runtime should stop spinning.
+    pub context: Context,
 }
 
 /// Single-threaded executor implementation.

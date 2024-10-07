@@ -4,7 +4,8 @@ use std::{
 };
 
 use crate::{
-    rcl_bindings::*, ClockType, Context, ContextHandle, Node, NodeHandle, ParameterInterface,
+    rcl_bindings::*, ClockType, Node, NodeHandle, ParameterInterface,
+    ExecutorCommands,
     QoSProfile, RclrsError, TimeSource, ToResult, ENTITY_LIFECYCLE_MUTEX, QOS_PROFILE_CLOCK,
 };
 
@@ -43,8 +44,7 @@ use crate::{
 ///
 /// [1]: crate::Node
 /// [2]: crate::Node::builder
-pub struct NodeBuilder {
-    context: Arc<ContextHandle>,
+pub struct NodeOptions {
     name: String,
     namespace: String,
     use_global_arguments: bool,
@@ -55,7 +55,7 @@ pub struct NodeBuilder {
     clock_qos: QoSProfile,
 }
 
-impl NodeBuilder {
+impl NodeOptions {
     /// Creates a builder for a node with the given name.
     ///
     /// See the [`Node` docs][1] for general information on node names.
@@ -72,10 +72,10 @@ impl NodeBuilder {
     ///
     /// # Example
     /// ```
-    /// # use rclrs::{Context, NodeBuilder, RclrsError, RclReturnCode};
-    /// let context = Context::new([])?;
+    /// # use rclrs::{Context, NodeOptions};
+    /// let context = Context::new();
     /// // This is a valid node name
-    /// assert!(NodeBuilder::new(&context, "my_node").build().is_ok());
+    /// assert!(NodeOptions::new("my_node").is_valid());
     /// // This is another valid node name (although not a good one)
     /// assert!(NodeBuilder::new(&context, "_______").build().is_ok());
     /// // This is an invalid node name
@@ -91,9 +91,8 @@ impl NodeBuilder {
     /// [1]: crate::Node#naming
     /// [2]: https://docs.ros2.org/latest/api/rmw/validate__node__name_8h.html#a5690a285aed9735f89ef11950b6e39e3
     /// [3]: NodeBuilder::build
-    pub fn new(context: &Context, name: &str) -> NodeBuilder {
-        NodeBuilder {
-            context: Arc::clone(&context.handle),
+    pub fn new(name: impl ToString) -> NodeOptions {
+        NodeOptions {
             name: name.to_string(),
             namespace: "/".to_string(),
             use_global_arguments: true,
@@ -154,7 +153,7 @@ impl NodeBuilder {
     /// [2]: http://design.ros2.org/articles/topic_and_service_names.html
     /// [3]: https://docs.ros2.org/latest/api/rmw/validate__namespace_8h.html#a043f17d240cf13df01321b19a469ee49
     /// [4]: NodeBuilder::build
-    pub fn namespace(mut self, namespace: &str) -> Self {
+    pub fn namespace(mut self, namespace: impl ToString) -> Self {
         self.namespace = namespace.to_string();
         self
     }
@@ -218,8 +217,11 @@ impl NodeBuilder {
     ///
     /// [1]: crate::Context::new
     /// [2]: https://design.ros2.org/articles/ros_command_line_arguments.html
-    pub fn arguments(mut self, arguments: impl IntoIterator<Item = String>) -> Self {
-        self.arguments = arguments.into_iter().collect();
+    pub fn arguments<Args: IntoIterator>(mut self, arguments: Args) -> Self
+    where
+        Args::Item: ToString,
+    {
+        self.arguments = arguments.into_iter().map(|item| item.to_string()).collect();
         self
     }
 
@@ -257,12 +259,12 @@ impl NodeBuilder {
 
     /// Builds the node instance.
     ///
-    /// Node name and namespace validation is performed in this method.
-    ///
-    /// For example usage, see the [`NodeBuilder`][1] docs.
-    ///
-    /// [1]: crate::NodeBuilder
-    pub fn build(&self) -> Result<Arc<Node>, RclrsError> {
+    /// Only used internally. Downstream users should call
+    /// [`ExecutorCommands::create_node`].
+    pub(crate) fn build(
+        self,
+        commands: &Arc<ExecutorCommands>,
+    ) -> Result<Arc<Node>, RclrsError> {
         let node_name =
             CString::new(self.name.as_str()).map_err(|err| RclrsError::StringContainsNul {
                 err,
@@ -274,7 +276,7 @@ impl NodeBuilder {
                 s: self.namespace.clone(),
             })?;
         let rcl_node_options = self.create_rcl_node_options()?;
-        let rcl_context = &mut *self.context.rcl_context.lock().unwrap();
+        let rcl_context = &mut *commands.context().handle.rcl_context.lock().unwrap();
 
         // SAFETY: Getting a zero-initialized value is always safe.
         let mut rcl_node = unsafe { rcl_get_zero_initialized_node() };
@@ -298,7 +300,7 @@ impl NodeBuilder {
 
         let handle = Arc::new(NodeHandle {
             rcl_node: Mutex::new(rcl_node),
-            context_handle: Arc::clone(&self.context),
+            context_handle: Arc::clone(&commands.context().handle),
         });
         let parameter = {
             let rcl_node = handle.rcl_node.lock().unwrap();

@@ -108,6 +108,6 @@ pub fn create_node(context: &Context, node_name: &str) -> Result<Arc<Node>, Rclr
 /// assert_eq!(node.name(), "my_node");
 /// # Ok::<(), RclrsError>(())
 /// ```
-pub fn create_node_builder(context: &Context, node_name: &str) -> NodeBuilder {
+pub fn create_node_builder(context: &Context, node_name: &str) -> NodeOptions {
     Node::builder(context, node_name)
 }

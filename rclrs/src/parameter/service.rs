@@ -312,7 +312,7 @@ mod tests {
             },
             srv::rmw::*,
         },
-        Context, MandatoryParameter, Node, NodeBuilder, ParameterRange, ParameterValue, RclrsError,
+        Context, MandatoryParameter, Node, NodeOptions, ParameterRange, ParameterValue, RclrsError,
         ReadOnlyParameter,
     };
     use rosidl_runtime_rs::{seq, Sequence};
@@ -342,7 +342,7 @@ mod tests {
     }
 
     fn construct_test_nodes(context: &Context, ns: &str) -> (TestNode, Arc<Node>) {
-        let node = NodeBuilder::new(context, "node")
+        let node = NodeOptions::new(context, "node")
             .namespace(ns)
             .build()
             .unwrap();
@@ -375,7 +375,7 @@ mod tests {
             .mandatory()
             .unwrap();
 
-        let client = NodeBuilder::new(context, "client")
+        let client = NodeOptions::new(context, "client")
             .namespace(ns)
             .build()
             .unwrap();

@@ -6,7 +6,10 @@ use std::{
     vec::Vec,
 };
 
-use crate::{rcl_bindings::*, RclrsError, ToResult};
+use crate::{
+    rcl_bindings::*, RclrsError, ToResult, Executor, ExecutorRuntime,
+    BasicExecutorRuntime,
+};
 
 /// This is locked whenever initializing or dropping any middleware entity
 /// because we have found issues in RCL and some RMW implementations that
@@ -148,6 +151,22 @@ impl Context {
                 rcl_context: Mutex::new(rcl_context),
             }),
         })
+    }
+
+    /// Create an executor that uses the [basic executor runtime][1] that comes
+    /// built into rclrs.
+    ///
+    /// [1]: BasicExecutorRuntime
+    pub fn create_basic_executor(&self) -> Executor {
+        self.create_executor(BasicExecutorRuntime::default())
+    }
+
+    /// Create an [`Executor`] for this context.
+    pub fn create_executor<E>(&self, runtime: E) -> Executor
+    where
+        E: 'static + ExecutorRuntime,
+    {
+        Executor::new(Arc::clone(&self.handle), runtime)
     }
 
     /// Returns the ROS domain ID that the context is using.

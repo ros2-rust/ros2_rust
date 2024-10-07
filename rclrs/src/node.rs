@@ -1,4 +1,4 @@
-mod builder;
+mod options;
 mod graph;
 use std::{
     cmp::PartialEq,
@@ -11,7 +11,7 @@ use std::{
 
 use rosidl_runtime_rs::Message;
 
-pub use self::{builder::*, graph::*};
+pub use self::{options::*, graph::*};
 use crate::{
     rcl_bindings::*, Client, ClientBase, Clock, Context, ContextHandle, GuardCondition,
     ParameterBuilder, ParameterInterface, ParameterVariant, Parameters, Publisher, QoSProfile,
@@ -420,25 +420,6 @@ impl Node {
         Parameters {
             interface: &self.parameter,
         }
-    }
-
-    /// Creates a [`NodeBuilder`][1] with the given name.
-    ///
-    /// Convenience function equivalent to [`NodeBuilder::new()`][2].
-    ///
-    /// [1]: crate::NodeBuilder
-    /// [2]: crate::NodeBuilder::new
-    ///
-    /// # Example
-    /// ```
-    /// # use rclrs::{Context, Node, RclrsError};
-    /// let context = Context::new([])?;
-    /// let node = Node::builder(&context, "my_node").build()?;
-    /// assert_eq!(node.name(), "my_node");
-    /// # Ok::<(), RclrsError>(())
-    /// ```
-    pub fn builder(context: &Context, node_name: &str) -> NodeBuilder {
-        NodeBuilder::new(context, node_name)
     }
 }
 
