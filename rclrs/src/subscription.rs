@@ -6,6 +6,8 @@ use std::{
 
 use rosidl_runtime_rs::{Message, RmwMessage};
 
+use futures::channel::mpsc::UnboundedSender;
+
 use crate::{
     error::{RclReturnCode, ToResult},
     qos::QoSProfile,
@@ -13,12 +15,23 @@ use crate::{
     NodeHandle, RclrsError, ENTITY_LIFECYCLE_MUTEX,
 };
 
+mod any_callback;
+pub use any_callback::*;
+
+mod async_callback;
+pub use async_callback::*;
+
 mod callback;
-mod message_info;
-mod readonly_loaned_message;
 pub use callback::*;
+
+mod message_info;
 pub use message_info::*;
+
+mod readonly_loaned_message;
 pub use readonly_loaned_message::*;
+
+mod subscription_task;
+use subscription_task::*;
 
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
 // they are running in. Therefore, this type can be safely sent to another thread.
@@ -59,7 +72,7 @@ pub trait SubscriptionBase: Send + Sync {
     /// Internal function to get a reference to the `rcl` handle.
     fn handle(&self) -> &SubscriptionHandle;
     /// Tries to take a new message and run the callback with it.
-    fn execute(&self) -> Result<(), RclrsError>;
+    fn execute(&self);
 }
 
 /// Struct for receiving messages of type `T`.
@@ -82,9 +95,8 @@ pub struct Subscription<T>
 where
     T: Message,
 {
-    pub(crate) handle: Arc<SubscriptionHandle>,
-    /// The callback function that runs when a message was received.
-    pub callback: Mutex<AsyncSubscriptionCallback<T>>,
+    handle: Arc<SubscriptionHandle>,
+    action: UnboundedSender<SubscriptionAction<T>>,
     message: PhantomData<T>,
 }
 
@@ -93,11 +105,11 @@ where
     T: Message,
 {
     /// Creates a new subscription.
-    pub(crate) fn new<Args>(
+    pub(crate) fn new<Args, Out>(
         node_handle: Arc<NodeHandle>,
         topic: &str,
         qos: QoSProfile,
-        callback: impl SubscriptionCallback<T, Args>,
+        callback: impl SubscriptionAsyncCallback<T, Args>,
     ) -> Result<Self, RclrsError>
     // This uses pub(crate) visibility to avoid instantiating this struct outside
     // [`Node::create_subscription`], see the struct's documentation for the rationale
@@ -165,102 +177,6 @@ where
                 .into_owned()
         }
     }
-
-    /// Fetches a new message.
-    ///
-    /// When there is no new message, this will return a
-    /// [`SubscriptionTakeFailed`][1].
-    ///
-    /// [1]: crate::RclrsError
-    //
-    // ```text
-    // +-------------+
-    // | rclrs::take |
-    // +------+------+
-    //        |
-    //        |
-    // +------v------+
-    // |  rcl_take   |
-    // +------+------+
-    //        |
-    //        |
-    // +------v------+
-    // |  rmw_take   |
-    // +-------------+
-    // ```
-    pub fn take(&self) -> Result<(T, MessageInfo), RclrsError> {
-        let mut rmw_message = <T as Message>::RmwMsg::default();
-        let message_info = self.take_inner(&mut rmw_message)?;
-        Ok((T::from_rmw_message(rmw_message), message_info))
-    }
-
-    /// This is a version of take() that returns a boxed message.
-    ///
-    /// This can be more efficient for messages containing large arrays.
-    pub fn take_boxed(&self) -> Result<(Box<T>, MessageInfo), RclrsError> {
-        let mut rmw_message = Box::<<T as Message>::RmwMsg>::default();
-        let message_info = self.take_inner(&mut *rmw_message)?;
-        // TODO: This will still use the stack in general. Change signature of
-        // from_rmw_message to allow placing the result in a Box directly.
-        let message = Box::new(T::from_rmw_message(*rmw_message));
-        Ok((message, message_info))
-    }
-
-    // Inner function, to be used by both regular and boxed versions.
-    fn take_inner(
-        &self,
-        rmw_message: &mut <T as Message>::RmwMsg,
-    ) -> Result<MessageInfo, RclrsError> {
-        let mut message_info = unsafe { rmw_get_zero_initialized_message_info() };
-        let rcl_subscription = &mut *self.handle.lock();
-        unsafe {
-            // SAFETY: The first two pointers are valid/initialized, and do not need to be valid
-            // beyond the function call.
-            // The latter two pointers are explicitly allowed to be NULL.
-            rcl_take(
-                rcl_subscription,
-                rmw_message as *mut <T as Message>::RmwMsg as *mut _,
-                &mut message_info,
-                std::ptr::null_mut(),
-            )
-            .ok()?
-        };
-        Ok(MessageInfo::from_rmw_message_info(&message_info))
-    }
-
-    /// Obtains a read-only handle to a message owned by the middleware.
-    ///
-    /// When there is no new message, this will return a
-    /// [`SubscriptionTakeFailed`][1].
-    ///
-    /// This is the counterpart to [`Publisher::borrow_loaned_message()`][2]. See its documentation
-    /// for more information.
-    ///
-    /// [1]: crate::RclrsError
-    /// [2]: crate::Publisher::borrow_loaned_message
-    fn take_loaned(&self) -> Result<(ReadOnlyLoanedMessage<T>, MessageInfo), RclrsError> {
-        let mut msg_ptr = std::ptr::null_mut();
-        let mut message_info = unsafe { rmw_get_zero_initialized_message_info() };
-        unsafe {
-            // SAFETY: The third argument (message_info) and fourth argument (allocation) may be null.
-            // The second argument (loaned_message) contains a null ptr as expected.
-            rcl_take_loaned_message(
-                &*self.handle.lock(),
-                &mut msg_ptr,
-                &mut message_info,
-                std::ptr::null_mut(),
-            )
-            .ok()?;
-        }
-        let read_only_loaned_msg = ReadOnlyLoanedMessage {
-            msg_ptr: msg_ptr as *const T::RmwMsg,
-            handle: &self.handle,
-        };
-        Ok((
-            read_only_loaned_msg,
-            MessageInfo::from_rmw_message_info(&message_info),
-        ))
-    }
 }
 
 impl<T> SubscriptionBase for Subscription<T>
@@ -271,55 +187,11 @@ where
         &self.handle
     }
 
-    fn execute(&self) -> Result<(), RclrsError> {
-        // Immediately evaluated closure, to handle SubscriptionTakeFailed
-        // outside this match
-        match (|| {
-            match &mut *self.callback.lock().unwrap() {
-                AsyncSubscriptionCallback::Regular(cb) => {
-                    let (msg, _) = self.take()?;
-                    cb(msg)
-                }
-                AsyncSubscriptionCallback::RegularWithMessageInfo(cb) => {
-                    let (msg, msg_info) = self.take()?;
-                    cb(msg, msg_info)
-                }
-                AsyncSubscriptionCallback::Boxed(cb) => {
-                    let (msg, _) = self.take_boxed()?;
-                    cb(msg)
-                }
-                AsyncSubscriptionCallback::BoxedWithMessageInfo(cb) => {
-                    let (msg, msg_info) = self.take_boxed()?;
-                    cb(msg, msg_info)
-                }
-                AsyncSubscriptionCallback::Loaned(cb) => {
-                    let (msg, _) = self.take_loaned()?;
-                    cb(msg);
-                }
-                AsyncSubscriptionCallback::LoanedWithMessageInfo(cb) => {
-                    let (msg, msg_info) = self.take_loaned()?;
-                    cb(msg, msg_info)
-                }
-            }
-            Ok(())
-        })() {
-            Err(RclrsError::RclError {
-                code: RclReturnCode::SubscriptionTakeFailed,
-                ..
-            }) => {
-                // Spurious wakeup – this may happen even when a waitset indicated that this
-                // subscription was ready, so it shouldn't be an error.
-                Ok(())
-            }
-            other => other,
+    fn execute(&self) {
+        if let Err(_) = self.action.unbounded_send(SubscriptionAction::Execute) {
+            // TODO(@mxgrey): Log the error here once logging is implemented
         }
     }
-}
-
-async fn subscription_task(
-
-) {
-
 }
 
 #[cfg(test)]

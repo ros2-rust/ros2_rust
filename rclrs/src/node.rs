@@ -15,7 +15,7 @@ pub use self::{options::*, graph::*};
 use crate::{
     rcl_bindings::*, Client, ClientBase, Clock, Context, ContextHandle, GuardCondition,
     ParameterBuilder, ParameterInterface, ParameterVariant, Parameters, Publisher, QoSProfile,
-    RclrsError, Service, ServiceBase, Subscription, SubscriptionBase, SubscriptionCallback,
+    RclrsError, Service, ServiceBase, Subscription, SubscriptionBase, SubscriptionAsyncCallback,
     TimeSource, ENTITY_LIFECYCLE_MUTEX,
 };
 
@@ -240,7 +240,7 @@ impl Node {
         &self,
         topic: &str,
         qos: QoSProfile,
-        callback: impl SubscriptionCallback<T, Args>,
+        callback: impl SubscriptionAsyncCallback<T, Args>,
     ) -> Result<Arc<Subscription<T>>, RclrsError>
     where
         T: Message,
