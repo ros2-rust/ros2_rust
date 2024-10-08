@@ -11,7 +11,7 @@ impl ExecutorRuntime for BasicExecutorRuntime {
 
     }
 
-    fn async_spin(
+    fn spin_async(
         self: Box<Self>,
         conditions: SpinConditions,
     ) -> BoxFuture<'static, Box<dyn ExecutorRuntime>> {
@@ -29,6 +29,10 @@ pub struct BasicExecutorChannel {
 
 impl ExecutorChannel for BasicExecutorChannel {
     fn add(&self, f: futures::future::BoxFuture<'static, ()>) {
+
+    }
+
+    fn wakeup(&self) {
 
     }
 }

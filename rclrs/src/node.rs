@@ -106,14 +106,6 @@ impl fmt::Debug for Node {
 }
 
 impl Node {
-    /// Creates a new node in the empty namespace.
-    ///
-    /// See [`NodeBuilder::new()`] for documentation.
-    #[allow(clippy::new_ret_no_self)]
-    pub fn new(context: &Context, node_name: &str) -> Result<Arc<Node>, RclrsError> {
-        Self::builder(context, node_name).build()
-    }
-
     /// Returns the clock associated with this node.
     pub fn get_clock(&self) -> Clock {
         self.time_source.get_clock()
@@ -188,15 +180,6 @@ impl Node {
         self.call_string_getter(rcl_node_get_fully_qualified_name)
     }
 
-    // Helper for name(), namespace(), fully_qualified_name()
-    fn call_string_getter(
-        &self,
-        getter: unsafe extern "C" fn(*const rcl_node_t) -> *const c_char,
-    ) -> String {
-        let rcl_node = self.handle.rcl_node.lock().unwrap();
-        unsafe { call_string_getter_with_rcl_node(&rcl_node, getter) }
-    }
-
     /// Creates a [`Client`][1].
     ///
     /// [1]: crate::Client
@@ -208,47 +191,6 @@ impl Node {
         let client = Arc::new(Client::<T>::new(Arc::clone(&self.handle), topic)?);
         { self.clients_mtx.lock().unwrap() }.push(Arc::downgrade(&client) as Weak<dyn ClientBase>);
         Ok(client)
-    }
-
-    /// Creates a [`GuardCondition`][1] with no callback.
-    ///
-    /// A weak pointer to the `GuardCondition` is stored within this node.
-    /// When this node is added to a wait set (e.g. when calling `spin_once`[2]
-    /// with this node as an argument), the guard condition can be used to
-    /// interrupt the wait.
-    ///
-    /// [1]: crate::GuardCondition
-    /// [2]: crate::spin_once
-    pub fn create_guard_condition(&self) -> Arc<GuardCondition> {
-        let guard_condition = Arc::new(GuardCondition::new_with_context_handle(
-            Arc::clone(&self.handle.context_handle),
-            None,
-        ));
-        { self.guard_conditions_mtx.lock().unwrap() }
-            .push(Arc::downgrade(&guard_condition) as Weak<GuardCondition>);
-        guard_condition
-    }
-
-    /// Creates a [`GuardCondition`][1] with a callback.
-    ///
-    /// A weak pointer to the `GuardCondition` is stored within this node.
-    /// When this node is added to a wait set (e.g. when calling `spin_once`[2]
-    /// with this node as an argument), the guard condition can be used to
-    /// interrupt the wait.
-    ///
-    /// [1]: crate::GuardCondition
-    /// [2]: crate::spin_once
-    pub fn create_guard_condition_with_callback<F>(&mut self, callback: F) -> Arc<GuardCondition>
-    where
-        F: Fn() + Send + Sync + 'static,
-    {
-        let guard_condition = Arc::new(GuardCondition::new_with_context_handle(
-            Arc::clone(&self.handle.context_handle),
-            Some(Box::new(callback) as Box<dyn Fn() + Send + Sync>),
-        ));
-        { self.guard_conditions_mtx.lock().unwrap() }
-            .push(Arc::downgrade(&guard_condition) as Weak<GuardCondition>);
-        guard_condition
     }
 
     /// Creates a [`Publisher`][1].
@@ -313,35 +255,6 @@ impl Node {
             .unwrap()
             .push(Arc::downgrade(&subscription) as Weak<dyn SubscriptionBase>);
         Ok(subscription)
-    }
-
-    /// Returns the subscriptions that have not been dropped yet.
-    pub(crate) fn live_subscriptions(&self) -> Vec<Arc<dyn SubscriptionBase>> {
-        { self.subscriptions_mtx.lock().unwrap() }
-            .iter()
-            .filter_map(Weak::upgrade)
-            .collect()
-    }
-
-    pub(crate) fn live_clients(&self) -> Vec<Arc<dyn ClientBase>> {
-        { self.clients_mtx.lock().unwrap() }
-            .iter()
-            .filter_map(Weak::upgrade)
-            .collect()
-    }
-
-    pub(crate) fn live_guard_conditions(&self) -> Vec<Arc<GuardCondition>> {
-        { self.guard_conditions_mtx.lock().unwrap() }
-            .iter()
-            .filter_map(Weak::upgrade)
-            .collect()
-    }
-
-    pub(crate) fn live_services(&self) -> Vec<Arc<dyn ServiceBase>> {
-        { self.services_mtx.lock().unwrap() }
-            .iter()
-            .filter_map(Weak::upgrade)
-            .collect()
     }
 
     /// Returns the ROS domain ID that the node is using.
@@ -420,6 +333,15 @@ impl Node {
         Parameters {
             interface: &self.parameter,
         }
+    }
+
+    // Helper for name(), namespace(), fully_qualified_name()
+    fn call_string_getter(
+        &self,
+        getter: unsafe extern "C" fn(*const rcl_node_t) -> *const c_char,
+    ) -> String {
+        let rcl_node = self.handle.rcl_node.lock().unwrap();
+        unsafe { call_string_getter_with_rcl_node(&rcl_node, getter) }
     }
 }
 

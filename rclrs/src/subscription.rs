@@ -84,7 +84,7 @@ where
 {
     pub(crate) handle: Arc<SubscriptionHandle>,
     /// The callback function that runs when a message was received.
-    pub callback: Mutex<AnySubscriptionCallback<T>>,
+    pub callback: Mutex<AsyncSubscriptionCallback<T>>,
     message: PhantomData<T>,
 }
 
@@ -238,7 +238,7 @@ where
     ///
     /// [1]: crate::RclrsError
     /// [2]: crate::Publisher::borrow_loaned_message
-    pub fn take_loaned(&self) -> Result<(ReadOnlyLoanedMessage<'_, T>, MessageInfo), RclrsError> {
+    fn take_loaned(&self) -> Result<(ReadOnlyLoanedMessage<T>, MessageInfo), RclrsError> {
         let mut msg_ptr = std::ptr::null_mut();
         let mut message_info = unsafe { rmw_get_zero_initialized_message_info() };
         unsafe {
@@ -254,7 +254,7 @@ where
         }
         let read_only_loaned_msg = ReadOnlyLoanedMessage {
             msg_ptr: msg_ptr as *const T::RmwMsg,
-            subscription: self,
+            handle: &self.handle,
         };
         Ok((
             read_only_loaned_msg,
@@ -276,27 +276,27 @@ where
         // outside this match
         match (|| {
             match &mut *self.callback.lock().unwrap() {
-                AnySubscriptionCallback::Regular(cb) => {
+                AsyncSubscriptionCallback::Regular(cb) => {
                     let (msg, _) = self.take()?;
                     cb(msg)
                 }
-                AnySubscriptionCallback::RegularWithMessageInfo(cb) => {
+                AsyncSubscriptionCallback::RegularWithMessageInfo(cb) => {
                     let (msg, msg_info) = self.take()?;
                     cb(msg, msg_info)
                 }
-                AnySubscriptionCallback::Boxed(cb) => {
+                AsyncSubscriptionCallback::Boxed(cb) => {
                     let (msg, _) = self.take_boxed()?;
                     cb(msg)
                 }
-                AnySubscriptionCallback::BoxedWithMessageInfo(cb) => {
+                AsyncSubscriptionCallback::BoxedWithMessageInfo(cb) => {
                     let (msg, msg_info) = self.take_boxed()?;
                     cb(msg, msg_info)
                 }
-                AnySubscriptionCallback::Loaned(cb) => {
+                AsyncSubscriptionCallback::Loaned(cb) => {
                     let (msg, _) = self.take_loaned()?;
-                    cb(msg)
+                    cb(msg);
                 }
-                AnySubscriptionCallback::LoanedWithMessageInfo(cb) => {
+                AsyncSubscriptionCallback::LoanedWithMessageInfo(cb) => {
                     let (msg, msg_info) = self.take_loaned()?;
                     cb(msg, msg_info)
                 }
@@ -314,6 +314,12 @@ where
             other => other,
         }
     }
+}
+
+async fn subscription_task(
+
+) {
+
 }
 
 #[cfg(test)]

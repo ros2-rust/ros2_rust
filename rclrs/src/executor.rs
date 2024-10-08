@@ -29,13 +29,42 @@ impl Executor {
         &self.commands
     }
 
-    /// Spin the Executor.
+    /// Create a [`Node`] that will run on this Executor.
+    pub fn create_node(
+        &self,
+        options: impl Into<NodeOptions>,
+    ) -> Result<Arc<Node>, RclrsError> {
+        self.commands.create_node(options)
+    }
+
+    /// Spin the Executor. The current thread will be blocked until the Executor
+    /// stops spinning.
+    ///
+    /// [`SpinOptions`] can be used to automatically stop the spinning when
+    /// certain conditions are met. Use `SpinOptions::default()` to allow the
+    /// Executor to keep spinning indefinitely.
     pub fn spin(&mut self, options: SpinOptions) {
-        self.runtime.spin(SpinConditions {
-            options,
-            halt: Arc::clone(&self.commands.halt),
-            context: Context { handle: Arc::clone(&self.context) },
-        });
+        self.commands.halt.store(false, Ordering::Release);
+        let conditions = self.make_spin_conditions(options);
+        self.runtime.spin(conditions);
+    }
+
+    /// Spin the Executor as an async task. This does not block the current thread.
+    /// It also does not prevent your `main` function from exiting while it spins,
+    /// so make sure you have a way to keep the application running.
+    ///
+    /// This will consume the Executor so that the task can run on other threads.
+    ///
+    /// The async task will run until the [`SpinConditions`] stop the Executor
+    /// from spinning. The output of the async task will be the restored Executor,
+    /// which you can use to resume spinning after the task is finished.
+    pub async fn spin_async(self, options: SpinOptions) -> Self {
+        self.commands.halt.store(false, Ordering::Release);
+        let conditions = self.make_spin_conditions(options);
+        let Self { context, commands, runtime } = self;
+
+        let runtime = runtime.spin_async(conditions).await;
+        Self { context, commands, runtime }
     }
 
     /// Creates a new executor using the provided runtime. Users of rclrs should
@@ -56,6 +85,14 @@ impl Executor {
             runtime: Box::new(runtime),
         }
     }
+
+    fn make_spin_conditions(&self, options: SpinOptions) -> SpinConditions {
+        SpinConditions {
+            options,
+            halt: Arc::clone(&self.commands.halt),
+            context: Context { handle: Arc::clone(&self.context) },
+        }
+    }
 }
 
 /// This allows commands, such as creating a new node, to be run on the executor
@@ -67,33 +104,39 @@ pub struct ExecutorCommands {
 }
 
 impl ExecutorCommands {
-
+    /// Create a new node that will run on the [`Executor`] that is being commanded.
     pub fn create_node(
         self: &Arc<Self>,
-        options: NodeOptions,
+        options: impl Into<NodeOptions>,
     ) -> Result<Arc<Node>, RclrsError> {
+        let options: NodeOptions = options.into();
         options.build(self)
     }
 
     /// Tell the [`Executor`] to halt its spinning.
     pub fn halt(&self) {
-        self.halt.store(true, Ordering::Relaxed);
+        self.halt.store(true, Ordering::Release);
+        self.channel.wakeup();
     }
 
     /// Run a task on the [`Executor`]. If the returned [`Promise`] is dropped
-    /// then the task will stop running.
+    /// then the task will be dropped, which means it might not run to
+    /// completion.
+    ///
+    /// You can `.await` the output of the promise in an async scope.
     pub fn run<F>(&self, f: F) -> Promise<F::Output>
     where
-        F: 'static + Future + Send + Unpin,
+        F: 'static + Future + Send,
         F::Output: Send,
     {
         let (mut sender, receiver) = oneshot::channel();
         self.channel.add(Box::pin(
             async move {
                 let cancellation = sender.cancellation();
-                let result = select(cancellation, f).await;
-                let output = match result {
+                let output = match select(cancellation, std::pin::pin!(f)).await {
+                    // The task was cancelled
                     Either::Left(_) => return,
+                    // The task completed
                     Either::Right((output, _)) => output,
                 };
                 sender.send(output).ok();
@@ -103,8 +146,30 @@ impl ExecutorCommands {
         receiver
     }
 
+    /// Run a task on the [`Executor`]. The task will run to completion even if
+    /// you drop the returned [`Promise`].
+    ///
+    /// You can `.await` the output of the promise in an async scope.
+    pub fn run_detached<F>(&self, f: F) -> Promise<F::Output>
+    where
+        F: 'static + Future + Send,
+        F::Output: Send,
+    {
+        let (sender, receiver) = oneshot::channel();
+        self.channel.add(Box::pin(
+            async move {
+                sender.send(f.await).ok();
+            }
+        ));
+        receiver
+    }
+
     pub fn context(&self) -> &Context {
         &self.context
+    }
+
+    pub(crate) fn add(&self, f: BoxFuture<'static, ()>) {
+        self.channel.add(f);
     }
 }
 
@@ -113,6 +178,8 @@ impl ExecutorCommands {
 pub trait ExecutorChannel {
     /// Add a new item for the executor to run.
     fn add(&self, f: BoxFuture<'static, ()>);
+
+    // TODO(@mxgrey): create_guard_condition for waking up the waitset thread
 }
 
 /// This trait defines the interface for having an executor run.
@@ -120,10 +187,15 @@ pub trait ExecutorRuntime {
     /// Get a channel that can add new items for the executor to run.
     fn channel(&self) -> Box<dyn ExecutorChannel>;
 
-    /// Tell the executor to spin.
+    /// Tell the runtime to spin while blocking any further execution until the
+    /// spinning is complete.
     fn spin(&mut self, conditions: SpinConditions);
 
-    fn async_spin(
+    /// Tell the runtime to spin asynchronously, not blocking the current
+    /// thread. The runtime instance will be consumed by this function, but it
+    /// must return itself as the output of the [`Future`] that this function
+    /// returns.
+    fn spin_async(
         self: Box<Self>,
         conditions: SpinConditions,
     ) -> BoxFuture<'static, Box<dyn ExecutorRuntime>>;
@@ -136,9 +208,9 @@ pub trait ExecutorRuntime {
 #[non_exhaustive]
 #[derive(Default)]
 pub struct SpinOptions {
-    /// A limit on how many times the executor should spin before stopping. A
-    /// [`None`] value will allow the executor to keep spinning indefinitely.
-    pub spin_limit: Option<usize>,
+    /// Only perform immediately available work. This is similar to spin_once in
+    /// rclcpp and rclpy.
+    pub only_available_work: bool,
     /// The executor will stop spinning if the future is resolved.
     pub until_future_resolved: Option<BoxFuture<'static, ()>>,
 }
@@ -155,8 +227,9 @@ pub struct SpinConditions {
     pub options: SpinOptions,
     /// Halt trigger that gets set by [`ExecutorCommands`].
     pub halt: Arc<AtomicBool>,
-    /// Check ok to make sure that the context is still valid. When the context
-    /// is invalid, the executor runtime should stop spinning.
+    /// Use this to check [`Context::ok`] to make sure that the context is still
+    /// valid. When the context is invalid, the executor runtime should stop
+    /// spinning.
     pub context: Context,
 }
 

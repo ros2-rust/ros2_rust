@@ -199,6 +199,8 @@ impl Context {
         // SAFETY: No preconditions for this function.
         unsafe { rcl_context_is_valid(rcl_context) }
     }
+
+    // TODO(@mxgrey):
 }
 
 /// Additional options for initializing the Context.

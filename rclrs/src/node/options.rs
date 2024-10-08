@@ -369,6 +369,12 @@ impl NodeOptions {
     }
 }
 
+impl<T: ToString> From<T> for NodeOptions {
+    fn from(name: T) -> Self {
+        NodeOptions::new(name)
+    }
+}
+
 impl Drop for rcl_node_options_t {
     fn drop(&mut self) {
         // SAFETY: Do not finish this struct except here.

@@ -342,10 +342,11 @@ mod tests {
     }
 
     fn construct_test_nodes(context: &Context, ns: &str) -> (TestNode, Arc<Node>) {
-        let node = NodeOptions::new(context, "node")
+        let executor = context.create_basic_executor();
+        let node = executor.create_node(
+            NodeOptions::new("node")
             .namespace(ns)
-            .build()
-            .unwrap();
+        ).unwrap();
         let range = ParameterRange {
             lower: Some(0),
             upper: Some(100),
@@ -375,10 +376,10 @@ mod tests {
             .mandatory()
             .unwrap();
 
-        let client = NodeOptions::new(context, "client")
+        let client = executor.create_node(
+            NodeOptions::new("client")
             .namespace(ns)
-            .build()
-            .unwrap();
+        ).unwrap();
 
         (
             TestNode {
