@@ -13,9 +13,10 @@ use rosidl_runtime_rs::Message;
 
 pub use self::{options::*, graph::*};
 use crate::{
-    rcl_bindings::*, Client, ClientBase, Clock, Context, ContextHandle, GuardCondition,
+    rcl_bindings::*, Client, ClientBase, Clock, ContextHandle, GuardCondition,
     ParameterBuilder, ParameterInterface, ParameterVariant, Parameters, Publisher, QoSProfile,
-    RclrsError, Service, ServiceBase, Subscription, SubscriptionBase, SubscriptionAsyncCallback,
+    RclrsError, Service, ServiceBase, Subscription, SubscriptionBase, SubscriptionCallback,
+    SubscriptionAsyncCallback, ExecutorCommands,
     TimeSource, ENTITY_LIFECYCLE_MUTEX,
 };
 
@@ -65,6 +66,7 @@ pub struct Node {
     pub(crate) subscriptions_mtx: Mutex<Vec<Weak<dyn SubscriptionBase>>>,
     time_source: TimeSource,
     parameter: ParameterInterface,
+    commands: Arc<ExecutorCommands>,
     pub(crate) handle: Arc<NodeHandle>,
 }
 
@@ -240,21 +242,37 @@ impl Node {
         &self,
         topic: &str,
         qos: QoSProfile,
+        callback: impl SubscriptionCallback<T, Args>,
+    ) -> Result<Arc<Subscription<T>>, RclrsError>
+    where
+        T: Message,
+    {
+        Subscription::<T>::create(
+            topic,
+            qos,
+            callback.into_callback(),
+            &self.handle,
+            &self.commands,
+        )
+    }
+
+    /// Creates a subscription with an async callback
+    pub fn create_async_subscription<T, Args>(
+        &self,
+        topic: &str,
+        qos: QoSProfile,
         callback: impl SubscriptionAsyncCallback<T, Args>,
     ) -> Result<Arc<Subscription<T>>, RclrsError>
     where
         T: Message,
     {
-        let subscription = Arc::new(Subscription::<T>::new(
-            Arc::clone(&self.handle),
+        Subscription::<T>::create(
             topic,
             qos,
-            callback,
-        )?);
-        { self.subscriptions_mtx.lock() }
-            .unwrap()
-            .push(Arc::downgrade(&subscription) as Weak<dyn SubscriptionBase>);
-        Ok(subscription)
+            callback.into_async_callback(),
+            &self.handle,
+            &self.commands,
+        )
     }
 
     /// Returns the ROS domain ID that the node is using.

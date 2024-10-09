@@ -1,18 +1,17 @@
 use std::{
     ffi::{CStr, CString},
-    marker::PhantomData,
-    sync::{atomic::AtomicBool, Arc, Mutex, MutexGuard},
+    sync::{Arc, Mutex, MutexGuard},
 };
 
 use rosidl_runtime_rs::{Message, RmwMessage};
 
-use futures::channel::mpsc::UnboundedSender;
+use futures::channel::mpsc::{unbounded, UnboundedSender, TrySendError};
 
 use crate::{
-    error::{RclReturnCode, ToResult},
+    error::ToResult,
     qos::QoSProfile,
     rcl_bindings::*,
-    NodeHandle, RclrsError, ENTITY_LIFECYCLE_MUTEX,
+    ExecutorCommands, NodeHandle, RclrsError, ENTITY_LIFECYCLE_MUTEX,
 };
 
 mod any_callback;
@@ -45,7 +44,6 @@ unsafe impl Send for rcl_subscription_t {}
 pub struct SubscriptionHandle {
     rcl_subscription: Mutex<rcl_subscription_t>,
     node_handle: Arc<NodeHandle>,
-    pub(crate) in_use_by_wait_set: Arc<AtomicBool>,
 }
 
 impl SubscriptionHandle {
@@ -79,37 +77,102 @@ pub trait SubscriptionBase: Send + Sync {
 ///
 /// There can be multiple subscriptions for the same topic, in different nodes or the same node.
 ///
-/// Receiving messages requires calling [`spin_once`][1] or [`spin`][2] on the subscription's node.
+/// Receiving messages requires calling [`spin`][1] on the `Executor` of subscription's [Node][4].
 ///
 /// When a subscription is created, it may take some time to get "matched" with a corresponding
 /// publisher.
 ///
-/// The only available way to instantiate subscriptions is via [`Node::create_subscription()`][3], this
-/// is to ensure that [`Node`][4]s can track all the subscriptions that have been created.
+/// The only available way to instantiate subscriptions is via [`Node::create_subscription()`][2]
+/// or [`Node::create_async_subscription`][3]. This is to ensure that [`Node`][4]s can track all the subscriptions that have been created.
 ///
-/// [1]: crate::spin_once
-/// [2]: crate::spin
-/// [3]: crate::Node::create_subscription
+/// [1]: crate::Executor::spin
+/// [2]: crate::Node::create_subscription
+/// [3]: crate::Node::create_async_subscription
 /// [4]: crate::Node
 pub struct Subscription<T>
 where
     T: Message,
 {
+    /// This handle is used to access the data that rcl holds for this subscription.
     handle: Arc<SubscriptionHandle>,
+    /// This allows us to trigger the callback or replace the callback in the
+    /// subscription task.
+    ///
+    /// Holding onto this sender will keep the subscription task running. Once
+    /// this sender is dropped, the subscription task will end itself.
     action: UnboundedSender<SubscriptionAction<T>>,
-    message: PhantomData<T>,
 }
 
 impl<T> Subscription<T>
 where
     T: Message,
 {
-    /// Creates a new subscription.
-    pub(crate) fn new<Args, Out>(
-        node_handle: Arc<NodeHandle>,
+    /// Returns the topic name of the subscription.
+    ///
+    /// This returns the topic name after remapping, so it is not necessarily the
+    /// topic name which was used when creating the subscription.
+    pub fn topic_name(&self) -> String {
+        // SAFETY: No preconditions for the function used
+        // The unsafe variables get converted to safe types before being returned
+        unsafe {
+            let raw_topic_pointer = rcl_subscription_get_topic_name(&*self.handle.lock());
+            CStr::from_ptr(raw_topic_pointer)
+                .to_string_lossy()
+                .into_owned()
+        }
+    }
+
+    /// Set the callback of this subscription, replacing the callback that was
+    /// previously set.
+    ///
+    /// This can be used even if the subscription previously used an async callback.
+    pub fn set_callback<Args>(
+        &self,
+        callback: impl SubscriptionCallback<T, Args>,
+    ) -> Result<(), TrySendError<SubscriptionAction<T>>> {
+        let callback = callback.into_callback();
+        self.action.unbounded_send(SubscriptionAction::SetCallback(callback))
+    }
+
+    /// Set the callback of this subscription, replacing the callback that was
+    /// previously set.
+    ///
+    /// This can be used even if the subscription previously used a non-async callback.
+    pub fn set_async_callback<Args>(
+        &self,
+        callback: impl SubscriptionAsyncCallback<T, Args>,
+    ) -> Result<(), TrySendError<SubscriptionAction<T>>> {
+        let callback = callback.into_async_callback();
+        self.action.unbounded_send(SubscriptionAction::SetCallback(callback))
+    }
+
+    /// Used by [`Node`][crate::Node] to create a new subscription.
+    pub(crate) fn create(
         topic: &str,
         qos: QoSProfile,
-        callback: impl SubscriptionAsyncCallback<T, Args>,
+        callback: AnySubscriptionCallback<T>,
+        node_handle: &Arc<NodeHandle>,
+        commands: &Arc<ExecutorCommands>,
+    ) -> Result<Arc<Self>, RclrsError> {
+        let (sender, receiver) = unbounded();
+        let subscription = Arc::new(Self::new(topic, qos, sender, Arc::clone(&node_handle))?);
+
+        commands.run_detached(subscription_task(
+            callback,
+            receiver,
+            Arc::clone(&subscription.handle),
+            Arc::clone(&commands),
+        ));
+
+        Ok(subscription)
+    }
+
+    /// Instantiate the Subscription.
+    fn new(
+        topic: &str,
+        qos: QoSProfile,
+        action: UnboundedSender<SubscriptionAction<T>>,
+        node_handle: Arc<NodeHandle>,
     ) -> Result<Self, RclrsError>
     // This uses pub(crate) visibility to avoid instantiating this struct outside
     // [`Node::create_subscription`], see the struct's documentation for the rationale
@@ -153,29 +216,9 @@ where
         let handle = Arc::new(SubscriptionHandle {
             rcl_subscription: Mutex::new(rcl_subscription),
             node_handle,
-            in_use_by_wait_set: Arc::new(AtomicBool::new(false)),
         });
 
-        Ok(Self {
-            handle,
-            callback: Mutex::new(callback.into_callback()),
-            message: PhantomData,
-        })
-    }
-
-    /// Returns the topic name of the subscription.
-    ///
-    /// This returns the topic name after remapping, so it is not necessarily the
-    /// topic name which was used when creating the subscription.
-    pub fn topic_name(&self) -> String {
-        // SAFETY: No preconditions for the function used
-        // The unsafe variables get converted to safe types before being returned
-        unsafe {
-            let raw_topic_pointer = rcl_subscription_get_topic_name(&*self.handle.lock());
-            CStr::from_ptr(raw_topic_pointer)
-                .to_string_lossy()
-                .into_owned()
-        }
+        Ok(Self { handle, action })
     }
 }
 

@@ -4,7 +4,7 @@ pub use self::basic_executor::*;
 use crate::{
     rcl_bindings::rcl_context_is_valid,
     Node, NodeOptions, RclReturnCode, RclrsError, WaitSet, Context,
-    ContextHandle,
+    ContextHandle, WaitSetEntities,
 };
 use std::{
     sync::{Arc, Mutex, Weak},
@@ -175,9 +175,12 @@ impl ExecutorCommands {
 
 /// This trait defines the interface for passing new items into an executor to
 /// run.
-pub trait ExecutorChannel {
+pub trait ExecutorChannel: Send + Sync {
     /// Add a new item for the executor to run.
     fn add(&self, f: BoxFuture<'static, ()>);
+
+    /// Add new entities to the waitset of the executor.
+    fn add_to_waitset(new_entities: WaitSetEntities);
 
     // TODO(@mxgrey): create_guard_condition for waking up the waitset thread
 }
@@ -280,7 +283,7 @@ impl SingleThreadedExecutor {
             let ready_entities = wait_set.wait(timeout)?;
 
             for ready_subscription in ready_entities.subscriptions {
-                ready_subscription.execute()?;
+                ready_subscription.execute();
             }
 
             for ready_client in ready_entities.clients {

@@ -320,6 +320,7 @@ impl NodeOptions {
                 .clock_qos(self.clock_qos)
                 .build(),
             parameter,
+            commands: Arc::clone(&commands),
         });
         node.time_source.attach_node(&node);
         if self.start_parameter_services {
