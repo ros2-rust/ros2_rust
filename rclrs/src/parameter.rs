@@ -624,6 +624,18 @@ pub enum ParameterValueError {
     ReadOnly,
 }
 
+impl std::fmt::Display for ParameterValueError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ParameterValueError::OutOfRange => write!(f, "parameter value was out of the parameter's range"),
+            ParameterValueError::TypeMismatch => write!(f, "parameter was stored in a static type and an operation on a different type was attempted"),
+            ParameterValueError::ReadOnly => write!(f, "a write on a read-only parameter was attempted"),
+        }
+    }
+}
+
+impl std::error::Error for ParameterValueError {}
+
 /// Error that can be generated when doing operations on parameters.
 #[derive(Debug)]
 pub enum DeclarationError {
@@ -643,6 +655,27 @@ pub enum DeclarationError {
     /// An invalid range was provided to a parameter declaration (i.e. lower bound > higher bound).
     InvalidRange,
 }
+
+impl std::fmt::Display for DeclarationError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            DeclarationError::AlreadyDeclared => write!(f, "parameter was already declared, but a new declaration was attempted"),
+            DeclarationError::NoValueAvailable => {
+                write!(f, "parameter was declared as non-optional but no value was available, either through a user specified default, a command-line override, or a previously set value")
+            },
+            DeclarationError::OverrideValueTypeMismatch => {
+                write!(f, "the override value that was provided has the wrong type")
+            },
+            DeclarationError::PriorValueTypeMismatch => {
+                write!(f, "the value that the parameter was already set to has the wrong type")
+            },
+            DeclarationError::InitialValueOutOfRange => write!(f, "the initial value that was selected is out of range"),
+            DeclarationError::InvalidRange => write!(f, "an invalid range was provided to a parameter declaration (i.e. lower bound > higher bound)"),
+        }
+    }
+}
+
+impl std::error::Error for DeclarationError {}
 
 impl<'a> Parameters<'a> {
     /// Tries to read a parameter of the requested type.
