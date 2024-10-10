@@ -15,8 +15,7 @@
 // DISTRIBUTION A. Approved for public release; distribution unlimited.
 // OPSEC #4584.
 
-use std::{sync::Arc, time::Duration, vec::Vec, collections::{HashSet, HashMap}};
-use by_address::ByAddress;
+use std::{sync::Arc, time::Duration, vec::Vec, collections::HashMap};
 
 use crate::{
     error::{to_rclrs_result, RclReturnCode, RclrsError, ToResult},
@@ -42,16 +41,8 @@ pub struct WaitSet {
 unsafe impl Sync for WaitSet {}
 
 impl WaitSet {
-    /// Creates a new wait set.
-    ///
-    /// The given number of subscriptions is a capacity, corresponding to how often
-    /// [`WaitSet::add_subscription`] may be called.
-    pub fn new(
-        mut entities: WaitSetEntities,
-        context: &Context,
-    ) -> Result<Self, RclrsError> {
-        entities.dedup();
-
+    /// Creates a new empty wait set.
+    pub fn new(context: &Context) -> Result<Self, RclrsError> {
         let count = WaitableCount::new();
         let rcl_wait_set = unsafe {
             count.initialize(&mut context.handle.rcl_context.lock().unwrap())?
@@ -62,23 +53,23 @@ impl WaitSet {
             context_handle: Arc::clone(&context.handle),
         };
 
-        let mut wait_set = Self { entities, handle };
+        let mut wait_set = Self { entities: HashMap::new(), handle };
         wait_set.register_rcl_entities()?;
         Ok(wait_set)
     }
 
     /// Take all the items out of `entities` and move them into this wait set.
-    pub fn add(&mut self, entities: &mut WaitSetEntities) -> Result<(), RclrsError> {
-        self.entities.append(entities);
-        self.entities.dedup();
-        self.resize_rcl_containers()?;
-        self.register_rcl_entities()?;
-        Ok(())
-    }
-
-    /// Remove the specified entities from this wait set.
-    fn remove(&mut self, entities: &WaitSetEntities) -> Result<(), RclrsError> {
-        self.entities.remove_and_dedup(entities);
+    pub fn add(
+        &mut self,
+        entities: impl IntoIterator<Item = Waiter>,
+    ) -> Result<(), RclrsError> {
+        for entity in entities {
+            if entity.in_wait_set() {
+                return Err(RclrsError::AlreadyAddedToWaitSet);
+            }
+            let kind = entity.waitable.kind();
+            self.entities.insert(kind, entity);
+        }
         self.resize_rcl_containers()?;
         self.register_rcl_entities()?;
         Ok(())
@@ -127,7 +118,7 @@ impl WaitSet {
     pub fn wait(
         &mut self,
         timeout: Option<Duration>,
-        mut f: impl FnMut(WaitSetEntity) -> Result<(), RclrsError>,
+        mut f: impl FnMut(&mut Executable) -> Result<(), RclrsError>,
     ) -> Result<(), RclrsError> {
         let timeout_ns = match timeout.map(|d| d.as_nanos()) {
             None => -1,
@@ -155,50 +146,24 @@ impl WaitSet {
             },
         }
 
-        for (i, subscription) in self.entities.subscriptions.iter().enumerate() {
-            // SAFETY: The `subscriptions` entry is an array of pointers, and this dereferencing is
-            // equivalent to
-            // https://github.com/ros2/rcl/blob/35a31b00a12f259d492bf53c0701003bd7f1745c/rcl/include/rcl/wait.h#L419
-            let wait_set_entry = unsafe { *self.handle.rcl_wait_set.subscriptions.add(i) };
-            if !wait_set_entry.is_null() {
-                f(WaitSetEntity::Subscription(subscription))?;
-            }
+        // Remove any waitables that are no longer being used
+        for waiter in self.entities.values_mut() {
+            waiter.retain(|w| w.in_use());
         }
 
-        for (i, client) in self.entities.clients.iter().enumerate() {
-            // SAFETY: The `clients` entry is an array of pointers, and this dereferencing is
-            // equivalent to
-            // https://github.com/ros2/rcl/blob/35a31b00a12f259d492bf53c0701003bd7f1745c/rcl/include/rcl/wait.h#L419
-            let wait_set_entry = unsafe { *self.handle.rcl_wait_set.clients.add(i) };
-            if !wait_set_entry.is_null() {
-                f(WaitSetEntity::Client(client))?;
-            }
-        }
-
-        for (i, guard_condition) in self.entities.guard_conditions.iter().enumerate() {
-            // SAFETY: The `clients` entry is an array of pointers, and this dereferencing is
-            // equivalent to
-            // https://github.com/ros2/rcl/blob/35a31b00a12f259d492bf53c0701003bd7f1745c/rcl/include/rcl/wait.h#L419
-            let wait_set_entry = unsafe { *self.handle.rcl_wait_set.guard_conditions.add(i) };
-            if !wait_set_entry.is_null() {
-                f(WaitSetEntity::GuardCondition(guard_condition))?;
-            }
-        }
-
-        for (i, service) in self.entities.services.iter().enumerate() {
-            // SAFETY: The `services` entry is an array of pointers, and this dereferencing is
-            // equivalent to
-            // https://github.com/ros2/rcl/blob/35a31b00a12f259d492bf53c0701003bd7f1745c/rcl/include/rcl/wait.h#L419
-            let wait_set_entry = unsafe { *self.handle.rcl_wait_set.services.add(i) };
-            if !wait_set_entry.is_null() {
-                f(WaitSetEntity::Service(service))?;
+        // For the remaining entities, check if they were activated and then run
+        // the callback for those that were.
+        for waiter in self.entities.values_mut().flat_map(|v| v) {
+            if waiter.is_ready(&self.handle.rcl_wait_set) {
+                f(&mut waiter.waitable)?;
             }
         }
 
         // Each time we call rcl_wait, the rcl_wait_set_t handle will have some
         // of its entities set to null, so we need to put them back in. We do
         // not need to resize the rcl_wait_set_t because no new entities could
-        // have been added while we had the mutable borrow of the WaitSet.
+        // have been added while we had the mutable borrow of the WaitSet. Some
+        // entities could have been removed, but that does not require a resizing.
 
         // Note that self.clear() will not change the allocated size of each rcl
         // entity container, so we do not need to resize before re-registering
@@ -209,6 +174,7 @@ impl WaitSet {
         Ok(())
     }
 
+    /// Get a count of the different kinds of entities in the wait set.
     pub fn count(&self) -> WaitableCount {
         let mut c = WaitableCount::new();
         for (kind, collection) in &self.entities {
@@ -224,200 +190,20 @@ impl WaitSet {
         Ok(())
     }
 
-    fn register_rcl_entities(&mut self) -> Result<(), RclrsError> {
-        self.register_rcl_subscriptions()?;
-        self.register_rcl_guard_conditions()?;
-        self.register_rcl_clients()?;
-        self.register_rcl_services()?;
-        Ok(())
-    }
-
-    /// Adds a subscription to the wait set.
+    /// Registers all the waitable entities with the rcl wait set.
     ///
     /// # Errors
-    /// - If the subscription was already added to this wait set or another one,
-    ///   [`AlreadyAddedToWaitSet`][1] will be returned
     /// - If the number of subscriptions in the wait set is larger than the
-    ///   capacity set in [`WaitSet::new`], [`WaitSetFull`][2] will be returned
+    ///   allocated size [`WaitSetFull`][1] will be returned. If this happens
+    ///   then there is a bug in rclrs.
     ///
-    /// [1]: crate::RclrsError
-    /// [2]: crate::RclReturnCode
-    fn register_rcl_subscriptions(
-        &mut self,
-    ) -> Result<(), RclrsError> {
-        for subscription in &self.entities.subscriptions {
-            unsafe {
-                // SAFETY: I'm not sure if it's required, but the subscription pointer will remain valid
-                // for as long as the wait set exists, because it's stored in self.subscriptions.
-                // Passing in a null pointer for the third argument is explicitly allowed.
-                rcl_wait_set_add_subscription(
-                    &mut self.handle.rcl_wait_set,
-                    &*subscription.handle().lock(),
-                    std::ptr::null_mut(),
-                )
-            }
-            .ok()?;
+    /// [1]: crate::RclReturnCode
+    fn register_rcl_entities(&mut self) -> Result<(), RclrsError> {
+        for entity in self.entities.values_mut().flat_map(|c| c) {
+            entity.add_to_wait_set(&self.handle.rcl_wait_set)?;
         }
         Ok(())
     }
-
-    /// Adds a guard condition to the wait set.
-    ///
-    /// # Errors
-    /// - If the guard condition was already added to this wait set or another one,
-    ///   [`AlreadyAddedToWaitSet`][1] will be returned
-    /// - If the number of guard conditions in the wait set is larger than the
-    ///   capacity set in [`WaitSet::new`], [`WaitSetFull`][2] will be returned
-    ///
-    /// [1]: crate::RclrsError
-    /// [2]: crate::RclReturnCode
-    fn register_rcl_guard_conditions(
-        &mut self,
-    ) -> Result<(), RclrsError> {
-        for guard_condition in &self.entities.guard_conditions {
-            unsafe {
-                // SAFETY: Safe if the wait set and guard condition are initialized
-                rcl_wait_set_add_guard_condition(
-                    &mut self.handle.rcl_wait_set,
-                    &*guard_condition.handle.rcl_guard_condition.lock().unwrap(),
-                    std::ptr::null_mut(),
-                )
-                .ok()?;
-            }
-        }
-        Ok(())
-    }
-
-    /// Adds a client to the wait set.
-    ///
-    /// # Errors
-    /// - If the client was already added to this wait set or another one,
-    ///   [`AlreadyAddedToWaitSet`][1] will be returned
-    /// - If the number of clients in the wait set is larger than the
-    ///   capacity set in [`WaitSet::new`], [`WaitSetFull`][2] will be returned
-    ///
-    /// [1]: crate::RclrsError
-    /// [2]: crate::RclReturnCode
-    fn register_rcl_clients(&mut self) -> Result<(), RclrsError> {
-        for client in &self.entities.clients {
-            unsafe {
-                // SAFETY: I'm not sure if it's required, but the client pointer will remain valid
-                // for as long as the wait set exists, because it's stored in self.clients.
-                // Passing in a null pointer for the third argument is explicitly allowed.
-                rcl_wait_set_add_client(
-                    &mut self.handle.rcl_wait_set,
-                    &*client.handle().lock() as *const _,
-                    core::ptr::null_mut(),
-                )
-            }
-            .ok()?;
-        }
-        Ok(())
-    }
-
-    /// Adds a service to the wait set.
-    ///
-    /// # Errors
-    /// - If the service was already added to this wait set or another one,
-    ///   [`AlreadyAddedToWaitSet`][1] will be returned
-    /// - If the number of services in the wait set is larger than the
-    ///   capacity set in [`WaitSet::new`], [`WaitSetFull`][2] will be returned
-    ///
-    /// [1]: crate::RclrsError
-    /// [2]: crate::RclReturnCode
-    fn register_rcl_services(&mut self) -> Result<(), RclrsError> {
-        for service in &self.entities.services {
-            unsafe {
-                // SAFETY: I'm not sure if it's required, but the service pointer will remain valid
-                // for as long as the wait set exists, because it's stored in self.services.
-                // Passing in a null pointer for the third argument is explicitly allowed.
-                rcl_wait_set_add_service(
-                    &mut self.handle.rcl_wait_set,
-                    &*service.handle().lock() as *const _,
-                    core::ptr::null_mut(),
-                )
-            }
-            .ok()?;
-        }
-        Ok(())
-    }
-}
-
-/// This is a container for all wait set entities that rclrs currently supports
-#[derive(Clone, Default)]
-pub struct WaitSetEntities {
-    // The subscriptions that are currently registered in the wait set.
-    // This correspondence is an invariant that must be maintained by all functions,
-    // even in the error case.
-    pub subscriptions: Vec<Arc<dyn SubscriptionBase>>,
-    pub clients: Vec<Arc<dyn ClientBase>>,
-    // The guard conditions that are currently registered in the wait set.
-    pub guard_conditions: Vec<Arc<GuardCondition>>,
-    pub services: Vec<Arc<dyn ServiceBase>>,
-}
-
-impl WaitSetEntities {
-    /// Create a new empty container
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// Ensure there is only one instance of each entity in the collection.
-    pub fn dedup(&mut self) {
-        dedup_vec_by_arc_address(&mut self.subscriptions);
-        dedup_vec_by_arc_address(&mut self.clients);
-        dedup_vec_by_arc_address(&mut self.guard_conditions);
-        dedup_vec_by_arc_address(&mut self.services);
-    }
-
-    /// Move all entities out of `other` into `self`, leaving `other` empty.
-    pub fn append(&mut self, other: &mut Self) {
-        self.subscriptions.append(&mut other.subscriptions);
-        self.clients.append(&mut other.clients);
-        self.guard_conditions.append(&mut other.guard_conditions);
-        self.services.append(&mut other.services);
-    }
-
-    /// Remove all entities that are present in `other`. This will also
-    /// deduplicate any items that were already in `self`.
-    pub fn remove_and_dedup(&mut self, other: &Self) {
-        remove_vec_by_arc_address(&mut self.subscriptions, &other.subscriptions);
-        remove_vec_by_arc_address(&mut self.clients, &other.clients);
-        remove_vec_by_arc_address(&mut self.guard_conditions, &other.guard_conditions);
-        remove_vec_by_arc_address(&mut self.services, &other.services);
-    }
-
-    /// Clear all items from the container
-    pub fn clear(&mut self) {
-        self.subscriptions.clear();
-        self.clients.clear();
-        self.guard_conditions.clear();
-        self.services.clear();
-    }
-}
-
-fn dedup_vec_by_arc_address<T: ?Sized>(v: &mut Vec<Arc<T>>) {
-    let mut set = HashSet::new();
-    v.retain(|item| set.insert(ByAddress(Arc::clone(item))));
-}
-
-fn remove_vec_by_arc_address<T: ?Sized>(
-    v: &mut Vec<Arc<T>>,
-    remove: &Vec<Arc<T>>,
-) {
-    let mut set = HashSet::new();
-    for r in remove {
-        set.insert(ByAddress(Arc::clone(r)));
-    }
-
-    v.retain(|item| set.insert(ByAddress(Arc::clone(item))));
-}
-
-pub enum WaitSetEntity<'a> {
-    Subscription(&'a Arc<dyn SubscriptionBase>),
-    Client(&'a Arc<dyn ClientBase>),
-    Service(&'a Arc<dyn ServiceBase>),
-    GuardCondition(&'a Arc<GuardCondition>),
 }
 
 impl Drop for rcl_wait_set_t {
@@ -448,6 +234,7 @@ struct WaitSetHandle {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::atomic::AtomicBool;
     use super::*;
 
     #[test]
@@ -464,7 +251,8 @@ mod tests {
 
         let guard_condition = Arc::new(GuardCondition::new(&context));
 
-        let mut entities = WaitSetEntities::new();
+        let in_use = Arc::new(AtomicBool::new(true));
+        let waiter = Waiter::new(..);
         entities.guard_conditions.push(Arc::clone(&guard_condition));
 
         let mut wait_set = WaitSet::new(entities, &context)?;

@@ -4,7 +4,7 @@ pub use self::basic_executor::*;
 use crate::{
     rcl_bindings::rcl_context_is_valid,
     Node, NodeOptions, RclReturnCode, RclrsError, WaitSet, Context,
-    ContextHandle, WaitSetEntities,
+    ContextHandle, Waiter,
 };
 use std::{
     sync::{Arc, Mutex, Weak},
@@ -130,7 +130,7 @@ impl ExecutorCommands {
         F::Output: Send,
     {
         let (mut sender, receiver) = oneshot::channel();
-        self.channel.add(Box::pin(
+        self.channel.add_async_task(Box::pin(
             async move {
                 let cancellation = sender.cancellation();
                 let output = match select(cancellation, std::pin::pin!(f)).await {
@@ -156,7 +156,7 @@ impl ExecutorCommands {
         F::Output: Send,
     {
         let (sender, receiver) = oneshot::channel();
-        self.channel.add(Box::pin(
+        self.channel.add_async_task(Box::pin(
             async move {
                 sender.send(f.await).ok();
             }
@@ -168,8 +168,12 @@ impl ExecutorCommands {
         &self.context
     }
 
-    pub(crate) fn add(&self, f: BoxFuture<'static, ()>) {
-        self.channel.add(f);
+    pub(crate) fn add_async_task(&self, f: BoxFuture<'static, ()>) {
+        self.channel.add_async_task(f);
+    }
+
+    pub(crate) fn add_to_wait_set(&self, waiter: Waiter) {
+        self.channel.add_to_waitset(waiter);
     }
 }
 
@@ -177,12 +181,10 @@ impl ExecutorCommands {
 /// run.
 pub trait ExecutorChannel: Send + Sync {
     /// Add a new item for the executor to run.
-    fn add(&self, f: BoxFuture<'static, ()>);
+    fn add_async_task(&self, f: BoxFuture<'static, ()>);
 
     /// Add new entities to the waitset of the executor.
-    fn add_to_waitset(new_entities: WaitSetEntities);
-
-    // TODO(@mxgrey): create_guard_condition for waking up the waitset thread
+    fn add_to_waitset(&self, new_entity: Waiter);
 }
 
 /// This trait defines the interface for having an executor run.

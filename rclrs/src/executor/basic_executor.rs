@@ -28,7 +28,7 @@ pub struct BasicExecutorChannel {
 }
 
 impl ExecutorChannel for BasicExecutorChannel {
-    fn add(&self, f: futures::future::BoxFuture<'static, ()>) {
+    fn add_async_task(&self, f: futures::future::BoxFuture<'static, ()>) {
 
     }
 

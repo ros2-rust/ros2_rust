@@ -1,9 +1,14 @@
-use crate::{
-    rcl_bindings::*,
-    RclrsError,
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
 };
 
-#[derive(Clone, Copy)]
+use crate::{
+    rcl_bindings::*,
+    RclrsError, WaitSet,
+};
+
+#[derive(Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) enum WaitableKind {
     Subscription,
     GuardCondition,
@@ -83,30 +88,89 @@ impl WaitableCount {
     }
 }
 
+/// This provides the public API for executing a waitable item.
 pub trait Executable {
+    /// Indicate what kind of executable this is.
+    fn kind(&self) -> WaitableKind;
+
+    /// Trigger this executable to run.
     fn execute(&mut self) -> Result<(), RclrsError>;
 }
 
+/// This provides the internal APIs for a waitable item to interact with the
+/// wait set that manages it.
 pub(crate) trait Waitable: Executable {
+    /// Add this to a wait set
     unsafe fn add_to_wait_set(
         &mut self,
         wait_set: &mut rcl_wait_set_t,
     ) -> Result<usize, RclrsError>;
 
-    fn kind(&self) -> WaitableKind;
+    unsafe fn is_ready(
+        &self,
+        wait_set: &rcl_wait_set_t,
+        index: usize,
+    ) -> bool;
 }
 
 pub struct Waiter {
-    waitable: Box<dyn Waitable>,
+    pub(super) waitable: Box<dyn Waitable>,
+    in_use: Arc<AtomicBool>,
     index_in_wait_set: Option<usize>,
 }
 
 impl Waiter {
-    pub fn new<T: Waitable>(waitable: T) -> Self {
-        Self {
-            waitable: Box::new(waitable),
+    pub fn new(waitable: Box<dyn Waitable>) -> (Self, WaiterLifecycle) {
+        let in_use = Arc::new(AtomicBool::new(true));
+        let waiter = Self {
+            waitable,
+            in_use: Arc::clone(&in_use),
             index_in_wait_set: None,
-        }
+        };
+
+        let lifecycle = WaiterLifecycle { in_use };
+        (waiter, lifecycle)
     }
 
+    pub(super) fn in_wait_set(&self) -> bool {
+        self.index_in_wait_set.is_some()
+    }
+
+    pub(super) fn in_use(&self) -> bool {
+        self.in_use.load(Ordering::Relaxed)
+    }
+
+    pub(super) fn is_ready(&self, wait_set: &rcl_wait_set_t) -> bool {
+        self.index_in_wait_set.is_some_and(|index|
+            unsafe {
+                // SAFETY: The Waitable::is_ready function is marked as unsafe
+                // because this is the only place that it makes sense to use it.
+                self.waitable.is_ready(wait_set, index)
+            }
+        )
+    }
+
+    pub(super) fn add_to_wait_set(
+        &mut self,
+        wait_set: &mut WaitSet,
+    ) -> Result<(), RclrsError> {
+        self.index_in_wait_set = Some(
+            unsafe {
+                // SAFETY: The Waitable::add_to_wait_set function is marked as
+                // unsafe because this is the only place that it makes sense to use it.
+                self.waitable.add_to_wait_set(wait_set)?
+            }
+        );
+        Ok(())
+    }
+}
+
+pub struct WaiterLifecycle {
+    in_use: Arc<AtomicBool>,
+}
+
+impl Drop for WaiterLifecycle {
+    fn drop(&mut self) {
+        self.in_use.store(false, Ordering::Relaxed);
+    }
 }

@@ -11,8 +11,8 @@ use crate::{
     error::ToResult,
     qos::QoSProfile,
     rcl_bindings::*,
-    ExecutorCommands, NodeHandle, RclrsError, Waitable, Executable,
-    ENTITY_LIFECYCLE_MUTEX,
+    ExecutorCommands, NodeHandle, RclrsError, Waitable, Executable, WaitableKind,
+    WaitSet, Waiter, WaiterLifecycle, ENTITY_LIFECYCLE_MUTEX,
 };
 
 mod any_callback;
@@ -94,6 +94,9 @@ where
     /// Holding onto this sender will keep the subscription task running. Once
     /// this sender is dropped, the subscription task will end itself.
     action: UnboundedSender<SubscriptionAction<T>>,
+    /// Holding onto this keeps the waiter for this subscription alive in the
+    /// wait set of the executor.
+    lifecycle: WaiterLifecycle,
 }
 
 impl<T> Subscription<T>
@@ -148,7 +151,7 @@ where
         commands: &Arc<ExecutorCommands>,
     ) -> Result<Arc<Self>, RclrsError> {
         let (sender, receiver) = unbounded();
-        let subscription = Arc::new(Self::new(topic, qos, sender, Arc::clone(&node_handle))?);
+        let (subscription, waiter) = Self::new(topic, qos, sender, Arc::clone(&node_handle))?;
 
         commands.run_detached(subscription_task(
             callback,
@@ -156,6 +159,8 @@ where
             Arc::clone(&subscription.handle),
             Arc::clone(&commands),
         ));
+
+        commands.add_to_wait_set(waiter);
 
         Ok(subscription)
     }
@@ -166,7 +171,7 @@ where
         qos: QoSProfile,
         action: UnboundedSender<SubscriptionAction<T>>,
         node_handle: Arc<NodeHandle>,
-    ) -> Result<Self, RclrsError>
+    ) -> Result<(Arc<Self>, Waiter), RclrsError>
     // This uses pub(crate) visibility to avoid instantiating this struct outside
     // [`Node::create_subscription`], see the struct's documentation for the rationale
     where
@@ -211,7 +216,14 @@ where
             node_handle,
         });
 
-        Ok(Self { handle, action })
+        let (waiter, lifecycle) = Waiter::new(Box::new(SubscriptionWaitable {
+            handle: Arc::clone(&handle),
+            action: action.clone(),
+        }));
+
+        let subscription = Arc::new(Self { handle, action, lifecycle });
+
+        Ok((subscription, waiter))
     }
 }
 
@@ -225,13 +237,37 @@ impl<T: Message> Executable for SubscriptionWaitable<T> {
         self.action.unbounded_send(SubscriptionAction::Execute).ok();
         Ok(())
     }
+
+    fn kind(&self) -> WaitableKind {
+        WaitableKind::Subscription
+    }
 }
 
 impl<T: Message> Waitable for SubscriptionWaitable<T> {
     unsafe fn add_to_wait_set(
         &mut self,
-        wait_set: &mut crate::WaitSet,
+        wait_set: &mut WaitSet,
     ) -> Result<usize, RclrsError> {
+        let index: usize = 0;
+        unsafe {
+            // SAFETY: We are holding an Arc of the handle, so the subscription
+            // is still valid.
+            rcl_wait_set_add_subscription(
+                &mut self.handle.rcl_wait_set,
+                &*self.handle().lock(),
+                &mut index,
+            )
+        }
+        .ok()?;
+
+        Ok(index)
+    }
+
+    unsafe fn is_ready(
+        &self,
+        wait_set: &rcl_wait_set_t,
+        index: usize,
+    ) -> bool {
 
     }
 }
