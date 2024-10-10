@@ -11,7 +11,8 @@ use crate::{
     error::ToResult,
     qos::QoSProfile,
     rcl_bindings::*,
-    ExecutorCommands, NodeHandle, RclrsError, ENTITY_LIFECYCLE_MUTEX,
+    ExecutorCommands, NodeHandle, RclrsError, Waitable, Executable,
+    ENTITY_LIFECYCLE_MUTEX,
 };
 
 mod any_callback;
@@ -63,14 +64,6 @@ impl Drop for SubscriptionHandle {
             rcl_subscription_fini(rcl_subscription, &mut *rcl_node);
         }
     }
-}
-
-/// Trait to be implemented by concrete [`Subscription`]s.
-pub trait SubscriptionBase: Send + Sync {
-    /// Internal function to get a reference to the `rcl` handle.
-    fn handle(&self) -> &SubscriptionHandle;
-    /// Tries to take a new message and run the callback with it.
-    fn execute(&self);
 }
 
 /// Struct for receiving messages of type `T`.
@@ -222,18 +215,24 @@ where
     }
 }
 
-impl<T> SubscriptionBase for Subscription<T>
-where
-    T: Message,
-{
-    fn handle(&self) -> &SubscriptionHandle {
-        &self.handle
-    }
+struct SubscriptionWaitable<T: Message> {
+    handle: Arc<SubscriptionHandle>,
+    action: UnboundedSender<SubscriptionAction<T>>,
+}
 
-    fn execute(&self) {
-        if let Err(_) = self.action.unbounded_send(SubscriptionAction::Execute) {
-            // TODO(@mxgrey): Log the error here once logging is implemented
-        }
+impl<T: Message> Executable for SubscriptionWaitable<T> {
+    fn execute(&mut self) -> Result<(), RclrsError> {
+        self.action.unbounded_send(SubscriptionAction::Execute).ok();
+        Ok(())
+    }
+}
+
+impl<T: Message> Waitable for SubscriptionWaitable<T> {
+    unsafe fn add_to_wait_set(
+        &mut self,
+        wait_set: &mut crate::WaitSet,
+    ) -> Result<usize, RclrsError> {
+
     }
 }
 

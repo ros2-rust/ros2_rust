@@ -15,21 +15,24 @@
 // DISTRIBUTION A. Approved for public release; distribution unlimited.
 // OPSEC #4584.
 
-use std::{sync::Arc, time::Duration, vec::Vec, collections::HashSet};
+use std::{sync::Arc, time::Duration, vec::Vec, collections::{HashSet, HashMap}};
 use by_address::ByAddress;
 
 use crate::{
     error::{to_rclrs_result, RclReturnCode, RclrsError, ToResult},
     rcl_bindings::*,
-    ClientBase, Context, ContextHandle, ServiceBase, SubscriptionBase,
+    Context, ContextHandle,
 };
 
 mod guard_condition;
 pub use guard_condition::*;
 
+mod waitable;
+pub use waitable::*;
+
 /// A struct for waiting on subscriptions and other waitable entities to become ready.
 pub struct WaitSet {
-    entities: WaitSetEntities,
+    entities: HashMap<WaitableKind, Vec<Waiter>>,
     handle: WaitSetHandle,
 }
 
@@ -49,25 +52,9 @@ impl WaitSet {
     ) -> Result<Self, RclrsError> {
         entities.dedup();
 
+        let count = WaitableCount::new();
         let rcl_wait_set = unsafe {
-            // SAFETY: Getting a zero-initialized value is always safe
-            let mut rcl_wait_set = rcl_get_zero_initialized_wait_set();
-            let mut rcl_context = context.handle.rcl_context.lock().unwrap();
-            // SAFETY: We're passing in a zero-initialized wait set and a valid context.
-            // There are no other preconditions.
-            rcl_wait_set_init(
-                &mut rcl_wait_set,
-                entities.subscriptions.len(),
-                entities.guard_conditions.len(),
-                0,
-                entities.clients.len(),
-                entities.services.len(),
-                0,
-                &mut *rcl_context,
-                rcutils_get_default_allocator(),
-            )
-            .ok()?;
-            rcl_wait_set
+            count.initialize(&mut context.handle.rcl_context.lock().unwrap())?
         };
 
         let handle = WaitSetHandle {
@@ -123,6 +110,9 @@ impl WaitSet {
     /// that period of time has elapsed or the wait set becomes ready, which ever
     /// comes first.
     ///
+    /// Once one or more items in the wait set are ready, `f` will be triggered
+    /// for each ready item.
+    ///
     /// This function does not change the entities registered in the wait set.
     ///
     /// # Errors
@@ -135,7 +125,7 @@ impl WaitSet {
     ///
     /// [1]: std::time::Duration::ZERO
     pub fn wait(
-        mut self,
+        &mut self,
         timeout: Option<Duration>,
         mut f: impl FnMut(WaitSetEntity) -> Result<(), RclrsError>,
     ) -> Result<(), RclrsError> {
@@ -204,22 +194,34 @@ impl WaitSet {
                 f(WaitSetEntity::Service(service))?;
             }
         }
+
+        // Each time we call rcl_wait, the rcl_wait_set_t handle will have some
+        // of its entities set to null, so we need to put them back in. We do
+        // not need to resize the rcl_wait_set_t because no new entities could
+        // have been added while we had the mutable borrow of the WaitSet.
+
+        // Note that self.clear() will not change the allocated size of each rcl
+        // entity container, so we do not need to resize before re-registering
+        // the rcl entities.
+        self.clear();
+        self.register_rcl_entities();
+
         Ok(())
     }
 
-    fn resize_rcl_containers(&mut self) -> Result<(), RclrsError> {
-        unsafe {
-            rcl_wait_set_resize(
-                &mut self.handle.rcl_wait_set,
-                self.entities.subscriptions.len(),
-                self.entities.guard_conditions.len(),
-                0,
-                self.entities.clients.len(),
-                self.entities.services.len(),
-                0,
-            )
+    pub fn count(&self) -> WaitableCount {
+        let mut c = WaitableCount::new();
+        for (kind, collection) in &self.entities {
+            c.add(*kind, collection.len());
         }
-        .ok()
+    }
+
+    fn resize_rcl_containers(&mut self) -> Result<(), RclrsError> {
+        let count = self.count();
+        unsafe {
+            count.resize(&mut self.handle.rcl_wait_set)?;
+        }
+        Ok(())
     }
 
     fn register_rcl_entities(&mut self) -> Result<(), RclrsError> {
@@ -465,7 +467,7 @@ mod tests {
         let mut entities = WaitSetEntities::new();
         entities.guard_conditions.push(Arc::clone(&guard_condition));
 
-        let wait_set = WaitSet::new(entities, &context)?;
+        let mut wait_set = WaitSet::new(entities, &context)?;
         guard_condition.trigger()?;
 
         let mut triggered = false;
