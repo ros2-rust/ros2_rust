@@ -84,9 +84,9 @@ extern "C" {
 pub struct @(type_name);
 
 impl rosidl_runtime_rs::Action for @(type_name) {
-  type Goal = crate::@(subfolder)::rmw::@(type_name)@(ACTION_GOAL_SUFFIX);
-  type Result = crate::@(subfolder)::rmw::@(type_name)@(ACTION_RESULT_SUFFIX);
-  type Feedback = crate::@(subfolder)::rmw::@(type_name)@(ACTION_FEEDBACK_SUFFIX);
+  type Goal = crate::@(subfolder)::@(type_name)@(ACTION_GOAL_SUFFIX);
+  type Result = crate::@(subfolder)::@(type_name)@(ACTION_RESULT_SUFFIX);
+  type Feedback = crate::@(subfolder)::@(type_name)@(ACTION_FEEDBACK_SUFFIX);
 
   fn get_type_support() -> *const std::os::raw::c_void {
     // SAFETY: No preconditions for this function.
