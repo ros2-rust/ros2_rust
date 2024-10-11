@@ -32,7 +32,7 @@ pub use waitable::*;
 /// A struct for waiting on subscriptions and other waitable entities to become ready.
 pub struct WaitSet {
     entities: HashMap<WaitableKind, Vec<Waiter>>,
-    handle: WaitSetHandle,
+    pub(crate) handle: WaitSetHandle,
 }
 
 // SAFETY: While the rcl_wait_set_t does have some interior mutability (because it has
@@ -68,7 +68,7 @@ impl WaitSet {
                 return Err(RclrsError::AlreadyAddedToWaitSet);
             }
             let kind = entity.waitable.kind();
-            self.entities.insert(kind, entity);
+            self.entities.entry(kind).or_default().push(entity);
         }
         self.resize_rcl_containers()?;
         self.register_rcl_entities()?;
@@ -118,7 +118,7 @@ impl WaitSet {
     pub fn wait(
         &mut self,
         timeout: Option<Duration>,
-        mut f: impl FnMut(&mut Executable) -> Result<(), RclrsError>,
+        mut f: impl FnMut(&mut dyn Executable) -> Result<(), RclrsError>,
     ) -> Result<(), RclrsError> {
         let timeout_ns = match timeout.map(|d| d.as_nanos()) {
             None => -1,
@@ -155,7 +155,7 @@ impl WaitSet {
         // the callback for those that were.
         for waiter in self.entities.values_mut().flat_map(|v| v) {
             if waiter.is_ready(&self.handle.rcl_wait_set) {
-                f(&mut waiter.waitable)?;
+                f(waiter.waitable.as_executable())?;
             }
         }
 
@@ -200,7 +200,7 @@ impl WaitSet {
     /// [1]: crate::RclReturnCode
     fn register_rcl_entities(&mut self) -> Result<(), RclrsError> {
         for entity in self.entities.values_mut().flat_map(|c| c) {
-            entity.add_to_wait_set(&self.handle.rcl_wait_set)?;
+            entity.add_to_wait_set(&mut self.handle.rcl_wait_set)?;
         }
         Ok(())
     }
@@ -226,7 +226,7 @@ unsafe impl Send for rcl_wait_set_t {}
 ///
 /// [1]: <https://doc.rust-lang.org/reference/destructors.html>
 struct WaitSetHandle {
-    rcl_wait_set: rcl_wait_set_t,
+    pub(crate) rcl_wait_set: rcl_wait_set_t,
     // Used to ensure the context is alive while the wait set is alive.
     #[allow(dead_code)]
     context_handle: Arc<ContextHandle>,

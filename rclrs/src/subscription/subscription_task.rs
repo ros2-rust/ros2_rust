@@ -1,12 +1,13 @@
 use rosidl_runtime_rs::Message;
 
 use crate::{
-    AnySubscriptionCallback, ExecutorCommands, SubscriptionHandle,
+    subscription::SubscriptionHandle,
+    AnySubscriptionCallback, ExecutorCommands,
 };
 
 use futures::{
-    Stream, StreamExt,
-    channel::mpsc::UnboundedReceiver
+    channel::mpsc::UnboundedReceiver,
+    StreamExt,
 };
 
 use std::sync::Arc;

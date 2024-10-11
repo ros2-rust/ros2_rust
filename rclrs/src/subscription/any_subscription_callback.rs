@@ -13,7 +13,11 @@ use std::sync::Arc;
 
 /// An enum capturing the various possible function signatures for subscription callbacks.
 ///
-/// The correct enum variant is deduced by the [`SubscriptionCallback`] trait.
+/// The correct enum variant is deduced by the [`SubscriptionCallback`][1] or
+/// [`SubscriptionAsyncCallback`][2] trait.
+///
+/// [1]: crate::SubscriptionCallback
+/// [2]: crate::SubscriptionAsyncCallback
 pub enum AnySubscriptionCallback<T>
 where
     T: Message,
@@ -107,7 +111,7 @@ impl<T: Message> AnySubscriptionCallback<T> {
     // |  rmw_take   |
     // +-------------+
     // ```
-    fn take(handle: &Arc<SubscriptionHandle>) -> Result<(T, MessageInfo), RclrsError> {
+    fn take(handle: &SubscriptionHandle) -> Result<(T, MessageInfo), RclrsError> {
         let mut rmw_message = <T as Message>::RmwMsg::default();
         let message_info = Self::take_inner(handle, &mut rmw_message)?;
         Ok((T::from_rmw_message(rmw_message), message_info))
@@ -116,7 +120,7 @@ impl<T: Message> AnySubscriptionCallback<T> {
     /// This is a version of take() that returns a boxed message.
     ///
     /// This can be more efficient for messages containing large arrays.
-    fn take_boxed(handle: &Arc<SubscriptionHandle>) -> Result<(Box<T>, MessageInfo), RclrsError> {
+    fn take_boxed(handle: &SubscriptionHandle) -> Result<(Box<T>, MessageInfo), RclrsError> {
         let mut rmw_message = Box::<<T as Message>::RmwMsg>::default();
         let message_info = Self::take_inner(handle, &mut *rmw_message)?;
         // TODO: This will still use the stack in general. Change signature of
@@ -127,7 +131,7 @@ impl<T: Message> AnySubscriptionCallback<T> {
 
     // Inner function, to be used by both regular and boxed versions.
     fn take_inner(
-        handle: &Arc<SubscriptionHandle>,
+        handle: &SubscriptionHandle,
         rmw_message: &mut <T as Message>::RmwMsg,
     ) -> Result<MessageInfo, RclrsError> {
         let mut message_info = unsafe { rmw_get_zero_initialized_message_info() };
@@ -175,7 +179,7 @@ impl<T: Message> AnySubscriptionCallback<T> {
         }
         let read_only_loaned_msg = ReadOnlyLoanedMessage {
             msg_ptr: msg_ptr as *const T::RmwMsg,
-            handle: Arc::clone(&handle),
+            handle: Arc::clone(handle),
         };
         Ok((
             read_only_loaned_msg,

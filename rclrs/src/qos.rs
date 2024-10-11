@@ -260,6 +260,11 @@ impl QoSProfile {
         self.lifespan = QoSDuration::Custom(lifespan);
         self
     }
+
+    /// Get the default QoS profile for services.
+    pub fn services_default() -> Self {
+        QOS_PROFILE_SERVICES_DEFAULT
+    }
 }
 
 impl From<QoSHistoryPolicy> for rmw_qos_history_policy_t {

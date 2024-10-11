@@ -12,17 +12,17 @@ use crate::{
     qos::QoSProfile,
     rcl_bindings::*,
     ExecutorCommands, NodeHandle, RclrsError, Waitable, Executable, WaitableKind,
-    WaitSet, Waiter, WaiterLifecycle, ENTITY_LIFECYCLE_MUTEX,
+    GuardCondition, Waiter, WaiterLifecycle, ENTITY_LIFECYCLE_MUTEX,
 };
 
-mod any_callback;
-pub use any_callback::*;
+mod any_subscription_callback;
+pub use any_subscription_callback::*;
 
-mod async_callback;
-pub use async_callback::*;
+mod subscription_async_callback;
+pub use subscription_async_callback::*;
 
-mod callback;
-pub use callback::*;
+mod subscription_callback;
+pub use subscription_callback::*;
 
 mod message_info;
 pub use message_info::*;
@@ -33,40 +33,10 @@ pub use readonly_loaned_message::*;
 mod subscription_task;
 use subscription_task::*;
 
-// SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
-// they are running in. Therefore, this type can be safely sent to another thread.
-unsafe impl Send for rcl_subscription_t {}
-
-/// Manage the lifecycle of an `rcl_subscription_t`, including managing its dependencies
-/// on `rcl_node_t` and `rcl_context_t` by ensuring that these dependencies are
-/// [dropped after][1] the `rcl_subscription_t`.
-///
-/// [1]: <https://doc.rust-lang.org/reference/destructors.html>
-pub struct SubscriptionHandle {
-    rcl_subscription: Mutex<rcl_subscription_t>,
-    node_handle: Arc<NodeHandle>,
-}
-
-impl SubscriptionHandle {
-    pub(crate) fn lock(&self) -> MutexGuard<rcl_subscription_t> {
-        self.rcl_subscription.lock().unwrap()
-    }
-}
-
-impl Drop for SubscriptionHandle {
-    fn drop(&mut self) {
-        let rcl_subscription = self.rcl_subscription.get_mut().unwrap();
-        let mut rcl_node = self.node_handle.rcl_node.lock().unwrap();
-        let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
-        // SAFETY: The entity lifecycle mutex is locked to protect against the risk of
-        // global variables in the rmw implementation being unsafely modified during cleanup.
-        unsafe {
-            rcl_subscription_fini(rcl_subscription, &mut *rcl_node);
-        }
-    }
-}
-
 /// Struct for receiving messages of type `T`.
+///
+/// The only way to instantiate a subscription is via [`Node::create_subscription()`][2]
+/// or [`Node::create_async_subscription`][3].
 ///
 /// There can be multiple subscriptions for the same topic, in different nodes or the same node.
 ///
@@ -74,9 +44,6 @@ impl Drop for SubscriptionHandle {
 ///
 /// When a subscription is created, it may take some time to get "matched" with a corresponding
 /// publisher.
-///
-/// The only available way to instantiate subscriptions is via [`Node::create_subscription()`][2]
-/// or [`Node::create_async_subscription`][3]. This is to ensure that [`Node`][4]s can track all the subscriptions that have been created.
 ///
 /// [1]: crate::Executor::spin
 /// [2]: crate::Node::create_subscription
@@ -88,10 +55,9 @@ where
 {
     /// This handle is used to access the data that rcl holds for this subscription.
     handle: Arc<SubscriptionHandle>,
-    /// This allows us to trigger the callback or replace the callback in the
-    /// subscription task.
+    /// This allows us to replace the callback in the subscription task.
     ///
-    /// Holding onto this sender will keep the subscription task running. Once
+    /// Holding onto this sender will keep the subscription task alive. Once
     /// this sender is dropped, the subscription task will end itself.
     action: UnboundedSender<SubscriptionAction<T>>,
     /// Holding onto this keeps the waiter for this subscription alive in the
@@ -108,14 +74,14 @@ where
     /// This returns the topic name after remapping, so it is not necessarily the
     /// topic name which was used when creating the subscription.
     pub fn topic_name(&self) -> String {
-        // SAFETY: No preconditions for the function used
+        // SAFETY: The subscription handle is valid because its lifecycle is managed by an Arc.
         // The unsafe variables get converted to safe types before being returned
         unsafe {
             let raw_topic_pointer = rcl_subscription_get_topic_name(&*self.handle.lock());
             CStr::from_ptr(raw_topic_pointer)
-                .to_string_lossy()
-                .into_owned()
         }
+        .to_string_lossy()
+        .into_owned()
     }
 
     /// Set the callback of this subscription, replacing the callback that was
@@ -126,7 +92,7 @@ where
         &self,
         callback: impl SubscriptionCallback<T, Args>,
     ) -> Result<(), TrySendError<SubscriptionAction<T>>> {
-        let callback = callback.into_callback();
+        let callback = callback.into_subscription_callback();
         self.action.unbounded_send(SubscriptionAction::SetCallback(callback))
     }
 
@@ -138,7 +104,7 @@ where
         &self,
         callback: impl SubscriptionAsyncCallback<T, Args>,
     ) -> Result<(), TrySendError<SubscriptionAction<T>>> {
-        let callback = callback.into_async_callback();
+        let callback = callback.into_subscription_async_callback();
         self.action.unbounded_send(SubscriptionAction::SetCallback(callback))
     }
 
@@ -151,7 +117,13 @@ where
         commands: &Arc<ExecutorCommands>,
     ) -> Result<Arc<Self>, RclrsError> {
         let (sender, receiver) = unbounded();
-        let (subscription, waiter) = Self::new(topic, qos, sender, Arc::clone(&node_handle))?;
+        let (subscription, waiter) = Self::new(
+            topic,
+            qos,
+            sender,
+            Arc::clone(&node_handle),
+            Arc::clone(commands.get_guard_condition()),
+        )?;
 
         commands.run_detached(subscription_task(
             callback,
@@ -171,6 +143,7 @@ where
         qos: QoSProfile,
         action: UnboundedSender<SubscriptionAction<T>>,
         node_handle: Arc<NodeHandle>,
+        guard_condition: Arc<GuardCondition>,
     ) -> Result<(Arc<Self>, Waiter), RclrsError>
     // This uses pub(crate) visibility to avoid instantiating this struct outside
     // [`Node::create_subscription`], see the struct's documentation for the rationale
@@ -216,10 +189,13 @@ where
             node_handle,
         });
 
-        let (waiter, lifecycle) = Waiter::new(Box::new(SubscriptionWaitable {
-            handle: Arc::clone(&handle),
-            action: action.clone(),
-        }));
+        let (waiter, lifecycle) = Waiter::new(
+            Box::new(SubscriptionWaitable {
+                handle: Arc::clone(&handle),
+                action: action.clone(),
+            }),
+            Some(guard_condition),
+        );
 
         let subscription = Arc::new(Self { handle, action, lifecycle });
 
@@ -232,7 +208,10 @@ struct SubscriptionWaitable<T: Message> {
     action: UnboundedSender<SubscriptionAction<T>>,
 }
 
-impl<T: Message> Executable for SubscriptionWaitable<T> {
+impl<T> Executable for SubscriptionWaitable<T>
+where
+    T: Message,
+{
     fn execute(&mut self) -> Result<(), RclrsError> {
         self.action.unbounded_send(SubscriptionAction::Execute).ok();
         Ok(())
@@ -243,18 +222,21 @@ impl<T: Message> Executable for SubscriptionWaitable<T> {
     }
 }
 
-impl<T: Message> Waitable for SubscriptionWaitable<T> {
+impl<T> Waitable for SubscriptionWaitable<T>
+where
+    T: Message,
+{
     unsafe fn add_to_wait_set(
         &mut self,
-        wait_set: &mut WaitSet,
+        wait_set: &mut rcl_wait_set_t,
     ) -> Result<usize, RclrsError> {
-        let index: usize = 0;
+        let mut index: usize = 0;
         unsafe {
             // SAFETY: We are holding an Arc of the handle, so the subscription
             // is still valid.
             rcl_wait_set_add_subscription(
-                &mut self.handle.rcl_wait_set,
-                &*self.handle().lock(),
+                wait_set,
+                &*self.handle.lock(),
                 &mut index,
             )
         }
@@ -268,7 +250,47 @@ impl<T: Message> Waitable for SubscriptionWaitable<T> {
         wait_set: &rcl_wait_set_t,
         index: usize,
     ) -> bool {
+        let entity = unsafe {
+            // SAFETY: The `subscriptions` field is an array of pointers, and this
+            // dereferencing is equivalent to getting the element of the array
+            // at `index`.
+            *wait_set.subscriptions.add(index)
+        };
 
+        !entity.is_null()
+    }
+}
+
+// SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
+// they are running in. Therefore, this type can be safely sent to another thread.
+unsafe impl Send for rcl_subscription_t {}
+
+/// Manage the lifecycle of an `rcl_subscription_t`, including managing its dependencies
+/// on `rcl_node_t` and `rcl_context_t` by ensuring that these dependencies are
+/// [dropped after][1] the `rcl_subscription_t`.
+///
+/// [1]: <https://doc.rust-lang.org/reference/destructors.html>
+struct SubscriptionHandle {
+    rcl_subscription: Mutex<rcl_subscription_t>,
+    node_handle: Arc<NodeHandle>,
+}
+
+impl SubscriptionHandle {
+    fn lock(&self) -> MutexGuard<rcl_subscription_t> {
+        self.rcl_subscription.lock().unwrap()
+    }
+}
+
+impl Drop for SubscriptionHandle {
+    fn drop(&mut self) {
+        let rcl_subscription = self.rcl_subscription.get_mut().unwrap();
+        let mut rcl_node = self.node_handle.rcl_node.lock().unwrap();
+        let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
+        // SAFETY: The entity lifecycle mutex is locked to protect against the risk of
+        // global variables in the rmw implementation being unsafely modified during cleanup.
+        unsafe {
+            rcl_subscription_fini(rcl_subscription, &mut *rcl_node);
+        }
     }
 }
 

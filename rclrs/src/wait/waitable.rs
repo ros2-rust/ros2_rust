@@ -4,8 +4,9 @@ use std::sync::{
 };
 
 use crate::{
+    error::ToResult,
     rcl_bindings::*,
-    RclrsError, WaitSet,
+    RclrsError, WaitSet, GuardCondition,
 };
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
@@ -113,6 +114,7 @@ pub(crate) trait Waitable: Executable {
     ) -> bool;
 }
 
+#[must_use = "If you do not give the Waiter to a WaitSet then it will never be useful"]
 pub struct Waiter {
     pub(super) waitable: Box<dyn Waitable>,
     in_use: Arc<AtomicBool>,
@@ -120,7 +122,10 @@ pub struct Waiter {
 }
 
 impl Waiter {
-    pub fn new(waitable: Box<dyn Waitable>) -> (Self, WaiterLifecycle) {
+    pub fn new(
+        waitable: Box<dyn Waitable>,
+        guard_condition: Option<Arc<GuardCondition>>,
+    ) -> (Self, WaiterLifecycle) {
         let in_use = Arc::new(AtomicBool::new(true));
         let waiter = Self {
             waitable,
@@ -128,7 +133,7 @@ impl Waiter {
             index_in_wait_set: None,
         };
 
-        let lifecycle = WaiterLifecycle { in_use };
+        let lifecycle = WaiterLifecycle { in_use, guard_condition };
         (waiter, lifecycle)
     }
 
@@ -152,7 +157,7 @@ impl Waiter {
 
     pub(super) fn add_to_wait_set(
         &mut self,
-        wait_set: &mut WaitSet,
+        wait_set: &mut rcl_wait_set_t,
     ) -> Result<(), RclrsError> {
         self.index_in_wait_set = Some(
             unsafe {
@@ -165,12 +170,27 @@ impl Waiter {
     }
 }
 
+pub trait AsExecutable {
+    fn as_executable(&mut self) -> &mut dyn Executable;
+}
+
+impl<T: Waitable + 'static> AsExecutable for T {
+    fn as_executable(&mut self) -> &mut dyn Executable {
+        self
+    }
+}
+
+#[must_use = "If you do not hold onto the WaiterLifecycle, then its Waiter will be immediately dropped"]
 pub struct WaiterLifecycle {
     in_use: Arc<AtomicBool>,
+    guard_condition: Option<Arc<GuardCondition>>,
 }
 
 impl Drop for WaiterLifecycle {
     fn drop(&mut self) {
-        self.in_use.store(false, Ordering::Relaxed);
+        self.in_use.store(false, Ordering::Release);
+        if let Some(guard_condition) = &self.guard_condition {
+            guard_condition.trigger();
+        }
     }
 }

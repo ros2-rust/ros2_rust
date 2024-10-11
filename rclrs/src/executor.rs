@@ -4,7 +4,7 @@ pub use self::basic_executor::*;
 use crate::{
     rcl_bindings::rcl_context_is_valid,
     Node, NodeOptions, RclReturnCode, RclrsError, WaitSet, Context,
-    ContextHandle, Waiter,
+    ContextHandle, Waiter, GuardCondition,
 };
 use std::{
     sync::{Arc, Mutex, Weak},
@@ -175,6 +175,10 @@ impl ExecutorCommands {
     pub(crate) fn add_to_wait_set(&self, waiter: Waiter) {
         self.channel.add_to_waitset(waiter);
     }
+
+    pub(crate) fn get_guard_condition(&self) -> &Arc<GuardCondition> {
+        &self.channel.get_guard_condition()
+    }
 }
 
 /// This trait defines the interface for passing new items into an executor to
@@ -185,6 +189,9 @@ pub trait ExecutorChannel: Send + Sync {
 
     /// Add new entities to the waitset of the executor.
     fn add_to_waitset(&self, new_entity: Waiter);
+
+    /// Get a guard condition that can be used to wake up the wait set of the executor.
+    fn get_guard_condition(&self) -> &Arc<GuardCondition>;
 }
 
 /// This trait defines the interface for having an executor run.

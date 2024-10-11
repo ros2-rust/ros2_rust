@@ -2,7 +2,7 @@ use rosidl_runtime_rs::Message;
 
 use super::{
     MessageInfo,
-    any_callback::AnySubscriptionCallback,
+    any_subscription_callback::AnySubscriptionCallback,
 };
 use crate::ReadOnlyLoanedMessage;
 
@@ -10,7 +10,7 @@ use std::future::Future;
 
 /// A trait for async callbacks of subscriptions.
 ///
-/// TODO(@mxgrey): Add a description of what callback signatures are supported
+// TODO(@mxgrey): Add a description of what callback signatures are supported
 pub trait SubscriptionAsyncCallback<T, Args>: Send + 'static
 where
     T: Message,
@@ -18,7 +18,7 @@ where
     /// Converts the callback into an enum.
     ///
     /// User code never needs to call this function.
-    fn into_async_callback(self) -> AnySubscriptionCallback<T>;
+    fn into_subscription_async_callback(self) -> AnySubscriptionCallback<T>;
 }
 
 // We need one implementation per arity. This was inspired by Bevy's systems.
@@ -29,7 +29,7 @@ where
     Out: Future<Output = ()> + Send + 'static,
     Func: FnMut(A0) -> Out + Send + 'static,
 {
-    fn into_async_callback(self) -> AnySubscriptionCallback<T> {
+    fn into_subscription_async_callback(self) -> AnySubscriptionCallback<T> {
         <(A0,) as SubscriptionAsyncArgs<T, Func>>::into_any_callback(self)
     }
 }
@@ -41,7 +41,7 @@ where
     Out: Future<Output = ()> + Send + 'static,
     Func: FnMut(A0, A1) -> Out + Send + 'static,
 {
-    fn into_async_callback(self) -> AnySubscriptionCallback<T> {
+    fn into_subscription_async_callback(self) -> AnySubscriptionCallback<T> {
         <(A0, A1) as SubscriptionAsyncArgs<T, Func>>::into_any_callback(self)
     }
 }
@@ -146,57 +146,57 @@ mod tests {
     fn callback_conversion() {
         let cb = |_msg: TestMessage| { async { } };
         assert!(matches!(
-            cb.into_async_callback(),
+            cb.into_subscription_async_callback(),
             AnySubscriptionCallback::<TestMessage>::Regular(_)
         ));
         let cb = |_msg: TestMessage, _info: MessageInfo| { async { } };
         assert!(matches!(
-            cb.into_async_callback(),
+            cb.into_subscription_async_callback(),
             AnySubscriptionCallback::<TestMessage>::RegularWithMessageInfo(_)
         ));
         let cb = |_msg: Box<TestMessage>| { async { } };
         assert!(matches!(
-            cb.into_async_callback(),
+            cb.into_subscription_async_callback(),
             AnySubscriptionCallback::<TestMessage>::Boxed(_)
         ));
         let cb = |_msg: Box<TestMessage>, _info: MessageInfo| { async { } };
         assert!(matches!(
-            cb.into_async_callback(),
+            cb.into_subscription_async_callback(),
             AnySubscriptionCallback::<TestMessage>::BoxedWithMessageInfo(_)
         ));
         let cb = |_msg: ReadOnlyLoanedMessage<TestMessage>| { async { } };
         assert!(matches!(
-            cb.into_async_callback(),
+            cb.into_subscription_async_callback(),
             AnySubscriptionCallback::<TestMessage>::Loaned(_)
         ));
         let cb = |_msg: ReadOnlyLoanedMessage<TestMessage>, _info: MessageInfo| { async {}};
         assert!(matches!(
-            cb.into_async_callback(),
+            cb.into_subscription_async_callback(),
             AnySubscriptionCallback::<TestMessage>::LoanedWithMessageInfo(_)
         ));
 
         assert!(matches!(
-            test_regular.into_async_callback(),
+            test_regular.into_subscription_async_callback(),
             AnySubscriptionCallback::<TestMessage>::Regular(_),
         ));
         assert!(matches!(
-            test_regular_with_info.into_async_callback(),
+            test_regular_with_info.into_subscription_async_callback(),
             AnySubscriptionCallback::<TestMessage>::RegularWithMessageInfo(_),
         ));
         assert!(matches!(
-            test_boxed.into_async_callback(),
+            test_boxed.into_subscription_async_callback(),
             AnySubscriptionCallback::<TestMessage>::Boxed(_),
         ));
         assert!(matches!(
-            test_boxed_with_info.into_async_callback(),
+            test_boxed_with_info.into_subscription_async_callback(),
             AnySubscriptionCallback::<TestMessage>::BoxedWithMessageInfo(_),
         ));
         assert!(matches!(
-            test_loaned.into_async_callback(),
+            test_loaned.into_subscription_async_callback(),
             AnySubscriptionCallback::<TestMessage>::Loaned(_),
         ));
         assert!(matches!(
-            test_loaned_with_info.into_async_callback(),
+            test_loaned_with_info.into_subscription_async_callback(),
             AnySubscriptionCallback::<TestMessage>::LoanedWithMessageInfo(_),
         ));
     }

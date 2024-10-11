@@ -15,9 +15,8 @@ pub use self::{options::*, graph::*};
 use crate::{
     rcl_bindings::*, Client, ClientBase, Clock, ContextHandle, GuardCondition,
     ParameterBuilder, ParameterInterface, ParameterVariant, Parameters, Publisher, QoSProfile,
-    RclrsError, Service, ServiceBase, Subscription, SubscriptionBase, SubscriptionCallback,
-    SubscriptionAsyncCallback, ExecutorCommands,
-    TimeSource, ENTITY_LIFECYCLE_MUTEX,
+    RclrsError, Service, Subscription, SubscriptionCallback, SubscriptionAsyncCallback,
+    ServiceCallback, ServiceAsyncCallback, ExecutorCommands, TimeSource, ENTITY_LIFECYCLE_MUTEX,
 };
 
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
@@ -60,10 +59,6 @@ unsafe impl Send for rcl_node_t {}
 /// [3]: crate::NodeBuilder::new
 /// [4]: crate::NodeBuilder::namespace
 pub struct Node {
-    pub(crate) clients_mtx: Mutex<Vec<Weak<dyn ClientBase>>>,
-    pub(crate) guard_conditions_mtx: Mutex<Vec<Weak<GuardCondition>>>,
-    pub(crate) services_mtx: Mutex<Vec<Weak<dyn ServiceBase>>>,
-    pub(crate) subscriptions_mtx: Mutex<Vec<Weak<dyn SubscriptionBase>>>,
     time_source: TimeSource,
     parameter: ParameterInterface,
     commands: Arc<ExecutorCommands>,
@@ -211,33 +206,80 @@ impl Node {
         Ok(publisher)
     }
 
-    /// Creates a [`Service`][1].
+    /// Creates a [`Service`] with an ordinary callback.
     ///
-    /// [1]: crate::Service
-    // TODO: make service's lifetime depend on node's lifetime
-    pub fn create_service<T, F>(
+    /// Even though this takes in a blocking (non-async) function, the callback
+    /// may run in parallel with other callbacks. This callback may even run
+    /// multiple times simultaneously with different incoming requests.
+    ///
+    /// Any internal state that needs to be mutated will need to be wrapped in
+    /// [`Mutex`] to ensure it is synchronized across multiple simultaneous runs
+    /// of the callback. To share internal state outside of the callback you will
+    /// need to wrap it in [`Arc`] or `Arc<Mutex<S>>`.
+    //
+    // TODO(@mxgrey): Add examples showing each supported signature
+    pub fn create_service<T, Args>(
         &self,
         topic: &str,
-        callback: F,
+        qos: QoSProfile,
+        callback: impl ServiceCallback<T, Args>,
     ) -> Result<Arc<Service<T>>, RclrsError>
     where
         T: rosidl_runtime_rs::Service,
-        F: Fn(&rmw_request_id_t, T::Request) -> T::Response + 'static + Send,
     {
-        let service = Arc::new(Service::<T>::new(
-            Arc::clone(&self.handle),
+        Service::<T>::create(
             topic,
-            callback,
-        )?);
-        { self.services_mtx.lock().unwrap() }
-            .push(Arc::downgrade(&service) as Weak<dyn ServiceBase>);
-        Ok(service)
+            qos,
+            callback.into_service_callback(),
+            &self.handle,
+            &self.commands,
+        )
     }
 
-    /// Creates a [`Subscription`][1].
+    /// Creates a [`Service`] with an async callback.
     ///
-    /// [1]: crate::Subscription
-    // TODO: make subscription's lifetime depend on node's lifetime
+    /// This callback may run in parallel with other callbacks. It may even run
+    /// multiple times simultaneously with different incoming requests. This
+    /// parallelism will depend on the executor that is being used. When the
+    /// callback uses `.await`, it will not block anything else from running.
+    ///
+    /// Any internal state that needs to be mutated will need to be wrapped in
+    /// [`Mutex`] to ensure it is synchronized across multiple runs of the
+    /// callback. To share internal state outside of the callback you will need
+    /// to wrap it in [`Arc`] (immutable) or `Arc<Mutex<S>>` (mutable).
+    //
+    // TODO(@mxgrey): Add examples showing each supported signature
+    pub fn create_async_service<T, Args>(
+        &self,
+        topic: &str,
+        qos: QoSProfile,
+        callback: impl ServiceAsyncCallback<T, Args>,
+    ) -> Result<Arc<Service<T>>, RclrsError>
+    where
+        T: rosidl_runtime_rs::Service,
+    {
+        Service::<T>::create(
+            topic,
+            qos,
+            callback.into_service_async_callback(),
+            &self.handle,
+            &self.commands,
+        )
+    }
+
+    /// Creates a [`Subscription`] with an ordinary callback.
+    ///
+    /// Even though this takes in a blocking (non-async) function, the callback
+    /// may run in parallel with other callbacks. This callback may even run
+    /// multiple times simultaneously with different incoming messages. This
+    /// parallelism will depend on the executor that is being used.
+    ///
+    /// Any internal state that needs to be mutated will need to be wrapped in
+    /// [`Mutex`] to ensure it is synchronized across multiple simultaneous runs
+    /// of the callback. To share internal state outside of the callback you will
+    /// need to wrap it in [`Arc`] or `Arc<Mutex<S>>`.
+    //
+    // TODO(@mxgrey): Add examples showing each supported signature
     pub fn create_subscription<T, Args>(
         &self,
         topic: &str,
@@ -250,13 +292,25 @@ impl Node {
         Subscription::<T>::create(
             topic,
             qos,
-            callback.into_callback(),
+            callback.into_subscription_callback(),
             &self.handle,
             &self.commands,
         )
     }
 
-    /// Creates a subscription with an async callback
+    /// Creates a [`Subscription`] with an async callback.
+    ///
+    /// This callback may run in parallel with other callbacks. It may even run
+    /// multiple times simultaneously with different incoming messages. This
+    /// parallelism will depend on the executor that is being used. When the
+    /// callback uses `.await`, it will not block anything else from running.
+    ///
+    /// Any internal state that needs to be mutated will need to be wrapped in
+    /// [`Mutex`] to ensure it is synchronized across multiple runs of the
+    /// callback. To share internal state outside of the callback you will need
+    /// to wrap it in [`Arc`] or `Arc<Mutex<S>>`.
+    //
+    // TODO(@mxgrey): Add examples showing each supported signature
     pub fn create_async_subscription<T, Args>(
         &self,
         topic: &str,
@@ -269,7 +323,7 @@ impl Node {
         Subscription::<T>::create(
             topic,
             qos,
-            callback.into_async_callback(),
+            callback.into_subscription_async_callback(),
             &self.handle,
             &self.commands,
         )

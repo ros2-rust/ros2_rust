@@ -24,7 +24,7 @@ use crate::rcl_bindings::*;
 /// behavior is not defined here.
 /// However, this should be avoided, if at all possible, by the RMW implementation,
 /// and should be unlikely to happen in practice.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PublisherGid {
     /// Bytes identifying a publisher in the RMW implementation.
     pub data: [u8; RMW_GID_STORAGE_SIZE],
@@ -46,7 +46,7 @@ unsafe impl Send for PublisherGid {}
 unsafe impl Sync for PublisherGid {}
 
 /// Additional information about a received message.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct MessageInfo {
     /// Time when the message was published by the publisher.
     ///
@@ -104,27 +104,26 @@ pub struct MessageInfo {
 
 impl MessageInfo {
     pub(crate) fn from_rmw_message_info(rmw_message_info: &rmw_message_info_t) -> Self {
-        let source_timestamp = match rmw_message_info.source_timestamp {
-            0 => None,
-            ts if ts < 0 => Some(SystemTime::UNIX_EPOCH - Duration::from_nanos(ts.unsigned_abs())),
-            ts => Some(SystemTime::UNIX_EPOCH + Duration::from_nanos(ts.unsigned_abs())),
-        };
-        let received_timestamp = match rmw_message_info.received_timestamp {
-            0 => None,
-            ts if ts < 0 => Some(SystemTime::UNIX_EPOCH - Duration::from_nanos(ts.unsigned_abs())),
-            ts => Some(SystemTime::UNIX_EPOCH + Duration::from_nanos(ts.unsigned_abs())),
-        };
-        let publisher_gid = PublisherGid {
-            data: rmw_message_info.publisher_gid.data,
-            implementation_identifier: rmw_message_info.publisher_gid.implementation_identifier,
-        };
         Self {
-            source_timestamp,
-            received_timestamp,
+            source_timestamp: timestamp_to_system_time(rmw_message_info.source_timestamp),
+            received_timestamp: timestamp_to_system_time(rmw_message_info.received_timestamp),
             publication_sequence_number: rmw_message_info.publication_sequence_number,
             reception_sequence_number: rmw_message_info.reception_sequence_number,
-            publisher_gid,
+            publisher_gid: PublisherGid {
+                data: rmw_message_info.publisher_gid.data,
+                implementation_identifier: rmw_message_info.publisher_gid.implementation_identifier,
+            },
         }
+    }
+}
+
+pub(crate) fn timestamp_to_system_time(
+    timestamp: rmw_time_point_value_t
+) -> Option<SystemTime> {
+    match timestamp {
+        0 => None,
+        ts if ts < 0 => Some(SystemTime::UNIX_EPOCH - Duration::from_nanos(ts.unsigned_abs())),
+        ts => Some(SystemTime::UNIX_EPOCH + Duration::from_nanos(ts.unsigned_abs())),
     }
 }
 
