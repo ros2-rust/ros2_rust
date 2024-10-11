@@ -36,6 +36,9 @@ impl Drop for rcl_context_t {
                 rcl_shutdown(self);
                 rcl_context_fini(self);
             }
+
+            // SAFETY: No preconditions for rcl_logging_fini
+            rcl_logging_fini();
         }
     }
 }
@@ -55,6 +58,10 @@ unsafe impl Send for rcl_context_t {}
 /// - command line arguments (used for e.g. name remapping)
 /// - middleware-specific data, e.g. the domain participant in DDS
 /// - the allocator used (left as the default by `rclrs`)
+///
+/// The context also configures the rcl_logging_* layer to allow publication to /rosout
+/// (as well as the terminal).  TODO: This behaviour should be configurable using an
+/// "auto logging initialise" flag as per rclcpp and rclpy.
 ///
 pub struct Context {
     pub(crate) handle: Arc<ContextHandle>,
@@ -142,6 +149,24 @@ impl Context {
             rcl_init_options_fini(&mut rcl_init_options).ok()?;
             // Move the check after the last fini()
             ret?;
+
+            // TODO: "Auto set-up logging" is forced but should be configurable as per rclcpp and rclpy
+            // SAFETY:
+            // * Lock the mutex as we cannot guarantee that rcl_* functions are protecting their global variables
+            // * Context is validated before we reach this point
+            // * No other preconditions for calling this function
+            let ret = {
+                let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
+                // Note: shadowing the allocator above.  The rcutils_get_default_allocator provides us with mechanisms for allocating and freeing
+                // memory, e.g. calloc/free. As these are function pointers and will be the same each time we call the method, it is safe to
+                // perform this shadowing
+                // Alternate is to call rcl_init_options_get_allocator however, we've freed the allocator above and restructuring the call
+                // sequence is unnecessarily complex
+                let allocator = rcutils_get_default_allocator();
+
+                rcl_logging_configure(&rcl_context.global_arguments, &allocator).ok()
+            };
+            ret?
         }
         Ok(Self {
             handle: Arc::new(ContextHandle {

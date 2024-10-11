@@ -44,7 +44,7 @@ unsafe impl Send for rcl_node_t {}
 /// It's a good idea for node names in the same executable to be unique.
 ///
 /// ## Remapping
-/// The namespace and name given when creating the node can be overriden through the command line.
+/// The namespace and name given when creating the node can be overridden through the command line.
 /// In that sense, the parameters to the node creation functions are only the _default_ namespace and
 /// name.
 /// See also the [official tutorial][1] on the command line arguments for ROS nodes, and the
@@ -440,6 +440,21 @@ impl Node {
     pub fn builder(context: &Context, node_name: &str) -> NodeBuilder {
         NodeBuilder::new(context, node_name)
     }
+
+    /// Returns the logger name of the node.
+    pub fn logger_name(&self) -> &str {
+        let rcl_node = self.handle.rcl_node.lock().unwrap();
+        // SAFETY: No pre-conditions for this function
+        let name_raw_ptr = unsafe { rcl_node_get_logger_name(&*rcl_node) };
+        if name_raw_ptr.is_null() {
+            return "";
+        }
+        // SAFETY: The returned CStr is immediately converted to a string slice,
+        // so the lifetime is no issue. The ptr is valid as per the documentation
+        // of rcl_node_get_logger_name.
+        let name_cstr = unsafe { CStr::from_ptr(name_raw_ptr) };
+        name_cstr.to_str().unwrap_or("")
+    }
 }
 
 // Helper used to implement call_string_getter(), but also used to get the FQN in the Node::new()
@@ -511,6 +526,17 @@ mod tests {
             .get("/test_topics_graph/graph_test_topic_3")
             .unwrap();
         assert!(types.contains(&"test_msgs/msg/Defaults".to_string()));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_logger_name() -> Result<(), RclrsError> {
+        // Use helper to create 2 nodes for us
+        let graph = construct_test_graph("test_topics_graph")?;
+
+        assert_eq!(graph.node1.logger_name(), "graph_test_node_1");
+        assert_eq!(graph.node2.logger_name(), "graph_test_node_2");
 
         Ok(())
     }
