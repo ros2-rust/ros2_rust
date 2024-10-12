@@ -4,7 +4,7 @@ pub use self::basic_executor::*;
 use crate::{
     rcl_bindings::rcl_context_is_valid,
     Node, NodeOptions, RclReturnCode, RclrsError, WaitSet, Context,
-    ContextHandle, Waiter, GuardCondition,
+    ContextHandle, Waitable, GuardCondition,
 };
 use std::{
     sync::{Arc, Mutex, Weak},
@@ -116,7 +116,7 @@ impl ExecutorCommands {
     /// Tell the [`Executor`] to halt its spinning.
     pub fn halt(&self) {
         self.halt.store(true, Ordering::Release);
-        self.channel.wakeup();
+        self.channel.get_guard_condition().trigger();
     }
 
     /// Run a task on the [`Executor`]. If the returned [`Promise`] is dropped
@@ -172,7 +172,7 @@ impl ExecutorCommands {
         self.channel.add_async_task(f);
     }
 
-    pub(crate) fn add_to_wait_set(&self, waiter: Waiter) {
+    pub(crate) fn add_to_wait_set(&self, waiter: Waitable) {
         self.channel.add_to_waitset(waiter);
     }
 
@@ -188,7 +188,7 @@ pub trait ExecutorChannel: Send + Sync {
     fn add_async_task(&self, f: BoxFuture<'static, ()>);
 
     /// Add new entities to the waitset of the executor.
-    fn add_to_waitset(&self, new_entity: Waiter);
+    fn add_to_waitset(&self, new_entity: Waitable);
 
     /// Get a guard condition that can be used to wake up the wait set of the executor.
     fn get_guard_condition(&self) -> &Arc<GuardCondition>;
@@ -220,11 +220,39 @@ pub trait ExecutorRuntime {
 #[non_exhaustive]
 #[derive(Default)]
 pub struct SpinOptions {
-    /// Only perform immediately available work. This is similar to spin_once in
+    /// Only perform the next available work. This is similar to spin_once in
     /// rclcpp and rclpy.
-    pub only_available_work: bool,
+    ///
+    /// To only process work that is immediately available without waiting at all,
+    /// set a timeout of zero.
+    pub only_next_available_work: bool,
     /// The executor will stop spinning if the future is resolved.
     pub until_future_resolved: Option<BoxFuture<'static, ()>>,
+    /// Stop waiting after this duration of time has passed. Use `Some(0)` to not
+    /// wait any amount of time. Use `None` to wait an infinite amount of time.
+    pub timeout: Option<Duration>,
+}
+
+impl SpinOptions {
+    /// Behave like spin_once in rclcpp and rclpy.
+    pub fn spin_once() -> Self {
+        Self {
+            only_next_available_work: true,
+            ..Default::default()
+        }
+    }
+
+    /// Stop spinning once this future is resolved.
+    pub fn until_future_resolved<F: Future + Send + 'static>(mut self, f: F) -> Self {
+        self.until_future_resolved = Some(Box::pin(async { f.await; }));
+        self
+    }
+
+    /// Stop spinning once this durtion of time is reached.
+    pub fn timeout(mut self, timeout: Duration) -> Self {
+        self.timeout = Some(timeout);
+        self
+    }
 }
 
 /// A bundle of conditions that tell the [`ExecutorRuntime`] how long to keep

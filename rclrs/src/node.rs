@@ -6,14 +6,13 @@ use std::{
     fmt,
     os::raw::c_char,
     sync::{Arc, Mutex, Weak},
-    vec::Vec,
 };
 
 use rosidl_runtime_rs::Message;
 
 pub use self::{options::*, graph::*};
 use crate::{
-    rcl_bindings::*, Client, ClientBase, Clock, ContextHandle, GuardCondition,
+    rcl_bindings::*, Client, ClientBase, Clock, ContextHandle,
     ParameterBuilder, ParameterInterface, ParameterVariant, Parameters, Publisher, QoSProfile,
     RclrsError, Service, Subscription, SubscriptionCallback, SubscriptionAsyncCallback,
     ServiceCallback, ServiceAsyncCallback, ExecutorCommands, TimeSource, ENTITY_LIFECYCLE_MUTEX,

@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex};
 use crate::{
     rcl_bindings::*,
     ContextHandle, RclrsError, ToResult, WaiterLifecycle, Executable,
-    Waitable, WaitableKind, ExecutorCommands, Waiter,
+    Waitable, ExecutableKind, ExecutableHandle, ExecutorCommands,
 };
 
 /// A waitable entity used for waking up a wait set manually.
@@ -82,10 +82,8 @@ impl GuardCondition {
             context_handle: Arc::clone(&context.handle),
         });
 
-        let (waiter, lifecycle) = Waiter::new(
-            GuardConditionWaitable {
-                handle: Arc::clone(&handle),
-            },
+        let (waiter, lifecycle) = Waitable::new(
+            Box::new(GuardConditionWaitable { handle: Arc::clone(&handle) }),
             None,
         );
 
@@ -121,7 +119,7 @@ impl Drop for GuardConditionHandle {
     fn drop(&mut self) {
         unsafe {
             // SAFETY: No precondition for this function (besides passing in a valid guard condition)
-            rcl_guard_condition_fini(&mut self.rcl_guard_condition);
+            rcl_guard_condition_fini(&mut *self.rcl_guard_condition.lock().unwrap());
         }
     }
 }
@@ -136,44 +134,14 @@ impl Executable for GuardConditionWaitable {
         Ok(())
     }
 
-    fn kind(&self) -> super::WaitableKind {
-        WaitableKind::GuardCondition
-    }
-}
-
-impl Waitable for GuardConditionWaitable {
-    unsafe fn add_to_wait_set(
-        &mut self,
-        wait_set: &mut rcl_wait_set_t,
-    ) -> Result<usize, RclrsError> {
-        let mut index: usize = 0;
-        unsafe {
-            // SAFETY: We are holding onto an Arc of the handle, so the guard
-            // condition is still valid.
-            rcl_wait_set_add_guard_condition(
-                wait_set,
-                &mut *self.handle.rcl_guard_condition.lock(),
-                &mut index,
-            )
-        }
-        .ok()?;
-
-        Ok(index)
+    fn kind(&self) -> ExecutableKind {
+        ExecutableKind::GuardCondition
     }
 
-    unsafe fn is_ready(
-        &self,
-        wait_set: &rcl_wait_set_t,
-        index: usize,
-    ) -> bool {
-        let entity = unsafe {
-            // SAFETY: The `guard_condition` entry is an array of pointers, and this
-            // dereferencing is equivalent to getting the element of the array
-            // at `index`.
-            *wait_set.guard_conditions.add(index)
-        };
-
-        !entity.is_null()
+    fn handle(&self) -> super::ExecutableHandle {
+        ExecutableHandle::GuardCondition(
+            self.handle.rcl_guard_condition.lock().unwrap()
+        )
     }
 }
 

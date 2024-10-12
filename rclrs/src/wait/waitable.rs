@@ -1,22 +1,33 @@
 use std::sync::{
     atomic::{AtomicBool, Ordering},
-    Arc,
+    Arc, MutexGuard,
 };
 
 use crate::{
     error::ToResult,
     rcl_bindings::*,
-    RclrsError, WaitSet, GuardCondition,
+    RclrsError, GuardCondition,
 };
 
+/// Enum to describe the kind of an executable.
 #[derive(Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub(crate) enum WaitableKind {
+pub enum ExecutableKind {
     Subscription,
     GuardCondition,
     Timer,
     Client,
     Service,
     Event,
+}
+
+/// Used by the wait set to obtain the handle of an executable.
+pub enum ExecutableHandle<'a> {
+    Subscription(MutexGuard<'a, rcl_subscription_t>),
+    GuardCondition(MutexGuard<'a, rcl_guard_condition_t>),
+    Timer(MutexGuard<'a, rcl_timer_t>),
+    Client(MutexGuard<'a, rcl_client_t>),
+    Service(MutexGuard<'a, rcl_service_t>),
+    Event(MutexGuard<'a, rcl_event_t>),
 }
 
 #[derive(Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -34,14 +45,14 @@ impl WaitableCount {
         Self::default()
     }
 
-    pub(super) fn add(&mut self, kind: WaitableKind, count: usize) {
+    pub(super) fn add(&mut self, kind: ExecutableKind, count: usize) {
         match kind {
-            WaitableKind::Subscription => self.subscriptions += count,
-            WaitableKind::GuardCondition => self.guard_conditions += count,
-            WaitableKind::Timer => self.timers += count,
-            WaitableKind::Client => self.clients += count,
-            WaitableKind::Service => self.services += count,
-            WaitableKind::Event => self.events += count,
+            ExecutableKind::Subscription => self.subscriptions += count,
+            ExecutableKind::GuardCondition => self.guard_conditions += count,
+            ExecutableKind::Timer => self.timers += count,
+            ExecutableKind::Client => self.clients += count,
+            ExecutableKind::Service => self.services += count,
+            ExecutableKind::Event => self.events += count,
         }
     }
 
@@ -91,44 +102,31 @@ impl WaitableCount {
 
 /// This provides the public API for executing a waitable item.
 pub trait Executable {
-    /// Indicate what kind of executable this is.
-    fn kind(&self) -> WaitableKind;
-
     /// Trigger this executable to run.
     fn execute(&mut self) -> Result<(), RclrsError>;
-}
 
-/// This provides the internal APIs for a waitable item to interact with the
-/// wait set that manages it.
-pub(crate) trait Waitable: Executable {
-    /// Add this to a wait set
-    unsafe fn add_to_wait_set(
-        &mut self,
-        wait_set: &mut rcl_wait_set_t,
-    ) -> Result<usize, RclrsError>;
+    /// Indicate what kind of executable this is.
+    fn kind(&self) -> ExecutableKind;
 
-    unsafe fn is_ready(
-        &self,
-        wait_set: &rcl_wait_set_t,
-        index: usize,
-    ) -> bool;
+    /// Provide the handle for this executable
+    fn handle(&self) -> ExecutableHandle;
 }
 
 #[must_use = "If you do not give the Waiter to a WaitSet then it will never be useful"]
-pub struct Waiter {
-    pub(super) waitable: Box<dyn Waitable>,
+pub struct Waitable {
+    pub(super) executable: Box<dyn Executable + Send + Sync>,
     in_use: Arc<AtomicBool>,
     index_in_wait_set: Option<usize>,
 }
 
-impl Waiter {
+impl Waitable {
     pub fn new(
-        waitable: Box<dyn Waitable>,
+        waitable: Box<dyn Executable + Send + Sync>,
         guard_condition: Option<Arc<GuardCondition>>,
     ) -> (Self, WaiterLifecycle) {
         let in_use = Arc::new(AtomicBool::new(true));
         let waiter = Self {
-            waitable,
+            executable: waitable,
             in_use: Arc::clone(&in_use),
             index_in_wait_set: None,
         };
@@ -146,37 +144,58 @@ impl Waiter {
     }
 
     pub(super) fn is_ready(&self, wait_set: &rcl_wait_set_t) -> bool {
-        self.index_in_wait_set.is_some_and(|index|
-            unsafe {
-                // SAFETY: The Waitable::is_ready function is marked as unsafe
-                // because this is the only place that it makes sense to use it.
-                self.waitable.is_ready(wait_set, index)
-            }
-        )
+        self.index_in_wait_set.is_some_and(|index| {
+            let ptr_is_null = unsafe {
+                // SAFETY: Each field in the wait set is an array of points.
+                // The dereferencing that we do is equivalent to obtaining the
+                // element of the array at the index-th position.
+                match self.executable.kind() {
+                    ExecutableKind::Subscription => wait_set.subscriptions.add(index).is_null(),
+                    ExecutableKind::GuardCondition => wait_set.guard_conditions.add(index).is_null(),
+                    ExecutableKind::Service => wait_set.services.add(index).is_null(),
+                    ExecutableKind::Client => wait_set.clients.add(index).is_null(),
+                    ExecutableKind::Timer => wait_set.timers.add(index).is_null(),
+                    ExecutableKind::Event => wait_set.events.add(index).is_null(),
+                }
+            };
+            !ptr_is_null
+        })
     }
 
     pub(super) fn add_to_wait_set(
         &mut self,
         wait_set: &mut rcl_wait_set_t,
     ) -> Result<(), RclrsError> {
-        self.index_in_wait_set = Some(
-            unsafe {
-                // SAFETY: The Waitable::add_to_wait_set function is marked as
-                // unsafe because this is the only place that it makes sense to use it.
-                self.waitable.add_to_wait_set(wait_set)?
+
+        let mut index = 0;
+        unsafe {
+            // SAFETY: The Executable is responsible for maintaining the lifecycle
+            // of the handle, so it is guaranteed to be valid here.
+            match self.executable.handle() {
+                ExecutableHandle::Subscription(handle) => {
+                    rcl_wait_set_add_subscription(wait_set, &*handle, &mut index)
+                }
+                ExecutableHandle::GuardCondition(handle) => {
+                    rcl_wait_set_add_guard_condition(wait_set, &*handle, &mut index)
+                }
+                ExecutableHandle::Service(handle) => {
+                    rcl_wait_set_add_service(wait_set, &*handle, &mut index)
+                }
+                ExecutableHandle::Client(handle) => {
+                    rcl_wait_set_add_client(wait_set, &*handle, &mut index)
+                }
+                ExecutableHandle::Timer(handle) => {
+                    rcl_wait_set_add_timer(wait_set, &*handle, &mut index)
+                }
+                ExecutableHandle::Event(handle) => {
+                    rcl_wait_set_add_event(wait_set, &*handle, &mut index)
+                }
             }
-        );
+        }
+        .ok()?;
+
+        self.index_in_wait_set = Some(index);
         Ok(())
-    }
-}
-
-pub trait AsExecutable {
-    fn as_executable(&mut self) -> &mut dyn Executable;
-}
-
-impl<T: Waitable + 'static> AsExecutable for T {
-    fn as_executable(&mut self) -> &mut dyn Executable {
-        self
     }
 }
 

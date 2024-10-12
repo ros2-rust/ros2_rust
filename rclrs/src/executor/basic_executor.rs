@@ -32,7 +32,5 @@ impl ExecutorChannel for BasicExecutorChannel {
 
     }
 
-    fn wakeup(&self) {
 
-    }
 }

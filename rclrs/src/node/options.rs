@@ -312,10 +312,6 @@ impl NodeOptions {
         };
         let node = Arc::new(Node {
             handle,
-            clients_mtx: Mutex::new(vec![]),
-            guard_conditions_mtx: Mutex::new(vec![]),
-            services_mtx: Mutex::new(vec![]),
-            subscriptions_mtx: Mutex::new(vec![]),
             time_source: TimeSource::builder(self.clock_type)
                 .clock_qos(self.clock_qos)
                 .build(),

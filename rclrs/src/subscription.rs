@@ -11,8 +11,8 @@ use crate::{
     error::ToResult,
     qos::QoSProfile,
     rcl_bindings::*,
-    ExecutorCommands, NodeHandle, RclrsError, Waitable, Executable, WaitableKind,
-    GuardCondition, Waiter, WaiterLifecycle, ENTITY_LIFECYCLE_MUTEX,
+    ExecutorCommands, NodeHandle, RclrsError, Waitable, Executable, ExecutableHandle,
+    ExecutableKind, GuardCondition, WaiterLifecycle, ENTITY_LIFECYCLE_MUTEX,
 };
 
 mod any_subscription_callback;
@@ -144,7 +144,7 @@ where
         action: UnboundedSender<SubscriptionAction<T>>,
         node_handle: Arc<NodeHandle>,
         guard_condition: Arc<GuardCondition>,
-    ) -> Result<(Arc<Self>, Waiter), RclrsError>
+    ) -> Result<(Arc<Self>, Waitable), RclrsError>
     // This uses pub(crate) visibility to avoid instantiating this struct outside
     // [`Node::create_subscription`], see the struct's documentation for the rationale
     where
@@ -189,7 +189,7 @@ where
             node_handle,
         });
 
-        let (waiter, lifecycle) = Waiter::new(
+        let (waiter, lifecycle) = Waitable::new(
             Box::new(SubscriptionWaitable {
                 handle: Arc::clone(&handle),
                 action: action.clone(),
@@ -217,47 +217,12 @@ where
         Ok(())
     }
 
-    fn kind(&self) -> WaitableKind {
-        WaitableKind::Subscription
-    }
-}
-
-impl<T> Waitable for SubscriptionWaitable<T>
-where
-    T: Message,
-{
-    unsafe fn add_to_wait_set(
-        &mut self,
-        wait_set: &mut rcl_wait_set_t,
-    ) -> Result<usize, RclrsError> {
-        let mut index: usize = 0;
-        unsafe {
-            // SAFETY: We are holding an Arc of the handle, so the subscription
-            // is still valid.
-            rcl_wait_set_add_subscription(
-                wait_set,
-                &*self.handle.lock(),
-                &mut index,
-            )
-        }
-        .ok()?;
-
-        Ok(index)
+    fn kind(&self) -> crate::ExecutableKind {
+        ExecutableKind::Subscription
     }
 
-    unsafe fn is_ready(
-        &self,
-        wait_set: &rcl_wait_set_t,
-        index: usize,
-    ) -> bool {
-        let entity = unsafe {
-            // SAFETY: The `subscriptions` field is an array of pointers, and this
-            // dereferencing is equivalent to getting the element of the array
-            // at `index`.
-            *wait_set.subscriptions.add(index)
-        };
-
-        !entity.is_null()
+    fn handle(&self) -> ExecutableHandle {
+        ExecutableHandle::Subscription(self.handle.lock())
     }
 }
 

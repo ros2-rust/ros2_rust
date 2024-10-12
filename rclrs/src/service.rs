@@ -9,8 +9,8 @@ use futures::channel::mpsc::{unbounded, UnboundedSender, TrySendError};
 use crate::{
     error::ToResult,
     rcl_bindings::*,
-    NodeHandle, RclrsError, Waiter, WaiterLifecycle, GuardCondition, QoSProfile,
-    Executable, Waitable, WaitableKind, ENTITY_LIFECYCLE_MUTEX, ExecutorCommands,
+    NodeHandle, RclrsError, Waitable, WaiterLifecycle, GuardCondition, QoSProfile,
+    Executable, ExecutableKind, ExecutableHandle, ENTITY_LIFECYCLE_MUTEX, ExecutorCommands,
 };
 
 mod any_service_callback;
@@ -134,7 +134,7 @@ where
         action: UnboundedSender<ServiceAction<T>>,
         node_handle: Arc<NodeHandle>,
         guard_condition: Arc<GuardCondition>,
-    ) -> Result<(Arc<Self>, Waiter), RclrsError> {
+    ) -> Result<(Arc<Self>, Waitable), RclrsError> {
         // SAFETY: Getting a zero-initialized value is always safe.
         let mut rcl_service = unsafe { rcl_get_zero_initialized_service() };
         let type_support = <T as rosidl_runtime_rs::Service>::get_type_support()
@@ -175,7 +175,7 @@ where
             node_handle,
         });
 
-        let (waiter, lifecycle) = Waiter::new(
+        let (waiter, lifecycle) = Waitable::new(
             Box::new(ServiceWaitable {
                 handle: Arc::clone(&handle),
                 action: action.clone(),
@@ -203,47 +203,12 @@ where
         Ok(())
     }
 
-    fn kind(&self) -> WaitableKind {
-        WaitableKind::Service
-    }
-}
-
-impl<T> Waitable for ServiceWaitable<T>
-where
-    T: rosidl_runtime_rs::Service,
-{
-    unsafe fn add_to_wait_set(
-        &mut self,
-        wait_set: &mut rcl_wait_set_t,
-    ) -> Result<usize, RclrsError> {
-        let mut index: usize = 0;
-        unsafe {
-            // SAFETY: We are holding an Arc of the handle, so the service is
-            // still valid.
-            rcl_wait_set_add_service(
-                wait_set,
-                &*self.handle.lock(),
-                &mut index,
-            )
-        }
-        .ok()?;
-
-        Ok(index)
+    fn kind(&self) -> crate::ExecutableKind {
+        ExecutableKind::Service
     }
 
-    unsafe fn is_ready(
-        &self,
-        wait_set: &rcl_wait_set_t,
-        index: usize,
-    ) -> bool {
-        let entity = unsafe {
-            // SAFETY: The `services` field is an array of pointers, and this
-            // dereferencing is equivalent to getting the element of the array
-            // at `index`.
-            *wait_set.services.add(index)
-        };
-
-        !entity.is_null()
+    fn handle(&self) -> ExecutableHandle {
+        ExecutableHandle::Service(self.handle.lock())
     }
 }
 

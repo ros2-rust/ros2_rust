@@ -31,7 +31,7 @@ pub use waitable::*;
 
 /// A struct for waiting on subscriptions and other waitable entities to become ready.
 pub struct WaitSet {
-    entities: HashMap<WaitableKind, Vec<Waiter>>,
+    entities: HashMap<ExecutableKind, Vec<Waitable>>,
     pub(crate) handle: WaitSetHandle,
 }
 
@@ -61,13 +61,13 @@ impl WaitSet {
     /// Take all the items out of `entities` and move them into this wait set.
     pub fn add(
         &mut self,
-        entities: impl IntoIterator<Item = Waiter>,
+        entities: impl IntoIterator<Item = Waitable>,
     ) -> Result<(), RclrsError> {
         for entity in entities {
             if entity.in_wait_set() {
                 return Err(RclrsError::AlreadyAddedToWaitSet);
             }
-            let kind = entity.waitable.kind();
+            let kind = entity.executable.kind();
             self.entities.entry(kind).or_default().push(entity);
         }
         self.resize_rcl_containers()?;
@@ -155,7 +155,7 @@ impl WaitSet {
         // the callback for those that were.
         for waiter in self.entities.values_mut().flat_map(|v| v) {
             if waiter.is_ready(&self.handle.rcl_wait_set) {
-                f(waiter.waitable.as_executable())?;
+                f(&mut *waiter.executable)?;
             }
         }
 
@@ -180,6 +180,7 @@ impl WaitSet {
         for (kind, collection) in &self.entities {
             c.add(*kind, collection.len());
         }
+        c
     }
 
     fn resize_rcl_containers(&mut self) -> Result<(), RclrsError> {
@@ -234,8 +235,7 @@ struct WaitSetHandle {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::atomic::AtomicBool;
-    use super::*;
+    use crate::*;
 
     #[test]
     fn traits() {
@@ -247,27 +247,27 @@ mod tests {
 
     #[test]
     fn guard_condition_in_wait_set_readies() -> Result<(), RclrsError> {
-        let context = Context::new([])?;
+        let mut executor = Context::new([])?.create_basic_executor();
 
-        let guard_condition = Arc::new(GuardCondition::new(&context));
-
-        let in_use = Arc::new(AtomicBool::new(true));
-        let waiter = Waiter::new(..);
-        entities.guard_conditions.push(Arc::clone(&guard_condition));
-
-        let mut wait_set = WaitSet::new(entities, &context)?;
+        let guard_condition = GuardCondition::new(&executor.commands());
         guard_condition.trigger()?;
 
-        let mut triggered = false;
-        wait_set.wait(
-            Some(std::time::Duration::from_millis(10)),
-            |entity| {
-                assert!(matches!(entity, WaitSetEntity::GuardCondition(_)));
-                triggered = true;
-                Ok(())
-            },
-        )?;
-        assert!(triggered);
+        let start = std::time::Instant::now();
+        // This should stop spinning right away because the guard condition was
+        // already triggered.
+        executor.spin(
+            SpinOptions::spin_once()
+            .timeout(Duration::from_secs(10))
+        );
+
+        // If it took more than a second to finish spinning then something is
+        // probably wrong.
+        //
+        // Note that this test could theoretically be flaky if it runs on a
+        // machine with very strange CPU scheduling behaviors. To have a test
+        // that is guaranteed to be stable we could write a custom executor for
+        // testing that will give us more introspection.
+        assert!(std::time::Instant::now() - start < Duration::from_secs(1));
 
         Ok(())
     }

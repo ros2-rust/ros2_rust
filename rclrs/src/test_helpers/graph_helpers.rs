@@ -7,13 +7,9 @@ pub(crate) struct TestGraph {
 }
 
 pub(crate) fn construct_test_graph(namespace: &str) -> Result<TestGraph, RclrsError> {
-    let context = Context::new([])?;
+    let executor = Context::new([])?.create_basic_executor();
     Ok(TestGraph {
-        node1: NodeOptions::new(&context, "graph_test_node_1")
-            .namespace(namespace)
-            .build()?,
-        node2: NodeOptions::new(&context, "graph_test_node_2")
-            .namespace(namespace)
-            .build()?,
+        node1: executor.create_node(NodeOptions::new("graph_test_node_1").namespace(namespace))?,
+        node2: executor.create_node(NodeOptions::new("graph_test_node_2").namespace(namespace))?,
     })
 }
