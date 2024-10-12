@@ -159,3 +159,79 @@ pub trait Service: 'static {
     /// Get a pointer to the correct `rosidl_service_type_support_t` structure.
     fn get_type_support() -> *const std::os::raw::c_void;
 }
+
+/// Trait for actions.
+///
+/// User code never needs to call this trait's method, much less implement this trait.
+pub trait Action: 'static {
+    /// The goal message associated with this action.
+    type Goal: Message;
+
+    /// The result message associated with this action.
+    type Result: Message;
+
+    /// The feedback message associated with this action.
+    type Feedback: Message;
+
+    /// Get a pointer to the correct `rosidl_action_type_support_t` structure.
+    fn get_type_support() -> *const std::os::raw::c_void;
+}
+
+/// Trait for action implementation details.
+///
+/// User code never needs to implement this trait, nor use its associated types.
+pub trait ActionImpl: 'static + Action {
+    /// The goal_status message associated with this action.
+    type GoalStatusMessage: Message;
+
+    /// The feedback message associated with this action.
+    type FeedbackMessage: Message;
+
+    /// The send_goal service associated with this action.
+    type SendGoalService: Service;
+
+    /// The cancel_goal service associated with this action.
+    type CancelGoalService: Service;
+
+    /// The get_result service associated with this action.
+    type GetResultService: Service;
+
+    /// Create a goal request message with the given UUID and goal.
+    fn create_goal_request(goal_id: &[u8; 16], goal: <<Self as Action>::Goal as Message>::RmwMsg) -> <<Self::SendGoalService as Service>::Request as Message>::RmwMsg;
+
+    /// Get the UUID of a goal request.
+    fn get_goal_request_uuid(request: &<<Self::SendGoalService as Service>::Request as Message>::RmwMsg) -> &[u8; 16];
+
+    /// Create a goal response message with the given acceptance and timestamp.
+    fn create_goal_response(accepted: bool, stamp: (i32, u32)) -> <<Self::SendGoalService as Service>::Response as Message>::RmwMsg;
+
+    /// Get the `accepted` field of a goal response.
+    fn get_goal_response_accepted(response: &<<Self::SendGoalService as Service>::Response as Message>::RmwMsg) -> bool;
+
+    /// Get the `stamp` field of a goal response.
+    fn get_goal_response_stamp(response: &<<Self::SendGoalService as Service>::Response as Message>::RmwMsg) -> (i32, u32);
+
+    /// Create a feedback message with the given goal ID and contents.
+    fn create_feedback_message(goal_id: &[u8; 16], feedback: <<Self as Action>::Feedback as Message>::RmwMsg) -> <Self::FeedbackMessage as Message>::RmwMsg;
+
+    /// Get the UUID of a feedback message.
+    fn get_feedback_message_uuid(feedback: &<Self::FeedbackMessage as Message>::RmwMsg) -> &[u8; 16];
+
+    /// Get the feedback of a feedback message.
+    fn get_feedback_message_feedback(feedback: &<Self::FeedbackMessage as Message>::RmwMsg) -> &<<Self as Action>::Feedback as Message>::RmwMsg;
+
+    /// Create a result request message with the given goal ID.
+    fn create_result_request(goal_id: &[u8; 16]) -> <<Self::GetResultService as Service>::Request as Message>::RmwMsg;
+
+    /// Get the UUID of a result request.
+    fn get_result_request_uuid(request: &<<Self::GetResultService as Service>::Request as Message>::RmwMsg) -> &[u8; 16];
+
+    /// Create a result response message with the given status and contents.
+    fn create_result_response(status: i8, result: <<Self as Action>::Result as Message>::RmwMsg) -> <<Self::GetResultService as Service>::Response as Message>::RmwMsg;
+
+    /// Get the result of a result response.
+    fn get_result_response_result(response: &<<Self::GetResultService as Service>::Response as Message>::RmwMsg) -> &<<Self as Action>::Result as Message>::RmwMsg;
+
+    /// Get the status of a result response.
+    fn get_result_response_status(response: &<<Self::GetResultService as Service>::Response as Message>::RmwMsg) -> i8;
+}
