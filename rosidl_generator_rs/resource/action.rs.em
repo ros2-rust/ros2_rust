@@ -77,7 +77,7 @@ type_name = action_spec.namespaced_type.name
 
 #[link(name = "@(package_name)__rosidl_typesupport_c")]
 extern "C" {
-    fn rosidl_typesupport_c__get_action_type_support_handle__@(package_name)__@(subfolder)__@(type_name)() -> *const std::os::raw::c_void;
+    fn rosidl_typesupport_c__get_action_type_support_handle__@(package_name)__@(subfolder)__@(type_name)() -> *const std::ffi::c_void;
 }
 
 // Corresponds to @(package_name)__@(subfolder)__@(type_name)
@@ -88,7 +88,7 @@ impl rosidl_runtime_rs::Action for @(type_name) {
   type Result = crate::@(subfolder)::@(type_name)@(ACTION_RESULT_SUFFIX);
   type Feedback = crate::@(subfolder)::@(type_name)@(ACTION_FEEDBACK_SUFFIX);
 
-  fn get_type_support() -> *const std::os::raw::c_void {
+  fn get_type_support() -> *const std::ffi::c_void {
     // SAFETY: No preconditions for this function.
     unsafe { rosidl_typesupport_c__get_action_type_support_handle__@(package_name)__@(subfolder)__@(type_name)() }
   }
