@@ -1,66 +1,32 @@
 use std::{
     boxed::Box,
-    collections::HashMap,
     ffi::CString,
-    sync::{atomic::AtomicBool, Arc, Mutex, MutexGuard},
+    sync::{Arc, Mutex, MutexGuard},
 };
 
-use futures::channel::oneshot;
+use futures::channel::mpsc::{UnboundedSender, unbounded};
+
 use rosidl_runtime_rs::Message;
 
 use crate::{
-    error::{RclReturnCode, ToResult},
+    error::ToResult,
     rcl_bindings::*,
-    MessageCow, NodeHandle, RclrsError, ENTITY_LIFECYCLE_MUTEX,
+    MessageCow, NodeHandle, RclrsError, Promise, ENTITY_LIFECYCLE_MUTEX,
+    ExecutorCommands, Executable, QoSProfile, Waitable, WaitableLifecycle,
+    ExecutableHandle, ExecutableKind, ServiceInfo,
 };
 
-// SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
-// they are running in. Therefore, this type can be safely sent to another thread.
-unsafe impl Send for rcl_client_t {}
+mod client_async_callback;
+pub use client_async_callback::*;
 
-/// Manage the lifecycle of an `rcl_client_t`, including managing its dependencies
-/// on `rcl_node_t` and `rcl_context_t` by ensuring that these dependencies are
-/// [dropped after][1] the `rcl_client_t`.
-///
-/// [1]: <https://doc.rust-lang.org/reference/destructors.html>
-pub struct ClientHandle {
-    rcl_client: Mutex<rcl_client_t>,
-    node_handle: Arc<NodeHandle>,
-    pub(crate) in_use_by_wait_set: Arc<AtomicBool>,
-}
+mod client_callback;
+pub use client_callback::*;
 
-impl ClientHandle {
-    pub(crate) fn lock(&self) -> MutexGuard<rcl_client_t> {
-        self.rcl_client.lock().unwrap()
-    }
-}
+mod client_output;
+pub use client_output::*;
 
-impl Drop for ClientHandle {
-    fn drop(&mut self) {
-        let rcl_client = self.rcl_client.get_mut().unwrap();
-        let mut rcl_node = self.node_handle.rcl_node.lock().unwrap();
-        let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
-        // SAFETY: The entity lifecycle mutex is locked to protect against the risk of
-        // global variables in the rmw implementation being unsafely modified during cleanup.
-        unsafe {
-            rcl_client_fini(rcl_client, &mut *rcl_node);
-        }
-    }
-}
-
-/// Trait to be implemented by concrete Client structs.
-///
-/// See [`Client<T>`] for an example.
-pub trait ClientBase: Send + Sync {
-    /// Internal function to get a reference to the `rcl` handle.
-    fn handle(&self) -> &ClientHandle;
-    /// Tries to take a new response and run the callback or future with it.
-    fn execute(&self) -> Result<(), RclrsError>;
-}
-
-type RequestValue<Response> = Box<dyn FnOnce(Response) + 'static + Send>;
-
-type RequestId = i64;
+mod client_task;
+use client_task::*;
 
 /// Main class responsible for sending requests to a ROS service.
 ///
@@ -73,17 +39,125 @@ pub struct Client<T>
 where
     T: rosidl_runtime_rs::Service,
 {
-    pub(crate) handle: Arc<ClientHandle>,
-    requests: Mutex<HashMap<RequestId, RequestValue<T::Response>>>,
-    futures: Arc<Mutex<HashMap<RequestId, oneshot::Sender<T::Response>>>>,
+    handle: Arc<ClientHandle>,
+    action: UnboundedSender<ClientAction<T>>,
+    lifecycle: WaitableLifecycle,
+    commands: Arc<ExecutorCommands>,
 }
 
 impl<T> Client<T>
 where
     T: rosidl_runtime_rs::Service,
 {
+    /// Send out a request for this service client.
+    ///
+    /// If the call to rcl succeeds, you will receive a [`Promise`] of the
+    /// service response. You can choose what kind of metadata you receive. The
+    /// promise can provide any of the following:
+    /// - `Response`
+    /// - `(Response, `[`RequestId`][1]`)`
+    /// - `(Response, `[`ServiceInfo`][2]`)`
+    ///
+    /// [1]: crate::RequestId
+    /// [2]: crate::ServiceInfo
+    pub fn call<'a, Req, Out>(
+        &self,
+        request: Req,
+    ) -> Result<Promise<Out>, RclrsError>
+    where
+        Req: MessageCow<'a, T::Request>,
+        Out: ClientOutput<T::Response>,
+    {
+        let (sender, promise) = Out::create_channel();
+        let rmw_message = T::Request::into_rmw_message(request.into_cow());
+        let mut sequence_number = -1;
+        unsafe {
+            // SAFETY: The client handle ensures the rcl_client is valid and
+            // our generic system ensures it has the correct type.
+            rcl_send_request(
+                &*self.handle.lock() as *const _,
+                rmw_message.as_ref() as *const <T::Request as Message>::RmwMsg as *mut _,
+                &mut sequence_number,
+            )
+        }
+        .ok()?;
+
+        self.action.unbounded_send(
+            ClientAction::NewRequest { sequence_number, sender }
+        );
+
+        Ok(promise)
+    }
+
+    /// Call this service and then handle its response with a regular callback.
+    //
+    // TODO(@mxgrey): Add documentation to show what callback signatures are supported
+    pub fn call_then<'a, Req, Args>(
+        &self,
+        request: Req,
+        callback: impl ClientCallback<T, Args>,
+    ) -> Result<(), RclrsError>
+    where
+        Req: MessageCow<'a, T::Request>,
+    {
+        let callback = move |response, info| {
+            async { callback.run_client_callback(response, info); }
+        };
+        self.call_then_async(request, callback)
+    }
+
+    /// Call this service and then handle its response with an async callback.
+    //
+    // TODO(@mxgrey): Add documentation to show what callback signatures are supported
+    pub fn call_then_async<'a, Req, Args>(
+        &self,
+        request: Req,
+        callback: impl ClientAsyncCallback<T, Args>,
+    ) -> Result<(), RclrsError>
+    where
+        Req: MessageCow<'a, T::Request>,
+    {
+        let response: Promise<(T::Response, ServiceInfo)> = self.call(request)?;
+        self.commands.run_detached(async move {
+            match response.await {
+                Ok((response, info)) => {
+                    callback.run_client_async_callback(response, info).await;
+                }
+                Err(_) => {
+                    // TODO(@mxgrey): Log this error when logging becomes available
+                }
+            }
+        });
+
+        Ok(())
+    }
+
+    /// Check if a service server is available.
+    ///
+    /// Will return true if there is a service server available, false if unavailable.
+    //
+    // TODO(@mxgrey): Provide an async function to await on when the service is ready
+    pub fn service_is_ready(&self) -> Result<bool, RclrsError> {
+        let mut is_ready = false;
+        let client = &mut *self.handle.rcl_client.lock().unwrap();
+        let node = &mut *self.handle.node_handle.rcl_node.lock().unwrap();
+
+        unsafe {
+            // SAFETY both node and client are guaranteed to be valid here
+            // client is guaranteed to have been generated with node
+            rcl_service_server_is_available(node as *const _, client as *const _, &mut is_ready)
+        }
+        .ok()?;
+        Ok(is_ready)
+    }
+
     /// Creates a new client.
-    pub(crate) fn new(node_handle: Arc<NodeHandle>, topic: &str) -> Result<Self, RclrsError>
+    pub(crate) fn create(
+        topic: &str,
+        qos: QoSProfile,
+        node_handle: &Arc<NodeHandle>,
+        commands: &Arc<ExecutorCommands>,
+    ) -> Result<Arc<Self>, RclrsError>
     // This uses pub(crate) visibility to avoid instantiating this struct outside
     // [`Node::create_client`], see the struct's documentation for the rationale
     where
@@ -99,7 +173,8 @@ where
         })?;
 
         // SAFETY: No preconditions for this function.
-        let client_options = unsafe { rcl_client_get_default_options() };
+        let mut client_options = unsafe { rcl_client_get_default_options() };
+        client_options.qos = qos.into();
 
         {
             let rcl_node = node_handle.rcl_node.lock().unwrap();
@@ -126,186 +201,85 @@ where
 
         let handle = Arc::new(ClientHandle {
             rcl_client: Mutex::new(rcl_client),
-            node_handle,
-            in_use_by_wait_set: Arc::new(AtomicBool::new(false)),
+            node_handle: Arc::clone(&node_handle),
         });
 
-        Ok(Self {
+        let (action, receiver) = unbounded();
+        commands.run_detached(client_task(receiver, Arc::clone(&handle)));
+
+        let (waitable, lifecycle) = Waitable::new(
+            Box::new(ClientExecutable {
+                handle: Arc::clone(&handle),
+                action: action.clone(),
+            }),
+            Some(Arc::clone(&commands.get_guard_condition())),
+        );
+        commands.add_to_wait_set(waitable);
+
+        Ok(Arc::new(Self {
             handle,
-            requests: Mutex::new(HashMap::new()),
-            futures: Arc::new(Mutex::new(
-                HashMap::<RequestId, oneshot::Sender<T::Response>>::new(),
-            )),
-        })
-    }
-
-    /// Sends a request with a callback to be called with the response.
-    ///
-    /// The [`MessageCow`] trait is implemented by any
-    /// [`Message`] as well as any reference to a `Message`.
-    ///
-    /// The reason for allowing owned messages is that publishing owned messages can be more
-    /// efficient in the case of idiomatic messages[^note].
-    ///
-    /// [^note]: See the [`Message`] trait for an explanation of "idiomatic".
-    ///
-    /// Hence, when a message will not be needed anymore after publishing, pass it by value.
-    /// When a message will be needed again after publishing, pass it by reference, instead of cloning and passing by value.
-    pub fn async_send_request_with_callback<'a, M: MessageCow<'a, T::Request>, F>(
-        &self,
-        message: M,
-        callback: F,
-    ) -> Result<(), RclrsError>
-    where
-        F: FnOnce(T::Response) + 'static + Send,
-    {
-        let rmw_message = T::Request::into_rmw_message(message.into_cow());
-        let mut sequence_number = -1;
-        unsafe {
-            // SAFETY: The request type is guaranteed to match the client type by the type system.
-            rcl_send_request(
-                &*self.handle.lock() as *const _,
-                rmw_message.as_ref() as *const <T::Request as Message>::RmwMsg as *mut _,
-                &mut sequence_number,
-            )
-        }
-        .ok()?;
-        let requests = &mut *self.requests.lock().unwrap();
-        requests.insert(sequence_number, Box::new(callback));
-        Ok(())
-    }
-
-    /// Sends a request and returns the response as a `Future`.
-    ///
-    /// The [`MessageCow`] trait is implemented by any
-    /// [`Message`] as well as any reference to a `Message`.
-    ///
-    /// The reason for allowing owned messages is that publishing owned messages can be more
-    /// efficient in the case of idiomatic messages[^note].
-    ///
-    /// [^note]: See the [`Message`] trait for an explanation of "idiomatic".
-    ///
-    /// Hence, when a message will not be needed anymore after publishing, pass it by value.
-    /// When a message will be needed again after publishing, pass it by reference, instead of cloning and passing by value.
-    pub async fn call_async<'a, R: MessageCow<'a, T::Request>>(
-        &self,
-        request: R,
-    ) -> Result<T::Response, RclrsError>
-    where
-        T: rosidl_runtime_rs::Service,
-    {
-        let rmw_message = T::Request::into_rmw_message(request.into_cow());
-        let mut sequence_number = -1;
-        unsafe {
-            // SAFETY: The request type is guaranteed to match the client type by the type system.
-            rcl_send_request(
-                &*self.handle.lock() as *const _,
-                rmw_message.as_ref() as *const <T::Request as Message>::RmwMsg as *mut _,
-                &mut sequence_number,
-            )
-        }
-        .ok()?;
-        let (tx, rx) = oneshot::channel::<T::Response>();
-        self.futures.lock().unwrap().insert(sequence_number, tx);
-        // It is safe to call unwrap() here since the `Canceled` error will only happen when the
-        // `Sender` is dropped
-        // https://docs.rs/futures/latest/futures/channel/oneshot/struct.Canceled.html
-        Ok(rx.await.unwrap())
-    }
-
-    /// Fetches a new response.
-    ///
-    /// When there is no new message, this will return a
-    /// [`ClientTakeFailed`][1].
-    ///
-    /// [1]: crate::RclrsError
-    //
-    // ```text
-    // +----------------------+
-    // | rclrs::take_response |
-    // +----------+-----------+
-    //            |
-    //            |
-    // +----------v-----------+
-    // |   rcl_take_response  |
-    // +----------+-----------+
-    //            |
-    //            |
-    // +----------v----------+
-    // |      rmw_take       |
-    // +---------------------+
-    // ```
-    pub fn take_response(&self) -> Result<(T::Response, rmw_request_id_t), RclrsError> {
-        let mut request_id_out = rmw_request_id_t {
-            writer_guid: [0; 16],
-            sequence_number: 0,
-        };
-        type RmwMsg<T> =
-            <<T as rosidl_runtime_rs::Service>::Response as rosidl_runtime_rs::Message>::RmwMsg;
-        let mut response_out = RmwMsg::<T>::default();
-        let handle = &*self.handle.lock();
-        unsafe {
-            // SAFETY: The three pointers are valid/initialized
-            rcl_take_response(
-                handle,
-                &mut request_id_out,
-                &mut response_out as *mut RmwMsg<T> as *mut _,
-            )
-        }
-        .ok()?;
-        Ok((T::Response::from_rmw_message(response_out), request_id_out))
-    }
-
-    /// Check if a service server is available.
-    ///
-    /// Will return true if there is a service server available, false if unavailable.
-    ///
-    pub fn service_is_ready(&self) -> Result<bool, RclrsError> {
-        let mut is_ready = false;
-        let client = &mut *self.handle.rcl_client.lock().unwrap();
-        let node = &mut *self.handle.node_handle.rcl_node.lock().unwrap();
-
-        unsafe {
-            // SAFETY both node and client are guaranteed to be valid here
-            // client is guaranteed to have been generated with node
-            rcl_service_server_is_available(node as *const _, client as *const _, &mut is_ready)
-        }
-        .ok()?;
-        Ok(is_ready)
+            action,
+            lifecycle,
+            commands: Arc::clone(&commands),
+        }))
     }
 }
 
-impl<T> ClientBase for Client<T>
+struct ClientExecutable<T: rosidl_runtime_rs::Service> {
+    handle: Arc<ClientHandle>,
+    action: UnboundedSender<ClientAction<T>>
+}
+
+impl<T> Executable for ClientExecutable<T>
 where
     T: rosidl_runtime_rs::Service,
 {
-    fn handle(&self) -> &ClientHandle {
-        &self.handle
-    }
-
-    fn execute(&self) -> Result<(), RclrsError> {
-        let (res, req_id) = match self.take_response() {
-            Ok((res, req_id)) => (res, req_id),
-            Err(RclrsError::RclError {
-                code: RclReturnCode::ClientTakeFailed,
-                ..
-            }) => {
-                // Spurious wakeup – this may happen even when a waitset indicated that this
-                // client was ready, so it shouldn't be an error.
-                return Ok(());
-            }
-            Err(e) => return Err(e),
-        };
-        let requests = &mut *self.requests.lock().unwrap();
-        let futures = &mut *self.futures.lock().unwrap();
-        if let Some(callback) = requests.remove(&req_id.sequence_number) {
-            callback(res);
-        } else if let Some(future) = futures.remove(&req_id.sequence_number) {
-            let _ = future.send(res);
-        }
+    fn execute(&mut self) -> Result<(), RclrsError> {
+        self.action.unbounded_send(ClientAction::TakeResponse).ok();
         Ok(())
     }
+
+    fn handle(&self) -> ExecutableHandle {
+        ExecutableHandle::Client(self.handle.lock())
+    }
+
+    fn kind(&self) -> ExecutableKind {
+        ExecutableKind::Client
+    }
 }
+
+/// Manage the lifecycle of an `rcl_client_t`, including managing its dependencies
+/// on `rcl_node_t` and `rcl_context_t` by ensuring that these dependencies are
+/// [dropped after][1] the `rcl_client_t`.
+///
+/// [1]: <https://doc.rust-lang.org/reference/destructors.html>
+struct ClientHandle {
+    rcl_client: Mutex<rcl_client_t>,
+    node_handle: Arc<NodeHandle>,
+}
+
+impl ClientHandle {
+    fn lock(&self) -> MutexGuard<rcl_client_t> {
+        self.rcl_client.lock().unwrap()
+    }
+}
+
+impl Drop for ClientHandle {
+    fn drop(&mut self) {
+        let rcl_client = self.rcl_client.get_mut().unwrap();
+        let mut rcl_node = self.node_handle.rcl_node.lock().unwrap();
+        let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
+        // SAFETY: The entity lifecycle mutex is locked to protect against the risk of
+        // global variables in the rmw implementation being unsafely modified during cleanup.
+        unsafe {
+            rcl_client_fini(rcl_client, &mut *rcl_node);
+        }
+    }
+}
+
+// SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
+// they are running in. Therefore, this type can be safely sent to another thread.
+unsafe impl Send for rcl_client_t {}
 
 #[cfg(test)]
 mod tests {
@@ -325,7 +299,7 @@ mod tests {
         let graph = construct_test_graph(namespace)?;
         let _node_2_empty_client = graph
             .node2
-            .create_client::<srv::Empty>("graph_test_topic_4")?;
+            .create_client::<srv::Empty>("graph_test_topic_4", QoSProfile::services_default())?;
 
         std::thread::sleep(std::time::Duration::from_millis(200));
 

@@ -123,7 +123,7 @@ impl Waitable {
     pub fn new(
         waitable: Box<dyn Executable + Send + Sync>,
         guard_condition: Option<Arc<GuardCondition>>,
-    ) -> (Self, WaiterLifecycle) {
+    ) -> (Self, WaitableLifecycle) {
         let in_use = Arc::new(AtomicBool::new(true));
         let waiter = Self {
             executable: waitable,
@@ -131,7 +131,7 @@ impl Waitable {
             index_in_wait_set: None,
         };
 
-        let lifecycle = WaiterLifecycle { in_use, guard_condition };
+        let lifecycle = WaitableLifecycle { in_use, guard_condition };
         (waiter, lifecycle)
     }
 
@@ -200,12 +200,12 @@ impl Waitable {
 }
 
 #[must_use = "If you do not hold onto the WaiterLifecycle, then its Waiter will be immediately dropped"]
-pub struct WaiterLifecycle {
+pub struct WaitableLifecycle {
     in_use: Arc<AtomicBool>,
     guard_condition: Option<Arc<GuardCondition>>,
 }
 
-impl Drop for WaiterLifecycle {
+impl Drop for WaitableLifecycle {
     fn drop(&mut self) {
         self.in_use.store(false, Ordering::Release);
         if let Some(guard_condition) = &self.guard_condition {

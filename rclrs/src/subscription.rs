@@ -12,7 +12,7 @@ use crate::{
     qos::QoSProfile,
     rcl_bindings::*,
     ExecutorCommands, NodeHandle, RclrsError, Waitable, Executable, ExecutableHandle,
-    ExecutableKind, GuardCondition, WaiterLifecycle, ENTITY_LIFECYCLE_MUTEX,
+    ExecutableKind, GuardCondition, WaitableLifecycle, ENTITY_LIFECYCLE_MUTEX,
 };
 
 mod any_subscription_callback;
@@ -62,7 +62,7 @@ where
     action: UnboundedSender<SubscriptionAction<T>>,
     /// Holding onto this keeps the waiter for this subscription alive in the
     /// wait set of the executor.
-    lifecycle: WaiterLifecycle,
+    lifecycle: WaitableLifecycle,
 }
 
 impl<T> Subscription<T>
@@ -190,7 +190,7 @@ where
         });
 
         let (waiter, lifecycle) = Waitable::new(
-            Box::new(SubscriptionWaitable {
+            Box::new(SubscriptionExecutable {
                 handle: Arc::clone(&handle),
                 action: action.clone(),
             }),
@@ -203,12 +203,12 @@ where
     }
 }
 
-struct SubscriptionWaitable<T: Message> {
+struct SubscriptionExecutable<T: Message> {
     handle: Arc<SubscriptionHandle>,
     action: UnboundedSender<SubscriptionAction<T>>,
 }
 
-impl<T> Executable for SubscriptionWaitable<T>
+impl<T> Executable for SubscriptionExecutable<T>
 where
     T: Message,
 {

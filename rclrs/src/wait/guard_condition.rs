@@ -2,56 +2,27 @@ use std::sync::{Arc, Mutex};
 
 use crate::{
     rcl_bindings::*,
-    ContextHandle, RclrsError, ToResult, WaiterLifecycle, Executable,
+    ContextHandle, RclrsError, ToResult, WaitableLifecycle, Executable,
     Waitable, ExecutableKind, ExecutableHandle, ExecutorCommands,
 };
 
 /// A waitable entity used for waking up a wait set manually.
 ///
-/// If a wait set that is currently waiting on events should be interrupted from
-/// a separate thread, trigger a `GuardCondition`.
+/// This is used internally to wake up the executor's wait set to check if its
+/// spin conditions are still valid or to perform cleanup (releasing waitable
+/// entries that have been dropped by the user).
 ///
-/// A guard condition may be triggered any number of times, but can only be
-/// associated with one wait set.
-///
-/// # Example
-/// ```
-/// # use rclrs::{Context, GuardCondition, WaitSet, RclrsError};
-/// # use std::sync::{Arc, atomic::Ordering};
-///
-/// let context = Context::new([])?;
-///
-/// let atomic_bool = Arc::new(std::sync::atomic::AtomicBool::new(false));
-/// let atomic_bool_for_closure = Arc::clone(&atomic_bool);
-///
-/// let gc = Arc::new(GuardCondition::new_with_callback(
-///     &context,
-///     move || {
-///         atomic_bool_for_closure.store(true, Ordering::Relaxed);
-///     },
-/// ));
-///
-/// let mut ws = WaitSet::new(0, 1, 0, 0, 0, 0, &context)?;
-/// ws.add_guard_condition(Arc::clone(&gc))?;
-///
-/// // Trigger the guard condition, firing the callback and waking the wait set being waited on, if any.
-/// gc.trigger()?;
-///
-/// // The provided callback has now been called.
-/// assert_eq!(atomic_bool.load(Ordering::Relaxed), true);
-///
-/// // The wait call will now immediately return.
-/// ws.wait(Some(std::time::Duration::from_millis(10)))?;
-///
-/// # Ok::<(), RclrsError>(())
-/// ```
+/// Users of rclrs have no reason to use this struct unless you are
+/// implementing a custom executor. If you want to trigger a function to run on
+/// the executor you should use [`ExecutorCommands::run`] or
+/// [`ExecutorCommands::run_detached`].
 pub struct GuardCondition {
     /// The rcl_guard_condition_t that this struct encapsulates. Holding onto
     /// this keeps the rcl_guard_condition alive and allows us to trigger it.
     handle: Arc<GuardConditionHandle>,
     /// This manages the lifecycle of this guard condition's waiter. Dropping
     /// this will remove the guard condition from its wait set.
-    lifecycle: WaiterLifecycle,
+    lifecycle: WaitableLifecycle,
 }
 
 // SAFETY: rcl_guard_condition is the only member that doesn't implement Send, and it is designed to be accessed from other threads
@@ -83,7 +54,7 @@ impl GuardCondition {
         });
 
         let (waiter, lifecycle) = Waitable::new(
-            Box::new(GuardConditionWaitable { handle: Arc::clone(&handle) }),
+            Box::new(GuardConditionExecutable { handle: Arc::clone(&handle) }),
             None,
         );
 
@@ -124,11 +95,11 @@ impl Drop for GuardConditionHandle {
     }
 }
 
-struct GuardConditionWaitable {
+struct GuardConditionExecutable {
     handle: Arc<GuardConditionHandle>,
 }
 
-impl Executable for GuardConditionWaitable {
+impl Executable for GuardConditionExecutable {
     fn execute(&mut self) -> Result<(), RclrsError> {
         // Do nothing
         Ok(())
@@ -147,49 +118,7 @@ impl Executable for GuardConditionWaitable {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::atomic::Ordering;
-
     use super::*;
-    use crate::WaitSet;
-
-    #[test]
-    fn test_guard_condition() -> Result<(), RclrsError> {
-        let context = Context::new([])?;
-
-        let atomic_bool = Arc::new(std::sync::atomic::AtomicBool::new(false));
-        let atomic_bool_for_closure = Arc::clone(&atomic_bool);
-
-        let guard_condition = GuardCondition::new_with_callback(&context, move || {
-            atomic_bool_for_closure.store(true, Ordering::Relaxed);
-        });
-
-        guard_condition.trigger()?;
-
-        assert!(atomic_bool.load(Ordering::Relaxed));
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_guard_condition_wait() -> Result<(), RclrsError> {
-        let context = Context::new([])?;
-
-        let atomic_bool = Arc::new(std::sync::atomic::AtomicBool::new(false));
-        let atomic_bool_for_closure = Arc::clone(&atomic_bool);
-
-        let guard_condition = Arc::new(GuardCondition::new_with_callback(&context, move || {
-            atomic_bool_for_closure.store(true, Ordering::Relaxed);
-        }));
-
-        let mut wait_set = WaitSet::new(0, 1, 0, 0, 0, 0, &context)?;
-        wait_set.add_guard_condition(Arc::clone(&guard_condition))?;
-        guard_condition.trigger()?;
-
-        assert!(atomic_bool.load(Ordering::Relaxed));
-        wait_set.wait(Some(std::time::Duration::from_millis(10)))?;
-
-        Ok(())
-    }
 
     #[test]
     fn traits() {

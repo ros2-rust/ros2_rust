@@ -319,7 +319,7 @@ mod tests {
             srv::rmw::*,
         },
         Context, MandatoryParameter, Node, NodeOptions, ParameterRange, ParameterValue, RclrsError,
-        ReadOnlyParameter,
+        ReadOnlyParameter, QoSProfile,
     };
     use rosidl_runtime_rs::{seq, Sequence};
     use std::sync::{Arc, RwLock};
@@ -438,7 +438,10 @@ mod tests {
     async fn test_list_parameters_service() -> Result<(), RclrsError> {
         let context = Context::new([]).unwrap();
         let (node, client) = construct_test_nodes(&context, "list");
-        let list_client = client.create_client::<ListParameters>("/list/node/list_parameters")?;
+        let list_client = client.create_client::<ListParameters>(
+            "/list/node/list_parameters",
+            QoSProfile::services_default(),
+        )?;
 
         try_until_timeout(|| list_client.service_is_ready().unwrap())
             .await
@@ -466,7 +469,7 @@ mod tests {
             let client_finished = Arc::new(RwLock::new(false));
             let call_done = client_finished.clone();
             list_client
-                .async_send_request_with_callback(
+                .call_then(
                     &request,
                     move |response: ListParameters_Response| {
                         // use_sim_time + all the manually defined ones
@@ -497,7 +500,7 @@ mod tests {
             let call_done = client_finished.clone();
             *call_done.write().unwrap() = false;
             list_client
-                .async_send_request_with_callback(
+                .call_then(
                     &request,
                     move |response: ListParameters_Response| {
                         *call_done.write().unwrap() = true;
@@ -520,7 +523,7 @@ mod tests {
             let call_done = client_finished.clone();
             *call_done.write().unwrap() = false;
             list_client
-                .async_send_request_with_callback(
+                .call_then(
                     &request,
                     move |response: ListParameters_Response| {
                         *call_done.write().unwrap() = true;
@@ -544,7 +547,7 @@ mod tests {
             let call_done = client_finished.clone();
             *call_done.write().unwrap() = false;
             list_client
-                .async_send_request_with_callback(
+                .call_then(
                     &request,
                     move |response: ListParameters_Response| {
                         *call_done.write().unwrap() = true;
@@ -573,10 +576,10 @@ mod tests {
     async fn test_get_set_parameters_service() -> Result<(), RclrsError> {
         let context = Context::new([]).unwrap();
         let (node, client) = construct_test_nodes(&context, "get_set");
-        let get_client = client.create_client::<GetParameters>("/get_set/node/get_parameters")?;
-        let set_client = client.create_client::<SetParameters>("/get_set/node/set_parameters")?;
+        let get_client = client.create_client::<GetParameters>("/get_set/node/get_parameters", QoSProfile::services_default())?;
+        let set_client = client.create_client::<SetParameters>("/get_set/node/set_parameters", QoSProfile::services_default())?;
         let set_atomically_client = client
-            .create_client::<SetParametersAtomically>("/get_set/node/set_parameters_atomically")?;
+            .create_client::<SetParametersAtomically>("/get_set/node/set_parameters_atomically", QoSProfile::services_default())?;
 
         try_until_timeout(|| {
             get_client.service_is_ready().unwrap()
@@ -608,7 +611,7 @@ mod tests {
             let client_finished = Arc::new(RwLock::new(false));
             let call_done = client_finished.clone();
             get_client
-                .async_send_request_with_callback(
+                .call_then(
                     &request,
                     move |response: GetParameters_Response| {
                         *call_done.write().unwrap() = true;
@@ -631,7 +634,7 @@ mod tests {
             let client_finished = Arc::new(RwLock::new(false));
             let call_done = client_finished.clone();
             get_client
-                .async_send_request_with_callback(
+                .call_then(
                     &request,
                     move |response: GetParameters_Response| {
                         *call_done.write().unwrap() = true;
@@ -720,7 +723,7 @@ mod tests {
             // Parameter is assigned a default of true at declaration time
             assert!(node.bool_param.get());
             set_client
-                .async_send_request_with_callback(
+                .call_then(
                     &request,
                     move |response: SetParameters_Response| {
                         *call_done.write().unwrap() = true;
@@ -757,7 +760,7 @@ mod tests {
             let client_finished = Arc::new(RwLock::new(false));
             let call_done = client_finished.clone();
             set_client
-                .async_send_request_with_callback(
+                .call_then(
                     &request,
                     move |response: SetParameters_Response| {
                         *call_done.write().unwrap() = true;
@@ -782,7 +785,7 @@ mod tests {
             let client_finished = Arc::new(RwLock::new(false));
             let call_done = client_finished.clone();
             set_atomically_client
-                .async_send_request_with_callback(
+                .call_then(
                     &request,
                     move |response: SetParametersAtomically_Response| {
                         *call_done.write().unwrap() = true;
@@ -807,9 +810,9 @@ mod tests {
         let context = Context::new([]).unwrap();
         let (node, client) = construct_test_nodes(&context, "describe");
         let describe_client =
-            client.create_client::<DescribeParameters>("/describe/node/describe_parameters")?;
+            client.create_client::<DescribeParameters>("/describe/node/describe_parameters", QoSProfile::services_default())?;
         let get_types_client =
-            client.create_client::<GetParameterTypes>("/describe/node/get_parameter_types")?;
+            client.create_client::<GetParameterTypes>("/describe/node/get_parameter_types", QoSProfile::services_default())?;
 
         try_until_timeout(|| {
             describe_client.service_is_ready().unwrap()
@@ -845,7 +848,7 @@ mod tests {
             let client_finished = Arc::new(RwLock::new(false));
             let call_done = client_finished.clone();
             describe_client
-                .async_send_request_with_callback(
+                .call_then(
                     &request,
                     move |response: DescribeParameters_Response| {
                         *call_done.write().unwrap() = true;
@@ -892,7 +895,7 @@ mod tests {
             let client_finished = Arc::new(RwLock::new(false));
             let call_done = client_finished.clone();
             describe_client
-                .async_send_request_with_callback(
+                .call_then(
                     &request,
                     move |response: DescribeParameters_Response| {
                         *call_done.write().unwrap() = true;
@@ -924,7 +927,7 @@ mod tests {
             let client_finished = Arc::new(RwLock::new(false));
             let call_done = client_finished.clone();
             get_types_client
-                .async_send_request_with_callback(
+                .call_then(
                     &request,
                     move |response: GetParameterTypes_Response| {
                         *call_done.write().unwrap() = true;

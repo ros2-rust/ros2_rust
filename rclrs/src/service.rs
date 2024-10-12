@@ -9,7 +9,7 @@ use futures::channel::mpsc::{unbounded, UnboundedSender, TrySendError};
 use crate::{
     error::ToResult,
     rcl_bindings::*,
-    NodeHandle, RclrsError, Waitable, WaiterLifecycle, GuardCondition, QoSProfile,
+    NodeHandle, RclrsError, Waitable, WaitableLifecycle, GuardCondition, QoSProfile,
     Executable, ExecutableKind, ExecutableHandle, ENTITY_LIFECYCLE_MUTEX, ExecutorCommands,
 };
 
@@ -52,7 +52,7 @@ where
     action: UnboundedSender<ServiceAction<T>>,
     /// Holding onto this keeps the waiter for this service alive in the wait
     /// set of the executor.
-    lifecycle: WaiterLifecycle,
+    lifecycle: WaitableLifecycle,
 }
 
 impl<T> Service<T>
@@ -107,7 +107,7 @@ where
         commands: &Arc<ExecutorCommands>,
     ) -> Result<Arc<Self>, RclrsError> {
         let (sender, receiver) = unbounded();
-        let (service, waiter) = Self::new(
+        let (service, waitable) = Self::new(
             topic,
             qos,
             sender,
@@ -122,7 +122,7 @@ where
             Arc::clone(commands),
         ));
 
-        commands.add_to_wait_set(waiter);
+        commands.add_to_wait_set(waitable);
 
         Ok(service)
     }
@@ -176,7 +176,7 @@ where
         });
 
         let (waiter, lifecycle) = Waitable::new(
-            Box::new(ServiceWaitable {
+            Box::new(ServiceExecutable {
                 handle: Arc::clone(&handle),
                 action: action.clone(),
             }),
@@ -189,12 +189,12 @@ where
     }
 }
 
-struct ServiceWaitable<T: rosidl_runtime_rs::Service> {
+struct ServiceExecutable<T: rosidl_runtime_rs::Service> {
     handle: Arc<ServiceHandle>,
     action: UnboundedSender<ServiceAction<T>>,
 }
 
-impl<T> Executable for ServiceWaitable<T>
+impl<T> Executable for ServiceExecutable<T>
 where
     T: rosidl_runtime_rs::Service,
 {
@@ -284,7 +284,7 @@ mod tests {
                 )?;
         let _node_2_empty_client = graph
             .node2
-            .create_client::<srv::Empty>("graph_test_topic_4")?;
+            .create_client::<srv::Empty>("graph_test_topic_4", QoSProfile::services_default())?;
 
         std::thread::sleep(std::time::Duration::from_millis(100));
 

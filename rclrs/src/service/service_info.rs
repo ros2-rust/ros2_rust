@@ -33,7 +33,7 @@ impl ServiceInfo {
         }
     }
 
-    pub(super) fn zero_initialized_rmw() -> rmw_service_info_t {
+    pub(crate) fn zero_initialized_rmw() -> rmw_service_info_t {
         rmw_service_info_t {
             source_timestamp: 0,
             received_timestamp: 0,
@@ -56,14 +56,14 @@ pub struct RequestId {
 }
 
 impl RequestId {
-    pub(super) fn from_rmw_request_id(rmw_request_id: &rmw_request_id_t) -> Self {
+    pub(crate) fn from_rmw_request_id(rmw_request_id: &rmw_request_id_t) -> Self {
         Self {
             writer_guid: rmw_request_id.writer_guid,
             sequence_number: rmw_request_id.sequence_number,
         }
     }
 
-    pub(super) fn zero_initialized_rmw() -> rmw_request_id_t {
+    pub(crate) fn zero_initialized_rmw() -> rmw_request_id_t {
         rmw_request_id_t {
             writer_guid: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
             sequence_number: 0,

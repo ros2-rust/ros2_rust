@@ -1,14 +1,16 @@
 use rosidl_runtime_rs::Service;
 
-use super::{
+use crate::{
     ServiceInfo, RequestId,
-    any_service_callback::AnyServiceCallback,
+    service::any_service_callback::AnyServiceCallback,
 };
 
 use std::sync::Arc;
 
-/// A trait for regular callbacks of services.
+/// A trait to deduce regular callbacks of services.
 ///
+/// Users of rclrs never need to use this trait directly.
+//
 // TODO(@mxgrey): Add a description of what callbacks signatures are supported
 pub trait ServiceCallback<T, Args>: Send + 'static
 where

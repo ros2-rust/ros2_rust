@@ -5,14 +5,14 @@ use std::{
     ffi::CStr,
     fmt,
     os::raw::c_char,
-    sync::{Arc, Mutex, Weak},
+    sync::{Arc, Mutex},
 };
 
 use rosidl_runtime_rs::Message;
 
 pub use self::{options::*, graph::*};
 use crate::{
-    rcl_bindings::*, Client, ClientBase, Clock, ContextHandle,
+    rcl_bindings::*, Client, Clock, ContextHandle,
     ParameterBuilder, ParameterInterface, ParameterVariant, Parameters, Publisher, QoSProfile,
     RclrsError, Service, Subscription, SubscriptionCallback, SubscriptionAsyncCallback,
     ServiceCallback, ServiceAsyncCallback, ExecutorCommands, TimeSource, ENTITY_LIFECYCLE_MUTEX,
@@ -180,13 +180,15 @@ impl Node {
     ///
     /// [1]: crate::Client
     // TODO: make client's lifetime depend on node's lifetime
-    pub fn create_client<T>(&self, topic: &str) -> Result<Arc<Client<T>>, RclrsError>
+    pub fn create_client<T>(
+        &self,
+        topic: &str,
+        qos: QoSProfile,
+    ) -> Result<Arc<Client<T>>, RclrsError>
     where
         T: rosidl_runtime_rs::Service,
     {
-        let client = Arc::new(Client::<T>::new(Arc::clone(&self.handle), topic)?);
-        { self.clients_mtx.lock().unwrap() }.push(Arc::downgrade(&client) as Weak<dyn ClientBase>);
-        Ok(client)
+        Client::<T>::create(topic, qos, &self.handle, &self.commands)
     }
 
     /// Creates a [`Publisher`][1].
@@ -201,8 +203,7 @@ impl Node {
     where
         T: Message,
     {
-        let publisher = Arc::new(Publisher::<T>::new(Arc::clone(&self.handle), topic, qos)?);
-        Ok(publisher)
+        Ok(Arc::new(Publisher::<T>::new(Arc::clone(&self.handle), topic, qos)?))
     }
 
     /// Creates a [`Service`] with an ordinary callback.
