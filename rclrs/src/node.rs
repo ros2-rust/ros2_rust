@@ -425,7 +425,7 @@ impl Node {
         &self,
         condition: impl FnMut() -> bool + Send + 'static,
     ) -> Promise<()> {
-        self.notify_on_graph_change_with_period(condition, Duration::from_millis(100))
+        self.notify_on_graph_change_with_period(Duration::from_millis(100), condition)
     }
 
     /// This function allows you to track when a specific graph change happens.
@@ -444,8 +444,8 @@ impl Node {
     ///
     pub fn notify_on_graph_change_with_period(
         &self,
-        mut condition: impl FnMut() -> bool + Send + 'static,
         period: Duration,
+        mut condition: impl FnMut() -> bool + Send + 'static,
     ) -> Promise<()> {
         let (listener, mut on_graph_change_receiver) = unbounded();
         let promise = self.commands.query(async move {

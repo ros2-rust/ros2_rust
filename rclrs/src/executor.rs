@@ -259,6 +259,11 @@ pub struct SpinOptions {
 }
 
 impl SpinOptions {
+    /// Use default spin options.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
     /// Behave like spin_once in rclcpp and rclpy.
     pub fn spin_once() -> Self {
         Self {
