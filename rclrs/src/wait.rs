@@ -236,6 +236,7 @@ struct WaitSetHandle {
 #[cfg(test)]
 mod tests {
     use crate::*;
+    use std::time::Duration;
 
     #[test]
     fn traits() {
@@ -249,7 +250,7 @@ mod tests {
     fn guard_condition_in_wait_set_readies() -> Result<(), RclrsError> {
         let mut executor = Context::new([])?.create_basic_executor();
 
-        executor.commands().get_guard_condition().trigger();
+        executor.commands().get_guard_condition().trigger().unwrap();
 
         let start = std::time::Instant::now();
         // This should stop spinning right away because the guard condition was

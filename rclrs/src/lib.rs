@@ -30,8 +30,6 @@ mod rcl_bindings;
 #[cfg(feature = "dyn_msg")]
 pub mod dynamic_message;
 
-use std::{sync::Arc, time::Duration};
-
 pub use arguments::*;
 pub use client::*;
 pub use clock::*;

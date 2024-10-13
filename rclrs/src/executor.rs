@@ -4,6 +4,8 @@ pub use self::basic_executor::*;
 mod wait_set_runner;
 pub use self::wait_set_runner::*;
 
+use std::io::Write;
+
 use crate::{
     Node, NodeOptions, RclrsError, Context, ContextHandle, Waitable, GuardCondition,
 };
@@ -148,13 +150,20 @@ impl ExecutorCommands {
         let (mut sender, receiver) = oneshot::channel();
         self.channel.add_async_task(Box::pin(
             async move {
+                dbg!();
+                std::io::stdout().lock().flush().unwrap();
                 let cancellation = sender.cancellation();
                 let output = match select(cancellation, std::pin::pin!(f)).await {
                     // The task was cancelled
-                    Either::Left(_) => return,
+                    // Either::Left(_) => return,
                     // The task completed
-                    Either::Right((output, _)) => output,
+                    // Either::Right((output, _)) => output,
+
+                    Either::Left(_) => { dbg!(); return; }
+                    Either::Right((output, _)) => { dbg!(); output }
                 };
+                dbg!();
+                std::io::stdout().lock().flush().unwrap();
                 sender.send(output).ok();
             }
         ));

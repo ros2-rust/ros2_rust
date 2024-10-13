@@ -16,8 +16,10 @@ use std::{
 
 use crate::{
     executor::{ExecutorRuntime, ExecutorChannel, SpinConditions},
-    WaitSet, Waitable, Context, WaitSetRunner,
+    Waitable, Context, WaitSetRunner,
 };
+
+use std::io::Write;
 
 /// The implementation of this runtime is based off of the async Rust reference book:
 /// https://rust-lang.github.io/async-book/02_execution/04_executor.html
@@ -77,7 +79,9 @@ impl ExecutorRuntime for BasicExecutorRuntime {
             wait_set_finished_clone.store(true, Ordering::Release);
         }));
 
+        let mut count = 0;
         while let Ok(task) = self.next_task(&wait_set_finished) {
+            dbg!();
             // SAFETY: If the mutex is poisoned then we have unrecoverable situation.
             let mut future_slot = task.future.lock().unwrap();
             if let Some(mut future) = future_slot.take() {
@@ -93,6 +97,10 @@ impl ExecutorRuntime for BasicExecutorRuntime {
                 }
             }
 
+            // count += 1;
+            // if count > 20 {
+            //     panic!("Done {count} iterations");
+            // }
         }
 
         self.wait_set_runner = Some(
@@ -161,6 +169,7 @@ impl BasicExecutorRuntime {
     fn process_spin_conditions(&self, conditions: &mut SpinConditions) {
         if let Some(promise) = conditions.options.until_promise_resolved.take() {
             let guard_condition = Arc::clone(&conditions.guard_condition);
+            let (sender, receiver) = oneshot::channel();
             self.task_sender.add_async_task(Box::pin(async move {
                 if let Err(err) = promise.await {
                     // TODO(@mxgrey): We should change this to a log when logging
@@ -172,8 +181,13 @@ impl BasicExecutorRuntime {
                     );
                 }
                 // TODO(@mxgrey): Log errors here when logging becomes available.
+                dbg!();
+                std::io::stdout().lock().flush().unwrap();
                 guard_condition.trigger().ok();
+                sender.send(()).ok();
             }));
+
+            conditions.options.until_promise_resolved = Some(receiver);
         }
     }
 
@@ -239,10 +253,6 @@ struct Task {
 impl ArcWake for Task {
     fn wake_by_ref(arc_self: &Arc<Self>) {
         let cloned = Arc::clone(arc_self);
-        if let Err(err) = arc_self.task_sender.send(cloned) {
-            eprintln!(
-                "Unable to resume a task because sending it to the basic executor failed: {err}"
-            );
-        }
+        arc_self.task_sender.send(cloned).ok();
     }
 }

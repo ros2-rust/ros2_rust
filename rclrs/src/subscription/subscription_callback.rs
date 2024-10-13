@@ -244,7 +244,7 @@ mod tests {
 
     }
 
-    fn test_loaned_with_info(_msg: ReadOnlyLoanedMessage<TestMessage>) {
+    fn test_loaned_with_info(_msg: ReadOnlyLoanedMessage<TestMessage>, _info: MessageInfo) {
 
     }
 }

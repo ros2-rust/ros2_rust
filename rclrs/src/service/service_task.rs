@@ -23,14 +23,18 @@ pub(super) async fn service_task<T: Service>(
     handle: Arc<ServiceHandle>,
     commands: Arc<ExecutorCommands>,
 ) {
+    dbg!();
     while let Some(action) = receiver.next().await {
         match action {
             ServiceAction::SetCallback(new_callback) => {
+                dbg!();
                 callback = new_callback;
             }
             ServiceAction::Execute => {
-                if let Err(_) = callback.execute(&handle, &commands) {
+                dbg!();
+                if let Err(err) = callback.execute(&handle, &commands) {
                     // TODO(@mxgrey): Log the error here once logging is implemented
+                    eprintln!("Error while executing a service callback: {err}");
                 }
             }
         }

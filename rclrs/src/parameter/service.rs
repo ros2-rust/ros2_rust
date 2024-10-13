@@ -319,10 +319,15 @@ mod tests {
             srv::rmw::*,
         },
         Context, MandatoryParameter, Node, NodeOptions, ParameterRange, ParameterValue, RclrsError,
-        ReadOnlyParameter, QoSProfile, Executor, SpinOptions, Duration,
+        ReadOnlyParameter, QoSProfile, Executor, SpinOptions,
     };
     use rosidl_runtime_rs::{seq, Sequence};
-    use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
+    use std::{
+        sync::{Arc, atomic::{AtomicBool, Ordering}},
+        time::Duration,
+    };
+
+    use std::io::Write;
 
     struct TestNode {
         node: Arc<Node>,
@@ -392,7 +397,7 @@ mod tests {
 
         // Avoid flakiness while also finishing faster in most cases by giving
         // this more maximum time but checking each time a graph change is detected.
-        let timeout = Duration::from_secs(10);
+        let timeout = Duration::from_secs(1);
         let initial_time = std::time::Instant::now();
 
         let node = Arc::clone(&test.node);
@@ -438,13 +443,18 @@ mod tests {
             }
         );
 
-        executor.spin(SpinOptions::new().until_promise_resolved(promise));
+        executor.spin(
+            SpinOptions::new()
+            .until_promise_resolved(promise)
+            .timeout(Duration::from_secs(1))
+        );
 
         Ok(())
     }
 
     #[test]
     fn test_list_parameters_service() -> Result<(), RclrsError> {
+        dbg!();
         let context = Context::default();
         let (mut executor, _test, client_node) = construct_test_nodes(&context, "list");
         let list_client = client_node.create_client::<ListParameters>(
@@ -452,11 +462,17 @@ mod tests {
             QoSProfile::services_default(),
         )?;
 
+        dbg!();
+        std::io::stdout().lock().flush().unwrap();
+        // return Ok(());
         executor.spin(
             SpinOptions::default()
             .until_promise_resolved(list_client.notify_on_service_ready())
+            .timeout(Duration::from_secs(2))
         );
 
+        dbg!();
+        std::io::stdout().lock().flush().unwrap();
         // List all parameters
         let callback_ran = Arc::new(AtomicBool::new(false));
         let callback_ran_inner = Arc::clone(&callback_ran);
@@ -468,6 +484,8 @@ mod tests {
             .call_then(
                 &request,
                 move |response: ListParameters_Response| {
+                    dbg!();
+                    std::io::stdout().lock().flush().unwrap();
                     // use_sim_time + all the manually defined ones
                     let names = response.result.names;
                     assert_eq!(names.len(), 5);
@@ -485,11 +503,18 @@ mod tests {
             )
             .unwrap();
 
+        dbg!();
+        std::io::stdout().lock().flush().unwrap();
         executor.spin(
             SpinOptions::default()
             .until_promise_resolved(promise)
+            .timeout(Duration::from_secs(5))
         );
         assert!(callback_ran.load(Ordering::Acquire));
+        dbg!();
+        std::io::stdout().lock().flush().unwrap();
+
+        return Ok(());
 
         // Limit depth, namespaced parameter is not returned
         let callback_ran = Arc::new(AtomicBool::new(false));

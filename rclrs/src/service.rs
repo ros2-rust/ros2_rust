@@ -4,7 +4,7 @@ use std::{
     sync::{Arc, Mutex, MutexGuard},
 };
 
-use futures::channel::mpsc::{unbounded, UnboundedSender, TrySendError};
+use futures::channel::mpsc::{unbounded, UnboundedSender};
 
 use crate::{
     error::ToResult,
@@ -81,9 +81,10 @@ where
     pub fn set_callback<Args>(
         &self,
         callback: impl ServiceCallback<T, Args>,
-    ) -> Result<(), TrySendError<ServiceAction<T>>> {
+    ) {
         let callback = callback.into_service_callback();
-        self.action.unbounded_send(ServiceAction::SetCallback(callback))
+        // TODO(@mxgrey): Log any errors here when logging becomes available
+        self.action.unbounded_send(ServiceAction::SetCallback(callback)).ok();
     }
 
     /// Set the callback of this service, replacing the callback that was
@@ -93,9 +94,10 @@ where
     pub fn set_async_callback<Args>(
         &self,
         callback: impl ServiceAsyncCallback<T, Args>,
-    ) -> Result<(), TrySendError<ServiceAction<T>>> {
+    ) {
         let callback = callback.into_service_async_callback();
-        self.action.unbounded_send(ServiceAction::SetCallback(callback))
+        // TODO(@mxgrey): Log any errors here when logging becomes available.
+        self.action.unbounded_send(ServiceAction::SetCallback(callback)).ok();
     }
 
     /// Used by [`Node`][crate::Node] to create a new service
@@ -115,7 +117,7 @@ where
             Arc::clone(commands.get_guard_condition()),
         )?;
 
-        commands.run(service_task(
+        let _ = commands.run(service_task(
             callback,
             receiver,
             Arc::clone(&service.handle),

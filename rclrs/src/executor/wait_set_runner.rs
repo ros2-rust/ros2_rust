@@ -3,10 +3,13 @@ use futures::channel::{
     mpsc::{UnboundedSender, UnboundedReceiver, unbounded},
 };
 
-use std::sync::atomic::Ordering;
+use std::{
+    sync::atomic::Ordering,
+    time::{Instant, Duration},
+};
 
 use crate::{
-    WaitSet, Context, SpinConditions, Promise, Waitable,
+    WaitSet, Context, SpinConditions, Promise, Waitable, RclrsError, RclReturnCode,
 };
 
 /// This is a utility class that executors can use to easily run and manage
@@ -64,6 +67,7 @@ impl WaitSetRunner {
     /// will be triggered after the user-provided promise is resolved.
     pub fn run_blocking(&mut self, mut conditions: SpinConditions) {
         let mut first_spin = true;
+        let t_stop_spinning = conditions.options.timeout.map(|dt| Instant::now() + dt);
         loop {
             // TODO(@mxgrey): SmallVec would be better suited here if we are
             // okay with adding that as a dependency.
@@ -102,12 +106,29 @@ impl WaitSetRunner {
                 break;
             }
 
+            let timeout = t_stop_spinning.map(|t| {
+                let timeout = t - Instant::now();
+                if timeout < Duration::ZERO {
+                    Duration::ZERO
+                } else {
+                    timeout
+                }
+            });
+
             if let Err(err) = self.wait_set.wait(
-                conditions.options.timeout,
+                timeout,
                 |executable| executable.execute(),
             ) {
-                // TODO(@mxgrey): Change this to a log when logging becomes available
-                eprintln!("Error while processing wait set: {err}");
+                match err {
+                    RclrsError::RclError { code: RclReturnCode::Timeout, .. } => {
+                        // We have timed out, so we should stop waiting.
+                        break;
+                    }
+                    err => {
+                        // TODO(@mxgrey): Change this to a log when logging becomes available
+                        eprintln!("Error while processing wait set: {err}");
+                    }
+                }
             }
         }
     }

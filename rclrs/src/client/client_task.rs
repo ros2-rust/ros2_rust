@@ -10,12 +10,13 @@ use std::{
     collections::HashMap,
 };
 
+use std::io::Write;
+
 use crate::{
     error::ToResult,
     rcl_bindings::*,
     client::ClientHandle,
-    AnyClientOutputSender, ServiceInfo,
-    RclrsError,
+    AnyClientOutputSender, ServiceInfo, RclrsError, RclReturnCode,
 };
 
 pub enum ClientAction<T: Service> {
@@ -32,6 +33,8 @@ pub(super) async fn client_task<T: Service>(
     mut receiver: UnboundedReceiver<ClientAction<T>>,
     handle: Arc<ClientHandle>,
 ) {
+    dbg!();
+    std::io::stdout().lock().flush().unwrap();
     // This stores all active requests that have not received a response yet
     let mut active_requests: HashMap<SequenceNumber, AnyClientOutputSender<T::Response>> = HashMap::new();
 
@@ -44,29 +47,47 @@ pub(super) async fn client_task<T: Service>(
     while let Some(action) = receiver.next().await {
         match action {
             ClientAction::TakeResponse => {
+                dbg!();
+                std::io::stdout().lock().flush().unwrap();
                 match take_response::<T::Response>(&handle) {
                     Ok((response, info)) => {
                         let seq = info.request_id.sequence_number;
                         if let Some(sender) = active_requests.remove(&seq) {
+                            dbg!();
                             // The active request is available, so send this response off
                             sender.send_response(response, info);
                         } else {
+                            dbg!();
                             // Weirdly there isn't an active request for this, so save
                             // it in the loose responses map.
                             loose_responses.insert(seq, (response, info));
                         }
                     }
-                    Err(_err) => {
-                        // TODO(@mxgrey): Log the error here once logging is available
+                    Err(err) => {
+                        match err {
+                            RclrsError::RclError { code: RclReturnCode::ClientTakeFailed, .. } => {
+                                // This is okay, it means a spurious wakeup happened
+                                dbg!();
+                            }
+                            err => {
+                                dbg!();
+                                // TODO(@mxgrey): Log the error here once logging is available
+                                eprintln!("Error while taking a response for a client: {err}");
+                            }
+                        }
                     }
                 }
             }
             ClientAction::NewRequest { sequence_number, sender } => {
+                dbg!();
+                std::io::stdout().lock().flush().unwrap();
                 if let Some((response, info)) = loose_responses.remove(&sequence_number) {
                     // The response for this request already arrive, so we'll
                     // send it off immediately.
+                    dbg!();
                     sender.send_response(response, info);
                 } else {
+                    dbg!();
                     active_requests.insert(sequence_number, sender);
                 }
             }

@@ -150,8 +150,9 @@ where
     /// Check if a service server is available.
     ///
     /// Will return true if there is a service server available, false if unavailable.
-    //
-    // TODO(@mxgrey): Provide an async function to await on when the service is ready
+    ///
+    /// Consider using [`Self::notify_on_service_ready`] if you want to wait
+    /// until a service for this client is ready.
     pub fn service_is_ready(&self) -> Result<bool, RclrsError> {
         let mut is_ready = false;
         let client = &mut *self.handle.rcl_client.lock().unwrap();
