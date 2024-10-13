@@ -6,7 +6,7 @@ use std::sync::{
 use crate::{
     error::ToResult,
     rcl_bindings::*,
-    RclrsError, GuardCondition,
+    RclrsError, GuardCondition, InnerGuardConditionHandle,
 };
 
 /// Enum to describe the kind of an executable.
@@ -23,7 +23,7 @@ pub enum ExecutableKind {
 /// Used by the wait set to obtain the handle of an executable.
 pub enum ExecutableHandle<'a> {
     Subscription(MutexGuard<'a, rcl_subscription_t>),
-    GuardCondition(MutexGuard<'a, rcl_guard_condition_t>),
+    GuardCondition(MutexGuard<'a, InnerGuardConditionHandle>),
     Timer(MutexGuard<'a, rcl_timer_t>),
     Client(MutexGuard<'a, rcl_client_t>),
     Service(MutexGuard<'a, rcl_service_t>),
@@ -176,7 +176,9 @@ impl Waitable {
                     rcl_wait_set_add_subscription(wait_set, &*handle, &mut index)
                 }
                 ExecutableHandle::GuardCondition(handle) => {
-                    rcl_wait_set_add_guard_condition(wait_set, &*handle, &mut index)
+                    handle.use_handle(|handle| {
+                        rcl_wait_set_add_guard_condition(wait_set, &*handle, &mut index)
+                    })
                 }
                 ExecutableHandle::Service(handle) => {
                     rcl_wait_set_add_service(wait_set, &*handle, &mut index)

@@ -3,9 +3,12 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+use futures::channel::mpsc::unbounded;
+
 use crate::{
-    rcl_bindings::*, ClockType, Node, NodeHandle, ParameterInterface,
-    ExecutorCommands,
+    node::node_graph_task::{node_graph_task, NodeGraphAction},
+    rcl_bindings::*,
+    ClockType, Node, NodeHandle, ParameterInterface, GuardCondition, ExecutorCommands,
     QoSProfile, RclrsError, TimeSource, ToResult, ENTITY_LIFECYCLE_MUTEX, QOS_PROFILE_CLOCK,
 };
 
@@ -310,18 +313,51 @@ impl NodeOptions {
                 &rcl_context.global_arguments,
             )?
         };
+
+        // --- Set up guard condition for graph change events ---
+        let (graph_change_action, graph_change_receiver) = unbounded();
+        let graph_change_execute_sender = graph_change_action.clone();
+
+        let rcl_graph_change_guard_condition = unsafe {
+            // SAFETY: The node is valid because we just instantiated it.
+            rcl_node_get_graph_guard_condition(&*handle.rcl_node.lock().unwrap())
+        };
+        let (graph_change_guard_condition, graph_change_waitable) = unsafe {
+            // SAFETY: The guard condition is owned by the rcl_node and will
+            // remain valid for as long as the rcl_node is alive, so we set the
+            // owner to be the Arc for the NodeHandle.
+            GuardCondition::from_rcl(
+                &commands.context().handle,
+                rcl_graph_change_guard_condition,
+                Box::new(Arc::clone(&handle)),
+                Some(Box::new(move || {
+                    graph_change_execute_sender
+                    .unbounded_send(NodeGraphAction::GraphChange)
+                    .ok();
+                })),
+            )
+        };
+        commands.add_to_wait_set(graph_change_waitable);
+        let _ = commands.run(node_graph_task(
+            graph_change_receiver,
+            graph_change_guard_condition,
+        ));
+
         let node = Arc::new(Node {
             handle,
             time_source: TimeSource::builder(self.clock_type)
                 .clock_qos(self.clock_qos)
                 .build(),
             parameter,
+            graph_change_action,
             commands: Arc::clone(&commands),
         });
         node.time_source.attach_node(&node);
+
         if self.start_parameter_services {
             node.parameter.create_services(&node)?;
         }
+
         Ok(node)
     }
 

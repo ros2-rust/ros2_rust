@@ -436,7 +436,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_list_parameters_service() -> Result<(), RclrsError> {
-        let context = Context::new([]).unwrap();
+        let context = Context::default();
         let (test_node, client_node) = construct_test_nodes(&context, "list");
         let list_client = client_node.create_client::<ListParameters>(
             "/list/node/list_parameters",

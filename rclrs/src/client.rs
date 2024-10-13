@@ -11,7 +11,7 @@ use rosidl_runtime_rs::Message;
 use crate::{
     error::ToResult,
     rcl_bindings::*,
-    MessageCow, NodeHandle, RclrsError, Promise, ENTITY_LIFECYCLE_MUTEX,
+    MessageCow, Node, RclrsError, Promise, ENTITY_LIFECYCLE_MUTEX,
     ExecutorCommands, Executable, QoSProfile, Waitable, WaitableLifecycle,
     ExecutableHandle, ExecutableKind, ServiceInfo,
 };
@@ -41,8 +41,8 @@ where
 {
     handle: Arc<ClientHandle>,
     action: UnboundedSender<ClientAction<T>>,
+    #[allow(unused)]
     lifecycle: WaitableLifecycle,
-    commands: Arc<ExecutorCommands>,
 }
 
 impl<T> Client<T>
@@ -57,6 +57,10 @@ where
     /// - `Response`
     /// - `(Response, `[`RequestId`][1]`)`
     /// - `(Response, `[`ServiceInfo`][2]`)`
+    ///
+    /// Dropping the [`Promise`] that this returns will not cancel the request.
+    /// Once this function is called, the service provider will receive the
+    /// request and respond to it no matter what.
     ///
     /// [1]: crate::RequestId
     /// [2]: crate::ServiceInfo
@@ -82,21 +86,27 @@ where
         }
         .ok()?;
 
+        // TODO(@mxgrey): Log errors here when logging becomes available.
         self.action.unbounded_send(
             ClientAction::NewRequest { sequence_number, sender }
-        );
+        ).ok();
 
         Ok(promise)
     }
 
     /// Call this service and then handle its response with a regular callback.
+    ///
+    /// You do not need to retain the [`Promise`] that this returns, even if the
+    /// compiler warns you that you need to. You can use the [`Promise`] to know
+    /// when the response is finished being processed, but otherwise you can
+    /// safely discard it.
     //
     // TODO(@mxgrey): Add documentation to show what callback signatures are supported
     pub fn call_then<'a, Req, Args>(
         &self,
         request: Req,
         callback: impl ClientCallback<T, Args>,
-    ) -> Result<(), RclrsError>
+    ) -> Result<Promise<()>, RclrsError>
     where
         Req: MessageCow<'a, T::Request>,
     {
@@ -107,18 +117,23 @@ where
     }
 
     /// Call this service and then handle its response with an async callback.
+    ///
+    /// You do not need to retain the [`Promise`] that this returns, even if the
+    /// compiler warns you that you need to. You can use the [`Promise`] to know
+    /// when the response is finished being processed, but otherwise you can
+    /// safely discard it.
     //
     // TODO(@mxgrey): Add documentation to show what callback signatures are supported
     pub fn call_then_async<'a, Req, Args>(
         &self,
         request: Req,
         callback: impl ClientAsyncCallback<T, Args>,
-    ) -> Result<(), RclrsError>
+    ) -> Result<Promise<()>, RclrsError>
     where
         Req: MessageCow<'a, T::Request>,
     {
         let response: Promise<(T::Response, ServiceInfo)> = self.call(request)?;
-        self.commands.run(async move {
+        let promise = self.handle.node.commands().run(async move {
             match response.await {
                 Ok((response, info)) => {
                     callback.run_client_async_callback(response, info).await;
@@ -129,7 +144,7 @@ where
             }
         });
 
-        Ok(())
+        Ok(promise)
     }
 
     /// Check if a service server is available.
@@ -140,7 +155,7 @@ where
     pub fn service_is_ready(&self) -> Result<bool, RclrsError> {
         let mut is_ready = false;
         let client = &mut *self.handle.rcl_client.lock().unwrap();
-        let node = &mut *self.handle.node_handle.rcl_node.lock().unwrap();
+        let node = &mut *self.handle.node.handle().rcl_node.lock().unwrap();
 
         unsafe {
             // SAFETY both node and client are guaranteed to be valid here
@@ -151,12 +166,22 @@ where
         Ok(is_ready)
     }
 
+    /// Get a promise that will be fulfilled when a service is ready for this
+    /// client. You can `.await` the promise in an async function or use it for
+    /// `until_promise_resolved` in [`SpinOptions`][crate::SpinOptions].
+    pub fn notify_on_service_ready(self: &Arc<Self>) -> Promise<()> {
+        let client = Arc::clone(self);
+        self.handle.node.notify_on_graph_change(
+            // TODO(@mxgrey): Log any errors here once logging is available
+            move || client.service_is_ready().is_ok_and(|r| r)
+        )
+    }
+
     /// Creates a new client.
     pub(crate) fn create(
         topic: &str,
         qos: QoSProfile,
-        node_handle: &Arc<NodeHandle>,
-        commands: &Arc<ExecutorCommands>,
+        node: &Arc<Node>,
     ) -> Result<Arc<Self>, RclrsError>
     // This uses pub(crate) visibility to avoid instantiating this struct outside
     // [`Node::create_client`], see the struct's documentation for the rationale
@@ -177,7 +202,7 @@ where
         client_options.qos = qos.into();
 
         {
-            let rcl_node = node_handle.rcl_node.lock().unwrap();
+            let rcl_node = node.handle().rcl_node.lock().unwrap();
             let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
 
             // SAFETY:
@@ -201,11 +226,13 @@ where
 
         let handle = Arc::new(ClientHandle {
             rcl_client: Mutex::new(rcl_client),
-            node_handle: Arc::clone(&node_handle),
+            node: Arc::clone(&node),
         });
 
+        let commands = node.commands();
+
         let (action, receiver) = unbounded();
-        commands.run(client_task(receiver, Arc::clone(&handle)));
+        let _ = commands.run(client_task(receiver, Arc::clone(&handle)));
 
         let (waitable, lifecycle) = Waitable::new(
             Box::new(ClientExecutable {
@@ -220,7 +247,6 @@ where
             handle,
             action,
             lifecycle,
-            commands: Arc::clone(&commands),
         }))
     }
 }
@@ -255,7 +281,9 @@ where
 /// [1]: <https://doc.rust-lang.org/reference/destructors.html>
 struct ClientHandle {
     rcl_client: Mutex<rcl_client_t>,
-    node_handle: Arc<NodeHandle>,
+    /// We store the whole node here because we use some of its user-facing API
+    /// in some of the Client methods.
+    node: Arc<Node>,
 }
 
 impl ClientHandle {
@@ -267,7 +295,7 @@ impl ClientHandle {
 impl Drop for ClientHandle {
     fn drop(&mut self) {
         let rcl_client = self.rcl_client.get_mut().unwrap();
-        let mut rcl_node = self.node_handle.rcl_node.lock().unwrap();
+        let mut rcl_node = self.node.handle().rcl_node.lock().unwrap();
         let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
         // SAFETY: The entity lifecycle mutex is locked to protect against the risk of
         // global variables in the rmw implementation being unsafely modified during cleanup.

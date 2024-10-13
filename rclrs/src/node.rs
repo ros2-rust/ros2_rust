@@ -1,26 +1,37 @@
 mod options;
+pub use options::*;
+
 mod graph;
+pub use graph::*;
+
+mod node_graph_task;
+use node_graph_task::*;
+
 use std::{
     cmp::PartialEq,
     ffi::CStr,
     fmt,
     os::raw::c_char,
     sync::{Arc, Mutex},
+    time::Duration,
 };
+
+use futures::{
+    StreamExt,
+    channel::{oneshot, mpsc::{unbounded, UnboundedSender}},
+};
+
+use tokio::time::timeout;
 
 use rosidl_runtime_rs::Message;
 
-pub use self::{options::*, graph::*};
 use crate::{
-    rcl_bindings::*, Client, Clock, ContextHandle,
-    ParameterBuilder, ParameterInterface, ParameterVariant, Parameters, Publisher, QoSProfile,
-    RclrsError, Service, Subscription, SubscriptionCallback, SubscriptionAsyncCallback,
-    ServiceCallback, ServiceAsyncCallback, ExecutorCommands, TimeSource, ENTITY_LIFECYCLE_MUTEX,
+    rcl_bindings::*,
+    Client, Clock, ContextHandle, Promise, ParameterBuilder, ParameterInterface,
+    ParameterVariant, Parameters, Publisher, QoSProfile, RclrsError, Service,
+    Subscription, SubscriptionCallback, SubscriptionAsyncCallback, ServiceCallback,
+    ServiceAsyncCallback, ExecutorCommands, TimeSource, ENTITY_LIFECYCLE_MUTEX,
 };
-
-// SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
-// they are running in. Therefore, this type can be safely sent to another thread.
-unsafe impl Send for rcl_node_t {}
 
 /// A processing unit that can communicate with other nodes.
 ///
@@ -61,7 +72,8 @@ pub struct Node {
     time_source: TimeSource,
     parameter: ParameterInterface,
     commands: Arc<ExecutorCommands>,
-    pub(crate) handle: Arc<NodeHandle>,
+    graph_change_action: UnboundedSender<NodeGraphAction>,
+    handle: Arc<NodeHandle>,
 }
 
 /// This struct manages the lifetime of an `rcl_node_t`, and accounts for its
@@ -181,14 +193,14 @@ impl Node {
     /// [1]: crate::Client
     // TODO: make client's lifetime depend on node's lifetime
     pub fn create_client<T>(
-        &self,
+        self: &Arc<Self>,
         topic: &str,
         qos: QoSProfile,
     ) -> Result<Arc<Client<T>>, RclrsError>
     where
         T: rosidl_runtime_rs::Service,
     {
-        Client::<T>::create(topic, qos, &self.handle, &self.commands)
+        Client::<T>::create(topic, qos, &self)
     }
 
     /// Creates a [`Publisher`][1].
@@ -407,6 +419,70 @@ impl Node {
         }
     }
 
+    /// Same as [`Self::notify_on_graph_change_with_period`] but uses a
+    /// recommended default period of 100ms.
+    pub fn notify_on_graph_change(
+        &self,
+        condition: impl FnMut() -> bool + Send + 'static,
+    ) -> Promise<()> {
+        self.notify_on_graph_change_with_period(condition, Duration::from_millis(100))
+    }
+
+    /// This function allows you to track when a specific graph change happens.
+    ///
+    /// Provide a function that will be called each time a graph change occurs.
+    /// You will be given a [`Promise`] that will be fulfilled when the condition
+    /// returns true. The condition will be checked under these conditions:
+    /// - once immediately as this function is run
+    /// - each time rcl notifies us that a graph change has happened
+    /// - each time the period elapses
+    ///
+    /// We specify a period because it is possible that race conditions at the
+    /// rcl layer could trigger a notification of a graph change before your
+    /// API calls will be able to observe it.
+    ///
+    ///
+    pub fn notify_on_graph_change_with_period(
+        &self,
+        mut condition: impl FnMut() -> bool + Send + 'static,
+        period: Duration,
+    ) -> Promise<()> {
+        let (listener, mut on_graph_change_receiver) = unbounded();
+        let promise = self.commands.query(async move {
+            loop {
+                match timeout(period, on_graph_change_receiver.next()).await {
+                    Ok(Some(_)) | Err(_) => {
+                        // Either we received a notification that there was a
+                        // graph change, or the timeout elapsed. Either way, we
+                        // want to check the condition and break out of the loop
+                        // if the condition is true.
+                        if condition() {
+                            return;
+                        }
+                    }
+                    Ok(None) => {
+                        // We've been notified that the graph change sender is
+                        // closed which means we will never receive another
+                        // graph change update. This only happens when a node
+                        // is being torn down, so go ahead and exit this loop.
+                        return;
+                    }
+                }
+            }
+        });
+
+        self.graph_change_action
+            .unbounded_send(NodeGraphAction::NewGraphListener(listener))
+            .ok();
+
+        promise
+    }
+
+    /// Get the [`ExecutorCommands`] used by this Node.
+    pub fn commands(&self) -> &Arc<ExecutorCommands> {
+        &self.commands
+    }
+
     // Helper for name(), namespace(), fully_qualified_name()
     fn call_string_getter(
         &self,
@@ -414,6 +490,10 @@ impl Node {
     ) -> String {
         let rcl_node = self.handle.rcl_node.lock().unwrap();
         unsafe { call_string_getter_with_rcl_node(&rcl_node, getter) }
+    }
+
+    pub(crate) fn handle(&self) -> &Arc<NodeHandle> {
+        &self.handle
     }
 }
 
@@ -433,6 +513,10 @@ pub(crate) unsafe fn call_string_getter_with_rcl_node(
     let cstr = CStr::from_ptr(char_ptr);
     cstr.to_string_lossy().into_owned()
 }
+
+// SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
+// they are running in. Therefore, this type can be safely sent to another thread.
+unsafe impl Send for rcl_node_t {}
 
 #[cfg(test)]
 mod tests {

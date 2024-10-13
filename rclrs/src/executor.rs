@@ -74,12 +74,12 @@ impl Executor {
     where
         E: 'static + ExecutorRuntime + Send,
     {
-        let (guard_condition, waitable) = GuardCondition::new(&context);
+        let (wakeup_wait_set, waitable) = GuardCondition::new(&context, None);
         let commands = Arc::new(ExecutorCommands {
             context: Context { handle: Arc::clone(&context) },
             channel: runtime.channel(),
             halt_spinning: Arc::new(AtomicBool::new(false)),
-            guard_condition: Arc::new(guard_condition),
+            wakeup_wait_set: Arc::new(wakeup_wait_set),
         });
 
         commands.add_to_wait_set(waitable);
@@ -97,7 +97,7 @@ impl Executor {
             options,
             halt_spinning: Arc::clone(&self.commands.halt_spinning),
             context: Context { handle: Arc::clone(&self.context) },
-            guard_condition: Arc::clone(&self.commands.guard_condition),
+            guard_condition: Arc::clone(&self.commands.wakeup_wait_set),
         }
     }
 }
@@ -108,7 +108,7 @@ pub struct ExecutorCommands {
     context: Context,
     channel: Box<dyn ExecutorChannel>,
     halt_spinning: Arc<AtomicBool>,
-    guard_condition: Arc<GuardCondition>,
+    wakeup_wait_set: Arc<GuardCondition>,
 }
 
 impl ExecutorCommands {
@@ -125,7 +125,7 @@ impl ExecutorCommands {
     pub fn halt_spinning(&self) {
         self.halt_spinning.store(true, Ordering::Release);
         // TODO(@mxgrey): Log errors here when logging becomes available
-        self.guard_condition.trigger().ok();
+        self.wakeup_wait_set.trigger().ok();
     }
 
     /// Run a task on the [`Executor`]. If the returned [`Promise`] is dropped
@@ -170,7 +170,11 @@ impl ExecutorCommands {
     /// If you want to ensure that the task always runs to completion, then this
     /// `run` method is what you want.
     ///
-    /// You have two ways to obtain the output of the promise:
+    /// You can safely discard the promise that is returned to you even if the
+    /// compiler gives you a warning about it. Use `let _ = promise;` to suppress
+    /// the warning.
+    ///
+    /// If you choose to keep the promise, you have two ways to obtain its output:
     /// - `.await` the output of the promise in an async scope
     /// - use [`Promise::try_recv`] to get the output if it is available
     pub fn run<F>(&self, f: F) -> Promise<F::Output>
@@ -198,7 +202,7 @@ impl ExecutorCommands {
 
     /// Get a guard condition that can be used to wake up the wait set of the executor.
     pub(crate) fn get_guard_condition(&self) -> &Arc<GuardCondition> {
-        &self.guard_condition
+        &self.wakeup_wait_set
     }
 }
 
