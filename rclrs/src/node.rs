@@ -18,10 +18,10 @@ use std::{
 
 use futures::{
     StreamExt,
-    channel::{oneshot, mpsc::{unbounded, UnboundedSender}},
+    channel::mpsc::{unbounded, UnboundedSender},
 };
 
-use tokio::time::timeout;
+use async_std::future::timeout;
 
 use rosidl_runtime_rs::Message;
 

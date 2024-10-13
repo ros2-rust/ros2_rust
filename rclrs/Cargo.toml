@@ -23,8 +23,8 @@ cfg-if = "1.0.0"
 # Needed for clients
 futures = "0.3"
 
-# We import only the time module, which is needed to support timeouts in async blocks
-tokio = { version = "1", features = ["time"] }
+# Needed for the runtime-agnostic timeout feature
+async-std = "1.13"
 
 # Needed for dynamic messages
 libloading = { version = "0.8", optional = true }
