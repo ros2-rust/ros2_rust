@@ -50,27 +50,27 @@ impl<T: Message> AnySubscriptionCallback<T> {
             match self {
                 AnySubscriptionCallback::Regular(cb) => {
                     let (msg, _) = Self::take(handle)?;
-                    commands.run_detached(cb(msg));
+                    commands.run(cb(msg));
                 }
                 AnySubscriptionCallback::RegularWithMessageInfo(cb) => {
                     let (msg, msg_info) = Self::take(handle)?;
-                    commands.run_detached(cb(msg, msg_info));
+                    commands.run(cb(msg, msg_info));
                 }
                 AnySubscriptionCallback::Boxed(cb) => {
                     let (msg, _) = Self::take_boxed(handle)?;
-                    commands.run_detached(cb(msg));
+                    commands.run(cb(msg));
                 }
                 AnySubscriptionCallback::BoxedWithMessageInfo(cb) => {
                     let (msg, msg_info) = Self::take_boxed(handle)?;
-                    commands.run_detached(cb(msg, msg_info));
+                    commands.run(cb(msg, msg_info));
                 }
                 AnySubscriptionCallback::Loaned(cb) => {
                     let (msg, _) = Self::take_loaned(handle)?;
-                    commands.run_detached(cb(msg));
+                    commands.run(cb(msg));
                 }
                 AnySubscriptionCallback::LoanedWithMessageInfo(cb) => {
                     let (msg, msg_info) = Self::take_loaned(handle)?;
-                    commands.run_detached(cb(msg, msg_info));
+                    commands.run(cb(msg, msg_info));
                 }
             }
             Ok(())

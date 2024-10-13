@@ -73,6 +73,14 @@ pub(crate) struct ContextHandle {
     pub(crate) rcl_context: Mutex<rcl_context_t>,
 }
 
+impl Default for Context {
+    fn default() -> Self {
+        // SAFETY: It should always be valid to instantiate a context with no
+        // arguments, no parameters, no options, etc.
+        Self::new([]).expect("Failed to instantiate a default context")
+    }
+}
+
 impl Context {
     /// Creates a new context.
     ///
@@ -158,7 +166,8 @@ impl Context {
     ///
     /// [1]: BasicExecutorRuntime
     pub fn create_basic_executor(&self) -> Executor {
-        self.create_executor(BasicExecutorRuntime::default())
+        let runtime = BasicExecutorRuntime::new(self);
+        self.create_executor(runtime)
     }
 
     /// Create an [`Executor`] for this context.
@@ -199,8 +208,6 @@ impl Context {
         // SAFETY: No preconditions for this function.
         unsafe { rcl_context_is_valid(rcl_context) }
     }
-
-    // TODO(@mxgrey):
 }
 
 /// Additional options for initializing the Context.

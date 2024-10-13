@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex};
 use crate::{
     rcl_bindings::*,
     ContextHandle, RclrsError, ToResult, WaitableLifecycle, Executable,
-    Waitable, ExecutableKind, ExecutableHandle, ExecutorCommands,
+    Waitable, ExecutableKind, ExecutableHandle,
 };
 
 /// A waitable entity used for waking up a wait set manually.
@@ -29,13 +29,23 @@ pub struct GuardCondition {
 unsafe impl Send for rcl_guard_condition_t {}
 
 impl GuardCondition {
-    /// Creates a new guard condition with no callback.
-    pub(crate) fn new(commands: &ExecutorCommands) -> Self {
-        let context = commands.context();
+    /// Triggers this guard condition, activating the wait set, and calling the optionally assigned callback.
+    pub fn trigger(&self) -> Result<(), RclrsError> {
+        unsafe {
+            // SAFETY: The rcl_guard_condition_t is valid.
+            rcl_trigger_guard_condition(&mut *self.handle.rcl_guard_condition.lock().unwrap())
+                .ok()?;
+        }
+        Ok(())
+    }
+
+    /// Creates a new guard condition. This is only for internal use. Ordinary
+    /// users of rclrs do not need to access guard conditions.
+    pub(crate) fn new(context: &Arc<ContextHandle>) -> (Self, Waitable) {
         let rcl_guard_condition = {
             // SAFETY: Getting a zero initialized value is always safe
             let mut guard_condition = unsafe { rcl_get_zero_initialized_guard_condition() };
-            let mut rcl_context = context.handle.rcl_context.lock().unwrap();
+            let mut rcl_context = context.rcl_context.lock().unwrap();
             unsafe {
                 // SAFETY: The context must be valid, and the guard condition must be zero-initialized
                 rcl_guard_condition_init(
@@ -50,27 +60,15 @@ impl GuardCondition {
 
         let handle = Arc::new(GuardConditionHandle {
             rcl_guard_condition,
-            context_handle: Arc::clone(&context.handle),
+            context_handle: Arc::clone(&context),
         });
 
-        let (waiter, lifecycle) = Waitable::new(
+        let (waitable, lifecycle) = Waitable::new(
             Box::new(GuardConditionExecutable { handle: Arc::clone(&handle) }),
             None,
         );
 
-        commands.add_to_wait_set(waiter);
-
-        Self { handle, lifecycle }
-    }
-
-    /// Triggers this guard condition, activating the wait set, and calling the optionally assigned callback.
-    pub fn trigger(&self) -> Result<(), RclrsError> {
-        unsafe {
-            // SAFETY: The rcl_guard_condition_t is valid.
-            rcl_trigger_guard_condition(&mut *self.handle.rcl_guard_condition.lock().unwrap())
-                .ok()?;
-        }
-        Ok(())
+        (Self { handle, lifecycle }, waitable)
     }
 }
 

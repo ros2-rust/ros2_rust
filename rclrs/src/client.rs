@@ -118,7 +118,7 @@ where
         Req: MessageCow<'a, T::Request>,
     {
         let response: Promise<(T::Response, ServiceInfo)> = self.call(request)?;
-        self.commands.run_detached(async move {
+        self.commands.run(async move {
             match response.await {
                 Ok((response, info)) => {
                     callback.run_client_async_callback(response, info).await;
@@ -205,7 +205,7 @@ where
         });
 
         let (action, receiver) = unbounded();
-        commands.run_detached(client_task(receiver, Arc::clone(&handle)));
+        commands.run(client_task(receiver, Arc::clone(&handle)));
 
         let (waitable, lifecycle) = Waitable::new(
             Box::new(ClientExecutable {

@@ -115,7 +115,7 @@ where
             Arc::clone(commands.get_guard_condition()),
         )?;
 
-        commands.run_detached(service_task(
+        commands.run(service_task(
             callback,
             receiver,
             Arc::clone(&service.handle),

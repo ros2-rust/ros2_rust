@@ -1,19 +1,22 @@
 mod basic_executor;
 pub use self::basic_executor::*;
 
+mod wait_set_runner;
+pub use self::wait_set_runner::*;
+
 use crate::{
-    rcl_bindings::rcl_context_is_valid,
-    Node, NodeOptions, RclReturnCode, RclrsError, WaitSet, Context,
-    ContextHandle, Waitable, GuardCondition,
+    Node, NodeOptions, RclrsError, Context, ContextHandle, Waitable, GuardCondition,
 };
 use std::{
-    sync::{Arc, Mutex, Weak},
+    sync::{Arc, atomic::{AtomicBool, Ordering}},
     time::Duration,
-    sync::atomic::{AtomicBool, Ordering},
     future::Future,
 };
 pub use futures::channel::oneshot::Receiver as Promise;
-use futures::{future::{BoxFuture, Either, select}, channel::oneshot};
+use futures::{
+    future::{BoxFuture, Either, select},
+    channel::oneshot,
+};
 
 /// An executor that can be used to create nodes and run their callbacks.
 pub struct Executor {
@@ -44,7 +47,6 @@ impl Executor {
     /// certain conditions are met. Use `SpinOptions::default()` to allow the
     /// Executor to keep spinning indefinitely.
     pub fn spin(&mut self, options: SpinOptions) {
-        self.commands.halt.store(false, Ordering::Release);
         let conditions = self.make_spin_conditions(options);
         self.runtime.spin(conditions);
     }
@@ -59,7 +61,6 @@ impl Executor {
     /// from spinning. The output of the async task will be the restored Executor,
     /// which you can use to resume spinning after the task is finished.
     pub async fn spin_async(self, options: SpinOptions) -> Self {
-        self.commands.halt.store(false, Ordering::Release);
         let conditions = self.make_spin_conditions(options);
         let Self { context, commands, runtime } = self;
 
@@ -73,11 +74,15 @@ impl Executor {
     where
         E: 'static + ExecutorRuntime,
     {
+        let (guard_condition, waitable) = GuardCondition::new(&context);
         let commands = Arc::new(ExecutorCommands {
             context: Context { handle: Arc::clone(&context) },
             channel: runtime.channel(),
-            halt: Arc::new(AtomicBool::new(false)),
+            halt_spinning: Arc::new(AtomicBool::new(false)),
+            guard_condition: Arc::new(guard_condition),
         });
+
+        commands.add_to_wait_set(waitable);
 
         Self {
             context,
@@ -87,10 +92,12 @@ impl Executor {
     }
 
     fn make_spin_conditions(&self, options: SpinOptions) -> SpinConditions {
+        self.commands.halt_spinning.store(false, Ordering::Release);
         SpinConditions {
             options,
-            halt: Arc::clone(&self.commands.halt),
+            halt_spinning: Arc::clone(&self.commands.halt_spinning),
             context: Context { handle: Arc::clone(&self.context) },
+            guard_condition: Arc::clone(&self.commands.guard_condition),
         }
     }
 }
@@ -100,7 +107,8 @@ impl Executor {
 pub struct ExecutorCommands {
     context: Context,
     channel: Box<dyn ExecutorChannel>,
-    halt: Arc<AtomicBool>,
+    halt_spinning: Arc<AtomicBool>,
+    guard_condition: Arc<GuardCondition>,
 }
 
 impl ExecutorCommands {
@@ -114,17 +122,25 @@ impl ExecutorCommands {
     }
 
     /// Tell the [`Executor`] to halt its spinning.
-    pub fn halt(&self) {
-        self.halt.store(true, Ordering::Release);
-        self.channel.get_guard_condition().trigger();
+    pub fn halt_spinning(&self) {
+        self.halt_spinning.store(true, Ordering::Release);
+        // TODO(@mxgrey): Log errors here when logging becomes available
+        self.guard_condition.trigger().ok();
     }
 
     /// Run a task on the [`Executor`]. If the returned [`Promise`] is dropped
     /// then the task will be dropped, which means it might not run to
     /// completion.
     ///
-    /// You can `.await` the output of the promise in an async scope.
-    pub fn run<F>(&self, f: F) -> Promise<F::Output>
+    /// This differs from [`run`][Self::run] because [`run`][Self::run] will
+    /// always run to completion, even if you discard the [`Promise`] that gets
+    /// returned. If dropping the [`Promise`] means that you don't need the task
+    /// to finish, then this `query` method is what you want.
+    ///
+    /// You have two ways to obtain the output of the promise:
+    /// - `.await` the output of the promise in an async scope
+    /// - use [`Promise::try_recv`] to get the output if it is available
+    pub fn query<F>(&self, f: F) -> Promise<F::Output>
     where
         F: 'static + Future + Send,
         F::Output: Send,
@@ -149,8 +165,15 @@ impl ExecutorCommands {
     /// Run a task on the [`Executor`]. The task will run to completion even if
     /// you drop the returned [`Promise`].
     ///
-    /// You can `.await` the output of the promise in an async scope.
-    pub fn run_detached<F>(&self, f: F) -> Promise<F::Output>
+    /// This differs from [`query`][Self::query] because [`query`][Self::query]
+    /// will automatically stop running the task if you drop the [`Promise`].
+    /// If you want to ensure that the task always runs to completion, then this
+    /// `run` method is what you want.
+    ///
+    /// You have two ways to obtain the output of the promise:
+    /// - `.await` the output of the promise in an async scope
+    /// - use [`Promise::try_recv`] to get the output if it is available
+    pub fn run<F>(&self, f: F) -> Promise<F::Output>
     where
         F: 'static + Future + Send,
         F::Output: Send,
@@ -164,20 +187,18 @@ impl ExecutorCommands {
         receiver
     }
 
+    /// Get the context that the executor is associated with.
     pub fn context(&self) -> &Context {
         &self.context
     }
 
-    pub(crate) fn add_async_task(&self, f: BoxFuture<'static, ()>) {
-        self.channel.add_async_task(f);
+    pub(crate) fn add_to_wait_set(&self, waitable: Waitable) {
+        self.channel.add_to_waitset(waitable);
     }
 
-    pub(crate) fn add_to_wait_set(&self, waiter: Waitable) {
-        self.channel.add_to_waitset(waiter);
-    }
-
+    /// Get a guard condition that can be used to wake up the wait set of the executor.
     pub(crate) fn get_guard_condition(&self) -> &Arc<GuardCondition> {
-        &self.channel.get_guard_condition()
+        &self.guard_condition
     }
 }
 
@@ -189,9 +210,6 @@ pub trait ExecutorChannel: Send + Sync {
 
     /// Add new entities to the waitset of the executor.
     fn add_to_waitset(&self, new_entity: Waitable);
-
-    /// Get a guard condition that can be used to wake up the wait set of the executor.
-    fn get_guard_condition(&self) -> &Arc<GuardCondition>;
 }
 
 /// This trait defines the interface for having an executor run.
@@ -226,8 +244,11 @@ pub struct SpinOptions {
     /// To only process work that is immediately available without waiting at all,
     /// set a timeout of zero.
     pub only_next_available_work: bool,
-    /// The executor will stop spinning if the future is resolved.
-    pub until_future_resolved: Option<BoxFuture<'static, ()>>,
+    /// The executor will stop spinning if the promise is resolved. The promise
+    /// does not need to be fulfilled (i.e. a value was sent), it could also be
+    /// cancelled (i.e. the Sender was dropped) and spinning will nevertheless
+    /// stop.
+    pub until_promise_resolved: Option<Promise<()>>,
     /// Stop waiting after this duration of time has passed. Use `Some(0)` to not
     /// wait any amount of time. Use `None` to wait an infinite amount of time.
     pub timeout: Option<Duration>,
@@ -242,9 +263,9 @@ impl SpinOptions {
         }
     }
 
-    /// Stop spinning once this future is resolved.
-    pub fn until_future_resolved<F: Future + Send + 'static>(mut self, f: F) -> Self {
-        self.until_future_resolved = Some(Box::pin(async { f.await; }));
+    /// Stop spinning once this promise is resolved.
+    pub fn until_promise_resolved(mut self, promise: Promise<()>) -> Self {
+        self.until_promise_resolved = Some(promise);
         self
     }
 
@@ -259,95 +280,19 @@ impl SpinOptions {
 /// spinning. This combines conditions that users specify with [`SpinOptions`]
 /// and standard conditions that are set by the [`Executor`].
 ///
-/// This struct is for users who are implementing custom executors. Users who
-/// are writing applications should use [`SpinOptions`].
+/// This struct is only for users who are implementing custom executors. Users
+/// who are writing applications should use [`SpinOptions`].
 #[non_exhaustive]
 pub struct SpinConditions {
     /// User-specified optional conditions for spinning.
     pub options: SpinOptions,
     /// Halt trigger that gets set by [`ExecutorCommands`].
-    pub halt: Arc<AtomicBool>,
+    pub halt_spinning: Arc<AtomicBool>,
     /// Use this to check [`Context::ok`] to make sure that the context is still
     /// valid. When the context is invalid, the executor runtime should stop
     /// spinning.
     pub context: Context,
-}
-
-/// Single-threaded executor implementation.
-pub struct SingleThreadedExecutor {
-    nodes_mtx: Mutex<Vec<Weak<Node>>>,
-}
-
-impl Default for SingleThreadedExecutor {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl SingleThreadedExecutor {
-    /// Creates a new executor.
-    pub fn new() -> Self {
-        SingleThreadedExecutor {
-            nodes_mtx: Mutex::new(Vec::new()),
-        }
-    }
-
-    /// Add a node to the executor.
-    pub fn add_node(&self, node: &Arc<Node>) -> Result<(), RclrsError> {
-        { self.nodes_mtx.lock().unwrap() }.push(Arc::downgrade(node));
-        Ok(())
-    }
-
-    /// Remove a node from the executor.
-    pub fn remove_node(&self, node: Arc<Node>) -> Result<(), RclrsError> {
-        { self.nodes_mtx.lock().unwrap() }
-            .retain(|n| !n.upgrade().map(|n| Arc::ptr_eq(&n, &node)).unwrap_or(false));
-        Ok(())
-    }
-
-    /// Polls the nodes for new messages and executes the corresponding callbacks.
-    ///
-    /// This function additionally checks that the context is still valid.
-    pub fn spin_once(&self, timeout: Option<Duration>) -> Result<(), RclrsError> {
-        for node in { self.nodes_mtx.lock().unwrap() }
-            .iter()
-            .filter_map(Weak::upgrade)
-            .filter(|node| unsafe {
-                rcl_context_is_valid(&*node.handle.context_handle.rcl_context.lock().unwrap())
-            })
-        {
-            let wait_set = WaitSet::new_for_node(&node)?;
-            let ready_entities = wait_set.wait(timeout)?;
-
-            for ready_subscription in ready_entities.subscriptions {
-                ready_subscription.execute();
-            }
-
-            for ready_client in ready_entities.clients {
-                ready_client.execute()?;
-            }
-
-            for ready_service in ready_entities.services {
-                ready_service.execute()?;
-            }
-        }
-
-        Ok(())
-    }
-
-    /// Convenience function for calling [`SingleThreadedExecutor::spin_once`] in a loop.
-    pub fn spin(&self) -> Result<(), RclrsError> {
-        while !{ self.nodes_mtx.lock().unwrap() }.is_empty() {
-            match self.spin_once(None) {
-                Ok(_)
-                | Err(RclrsError::RclError {
-                    code: RclReturnCode::Timeout,
-                    ..
-                }) => std::thread::yield_now(),
-                error => return error,
-            }
-        }
-
-        Ok(())
-    }
+    /// This is a guard condition which is present in the wait set. The executor
+    /// can use this to wake up the wait set.
+    pub guard_condition: Arc<GuardCondition>,
 }

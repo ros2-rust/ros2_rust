@@ -39,7 +39,7 @@ impl<T: Service> AnyServiceCallback<T> {
                     let (msg, mut rmw_request_id) = Self::take_request(handle)?;
                     let handle = Arc::clone(&handle);
                     let response = cb(msg);
-                    commands.run_detached(async move {
+                    commands.run(async move {
                         // TODO(@mxgrey): Log any errors here when logging is available
                         Self::send_response(&handle, &mut rmw_request_id, response.await).ok();
                     });
@@ -49,7 +49,7 @@ impl<T: Service> AnyServiceCallback<T> {
                     let request_id = RequestId::from_rmw_request_id(&rmw_request_id);
                     let handle = Arc::clone(&handle);
                     let response = cb(msg, request_id);
-                    commands.run_detached(async move {
+                    commands.run(async move {
                         // TODO(@mxgrey): Log any errors here when logging is available
                         Self::send_response(&handle, &mut rmw_request_id, response.await).ok();
                     });
@@ -63,7 +63,7 @@ impl<T: Service> AnyServiceCallback<T> {
                     let service_info = ServiceInfo::from_rmw_service_info(&rmw_service_info);
                     let handle = Arc::clone(&handle);
                     let response = cb(msg, service_info);
-                    commands.run_detached(async move {
+                    commands.run(async move {
                         // TODO(@mxgrey): Log any errors here when logging is available
                         Self::send_response(&handle, &mut rmw_request_id, response.await).ok();
                     });

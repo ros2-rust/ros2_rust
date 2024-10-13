@@ -48,26 +48,3 @@ pub use subscription::*;
 pub use time::*;
 use time_source::*;
 pub use wait::*;
-
-/// Polls the node for new messages and executes the corresponding callbacks.
-///
-/// See [`WaitSet::wait`] for the meaning of the `timeout` parameter.
-///
-/// This may under some circumstances return
-/// [`SubscriptionTakeFailed`][1], [`ClientTakeFailed`][1], [`ServiceTakeFailed`][1] when the wait
-/// set spuriously wakes up.
-/// This can usually be ignored.
-///
-/// [1]: crate::RclReturnCode
-pub fn spin_once(node: Arc<Node>, timeout: Option<Duration>) -> Result<(), RclrsError> {
-    let executor = SingleThreadedExecutor::new();
-    executor.add_node(&node)?;
-    executor.spin_once(timeout)
-}
-
-/// Convenience function for calling [`spin_once`] in a loop.
-pub fn spin(node: Arc<Node>) -> Result<(), RclrsError> {
-    let executor = SingleThreadedExecutor::new();
-    executor.add_node(&node)?;
-    executor.spin()
-}

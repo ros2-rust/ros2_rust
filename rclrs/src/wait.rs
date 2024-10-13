@@ -249,8 +249,7 @@ mod tests {
     fn guard_condition_in_wait_set_readies() -> Result<(), RclrsError> {
         let mut executor = Context::new([])?.create_basic_executor();
 
-        let guard_condition = GuardCondition::new(&executor.commands());
-        guard_condition.trigger()?;
+        executor.commands().get_guard_condition().trigger();
 
         let start = std::time::Instant::now();
         // This should stop spinning right away because the guard condition was

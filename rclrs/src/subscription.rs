@@ -125,7 +125,7 @@ where
             Arc::clone(commands.get_guard_condition()),
         )?;
 
-        commands.run_detached(subscription_task(
+        commands.run(subscription_task(
             callback,
             receiver,
             Arc::clone(&subscription.handle),
