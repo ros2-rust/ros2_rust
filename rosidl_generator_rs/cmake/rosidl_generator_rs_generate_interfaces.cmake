@@ -26,9 +26,11 @@ set(_generated_common_rs_files "")
 
 set(_generated_msg_rs_files "")
 set(_generated_srv_rs_files "")
+set(_generated_action_rs_files "")
 
 set(_has_msg FALSE)
 set(_has_srv FALSE)
+set(_has_action FALSE)
 
 foreach(_idl_file ${rosidl_generate_interfaces_ABS_IDL_FILES})
   get_filename_component(_parent_folder "${_idl_file}" DIRECTORY)
@@ -67,6 +69,12 @@ if(${_has_srv})
   )
 endif()
 
+if(${_has_action})
+  list(APPEND _generated_action_rs_files
+    "${_output_path}/rust/src/action.rs"
+  )
+endif()
+
 set(_dependency_files "")
 set(_dependencies "")
 foreach(_pkg_name ${rosidl_generate_interfaces_DEPENDENCY_PACKAGE_NAMES})
@@ -85,6 +93,8 @@ set(target_dependencies
   "${rosidl_generator_rs_TEMPLATE_DIR}/msg_idiomatic.rs.em"
   "${rosidl_generator_rs_TEMPLATE_DIR}/msg_rmw.rs.em"
   "${rosidl_generator_rs_TEMPLATE_DIR}/msg.rs.em"
+  "${rosidl_generator_rs_TEMPLATE_DIR}/srv_idiomatic.rs.em"
+  "${rosidl_generator_rs_TEMPLATE_DIR}/srv_rmw.rs.em"
   "${rosidl_generator_rs_TEMPLATE_DIR}/srv.rs.em"
   ${rosidl_generate_interfaces_ABS_IDL_FILES}
   ${_idl_files}
@@ -131,6 +141,7 @@ set_property(
   ${_generated_common_rs_files}
   ${_generated_msg_rs_files}
   ${_generated_srv_rs_files}
+  ${_generated_action_rs_files}
   PROPERTY GENERATED 1)
 
 set(_rsext_suffix "__rsext")
@@ -145,7 +156,8 @@ endif()
 if(BUILD_TESTING AND rosidl_generate_interfaces_ADD_LINTER_TESTS)
   if(
     NOT _generated_msg_rs_files STREQUAL "" OR
-    NOT _generated_srv_rs_files STREQUAL ""
+    NOT _generated_srv_rs_files STREQUAL "" OR
+    NOT _generated_action_rs_files STREQUAL ""
   )
   # TODO(esteve): add linters for Rust files
   endif()
