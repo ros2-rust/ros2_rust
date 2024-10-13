@@ -173,7 +173,7 @@ impl Context {
     /// Create an [`Executor`] for this context.
     pub fn create_executor<E>(&self, runtime: E) -> Executor
     where
-        E: 'static + ExecutorRuntime,
+        E: 'static + ExecutorRuntime + Send,
     {
         Executor::new(Arc::clone(&self.handle), runtime)
     }

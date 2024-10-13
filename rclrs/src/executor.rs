@@ -72,7 +72,7 @@ impl Executor {
     /// use [`Context::create_executor`].
     pub(crate) fn new<E>(context: Arc<ContextHandle>, runtime: E) -> Self
     where
-        E: 'static + ExecutorRuntime,
+        E: 'static + ExecutorRuntime + Send,
     {
         let (guard_condition, waitable) = GuardCondition::new(&context);
         let commands = Arc::new(ExecutorCommands {
@@ -213,7 +213,7 @@ pub trait ExecutorChannel: Send + Sync {
 }
 
 /// This trait defines the interface for having an executor run.
-pub trait ExecutorRuntime {
+pub trait ExecutorRuntime: Send {
     /// Get a channel that can add new items for the executor to run.
     fn channel(&self) -> Box<dyn ExecutorChannel>;
 

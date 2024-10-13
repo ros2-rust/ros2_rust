@@ -437,8 +437,8 @@ mod tests {
     #[tokio::test]
     async fn test_list_parameters_service() -> Result<(), RclrsError> {
         let context = Context::new([]).unwrap();
-        let (node, client) = construct_test_nodes(&context, "list");
-        let list_client = client.create_client::<ListParameters>(
+        let (test_node, client_node) = construct_test_nodes(&context, "list");
+        let list_client = client_node.create_client::<ListParameters>(
             "/list/node/list_parameters",
             QoSProfile::services_default(),
         )?;
@@ -452,8 +452,8 @@ mod tests {
         let inner_done = done.clone();
         let rclrs_spin = tokio::task::spawn(async move {
             try_until_timeout(|| {
-                crate::spin_once(node.node.clone(), Some(std::time::Duration::ZERO)).ok();
-                crate::spin_once(client.clone(), Some(std::time::Duration::ZERO)).ok();
+                crate::spin_once(test_node.node.clone(), Some(std::time::Duration::ZERO)).ok();
+                crate::spin_once(client_node.clone(), Some(std::time::Duration::ZERO)).ok();
                 *inner_done.read().unwrap()
             })
             .await
