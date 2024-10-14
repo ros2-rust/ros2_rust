@@ -1,9 +1,6 @@
 mod basic_executor;
 pub use self::basic_executor::*;
 
-mod wait_set_runner;
-pub use self::wait_set_runner::*;
-
 use std::io::Write;
 
 use crate::{

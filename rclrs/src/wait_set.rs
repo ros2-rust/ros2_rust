@@ -29,6 +29,9 @@ pub use guard_condition::*;
 mod waitable;
 pub use waitable::*;
 
+mod wait_set_runner;
+pub use wait_set_runner::*;
+
 /// A struct for waiting on subscriptions and other waitable entities to become ready.
 pub struct WaitSet {
     primitives: HashMap<ExecutableKind, Vec<Waitable>>,
