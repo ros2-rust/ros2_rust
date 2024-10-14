@@ -514,8 +514,6 @@ mod tests {
         dbg!();
         std::io::stdout().lock().flush().unwrap();
 
-        return Ok(());
-
         // Limit depth, namespaced parameter is not returned
         let callback_ran = Arc::new(AtomicBool::new(false));
         let callback_ran_inner = Arc::clone(&callback_ran);
@@ -793,6 +791,12 @@ mod tests {
         let request = SetParameters_Request {
             parameters: seq![undeclared_bool],
         };
+
+        // Clone test.node here so that we don't move the whole test bundle into
+        // the closure, which would cause the test node to be fully dropped
+        // after the closure is called.
+        let test_node = Arc::clone(&test.node);
+
         let promise = set_client
             .call_then(
                 &request,
@@ -801,7 +805,7 @@ mod tests {
                     // Setting the undeclared parameter is now allowed
                     assert!(response.results[0].successful);
                     assert_eq!(
-                        test.node.use_undeclared_parameters().get("undeclared_bool"),
+                        test_node.use_undeclared_parameters().get("undeclared_bool"),
                         Some(ParameterValue::Bool(true))
                     );
                     callback_ran_inner.store(true, Ordering::Release);

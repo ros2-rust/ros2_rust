@@ -31,8 +31,8 @@ pub use waitable::*;
 
 /// A struct for waiting on subscriptions and other waitable entities to become ready.
 pub struct WaitSet {
-    entities: HashMap<ExecutableKind, Vec<Waitable>>,
-    pub(crate) handle: WaitSetHandle,
+    primitives: HashMap<ExecutableKind, Vec<Waitable>>,
+    handle: WaitSetHandle,
 }
 
 // SAFETY: While the rcl_wait_set_t does have some interior mutability (because it has
@@ -53,8 +53,8 @@ impl WaitSet {
             context_handle: Arc::clone(&context.handle),
         };
 
-        let mut wait_set = Self { entities: HashMap::new(), handle };
-        wait_set.register_rcl_entities()?;
+        let mut wait_set = Self { primitives: HashMap::new(), handle };
+        wait_set.register_rcl_primitives()?;
         Ok(wait_set)
     }
 
@@ -68,10 +68,10 @@ impl WaitSet {
                 return Err(RclrsError::AlreadyAddedToWaitSet);
             }
             let kind = entity.executable.kind();
-            self.entities.entry(kind).or_default().push(entity);
+            self.primitives.entry(kind).or_default().push(entity);
         }
         self.resize_rcl_containers()?;
-        self.register_rcl_entities()?;
+        self.register_rcl_primitives()?;
         Ok(())
     }
 
@@ -80,13 +80,8 @@ impl WaitSet {
     /// This effectively resets the wait set to the state it was in after being created by
     /// [`WaitSet::new`].
     pub fn clear(&mut self) {
-        self.entities.clear();
-        // This cannot fail – the rcl_wait_set_clear function only checks that the input handle is
-        // valid, which it always is in our case. Hence, only debug_assert instead of returning
-        // Result.
-        // SAFETY: No preconditions for this function (besides passing in a valid wait set).
-        let ret = unsafe { rcl_wait_set_clear(&mut self.handle.rcl_wait_set) };
-        debug_assert_eq!(ret, 0);
+        self.primitives.clear();
+        self.rcl_clear();
     }
 
     /// Blocks until the wait set is ready, or until the timeout has been exceeded.
@@ -147,13 +142,13 @@ impl WaitSet {
         }
 
         // Remove any waitables that are no longer being used
-        for waiter in self.entities.values_mut() {
-            waiter.retain(|w| w.in_use());
+        for waitable in self.primitives.values_mut() {
+            waitable.retain(|w| w.in_use());
         }
 
         // For the remaining entities, check if they were activated and then run
         // the callback for those that were.
-        for waiter in self.entities.values_mut().flat_map(|v| v) {
+        for waiter in self.primitives.values_mut().flat_map(|v| v) {
             if waiter.is_ready(&self.handle.rcl_wait_set) {
                 f(&mut *waiter.executable)?;
             }
@@ -168,8 +163,11 @@ impl WaitSet {
         // Note that self.clear() will not change the allocated size of each rcl
         // entity container, so we do not need to resize before re-registering
         // the rcl entities.
-        self.clear();
-        self.register_rcl_entities();
+        self.rcl_clear();
+        if let Err(err) = self.register_rcl_primitives() {
+            // TODO(@mxgrey): Log this error when logging is available
+            eprintln!("Error while registering rcl primitives: {err}");
+        }
 
         Ok(())
     }
@@ -177,7 +175,7 @@ impl WaitSet {
     /// Get a count of the different kinds of entities in the wait set.
     pub fn count(&self) -> WaitableCount {
         let mut c = WaitableCount::new();
-        for (kind, collection) in &self.entities {
+        for (kind, collection) in &self.primitives {
             c.add(*kind, collection.len());
         }
         c
@@ -191,6 +189,18 @@ impl WaitSet {
         Ok(())
     }
 
+    /// Clear only the rcl_wait_set. This is done so that we can safely repopulate
+    /// it to perform another wait. This does not effect the entities that we
+    /// consider to still be in the wait set.
+    fn rcl_clear(&mut self) {
+        // This cannot fail – the rcl_wait_set_clear function only checks that the input handle is
+        // valid, which it always is in our case. Hence, only debug_assert instead of returning
+        // Result.
+        // SAFETY: No preconditions for this function (besides passing in a valid wait set).
+        let ret = unsafe { rcl_wait_set_clear(&mut self.handle.rcl_wait_set) };
+        debug_assert_eq!(ret, 0);
+    }
+
     /// Registers all the waitable entities with the rcl wait set.
     ///
     /// # Errors
@@ -199,8 +209,8 @@ impl WaitSet {
     ///   then there is a bug in rclrs.
     ///
     /// [1]: crate::RclReturnCode
-    fn register_rcl_entities(&mut self) -> Result<(), RclrsError> {
-        for entity in self.entities.values_mut().flat_map(|c| c) {
+    fn register_rcl_primitives(&mut self) -> Result<(), RclrsError> {
+        for entity in self.primitives.values_mut().flat_map(|c| c) {
             entity.add_to_wait_set(&mut self.handle.rcl_wait_set)?;
         }
         Ok(())

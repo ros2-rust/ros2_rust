@@ -5,14 +5,12 @@ use std::{
 
 use rosidl_runtime_rs::{Message, RmwMessage};
 
-use futures::channel::mpsc::{unbounded, UnboundedSender, TrySendError};
-
 use crate::{
     error::ToResult,
     qos::QoSProfile,
     rcl_bindings::*,
     ExecutorCommands, NodeHandle, RclrsError, Waitable, Executable, ExecutableHandle,
-    ExecutableKind, GuardCondition, WaitableLifecycle, ENTITY_LIFECYCLE_MUTEX,
+    ExecutableKind, WaitableLifecycle, ENTITY_LIFECYCLE_MUTEX,
 };
 
 mod any_subscription_callback;
@@ -29,9 +27,6 @@ pub use message_info::*;
 
 mod readonly_loaned_message;
 pub use readonly_loaned_message::*;
-
-mod subscription_task;
-use subscription_task::*;
 
 /// Struct for receiving messages of type `T`.
 ///
@@ -59,7 +54,7 @@ where
     ///
     /// Holding onto this sender will keep the subscription task alive. Once
     /// this sender is dropped, the subscription task will end itself.
-    action: UnboundedSender<SubscriptionAction<T>>,
+    callback: Arc<Mutex<AnySubscriptionCallback<T>>>,
     /// Holding onto this keeps the waiter for this subscription alive in the
     /// wait set of the executor.
     lifecycle: WaitableLifecycle,
@@ -91,9 +86,9 @@ where
     pub fn set_callback<Args>(
         &self,
         callback: impl SubscriptionCallback<T, Args>,
-    ) -> Result<(), TrySendError<SubscriptionAction<T>>> {
+    ) {
         let callback = callback.into_subscription_callback();
-        self.action.unbounded_send(SubscriptionAction::SetCallback(callback))
+        *self.callback.lock().unwrap() = callback;
     }
 
     /// Set the callback of this subscription, replacing the callback that was
@@ -103,9 +98,9 @@ where
     pub fn set_async_callback<Args>(
         &self,
         callback: impl SubscriptionAsyncCallback<T, Args>,
-    ) -> Result<(), TrySendError<SubscriptionAction<T>>> {
+    ) {
         let callback = callback.into_subscription_async_callback();
-        self.action.unbounded_send(SubscriptionAction::SetCallback(callback))
+        *self.callback.lock().unwrap() = callback;
     }
 
     /// Used by [`Node`][crate::Node] to create a new subscription.
@@ -116,40 +111,8 @@ where
         node_handle: &Arc<NodeHandle>,
         commands: &Arc<ExecutorCommands>,
     ) -> Result<Arc<Self>, RclrsError> {
-        let (sender, receiver) = unbounded();
-        let (subscription, waiter) = Self::new(
-            topic,
-            qos,
-            sender,
-            Arc::clone(&node_handle),
-            Arc::clone(commands.get_guard_condition()),
-        )?;
+        let callback = Arc::new(Mutex::new(callback));
 
-        commands.run(subscription_task(
-            callback,
-            receiver,
-            Arc::clone(&subscription.handle),
-            Arc::clone(&commands),
-        ));
-
-        commands.add_to_wait_set(waiter);
-
-        Ok(subscription)
-    }
-
-    /// Instantiate the Subscription.
-    fn new(
-        topic: &str,
-        qos: QoSProfile,
-        action: UnboundedSender<SubscriptionAction<T>>,
-        node_handle: Arc<NodeHandle>,
-        guard_condition: Arc<GuardCondition>,
-    ) -> Result<(Arc<Self>, Waitable), RclrsError>
-    // This uses pub(crate) visibility to avoid instantiating this struct outside
-    // [`Node::create_subscription`], see the struct's documentation for the rationale
-    where
-        T: Message,
-    {
         // SAFETY: Getting a zero-initialized value is always safe.
         let mut rcl_subscription = unsafe { rcl_get_zero_initialized_subscription() };
         let type_support =
@@ -186,26 +149,27 @@ where
 
         let handle = Arc::new(SubscriptionHandle {
             rcl_subscription: Mutex::new(rcl_subscription),
-            node_handle,
+            node_handle: Arc::clone(node_handle),
         });
 
-        let (waiter, lifecycle) = Waitable::new(
+        let (waitable, lifecycle) = Waitable::new(
             Box::new(SubscriptionExecutable {
                 handle: Arc::clone(&handle),
-                action: action.clone(),
+                callback: Arc::clone(&callback),
+                commands: Arc::clone(commands),
             }),
-            Some(guard_condition),
+            Some(Arc::clone(commands.get_guard_condition())),
         );
+        commands.add_to_wait_set(waitable);
 
-        let subscription = Arc::new(Self { handle, action, lifecycle });
-
-        Ok((subscription, waiter))
+        Ok(Arc::new(Self { handle, callback, lifecycle }))
     }
 }
 
 struct SubscriptionExecutable<T: Message> {
     handle: Arc<SubscriptionHandle>,
-    action: UnboundedSender<SubscriptionAction<T>>,
+    callback: Arc<Mutex<AnySubscriptionCallback<T>>>,
+    commands: Arc<ExecutorCommands>,
 }
 
 impl<T> Executable for SubscriptionExecutable<T>
@@ -213,8 +177,7 @@ where
     T: Message,
 {
     fn execute(&mut self) -> Result<(), RclrsError> {
-        self.action.unbounded_send(SubscriptionAction::Execute).ok();
-        Ok(())
+        self.callback.lock().unwrap().execute(&self.handle, &self.commands)
     }
 
     fn kind(&self) -> crate::ExecutableKind {
