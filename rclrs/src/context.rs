@@ -6,7 +6,10 @@ use std::{
     vec::Vec,
 };
 
-use crate::{rcl_bindings::*, RclrsError, ToResult};
+use crate::{
+    rcl_bindings::*, RclrsError, ToResult, Executor, ExecutorRuntime,
+    BasicExecutorRuntime,
+};
 
 /// This is locked whenever initializing or dropping any middleware entity
 /// because we have found issues in RCL and some RMW implementations that
@@ -70,6 +73,14 @@ pub(crate) struct ContextHandle {
     pub(crate) rcl_context: Mutex<rcl_context_t>,
 }
 
+impl Default for Context {
+    fn default() -> Self {
+        // SAFETY: It should always be valid to instantiate a context with no
+        // arguments, no parameters, no options, etc.
+        Self::new([]).expect("Failed to instantiate a default context")
+    }
+}
+
 impl Context {
     /// Creates a new context.
     ///
@@ -93,7 +104,7 @@ impl Context {
     ///
     /// # Example
     /// ```
-    /// use rclrs::{Context, InitOptions};
+    /// # use rclrs::{Context, InitOptions};
     /// let context = Context::new_with_options([], InitOptions::new().with_domain_id(Some(5))).unwrap();
     /// assert_eq!(context.domain_id(), 5);
     /// ````
@@ -148,6 +159,23 @@ impl Context {
                 rcl_context: Mutex::new(rcl_context),
             }),
         })
+    }
+
+    /// Create an executor that uses the [basic executor runtime][1] that comes
+    /// built into rclrs.
+    ///
+    /// [1]: BasicExecutorRuntime
+    pub fn create_basic_executor(&self) -> Executor {
+        let runtime = BasicExecutorRuntime::new(self);
+        self.create_executor(runtime)
+    }
+
+    /// Create an [`Executor`] for this context.
+    pub fn create_executor<E>(&self, runtime: E) -> Executor
+    where
+        E: 'static + ExecutorRuntime + Send,
+    {
+        Executor::new(Arc::clone(&self.handle), runtime)
     }
 
     /// Returns the ROS domain ID that the context is using.

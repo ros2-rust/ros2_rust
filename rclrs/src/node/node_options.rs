@@ -3,8 +3,12 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+use futures::channel::mpsc::unbounded;
+
 use crate::{
-    rcl_bindings::*, ClockType, Context, ContextHandle, Node, NodeHandle, ParameterInterface,
+    node::node_graph_task::{node_graph_task, NodeGraphAction},
+    rcl_bindings::*,
+    ClockType, Node, NodeHandle, ParameterInterface, GuardCondition, ExecutorCommands,
     QoSProfile, RclrsError, TimeSource, ToResult, ENTITY_LIFECYCLE_MUTEX, QOS_PROFILE_CLOCK,
 };
 
@@ -24,27 +28,26 @@ use crate::{
 ///
 /// # Example
 /// ```
-/// # use rclrs::{Context, NodeBuilder, Node, RclrsError};
-/// let context = Context::new([])?;
+/// # use rclrs::{Context, NodeOptions, Node, RclrsError};
+/// let executor = Context::default().create_basic_executor();
 /// // Building a node in a single expression
-/// let node = NodeBuilder::new(&context, "foo_node").namespace("/bar").build()?;
+/// let node = executor.create_node(NodeOptions::new("foo_node").namespace("/bar"))?;
 /// assert_eq!(node.name(), "foo_node");
 /// assert_eq!(node.namespace(), "/bar");
-/// // Building a node via Node::builder()
-/// let node = Node::builder(&context, "bar_node").build()?;
+/// // Building a node via NodeOptions
+/// let node = executor.create_node(NodeOptions::new("bar_node"))?;
 /// assert_eq!(node.name(), "bar_node");
 /// // Building a node step-by-step
-/// let mut builder = Node::builder(&context, "goose");
-/// builder = builder.namespace("/duck/duck");
-/// let node = builder.build()?;
+/// let mut options = NodeOptions::new("goose");
+/// options = options.namespace("/duck/duck");
+/// let node = executor.create_node(options)?;
 /// assert_eq!(node.fully_qualified_name(), "/duck/duck/goose");
 /// # Ok::<(), RclrsError>(())
 /// ```
 ///
 /// [1]: crate::Node
 /// [2]: crate::Node::builder
-pub struct NodeBuilder {
-    context: Arc<ContextHandle>,
+pub struct NodeOptions {
     name: String,
     namespace: String,
     use_global_arguments: bool,
@@ -55,7 +58,7 @@ pub struct NodeBuilder {
     clock_qos: QoSProfile,
 }
 
-impl NodeBuilder {
+impl NodeOptions {
     /// Creates a builder for a node with the given name.
     ///
     /// See the [`Node` docs][1] for general information on node names.
@@ -72,17 +75,15 @@ impl NodeBuilder {
     ///
     /// # Example
     /// ```
-    /// # use rclrs::{Context, NodeBuilder, RclrsError, RclReturnCode};
-    /// let context = Context::new([])?;
+    /// # use rclrs::{Context, NodeOptions, RclrsError, RclReturnCode};
+    /// let executor = Context::default().create_basic_executor();
     /// // This is a valid node name
-    /// assert!(NodeBuilder::new(&context, "my_node").build().is_ok());
+    /// assert!(executor.create_node(NodeOptions::new("my_node")).is_ok());
     /// // This is another valid node name (although not a good one)
-    /// assert!(NodeBuilder::new(&context, "_______").build().is_ok());
+    /// assert!(executor.create_node(NodeOptions::new("_______")).is_ok());
     /// // This is an invalid node name
     /// assert!(matches!(
-    ///     NodeBuilder::new(&context, "röböt")
-    ///         .build()
-    ///         .unwrap_err(),
+    ///     executor.create_node(NodeOptions::new("röböt")).unwrap_err(),
     ///     RclrsError::RclError { code: RclReturnCode::NodeInvalidName, .. }
     /// ));
     /// # Ok::<(), RclrsError>(())
@@ -91,9 +92,8 @@ impl NodeBuilder {
     /// [1]: crate::Node#naming
     /// [2]: https://docs.ros2.org/latest/api/rmw/validate__node__name_8h.html#a5690a285aed9735f89ef11950b6e39e3
     /// [3]: NodeBuilder::build
-    pub fn new(context: &Context, name: &str) -> NodeBuilder {
-        NodeBuilder {
-            context: Arc::clone(&context.handle),
+    pub fn new(name: impl ToString) -> NodeOptions {
+        NodeOptions {
             name: name.to_string(),
             namespace: "/".to_string(),
             use_global_arguments: true,
@@ -126,25 +126,25 @@ impl NodeBuilder {
     ///
     /// # Example
     /// ```
-    /// # use rclrs::{Context, Node, RclrsError, RclReturnCode};
-    /// let context = Context::new([])?;
+    /// # use rclrs::{Context, Node, NodeOptions, RclrsError, RclReturnCode};
+    /// let executor = Context::default().create_basic_executor();
     /// // This is a valid namespace
-    /// let builder_ok_ns = Node::builder(&context, "my_node").namespace("/some/nested/namespace");
-    /// assert!(builder_ok_ns.build().is_ok());
+    /// let options_ok_ns = NodeOptions::new("my_node").namespace("/some/nested/namespace");
+    /// assert!(executor.create_node(options_ok_ns).is_ok());
     /// // This is an invalid namespace
     /// assert!(matches!(
-    ///     Node::builder(&context, "my_node")
+    ///     executor.create_node(
+    ///         NodeOptions::new("my_node")
     ///         .namespace("/10_percent_luck/20_percent_skill")
-    ///         .build()
-    ///         .unwrap_err(),
+    ///     ).unwrap_err(),
     ///     RclrsError::RclError { code: RclReturnCode::NodeInvalidNamespace, .. }
     /// ));
     /// // A missing forward slash at the beginning is automatically added
     /// assert_eq!(
-    ///     Node::builder(&context, "my_node")
+    ///     executor.create_node(
+    ///         NodeOptions::new("my_node")
     ///         .namespace("foo")
-    ///         .build()?
-    ///         .namespace(),
+    ///     )?.namespace(),
     ///     "/foo"
     /// );
     /// # Ok::<(), RclrsError>(())
@@ -154,7 +154,7 @@ impl NodeBuilder {
     /// [2]: http://design.ros2.org/articles/topic_and_service_names.html
     /// [3]: https://docs.ros2.org/latest/api/rmw/validate__namespace_8h.html#a043f17d240cf13df01321b19a469ee49
     /// [4]: NodeBuilder::build
-    pub fn namespace(mut self, namespace: &str) -> Self {
+    pub fn namespace(mut self, namespace: impl ToString) -> Self {
         self.namespace = namespace.to_string();
         self
     }
@@ -165,21 +165,21 @@ impl NodeBuilder {
     ///
     /// # Example
     /// ```
-    /// # use rclrs::{Context, Node, NodeBuilder, RclrsError};
+    /// # use rclrs::{Context, Node, NodeOptions, RclrsError};
     /// let context_args = ["--ros-args", "--remap", "__node:=your_node"]
     ///   .map(String::from);
-    /// let context = Context::new(context_args)?;
+    /// let executor = Context::new(context_args)?.create_basic_executor();
     /// // Ignore the global arguments:
-    /// let node_without_global_args =
-    ///   rclrs::create_node_builder(&context, "my_node")
-    ///   .use_global_arguments(false)
-    ///   .build()?;
+    /// let node_without_global_args = executor.create_node(
+    ///     NodeOptions::new("my_node")
+    ///     .use_global_arguments(false)
+    /// )?;
     /// assert_eq!(node_without_global_args.name(), "my_node");
     /// // Do not ignore the global arguments:
-    /// let node_with_global_args =
-    ///   rclrs::create_node_builder(&context, "my_other_node")
-    ///   .use_global_arguments(true)
-    ///   .build()?;
+    /// let node_with_global_args = executor.create_node(
+    ///     NodeOptions::new("my_other_node")
+    ///     .use_global_arguments(true)
+    /// )?;
     /// assert_eq!(node_with_global_args.name(), "your_node");
     /// # Ok::<(), RclrsError>(())
     /// ```
@@ -200,26 +200,29 @@ impl NodeBuilder {
     ///
     /// # Example
     /// ```
-    /// # use rclrs::{Context, Node, NodeBuilder, RclrsError};
+    /// # use rclrs::{Context, Node, NodeOptions, RclrsError};
     /// // Usually, this would change the name of "my_node" to "context_args_node":
     /// let context_args = ["--ros-args", "--remap", "my_node:__node:=context_args_node"]
     ///   .map(String::from);
-    /// let context = Context::new(context_args)?;
+    /// let executor = Context::new(context_args)?.create_basic_executor();
     /// // But the node arguments will change it to "node_args_node":
     /// let node_args = ["--ros-args", "--remap", "my_node:__node:=node_args_node"]
     ///   .map(String::from);
-    /// let node =
-    ///   rclrs::create_node_builder(&context, "my_node")
-    ///   .arguments(node_args)
-    ///   .build()?;
+    /// let node = executor.create_node(
+    ///     NodeOptions::new("my_node")
+    ///     .arguments(node_args)
+    /// )?;
     /// assert_eq!(node.name(), "node_args_node");
     /// # Ok::<(), RclrsError>(())
     /// ```
     ///
     /// [1]: crate::Context::new
     /// [2]: https://design.ros2.org/articles/ros_command_line_arguments.html
-    pub fn arguments(mut self, arguments: impl IntoIterator<Item = String>) -> Self {
-        self.arguments = arguments.into_iter().collect();
+    pub fn arguments<Args: IntoIterator>(mut self, arguments: Args) -> Self
+    where
+        Args::Item: ToString,
+    {
+        self.arguments = arguments.into_iter().map(|item| item.to_string()).collect();
         self
     }
 
@@ -257,12 +260,12 @@ impl NodeBuilder {
 
     /// Builds the node instance.
     ///
-    /// Node name and namespace validation is performed in this method.
-    ///
-    /// For example usage, see the [`NodeBuilder`][1] docs.
-    ///
-    /// [1]: crate::NodeBuilder
-    pub fn build(&self) -> Result<Arc<Node>, RclrsError> {
+    /// Only used internally. Downstream users should call
+    /// [`ExecutorCommands::create_node`].
+    pub(crate) fn build(
+        self,
+        commands: &Arc<ExecutorCommands>,
+    ) -> Result<Arc<Node>, RclrsError> {
         let node_name =
             CString::new(self.name.as_str()).map_err(|err| RclrsError::StringContainsNul {
                 err,
@@ -274,7 +277,7 @@ impl NodeBuilder {
                 s: self.namespace.clone(),
             })?;
         let rcl_node_options = self.create_rcl_node_options()?;
-        let rcl_context = &mut *self.context.rcl_context.lock().unwrap();
+        let rcl_context = &mut *commands.context().handle.rcl_context.lock().unwrap();
 
         // SAFETY: Getting a zero-initialized value is always safe.
         let mut rcl_node = unsafe { rcl_get_zero_initialized_node() };
@@ -298,7 +301,7 @@ impl NodeBuilder {
 
         let handle = Arc::new(NodeHandle {
             rcl_node: Mutex::new(rcl_node),
-            context_handle: Arc::clone(&self.context),
+            context_handle: Arc::clone(&commands.context().handle),
         });
         let parameter = {
             let rcl_node = handle.rcl_node.lock().unwrap();
@@ -308,21 +311,51 @@ impl NodeBuilder {
                 &rcl_context.global_arguments,
             )?
         };
+
+        // --- Set up guard condition for graph change events ---
+        let (graph_change_action, graph_change_receiver) = unbounded();
+        let graph_change_execute_sender = graph_change_action.clone();
+
+        let rcl_graph_change_guard_condition = unsafe {
+            // SAFETY: The node is valid because we just instantiated it.
+            rcl_node_get_graph_guard_condition(&*handle.rcl_node.lock().unwrap())
+        };
+        let (graph_change_guard_condition, graph_change_waitable) = unsafe {
+            // SAFETY: The guard condition is owned by the rcl_node and will
+            // remain valid for as long as the rcl_node is alive, so we set the
+            // owner to be the Arc for the NodeHandle.
+            GuardCondition::from_rcl(
+                &commands.context().handle,
+                rcl_graph_change_guard_condition,
+                Box::new(Arc::clone(&handle)),
+                Some(Box::new(move || {
+                    graph_change_execute_sender
+                    .unbounded_send(NodeGraphAction::GraphChange)
+                    .ok();
+                })),
+            )
+        };
+        commands.add_to_wait_set(graph_change_waitable);
+        let _ = commands.run(node_graph_task(
+            graph_change_receiver,
+            graph_change_guard_condition,
+        ));
+
         let node = Arc::new(Node {
             handle,
-            clients_mtx: Mutex::new(vec![]),
-            guard_conditions_mtx: Mutex::new(vec![]),
-            services_mtx: Mutex::new(vec![]),
-            subscriptions_mtx: Mutex::new(vec![]),
             time_source: TimeSource::builder(self.clock_type)
                 .clock_qos(self.clock_qos)
                 .build(),
             parameter,
+            graph_change_action,
+            commands: Arc::clone(&commands),
         });
         node.time_source.attach_node(&node);
+
         if self.start_parameter_services {
             node.parameter.create_services(&node)?;
         }
+
         Ok(node)
     }
 
@@ -364,6 +397,12 @@ impl NodeBuilder {
         rcl_node_options.allocator = unsafe { rcutils_get_default_allocator() };
 
         Ok(rcl_node_options)
+    }
+}
+
+impl<T: ToString> From<T> for NodeOptions {
+    fn from(name: T) -> Self {
+        NodeOptions::new(name)
     }
 }
 
