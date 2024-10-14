@@ -327,8 +327,6 @@ mod tests {
         time::Duration,
     };
 
-    use std::io::Write;
-
     struct TestNode {
         node: Arc<Node>,
         bool_param: MandatoryParameter<bool>,
@@ -454,7 +452,6 @@ mod tests {
 
     #[test]
     fn test_list_parameters_service() -> Result<(), RclrsError> {
-        dbg!();
         let context = Context::default();
         let (mut executor, _test, client_node) = construct_test_nodes(&context, "list");
         let list_client = client_node.create_client::<ListParameters>(
@@ -462,8 +459,6 @@ mod tests {
             QoSProfile::services_default(),
         )?;
 
-        dbg!();
-        std::io::stdout().lock().flush().unwrap();
         // return Ok(());
         executor.spin(
             SpinOptions::default()
@@ -471,8 +466,6 @@ mod tests {
             .timeout(Duration::from_secs(2))
         );
 
-        dbg!();
-        std::io::stdout().lock().flush().unwrap();
         // List all parameters
         let callback_ran = Arc::new(AtomicBool::new(false));
         let callback_ran_inner = Arc::clone(&callback_ran);
@@ -484,8 +477,6 @@ mod tests {
             .call_then(
                 &request,
                 move |response: ListParameters_Response| {
-                    dbg!();
-                    std::io::stdout().lock().flush().unwrap();
                     // use_sim_time + all the manually defined ones
                     let names = response.result.names;
                     assert_eq!(names.len(), 5);
@@ -503,16 +494,12 @@ mod tests {
             )
             .unwrap();
 
-        dbg!();
-        std::io::stdout().lock().flush().unwrap();
         executor.spin(
             SpinOptions::default()
             .until_promise_resolved(promise)
             .timeout(Duration::from_secs(5))
         );
         assert!(callback_ran.load(Ordering::Acquire));
-        dbg!();
-        std::io::stdout().lock().flush().unwrap();
 
         // Limit depth, namespaced parameter is not returned
         let callback_ran = Arc::new(AtomicBool::new(false));
@@ -579,7 +566,6 @@ mod tests {
                 &request,
                 move |response: ListParameters_Response| {
                     let names = response.result.names;
-                    dbg!(&names);
                     assert_eq!(names.len(), 2);
                     assert_eq!(names[0].to_string(), "bool");
                     assert_eq!(names[1].to_string(), "use_sim_time");

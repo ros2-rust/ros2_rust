@@ -34,46 +34,31 @@ impl<T: Service> AnyServiceCallback<T> {
         commands: &Arc<ExecutorCommands>,
     ) -> Result<(), RclrsError> {
         let mut evaluate = || {
-            dbg!();
             match self {
                 AnyServiceCallback::OnlyRequest(cb) => {
-                    dbg!();
                     let (msg, mut rmw_request_id) = Self::take_request(handle)?;
                     let handle = Arc::clone(&handle);
                     let response = cb(msg);
-                    dbg!();
                     let _ = commands.run(async move {
-                        // TODO(@mxgrey): Log any errors here when logging is available
-                        dbg!();
-                        println!("Sending service response: {rmw_request_id:?}");
                         if let Err(err) = Self::send_response(&handle, &mut rmw_request_id, response.await) {
                             // TODO(@mxgrey): Use logging instead when it becomes available
                             eprintln!("Error while sending service response for {rmw_request_id:?}: {err}");
-                        } else {
-                            println!("No error while sending {rmw_request_id:?}");
                         }
                     });
                 }
                 AnyServiceCallback::WithId(cb) => {
-                    dbg!();
                     let (msg, mut rmw_request_id) = Self::take_request(handle)?;
                     let request_id = RequestId::from_rmw_request_id(&rmw_request_id);
                     let handle = Arc::clone(&handle);
                     let response = cb(msg, request_id);
-                    dbg!();
                     let _ = commands.run(async move {
-                        dbg!();
-                        println!("Sending service response: {rmw_request_id:?}");
                         if let Err(err) = Self::send_response(&handle, &mut rmw_request_id, response.await) {
                             // TODO(@mxgrey): Use logging instead when it becomes available
                             eprintln!("Error while sending service response for {rmw_request_id:?}: {err}");
-                        } else {
-                            println!("No error while sending {rmw_request_id:?}");
                         }
                     });
                 }
                 AnyServiceCallback::WithInfo(cb) => {
-                    dbg!();
                     let (msg, rmw_service_info) = Self::take_request_with_info(handle)?;
                     let mut rmw_request_id = rmw_request_id_t {
                         writer_guid: rmw_service_info.request_id.writer_guid,
@@ -82,16 +67,10 @@ impl<T: Service> AnyServiceCallback<T> {
                     let service_info = ServiceInfo::from_rmw_service_info(&rmw_service_info);
                     let handle = Arc::clone(&handle);
                     let response = cb(msg, service_info);
-                    dbg!();
                     let _ = commands.run(async move {
-                        // TODO(@mxgrey): Log any errors here when logging is available
-                        dbg!();
-                        println!("Sending service response: {rmw_request_id:?}");
                         if let Err(err) = Self::send_response(&handle, &mut rmw_request_id, response.await) {
                             // TODO(@mxgrey): Use logging instead when it becomes available
                             eprintln!("Error while sending service response for {rmw_request_id:?}: {err}");
-                        } else {
-                            println!("No error while sending {rmw_request_id:?}");
                         }
                     });
                 }
@@ -100,7 +79,6 @@ impl<T: Service> AnyServiceCallback<T> {
             Ok(())
         };
 
-        dbg!();
         match evaluate() {
             Err(RclrsError::RclError {
                 code: RclReturnCode::ServiceTakeFailed,
@@ -108,8 +86,6 @@ impl<T: Service> AnyServiceCallback<T> {
             }) => {
                 // Spurious wakeup - this may happen even when a waitlist indicated that this
                 // subscription was ready, so it shouldn't be an error.
-                dbg!();
-                println!("Spurious wakeup for service request");
                 Ok(())
             }
             other => other,
@@ -152,7 +128,6 @@ impl<T: Service> AnyServiceCallback<T> {
             )
         }
         .ok()?;
-        println!("^^^^^^^^^^ service request arrived: {request_id_out:?} ^^^^^^^^^^^^^^");
         Ok((T::Request::from_rmw_message(request_out), request_id_out))
     }
 
@@ -171,7 +146,6 @@ impl<T: Service> AnyServiceCallback<T> {
             )
         }
         .ok()?;
-        println!("^^^^^^^^^^^^ service request arrived: {service_info_out:?} ^^^^^^^^^^^^^");
         Ok((T::Request::from_rmw_message(request_out), service_info_out))
     }
 

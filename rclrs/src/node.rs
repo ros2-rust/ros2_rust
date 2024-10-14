@@ -21,7 +21,7 @@ use futures::{
     channel::mpsc::{unbounded, UnboundedSender},
 };
 
-// use async_std::future::timeout;
+use async_std::future::timeout;
 
 use rosidl_runtime_rs::Message;
 
@@ -32,10 +32,6 @@ use crate::{
     Subscription, SubscriptionCallback, SubscriptionAsyncCallback, ServiceCallback,
     ServiceAsyncCallback, ExecutorCommands, TimeSource, ENTITY_LIFECYCLE_MUTEX,
 };
-
-
-use std::io::Write;
-
 
 /// A processing unit that can communicate with other nodes.
 ///
@@ -453,46 +449,38 @@ impl Node {
     ) -> Promise<()> {
         let (listener, mut on_graph_change_receiver) = unbounded();
         let promise = self.commands.query(async move {
-            dbg!();
-            std::io::stdout().lock().flush().unwrap();
             loop {
-                // match timeout(period, on_graph_change_receiver.next()).await {
-                //     Ok(Some(_)) | Err(_) => {
-                //         // Either we received a notification that there was a
-                //         // graph change, or the timeout elapsed. Either way, we
-                //         // want to check the condition and break out of the loop
-                //         // if the condition is true.
-                //         if condition() {
-                //             return;
-                //         }
-                //     }
-                //     Ok(None) => {
-                //         // We've been notified that the graph change sender is
-                //         // closed which means we will never receive another
-                //         // graph change update. This only happens when a node
-                //         // is being torn down, so go ahead and exit this loop.
-                //         return;
-                //     }
-                // }
-
-                match on_graph_change_receiver.next().await {
-                    Some(_) => {
-                        dbg!();
-                        std::io::stdout().lock().flush().unwrap();
+                match timeout(period, on_graph_change_receiver.next()).await {
+                    Ok(Some(_)) | Err(_) => {
+                        // Either we received a notification that there was a
+                        // graph change, or the timeout elapsed. Either way, we
+                        // want to check the condition and break out of the loop
+                        // if the condition is true.
                         if condition() {
-                            // Condition is met
-                            dbg!();
-                            std::io::stdout().lock().flush().unwrap();
                             return;
                         }
                     }
-                    None => {
-                        dbg!();
-                        std::io::stdout().lock().flush().unwrap();
-                        // Graph change sender is closed
+                    Ok(None) => {
+                        // We've been notified that the graph change sender is
+                        // closed which means we will never receive another
+                        // graph change update. This only happens when a node
+                        // is being torn down, so go ahead and exit this loop.
                         return;
                     }
                 }
+
+                // match on_graph_change_receiver.next().await {
+                //     Some(_) => {
+                //         if condition() {
+                //             // Condition is met
+                //             return;
+                //         }
+                //     }
+                //     None => {
+                //         // Graph change sender is closed
+                //         return;
+                //     }
+                // }
             }
         });
 

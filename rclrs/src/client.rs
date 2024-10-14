@@ -81,7 +81,6 @@ where
         }
         .ok()?;
 
-        println!("vvvvvvvvv Sent client request {sequence_number} vvvvvvvvvvvv");
         // TODO(@mxgrey): Log errors here when logging becomes available.
         self.board.lock().unwrap().new_request(sequence_number, sender);
 
@@ -317,13 +316,9 @@ where
             Ok((response, info)) => {
                 let seq = info.request_id.sequence_number;
                 if let Some(sender) = self.active_requests.remove(&seq) {
-                    dbg!();
-                    println!("Received response for {info:?}");
                     // The active request is available, so send this response off
                     sender.send_response(response, info);
                 } else {
-                    dbg!();
-                    println!("Received loose response for {info:?}");
                     // Weirdly there isn't an active request for this, so save
                     // it in the loose responses map.
                     self.loose_responses.insert(seq, (response, info));
@@ -333,11 +328,8 @@ where
                 match err {
                     RclrsError::RclError { code: RclReturnCode::ClientTakeFailed, .. } => {
                         // This is okay, it means a spurious wakeup happened
-                        dbg!();
-                        println!("Spurious wakeup for client");
                     }
                     err => {
-                        dbg!();
                         // TODO(@mxgrey): Log the error here once logging is available
                         eprintln!("Error while taking a response for a client: {err}");
                     }

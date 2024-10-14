@@ -19,8 +19,6 @@ use crate::{
     Waitable, Context, WaitSetRunner,
 };
 
-use std::io::Write;
-
 /// The implementation of this runtime is based off of the async Rust reference book:
 /// https://rust-lang.github.io/async-book/02_execution/04_executor.html
 ///
@@ -79,9 +77,7 @@ impl ExecutorRuntime for BasicExecutorRuntime {
             wait_set_finished_clone.store(true, Ordering::Release);
         }));
 
-        let mut count = 0;
         while let Ok(task) = self.next_task(&wait_set_finished) {
-            dbg!();
             // SAFETY: If the mutex is poisoned then we have unrecoverable situation.
             let mut future_slot = task.future.lock().unwrap();
             if let Some(mut future) = future_slot.take() {
@@ -96,11 +92,6 @@ impl ExecutorRuntime for BasicExecutorRuntime {
                     *future_slot = Some(future);
                 }
             }
-
-            // count += 1;
-            // if count > 20 {
-            //     panic!("Done {count} iterations");
-            // }
         }
 
         self.wait_set_runner = Some(
@@ -181,8 +172,6 @@ impl BasicExecutorRuntime {
                     );
                 }
                 // TODO(@mxgrey): Log errors here when logging becomes available.
-                dbg!();
-                std::io::stdout().lock().flush().unwrap();
                 guard_condition.trigger().ok();
                 sender.send(()).ok();
             }));
@@ -202,7 +191,7 @@ impl BasicExecutorRuntime {
     }
 }
 
-pub struct BasicExecutorChannel {
+struct BasicExecutorChannel {
     task_sender: TaskSender,
     waitable_sender: UnboundedSender<Waitable>,
 }
