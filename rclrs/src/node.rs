@@ -1,5 +1,5 @@
-mod options;
-pub use options::*;
+mod node_options;
+pub use node_options::*;
 
 mod graph;
 pub use graph::*;
@@ -128,13 +128,13 @@ impl Node {
     /// ```
     /// # use rclrs::{Context, RclrsError};
     /// // Without remapping
-    /// let context = Context::new([])?;
-    /// let node = rclrs::create_node(&context, "my_node")?;
+    /// let executor = Context::default().create_basic_executor();
+    /// let node = executor.create_node("my_node")?;
     /// assert_eq!(node.name(), "my_node");
     /// // With remapping
     /// let remapping = ["--ros-args", "-r", "__node:=your_node"].map(String::from);
-    /// let context_r = Context::new(remapping)?;
-    /// let node_r = rclrs::create_node(&context_r, "my_node")?;
+    /// let executor_r = Context::new(remapping)?.create_basic_executor();
+    /// let node_r = executor_r.create_node("my_node")?;
     /// assert_eq!(node_r.name(), "your_node");
     /// # Ok::<(), RclrsError>(())
     /// ```
@@ -149,18 +149,18 @@ impl Node {
     ///
     /// # Example
     /// ```
-    /// # use rclrs::{Context, RclrsError};
+    /// # use rclrs::{Context, RclrsError, NodeOptions};
     /// // Without remapping
-    /// let context = Context::new([])?;
-    /// let node =
-    ///   rclrs::create_node_builder(&context, "my_node")
-    ///   .namespace("/my/namespace")
-    ///   .build()?;
+    /// let executor = Context::default().create_basic_executor();
+    /// let node = executor.create_node(
+    ///     NodeOptions::new("my_node")
+    ///     .namespace("/my/namespace")
+    /// )?;
     /// assert_eq!(node.namespace(), "/my/namespace");
     /// // With remapping
     /// let remapping = ["--ros-args", "-r", "__ns:=/your_namespace"].map(String::from);
-    /// let context_r = Context::new(remapping)?;
-    /// let node_r = rclrs::create_node(&context_r, "my_node")?;
+    /// let executor_r = Context::new(remapping)?.create_basic_executor();
+    /// let node_r = executor_r.create_node("my_node")?;
     /// assert_eq!(node_r.namespace(), "/your_namespace");
     /// # Ok::<(), RclrsError>(())
     /// ```
@@ -175,12 +175,12 @@ impl Node {
     ///
     /// # Example
     /// ```
-    /// # use rclrs::{Context, RclrsError};
-    /// let context = Context::new([])?;
-    /// let node =
-    ///   rclrs::create_node_builder(&context, "my_node")
-    ///   .namespace("/my/namespace")
-    ///   .build()?;
+    /// # use rclrs::{Context, RclrsError, NodeOptions};
+    /// let executor = Context::default().create_basic_executor();
+    /// let node = executor.create_node(
+    ///     NodeOptions::new("my_node")
+    ///     .namespace("/my/namespace")
+    /// )?;
     /// assert_eq!(node.fully_qualified_name(), "/my/namespace/my_node");
     /// # Ok::<(), RclrsError>(())
     /// ```
@@ -353,8 +353,8 @@ impl Node {
     /// # use rclrs::{Context, RclrsError};
     /// // Set default ROS domain ID to 10 here
     /// std::env::set_var("ROS_DOMAIN_ID", "10");
-    /// let context = Context::new([])?;
-    /// let node = rclrs::create_node(&context, "domain_id_node")?;
+    /// let executor = Context::default().create_basic_executor();
+    /// let node = executor.create_node("domain_id_node")?;
     /// let domain_id = node.domain_id();
     /// assert_eq!(domain_id, 10);
     /// # Ok::<(), RclrsError>(())
@@ -382,8 +382,8 @@ impl Node {
     /// # Example
     /// ```
     /// # use rclrs::{Context, ParameterRange, RclrsError};
-    /// let context = Context::new([])?;
-    /// let node = rclrs::create_node(&context, "domain_id_node")?;
+    /// let executor = Context::default().create_basic_executor();
+    /// let node = executor.create_node("domain_id_node")?;
     /// // Set it to a range of 0-100, with a step of 2
     /// let range = ParameterRange {
     ///     lower: Some(0),

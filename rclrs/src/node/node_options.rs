@@ -28,19 +28,19 @@ use crate::{
 ///
 /// # Example
 /// ```
-/// # use rclrs::{Context, NodeBuilder, Node, RclrsError};
-/// let context = Context::new([])?;
+/// # use rclrs::{Context, NodeOptions, Node, RclrsError};
+/// let executor = Context::default().create_basic_executor();
 /// // Building a node in a single expression
-/// let node = NodeBuilder::new(&context, "foo_node").namespace("/bar").build()?;
+/// let node = executor.create_node(NodeOptions::new("foo_node").namespace("/bar"))?;
 /// assert_eq!(node.name(), "foo_node");
 /// assert_eq!(node.namespace(), "/bar");
-/// // Building a node via Node::builder()
-/// let node = Node::builder(&context, "bar_node").build()?;
+/// // Building a node via NodeOptions
+/// let node = executor.create_node(NodeOptions::new("bar_node"))?;
 /// assert_eq!(node.name(), "bar_node");
 /// // Building a node step-by-step
-/// let mut builder = Node::builder(&context, "goose");
-/// builder = builder.namespace("/duck/duck");
-/// let node = builder.build()?;
+/// let mut options = NodeOptions::new("goose");
+/// options = options.namespace("/duck/duck");
+/// let node = executor.create_node(options)?;
 /// assert_eq!(node.fully_qualified_name(), "/duck/duck/goose");
 /// # Ok::<(), RclrsError>(())
 /// ```
@@ -75,17 +75,15 @@ impl NodeOptions {
     ///
     /// # Example
     /// ```
-    /// # use rclrs::{Context, NodeOptions};
-    /// let context = Context::new();
+    /// # use rclrs::{Context, NodeOptions, RclrsError, RclReturnCode};
+    /// let executor = Context::default().create_basic_executor();
     /// // This is a valid node name
-    /// assert!(NodeOptions::new("my_node").is_valid());
+    /// assert!(executor.create_node(NodeOptions::new("my_node")).is_ok());
     /// // This is another valid node name (although not a good one)
-    /// assert!(NodeBuilder::new(&context, "_______").build().is_ok());
+    /// assert!(executor.create_node(NodeOptions::new("_______")).is_ok());
     /// // This is an invalid node name
     /// assert!(matches!(
-    ///     NodeBuilder::new(&context, "röböt")
-    ///         .build()
-    ///         .unwrap_err(),
+    ///     executor.create_node(NodeOptions::new("röböt")).unwrap_err(),
     ///     RclrsError::RclError { code: RclReturnCode::NodeInvalidName, .. }
     /// ));
     /// # Ok::<(), RclrsError>(())
@@ -128,25 +126,25 @@ impl NodeOptions {
     ///
     /// # Example
     /// ```
-    /// # use rclrs::{Context, Node, RclrsError, RclReturnCode};
-    /// let context = Context::new([])?;
+    /// # use rclrs::{Context, Node, NodeOptions, RclrsError, RclReturnCode};
+    /// let executor = Context::default().create_basic_executor();
     /// // This is a valid namespace
-    /// let builder_ok_ns = Node::builder(&context, "my_node").namespace("/some/nested/namespace");
-    /// assert!(builder_ok_ns.build().is_ok());
+    /// let options_ok_ns = NodeOptions::new("my_node").namespace("/some/nested/namespace");
+    /// assert!(executor.create_node(options_ok_ns).is_ok());
     /// // This is an invalid namespace
     /// assert!(matches!(
-    ///     Node::builder(&context, "my_node")
+    ///     executor.create_node(
+    ///         NodeOptions::new("my_node")
     ///         .namespace("/10_percent_luck/20_percent_skill")
-    ///         .build()
-    ///         .unwrap_err(),
+    ///     ).unwrap_err(),
     ///     RclrsError::RclError { code: RclReturnCode::NodeInvalidNamespace, .. }
     /// ));
     /// // A missing forward slash at the beginning is automatically added
     /// assert_eq!(
-    ///     Node::builder(&context, "my_node")
+    ///     executor.create_node(
+    ///         NodeOptions::new("my_node")
     ///         .namespace("foo")
-    ///         .build()?
-    ///         .namespace(),
+    ///     )?.namespace(),
     ///     "/foo"
     /// );
     /// # Ok::<(), RclrsError>(())
@@ -167,21 +165,21 @@ impl NodeOptions {
     ///
     /// # Example
     /// ```
-    /// # use rclrs::{Context, Node, NodeBuilder, RclrsError};
+    /// # use rclrs::{Context, Node, NodeOptions, RclrsError};
     /// let context_args = ["--ros-args", "--remap", "__node:=your_node"]
     ///   .map(String::from);
-    /// let context = Context::new(context_args)?;
+    /// let executor = Context::new(context_args)?.create_basic_executor();
     /// // Ignore the global arguments:
-    /// let node_without_global_args =
-    ///   rclrs::create_node_builder(&context, "my_node")
-    ///   .use_global_arguments(false)
-    ///   .build()?;
+    /// let node_without_global_args = executor.create_node(
+    ///     NodeOptions::new("my_node")
+    ///     .use_global_arguments(false)
+    /// )?;
     /// assert_eq!(node_without_global_args.name(), "my_node");
     /// // Do not ignore the global arguments:
-    /// let node_with_global_args =
-    ///   rclrs::create_node_builder(&context, "my_other_node")
-    ///   .use_global_arguments(true)
-    ///   .build()?;
+    /// let node_with_global_args = executor.create_node(
+    ///     NodeOptions::new("my_other_node")
+    ///     .use_global_arguments(true)
+    /// )?;
     /// assert_eq!(node_with_global_args.name(), "your_node");
     /// # Ok::<(), RclrsError>(())
     /// ```
@@ -202,18 +200,18 @@ impl NodeOptions {
     ///
     /// # Example
     /// ```
-    /// # use rclrs::{Context, Node, NodeBuilder, RclrsError};
+    /// # use rclrs::{Context, Node, NodeOptions, RclrsError};
     /// // Usually, this would change the name of "my_node" to "context_args_node":
     /// let context_args = ["--ros-args", "--remap", "my_node:__node:=context_args_node"]
     ///   .map(String::from);
-    /// let context = Context::new(context_args)?;
+    /// let executor = Context::new(context_args)?.create_basic_executor();
     /// // But the node arguments will change it to "node_args_node":
     /// let node_args = ["--ros-args", "--remap", "my_node:__node:=node_args_node"]
     ///   .map(String::from);
-    /// let node =
-    ///   rclrs::create_node_builder(&context, "my_node")
-    ///   .arguments(node_args)
-    ///   .build()?;
+    /// let node = executor.create_node(
+    ///     NodeOptions::new("my_node")
+    ///     .arguments(node_args)
+    /// )?;
     /// assert_eq!(node.name(), "node_args_node");
     /// # Ok::<(), RclrsError>(())
     /// ```

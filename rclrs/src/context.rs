@@ -104,7 +104,7 @@ impl Context {
     ///
     /// # Example
     /// ```
-    /// use rclrs::{Context, InitOptions};
+    /// # use rclrs::{Context, InitOptions};
     /// let context = Context::new_with_options([], InitOptions::new().with_domain_id(Some(5))).unwrap();
     /// assert_eq!(context.domain_id(), 5);
     /// ````
