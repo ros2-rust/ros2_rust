@@ -4,12 +4,10 @@ use std::{
     sync::{Arc, Mutex, MutexGuard},
 };
 
-use futures::channel::mpsc::{unbounded, UnboundedSender};
-
 use crate::{
     error::ToResult,
     rcl_bindings::*,
-    NodeHandle, RclrsError, Waitable, WaitableLifecycle, GuardCondition, QoSProfile,
+    NodeHandle, RclrsError, Waitable, WaitableLifecycle, QoSProfile,
     Executable, ExecutableKind, ExecutableHandle, ENTITY_LIFECYCLE_MUTEX, ExecutorCommands,
 };
 
@@ -24,9 +22,6 @@ pub use service_callback::*;
 
 mod service_info;
 pub use service_info::*;
-
-mod service_task;
-use service_task::*;
 
 /// Struct for responding to requests sent by ROS service clients.
 ///
@@ -45,11 +40,8 @@ where
 {
     /// This handle is used to access the data that rcl holds for this service.
     handle: Arc<ServiceHandle>,
-    /// This allows us to replace the callback in the service task.
-    ///
-    /// Holding onto this sender will keep the service task alive. Once this
-    /// sender is dropped, the service task will end itself.
-    action: UnboundedSender<ServiceAction<T>>,
+    /// This is the callback that will be executed each time a request arrives.
+    callback: Arc<Mutex<AnyServiceCallback<T>>>,
     /// Holding onto this keeps the waiter for this service alive in the wait
     /// set of the executor.
     lifecycle: WaitableLifecycle,
@@ -84,7 +76,7 @@ where
     ) {
         let callback = callback.into_service_callback();
         // TODO(@mxgrey): Log any errors here when logging becomes available
-        self.action.unbounded_send(ServiceAction::SetCallback(callback)).ok();
+        *self.callback.lock().unwrap() = callback;
     }
 
     /// Set the callback of this service, replacing the callback that was
@@ -96,8 +88,7 @@ where
         callback: impl ServiceAsyncCallback<T, Args>,
     ) {
         let callback = callback.into_service_async_callback();
-        // TODO(@mxgrey): Log any errors here when logging becomes available.
-        self.action.unbounded_send(ServiceAction::SetCallback(callback)).ok();
+        *self.callback.lock().unwrap() = callback;
     }
 
     /// Used by [`Node`][crate::Node] to create a new service
@@ -108,35 +99,7 @@ where
         node_handle: &Arc<NodeHandle>,
         commands: &Arc<ExecutorCommands>,
     ) -> Result<Arc<Self>, RclrsError> {
-        let (sender, receiver) = unbounded();
-        let (service, waitable) = Self::new(
-            topic,
-            qos,
-            sender,
-            Arc::clone(&node_handle),
-            Arc::clone(commands.get_guard_condition()),
-        )?;
-
-        let _ = commands.run(service_task(
-            callback,
-            receiver,
-            Arc::clone(&service.handle),
-            Arc::clone(commands),
-        ));
-
-        commands.add_to_wait_set(waitable);
-
-        Ok(service)
-    }
-
-    /// Instantiate the service.
-    fn new(
-        topic: &str,
-        qos: QoSProfile,
-        action: UnboundedSender<ServiceAction<T>>,
-        node_handle: Arc<NodeHandle>,
-        guard_condition: Arc<GuardCondition>,
-    ) -> Result<(Arc<Self>, Waitable), RclrsError> {
+        let callback = Arc::new(Mutex::new(callback));
         // SAFETY: Getting a zero-initialized value is always safe.
         let mut rcl_service = unsafe { rcl_get_zero_initialized_service() };
         let type_support = <T as rosidl_runtime_rs::Service>::get_type_support()
@@ -174,26 +137,29 @@ where
 
         let handle = Arc::new(ServiceHandle {
             rcl_service: Mutex::new(rcl_service),
-            node_handle,
+            node_handle: Arc::clone(&node_handle),
         });
 
-        let (waiter, lifecycle) = Waitable::new(
+        let (waitable, lifecycle) = Waitable::new(
             Box::new(ServiceExecutable {
                 handle: Arc::clone(&handle),
-                action: action.clone(),
+                callback: Arc::clone(&callback),
+                commands: Arc::clone(&commands),
             }),
-            Some(guard_condition),
+            Some(Arc::clone(commands.get_guard_condition())),
         );
 
-        let service = Arc::new(Self { handle, action, lifecycle });
+        let service = Arc::new(Self { handle, callback, lifecycle });
+        commands.add_to_wait_set(waitable);
 
-        Ok((service, waiter))
+        Ok(service)
     }
 }
 
 struct ServiceExecutable<T: rosidl_runtime_rs::Service> {
     handle: Arc<ServiceHandle>,
-    action: UnboundedSender<ServiceAction<T>>,
+    callback: Arc<Mutex<AnyServiceCallback<T>>>,
+    commands: Arc<ExecutorCommands>,
 }
 
 impl<T> Executable for ServiceExecutable<T>
@@ -201,7 +167,10 @@ where
     T: rosidl_runtime_rs::Service,
 {
     fn execute(&mut self) -> Result<(), RclrsError> {
-        self.action.unbounded_send(ServiceAction::Execute).ok();
+        if let Err(err) = self.callback.lock().unwrap().execute(&self.handle, &self.commands) {
+            // TODO(@mxgrey): Log the error here once logging is implemented
+            eprintln!("Error while executing a service callback: {err}");
+        }
         Ok(())
     }
 

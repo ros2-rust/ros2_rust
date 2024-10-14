@@ -54,10 +54,12 @@ pub(super) async fn client_task<T: Service>(
                         let seq = info.request_id.sequence_number;
                         if let Some(sender) = active_requests.remove(&seq) {
                             dbg!();
+                            println!("Received response for {info:?}");
                             // The active request is available, so send this response off
                             sender.send_response(response, info);
                         } else {
                             dbg!();
+                            println!("Received loose response for {info:?}");
                             // Weirdly there isn't an active request for this, so save
                             // it in the loose responses map.
                             loose_responses.insert(seq, (response, info));
@@ -68,6 +70,7 @@ pub(super) async fn client_task<T: Service>(
                             RclrsError::RclError { code: RclReturnCode::ClientTakeFailed, .. } => {
                                 // This is okay, it means a spurious wakeup happened
                                 dbg!();
+                                println!("Spurious wakeup for client");
                             }
                             err => {
                                 dbg!();

@@ -1,18 +1,16 @@
 use std::{
-    boxed::Box,
     ffi::CString,
     sync::{Arc, Mutex, MutexGuard},
+    collections::HashMap,
 };
-
-use futures::channel::mpsc::{UnboundedSender, unbounded};
 
 use rosidl_runtime_rs::Message;
 
 use crate::{
     error::ToResult,
     rcl_bindings::*,
-    MessageCow, Node, RclrsError, Promise, ENTITY_LIFECYCLE_MUTEX,
-    ExecutorCommands, Executable, QoSProfile, Waitable, WaitableLifecycle,
+    MessageCow, Node, RclrsError, RclReturnCode, Promise, ENTITY_LIFECYCLE_MUTEX,
+    Executable, QoSProfile, Waitable, WaitableLifecycle,
     ExecutableHandle, ExecutableKind, ServiceInfo,
 };
 
@@ -24,9 +22,6 @@ pub use client_callback::*;
 
 mod client_output;
 pub use client_output::*;
-
-mod client_task;
-use client_task::*;
 
 /// Main class responsible for sending requests to a ROS service.
 ///
@@ -40,7 +35,7 @@ where
     T: rosidl_runtime_rs::Service,
 {
     handle: Arc<ClientHandle>,
-    action: UnboundedSender<ClientAction<T>>,
+    board: Arc<Mutex<ClientRequestBoard<T>>>,
     #[allow(unused)]
     lifecycle: WaitableLifecycle,
 }
@@ -86,10 +81,9 @@ where
         }
         .ok()?;
 
+        println!("vvvvvvvvv Sent client request {sequence_number} vvvvvvvvvvvv");
         // TODO(@mxgrey): Log errors here when logging becomes available.
-        self.action.unbounded_send(
-            ClientAction::NewRequest { sequence_number, sender }
-        ).ok();
+        self.board.lock().unwrap().new_request(sequence_number, sender);
 
         Ok(promise)
     }
@@ -231,14 +225,12 @@ where
         });
 
         let commands = node.commands();
-
-        let (action, receiver) = unbounded();
-        let _ = commands.run(client_task(receiver, Arc::clone(&handle)));
+        let board = Arc::new(Mutex::new(ClientRequestBoard::new()));
 
         let (waitable, lifecycle) = Waitable::new(
             Box::new(ClientExecutable {
                 handle: Arc::clone(&handle),
-                action: action.clone(),
+                board: Arc::clone(&board),
             }),
             Some(Arc::clone(&commands.get_guard_condition())),
         );
@@ -246,15 +238,18 @@ where
 
         Ok(Arc::new(Self {
             handle,
-            action,
+            board,
             lifecycle,
         }))
     }
 }
 
-struct ClientExecutable<T: rosidl_runtime_rs::Service> {
+struct ClientExecutable<T>
+where
+    T: rosidl_runtime_rs::Service,
+{
     handle: Arc<ClientHandle>,
-    action: UnboundedSender<ClientAction<T>>
+    board: Arc<Mutex<ClientRequestBoard<T>>>
 }
 
 impl<T> Executable for ClientExecutable<T>
@@ -262,8 +257,7 @@ where
     T: rosidl_runtime_rs::Service,
 {
     fn execute(&mut self) -> Result<(), RclrsError> {
-        self.action.unbounded_send(ClientAction::TakeResponse).ok();
-        Ok(())
+        self.board.lock().unwrap().execute(&self.handle)
     }
 
     fn handle(&self) -> ExecutableHandle {
@@ -272,6 +266,107 @@ where
 
     fn kind(&self) -> ExecutableKind {
         ExecutableKind::Client
+    }
+}
+
+type SequenceNumber = i64;
+
+/// This is used internally to monitor the state of active requests, as well as
+/// responses that have arrived without a known request.
+struct ClientRequestBoard<T>
+where
+    T: rosidl_runtime_rs::Service,
+{
+    // This stores all active requests that have not received a response yet
+    active_requests: HashMap<SequenceNumber, AnyClientOutputSender<T::Response>>,
+    // This holds responses that came in when no active request matched the
+    // sequence number. This could happen if take_response is triggered before
+    // the new_request for the same sequence number. That is extremely unlikely
+    // to ever happen but is theoretically possible on systems that may exhibit
+    // very strange CPU scheduling patterns, so we should account for it.
+    loose_responses: HashMap<SequenceNumber, (T::Response, rmw_service_info_t)>,
+}
+
+impl<T> ClientRequestBoard<T>
+where
+    T: rosidl_runtime_rs::Service,
+{
+    fn new() -> Self {
+        Self {
+            active_requests: Default::default(),
+            loose_responses: Default::default(),
+        }
+    }
+
+    fn new_request(
+        &mut self,
+        sequence_number: SequenceNumber,
+        sender: AnyClientOutputSender<T::Response>,
+    ) {
+        if let Some((response, info)) = self.loose_responses.remove(&sequence_number) {
+            // Weirdly the response for this request already arrived, so we'll
+            // send it off immediately.
+            sender.send_response(response, info);
+        } else {
+            self.active_requests.insert(sequence_number, sender);
+        }
+    }
+
+    fn execute(&mut self, handle: &Arc<ClientHandle>) -> Result<(), RclrsError> {
+        match self.take_response(handle) {
+            Ok((response, info)) => {
+                let seq = info.request_id.sequence_number;
+                if let Some(sender) = self.active_requests.remove(&seq) {
+                    dbg!();
+                    println!("Received response for {info:?}");
+                    // The active request is available, so send this response off
+                    sender.send_response(response, info);
+                } else {
+                    dbg!();
+                    println!("Received loose response for {info:?}");
+                    // Weirdly there isn't an active request for this, so save
+                    // it in the loose responses map.
+                    self.loose_responses.insert(seq, (response, info));
+                }
+            }
+            Err(err) => {
+                match err {
+                    RclrsError::RclError { code: RclReturnCode::ClientTakeFailed, .. } => {
+                        // This is okay, it means a spurious wakeup happened
+                        dbg!();
+                        println!("Spurious wakeup for client");
+                    }
+                    err => {
+                        dbg!();
+                        // TODO(@mxgrey): Log the error here once logging is available
+                        eprintln!("Error while taking a response for a client: {err}");
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn take_response(
+        &self,
+        handle: &Arc<ClientHandle>,
+    ) -> Result<(T::Response, rmw_service_info_t), RclrsError> {
+        let mut service_info_out = ServiceInfo::zero_initialized_rmw();
+        let mut response_out = <T::Response as Message>::RmwMsg::default();
+        let handle = &*handle.lock();
+        unsafe {
+            // SAFETY: The three pointers are all kept valid by the handle
+            rcl_take_response_with_info(
+                handle,
+                &mut service_info_out,
+                &mut response_out as *mut <T::Response as Message>::RmwMsg as *mut _,
+            )
+        }
+        .ok()
+        .map(|_| (
+            T::Response::from_rmw_message(response_out),
+            service_info_out,
+        ))
     }
 }
 
