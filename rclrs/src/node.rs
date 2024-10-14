@@ -468,19 +468,6 @@ impl Node {
                         return;
                     }
                 }
-
-                // match on_graph_change_receiver.next().await {
-                //     Some(_) => {
-                //         if condition() {
-                //             // Condition is met
-                //             return;
-                //         }
-                //     }
-                //     None => {
-                //         // Graph change sender is closed
-                //         return;
-                //     }
-                // }
             }
         });
 
