@@ -5,8 +5,8 @@ use std::{
 
 use crate::{
     rcl_bindings::*,
-    ContextHandle, RclrsError, ToResult, WaitableLifecycle, Executable,
-    Waitable, ExecutableKind, ExecutableHandle,
+    ContextHandle, RclrsError, ToResult, WaitableLifecycle, RclPrimitive,
+    Waitable, RclPrimitiveKind, RclPrimitiveHandle,
 };
 
 /// A waitable entity used for waking up a wait set manually.
@@ -135,14 +135,25 @@ struct GuardConditionHandle {
 /// from rcl and either have static lifetimes or lifetimes that depend on
 /// something else.
 pub enum InnerGuardConditionHandle {
+    /// This variant means the guard condition was created and owned by rclrs.
+    /// Its memory is managed by us.
     Owned(rcl_guard_condition_t),
+    /// This variant means the guard condition was created and owned by rcl.
+    /// The owner object represents something that the lifecycle of the guard
+    /// condition depends on, such as the rcl_node that created it.
     Unowned {
+        /// This is the unowned guard condition pointer. We must not deallocate
+        /// it.
         handle: *const rcl_guard_condition_t,
+        /// This somehow holds a shared reference to the owner of the guard
+        /// condition. We need to hold onto this to ensure the guard condition
+        /// remains valid.
         owner: Box<dyn Any>,
     },
 }
 
 impl InnerGuardConditionHandle {
+    /// Get the handle if it is owned by rclrs
     pub fn owned(&self) -> Option<&rcl_guard_condition_t> {
         match self {
             Self::Owned(handle) => Some(handle),
@@ -150,6 +161,7 @@ impl InnerGuardConditionHandle {
         }
     }
 
+    /// Get the handle if it is owned by rclrs
     pub fn owned_mut(&mut self) -> Option<&mut rcl_guard_condition_t> {
         match self {
             Self::Owned(handle) => Some(handle),
@@ -157,6 +169,7 @@ impl InnerGuardConditionHandle {
         }
     }
 
+    /// Apply a function to the handle
     pub fn use_handle<Out>(&self, f: impl FnOnce(&rcl_guard_condition_t) -> Out) -> Out {
         match self {
             Self::Owned(handle) => f(handle),
@@ -191,7 +204,7 @@ struct GuardConditionExecutable {
     callback: Option<Box<dyn FnMut() + Send + Sync>>,
 }
 
-impl Executable for GuardConditionExecutable {
+impl RclPrimitive for GuardConditionExecutable {
     fn execute(&mut self) -> Result<(), RclrsError> {
         if let Some(callback) = &mut self.callback {
             callback();
@@ -199,12 +212,12 @@ impl Executable for GuardConditionExecutable {
         Ok(())
     }
 
-    fn kind(&self) -> ExecutableKind {
-        ExecutableKind::GuardCondition
+    fn kind(&self) -> RclPrimitiveKind {
+        RclPrimitiveKind::GuardCondition
     }
 
-    fn handle(&self) -> ExecutableHandle {
-        ExecutableHandle::GuardCondition(
+    fn handle(&self) -> RclPrimitiveHandle {
+        RclPrimitiveHandle::GuardCondition(
             self.handle.rcl_guard_condition.lock().unwrap()
         )
     }

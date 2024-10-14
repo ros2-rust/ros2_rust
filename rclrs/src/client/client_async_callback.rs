@@ -13,7 +13,10 @@ pub trait ClientAsyncCallback<T, Args>: Send + 'static
 where
     T: Service,
 {
+    /// This represents the type of task (Future) that will be produced by the callback
     type Task: Future<Output = ()> + Send;
+
+    /// Trigger the callback to run
     fn run_client_async_callback(self, response: T::Response, info: ServiceInfo) -> Self::Task;
 }
 

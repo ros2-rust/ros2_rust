@@ -11,6 +11,7 @@ pub trait ClientCallback<T, Args>: Send + 'static
 where
     T: Service,
 {
+    /// Trigger the callback to run
     fn run_client_callback(self, response: T::Response, info: ServiceInfo);
 }
 

@@ -9,8 +9,8 @@ use crate::{
     error::ToResult,
     qos::QoSProfile,
     rcl_bindings::*,
-    ExecutorCommands, NodeHandle, RclrsError, Waitable, Executable, ExecutableHandle,
-    ExecutableKind, WaitableLifecycle, ENTITY_LIFECYCLE_MUTEX,
+    ExecutorCommands, NodeHandle, RclrsError, Waitable, RclPrimitive, RclPrimitiveHandle,
+    RclPrimitiveKind, WaitableLifecycle, ENTITY_LIFECYCLE_MUTEX,
 };
 
 mod any_subscription_callback;
@@ -57,6 +57,7 @@ where
     callback: Arc<Mutex<AnySubscriptionCallback<T>>>,
     /// Holding onto this keeps the waiter for this subscription alive in the
     /// wait set of the executor.
+    #[allow(unused)]
     lifecycle: WaitableLifecycle,
 }
 
@@ -172,7 +173,7 @@ struct SubscriptionExecutable<T: Message> {
     commands: Arc<ExecutorCommands>,
 }
 
-impl<T> Executable for SubscriptionExecutable<T>
+impl<T> RclPrimitive for SubscriptionExecutable<T>
 where
     T: Message,
 {
@@ -180,12 +181,12 @@ where
         self.callback.lock().unwrap().execute(&self.handle, &self.commands)
     }
 
-    fn kind(&self) -> crate::ExecutableKind {
-        ExecutableKind::Subscription
+    fn kind(&self) -> crate::RclPrimitiveKind {
+        RclPrimitiveKind::Subscription
     }
 
-    fn handle(&self) -> ExecutableHandle {
-        ExecutableHandle::Subscription(self.handle.lock())
+    fn handle(&self) -> RclPrimitiveHandle {
+        RclPrimitiveHandle::Subscription(self.handle.lock())
     }
 }
 

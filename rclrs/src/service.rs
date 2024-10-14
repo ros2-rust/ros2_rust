@@ -8,7 +8,7 @@ use crate::{
     error::ToResult,
     rcl_bindings::*,
     NodeHandle, RclrsError, Waitable, WaitableLifecycle, QoSProfile,
-    Executable, ExecutableKind, ExecutableHandle, ENTITY_LIFECYCLE_MUTEX, ExecutorCommands,
+    RclPrimitive, RclPrimitiveKind, RclPrimitiveHandle, ENTITY_LIFECYCLE_MUTEX, ExecutorCommands,
 };
 
 mod any_service_callback;
@@ -44,6 +44,7 @@ where
     callback: Arc<Mutex<AnyServiceCallback<T>>>,
     /// Holding onto this keeps the waiter for this service alive in the wait
     /// set of the executor.
+    #[allow(unused)]
     lifecycle: WaitableLifecycle,
 }
 
@@ -162,7 +163,7 @@ struct ServiceExecutable<T: rosidl_runtime_rs::Service> {
     commands: Arc<ExecutorCommands>,
 }
 
-impl<T> Executable for ServiceExecutable<T>
+impl<T> RclPrimitive for ServiceExecutable<T>
 where
     T: rosidl_runtime_rs::Service,
 {
@@ -174,12 +175,12 @@ where
         Ok(())
     }
 
-    fn kind(&self) -> crate::ExecutableKind {
-        ExecutableKind::Service
+    fn kind(&self) -> crate::RclPrimitiveKind {
+        RclPrimitiveKind::Service
     }
 
-    fn handle(&self) -> ExecutableHandle {
-        ExecutableHandle::Service(self.handle.lock())
+    fn handle(&self) -> RclPrimitiveHandle {
+        RclPrimitiveHandle::Service(self.handle.lock())
     }
 }
 

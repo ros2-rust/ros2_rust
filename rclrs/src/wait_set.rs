@@ -26,6 +26,9 @@ use crate::{
 mod guard_condition;
 pub use guard_condition::*;
 
+mod rcl_primitive;
+pub use rcl_primitive::*;
+
 mod waitable;
 pub use waitable::*;
 
@@ -34,7 +37,7 @@ pub use wait_set_runner::*;
 
 /// A struct for waiting on subscriptions and other waitable entities to become ready.
 pub struct WaitSet {
-    primitives: HashMap<ExecutableKind, Vec<Waitable>>,
+    primitives: HashMap<RclPrimitiveKind, Vec<Waitable>>,
     handle: WaitSetHandle,
 }
 
@@ -70,7 +73,7 @@ impl WaitSet {
             if entity.in_wait_set() {
                 return Err(RclrsError::AlreadyAddedToWaitSet);
             }
-            let kind = entity.executable.kind();
+            let kind = entity.primitive.kind();
             self.primitives.entry(kind).or_default().push(entity);
         }
         self.resize_rcl_containers()?;
@@ -116,7 +119,7 @@ impl WaitSet {
     pub fn wait(
         &mut self,
         timeout: Option<Duration>,
-        mut f: impl FnMut(&mut dyn Executable) -> Result<(), RclrsError>,
+        mut f: impl FnMut(&mut dyn RclPrimitive) -> Result<(), RclrsError>,
     ) -> Result<(), RclrsError> {
         let timeout_ns = match timeout.map(|d| d.as_nanos()) {
             None => -1,
@@ -153,7 +156,7 @@ impl WaitSet {
         // the callback for those that were.
         for waiter in self.primitives.values_mut().flat_map(|v| v) {
             if waiter.is_ready(&self.handle.rcl_wait_set) {
-                f(&mut *waiter.executable)?;
+                f(&mut *waiter.primitive)?;
             }
         }
 

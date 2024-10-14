@@ -1,17 +1,15 @@
 use futures::{
-    future::{BoxFuture, FutureExt},
+    future::BoxFuture,
     task::{waker_ref, ArcWake},
     channel::{oneshot, mpsc::UnboundedSender},
 };
 use std::{
-    future::Future,
     sync::{
         mpsc::{Sender, Receiver, channel},
         atomic::{AtomicBool, Ordering},
         Arc, Mutex,
     },
     task::Context as TaskContext,
-    time::Duration,
 };
 
 use crate::{

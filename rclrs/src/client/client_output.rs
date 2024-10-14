@@ -13,13 +13,15 @@ use crate::{
 ///
 /// Users never need to use this trait directly.
 pub trait ClientOutput<Response>: Sized {
+    /// Create the appropriate type of channel to send the information that the
+    /// user asked for.
     fn create_channel() -> (AnyClientOutputSender<Response>, Promise<Self>);
 }
 
 impl<Response: Message> ClientOutput<Response> for Response {
     fn create_channel() -> (AnyClientOutputSender<Response>, Promise<Self>) {
         let (sender, receiver) = channel();
-        (AnyClientOutputSender::RequestOnly(sender), receiver)
+        (AnyClientOutputSender::ResponseOnly(sender), receiver)
     }
 }
 
@@ -39,8 +41,11 @@ impl<Response: Message> ClientOutput<Response> for (Response, ServiceInfo) {
 
 /// Can send any kind of response for a client call.
 pub enum AnyClientOutputSender<Response> {
-    RequestOnly(Sender<Response>),
+    /// The user only asked for the response.
+    ResponseOnly(Sender<Response>),
+    /// The user also asked for the RequestId
     WithId(Sender<(Response, RequestId)>),
+    /// The user also asked for the ServiceInfo
     WithServiceInfo(Sender<(Response, ServiceInfo)>),
 }
 
@@ -51,17 +56,17 @@ impl<Response: Message> AnyClientOutputSender<Response> {
         service_info: rmw_service_info_t,
     ) {
         match self {
-            Self::RequestOnly(sender) => {
-                sender.send(response);
+            Self::ResponseOnly(sender) => {
+                let _ = sender.send(response);
             }
             Self::WithId(sender) => {
-                sender.send((
+                let _ = sender.send((
                     response,
                     RequestId::from_rmw_request_id(&service_info.request_id),
                 ));
             }
             Self::WithServiceInfo(sender) => {
-                sender.send((
+                let _ = sender.send((
                     response,
                     ServiceInfo::from_rmw_service_info(&service_info),
                 ));

@@ -10,8 +10,8 @@ use crate::{
     error::ToResult,
     rcl_bindings::*,
     MessageCow, Node, RclrsError, RclReturnCode, Promise, ENTITY_LIFECYCLE_MUTEX,
-    Executable, QoSProfile, Waitable, WaitableLifecycle,
-    ExecutableHandle, ExecutableKind, ServiceInfo,
+    RclPrimitive, QoSProfile, Waitable, WaitableLifecycle,
+    RclPrimitiveHandle, RclPrimitiveKind, ServiceInfo,
 };
 
 mod client_async_callback;
@@ -251,7 +251,7 @@ where
     board: Arc<Mutex<ClientRequestBoard<T>>>
 }
 
-impl<T> Executable for ClientExecutable<T>
+impl<T> RclPrimitive for ClientExecutable<T>
 where
     T: rosidl_runtime_rs::Service,
 {
@@ -259,12 +259,12 @@ where
         self.board.lock().unwrap().execute(&self.handle)
     }
 
-    fn handle(&self) -> ExecutableHandle {
-        ExecutableHandle::Client(self.handle.lock())
+    fn handle(&self) -> RclPrimitiveHandle {
+        RclPrimitiveHandle::Client(self.handle.lock())
     }
 
-    fn kind(&self) -> ExecutableKind {
-        ExecutableKind::Client
+    fn kind(&self) -> RclPrimitiveKind {
+        RclPrimitiveKind::Client
     }
 }
 
