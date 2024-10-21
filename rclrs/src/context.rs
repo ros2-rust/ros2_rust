@@ -34,11 +34,12 @@ impl Drop for rcl_context_t {
                 // SAFETY: The entity lifecycle mutex is locked to protect against the risk of
                 // global variables in the rmw implementation being unsafely modified during cleanup.
                 rcl_shutdown(self);
+
+                // SAFETY: No preconditions for rcl_logging_fini
+                rcl_logging_fini();
+
                 rcl_context_fini(self);
             }
-
-            // SAFETY: No preconditions for rcl_logging_fini
-            rcl_logging_fini();
         }
     }
 }
