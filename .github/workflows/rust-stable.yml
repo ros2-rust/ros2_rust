@@ -1,4 +1,4 @@
-name: Rust
+name: Rust Stable
 
 on:
   push:
@@ -22,9 +22,6 @@ jobs:
           - humble
           - iron
           - rolling
-        rust_toolchain:
-          - stable
-          - v1_78
         include:
           # Humble Hawksbill (May 2022 - May 2027)
           - docker_image: rostooling/setup-ros-docker:ubuntu-jammy-ros-humble-ros-base-latest
@@ -38,10 +35,6 @@ jobs:
           - docker_image: rostooling/setup-ros-docker:ubuntu-jammy-ros-rolling-ros-base-latest
             ros_distribution: rolling
             ros_version: 2
-          - rust_toolchain: stable
-            rust_toolchain_action: dtolnay/rust-toolchain@stable
-          - rust_toolchain: v1_78
-            rust_toolchain_action: dtolnay/rust-toolchain@1.78
     runs-on: ubuntu-latest
     continue-on-error: ${{ matrix.ros_distribution == 'rolling' }}
     container:
@@ -61,7 +54,7 @@ jobs:
         use-ros2-testing: ${{ matrix.ros_distribution == 'rolling' }}
 
     - name: Setup Rust
-      uses: ${{ matrix.rust_toolchain_action }}
+      uses: dtolnay/rust-toolchain@stable
       with:
         components: clippy, rustfmt
 
