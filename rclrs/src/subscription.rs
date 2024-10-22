@@ -272,9 +272,7 @@ where
     }
 
     fn execute(&self) -> Result<(), RclrsError> {
-        // Immediately evaluated closure, to handle SubscriptionTakeFailed
-        // outside this match
-        match (|| {
+        let evaluate = || {
             match &mut *self.callback.lock().unwrap() {
                 AnySubscriptionCallback::Regular(cb) => {
                     let (msg, _) = self.take()?;
@@ -302,7 +300,11 @@ where
                 }
             }
             Ok(())
-        })() {
+        };
+
+        // Immediately evaluated closure, to handle SubscriptionTakeFailed
+        // outside this match
+        match evaluate() {
             Err(RclrsError::RclError {
                 code: RclReturnCode::SubscriptionTakeFailed,
                 ..
