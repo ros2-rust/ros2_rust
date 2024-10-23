@@ -196,7 +196,16 @@ impl LogConditions {
 /// # Examples
 ///
 /// ```
+/// use rclrs::{log_debug, log_error, log_fatal, log_info, log_warn, LogConditions, LoggingOccurrence};
+/// use std::sync::Mutex;
+/// use std::time::Duration;
+/// use std::env;
+///
+/// let context = rclrs::Context::new(env::args()).unwrap();
+/// let node = rclrs::Node::new(&context, "test_node").unwrap();
+///
 /// log_debug!(&node.name(), "Simple message");
+/// let some_variable = 43;
 /// log_debug!(&node.name(), "Simple message {some_variable}");
 /// log_fatal!(&node.name(), "Simple message from {}", node.name());
 /// log_warn!(&node.name(), LogConditions::once(), "Only log this the first time");
@@ -204,6 +213,7 @@ impl LogConditions {
 ///            LogConditions::skip_first_throttle(Duration::from_millis(1000)),
 ///            "Noisy error that we expect the first time");
 ///
+/// let count = 0;
 /// log_info!(&node.name(), LogConditions { occurs: LoggingOccurrence::Always,
 ///                                         publish_interval: Duration::from_millis(1000),
 ///                                         log_if_true: count % 10 == 0, },
