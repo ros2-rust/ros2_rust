@@ -139,7 +139,7 @@ impl Node {
         unsafe {
             let rcl_node = self.handle.rcl_node.lock().unwrap();
             rcl_get_topic_names_and_types(
-                &*rcl_node,
+                &**rcl_node,
                 &mut rcutils_get_default_allocator(),
                 false,
                 &mut rcl_names_and_types,
@@ -169,7 +169,7 @@ impl Node {
         unsafe {
             let rcl_node = self.handle.rcl_node.lock().unwrap();
             rcl_get_node_names(
-                &*rcl_node,
+                &**rcl_node,
                 rcutils_get_default_allocator(),
                 &mut rcl_names,
                 &mut rcl_namespaces,
@@ -217,7 +217,7 @@ impl Node {
         unsafe {
             let rcl_node = self.handle.rcl_node.lock().unwrap();
             rcl_get_node_names_with_enclaves(
-                &*rcl_node,
+                &**rcl_node,
                 rcutils_get_default_allocator(),
                 &mut rcl_names,
                 &mut rcl_namespaces,
@@ -266,7 +266,7 @@ impl Node {
         // SAFETY: The topic_name string was correctly allocated previously
         unsafe {
             let rcl_node = self.handle.rcl_node.lock().unwrap();
-            rcl_count_publishers(&*rcl_node, topic_name.as_ptr(), &mut count).ok()?
+            rcl_count_publishers(&**rcl_node, topic_name.as_ptr(), &mut count).ok()?
         };
         Ok(count)
     }
@@ -282,7 +282,7 @@ impl Node {
         // SAFETY: The topic_name string was correctly allocated previously
         unsafe {
             let rcl_node = self.handle.rcl_node.lock().unwrap();
-            rcl_count_subscribers(&*rcl_node, topic_name.as_ptr(), &mut count).ok()?
+            rcl_count_subscribers(&**rcl_node, topic_name.as_ptr(), &mut count).ok()?
         };
         Ok(count)
     }
@@ -333,7 +333,7 @@ impl Node {
         unsafe {
             let rcl_node = self.handle.rcl_node.lock().unwrap();
             getter(
-                &*rcl_node,
+                &**rcl_node,
                 &mut rcutils_get_default_allocator(),
                 node_name.as_ptr(),
                 node_namespace.as_ptr(),
@@ -369,7 +369,7 @@ impl Node {
         unsafe {
             let rcl_node = self.handle.rcl_node.lock().unwrap();
             getter(
-                &*rcl_node,
+                &**rcl_node,
                 &mut rcutils_get_default_allocator(),
                 topic.as_ptr(),
                 false,

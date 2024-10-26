@@ -43,7 +43,7 @@ impl Drop for ClientHandle {
         // SAFETY: The entity lifecycle mutex is locked to protect against the risk of
         // global variables in the rmw implementation being unsafely modified during cleanup.
         unsafe {
-            rcl_client_fini(rcl_client, &mut *rcl_node);
+            rcl_client_fini(rcl_client, &mut **rcl_node);
         }
     }
 }
@@ -115,7 +115,7 @@ where
             unsafe {
                 rcl_client_init(
                     &mut rcl_client,
-                    &*rcl_node,
+                    &**rcl_node,
                     type_support,
                     topic_c_string.as_ptr(),
                     &client_options,
@@ -263,7 +263,7 @@ where
     pub fn service_is_ready(&self) -> Result<bool, RclrsError> {
         let mut is_ready = false;
         let client = &mut *self.handle.rcl_client.lock().unwrap();
-        let node = &mut *self.handle.node_handle.rcl_node.lock().unwrap();
+        let node = &mut **self.handle.node_handle.rcl_node.lock().unwrap();
 
         unsafe {
             // SAFETY both node and client are guaranteed to be valid here
