@@ -61,7 +61,6 @@ def main():
 
   mod_contents = "//! Created by {}\n".format(Path(__file__).name)
   mod_contents += "#![allow(dead_code)]\n"
-  mod_contents += "#![allow(clippy::derive_partial_eq_without_eq)]\n"
   mod_contents += "\n"
   for pkg in vendored_packages:
     mod_contents += f"pub mod {pkg};\n"
