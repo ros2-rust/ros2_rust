@@ -14,12 +14,10 @@
 
 add_custom_command(
   OUTPUT
-  ${_generated_extension_files}
   ${_generated_common_rs_files}
   ${_generated_msg_rs_files}
-  ${_generated_msg_c_files}
   ${_generated_srv_rs_files}
-  ${_generated_srv_c_files}
+  ${_generated_action_rs_files}
   COMMAND ${PYTHON_EXECUTABLE} ${rosidl_generator_rs_BIN}
   --generator-arguments-file "${generator_arguments_file}"
   --typesupport-impls "${_typesupport_impls}"
@@ -34,11 +32,9 @@ else()
   add_custom_target(
     ${rosidl_generate_interfaces_TARGET}${_target_suffix} ALL
     DEPENDS
-    ${_generated_extension_files}
     ${_generated_common_rs_files}
     ${_generated_msg_rs_files}
-    ${_generated_msg_c_files}
     ${_generated_srv_rs_files}
-    ${_generated_srv_c_files}
+    ${_generated_action_rs_files}
   )
 endif()
