@@ -582,7 +582,7 @@ impl rosidl_runtime_rs::Message for SetParameters_Response {
 #[link(name = "rcl_interfaces__rosidl_typesupport_c")]
 extern "C" {
     fn rosidl_typesupport_c__get_service_type_support_handle__rcl_interfaces__srv__DescribeParameters(
-    ) -> *const std::os::raw::c_void;
+    ) -> *const std::ffi::c_void;
 }
 
 // Corresponds to rcl_interfaces__srv__DescribeParameters
@@ -592,7 +592,7 @@ impl rosidl_runtime_rs::Service for DescribeParameters {
     type Request = crate::vendor::rcl_interfaces::srv::DescribeParameters_Request;
     type Response = crate::vendor::rcl_interfaces::srv::DescribeParameters_Response;
 
-    fn get_type_support() -> *const std::os::raw::c_void {
+    fn get_type_support() -> *const std::ffi::c_void {
         // SAFETY: No preconditions for this function.
         unsafe {
             rosidl_typesupport_c__get_service_type_support_handle__rcl_interfaces__srv__DescribeParameters()
@@ -603,7 +603,7 @@ impl rosidl_runtime_rs::Service for DescribeParameters {
 #[link(name = "rcl_interfaces__rosidl_typesupport_c")]
 extern "C" {
     fn rosidl_typesupport_c__get_service_type_support_handle__rcl_interfaces__srv__GetParameters(
-    ) -> *const std::os::raw::c_void;
+    ) -> *const std::ffi::c_void;
 }
 
 // Corresponds to rcl_interfaces__srv__GetParameters
@@ -613,7 +613,7 @@ impl rosidl_runtime_rs::Service for GetParameters {
     type Request = crate::vendor::rcl_interfaces::srv::GetParameters_Request;
     type Response = crate::vendor::rcl_interfaces::srv::GetParameters_Response;
 
-    fn get_type_support() -> *const std::os::raw::c_void {
+    fn get_type_support() -> *const std::ffi::c_void {
         // SAFETY: No preconditions for this function.
         unsafe {
             rosidl_typesupport_c__get_service_type_support_handle__rcl_interfaces__srv__GetParameters()
@@ -624,7 +624,7 @@ impl rosidl_runtime_rs::Service for GetParameters {
 #[link(name = "rcl_interfaces__rosidl_typesupport_c")]
 extern "C" {
     fn rosidl_typesupport_c__get_service_type_support_handle__rcl_interfaces__srv__GetParameterTypes(
-    ) -> *const std::os::raw::c_void;
+    ) -> *const std::ffi::c_void;
 }
 
 // Corresponds to rcl_interfaces__srv__GetParameterTypes
@@ -634,7 +634,7 @@ impl rosidl_runtime_rs::Service for GetParameterTypes {
     type Request = crate::vendor::rcl_interfaces::srv::GetParameterTypes_Request;
     type Response = crate::vendor::rcl_interfaces::srv::GetParameterTypes_Response;
 
-    fn get_type_support() -> *const std::os::raw::c_void {
+    fn get_type_support() -> *const std::ffi::c_void {
         // SAFETY: No preconditions for this function.
         unsafe {
             rosidl_typesupport_c__get_service_type_support_handle__rcl_interfaces__srv__GetParameterTypes()
@@ -645,7 +645,7 @@ impl rosidl_runtime_rs::Service for GetParameterTypes {
 #[link(name = "rcl_interfaces__rosidl_typesupport_c")]
 extern "C" {
     fn rosidl_typesupport_c__get_service_type_support_handle__rcl_interfaces__srv__ListParameters(
-    ) -> *const std::os::raw::c_void;
+    ) -> *const std::ffi::c_void;
 }
 
 // Corresponds to rcl_interfaces__srv__ListParameters
@@ -655,7 +655,7 @@ impl rosidl_runtime_rs::Service for ListParameters {
     type Request = crate::vendor::rcl_interfaces::srv::ListParameters_Request;
     type Response = crate::vendor::rcl_interfaces::srv::ListParameters_Response;
 
-    fn get_type_support() -> *const std::os::raw::c_void {
+    fn get_type_support() -> *const std::ffi::c_void {
         // SAFETY: No preconditions for this function.
         unsafe {
             rosidl_typesupport_c__get_service_type_support_handle__rcl_interfaces__srv__ListParameters()
@@ -666,7 +666,7 @@ impl rosidl_runtime_rs::Service for ListParameters {
 #[link(name = "rcl_interfaces__rosidl_typesupport_c")]
 extern "C" {
     fn rosidl_typesupport_c__get_service_type_support_handle__rcl_interfaces__srv__SetParametersAtomically(
-    ) -> *const std::os::raw::c_void;
+    ) -> *const std::ffi::c_void;
 }
 
 // Corresponds to rcl_interfaces__srv__SetParametersAtomically
@@ -676,7 +676,7 @@ impl rosidl_runtime_rs::Service for SetParametersAtomically {
     type Request = crate::vendor::rcl_interfaces::srv::SetParametersAtomically_Request;
     type Response = crate::vendor::rcl_interfaces::srv::SetParametersAtomically_Response;
 
-    fn get_type_support() -> *const std::os::raw::c_void {
+    fn get_type_support() -> *const std::ffi::c_void {
         // SAFETY: No preconditions for this function.
         unsafe {
             rosidl_typesupport_c__get_service_type_support_handle__rcl_interfaces__srv__SetParametersAtomically()
@@ -687,7 +687,7 @@ impl rosidl_runtime_rs::Service for SetParametersAtomically {
 #[link(name = "rcl_interfaces__rosidl_typesupport_c")]
 extern "C" {
     fn rosidl_typesupport_c__get_service_type_support_handle__rcl_interfaces__srv__SetParameters(
-    ) -> *const std::os::raw::c_void;
+    ) -> *const std::ffi::c_void;
 }
 
 // Corresponds to rcl_interfaces__srv__SetParameters
@@ -697,7 +697,7 @@ impl rosidl_runtime_rs::Service for SetParameters {
     type Request = crate::vendor::rcl_interfaces::srv::SetParameters_Request;
     type Response = crate::vendor::rcl_interfaces::srv::SetParameters_Response;
 
-    fn get_type_support() -> *const std::os::raw::c_void {
+    fn get_type_support() -> *const std::ffi::c_void {
         // SAFETY: No preconditions for this function.
         unsafe {
             rosidl_typesupport_c__get_service_type_support_handle__rcl_interfaces__srv__SetParameters()
@@ -706,13 +706,14 @@ impl rosidl_runtime_rs::Service for SetParameters {
 }
 
 pub mod rmw {
+
     #[cfg(feature = "serde")]
     use serde::{Deserialize, Serialize};
 
     #[link(name = "rcl_interfaces__rosidl_typesupport_c")]
     extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__srv__DescribeParameters_Request(
-        ) -> *const std::os::raw::c_void;
+        ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "rcl_interfaces__rosidl_generator_c")]
@@ -799,7 +800,7 @@ pub mod rmw {
         Self: Sized,
     {
         const TYPE_NAME: &'static str = "rcl_interfaces/srv/DescribeParameters_Request";
-        fn get_type_support() -> *const std::os::raw::c_void {
+        fn get_type_support() -> *const std::ffi::c_void {
             // SAFETY: No preconditions for this function.
             unsafe {
                 rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__srv__DescribeParameters_Request()
@@ -810,7 +811,7 @@ pub mod rmw {
     #[link(name = "rcl_interfaces__rosidl_typesupport_c")]
     extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__srv__DescribeParameters_Response(
-        ) -> *const std::os::raw::c_void;
+        ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "rcl_interfaces__rosidl_generator_c")]
@@ -902,7 +903,7 @@ pub mod rmw {
         Self: Sized,
     {
         const TYPE_NAME: &'static str = "rcl_interfaces/srv/DescribeParameters_Response";
-        fn get_type_support() -> *const std::os::raw::c_void {
+        fn get_type_support() -> *const std::ffi::c_void {
             // SAFETY: No preconditions for this function.
             unsafe {
                 rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__srv__DescribeParameters_Response()
@@ -913,7 +914,7 @@ pub mod rmw {
     #[link(name = "rcl_interfaces__rosidl_typesupport_c")]
     extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__srv__GetParameters_Request(
-        ) -> *const std::os::raw::c_void;
+        ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "rcl_interfaces__rosidl_generator_c")]
@@ -996,7 +997,7 @@ pub mod rmw {
         Self: Sized,
     {
         const TYPE_NAME: &'static str = "rcl_interfaces/srv/GetParameters_Request";
-        fn get_type_support() -> *const std::os::raw::c_void {
+        fn get_type_support() -> *const std::ffi::c_void {
             // SAFETY: No preconditions for this function.
             unsafe {
                 rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__srv__GetParameters_Request()
@@ -1007,7 +1008,7 @@ pub mod rmw {
     #[link(name = "rcl_interfaces__rosidl_typesupport_c")]
     extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__srv__GetParameters_Response(
-        ) -> *const std::os::raw::c_void;
+        ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "rcl_interfaces__rosidl_generator_c")]
@@ -1091,7 +1092,7 @@ pub mod rmw {
         Self: Sized,
     {
         const TYPE_NAME: &'static str = "rcl_interfaces/srv/GetParameters_Response";
-        fn get_type_support() -> *const std::os::raw::c_void {
+        fn get_type_support() -> *const std::ffi::c_void {
             // SAFETY: No preconditions for this function.
             unsafe {
                 rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__srv__GetParameters_Response()
@@ -1102,7 +1103,7 @@ pub mod rmw {
     #[link(name = "rcl_interfaces__rosidl_typesupport_c")]
     extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__srv__GetParameterTypes_Request(
-        ) -> *const std::os::raw::c_void;
+        ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "rcl_interfaces__rosidl_generator_c")]
@@ -1185,7 +1186,7 @@ pub mod rmw {
         Self: Sized,
     {
         const TYPE_NAME: &'static str = "rcl_interfaces/srv/GetParameterTypes_Request";
-        fn get_type_support() -> *const std::os::raw::c_void {
+        fn get_type_support() -> *const std::ffi::c_void {
             // SAFETY: No preconditions for this function.
             unsafe {
                 rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__srv__GetParameterTypes_Request()
@@ -1196,7 +1197,7 @@ pub mod rmw {
     #[link(name = "rcl_interfaces__rosidl_typesupport_c")]
     extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__srv__GetParameterTypes_Response(
-        ) -> *const std::os::raw::c_void;
+        ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "rcl_interfaces__rosidl_generator_c")]
@@ -1283,7 +1284,7 @@ pub mod rmw {
         Self: Sized,
     {
         const TYPE_NAME: &'static str = "rcl_interfaces/srv/GetParameterTypes_Response";
-        fn get_type_support() -> *const std::os::raw::c_void {
+        fn get_type_support() -> *const std::ffi::c_void {
             // SAFETY: No preconditions for this function.
             unsafe {
                 rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__srv__GetParameterTypes_Response()
@@ -1294,7 +1295,7 @@ pub mod rmw {
     #[link(name = "rcl_interfaces__rosidl_typesupport_c")]
     extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__srv__ListParameters_Request(
-        ) -> *const std::os::raw::c_void;
+        ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "rcl_interfaces__rosidl_generator_c")]
@@ -1382,7 +1383,7 @@ pub mod rmw {
         Self: Sized,
     {
         const TYPE_NAME: &'static str = "rcl_interfaces/srv/ListParameters_Request";
-        fn get_type_support() -> *const std::os::raw::c_void {
+        fn get_type_support() -> *const std::ffi::c_void {
             // SAFETY: No preconditions for this function.
             unsafe {
                 rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__srv__ListParameters_Request()
@@ -1393,7 +1394,7 @@ pub mod rmw {
     #[link(name = "rcl_interfaces__rosidl_typesupport_c")]
     extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__srv__ListParameters_Response(
-        ) -> *const std::os::raw::c_void;
+        ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "rcl_interfaces__rosidl_generator_c")]
@@ -1476,7 +1477,7 @@ pub mod rmw {
         Self: Sized,
     {
         const TYPE_NAME: &'static str = "rcl_interfaces/srv/ListParameters_Response";
-        fn get_type_support() -> *const std::os::raw::c_void {
+        fn get_type_support() -> *const std::ffi::c_void {
             // SAFETY: No preconditions for this function.
             unsafe {
                 rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__srv__ListParameters_Response()
@@ -1487,7 +1488,7 @@ pub mod rmw {
     #[link(name = "rcl_interfaces__rosidl_typesupport_c")]
     extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__srv__SetParametersAtomically_Request(
-        ) -> *const std::os::raw::c_void;
+        ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "rcl_interfaces__rosidl_generator_c")]
@@ -1576,7 +1577,7 @@ pub mod rmw {
         Self: Sized,
     {
         const TYPE_NAME: &'static str = "rcl_interfaces/srv/SetParametersAtomically_Request";
-        fn get_type_support() -> *const std::os::raw::c_void {
+        fn get_type_support() -> *const std::ffi::c_void {
             // SAFETY: No preconditions for this function.
             unsafe {
                 rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__srv__SetParametersAtomically_Request()
@@ -1587,7 +1588,7 @@ pub mod rmw {
     #[link(name = "rcl_interfaces__rosidl_typesupport_c")]
     extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__srv__SetParametersAtomically_Response(
-        ) -> *const std::os::raw::c_void;
+        ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "rcl_interfaces__rosidl_generator_c")]
@@ -1676,7 +1677,7 @@ pub mod rmw {
         Self: Sized,
     {
         const TYPE_NAME: &'static str = "rcl_interfaces/srv/SetParametersAtomically_Response";
-        fn get_type_support() -> *const std::os::raw::c_void {
+        fn get_type_support() -> *const std::ffi::c_void {
             // SAFETY: No preconditions for this function.
             unsafe {
                 rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__srv__SetParametersAtomically_Response()
@@ -1687,7 +1688,7 @@ pub mod rmw {
     #[link(name = "rcl_interfaces__rosidl_typesupport_c")]
     extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__srv__SetParameters_Request(
-        ) -> *const std::os::raw::c_void;
+        ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "rcl_interfaces__rosidl_generator_c")]
@@ -1771,7 +1772,7 @@ pub mod rmw {
         Self: Sized,
     {
         const TYPE_NAME: &'static str = "rcl_interfaces/srv/SetParameters_Request";
-        fn get_type_support() -> *const std::os::raw::c_void {
+        fn get_type_support() -> *const std::ffi::c_void {
             // SAFETY: No preconditions for this function.
             unsafe {
                 rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__srv__SetParameters_Request()
@@ -1782,7 +1783,7 @@ pub mod rmw {
     #[link(name = "rcl_interfaces__rosidl_typesupport_c")]
     extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__srv__SetParameters_Response(
-        ) -> *const std::os::raw::c_void;
+        ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "rcl_interfaces__rosidl_generator_c")]
@@ -1867,7 +1868,7 @@ pub mod rmw {
         Self: Sized,
     {
         const TYPE_NAME: &'static str = "rcl_interfaces/srv/SetParameters_Response";
-        fn get_type_support() -> *const std::os::raw::c_void {
+        fn get_type_support() -> *const std::ffi::c_void {
             // SAFETY: No preconditions for this function.
             unsafe {
                 rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__srv__SetParameters_Response()
@@ -1878,7 +1879,7 @@ pub mod rmw {
     #[link(name = "rcl_interfaces__rosidl_typesupport_c")]
     extern "C" {
         fn rosidl_typesupport_c__get_service_type_support_handle__rcl_interfaces__srv__DescribeParameters(
-        ) -> *const std::os::raw::c_void;
+        ) -> *const std::ffi::c_void;
     }
 
     // Corresponds to rcl_interfaces__srv__DescribeParameters
@@ -1888,7 +1889,7 @@ pub mod rmw {
         type Request = crate::vendor::rcl_interfaces::srv::rmw::DescribeParameters_Request;
         type Response = crate::vendor::rcl_interfaces::srv::rmw::DescribeParameters_Response;
 
-        fn get_type_support() -> *const std::os::raw::c_void {
+        fn get_type_support() -> *const std::ffi::c_void {
             // SAFETY: No preconditions for this function.
             unsafe {
                 rosidl_typesupport_c__get_service_type_support_handle__rcl_interfaces__srv__DescribeParameters()
@@ -1899,7 +1900,7 @@ pub mod rmw {
     #[link(name = "rcl_interfaces__rosidl_typesupport_c")]
     extern "C" {
         fn rosidl_typesupport_c__get_service_type_support_handle__rcl_interfaces__srv__GetParameters(
-        ) -> *const std::os::raw::c_void;
+        ) -> *const std::ffi::c_void;
     }
 
     // Corresponds to rcl_interfaces__srv__GetParameters
@@ -1909,7 +1910,7 @@ pub mod rmw {
         type Request = crate::vendor::rcl_interfaces::srv::rmw::GetParameters_Request;
         type Response = crate::vendor::rcl_interfaces::srv::rmw::GetParameters_Response;
 
-        fn get_type_support() -> *const std::os::raw::c_void {
+        fn get_type_support() -> *const std::ffi::c_void {
             // SAFETY: No preconditions for this function.
             unsafe {
                 rosidl_typesupport_c__get_service_type_support_handle__rcl_interfaces__srv__GetParameters()
@@ -1920,7 +1921,7 @@ pub mod rmw {
     #[link(name = "rcl_interfaces__rosidl_typesupport_c")]
     extern "C" {
         fn rosidl_typesupport_c__get_service_type_support_handle__rcl_interfaces__srv__GetParameterTypes(
-        ) -> *const std::os::raw::c_void;
+        ) -> *const std::ffi::c_void;
     }
 
     // Corresponds to rcl_interfaces__srv__GetParameterTypes
@@ -1930,7 +1931,7 @@ pub mod rmw {
         type Request = crate::vendor::rcl_interfaces::srv::rmw::GetParameterTypes_Request;
         type Response = crate::vendor::rcl_interfaces::srv::rmw::GetParameterTypes_Response;
 
-        fn get_type_support() -> *const std::os::raw::c_void {
+        fn get_type_support() -> *const std::ffi::c_void {
             // SAFETY: No preconditions for this function.
             unsafe {
                 rosidl_typesupport_c__get_service_type_support_handle__rcl_interfaces__srv__GetParameterTypes()
@@ -1941,7 +1942,7 @@ pub mod rmw {
     #[link(name = "rcl_interfaces__rosidl_typesupport_c")]
     extern "C" {
         fn rosidl_typesupport_c__get_service_type_support_handle__rcl_interfaces__srv__ListParameters(
-        ) -> *const std::os::raw::c_void;
+        ) -> *const std::ffi::c_void;
     }
 
     // Corresponds to rcl_interfaces__srv__ListParameters
@@ -1951,7 +1952,7 @@ pub mod rmw {
         type Request = crate::vendor::rcl_interfaces::srv::rmw::ListParameters_Request;
         type Response = crate::vendor::rcl_interfaces::srv::rmw::ListParameters_Response;
 
-        fn get_type_support() -> *const std::os::raw::c_void {
+        fn get_type_support() -> *const std::ffi::c_void {
             // SAFETY: No preconditions for this function.
             unsafe {
                 rosidl_typesupport_c__get_service_type_support_handle__rcl_interfaces__srv__ListParameters()
@@ -1962,7 +1963,7 @@ pub mod rmw {
     #[link(name = "rcl_interfaces__rosidl_typesupport_c")]
     extern "C" {
         fn rosidl_typesupport_c__get_service_type_support_handle__rcl_interfaces__srv__SetParametersAtomically(
-        ) -> *const std::os::raw::c_void;
+        ) -> *const std::ffi::c_void;
     }
 
     // Corresponds to rcl_interfaces__srv__SetParametersAtomically
@@ -1972,7 +1973,7 @@ pub mod rmw {
         type Request = crate::vendor::rcl_interfaces::srv::rmw::SetParametersAtomically_Request;
         type Response = crate::vendor::rcl_interfaces::srv::rmw::SetParametersAtomically_Response;
 
-        fn get_type_support() -> *const std::os::raw::c_void {
+        fn get_type_support() -> *const std::ffi::c_void {
             // SAFETY: No preconditions for this function.
             unsafe {
                 rosidl_typesupport_c__get_service_type_support_handle__rcl_interfaces__srv__SetParametersAtomically()
@@ -1983,7 +1984,7 @@ pub mod rmw {
     #[link(name = "rcl_interfaces__rosidl_typesupport_c")]
     extern "C" {
         fn rosidl_typesupport_c__get_service_type_support_handle__rcl_interfaces__srv__SetParameters(
-        ) -> *const std::os::raw::c_void;
+        ) -> *const std::ffi::c_void;
     }
 
     // Corresponds to rcl_interfaces__srv__SetParameters
@@ -1993,7 +1994,7 @@ pub mod rmw {
         type Request = crate::vendor::rcl_interfaces::srv::rmw::SetParameters_Request;
         type Response = crate::vendor::rcl_interfaces::srv::rmw::SetParameters_Response;
 
-        fn get_type_support() -> *const std::os::raw::c_void {
+        fn get_type_support() -> *const std::ffi::c_void {
             // SAFETY: No preconditions for this function.
             unsafe {
                 rosidl_typesupport_c__get_service_type_support_handle__rcl_interfaces__srv__SetParameters()

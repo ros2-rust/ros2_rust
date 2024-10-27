@@ -5,7 +5,7 @@ pub mod rmw {
     #[link(name = "builtin_interfaces__rosidl_typesupport_c")]
     extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__builtin_interfaces__msg__Duration(
-        ) -> *const std::os::raw::c_void;
+        ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "builtin_interfaces__rosidl_generator_c")]
@@ -80,7 +80,7 @@ pub mod rmw {
         Self: Sized,
     {
         const TYPE_NAME: &'static str = "builtin_interfaces/msg/Duration";
-        fn get_type_support() -> *const std::os::raw::c_void {
+        fn get_type_support() -> *const std::ffi::c_void {
             // SAFETY: No preconditions for this function.
             unsafe {
                 rosidl_typesupport_c__get_message_type_support_handle__builtin_interfaces__msg__Duration()
@@ -91,7 +91,7 @@ pub mod rmw {
     #[link(name = "builtin_interfaces__rosidl_typesupport_c")]
     extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__builtin_interfaces__msg__Time(
-        ) -> *const std::os::raw::c_void;
+        ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "builtin_interfaces__rosidl_generator_c")]
@@ -166,7 +166,7 @@ pub mod rmw {
         Self: Sized,
     {
         const TYPE_NAME: &'static str = "builtin_interfaces/msg/Time";
-        fn get_type_support() -> *const std::os::raw::c_void {
+        fn get_type_support() -> *const std::ffi::c_void {
             // SAFETY: No preconditions for this function.
             unsafe {
                 rosidl_typesupport_c__get_message_type_support_handle__builtin_interfaces__msg__Time(
