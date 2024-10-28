@@ -54,7 +54,7 @@ jobs:
         use-ros2-testing: ${{ matrix.ros_distribution == 'rolling' }}
 
     - name: Setup Rust
-      uses: dtolnay/rust-toolchain@1.78
+      uses: dtolnay/rust-toolchain@1.75
       with:
         components: clippy, rustfmt
 
