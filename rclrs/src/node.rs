@@ -1,27 +1,37 @@
-mod builder;
+mod node_options;
+pub use node_options::*;
+
 mod graph;
+pub use graph::*;
+
+mod node_graph_task;
+use node_graph_task::*;
+
 use std::{
     cmp::PartialEq,
     ffi::CStr,
     fmt,
     os::raw::c_char,
-    sync::{Arc, Mutex, Weak},
-    vec::Vec,
+    sync::{Arc, Mutex},
+    time::Duration,
 };
+
+use futures::{
+    StreamExt,
+    channel::mpsc::{unbounded, UnboundedSender},
+};
+
+use async_std::future::timeout;
 
 use rosidl_runtime_rs::Message;
 
-pub use self::{builder::*, graph::*};
 use crate::{
-    rcl_bindings::*, Client, ClientBase, Clock, Context, ContextHandle, GuardCondition,
-    ParameterBuilder, ParameterInterface, ParameterVariant, Parameters, Publisher, QoSProfile,
-    RclrsError, Service, ServiceBase, Subscription, SubscriptionBase, SubscriptionCallback,
-    TimeSource, ENTITY_LIFECYCLE_MUTEX,
+    rcl_bindings::*,
+    Client, Clock, ContextHandle, Promise, ParameterBuilder, ParameterInterface,
+    ParameterVariant, Parameters, Publisher, QoSProfile, RclrsError, Service,
+    Subscription, SubscriptionCallback, SubscriptionAsyncCallback, ServiceCallback,
+    ServiceAsyncCallback, ExecutorCommands, TimeSource, ENTITY_LIFECYCLE_MUTEX,
 };
-
-// SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
-// they are running in. Therefore, this type can be safely sent to another thread.
-unsafe impl Send for rcl_node_t {}
 
 /// A processing unit that can communicate with other nodes.
 ///
@@ -59,13 +69,11 @@ unsafe impl Send for rcl_node_t {}
 /// [3]: crate::NodeBuilder::new
 /// [4]: crate::NodeBuilder::namespace
 pub struct Node {
-    pub(crate) clients_mtx: Mutex<Vec<Weak<dyn ClientBase>>>,
-    pub(crate) guard_conditions_mtx: Mutex<Vec<Weak<GuardCondition>>>,
-    pub(crate) services_mtx: Mutex<Vec<Weak<dyn ServiceBase>>>,
-    pub(crate) subscriptions_mtx: Mutex<Vec<Weak<dyn SubscriptionBase>>>,
     time_source: TimeSource,
     parameter: ParameterInterface,
-    pub(crate) handle: Arc<NodeHandle>,
+    commands: Arc<ExecutorCommands>,
+    graph_change_action: UnboundedSender<NodeGraphAction>,
+    handle: Arc<NodeHandle>,
 }
 
 /// This struct manages the lifetime of an `rcl_node_t`, and accounts for its
@@ -106,14 +114,6 @@ impl fmt::Debug for Node {
 }
 
 impl Node {
-    /// Creates a new node in the empty namespace.
-    ///
-    /// See [`NodeBuilder::new()`] for documentation.
-    #[allow(clippy::new_ret_no_self)]
-    pub fn new(context: &Context, node_name: &str) -> Result<Arc<Node>, RclrsError> {
-        Self::builder(context, node_name).build()
-    }
-
     /// Returns the clock associated with this node.
     pub fn get_clock(&self) -> Clock {
         self.time_source.get_clock()
@@ -128,13 +128,13 @@ impl Node {
     /// ```
     /// # use rclrs::{Context, RclrsError};
     /// // Without remapping
-    /// let context = Context::new([])?;
-    /// let node = rclrs::create_node(&context, "my_node")?;
+    /// let executor = Context::default().create_basic_executor();
+    /// let node = executor.create_node("my_node")?;
     /// assert_eq!(node.name(), "my_node");
     /// // With remapping
     /// let remapping = ["--ros-args", "-r", "__node:=your_node"].map(String::from);
-    /// let context_r = Context::new(remapping)?;
-    /// let node_r = rclrs::create_node(&context_r, "my_node")?;
+    /// let executor_r = Context::new(remapping)?.create_basic_executor();
+    /// let node_r = executor_r.create_node("my_node")?;
     /// assert_eq!(node_r.name(), "your_node");
     /// # Ok::<(), RclrsError>(())
     /// ```
@@ -149,18 +149,18 @@ impl Node {
     ///
     /// # Example
     /// ```
-    /// # use rclrs::{Context, RclrsError};
+    /// # use rclrs::{Context, RclrsError, NodeOptions};
     /// // Without remapping
-    /// let context = Context::new([])?;
-    /// let node =
-    ///   rclrs::create_node_builder(&context, "my_node")
-    ///   .namespace("/my/namespace")
-    ///   .build()?;
+    /// let executor = Context::default().create_basic_executor();
+    /// let node = executor.create_node(
+    ///     NodeOptions::new("my_node")
+    ///     .namespace("/my/namespace")
+    /// )?;
     /// assert_eq!(node.namespace(), "/my/namespace");
     /// // With remapping
     /// let remapping = ["--ros-args", "-r", "__ns:=/your_namespace"].map(String::from);
-    /// let context_r = Context::new(remapping)?;
-    /// let node_r = rclrs::create_node(&context_r, "my_node")?;
+    /// let executor_r = Context::new(remapping)?.create_basic_executor();
+    /// let node_r = executor_r.create_node("my_node")?;
     /// assert_eq!(node_r.namespace(), "/your_namespace");
     /// # Ok::<(), RclrsError>(())
     /// ```
@@ -175,12 +175,12 @@ impl Node {
     ///
     /// # Example
     /// ```
-    /// # use rclrs::{Context, RclrsError};
-    /// let context = Context::new([])?;
-    /// let node =
-    ///   rclrs::create_node_builder(&context, "my_node")
-    ///   .namespace("/my/namespace")
-    ///   .build()?;
+    /// # use rclrs::{Context, RclrsError, NodeOptions};
+    /// let executor = Context::default().create_basic_executor();
+    /// let node = executor.create_node(
+    ///     NodeOptions::new("my_node")
+    ///     .namespace("/my/namespace")
+    /// )?;
     /// assert_eq!(node.fully_qualified_name(), "/my/namespace/my_node");
     /// # Ok::<(), RclrsError>(())
     /// ```
@@ -188,67 +188,19 @@ impl Node {
         self.call_string_getter(rcl_node_get_fully_qualified_name)
     }
 
-    // Helper for name(), namespace(), fully_qualified_name()
-    fn call_string_getter(
-        &self,
-        getter: unsafe extern "C" fn(*const rcl_node_t) -> *const c_char,
-    ) -> String {
-        let rcl_node = self.handle.rcl_node.lock().unwrap();
-        unsafe { call_string_getter_with_rcl_node(&rcl_node, getter) }
-    }
-
     /// Creates a [`Client`][1].
     ///
     /// [1]: crate::Client
     // TODO: make client's lifetime depend on node's lifetime
-    pub fn create_client<T>(&self, topic: &str) -> Result<Arc<Client<T>>, RclrsError>
+    pub fn create_client<T>(
+        self: &Arc<Self>,
+        topic: &str,
+        qos: QoSProfile,
+    ) -> Result<Arc<Client<T>>, RclrsError>
     where
         T: rosidl_runtime_rs::Service,
     {
-        let client = Arc::new(Client::<T>::new(Arc::clone(&self.handle), topic)?);
-        { self.clients_mtx.lock().unwrap() }.push(Arc::downgrade(&client) as Weak<dyn ClientBase>);
-        Ok(client)
-    }
-
-    /// Creates a [`GuardCondition`][1] with no callback.
-    ///
-    /// A weak pointer to the `GuardCondition` is stored within this node.
-    /// When this node is added to a wait set (e.g. when calling `spin_once`[2]
-    /// with this node as an argument), the guard condition can be used to
-    /// interrupt the wait.
-    ///
-    /// [1]: crate::GuardCondition
-    /// [2]: crate::spin_once
-    pub fn create_guard_condition(&self) -> Arc<GuardCondition> {
-        let guard_condition = Arc::new(GuardCondition::new_with_context_handle(
-            Arc::clone(&self.handle.context_handle),
-            None,
-        ));
-        { self.guard_conditions_mtx.lock().unwrap() }
-            .push(Arc::downgrade(&guard_condition) as Weak<GuardCondition>);
-        guard_condition
-    }
-
-    /// Creates a [`GuardCondition`][1] with a callback.
-    ///
-    /// A weak pointer to the `GuardCondition` is stored within this node.
-    /// When this node is added to a wait set (e.g. when calling `spin_once`[2]
-    /// with this node as an argument), the guard condition can be used to
-    /// interrupt the wait.
-    ///
-    /// [1]: crate::GuardCondition
-    /// [2]: crate::spin_once
-    pub fn create_guard_condition_with_callback<F>(&mut self, callback: F) -> Arc<GuardCondition>
-    where
-        F: Fn() + Send + Sync + 'static,
-    {
-        let guard_condition = Arc::new(GuardCondition::new_with_context_handle(
-            Arc::clone(&self.handle.context_handle),
-            Some(Box::new(callback) as Box<dyn Fn() + Send + Sync>),
-        ));
-        { self.guard_conditions_mtx.lock().unwrap() }
-            .push(Arc::downgrade(&guard_condition) as Weak<GuardCondition>);
-        guard_condition
+        Client::<T>::create(topic, qos, &self)
     }
 
     /// Creates a [`Publisher`][1].
@@ -263,37 +215,83 @@ impl Node {
     where
         T: Message,
     {
-        let publisher = Arc::new(Publisher::<T>::new(Arc::clone(&self.handle), topic, qos)?);
-        Ok(publisher)
+        Ok(Arc::new(Publisher::<T>::new(Arc::clone(&self.handle), topic, qos)?))
     }
 
-    /// Creates a [`Service`][1].
+    /// Creates a [`Service`] with an ordinary callback.
     ///
-    /// [1]: crate::Service
-    // TODO: make service's lifetime depend on node's lifetime
-    pub fn create_service<T, F>(
+    /// Even though this takes in a blocking (non-async) function, the callback
+    /// may run in parallel with other callbacks. This callback may even run
+    /// multiple times simultaneously with different incoming requests.
+    ///
+    /// Any internal state that needs to be mutated will need to be wrapped in
+    /// [`Mutex`] to ensure it is synchronized across multiple simultaneous runs
+    /// of the callback. To share internal state outside of the callback you will
+    /// need to wrap it in [`Arc`] or `Arc<Mutex<S>>`.
+    //
+    // TODO(@mxgrey): Add examples showing each supported signature
+    pub fn create_service<T, Args>(
         &self,
         topic: &str,
-        callback: F,
+        qos: QoSProfile,
+        callback: impl ServiceCallback<T, Args>,
     ) -> Result<Arc<Service<T>>, RclrsError>
     where
         T: rosidl_runtime_rs::Service,
-        F: Fn(&rmw_request_id_t, T::Request) -> T::Response + 'static + Send,
     {
-        let service = Arc::new(Service::<T>::new(
-            Arc::clone(&self.handle),
+        Service::<T>::create(
             topic,
-            callback,
-        )?);
-        { self.services_mtx.lock().unwrap() }
-            .push(Arc::downgrade(&service) as Weak<dyn ServiceBase>);
-        Ok(service)
+            qos,
+            callback.into_service_callback(),
+            &self.handle,
+            &self.commands,
+        )
     }
 
-    /// Creates a [`Subscription`][1].
+    /// Creates a [`Service`] with an async callback.
     ///
-    /// [1]: crate::Subscription
-    // TODO: make subscription's lifetime depend on node's lifetime
+    /// This callback may run in parallel with other callbacks. It may even run
+    /// multiple times simultaneously with different incoming requests. This
+    /// parallelism will depend on the executor that is being used. When the
+    /// callback uses `.await`, it will not block anything else from running.
+    ///
+    /// Any internal state that needs to be mutated will need to be wrapped in
+    /// [`Mutex`] to ensure it is synchronized across multiple runs of the
+    /// callback. To share internal state outside of the callback you will need
+    /// to wrap it in [`Arc`] (immutable) or `Arc<Mutex<S>>` (mutable).
+    //
+    // TODO(@mxgrey): Add examples showing each supported signature
+    pub fn create_async_service<T, Args>(
+        &self,
+        topic: &str,
+        qos: QoSProfile,
+        callback: impl ServiceAsyncCallback<T, Args>,
+    ) -> Result<Arc<Service<T>>, RclrsError>
+    where
+        T: rosidl_runtime_rs::Service,
+    {
+        Service::<T>::create(
+            topic,
+            qos,
+            callback.into_service_async_callback(),
+            &self.handle,
+            &self.commands,
+        )
+    }
+
+    /// Creates a [`Subscription`] with an ordinary callback.
+    ///
+    /// Even though this takes in a blocking (non-async) function, the callback
+    /// may run in parallel with other callbacks. This callback may even run
+    /// multiple times simultaneously with different incoming messages. This
+    /// parallelism will depend on the executor that is being used.
+    ///
+    /// Any internal state that needs to be mutated will need to be wrapped in
+    /// [`Mutex`] to ensure it is synchronized across multiple simultaneous runs
+    /// of the callback. To share internal state outside of the callback you will
+    /// need to wrap it in [`Arc`] or `Arc<Mutex<S>>`.
+    //
+    // TODO(@mxgrey): Add examples showing each supported signature
     pub fn create_subscription<T, Args>(
         &self,
         topic: &str,
@@ -303,45 +301,44 @@ impl Node {
     where
         T: Message,
     {
-        let subscription = Arc::new(Subscription::<T>::new(
-            Arc::clone(&self.handle),
+        Subscription::<T>::create(
             topic,
             qos,
-            callback,
-        )?);
-        { self.subscriptions_mtx.lock() }
-            .unwrap()
-            .push(Arc::downgrade(&subscription) as Weak<dyn SubscriptionBase>);
-        Ok(subscription)
+            callback.into_subscription_callback(),
+            &self.handle,
+            &self.commands,
+        )
     }
 
-    /// Returns the subscriptions that have not been dropped yet.
-    pub(crate) fn live_subscriptions(&self) -> Vec<Arc<dyn SubscriptionBase>> {
-        { self.subscriptions_mtx.lock().unwrap() }
-            .iter()
-            .filter_map(Weak::upgrade)
-            .collect()
-    }
-
-    pub(crate) fn live_clients(&self) -> Vec<Arc<dyn ClientBase>> {
-        { self.clients_mtx.lock().unwrap() }
-            .iter()
-            .filter_map(Weak::upgrade)
-            .collect()
-    }
-
-    pub(crate) fn live_guard_conditions(&self) -> Vec<Arc<GuardCondition>> {
-        { self.guard_conditions_mtx.lock().unwrap() }
-            .iter()
-            .filter_map(Weak::upgrade)
-            .collect()
-    }
-
-    pub(crate) fn live_services(&self) -> Vec<Arc<dyn ServiceBase>> {
-        { self.services_mtx.lock().unwrap() }
-            .iter()
-            .filter_map(Weak::upgrade)
-            .collect()
+    /// Creates a [`Subscription`] with an async callback.
+    ///
+    /// This callback may run in parallel with other callbacks. It may even run
+    /// multiple times simultaneously with different incoming messages. This
+    /// parallelism will depend on the executor that is being used. When the
+    /// callback uses `.await`, it will not block anything else from running.
+    ///
+    /// Any internal state that needs to be mutated will need to be wrapped in
+    /// [`Mutex`] to ensure it is synchronized across multiple runs of the
+    /// callback. To share internal state outside of the callback you will need
+    /// to wrap it in [`Arc`] or `Arc<Mutex<S>>`.
+    //
+    // TODO(@mxgrey): Add examples showing each supported signature
+    pub fn create_async_subscription<T, Args>(
+        &self,
+        topic: &str,
+        qos: QoSProfile,
+        callback: impl SubscriptionAsyncCallback<T, Args>,
+    ) -> Result<Arc<Subscription<T>>, RclrsError>
+    where
+        T: Message,
+    {
+        Subscription::<T>::create(
+            topic,
+            qos,
+            callback.into_subscription_async_callback(),
+            &self.handle,
+            &self.commands,
+        )
     }
 
     /// Returns the ROS domain ID that the node is using.
@@ -356,8 +353,8 @@ impl Node {
     /// # use rclrs::{Context, RclrsError};
     /// // Set default ROS domain ID to 10 here
     /// std::env::set_var("ROS_DOMAIN_ID", "10");
-    /// let context = Context::new([])?;
-    /// let node = rclrs::create_node(&context, "domain_id_node")?;
+    /// let executor = Context::default().create_basic_executor();
+    /// let node = executor.create_node("domain_id_node")?;
     /// let domain_id = node.domain_id();
     /// assert_eq!(domain_id, 10);
     /// # Ok::<(), RclrsError>(())
@@ -385,8 +382,8 @@ impl Node {
     /// # Example
     /// ```
     /// # use rclrs::{Context, ParameterRange, RclrsError};
-    /// let context = Context::new([])?;
-    /// let node = rclrs::create_node(&context, "domain_id_node")?;
+    /// let executor = Context::default().create_basic_executor();
+    /// let node = executor.create_node("domain_id_node")?;
     /// // Set it to a range of 0-100, with a step of 2
     /// let range = ParameterRange {
     ///     lower: Some(0),
@@ -422,23 +419,81 @@ impl Node {
         }
     }
 
-    /// Creates a [`NodeBuilder`][1] with the given name.
+    /// Same as [`Self::notify_on_graph_change_with_period`] but uses a
+    /// recommended default period of 100ms.
+    pub fn notify_on_graph_change(
+        &self,
+        condition: impl FnMut() -> bool + Send + 'static,
+    ) -> Promise<()> {
+        self.notify_on_graph_change_with_period(Duration::from_millis(100), condition)
+    }
+
+    /// This function allows you to track when a specific graph change happens.
     ///
-    /// Convenience function equivalent to [`NodeBuilder::new()`][2].
+    /// Provide a function that will be called each time a graph change occurs.
+    /// You will be given a [`Promise`] that will be fulfilled when the condition
+    /// returns true. The condition will be checked under these conditions:
+    /// - once immediately as this function is run
+    /// - each time rcl notifies us that a graph change has happened
+    /// - each time the period elapses
     ///
-    /// [1]: crate::NodeBuilder
-    /// [2]: crate::NodeBuilder::new
+    /// We specify a period because it is possible that race conditions at the
+    /// rcl layer could trigger a notification of a graph change before your
+    /// API calls will be able to observe it.
     ///
-    /// # Example
-    /// ```
-    /// # use rclrs::{Context, Node, RclrsError};
-    /// let context = Context::new([])?;
-    /// let node = Node::builder(&context, "my_node").build()?;
-    /// assert_eq!(node.name(), "my_node");
-    /// # Ok::<(), RclrsError>(())
-    /// ```
-    pub fn builder(context: &Context, node_name: &str) -> NodeBuilder {
-        NodeBuilder::new(context, node_name)
+    ///
+    pub fn notify_on_graph_change_with_period(
+        &self,
+        period: Duration,
+        mut condition: impl FnMut() -> bool + Send + 'static,
+    ) -> Promise<()> {
+        let (listener, mut on_graph_change_receiver) = unbounded();
+        let promise = self.commands.query(async move {
+            loop {
+                match timeout(period, on_graph_change_receiver.next()).await {
+                    Ok(Some(_)) | Err(_) => {
+                        // Either we received a notification that there was a
+                        // graph change, or the timeout elapsed. Either way, we
+                        // want to check the condition and break out of the loop
+                        // if the condition is true.
+                        if condition() {
+                            return;
+                        }
+                    }
+                    Ok(None) => {
+                        // We've been notified that the graph change sender is
+                        // closed which means we will never receive another
+                        // graph change update. This only happens when a node
+                        // is being torn down, so go ahead and exit this loop.
+                        return;
+                    }
+                }
+            }
+        });
+
+        self.graph_change_action
+            .unbounded_send(NodeGraphAction::NewGraphListener(listener))
+            .ok();
+
+        promise
+    }
+
+    /// Get the [`ExecutorCommands`] used by this Node.
+    pub fn commands(&self) -> &Arc<ExecutorCommands> {
+        &self.commands
+    }
+
+    // Helper for name(), namespace(), fully_qualified_name()
+    fn call_string_getter(
+        &self,
+        getter: unsafe extern "C" fn(*const rcl_node_t) -> *const c_char,
+    ) -> String {
+        let rcl_node = self.handle.rcl_node.lock().unwrap();
+        unsafe { call_string_getter_with_rcl_node(&rcl_node, getter) }
+    }
+
+    pub(crate) fn handle(&self) -> &Arc<NodeHandle> {
+        &self.handle
     }
 }
 
@@ -458,6 +513,10 @@ pub(crate) unsafe fn call_string_getter_with_rcl_node(
     let cstr = CStr::from_ptr(char_ptr);
     cstr.to_string_lossy().into_owned()
 }
+
+// SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
+// they are running in. Therefore, this type can be safely sent to another thread.
+unsafe impl Send for rcl_node_t {}
 
 #[cfg(test)]
 mod tests {
