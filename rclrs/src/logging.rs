@@ -5,10 +5,10 @@
 
 use std::{ffi::CString, sync::Mutex, time::Duration};
 
-use crate::rcl_bindings::*;
+use crate::{rcl_bindings::*, ENTITY_LIFECYCLE_MUTEX};
 
-// Used to protect calls to rcl/rcutils in case those functions manipulate global variables
-static LOG_GUARD: Mutex<()> = Mutex::new(());
+mod logging_configuration;
+pub(crate) use logging_configuration::*;
 
 /// Calls the underlying rclutils logging function
 /// Don't call this directly, use the logging macros instead.
@@ -39,8 +39,8 @@ pub fn log(msg: &str, logger_name: &str, file: &str, line: u32, severity: LogSev
         .expect("Valid c style string required, e.g. check for extraneous null characters");
     let severity = severity.to_native();
 
-    let _guard = LOG_GUARD.lock().unwrap();
-    // SAFETY: Global variables are protected via LOG_GUARD, no other preconditions are required
+    let _lifecycle = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
+    // SAFETY: Global variables are protected via ENTITY_LIFECYCLE_MUTEX, no other preconditions are required
     unsafe {
         rcutils_log(
             &location,
@@ -200,7 +200,7 @@ impl LogConditions {
 /// use std::env;
 ///
 /// let context = rclrs::Context::new(env::args()).unwrap();
-/// let node = rclrs::Node::new(&context, "test_node").unwrap();
+/// let node = rclrs::Node::new(&context, "log_example_node").unwrap();
 ///
 /// log_debug!(&node.name(), "Simple message");
 /// let some_variable = 43;

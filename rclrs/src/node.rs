@@ -557,15 +557,15 @@ mod tests {
     #[test]
     fn test_logger_name() -> Result<(), RclrsError> {
         // Use helper to create 2 nodes for us
-        let graph = construct_test_graph("test_topics_graph")?;
+        let graph = construct_test_graph("test_logger_name")?;
 
         assert_eq!(
             graph.node1.logger_name(),
-            "test_topics_graph.graph_test_node_1"
+            "test_logger_name.graph_test_node_1"
         );
         assert_eq!(
             graph.node2.logger_name(),
-            "test_topics_graph.graph_test_node_2"
+            "test_logger_name.graph_test_node_2"
         );
 
         Ok(())

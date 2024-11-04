@@ -381,7 +381,7 @@ mod tests {
 
         // Test get_subscriptions_info_by_topic()
         let expected_subscriptions_info = vec![TopicEndpointInfo {
-            node_name: String::from("graph_test_node_2"),
+            node_name: format!("graph_test_node_2"),
             node_namespace: String::from(namespace),
             topic_type: String::from("test_msgs/msg/Empty"),
         }];

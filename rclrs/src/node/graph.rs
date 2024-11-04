@@ -487,12 +487,13 @@ mod tests {
                 .unwrap();
         let node_name = "test_publisher_names_and_types";
         let node = Node::new(&context, node_name).unwrap();
-        // Test that the graph has no publishers
+        // Test that the graph has no publishers besides /rosout
         let names_and_topics = node
             .get_publisher_names_and_types_by_node(node_name, "")
             .unwrap();
 
-        assert_eq!(names_and_topics.len(), 0);
+        assert_eq!(names_and_topics.len(), 1);
+        assert_eq!(names_and_topics.get("/rosout").unwrap().first().unwrap(), "rcl_interfaces/msg/Log");
 
         let num_publishers = node.count_publishers("/test").unwrap();
 
@@ -535,10 +536,11 @@ mod tests {
 
         assert_eq!(names_and_topics.len(), 0);
 
-        // Test that the graph has no topics
+        // Test that the graph has no topics besides /rosout
         let names_and_topics = node.get_topic_names_and_types().unwrap();
 
-        assert_eq!(names_and_topics.len(), 0);
+        assert_eq!(names_and_topics.len(), 1);
+        assert_eq!(names_and_topics.get("/rosout").unwrap().first().unwrap(), "rcl_interfaces/msg/Log");
     }
 
     #[test]

@@ -6,7 +6,7 @@ use std::{
     vec::Vec,
 };
 
-use crate::{rcl_bindings::*, RclrsError, ToResult};
+use crate::{rcl_bindings::*, LoggingLifecycle, RclrsError, ToResult};
 
 /// This is locked whenever initializing or dropping any middleware entity
 /// because we have found issues in RCL and some RMW implementations that
@@ -34,10 +34,6 @@ impl Drop for rcl_context_t {
                 // SAFETY: The entity lifecycle mutex is locked to protect against the risk of
                 // global variables in the rmw implementation being unsafely modified during cleanup.
                 rcl_shutdown(self);
-
-                // SAFETY: No preconditions for rcl_logging_fini
-                rcl_logging_fini();
-
                 rcl_context_fini(self);
             }
         }
@@ -76,6 +72,10 @@ pub struct Context {
 /// bindings in this library.
 pub(crate) struct ContextHandle {
     pub(crate) rcl_context: Mutex<rcl_context_t>,
+    /// This ensures that logging does not get cleaned up until after this ContextHandle
+    /// has dropped.
+    #[allow(unused)]
+    logging: Arc<LoggingLifecycle>,
 }
 
 impl Context {
@@ -150,28 +150,17 @@ impl Context {
             rcl_init_options_fini(&mut rcl_init_options).ok()?;
             // Move the check after the last fini()
             ret?;
-
-            // TODO: "Auto set-up logging" is forced but should be configurable as per rclcpp and rclpy
-            // SAFETY:
-            // * Lock the mutex as we cannot guarantee that rcl_* functions are protecting their global variables
-            // * Context is validated before we reach this point
-            // * No other preconditions for calling this function
-            let ret = {
-                let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
-                // Note: shadowing the allocator above.  The rcutils_get_default_allocator provides us with mechanisms for allocating and freeing
-                // memory, e.g. calloc/free. As these are function pointers and will be the same each time we call the method, it is safe to
-                // perform this shadowing
-                // Alternate is to call rcl_init_options_get_allocator however, we've freed the allocator above and restructuring the call
-                // sequence is unnecessarily complex
-                let allocator = rcutils_get_default_allocator();
-
-                rcl_logging_configure(&rcl_context.global_arguments, &allocator).ok()
-            };
-            ret?
         }
+
+        // TODO: "Auto set-up logging" is forced but should be configurable as per rclcpp and rclpy
+        // SAFETY: We created this context a moment ago and verified that it is valid.
+        // No other conditions are needed.
+        let logging = unsafe { LoggingLifecycle::configure(&rcl_context)? };
+
         Ok(Self {
             handle: Arc::new(ContextHandle {
                 rcl_context: Mutex::new(rcl_context),
+                logging,
             }),
         })
     }
