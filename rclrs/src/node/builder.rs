@@ -1,6 +1,6 @@
 use std::{
     ffi::CString,
-    sync::{Arc, Mutex, atomic::AtomicBool},
+    sync::{atomic::AtomicBool, Arc, Mutex},
 };
 
 use crate::{
@@ -301,7 +301,9 @@ impl NodeBuilder {
             .ok()?;
         };
 
-        handle.initialized.store(true, std::sync::atomic::Ordering::Release);
+        handle
+            .initialized
+            .store(true, std::sync::atomic::Ordering::Release);
 
         let parameter = {
             let rcl_node = handle.rcl_node.lock().unwrap();

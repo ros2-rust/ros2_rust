@@ -11,8 +11,7 @@ pub use value::*;
 use crate::vendor::rcl_interfaces::msg::rmw::{ParameterType, ParameterValue as RmwParameterValue};
 
 use crate::{
-    call_string_getter_with_rcl_node, rcl_bindings::*, Node, RclrsError,
-    ENTITY_LIFECYCLE_MUTEX,
+    call_string_getter_with_rcl_node, rcl_bindings::*, Node, RclrsError, ENTITY_LIFECYCLE_MUTEX,
 };
 use std::{
     collections::{btree_map::Entry, BTreeMap},

@@ -5,7 +5,7 @@ use std::{
     ffi::CStr,
     fmt,
     os::raw::c_char,
-    sync::{Arc, Mutex, Weak, atomic::AtomicBool},
+    sync::{atomic::AtomicBool, Arc, Mutex, Weak},
     vec::Vec,
 };
 
