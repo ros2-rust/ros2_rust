@@ -1,13 +1,12 @@
-use std::sync::{Mutex, Weak, LazyLock, Arc};
+use std::sync::{Arc, LazyLock, Mutex, Weak};
 
 use crate::{
-    RclrsError, ENTITY_LIFECYCLE_MUTEX, ToResult,
     rcl_bindings::{
-        rcl_context_t, rcl_arguments_t, rcutils_get_default_allocator,
-        rcl_logging_configure, rcl_logging_fini,
+        rcl_arguments_t, rcl_context_t, rcl_logging_configure, rcl_logging_fini,
+        rcutils_get_default_allocator,
     },
+    RclrsError, ToResult, ENTITY_LIFECYCLE_MUTEX,
 };
-
 
 struct LoggingConfiguration {
     lifecycle: Mutex<Weak<LoggingLifecycle>>,
@@ -30,10 +29,13 @@ impl LoggingLifecycle {
     }
 
     /// SAFETY: Ensure rcl_context_t is valid before passing it in.
-    pub(crate) unsafe fn configure(context: &rcl_context_t) -> Result<Arc<LoggingLifecycle>, RclrsError> {
-        static CONFIGURATION: LazyLock<LoggingConfiguration> = LazyLock::new(
-            || LoggingConfiguration { lifecycle: Mutex::new(Weak::new())}
-        );
+    pub(crate) unsafe fn configure(
+        context: &rcl_context_t,
+    ) -> Result<Arc<LoggingLifecycle>, RclrsError> {
+        static CONFIGURATION: LazyLock<LoggingConfiguration> =
+            LazyLock::new(|| LoggingConfiguration {
+                lifecycle: Mutex::new(Weak::new()),
+            });
 
         let mut lifecycle = CONFIGURATION.lifecycle.lock().unwrap();
         if let Some(arc_lifecycle) = lifecycle.upgrade() {
@@ -48,6 +50,8 @@ impl LoggingLifecycle {
 impl Drop for LoggingLifecycle {
     fn drop(&mut self) {
         let _lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
-        unsafe { rcl_logging_fini(); }
+        unsafe {
+            rcl_logging_fini();
+        }
     }
 }

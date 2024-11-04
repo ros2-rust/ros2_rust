@@ -493,7 +493,10 @@ mod tests {
             .unwrap();
 
         assert_eq!(names_and_topics.len(), 1);
-        assert_eq!(names_and_topics.get("/rosout").unwrap().first().unwrap(), "rcl_interfaces/msg/Log");
+        assert_eq!(
+            names_and_topics.get("/rosout").unwrap().first().unwrap(),
+            "rcl_interfaces/msg/Log"
+        );
 
         let num_publishers = node.count_publishers("/test").unwrap();
 
@@ -540,7 +543,10 @@ mod tests {
         let names_and_topics = node.get_topic_names_and_types().unwrap();
 
         assert_eq!(names_and_topics.len(), 1);
-        assert_eq!(names_and_topics.get("/rosout").unwrap().first().unwrap(), "rcl_interfaces/msg/Log");
+        assert_eq!(
+            names_and_topics.get("/rosout").unwrap().first().unwrap(),
+            "rcl_interfaces/msg/Log"
+        );
     }
 
     #[test]

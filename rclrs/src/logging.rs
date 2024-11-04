@@ -3,7 +3,7 @@
 // Adapted from https://github.com/sequenceplanner/r2r/blob/89cec03d07a1496a225751159cbc7bfb529d9dd1/r2r/src/utils.rs
 // Further adapted from https://github.com/mvukov/rules_ros2/pull/371
 
-use std::{ffi::CString, sync::Mutex, time::Duration};
+use std::{ffi::CString, time::Duration};
 
 use crate::{rcl_bindings::*, ENTITY_LIFECYCLE_MUTEX};
 
