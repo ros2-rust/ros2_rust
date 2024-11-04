@@ -1,6 +1,6 @@
 use std::{
     ffi::CString,
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex, atomic::AtomicBool},
 };
 
 use crate::{
@@ -276,8 +276,13 @@ impl NodeBuilder {
         let rcl_node_options = self.create_rcl_node_options()?;
         let rcl_context = &mut *self.context.rcl_context.lock().unwrap();
 
-        // SAFETY: Getting a zero-initialized value is always safe.
-        let mut rcl_node = Box::new(unsafe { rcl_get_zero_initialized_node() });
+        let handle = Arc::new(NodeHandle {
+            // SAFETY: Getting a zero-initialized value is always safe.
+            rcl_node: Mutex::new(unsafe { rcl_get_zero_initialized_node() }),
+            context_handle: Arc::clone(&self.context),
+            initialized: AtomicBool::new(false),
+        });
+
         unsafe {
             // SAFETY:
             // * The rcl_node is zero-initialized as mandated by this function.
@@ -287,7 +292,7 @@ impl NodeBuilder {
             //   global variables in the rmw implementation being unsafely modified during cleanup.
             let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
             rcl_node_init(
-                &mut *rcl_node,
+                &mut *handle.rcl_node.lock().unwrap(),
                 node_name.as_ptr(),
                 node_namespace.as_ptr(),
                 rcl_context,
@@ -296,10 +301,8 @@ impl NodeBuilder {
             .ok()?;
         };
 
-        let handle = Arc::new(NodeHandle {
-            rcl_node: Mutex::new(rcl_node),
-            context_handle: Arc::clone(&self.context),
-        });
+        handle.initialized.store(true, std::sync::atomic::Ordering::Release);
+
         let parameter = {
             let rcl_node = handle.rcl_node.lock().unwrap();
             ParameterInterface::new(

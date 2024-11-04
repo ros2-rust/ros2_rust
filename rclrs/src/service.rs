@@ -41,7 +41,7 @@ impl Drop for ServiceHandle {
         // SAFETY: The entity lifecycle mutex is locked to protect against the risk of
         // global variables in the rmw implementation being unsafely modified during cleanup.
         unsafe {
-            rcl_service_fini(rcl_service, &mut **rcl_node);
+            rcl_service_fini(rcl_service, &mut *rcl_node);
         }
     }
 }
@@ -116,7 +116,7 @@ where
                 //   variables in the rmw implementation being unsafely modified during initialization.
                 rcl_service_init(
                     &mut rcl_service,
-                    &**rcl_node,
+                    &*rcl_node,
                     type_support,
                     topic_c_string.as_ptr(),
                     &service_options as *const _,

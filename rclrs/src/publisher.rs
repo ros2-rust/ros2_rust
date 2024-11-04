@@ -38,7 +38,7 @@ impl Drop for PublisherHandle {
         // SAFETY: The entity lifecycle mutex is locked to protect against the risk of
         // global variables in the rmw implementation being unsafely modified during cleanup.
         unsafe {
-            rcl_publisher_fini(self.rcl_publisher.get_mut().unwrap(), &mut **rcl_node);
+            rcl_publisher_fini(self.rcl_publisher.get_mut().unwrap(), &mut *rcl_node);
         }
     }
 }
@@ -111,7 +111,7 @@ where
                 //   variables in the rmw implementation being unsafely modified during cleanup.
                 rcl_publisher_init(
                     &mut rcl_publisher,
-                    &**rcl_node,
+                    &*rcl_node,
                     type_support_ptr,
                     topic_c_string.as_ptr(),
                     &publisher_options,

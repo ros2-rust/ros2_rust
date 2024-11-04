@@ -49,7 +49,7 @@ impl Drop for SubscriptionHandle {
         // SAFETY: The entity lifecycle mutex is locked to protect against the risk of
         // global variables in the rmw implementation being unsafely modified during cleanup.
         unsafe {
-            rcl_subscription_fini(rcl_subscription, &mut **rcl_node);
+            rcl_subscription_fini(rcl_subscription, &mut *rcl_node);
         }
     }
 }
@@ -129,7 +129,7 @@ where
                 //   variables in the rmw implementation being unsafely modified during cleanup.
                 rcl_subscription_init(
                     &mut rcl_subscription,
-                    &**rcl_node,
+                    &*rcl_node,
                     type_support,
                     topic_c_string.as_ptr(),
                     &subscription_options,

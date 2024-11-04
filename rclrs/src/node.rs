@@ -5,7 +5,7 @@ use std::{
     ffi::CStr,
     fmt,
     os::raw::c_char,
-    sync::{Arc, Mutex, Weak},
+    sync::{Arc, Mutex, Weak, atomic::AtomicBool},
     vec::Vec,
 };
 
@@ -79,19 +79,37 @@ pub struct Node {
 ///
 /// [1]: <https://doc.rust-lang.org/reference/destructors.html>
 pub(crate) struct NodeHandle {
-    pub(crate) rcl_node: Mutex<Box<rcl_node_t>>,
+    pub(crate) rcl_node: Mutex<rcl_node_t>,
     pub(crate) context_handle: Arc<ContextHandle>,
+    /// In the humbe distro, rcl is sensitive to the address of the rcl_node_t
+    /// object being moved (this issue seems to be gone in jazzy), so we need
+    /// to initialize the rcl_node_t in-place inside this struct. In the event
+    /// that the initialization fails (e.g. it was created with an invalid name)
+    /// we need to make sure that we do not call rcl_node_fini on it while
+    /// dropping the NodeHandle, so we keep track of successful initialization
+    /// with this variable.
+    ///
+    /// We may be able to restructure this in the future when we no longer need
+    /// to support Humble.
+    pub(crate) initialized: AtomicBool,
 }
 
 impl Drop for NodeHandle {
     fn drop(&mut self) {
+        if !self.initialized.load(std::sync::atomic::Ordering::Acquire) {
+            // The node was not correctly initialized, e.g. it was created with
+            // an invalid name, so we must not try to finalize it or else we
+            // will get undefined behavior.
+            return;
+        }
+
         let _context_lock = self.context_handle.rcl_context.lock().unwrap();
         let mut rcl_node = self.rcl_node.lock().unwrap();
         let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
 
         // SAFETY: The entity lifecycle mutex is locked to protect against the risk of
         // global variables in the rmw implementation being unsafely modified during cleanup.
-        unsafe { rcl_node_fini(&mut **rcl_node) };
+        unsafe { rcl_node_fini(&mut *rcl_node) };
     }
 }
 
@@ -376,7 +394,7 @@ impl Node {
         let mut domain_id: usize = 0;
         let ret = unsafe {
             // SAFETY: No preconditions for this function.
-            rcl_node_get_domain_id(&**rcl_node, &mut domain_id)
+            rcl_node_get_domain_id(&*rcl_node, &mut domain_id)
         };
 
         debug_assert_eq!(ret, 0);
@@ -451,7 +469,7 @@ impl Node {
     pub fn logger_name(&self) -> &str {
         let rcl_node = self.handle.rcl_node.lock().unwrap();
         // SAFETY: No pre-conditions for this function
-        let name_raw_ptr = unsafe { rcl_node_get_logger_name(&**rcl_node) };
+        let name_raw_ptr = unsafe { rcl_node_get_logger_name(&*rcl_node) };
         if name_raw_ptr.is_null() {
             return "";
         }

@@ -10,7 +10,10 @@ pub use value::*;
 
 use crate::vendor::rcl_interfaces::msg::rmw::{ParameterType, ParameterValue as RmwParameterValue};
 
-use crate::{call_string_getter_with_rcl_node, rcl_bindings::*, Node, RclrsError};
+use crate::{
+    call_string_getter_with_rcl_node, rcl_bindings::*, Node, RclrsError,
+    ENTITY_LIFECYCLE_MUTEX,
+};
 use std::{
     collections::{btree_map::Entry, BTreeMap},
     fmt::Debug,
@@ -760,6 +763,7 @@ impl ParameterInterface {
         global_arguments: &rcl_arguments_t,
     ) -> Result<Self, RclrsError> {
         let override_map = unsafe {
+            let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
             let fqn = call_string_getter_with_rcl_node(rcl_node, rcl_node_get_fully_qualified_name);
             resolve_parameter_overrides(&fqn, node_arguments, global_arguments)?
         };
