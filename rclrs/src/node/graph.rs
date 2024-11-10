@@ -487,16 +487,29 @@ mod tests {
                 .unwrap();
         let node_name = "test_publisher_names_and_types";
         let node = Node::new(&context, node_name).unwrap();
-        // Test that the graph has no publishers besides /rosout
+
+        let check_rosout = |topics: HashMap<String, Vec<String>>| {
+            // rosout shows up in humble and iron, even if the graph is empty
+            #[cfg(any(ros_distro = "humble", ros_distro = "iron"))]
+            {
+                assert_eq!(topics.len(), 1);
+                assert_eq!(
+                    topics.get("/rosout").unwrap().first().unwrap(),
+                    "rcl_interfaces/msg/Log"
+                );
+            }
+
+            // rosout does not automatically show up in jazzy when the graph is empty
+            #[cfg(any(ros_distro = "jazzy", ros_distro = "rolling"))]
+            {
+                assert_eq!(topics.len(), 0);
+            }
+        };
+
         let names_and_topics = node
             .get_publisher_names_and_types_by_node(node_name, "")
             .unwrap();
-
-        assert_eq!(names_and_topics.len(), 1);
-        assert_eq!(
-            names_and_topics.get("/rosout").unwrap().first().unwrap(),
-            "rcl_interfaces/msg/Log"
-        );
+        check_rosout(names_and_topics);
 
         let num_publishers = node.count_publishers("/test").unwrap();
 
@@ -539,14 +552,8 @@ mod tests {
 
         assert_eq!(names_and_topics.len(), 0);
 
-        // Test that the graph has no topics besides /rosout
         let names_and_topics = node.get_topic_names_and_types().unwrap();
-
-        assert_eq!(names_and_topics.len(), 1);
-        assert_eq!(
-            names_and_topics.get("/rosout").unwrap().first().unwrap(),
-            "rcl_interfaces/msg/Log"
-        );
+        check_rosout(names_and_topics);
     }
 
     #[test]

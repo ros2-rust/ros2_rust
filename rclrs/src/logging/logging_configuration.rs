@@ -1,4 +1,4 @@
-use std::sync::{Arc, LazyLock, Mutex, Weak};
+use std::sync::{Arc, Mutex, OnceLock, Weak};
 
 use crate::{
     rcl_bindings::{
@@ -32,12 +32,12 @@ impl LoggingLifecycle {
     pub(crate) unsafe fn configure(
         context: &rcl_context_t,
     ) -> Result<Arc<LoggingLifecycle>, RclrsError> {
-        static CONFIGURATION: LazyLock<LoggingConfiguration> =
-            LazyLock::new(|| LoggingConfiguration {
-                lifecycle: Mutex::new(Weak::new()),
-            });
+        static CONFIGURATION: OnceLock<LoggingConfiguration> = OnceLock::new();
+        let configuration = CONFIGURATION.get_or_init(|| LoggingConfiguration {
+            lifecycle: Mutex::new(Weak::new()),
+        });
 
-        let mut lifecycle = CONFIGURATION.lifecycle.lock().unwrap();
+        let mut lifecycle = configuration.lifecycle.lock().unwrap();
         if let Some(arc_lifecycle) = lifecycle.upgrade() {
             return Ok(arc_lifecycle);
         }

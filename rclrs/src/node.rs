@@ -13,10 +13,10 @@ use rosidl_runtime_rs::Message;
 
 pub use self::{builder::*, graph::*};
 use crate::{
-    rcl_bindings::*, Client, ClientBase, Clock, Context, ContextHandle, GuardCondition,
-    ParameterBuilder, ParameterInterface, ParameterVariant, Parameters, Publisher, QoSProfile,
-    RclrsError, Service, ServiceBase, Subscription, SubscriptionBase, SubscriptionCallback,
-    TimeSource, ENTITY_LIFECYCLE_MUTEX,
+    rcl_bindings::*, Client, ClientBase, Clock, Context, ContextHandle, GuardCondition, LogParams,
+    Logger, ParameterBuilder, ParameterInterface, ParameterVariant, Parameters, Publisher,
+    QoSProfile, RclrsError, Service, ServiceBase, Subscription, SubscriptionBase,
+    SubscriptionCallback, TimeSource, ToLogParams, ENTITY_LIFECYCLE_MUTEX,
 };
 
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
@@ -66,6 +66,7 @@ pub struct Node {
     time_source: TimeSource,
     parameter: ParameterInterface,
     pub(crate) handle: Arc<NodeHandle>,
+    logger: Logger,
 }
 
 /// This struct manages the lifetime of an `rcl_node_t`, and accounts for its
@@ -465,19 +466,15 @@ impl Node {
         NodeBuilder::new(context, node_name)
     }
 
-    /// Returns the logger name of the node.
-    pub fn logger_name(&self) -> &str {
-        let rcl_node = self.handle.rcl_node.lock().unwrap();
-        // SAFETY: No pre-conditions for this function
-        let name_raw_ptr = unsafe { rcl_node_get_logger_name(&*rcl_node) };
-        if name_raw_ptr.is_null() {
-            return "";
-        }
-        // SAFETY: The returned CStr is immediately converted to a string slice,
-        // so the lifetime is no issue. The ptr is valid as per the documentation
-        // of rcl_node_get_logger_name.
-        let name_cstr = unsafe { CStr::from_ptr(name_raw_ptr) };
-        name_cstr.to_str().unwrap_or("")
+    /// Get the logger associated with this Node.
+    pub fn logger(&self) -> &Logger {
+        &self.logger
+    }
+}
+
+impl<'a> ToLogParams<'a> for &'a Node {
+    fn to_log_params(self) -> LogParams<'a> {
+        self.logger().to_log_params()
     }
 }
 
@@ -560,11 +557,11 @@ mod tests {
         let graph = construct_test_graph("test_logger_name")?;
 
         assert_eq!(
-            graph.node1.logger_name(),
+            graph.node1.logger().name(),
             "test_logger_name.graph_test_node_1"
         );
         assert_eq!(
-            graph.node2.logger_name(),
+            graph.node2.logger().name(),
             "test_logger_name.graph_test_node_2"
         );
 
