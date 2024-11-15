@@ -6,7 +6,7 @@ authors = ["Esteve Fernandez <esteve@apache.org>", "Nikolai Morin <nnmmgit@gmail
 edition = "2021"
 license = "Apache-2.0"
 description = "A ROS 2 client library for developing robotics applications in Rust"
-rust-version = "1.63"
+rust-version = "1.75"
 
 [lib]
 path = "src/lib.rs"
@@ -29,6 +29,10 @@ libloading = { version = "0.8", optional = true }
 # Needed for the Message trait, among others
 rosidl_runtime_rs = "0.4"
 
+# Needed for serliazation and deserialization of vendored messages
+serde = { version = "1", optional = true, features = ["derive"] }
+serde-big-array = { version = "0.5.1", optional = true }
+
 [dev-dependencies]
 # Needed for e.g. writing yaml files in tests
 tempfile = "3.3.0"
@@ -46,6 +50,7 @@ cfg-if = "1.0.0"
 [features]
 default = []
 dyn_msg = ["ament_rs", "libloading"]
+serde = ["dep:serde", "dep:serde-big-array", "rosidl_runtime_rs/serde"]
 # This feature is solely for the purpose of being able to generate documetation without a ROS installation
 # The only intended usage of this feature is for docs.rs builders to work, and is not intended to be used by end users
 generate_docs = ["rosidl_runtime_rs/generate_docs"]
