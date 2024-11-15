@@ -5,7 +5,7 @@ pub mod rmw {
     #[link(name = "rosgraph_msgs__rosidl_typesupport_c")]
     extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__rosgraph_msgs__msg__Clock(
-        ) -> *const std::os::raw::c_void;
+        ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "rosgraph_msgs__rosidl_generator_c")]
@@ -77,7 +77,7 @@ pub mod rmw {
         Self: Sized,
     {
         const TYPE_NAME: &'static str = "rosgraph_msgs/msg/Clock";
-        fn get_type_support() -> *const std::os::raw::c_void {
+        fn get_type_support() -> *const std::ffi::c_void {
             // SAFETY: No preconditions for this function.
             unsafe {
                 rosidl_typesupport_c__get_message_type_support_handle__rosgraph_msgs__msg__Clock()
