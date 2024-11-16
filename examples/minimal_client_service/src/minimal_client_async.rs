@@ -1,12 +1,10 @@
-use std::env;
-
 use anyhow::{Error, Result};
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
-    let context = rclrs::Context::new(env::args())?;
+    let mut executor = rclrs::Context::default_from_env()?.create_basic_executor();
 
-    let node = rclrs::create_node(&context, "minimal_client")?;
+    let node = executor.create_node("minimal_client")?;
 
     let client = node.create_client::<example_interfaces::srv::AddTwoInts>("add_two_ints")?;
 
@@ -22,7 +20,7 @@ async fn main() -> Result<(), Error> {
 
     println!("Waiting for response");
 
-    let rclrs_spin = tokio::task::spawn_blocking(move || rclrs::spin(node));
+    let rclrs_spin = tokio::task::spawn_blocking(move || executor.spin(rclrs::SpinOptions::default()));
 
     let response = future.await?;
     println!(
