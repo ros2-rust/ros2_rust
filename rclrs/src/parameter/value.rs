@@ -537,7 +537,7 @@ impl ParameterValue {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{Context, RclrsError, ToResult};
+    use crate::{Context, RclrsError, ToResult, InitOptions};
 
     // TODO(luca) tests for all from / to ParameterVariant functions
 
@@ -565,11 +565,14 @@ mod tests {
             ),
         ];
         for pair in input_output_pairs {
-            let ctx = Context::new([
-                String::from("--ros-args"),
-                String::from("-p"),
-                format!("foo:={}", pair.0),
-            ])?;
+            let ctx = Context::new(
+                [
+                    String::from("--ros-args"),
+                    String::from("-p"),
+                    format!("foo:={}", pair.0),
+                ],
+                InitOptions::default(),
+            )?;
             let mut rcl_params = std::ptr::null_mut();
             unsafe {
                 rcl_arguments_get_param_overrides(

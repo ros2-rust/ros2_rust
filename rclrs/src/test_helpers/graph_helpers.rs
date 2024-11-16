@@ -1,19 +1,20 @@
-use crate::{Context, Node, NodeBuilder, RclrsError};
-use std::sync::Arc;
+use crate::{Context, Node, RclrsError, NodeOptions};
 
 pub(crate) struct TestGraph {
-    pub node1: Arc<Node>,
-    pub node2: Arc<Node>,
+    pub node1: Node,
+    pub node2: Node,
 }
 
 pub(crate) fn construct_test_graph(namespace: &str) -> Result<TestGraph, RclrsError> {
-    let context = Context::new([])?;
+    let executor = Context::default().create_basic_executor();
     Ok(TestGraph {
-        node1: NodeBuilder::new(&context, "graph_test_node_1")
+        node1: executor.create_node(
+            NodeOptions::new("graph_test_node_1")
             .namespace(namespace)
-            .build()?,
-        node2: NodeBuilder::new(&context, "graph_test_node_2")
+        )?,
+        node2: executor.create_node(
+            NodeOptions::new("graph_test_node_2")
             .namespace(namespace)
-            .build()?,
+        )?,
     })
 }

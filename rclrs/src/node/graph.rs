@@ -482,11 +482,12 @@ mod tests {
             .map(|value: usize| if value != 99 { 99 } else { 98 })
             .unwrap_or(99);
 
-        let context =
-            Context::new_with_options([], InitOptions::new().with_domain_id(Some(domain_id)))
-                .unwrap();
+        let executor =
+            Context::new([], InitOptions::new().with_domain_id(Some(domain_id)))
+            .unwrap()
+            .create_basic_executor();
         let node_name = "test_publisher_names_and_types";
-        let node = Node::new(&context, node_name).unwrap();
+        let node = executor.create_node(node_name).unwrap();
         // Test that the graph has no publishers
         let names_and_topics = node
             .get_publisher_names_and_types_by_node(node_name, "")
@@ -543,9 +544,9 @@ mod tests {
 
     #[test]
     fn test_node_names() {
-        let context = Context::new([]).unwrap();
+        let executor = Context::default().create_basic_executor();
         let node_name = "test_node_names";
-        let node = Node::new(&context, node_name).unwrap();
+        let node = executor.create_node(node_name).unwrap();
 
         let names_and_namespaces = node.get_node_names().unwrap();
 
@@ -559,9 +560,9 @@ mod tests {
 
     #[test]
     fn test_node_names_with_enclaves() {
-        let context = Context::new([]).unwrap();
+        let executor = Context::default().create_basic_executor();
         let node_name = "test_node_names_with_enclaves";
-        let node = Node::new(&context, node_name).unwrap();
+        let node = executor.create_node(node_name).unwrap();
 
         let names_and_namespaces = node.get_node_names_with_enclaves().unwrap();
 
