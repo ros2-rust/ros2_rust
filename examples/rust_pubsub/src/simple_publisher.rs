@@ -1,4 +1,4 @@
-use rclrs::{Context, Executor, Publisher, RclrsError, SpinOptions, QOS_PROFILE_DEFAULT};
+use rclrs::{Context, Executor, Publisher, RclrsError, SpinOptions};
 use std::{sync::Arc, thread, time::Duration};
 use std_msgs::msg::String as StringMsg;
 
@@ -9,9 +9,7 @@ struct SimplePublisher {
 impl SimplePublisher {
     fn new(executor: &Executor) -> Result<Self, RclrsError> {
         let node = executor.create_node("simple_publisher").unwrap();
-        let publisher = node
-            .create_publisher("publish_hello", QOS_PROFILE_DEFAULT)
-            .unwrap();
+        let publisher = node.create_publisher("publish_hello").unwrap();
         Ok(Self { publisher })
     }
 

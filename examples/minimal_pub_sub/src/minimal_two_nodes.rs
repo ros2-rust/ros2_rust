@@ -51,8 +51,7 @@ fn main() -> Result<(), Error> {
     let _subscriber_node_one = MinimalSubscriber::new(&executor, "minimal_subscriber_one", "topic")?;
     let _subscriber_node_two = MinimalSubscriber::new(&executor, "minimal_subscriber_two", "topic")?;
 
-    let publisher = publisher_node
-        .create_publisher::<std_msgs::msg::String>("topic", rclrs::QOS_PROFILE_DEFAULT)?;
+    let publisher = publisher_node.create_publisher::<std_msgs::msg::String>("topic")?;
 
     std::thread::spawn(move || -> Result<(), rclrs::RclrsError> {
         let mut message = std_msgs::msg::String::default();

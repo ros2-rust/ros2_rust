@@ -11,7 +11,7 @@ use crate::{
     error::{RclrsError, ToResult},
     qos::QoSProfile,
     rcl_bindings::*,
-    NodeHandle, ENTITY_LIFECYCLE_MUTEX,
+    NodeHandle, ENTITY_LIFECYCLE_MUTEX, IntoPrimitiveOptions,
 };
 
 mod loaned_message;
@@ -78,14 +78,14 @@ where
     /// Creates a new `Publisher`.
     ///
     /// Node and namespace changes are always applied _before_ topic remapping.
-    pub(crate) fn new(
+    pub(crate) fn new<'a>(
         node_handle: Arc<NodeHandle>,
-        topic: &str,
-        qos: QoSProfile,
+        options: impl Into<PublisherOptions<'a>>,
     ) -> Result<Self, RclrsError>
     where
         T: Message,
     {
+        let PublisherOptions { topic, qos } = options.into();
         // SAFETY: Getting a zero-initialized value is always safe.
         let mut rcl_publisher = unsafe { rcl_get_zero_initialized_publisher() };
         let type_support_ptr =
@@ -231,6 +231,28 @@ where
     }
 }
 
+/// `PublisherOptions` are used by [`Node::create_publisher`][1] to initialize
+/// a [`Publisher`].
+///
+/// [1]: crate::NodeState::create_publisher
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub struct PublisherOptions<'a> {
+    /// The topic name for the publisher.
+    pub topic: &'a str,
+    /// The quality of service settings for the publisher.
+    pub qos: QoSProfile,
+}
+
+impl<'a, T: IntoPrimitiveOptions<'a>> From<T> for PublisherOptions<'a> {
+    fn from(value: T) -> Self {
+        let options = value.into_primitive_options();
+        let mut qos = QoSProfile::topics_default();
+        options.apply(&mut qos);
+        Self { topic: options.name, qos }
+    }
+}
+
 /// Convenience trait for [`Publisher::publish`].
 pub trait MessageCow<'a, T: Message> {
     /// Wrap the owned or borrowed message in a `Cow`.
@@ -262,7 +284,7 @@ mod tests {
 
     #[test]
     fn test_publishers() -> Result<(), RclrsError> {
-        use crate::{TopicEndpointInfo, QOS_PROFILE_SYSTEM_DEFAULT};
+        use crate::TopicEndpointInfo;
         use test_msgs::msg;
 
         let namespace = "/test_publishers_graph";
@@ -270,16 +292,15 @@ mod tests {
 
         let node_1_empty_publisher = graph
             .node1
-            .create_publisher::<msg::Empty>("graph_test_topic_1", QOS_PROFILE_SYSTEM_DEFAULT)?;
+            .create_publisher::<msg::Empty>("graph_test_topic_1")?;
         let topic1 = node_1_empty_publisher.topic_name();
         let node_1_basic_types_publisher = graph.node1.create_publisher::<msg::BasicTypes>(
-            "graph_test_topic_2",
-            QOS_PROFILE_SYSTEM_DEFAULT,
+            "graph_test_topic_2"
         )?;
         let topic2 = node_1_basic_types_publisher.topic_name();
         let node_2_default_publisher = graph
             .node2
-            .create_publisher::<msg::Defaults>("graph_test_topic_3", QOS_PROFILE_SYSTEM_DEFAULT)?;
+            .create_publisher::<msg::Defaults>("graph_test_topic_3")?;
         let topic3 = node_2_default_publisher.topic_name();
 
         std::thread::sleep(std::time::Duration::from_millis(100));

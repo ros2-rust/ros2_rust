@@ -20,7 +20,7 @@ use rosidl_runtime_rs::Message;
 
 use crate::{
     rcl_bindings::*, Client, ClientBase, Clock, ContextHandle, GuardCondition,
-    ParameterBuilder, ParameterInterface, ParameterVariant, Parameters, Publisher, QoSProfile,
+    ParameterBuilder, ParameterInterface, ParameterVariant, Parameters, Publisher, PublisherOptions,
     RclrsError, Service, ServiceBase, Subscription, SubscriptionBase, SubscriptionCallback,
     SubscriptionOptions, TimeSource, ENTITY_LIFECYCLE_MUTEX,
 };
@@ -271,15 +271,14 @@ impl NodeState {
     ///
     /// [1]: crate::Publisher
     // TODO: make publisher's lifetime depend on node's lifetime
-    pub fn create_publisher<T>(
+    pub fn create_publisher<'a, T>(
         &self,
-        topic: &str,
-        qos: QoSProfile,
+        options: impl Into<PublisherOptions<'a>>,
     ) -> Result<Arc<Publisher<T>>, RclrsError>
     where
         T: Message,
     {
-        let publisher = Arc::new(Publisher::<T>::new(Arc::clone(&self.handle), topic, qos)?);
+        let publisher = Arc::new(Publisher::<T>::new(Arc::clone(&self.handle), options)?);
         Ok(publisher)
     }
 
