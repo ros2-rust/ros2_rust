@@ -276,14 +276,19 @@ pub struct SubscriptionOptions<'a> {
     pub qos: QoSProfile,
 }
 
+impl<'a> SubscriptionOptions<'a> {
+    /// Initialize a new [`SubscriptionOptions`] with default settings.
+    pub fn new(topic: &'a str) -> Self {
+        Self { topic, qos: QoSProfile::topics_default() }
+    }
+}
+
 impl<'a, T: IntoPrimitiveOptions<'a>> From<T> for SubscriptionOptions<'a> {
     fn from(value: T) -> Self {
-        let options = value.into_primitive_options();
-        // Topics will use the QOS_PROFILE_DEFAULT by default, which is designed
-        // to roughly match the ROS 1 default topic behavior.
-        let mut qos = QoSProfile::topics_default();
-        options.apply(&mut qos);
-        Self { topic: options.name, qos }
+        let primitive = value.into_primitive_options();
+        let mut options = Self::new(primitive.name);
+        primitive.apply(&mut options.qos);
+        options
     }
 }
 

@@ -244,12 +244,19 @@ pub struct PublisherOptions<'a> {
     pub qos: QoSProfile,
 }
 
+impl<'a> PublisherOptions<'a> {
+    /// Initialize a new [`PublisherOptions`] with default settings.
+    pub fn new(topic: &'a str) -> Self {
+        Self { topic, qos: QoSProfile::topics_default() }
+    }
+}
+
 impl<'a, T: IntoPrimitiveOptions<'a>> From<T> for PublisherOptions<'a> {
     fn from(value: T) -> Self {
-        let options = value.into_primitive_options();
-        let mut qos = QoSProfile::topics_default();
-        options.apply(&mut qos);
-        Self { topic: options.name, qos }
+        let primitive = value.into_primitive_options();
+        let mut options = Self::new(primitive.name);
+        primitive.apply(&mut options.qos);
+        options
     }
 }
 
