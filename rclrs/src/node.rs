@@ -28,9 +28,13 @@ unsafe impl Send for rcl_node_t {}
 /// Nodes are a core concept in ROS 2. Refer to the official ["Understanding ROS 2 nodes"][1]
 /// tutorial for an introduction.
 ///
-/// Ownership of the node is shared with all [`Publisher`]s and [`Subscription`]s created from it.
-/// That means that even after the node itself is dropped, it will continue to exist and be
-/// displayed by e.g. `ros2 topic` as long as its publishers and subscriptions are not dropped.
+/// Ownership of the node is shared with all the primitives such as [`Publisher`]s and [`Subscription`]s
+/// that are created from it. That means that even after the `Node` itself is dropped, it will continue
+/// to exist and be displayed by e.g. `ros2 topic` as long as any one of its primitives is not dropped.
+///
+/// # Creating
+/// Use [`Executor::create_node`] to create a new node. Pass in [`NodeOptions`] to set all the different
+/// options for node creation, or just pass in a string for the node's name if the default options are okay.
 ///
 /// # Naming
 /// A node has a *name* and a *namespace*.
@@ -54,13 +58,31 @@ unsafe impl Send for rcl_node_t {}
 /// The rules for valid node names and node namespaces are explained in
 /// [`NodeBuilder::new()`][3] and [`NodeBuilder::namespace()`][4].
 ///
+/// The `Node` object is really just a shared [`NodeState`], so see the [`NodeState`]
+/// API to see the various operations you can do with a node, such as creating
+/// subscriptions, publishers, services, and clients.
+///
 /// [1]: https://docs.ros.org/en/rolling/Tutorials/Understanding-ROS2-Nodes.html
 /// [2]: https://docs.ros.org/en/rolling/How-To-Guides/Node-arguments.html
 /// [3]: crate::NodeBuilder::new
 /// [4]: crate::NodeBuilder::namespace
-#[derive(Clone)]
-pub struct Node {
-    pub(crate) primitives: Arc<NodePrimitives>,
+pub type Node = Arc<NodeState>;
+
+/// The inner state of a [`Node`].
+///
+/// This is public so that you can choose to put it inside a [`Weak`] if you
+/// want to be able to refer to a [`Node`] in a non-owning way. It is generally
+/// recommended to manage the [`NodeState`] inside of an [`Arc`], and [`Node`]
+/// is provided as convenience alias for that.
+///
+/// The public API of the [`Node`] type is implemented via `NodeState`.
+pub struct NodeState {
+    pub(crate) clients_mtx: Mutex<Vec<Weak<dyn ClientBase>>>,
+    pub(crate) guard_conditions_mtx: Mutex<Vec<Weak<GuardCondition>>>,
+    pub(crate) services_mtx: Mutex<Vec<Weak<dyn ServiceBase>>>,
+    pub(crate) subscriptions_mtx: Mutex<Vec<Weak<dyn SubscriptionBase>>>,
+    time_source: TimeSource,
+    parameter: ParameterInterface,
     pub(crate) handle: Arc<NodeHandle>,
 }
 
@@ -74,18 +96,6 @@ pub(crate) struct NodeHandle {
     pub(crate) context_handle: Arc<ContextHandle>,
 }
 
-/// This struct manages the primitives that are associated with a [`Node`].
-/// Storing them here allows the inner state of the `Node` to be shared across
-/// clones.
-pub(crate) struct NodePrimitives {
-    pub(crate) clients_mtx: Mutex<Vec<Weak<dyn ClientBase>>>,
-    pub(crate) guard_conditions_mtx: Mutex<Vec<Weak<GuardCondition>>>,
-    pub(crate) services_mtx: Mutex<Vec<Weak<dyn ServiceBase>>>,
-    pub(crate) subscriptions_mtx: Mutex<Vec<Weak<dyn SubscriptionBase>>>,
-    time_source: TimeSource,
-    parameter: ParameterInterface,
-}
-
 impl Drop for NodeHandle {
     fn drop(&mut self) {
         let _context_lock = self.context_handle.rcl_context.lock().unwrap();
@@ -97,15 +107,15 @@ impl Drop for NodeHandle {
     }
 }
 
-impl Eq for Node {}
+impl Eq for NodeState {}
 
-impl PartialEq for Node {
+impl PartialEq for NodeState {
     fn eq(&self, other: &Self) -> bool {
         Arc::ptr_eq(&self.handle, &other.handle)
     }
 }
 
-impl fmt::Debug for Node {
+impl fmt::Debug for NodeState {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         f.debug_struct("Node")
             .field("fully_qualified_name", &self.fully_qualified_name())
@@ -113,10 +123,10 @@ impl fmt::Debug for Node {
     }
 }
 
-impl Node {
+impl NodeState {
     /// Returns the clock associated with this node.
     pub fn get_clock(&self) -> Clock {
-        self.primitives.time_source.get_clock()
+        self.time_source.get_clock()
     }
 
     /// Returns the name of the node.
@@ -206,7 +216,7 @@ impl Node {
         T: rosidl_runtime_rs::Service,
     {
         let client = Arc::new(Client::<T>::new(Arc::clone(&self.handle), topic)?);
-        { self.primitives.clients_mtx.lock().unwrap() }.push(Arc::downgrade(&client) as Weak<dyn ClientBase>);
+        { self.clients_mtx.lock().unwrap() }.push(Arc::downgrade(&client) as Weak<dyn ClientBase>);
         Ok(client)
     }
 
@@ -224,7 +234,7 @@ impl Node {
             Arc::clone(&self.handle.context_handle),
             None,
         ));
-        { self.primitives.guard_conditions_mtx.lock().unwrap() }
+        { self.guard_conditions_mtx.lock().unwrap() }
             .push(Arc::downgrade(&guard_condition) as Weak<GuardCondition>);
         guard_condition
     }
@@ -246,7 +256,7 @@ impl Node {
             Arc::clone(&self.handle.context_handle),
             Some(Box::new(callback) as Box<dyn Fn() + Send + Sync>),
         ));
-        { self.primitives.guard_conditions_mtx.lock().unwrap() }
+        { self.guard_conditions_mtx.lock().unwrap() }
             .push(Arc::downgrade(&guard_condition) as Weak<GuardCondition>);
         guard_condition
     }
@@ -285,7 +295,7 @@ impl Node {
             topic,
             callback,
         )?);
-        { self.primitives.services_mtx.lock().unwrap() }
+        { self.services_mtx.lock().unwrap() }
             .push(Arc::downgrade(&service) as Weak<dyn ServiceBase>);
         Ok(service)
     }
@@ -309,7 +319,7 @@ impl Node {
             qos,
             callback,
         )?);
-        { self.primitives.subscriptions_mtx.lock() }
+        { self.subscriptions_mtx.lock() }
             .unwrap()
             .push(Arc::downgrade(&subscription) as Weak<dyn SubscriptionBase>);
         Ok(subscription)
@@ -317,28 +327,28 @@ impl Node {
 
     /// Returns the subscriptions that have not been dropped yet.
     pub(crate) fn live_subscriptions(&self) -> Vec<Arc<dyn SubscriptionBase>> {
-        { self.primitives.subscriptions_mtx.lock().unwrap() }
+        { self.subscriptions_mtx.lock().unwrap() }
             .iter()
             .filter_map(Weak::upgrade)
             .collect()
     }
 
     pub(crate) fn live_clients(&self) -> Vec<Arc<dyn ClientBase>> {
-        { self.primitives.clients_mtx.lock().unwrap() }
+        { self.clients_mtx.lock().unwrap() }
             .iter()
             .filter_map(Weak::upgrade)
             .collect()
     }
 
     pub(crate) fn live_guard_conditions(&self) -> Vec<Arc<GuardCondition>> {
-        { self.primitives.guard_conditions_mtx.lock().unwrap() }
+        { self.guard_conditions_mtx.lock().unwrap() }
             .iter()
             .filter_map(Weak::upgrade)
             .collect()
     }
 
     pub(crate) fn live_services(&self) -> Vec<Arc<dyn ServiceBase>> {
-        { self.primitives.services_mtx.lock().unwrap() }
+        { self.services_mtx.lock().unwrap() }
             .iter()
             .filter_map(Weak::upgrade)
             .collect()
@@ -409,50 +419,17 @@ impl Node {
         &'a self,
         name: impl Into<Arc<str>>,
     ) -> ParameterBuilder<'a, T> {
-        self.primitives.parameter.declare(name.into())
+        self.parameter.declare(name.into())
     }
 
     /// Enables usage of undeclared parameters for this node.
     ///
     /// Returns a [`Parameters`] struct that can be used to get and set all parameters.
     pub fn use_undeclared_parameters(&self) -> Parameters {
-        self.primitives.parameter.allow_undeclared();
+        self.parameter.allow_undeclared();
         Parameters {
-            interface: &self.primitives.parameter,
+            interface: &self.parameter,
         }
-    }
-
-    /// Get a `WeakNode` for this `Node`.
-    pub fn downgrade(&self) -> WeakNode {
-        WeakNode {
-            primitives: Arc::downgrade(&self.primitives),
-            handle: Arc::downgrade(&self.handle),
-        }
-    }
-}
-
-/// This gives weak access to a [`Node`].
-///
-/// Holding onto this will not keep the `Node` alive, but calling [`Self::upgrade`]
-/// on it will give you access to the `Node` if it is still alive.
-#[derive(Default)]
-pub struct WeakNode {
-    primitives: Weak<NodePrimitives>,
-    handle: Weak<NodeHandle>,
-}
-
-impl WeakNode {
-    /// Create a `WeakNode` that is not associated with any `Node`.
-    pub fn new() -> WeakNode {
-        Self::default()
-    }
-
-    /// Get the [`Node`] that this `WeakNode` refers to if it's available.
-    pub fn upgrade(&self) -> Option<Node> {
-        Some(Node {
-            primitives: self.primitives.upgrade()?,
-            handle: self.handle.upgrade()?,
-        })
     }
 }
 
@@ -480,8 +457,8 @@ mod tests {
 
     #[test]
     fn traits() {
-        assert_send::<Node>();
-        assert_sync::<Node>();
+        assert_send::<NodeState>();
+        assert_sync::<NodeState>();
     }
 
     #[test]

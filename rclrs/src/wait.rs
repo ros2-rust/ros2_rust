@@ -20,7 +20,7 @@ use std::{sync::Arc, time::Duration, vec::Vec};
 use crate::{
     error::{to_rclrs_result, RclReturnCode, RclrsError, ToResult},
     rcl_bindings::*,
-    ClientBase, Context, ContextHandle, Node, ServiceBase, SubscriptionBase,
+    ClientBase, Context, ContextHandle, NodeState, ServiceBase, SubscriptionBase,
 };
 
 mod exclusivity_guard;
@@ -133,7 +133,7 @@ impl WaitSet {
     /// Creates a new wait set and adds all waitable entities in the node to it.
     ///
     /// The wait set is sized to fit the node exactly, so there is no capacity for adding other entities.
-    pub fn new_for_node(node: &Node) -> Result<Self, RclrsError> {
+    pub fn new_for_node(node: &NodeState) -> Result<Self, RclrsError> {
         let live_subscriptions = node.live_subscriptions();
         let live_clients = node.live_clients();
         let live_guard_conditions = node.live_guard_conditions();

@@ -3,7 +3,7 @@ use std::{
     ffi::{CStr, CString},
 };
 
-use crate::{rcl_bindings::*, Node, RclrsError, ToResult};
+use crate::{rcl_bindings::*, NodeState, RclrsError, ToResult};
 
 impl Drop for rmw_names_and_types_t {
     fn drop(&mut self) {
@@ -57,7 +57,7 @@ pub struct TopicEndpointInfo {
     pub topic_type: String,
 }
 
-impl Node {
+impl NodeState {
     /// Returns a list of topic names and types for publishers associated with a node.
     pub fn get_publisher_names_and_types_by_node(
         &self,

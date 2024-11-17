@@ -5,7 +5,7 @@ use std::{
 
 use crate::{
     rcl_bindings::*,
-    ClockType, Node, NodeHandle, ParameterInterface, NodePrimitives, ContextHandle,
+    ClockType, Node, NodeState, NodeHandle, ParameterInterface, ContextHandle,
     QoSProfile, RclrsError, TimeSource, ToResult, ENTITY_LIFECYCLE_MUTEX, QOS_PROFILE_CLOCK,
 };
 
@@ -309,23 +309,21 @@ impl NodeOptions {
             )?
         };
 
-        let node = Node {
+        let node = Arc::new(NodeState {
+            clients_mtx: Mutex::default(),
+            guard_conditions_mtx: Mutex::default(),
+            services_mtx: Mutex::default(),
+            subscriptions_mtx: Mutex::default(),
+            time_source: TimeSource::builder(self.clock_type)
+                .clock_qos(self.clock_qos)
+                .build(),
+            parameter,
             handle,
-            primitives: Arc::new(NodePrimitives {
-                clients_mtx: Mutex::default(),
-                guard_conditions_mtx: Mutex::default(),
-                services_mtx: Mutex::default(),
-                subscriptions_mtx: Mutex::default(),
-                time_source: TimeSource::builder(self.clock_type)
-                    .clock_qos(self.clock_qos)
-                    .build(),
-                parameter,
-            }),
-        };
-        node.primitives.time_source.attach_node(&node);
+        });
+        node.time_source.attach_node(&node);
 
         if self.start_parameter_services {
-            node.primitives.parameter.create_services(&node)?;
+            node.parameter.create_services(&node)?;
         }
 
         Ok(node)

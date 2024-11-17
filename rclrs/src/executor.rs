@@ -1,16 +1,16 @@
 use crate::{
     rcl_bindings::rcl_context_is_valid,
-    Node, RclrsError, WaitSet, ContextHandle, NodeOptions, WeakNode,
+    Node, NodeState, RclrsError, WaitSet, ContextHandle, NodeOptions,
 };
 use std::{
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex, Weak},
     time::Duration,
 };
 
 /// Single-threaded executor implementation.
 pub struct Executor {
     context: Arc<ContextHandle>,
-    nodes_mtx: Mutex<Vec<WeakNode>>,
+    nodes_mtx: Mutex<Vec<Weak<NodeState>>>,
 }
 
 impl Executor {
@@ -21,7 +21,7 @@ impl Executor {
     ) -> Result<Node, RclrsError> {
         let options: NodeOptions = options.into();
         let node = options.build(&self.context)?;
-        self.nodes_mtx.lock().unwrap().push(node.downgrade());
+        self.nodes_mtx.lock().unwrap().push(Arc::downgrade(&node));
         Ok(node)
     }
 
@@ -55,7 +55,7 @@ impl Executor {
     fn spin_once(&self, timeout: Option<Duration>) -> Result<(), RclrsError> {
         for node in { self.nodes_mtx.lock().unwrap() }
             .iter()
-            .filter_map(WeakNode::upgrade)
+            .filter_map(Weak::upgrade)
             .filter(|node| unsafe {
                 rcl_context_is_valid(&*node.handle.context_handle.rcl_context.lock().unwrap())
             })
