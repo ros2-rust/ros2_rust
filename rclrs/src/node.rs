@@ -21,7 +21,7 @@ use rosidl_runtime_rs::Message;
 use crate::{
     rcl_bindings::*, Client, ClientBase, Clock, ContextHandle, GuardCondition,
     ParameterBuilder, ParameterInterface, ParameterVariant, Parameters, Publisher, PublisherOptions,
-    RclrsError, Service, ServiceBase, Subscription, SubscriptionBase, SubscriptionCallback,
+    RclrsError, Service, ServiceBase, ServiceOptions, Subscription, SubscriptionBase, SubscriptionCallback,
     SubscriptionOptions, TimeSource, ENTITY_LIFECYCLE_MUTEX,
 };
 
@@ -284,11 +284,50 @@ impl NodeState {
 
     /// Creates a [`Service`][1].
     ///
+    /// Pass in only the service name for the `options` argument to use all default service options:
+    /// ```
+    /// # use rclrs::*;
+    /// # let executor = Context::default().create_basic_executor();
+    /// # let node = executor.create_node("my_node").unwrap();
+    /// let service = node.create_service::<test_msgs::srv::Empty, _>(
+    ///     "my_service",
+    ///     |_info, _request| {
+    ///         println!("Received request!");
+    ///         test_msgs::srv::Empty_Response::default()
+    ///     },
+    /// );
+    /// ```
+    ///
+    /// Take advantage of the [`IntoPrimitiveOptions`] API to easily build up the
+    /// service options:
+    ///
+    /// ```
+    /// # use rclrs::*;
+    /// # let executor = Context::default().create_basic_executor();
+    /// # let node = executor.create_node("my_node").unwrap();
+    /// let service = node.create_service::<test_msgs::srv::Empty, _>(
+    ///     "my_service"
+    ///     .keep_all()
+    ///     .transient_local(),
+    ///     |_info, _request| {
+    ///         println!("Received request!");
+    ///         test_msgs::srv::Empty_Response::default()
+    ///     },
+    /// );
+    /// ```
+    ///
+    /// Any quality of service options that you explicitly specify will override
+    /// the default service options. Any that you do not explicitly specify will
+    /// remain the default service options. Note that services are generally
+    /// expected to use [reliable][2], so is best not to change the reliability
+    /// setting unless you know what you are doing.
+    ///
     /// [1]: crate::Service
+    /// [2]: crate::QoSReliabilityPolicy::Reliable
     // TODO: make service's lifetime depend on node's lifetime
-    pub fn create_service<T, F>(
+    pub fn create_service<'a, T, F>(
         &self,
-        topic: &str,
+        options: impl Into<ServiceOptions<'a>>,
         callback: F,
     ) -> Result<Arc<Service<T>>, RclrsError>
     where
@@ -297,7 +336,7 @@ impl NodeState {
     {
         let service = Arc::new(Service::<T>::new(
             Arc::clone(&self.handle),
-            topic,
+            options,
             callback,
         )?);
         { self.services_mtx.lock().unwrap() }
@@ -313,14 +352,14 @@ impl NodeState {
     /// # let executor = Context::default().create_basic_executor();
     /// # let node = executor.create_node("my_node").unwrap();
     /// let subscription = node.create_subscription(
-    ///     "my_subscription",
+    ///     "my_topic",
     ///     |_msg: test_msgs::msg::Empty| {
     ///         println!("Received message!");
     ///     },
     /// );
     /// ```
     ///
-    /// Take advantage of [`IntoPrimitiveOptions`] to easily build up the
+    /// Take advantage of the [`IntoPrimitiveOptions`] API to easily build up the
     /// subscription options:
     ///
     /// ```
@@ -328,7 +367,7 @@ impl NodeState {
     /// # let executor = Context::default().create_basic_executor();
     /// # let node = executor.create_node("my_node").unwrap();
     /// let subscription = node.create_subscription(
-    ///     "my_subscription"
+    ///     "my_topic"
     ///     .keep_last(100)
     ///     .transient_local(),
     ///     |_msg: test_msgs::msg::Empty| {
@@ -337,7 +376,7 @@ impl NodeState {
     /// );
     ///
     /// let reliable_subscription = node.create_subscription(
-    ///     "my_reliable_subscription"
+    ///     "my_reliable_topic"
     ///     .reliable(),
     ///     |_msg: test_msgs::msg::Empty| {
     ///         println!("Received message!");
