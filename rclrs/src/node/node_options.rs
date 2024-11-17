@@ -292,7 +292,7 @@ impl NodeOptions {
 
         let handle = Arc::new(NodeHandle {
             rcl_node: Mutex::new(rcl_node),
-            context_handle: Arc::clone(&context),
+            context_handle: Arc::clone(context),
         });
         let parameter = {
             let rcl_node = handle.rcl_node.lock().unwrap();

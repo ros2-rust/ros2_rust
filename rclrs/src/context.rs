@@ -82,13 +82,13 @@ impl Context {
     /// Creates a new context.
     ///
     /// * `args` - A sequence of strings that resembles command line arguments
-    /// that users can pass into a ROS executable. See [the official tutorial][1]
-    /// to know what these arguments may look like. To simply pass in the arguments
-    /// that the user has provided from the command line, call [`Self::from_env`]
-    /// or [`Self::default_from_env`] instead.
+    ///   that users can pass into a ROS executable. See [the official tutorial][1]
+    ///   to know what these arguments may look like. To simply pass in the arguments
+    ///   that the user has provided from the command line, call [`Self::from_env`]
+    ///   or [`Self::default_from_env`] instead.
     ///
     /// * `options` - Additional options that your application can use to override
-    /// settings that would otherwise be determined by the environment.
+    ///   settings that would otherwise be determined by the environment.
     ///
     /// Creating a context will fail if `args` contains invalid ROS arguments.
     ///
