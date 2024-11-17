@@ -10,7 +10,7 @@ use crate::{
     error::{RclReturnCode, ToResult},
     qos::QoSProfile,
     rcl_bindings::*,
-    NodeHandle, RclrsError, ENTITY_LIFECYCLE_MUTEX,
+    IntoPrimitiveOptions, NodeHandle, RclrsError, ENTITY_LIFECYCLE_MUTEX,
 };
 
 mod callback;
@@ -64,21 +64,32 @@ pub trait SubscriptionBase: Send + Sync {
 
 /// Struct for receiving messages of type `T`.
 ///
-/// There can be multiple subscriptions for the same topic, in different nodes or the same node.
+/// Create a subscription using [`Node::create_subscription`][1].
 ///
-/// Receiving messages requires calling [`spin_once`][1] or [`spin`][2] on the subscription's node.
+/// There can be multiple subscriptions for the same topic, in different nodes or the same node.
+/// A clone of a `Subscription` will refer to the same subscription instance as the original.
+/// The underlying instance is tied to [`SubscriptionState`] which implements the [`Subscription`] API.
+///
+/// Receiving messages requires the node's executor to [spin][2].
 ///
 /// When a subscription is created, it may take some time to get "matched" with a corresponding
 /// publisher.
 ///
-/// The only available way to instantiate subscriptions is via [`Node::create_subscription()`][3], this
-/// is to ensure that [`Node`][4]s can track all the subscriptions that have been created.
+/// [1]: crate::NodeState::create_subscription
+/// [2]: crate::Executor::spin
+pub type Subscription<T> = Arc<SubscriptionState<T>>;
+
+/// The inner state of a [`Subscription`].
 ///
-/// [1]: crate::spin_once
-/// [2]: crate::spin
-/// [3]: crate::Node::create_subscription
-/// [4]: crate::Node
-pub struct Subscription<T>
+/// This is public so that you can choose to create a [`Weak`][1] reference to it
+/// if you want to be able to refer to a [`Subscription`] in a non-owning way. It is
+/// generally recommended to manage the `SubscriptionState` inside of an [`Arc`],
+/// and [`Subscription`] is provided as a convenience alias for that.
+///
+/// The public API of the [`Subscription`] type is implemented via `SubscriptionState`.
+///
+/// [1]: std::sync::Weak
+pub struct SubscriptionState<T>
 where
     T: Message,
 {
@@ -88,15 +99,14 @@ where
     message: PhantomData<T>,
 }
 
-impl<T> Subscription<T>
+impl<T> SubscriptionState<T>
 where
     T: Message,
 {
     /// Creates a new subscription.
-    pub(crate) fn new<Args>(
+    pub(crate) fn new<'a, Args>(
         node_handle: Arc<NodeHandle>,
-        topic: &str,
-        qos: QoSProfile,
+        options: impl Into<SubscriptionOptions<'a>>,
         callback: impl SubscriptionCallback<T, Args>,
     ) -> Result<Self, RclrsError>
     // This uses pub(crate) visibility to avoid instantiating this struct outside
@@ -104,6 +114,7 @@ where
     where
         T: Message,
     {
+        let SubscriptionOptions { topic, qos } = options.into();
         // SAFETY: Getting a zero-initialized value is always safe.
         let mut rcl_subscription = unsafe { rcl_get_zero_initialized_subscription() };
         let type_support =
@@ -114,8 +125,8 @@ where
         })?;
 
         // SAFETY: No preconditions for this function.
-        let mut subscription_options = unsafe { rcl_subscription_get_default_options() };
-        subscription_options.qos = qos.into();
+        let mut rcl_subscription_options = unsafe { rcl_subscription_get_default_options() };
+        rcl_subscription_options.qos = qos.into();
 
         {
             let rcl_node = node_handle.rcl_node.lock().unwrap();
@@ -132,7 +143,7 @@ where
                     &*rcl_node,
                     type_support,
                     topic_c_string.as_ptr(),
-                    &subscription_options,
+                    &rcl_subscription_options,
                 )
                 .ok()?;
             }
@@ -237,7 +248,7 @@ where
     /// for more information.
     ///
     /// [1]: crate::RclrsError
-    /// [2]: crate::Publisher::borrow_loaned_message
+    /// [2]: crate::PublisherState::borrow_loaned_message
     pub fn take_loaned(&self) -> Result<(ReadOnlyLoanedMessage<'_, T>, MessageInfo), RclrsError> {
         let mut msg_ptr = std::ptr::null_mut();
         let mut message_info = unsafe { rmw_get_zero_initialized_message_info() };
@@ -263,7 +274,39 @@ where
     }
 }
 
-impl<T> SubscriptionBase for Subscription<T>
+/// `SubscriptionOptions` are used by [`Node::create_subscription`][1]
+/// to initialize a [`Subscription`].
+///
+/// [1]: crate::NodeState::create_subscription
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub struct SubscriptionOptions<'a> {
+    /// The topic name for the subscription.
+    pub topic: &'a str,
+    /// The quality of service settings for the subscription.
+    pub qos: QoSProfile,
+}
+
+impl<'a> SubscriptionOptions<'a> {
+    /// Initialize a new [`SubscriptionOptions`] with default settings.
+    pub fn new(topic: &'a str) -> Self {
+        Self {
+            topic,
+            qos: QoSProfile::topics_default(),
+        }
+    }
+}
+
+impl<'a, T: IntoPrimitiveOptions<'a>> From<T> for SubscriptionOptions<'a> {
+    fn from(value: T) -> Self {
+        let primitive = value.into_primitive_options();
+        let mut options = Self::new(primitive.name);
+        primitive.apply(&mut options.qos);
+        options
+    }
+}
+
+impl<T> SubscriptionBase for SubscriptionState<T>
 where
     T: Message,
 {
@@ -332,27 +375,23 @@ mod tests {
 
     #[test]
     fn test_subscriptions() -> Result<(), RclrsError> {
-        use crate::{TopicEndpointInfo, QOS_PROFILE_SYSTEM_DEFAULT};
+        use crate::TopicEndpointInfo;
 
         let namespace = "/test_subscriptions_graph";
         let graph = construct_test_graph(namespace)?;
 
-        let node_2_empty_subscription = graph.node2.create_subscription::<msg::Empty, _>(
-            "graph_test_topic_1",
-            QOS_PROFILE_SYSTEM_DEFAULT,
-            |_msg: msg::Empty| {},
-        )?;
+        let node_2_empty_subscription = graph
+            .node2
+            .create_subscription::<msg::Empty, _>("graph_test_topic_1", |_msg: msg::Empty| {})?;
         let topic1 = node_2_empty_subscription.topic_name();
         let node_2_basic_types_subscription =
             graph.node2.create_subscription::<msg::BasicTypes, _>(
                 "graph_test_topic_2",
-                QOS_PROFILE_SYSTEM_DEFAULT,
                 |_msg: msg::BasicTypes| {},
             )?;
         let topic2 = node_2_basic_types_subscription.topic_name();
         let node_1_defaults_subscription = graph.node1.create_subscription::<msg::Defaults, _>(
             "graph_test_topic_3",
-            QOS_PROFILE_SYSTEM_DEFAULT,
             |_msg: msg::Defaults| {},
         )?;
         let topic3 = node_1_defaults_subscription.topic_name();

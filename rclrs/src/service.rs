@@ -9,7 +9,7 @@ use rosidl_runtime_rs::Message;
 use crate::{
     error::{RclReturnCode, ToResult},
     rcl_bindings::*,
-    MessageCow, NodeHandle, RclrsError, ENTITY_LIFECYCLE_MUTEX,
+    IntoPrimitiveOptions, MessageCow, NodeHandle, QoSProfile, RclrsError, ENTITY_LIFECYCLE_MUTEX,
 };
 
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
@@ -59,14 +59,33 @@ pub trait ServiceBase: Send + Sync {
 type ServiceCallback<Request, Response> =
     Box<dyn Fn(&rmw_request_id_t, Request) -> Response + 'static + Send>;
 
-/// Main class responsible for responding to requests sent by ROS clients.
+/// Provide a service that can respond to requests sent by ROS service clients.
 ///
-/// The only available way to instantiate services is via [`Node::create_service()`][1], this is to
-/// ensure that [`Node`][2]s can track all the services that have been created.
+/// Create a service using [`Node::create_service`][1].
 ///
-/// [1]: crate::Node::create_service
-/// [2]: crate::Node
-pub struct Service<T>
+/// ROS only supports having one service provider for any given fully-qualified
+/// service name. "Fully-qualified" means the namespace is also taken into account
+/// for uniqueness. A clone of a `Service` will refer to the same service provider
+/// instance as the original. The underlying instance is tied to [`ServiceState`]
+/// which implements the [`Service`] API.
+///
+/// Responding to requests requires the node's executor to [spin][2].
+///
+/// [1]: crate::NodeState::create_service
+/// [2]: crate::Executor::spin
+pub type Service<T> = Arc<ServiceState<T>>;
+
+/// The inner state of a [`Service`].
+///
+/// This is public so that you can choose to create a [`Weak`][1] reference to it
+/// if you want to be able to refer to a [`Service`] in a non-owning way. It is
+/// generally recommended to manage the `ServiceState` inside of an [`Arc`],
+/// and [`Service`] is provided as a convenience alias for that.
+///
+/// The public API of the [`Service`] type is implemented via `ServiceState`.
+///
+/// [1]: std::sync::Weak
+pub struct ServiceState<T>
 where
     T: rosidl_runtime_rs::Service,
 {
@@ -75,14 +94,14 @@ where
     pub callback: Mutex<ServiceCallback<T::Request, T::Response>>,
 }
 
-impl<T> Service<T>
+impl<T> ServiceState<T>
 where
     T: rosidl_runtime_rs::Service,
 {
     /// Creates a new service.
-    pub(crate) fn new<F>(
+    pub(crate) fn new<'a, F>(
         node_handle: Arc<NodeHandle>,
-        topic: &str,
+        options: impl Into<ServiceOptions<'a>>,
         callback: F,
     ) -> Result<Self, RclrsError>
     // This uses pub(crate) visibility to avoid instantiating this struct outside
@@ -91,17 +110,19 @@ where
         T: rosidl_runtime_rs::Service,
         F: Fn(&rmw_request_id_t, T::Request) -> T::Response + 'static + Send,
     {
+        let ServiceOptions { name, qos } = options.into();
         // SAFETY: Getting a zero-initialized value is always safe.
         let mut rcl_service = unsafe { rcl_get_zero_initialized_service() };
         let type_support = <T as rosidl_runtime_rs::Service>::get_type_support()
             as *const rosidl_service_type_support_t;
-        let topic_c_string = CString::new(topic).map_err(|err| RclrsError::StringContainsNul {
+        let topic_c_string = CString::new(name).map_err(|err| RclrsError::StringContainsNul {
             err,
-            s: topic.into(),
+            s: name.into(),
         })?;
 
         // SAFETY: No preconditions for this function.
-        let service_options = unsafe { rcl_service_get_default_options() };
+        let mut service_options = unsafe { rcl_service_get_default_options() };
+        service_options.qos = qos.into();
 
         {
             let rcl_node = node_handle.rcl_node.lock().unwrap();
@@ -181,7 +202,39 @@ where
     }
 }
 
-impl<T> ServiceBase for Service<T>
+/// `ServiceOptions are used by [`Node::create_service`][1] to initialize a
+/// [`Service`] provider.
+///
+/// [1]: crate::NodeState::create_service
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub struct ServiceOptions<'a> {
+    /// The name for the service
+    pub name: &'a str,
+    /// The quality of service profile for the service.
+    pub qos: QoSProfile,
+}
+
+impl<'a> ServiceOptions<'a> {
+    /// Initialize a new [`ServiceOptions`] with default settings.
+    pub fn new(name: &'a str) -> Self {
+        Self {
+            name,
+            qos: QoSProfile::services_default(),
+        }
+    }
+}
+
+impl<'a, T: IntoPrimitiveOptions<'a>> From<T> for ServiceOptions<'a> {
+    fn from(value: T) -> Self {
+        let primitive = value.into_primitive_options();
+        let mut options = Self::new(primitive.name);
+        primitive.apply(&mut options.qos);
+        options
+    }
+}
+
+impl<T> ServiceBase for ServiceState<T>
 where
     T: rosidl_runtime_rs::Service,
 {

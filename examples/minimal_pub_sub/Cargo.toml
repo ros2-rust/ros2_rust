@@ -1,6 +1,6 @@
 [package]
 name = "examples_rclrs_minimal_pub_sub"
-version = "0.4.1"
+version = "0.5.0"
 # This project is not military-sponsored, Jacob's employment contract just requires him to use this email address
 authors = ["Esteve Fernandez <esteve@apache.org>", "Nikolai Morin <nnmmgit@gmail.com>", "Jacob Hassold <jacob.a.hassold.civ@army.mil>"]
 edition = "2021"
@@ -29,7 +29,7 @@ path = "src/zero_copy_publisher.rs"
 anyhow = {version = "1", features = ["backtrace"]}
 
 [dependencies.rclrs]
-version = "0.4"
+version = "0.5"
 
 [dependencies.rosidl_runtime_rs]
 version = "0.4"

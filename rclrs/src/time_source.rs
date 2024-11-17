@@ -1,20 +1,19 @@
 use crate::{
     clock::{Clock, ClockSource, ClockType},
     vendor::rosgraph_msgs::msg::Clock as ClockMsg,
-    Node, QoSProfile, ReadOnlyParameter, Subscription, QOS_PROFILE_CLOCK,
+    IntoPrimitiveOptions, Node, QoSProfile, ReadOnlyParameter, Subscription, QOS_PROFILE_CLOCK,
 };
-use std::sync::{Arc, Mutex, RwLock, Weak};
+use std::sync::{Arc, Mutex, RwLock};
 
 /// Time source for a node that drives the attached clock.
 /// If the node's `use_sim_time` parameter is set to `true`, the `TimeSource` will subscribe
 /// to the `/clock` topic and drive the attached clock
 pub(crate) struct TimeSource {
-    node: Mutex<Weak<Node>>,
     clock: RwLock<Clock>,
     clock_source: Arc<Mutex<Option<ClockSource>>>,
     requested_clock_type: ClockType,
     clock_qos: QoSProfile,
-    clock_subscription: Mutex<Option<Arc<Subscription<ClockMsg>>>>,
+    clock_subscription: Mutex<Option<Subscription<ClockMsg>>>,
     last_received_time: Arc<Mutex<Option<i64>>>,
     // TODO(luca) Make this parameter editable when we have parameter callbacks implemented and can
     // safely change clock type at runtime
@@ -60,7 +59,6 @@ impl TimeSourceBuilder {
             ClockType::SteadyTime => Clock::steady(),
         };
         TimeSource {
-            node: Mutex::new(Weak::new()),
             clock: RwLock::new(clock),
             clock_source: Arc::new(Mutex::new(None)),
             requested_clock_type: self.clock_type,
@@ -85,7 +83,7 @@ impl TimeSource {
 
     /// Attaches the given node to to the `TimeSource`, using its interface to read the
     /// `use_sim_time` parameter and create the clock subscription.
-    pub(crate) fn attach_node(&self, node: &Arc<Node>) {
+    pub(crate) fn attach_node(&self, node: &Node) {
         // TODO(luca) Make this parameter editable and register a parameter callback
         // that calls set_ros_time(bool) once parameter callbacks are implemented.
         let param = node
@@ -93,12 +91,11 @@ impl TimeSource {
             .default(false)
             .read_only()
             .unwrap();
-        *self.node.lock().unwrap() = Arc::downgrade(node);
-        self.set_ros_time_enable(param.get());
+        self.set_ros_time_enable(node, param.get());
         *self.use_sim_time.lock().unwrap() = Some(param);
     }
 
-    fn set_ros_time_enable(&self, enable: bool) {
+    fn set_ros_time_enable(&self, node: &Node, enable: bool) {
         if matches!(self.requested_clock_type, ClockType::RosTime) {
             let mut clock = self.clock.write().unwrap();
             if enable && matches!(clock.clock_type(), ClockType::SystemTime) {
@@ -108,7 +105,7 @@ impl TimeSource {
                 }
                 *clock = new_clock;
                 *self.clock_source.lock().unwrap() = Some(clock_source);
-                *self.clock_subscription.lock().unwrap() = Some(self.create_clock_sub());
+                *self.clock_subscription.lock().unwrap() = Some(self.create_clock_sub(node));
             }
             if !enable && matches!(clock.clock_type(), ClockType::RosTime) {
                 *clock = Clock::system();
@@ -122,47 +119,53 @@ impl TimeSource {
         clock.set_ros_time_override(nanoseconds);
     }
 
-    fn create_clock_sub(&self) -> Arc<Subscription<ClockMsg>> {
+    fn create_clock_sub(&self, node: &Node) -> Subscription<ClockMsg> {
         let clock = self.clock_source.clone();
         let last_received_time = self.last_received_time.clone();
         // Safe to unwrap since the function will only fail if invalid arguments are provided
-        self.node
-            .lock()
-            .unwrap()
-            .upgrade()
-            .unwrap()
-            .create_subscription::<ClockMsg, _>("/clock", self.clock_qos, move |msg: ClockMsg| {
+        node.create_subscription::<ClockMsg, _>(
+            "/clock".qos(self.clock_qos),
+            move |msg: ClockMsg| {
                 let nanoseconds: i64 =
                     (msg.clock.sec as i64 * 1_000_000_000) + msg.clock.nanosec as i64;
                 *last_received_time.lock().unwrap() = Some(nanoseconds);
                 if let Some(clock) = clock.lock().unwrap().as_mut() {
                     Self::update_clock(clock, nanoseconds);
                 }
-            })
-            .unwrap()
+            },
+        )
+        .unwrap()
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::{create_node, Context};
+    use crate::{Context, InitOptions};
 
     #[test]
     fn time_source_default_clock() {
-        let node = create_node(&Context::new([]).unwrap(), "test_node").unwrap();
+        let node = Context::default()
+            .create_basic_executor()
+            .create_node("test_node")
+            .unwrap();
         // Default clock should be above 0 (use_sim_time is default false)
         assert!(node.get_clock().now().nsec > 0);
     }
 
     #[test]
     fn time_source_sim_time() {
-        let ctx = Context::new([
-            String::from("--ros-args"),
-            String::from("-p"),
-            String::from("use_sim_time:=true"),
-        ])
-        .unwrap();
-        let node = create_node(&ctx, "test_node").unwrap();
+        let executor = Context::new(
+            [
+                String::from("--ros-args"),
+                String::from("-p"),
+                String::from("use_sim_time:=true"),
+            ],
+            InitOptions::default(),
+        )
+        .unwrap()
+        .create_basic_executor();
+
+        let node = executor.create_node("test_node").unwrap();
         // Default sim time value should be 0 (no message received)
         assert_eq!(node.get_clock().now().nsec, 0);
     }

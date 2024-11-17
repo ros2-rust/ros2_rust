@@ -1,5 +1,12 @@
-mod builder;
 mod graph;
+pub use graph::*;
+
+mod node_options;
+pub use node_options::*;
+
+mod primitive_options;
+pub use primitive_options::*;
+
 use std::{
     cmp::PartialEq,
     ffi::CStr,
@@ -11,12 +18,12 @@ use std::{
 
 use rosidl_runtime_rs::Message;
 
-pub use self::{builder::*, graph::*};
 use crate::{
-    rcl_bindings::*, Client, ClientBase, Clock, Context, ContextHandle, GuardCondition,
-    ParameterBuilder, ParameterInterface, ParameterVariant, Parameters, Publisher, QoSProfile,
-    RclrsError, Service, ServiceBase, Subscription, SubscriptionBase, SubscriptionCallback,
-    TimeSource, ENTITY_LIFECYCLE_MUTEX,
+    rcl_bindings::*, Client, ClientBase, ClientOptions, Clock, ContextHandle, GuardCondition,
+    ParameterBuilder, ParameterInterface, ParameterVariant, Parameters, Publisher,
+    PublisherOptions, PublisherState, RclrsError, Service, ServiceBase, ServiceOptions,
+    ServiceState, Subscription, SubscriptionBase, SubscriptionCallback, SubscriptionOptions,
+    SubscriptionState, TimeSource, ENTITY_LIFECYCLE_MUTEX,
 };
 
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
@@ -28,9 +35,13 @@ unsafe impl Send for rcl_node_t {}
 /// Nodes are a core concept in ROS 2. Refer to the official ["Understanding ROS 2 nodes"][1]
 /// tutorial for an introduction.
 ///
-/// Ownership of the node is shared with all [`Publisher`]s and [`Subscription`]s created from it.
-/// That means that even after the node itself is dropped, it will continue to exist and be
-/// displayed by e.g. `ros2 topic` as long as its publishers and subscriptions are not dropped.
+/// Ownership of the node is shared with all the primitives such as [`Publisher`]s and [`Subscription`]s
+/// that are created from it. That means that even after the `Node` itself is dropped, it will continue
+/// to exist and be displayed by e.g. `ros2 topic` as long as any one of its primitives is not dropped.
+///
+/// # Creating
+/// Use [`Executor::create_node`][7] to create a new node. Pass in [`NodeOptions`] to set all the different
+/// options for node creation, or just pass in a string for the node's name if the default options are okay.
 ///
 /// # Naming
 /// A node has a *name* and a *namespace*.
@@ -48,17 +59,34 @@ unsafe impl Send for rcl_node_t {}
 /// In that sense, the parameters to the node creation functions are only the _default_ namespace and
 /// name.
 /// See also the [official tutorial][1] on the command line arguments for ROS nodes, and the
-/// [`Node::namespace()`] and [`Node::name()`] functions for examples.
+/// [`Node::namespace()`][3] and [`Node::name()`][4] functions for examples.
 ///
 /// ## Rules for valid names
 /// The rules for valid node names and node namespaces are explained in
-/// [`NodeBuilder::new()`][3] and [`NodeBuilder::namespace()`][4].
+/// [`NodeOptions::new()`][5] and [`NodeOptions::namespace()`][6].
+///
+/// The `Node` object is really just a shared [`NodeState`], so see the [`NodeState`]
+/// API to see the various operations you can do with a node, such as creating
+/// subscriptions, publishers, services, and clients.
 ///
 /// [1]: https://docs.ros.org/en/rolling/Tutorials/Understanding-ROS2-Nodes.html
 /// [2]: https://docs.ros.org/en/rolling/How-To-Guides/Node-arguments.html
-/// [3]: crate::NodeBuilder::new
-/// [4]: crate::NodeBuilder::namespace
-pub struct Node {
+/// [3]: NodeState::namespace
+/// [4]: NodeState::name
+/// [5]: crate::NodeOptions::new
+/// [6]: crate::NodeOptions::namespace
+/// [7]: crate::Executor::create_node
+pub type Node = Arc<NodeState>;
+
+/// The inner state of a [`Node`].
+///
+/// This is public so that you can choose to put it inside a [`Weak`] if you
+/// want to be able to refer to a [`Node`] in a non-owning way. It is generally
+/// recommended to manage the `NodeState` inside of an [`Arc`], and [`Node`]
+/// is provided as convenience alias for that.
+///
+/// The public API of the [`Node`] type is implemented via `NodeState`.
+pub struct NodeState {
     pub(crate) clients_mtx: Mutex<Vec<Weak<dyn ClientBase>>>,
     pub(crate) guard_conditions_mtx: Mutex<Vec<Weak<GuardCondition>>>,
     pub(crate) services_mtx: Mutex<Vec<Weak<dyn ServiceBase>>>,
@@ -89,15 +117,15 @@ impl Drop for NodeHandle {
     }
 }
 
-impl Eq for Node {}
+impl Eq for NodeState {}
 
-impl PartialEq for Node {
+impl PartialEq for NodeState {
     fn eq(&self, other: &Self) -> bool {
         Arc::ptr_eq(&self.handle, &other.handle)
     }
 }
 
-impl fmt::Debug for Node {
+impl fmt::Debug for NodeState {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         f.debug_struct("Node")
             .field("fully_qualified_name", &self.fully_qualified_name())
@@ -105,15 +133,7 @@ impl fmt::Debug for Node {
     }
 }
 
-impl Node {
-    /// Creates a new node in the empty namespace.
-    ///
-    /// See [`NodeBuilder::new()`] for documentation.
-    #[allow(clippy::new_ret_no_self)]
-    pub fn new(context: &Context, node_name: &str) -> Result<Arc<Node>, RclrsError> {
-        Self::builder(context, node_name).build()
-    }
-
+impl NodeState {
     /// Returns the clock associated with this node.
     pub fn get_clock(&self) -> Clock {
         self.time_source.get_clock()
@@ -126,15 +146,15 @@ impl Node {
     ///
     /// # Example
     /// ```
-    /// # use rclrs::{Context, RclrsError};
+    /// # use rclrs::{Context, InitOptions, RclrsError};
     /// // Without remapping
-    /// let context = Context::new([])?;
-    /// let node = rclrs::create_node(&context, "my_node")?;
+    /// let executor = Context::default().create_basic_executor();
+    /// let node = executor.create_node("my_node")?;
     /// assert_eq!(node.name(), "my_node");
     /// // With remapping
     /// let remapping = ["--ros-args", "-r", "__node:=your_node"].map(String::from);
-    /// let context_r = Context::new(remapping)?;
-    /// let node_r = rclrs::create_node(&context_r, "my_node")?;
+    /// let executor_r = Context::new(remapping, InitOptions::default())?.create_basic_executor();
+    /// let node_r = executor_r.create_node("my_node")?;
     /// assert_eq!(node_r.name(), "your_node");
     /// # Ok::<(), RclrsError>(())
     /// ```
@@ -149,18 +169,18 @@ impl Node {
     ///
     /// # Example
     /// ```
-    /// # use rclrs::{Context, RclrsError};
+    /// # use rclrs::{Context, InitOptions, RclrsError, NodeOptions};
     /// // Without remapping
-    /// let context = Context::new([])?;
-    /// let node =
-    ///   rclrs::create_node_builder(&context, "my_node")
-    ///   .namespace("/my/namespace")
-    ///   .build()?;
+    /// let executor = Context::default().create_basic_executor();
+    /// let node = executor.create_node(
+    ///     NodeOptions::new("my_node")
+    ///     .namespace("/my/namespace")
+    /// )?;
     /// assert_eq!(node.namespace(), "/my/namespace");
     /// // With remapping
     /// let remapping = ["--ros-args", "-r", "__ns:=/your_namespace"].map(String::from);
-    /// let context_r = Context::new(remapping)?;
-    /// let node_r = rclrs::create_node(&context_r, "my_node")?;
+    /// let executor_r = Context::new(remapping, InitOptions::default())?.create_basic_executor();
+    /// let node_r = executor_r.create_node("my_node")?;
     /// assert_eq!(node_r.namespace(), "/your_namespace");
     /// # Ok::<(), RclrsError>(())
     /// ```
@@ -171,19 +191,22 @@ impl Node {
     /// Returns the fully qualified name of the node.
     ///
     /// The fully qualified name of the node is the node namespace combined with the node name.
-    /// It is subject to the remappings shown in [`Node::name()`] and [`Node::namespace()`].
+    /// It is subject to the remappings shown in [`Node::name()`][1] and [`Node::namespace()`][2].
     ///
     /// # Example
     /// ```
-    /// # use rclrs::{Context, RclrsError};
-    /// let context = Context::new([])?;
-    /// let node =
-    ///   rclrs::create_node_builder(&context, "my_node")
-    ///   .namespace("/my/namespace")
-    ///   .build()?;
+    /// # use rclrs::{Context, RclrsError, NodeOptions};
+    /// let executor = Context::default().create_basic_executor();
+    /// let node = executor.create_node(
+    ///     NodeOptions::new("my_node")
+    ///     .namespace("/my/namespace")
+    /// )?;
     /// assert_eq!(node.fully_qualified_name(), "/my/namespace/my_node");
     /// # Ok::<(), RclrsError>(())
     /// ```
+    ///
+    /// [1]: NodeState::name
+    /// [2]: NodeState::namespace
     pub fn fully_qualified_name(&self) -> String {
         self.call_string_getter(rcl_node_get_fully_qualified_name)
     }
@@ -199,13 +222,49 @@ impl Node {
 
     /// Creates a [`Client`][1].
     ///
+    /// Pass in only the service name for the `options` argument to use all default client options:
+    /// ```
+    /// # use rclrs::*;
+    /// # let executor = Context::default().create_basic_executor();
+    /// # let node = executor.create_node("my_node").unwrap();
+    /// let client = node.create_client::<test_msgs::srv::Empty>(
+    ///     "my_service"
+    /// )
+    /// .unwrap();
+    /// ```
+    ///
+    /// Take advantage of the [`IntoPrimitiveOptions`] API to easily build up the
+    /// client options:
+    ///
+    /// ```
+    /// # use rclrs::*;
+    /// # let executor = Context::default().create_basic_executor();
+    /// # let node = executor.create_node("my_node").unwrap();
+    /// let client = node.create_client::<test_msgs::srv::Empty>(
+    ///     "my_service"
+    ///     .keep_all()
+    ///     .transient_local()
+    /// )
+    /// .unwrap();
+    /// ```
+    ///
+    /// Any quality of service options that you explicitly specify will override
+    /// the default service options. Any that you do not explicitly specify will
+    /// remain the default service options. Note that clients are generally
+    /// expected to use [reliable][2], so it's best not to change the reliability
+    /// setting unless you know what you are doing.
+    ///
     /// [1]: crate::Client
+    /// [2]: crate::QoSReliabilityPolicy::Reliable
     // TODO: make client's lifetime depend on node's lifetime
-    pub fn create_client<T>(&self, topic: &str) -> Result<Arc<Client<T>>, RclrsError>
+    pub fn create_client<'a, T>(
+        &self,
+        options: impl Into<ClientOptions<'a>>,
+    ) -> Result<Arc<Client<T>>, RclrsError>
     where
         T: rosidl_runtime_rs::Service,
     {
-        let client = Arc::new(Client::<T>::new(Arc::clone(&self.handle), topic)?);
+        let client = Arc::new(Client::<T>::new(Arc::clone(&self.handle), options)?);
         { self.clients_mtx.lock().unwrap() }.push(Arc::downgrade(&client) as Weak<dyn ClientBase>);
         Ok(client)
     }
@@ -213,12 +272,12 @@ impl Node {
     /// Creates a [`GuardCondition`][1] with no callback.
     ///
     /// A weak pointer to the `GuardCondition` is stored within this node.
-    /// When this node is added to a wait set (e.g. when calling `spin_once`[2]
+    /// When this node is added to a wait set (e.g. when [spinning][2]
     /// with this node as an argument), the guard condition can be used to
     /// interrupt the wait.
     ///
     /// [1]: crate::GuardCondition
-    /// [2]: crate::spin_once
+    /// [2]: crate::Executor::spin
     pub fn create_guard_condition(&self) -> Arc<GuardCondition> {
         let guard_condition = Arc::new(GuardCondition::new_with_context_handle(
             Arc::clone(&self.handle.context_handle),
@@ -232,12 +291,12 @@ impl Node {
     /// Creates a [`GuardCondition`][1] with a callback.
     ///
     /// A weak pointer to the `GuardCondition` is stored within this node.
-    /// When this node is added to a wait set (e.g. when calling `spin_once`[2]
+    /// When this node is added to a wait set (e.g. when [spinning][2]
     /// with this node as an argument), the guard condition can be used to
     /// interrupt the wait.
     ///
     /// [1]: crate::GuardCondition
-    /// [2]: crate::spin_once
+    /// [2]: crate::Executor::spin
     pub fn create_guard_condition_with_callback<F>(&mut self, callback: F) -> Arc<GuardCondition>
     where
         F: Fn() + Send + Sync + 'static,
@@ -253,36 +312,107 @@ impl Node {
 
     /// Creates a [`Publisher`][1].
     ///
+    /// Pass in only the topic name for the `options` argument to use all default publisher options:
+    /// ```
+    /// # use rclrs::*;
+    /// # let executor = Context::default().create_basic_executor();
+    /// # let node = executor.create_node("my_node").unwrap();
+    /// let publisher = node.create_publisher::<test_msgs::msg::Empty>(
+    ///     "my_topic"
+    /// )
+    /// .unwrap();
+    /// ```
+    ///
+    /// Take advantage of the [`IntoPrimitiveOptions`] API to easily build up the
+    /// publisher options:
+    ///
+    /// ```
+    /// # use rclrs::*;
+    /// # let executor = Context::default().create_basic_executor();
+    /// # let node = executor.create_node("my_node").unwrap();
+    /// let publisher = node.create_publisher::<test_msgs::msg::Empty>(
+    ///     "my_topic"
+    ///     .keep_last(100)
+    ///     .transient_local()
+    /// )
+    /// .unwrap();
+    ///
+    /// let reliable_publisher = node.create_publisher::<test_msgs::msg::Empty>(
+    ///     "my_topic"
+    ///     .reliable()
+    /// )
+    /// .unwrap();
+    /// ```
+    ///
     /// [1]: crate::Publisher
-    // TODO: make publisher's lifetime depend on node's lifetime
-    pub fn create_publisher<T>(
+    pub fn create_publisher<'a, T>(
         &self,
-        topic: &str,
-        qos: QoSProfile,
-    ) -> Result<Arc<Publisher<T>>, RclrsError>
+        options: impl Into<PublisherOptions<'a>>,
+    ) -> Result<Publisher<T>, RclrsError>
     where
         T: Message,
     {
-        let publisher = Arc::new(Publisher::<T>::new(Arc::clone(&self.handle), topic, qos)?);
+        let publisher = Arc::new(PublisherState::<T>::new(Arc::clone(&self.handle), options)?);
         Ok(publisher)
     }
 
     /// Creates a [`Service`][1].
     ///
+    /// Pass in only the service name for the `options` argument to use all default service options:
+    /// ```
+    /// # use rclrs::*;
+    /// # let executor = Context::default().create_basic_executor();
+    /// # let node = executor.create_node("my_node").unwrap();
+    /// let service = node.create_service::<test_msgs::srv::Empty, _>(
+    ///     "my_service",
+    ///     |_info, _request| {
+    ///         println!("Received request!");
+    ///         test_msgs::srv::Empty_Response::default()
+    ///     },
+    /// )
+    /// .unwrap();
+    /// ```
+    ///
+    /// Take advantage of the [`IntoPrimitiveOptions`] API to easily build up the
+    /// service options:
+    ///
+    /// ```
+    /// # use rclrs::*;
+    /// # let executor = Context::default().create_basic_executor();
+    /// # let node = executor.create_node("my_node").unwrap();
+    /// let service = node.create_service::<test_msgs::srv::Empty, _>(
+    ///     "my_service"
+    ///     .keep_all()
+    ///     .transient_local(),
+    ///     |_info, _request| {
+    ///         println!("Received request!");
+    ///         test_msgs::srv::Empty_Response::default()
+    ///     },
+    /// )
+    /// .unwrap();
+    /// ```
+    ///
+    /// Any quality of service options that you explicitly specify will override
+    /// the default service options. Any that you do not explicitly specify will
+    /// remain the default service options. Note that services are generally
+    /// expected to use [reliable][2], so it's best not to change the reliability
+    /// setting unless you know what you are doing.
+    ///
     /// [1]: crate::Service
+    /// [2]: crate::QoSReliabilityPolicy::Reliable
     // TODO: make service's lifetime depend on node's lifetime
-    pub fn create_service<T, F>(
+    pub fn create_service<'a, T, F>(
         &self,
-        topic: &str,
+        options: impl Into<ServiceOptions<'a>>,
         callback: F,
-    ) -> Result<Arc<Service<T>>, RclrsError>
+    ) -> Result<Service<T>, RclrsError>
     where
         T: rosidl_runtime_rs::Service,
         F: Fn(&rmw_request_id_t, T::Request) -> T::Response + 'static + Send,
     {
-        let service = Arc::new(Service::<T>::new(
+        let service = Arc::new(ServiceState::<T>::new(
             Arc::clone(&self.handle),
-            topic,
+            options,
             callback,
         )?);
         { self.services_mtx.lock().unwrap() }
@@ -292,21 +422,60 @@ impl Node {
 
     /// Creates a [`Subscription`][1].
     ///
+    /// Pass in only the topic name for the `options` argument to use all default subscription options:
+    /// ```
+    /// # use rclrs::*;
+    /// # let executor = Context::default().create_basic_executor();
+    /// # let node = executor.create_node("my_node").unwrap();
+    /// let subscription = node.create_subscription(
+    ///     "my_topic",
+    ///     |_msg: test_msgs::msg::Empty| {
+    ///         println!("Received message!");
+    ///     },
+    /// )
+    /// .unwrap();
+    /// ```
+    ///
+    /// Take advantage of the [`IntoPrimitiveOptions`] API to easily build up the
+    /// subscription options:
+    ///
+    /// ```
+    /// # use rclrs::*;
+    /// # let executor = Context::default().create_basic_executor();
+    /// # let node = executor.create_node("my_node").unwrap();
+    /// let subscription = node.create_subscription(
+    ///     "my_topic"
+    ///     .keep_last(100)
+    ///     .transient_local(),
+    ///     |_msg: test_msgs::msg::Empty| {
+    ///         println!("Received message!");
+    ///     },
+    /// )
+    /// .unwrap();
+    ///
+    /// let reliable_subscription = node.create_subscription(
+    ///     "my_reliable_topic"
+    ///     .reliable(),
+    ///     |_msg: test_msgs::msg::Empty| {
+    ///         println!("Received message!");
+    ///     },
+    /// )
+    /// .unwrap();
+    /// ```
+    ///
     /// [1]: crate::Subscription
     // TODO: make subscription's lifetime depend on node's lifetime
-    pub fn create_subscription<T, Args>(
+    pub fn create_subscription<'a, T, Args>(
         &self,
-        topic: &str,
-        qos: QoSProfile,
+        options: impl Into<SubscriptionOptions<'a>>,
         callback: impl SubscriptionCallback<T, Args>,
-    ) -> Result<Arc<Subscription<T>>, RclrsError>
+    ) -> Result<Subscription<T>, RclrsError>
     where
         T: Message,
     {
-        let subscription = Arc::new(Subscription::<T>::new(
+        let subscription = Arc::new(SubscriptionState::<T>::new(
             Arc::clone(&self.handle),
-            topic,
-            qos,
+            options,
             callback,
         )?);
         { self.subscriptions_mtx.lock() }
@@ -347,24 +516,24 @@ impl Node {
     /// Returns the ROS domain ID that the node is using.
     ///
     /// The domain ID controls which nodes can send messages to each other, see the [ROS 2 concept article][1].
-    /// It can be set through the `ROS_DOMAIN_ID` environment variable.
+    /// It can be set through the `ROS_DOMAIN_ID` environment variable or by
+    /// passing custom [`NodeOptions`] into [`Context::new`][2] or [`Context::from_env`][3].
     ///
     /// [1]: https://docs.ros.org/en/rolling/Concepts/About-Domain-ID.html
+    /// [2]: crate::Context::new
+    /// [3]: crate::Context::from_env
     ///
     /// # Example
     /// ```
     /// # use rclrs::{Context, RclrsError};
     /// // Set default ROS domain ID to 10 here
     /// std::env::set_var("ROS_DOMAIN_ID", "10");
-    /// let context = Context::new([])?;
-    /// let node = rclrs::create_node(&context, "domain_id_node")?;
+    /// let executor = Context::default().create_basic_executor();
+    /// let node = executor.create_node("domain_id_node")?;
     /// let domain_id = node.domain_id();
     /// assert_eq!(domain_id, 10);
     /// # Ok::<(), RclrsError>(())
     /// ```
-    // TODO: If node option is supported,
-    // add description about this function is for getting actual domain_id
-    // and about override of domain_id via node option
     pub fn domain_id(&self) -> usize {
         let rcl_node = self.handle.rcl_node.lock().unwrap();
         let mut domain_id: usize = 0;
@@ -385,8 +554,8 @@ impl Node {
     /// # Example
     /// ```
     /// # use rclrs::{Context, ParameterRange, RclrsError};
-    /// let context = Context::new([])?;
-    /// let node = rclrs::create_node(&context, "domain_id_node")?;
+    /// let executor = Context::default().create_basic_executor();
+    /// let node = executor.create_node("domain_id_node")?;
     /// // Set it to a range of 0-100, with a step of 2
     /// let range = ParameterRange {
     ///     lower: Some(0),
@@ -421,25 +590,6 @@ impl Node {
             interface: &self.parameter,
         }
     }
-
-    /// Creates a [`NodeBuilder`][1] with the given name.
-    ///
-    /// Convenience function equivalent to [`NodeBuilder::new()`][2].
-    ///
-    /// [1]: crate::NodeBuilder
-    /// [2]: crate::NodeBuilder::new
-    ///
-    /// # Example
-    /// ```
-    /// # use rclrs::{Context, Node, RclrsError};
-    /// let context = Context::new([])?;
-    /// let node = Node::builder(&context, "my_node").build()?;
-    /// assert_eq!(node.name(), "my_node");
-    /// # Ok::<(), RclrsError>(())
-    /// ```
-    pub fn builder(context: &Context, node_name: &str) -> NodeBuilder {
-        NodeBuilder::new(context, node_name)
-    }
 }
 
 // Helper used to implement call_string_getter(), but also used to get the FQN in the Node::new()
@@ -461,36 +611,30 @@ pub(crate) unsafe fn call_string_getter_with_rcl_node(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::test_helpers::*;
+    use crate::{test_helpers::*, *};
 
     #[test]
     fn traits() {
-        assert_send::<Node>();
-        assert_sync::<Node>();
+        assert_send::<NodeState>();
+        assert_sync::<NodeState>();
     }
 
     #[test]
     fn test_topic_names_and_types() -> Result<(), RclrsError> {
-        use crate::QOS_PROFILE_SYSTEM_DEFAULT;
         use test_msgs::msg;
 
         let graph = construct_test_graph("test_topics_graph")?;
 
         let _node_1_defaults_subscription = graph.node1.create_subscription::<msg::Defaults, _>(
             "graph_test_topic_3",
-            QOS_PROFILE_SYSTEM_DEFAULT,
             |_msg: msg::Defaults| {},
         )?;
-        let _node_2_empty_subscription = graph.node2.create_subscription::<msg::Empty, _>(
-            "graph_test_topic_1",
-            QOS_PROFILE_SYSTEM_DEFAULT,
-            |_msg: msg::Empty| {},
-        )?;
+        let _node_2_empty_subscription = graph
+            .node2
+            .create_subscription::<msg::Empty, _>("graph_test_topic_1", |_msg: msg::Empty| {})?;
         let _node_2_basic_types_subscription =
             graph.node2.create_subscription::<msg::BasicTypes, _>(
                 "graph_test_topic_2",
-                QOS_PROFILE_SYSTEM_DEFAULT,
                 |_msg: msg::BasicTypes| {},
             )?;
 
