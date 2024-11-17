@@ -1,9 +1,9 @@
 use crate::{
-    QoSHistoryPolicy, QoSReliabilityPolicy, QoSDurabilityPolicy, QoSDuration,
-    QoSLivelinessPolicy, QoSProfile,
+    QoSDurabilityPolicy, QoSDuration, QoSHistoryPolicy, QoSLivelinessPolicy, QoSProfile,
+    QoSReliabilityPolicy,
 };
 
-use std::{time::Duration, borrow::Borrow};
+use std::{borrow::Borrow, time::Duration};
 
 /// `PrimitiveOptions` are the subset of options that are relevant across all
 /// primitives (e.g. [`Subscription`][1], [`Publisher`][2], [`Client`][3], and
@@ -50,9 +50,7 @@ pub trait IntoPrimitiveOptions<'a>: Sized {
 
     /// Override all the quality of service settings for the primitive.
     fn qos(self, profile: QoSProfile) -> PrimitiveOptions<'a> {
-        self
-        .into_primitive_options()
-        .history(profile.history)
+        self.into_primitive_options().history(profile.history)
     }
 
     /// Use the default topics quality of service profile.

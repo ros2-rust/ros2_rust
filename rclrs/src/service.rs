@@ -9,7 +9,7 @@ use rosidl_runtime_rs::Message;
 use crate::{
     error::{RclReturnCode, ToResult},
     rcl_bindings::*,
-    IntoPrimitiveOptions, MessageCow, NodeHandle, RclrsError, ENTITY_LIFECYCLE_MUTEX, QoSProfile,
+    IntoPrimitiveOptions, MessageCow, NodeHandle, QoSProfile, RclrsError, ENTITY_LIFECYCLE_MUTEX,
 };
 
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
@@ -218,7 +218,10 @@ pub struct ServiceOptions<'a> {
 impl<'a> ServiceOptions<'a> {
     /// Initialize a new [`ServiceOptions`] with default settings.
     pub fn new(name: &'a str) -> Self {
-        Self { name, qos: QoSProfile::services_default() }
+        Self {
+            name,
+            qos: QoSProfile::services_default(),
+        }
     }
 }
 

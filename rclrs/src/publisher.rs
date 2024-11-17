@@ -11,7 +11,7 @@ use crate::{
     error::{RclrsError, ToResult},
     qos::QoSProfile,
     rcl_bindings::*,
-    NodeHandle, ENTITY_LIFECYCLE_MUTEX, IntoPrimitiveOptions,
+    IntoPrimitiveOptions, NodeHandle, ENTITY_LIFECYCLE_MUTEX,
 };
 
 mod loaned_message;
@@ -264,7 +264,10 @@ pub struct PublisherOptions<'a> {
 impl<'a> PublisherOptions<'a> {
     /// Initialize a new [`PublisherOptions`] with default settings.
     pub fn new(topic: &'a str) -> Self {
-        Self { topic, qos: QoSProfile::topics_default() }
+        Self {
+            topic,
+            qos: QoSProfile::topics_default(),
+        }
     }
 }
 
@@ -318,9 +321,9 @@ mod tests {
             .node1
             .create_publisher::<msg::Empty>("graph_test_topic_1")?;
         let topic1 = node_1_empty_publisher.topic_name();
-        let node_1_basic_types_publisher = graph.node1.create_publisher::<msg::BasicTypes>(
-            "graph_test_topic_2"
-        )?;
+        let node_1_basic_types_publisher = graph
+            .node1
+            .create_publisher::<msg::BasicTypes>("graph_test_topic_2")?;
         let topic2 = node_1_basic_types_publisher.topic_name();
         let node_2_default_publisher = graph
             .node2

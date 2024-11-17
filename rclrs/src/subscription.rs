@@ -10,7 +10,7 @@ use crate::{
     error::{RclReturnCode, ToResult},
     qos::QoSProfile,
     rcl_bindings::*,
-    NodeHandle, RclrsError, ENTITY_LIFECYCLE_MUTEX, IntoPrimitiveOptions,
+    IntoPrimitiveOptions, NodeHandle, RclrsError, ENTITY_LIFECYCLE_MUTEX,
 };
 
 mod callback;
@@ -290,7 +290,10 @@ pub struct SubscriptionOptions<'a> {
 impl<'a> SubscriptionOptions<'a> {
     /// Initialize a new [`SubscriptionOptions`] with default settings.
     pub fn new(topic: &'a str) -> Self {
-        Self { topic, qos: QoSProfile::topics_default() }
+        Self {
+            topic,
+            qos: QoSProfile::topics_default(),
+        }
     }
 }
 
@@ -377,10 +380,9 @@ mod tests {
         let namespace = "/test_subscriptions_graph";
         let graph = construct_test_graph(namespace)?;
 
-        let node_2_empty_subscription = graph.node2.create_subscription::<msg::Empty, _>(
-            "graph_test_topic_1",
-            |_msg: msg::Empty| {},
-        )?;
+        let node_2_empty_subscription = graph
+            .node2
+            .create_subscription::<msg::Empty, _>("graph_test_topic_1", |_msg: msg::Empty| {})?;
         let topic1 = node_2_empty_subscription.topic_name();
         let node_2_basic_types_subscription =
             graph.node2.create_subscription::<msg::BasicTypes, _>(

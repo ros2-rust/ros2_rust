@@ -19,5 +19,7 @@ fn main() -> Result<(), Error> {
         .create_service::<example_interfaces::srv::AddTwoInts, _>("add_two_ints", handle_service)?;
 
     println!("Starting server");
-    executor.spin(rclrs::SpinOptions::default()).map_err(|err| err.into())
+    executor
+        .spin(rclrs::SpinOptions::default())
+        .map_err(|err| err.into())
 }

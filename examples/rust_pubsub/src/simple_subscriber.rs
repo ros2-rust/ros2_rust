@@ -17,17 +17,11 @@ impl SimpleSubscriptionNode {
         let data: Arc<Mutex<Option<StringMsg>>> = Arc::new(Mutex::new(None));
         let data_mut: Arc<Mutex<Option<StringMsg>>> = Arc::clone(&data);
         let _subscriber = node
-            .create_subscription::<StringMsg, _>(
-                "publish_hello",
-                move |msg: StringMsg| {
-                    *data_mut.lock().unwrap() = Some(msg);
-                },
-            )
+            .create_subscription::<StringMsg, _>("publish_hello", move |msg: StringMsg| {
+                *data_mut.lock().unwrap() = Some(msg);
+            })
             .unwrap();
-        Ok(Self {
-            _subscriber,
-            data,
-        })
+        Ok(Self { _subscriber, data })
     }
     fn data_callback(&self) -> Result<(), RclrsError> {
         if let Some(data) = self.data.lock().unwrap().as_ref() {

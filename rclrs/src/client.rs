@@ -11,7 +11,7 @@ use rosidl_runtime_rs::Message;
 use crate::{
     error::{RclReturnCode, ToResult},
     rcl_bindings::*,
-    IntoPrimitiveOptions, MessageCow, NodeHandle, RclrsError, ENTITY_LIFECYCLE_MUTEX, QoSProfile,
+    IntoPrimitiveOptions, MessageCow, NodeHandle, QoSProfile, RclrsError, ENTITY_LIFECYCLE_MUTEX,
 };
 
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
@@ -97,10 +97,11 @@ where
         let mut rcl_client = unsafe { rcl_get_zero_initialized_client() };
         let type_support = <T as rosidl_runtime_rs::Service>::get_type_support()
             as *const rosidl_service_type_support_t;
-        let topic_c_string = CString::new(service_name).map_err(|err| RclrsError::StringContainsNul {
-            err,
-            s: service_name.into(),
-        })?;
+        let topic_c_string =
+            CString::new(service_name).map_err(|err| RclrsError::StringContainsNul {
+                err,
+                s: service_name.into(),
+            })?;
 
         // SAFETY: No preconditions for this function.
         let mut client_options = unsafe { rcl_client_get_default_options() };
@@ -296,7 +297,10 @@ pub struct ClientOptions<'a> {
 impl<'a> ClientOptions<'a> {
     /// Initialize a new [`ClientOptions`] with default settings.
     pub fn new(service_name: &'a str) -> Self {
-        Self { service_name, qos: QoSProfile::services_default() }
+        Self {
+            service_name,
+            qos: QoSProfile::services_default(),
+        }
     }
 }
 

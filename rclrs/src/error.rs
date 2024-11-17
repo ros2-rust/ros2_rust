@@ -364,7 +364,13 @@ impl RclrsErrorFilter for Result<(), RclrsError> {
         match self {
             Ok(()) => Ok(()),
             Err(err) => {
-                if matches!(err, RclrsError::RclError { code: RclReturnCode::Timeout, .. }) {
+                if matches!(
+                    err,
+                    RclrsError::RclError {
+                        code: RclReturnCode::Timeout,
+                        ..
+                    }
+                ) {
                     return Ok(());
                 }
 

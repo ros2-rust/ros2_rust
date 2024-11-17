@@ -1,7 +1,7 @@
 use crate::{
     clock::{Clock, ClockSource, ClockType},
-    vendor::rosgraph_msgs::msg::Clock as ClockMsg, IntoPrimitiveOptions,
-    Node, QoSProfile, ReadOnlyParameter, Subscription, QOS_PROFILE_CLOCK,
+    vendor::rosgraph_msgs::msg::Clock as ClockMsg,
+    IntoPrimitiveOptions, Node, QoSProfile, ReadOnlyParameter, Subscription, QOS_PROFILE_CLOCK,
 };
 use std::sync::{Arc, Mutex, RwLock};
 
@@ -132,7 +132,8 @@ impl TimeSource {
                 if let Some(clock) = clock.lock().unwrap().as_mut() {
                     Self::update_clock(clock, nanoseconds);
                 }
-            })
+            },
+        )
         .unwrap()
     }
 }
@@ -143,7 +144,10 @@ mod tests {
 
     #[test]
     fn time_source_default_clock() {
-        let node = Context::default().create_basic_executor().create_node("test_node").unwrap();
+        let node = Context::default()
+            .create_basic_executor()
+            .create_node("test_node")
+            .unwrap();
         // Default clock should be above 0 (use_sim_time is default false)
         assert!(node.get_clock().now().nsec > 0);
     }
@@ -156,7 +160,7 @@ mod tests {
                 String::from("-p"),
                 String::from("use_sim_time:=true"),
             ],
-            InitOptions::default()
+            InitOptions::default(),
         )
         .unwrap()
         .create_basic_executor();

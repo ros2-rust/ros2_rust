@@ -20,10 +20,10 @@ use rosidl_runtime_rs::Message;
 
 use crate::{
     rcl_bindings::*, Client, ClientBase, ClientOptions, Clock, ContextHandle, GuardCondition,
-    ParameterBuilder, ParameterInterface, ParameterVariant, Parameters, Publisher, PublisherOptions,
-    PublisherState, RclrsError, Service, ServiceBase, ServiceOptions, ServiceState, Subscription,
-    SubscriptionBase, SubscriptionCallback, SubscriptionOptions, SubscriptionState, TimeSource,
-    ENTITY_LIFECYCLE_MUTEX,
+    ParameterBuilder, ParameterInterface, ParameterVariant, Parameters, Publisher,
+    PublisherOptions, PublisherState, RclrsError, Service, ServiceBase, ServiceOptions,
+    ServiceState, Subscription, SubscriptionBase, SubscriptionCallback, SubscriptionOptions,
+    SubscriptionState, TimeSource, ENTITY_LIFECYCLE_MUTEX,
 };
 
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
@@ -611,7 +611,7 @@ pub(crate) unsafe fn call_string_getter_with_rcl_node(
 
 #[cfg(test)]
 mod tests {
-    use crate::{*, test_helpers::*};
+    use crate::{test_helpers::*, *};
 
     #[test]
     fn traits() {
@@ -629,10 +629,9 @@ mod tests {
             "graph_test_topic_3",
             |_msg: msg::Defaults| {},
         )?;
-        let _node_2_empty_subscription = graph.node2.create_subscription::<msg::Empty, _>(
-            "graph_test_topic_1",
-            |_msg: msg::Empty| {},
-        )?;
+        let _node_2_empty_subscription = graph
+            .node2
+            .create_subscription::<msg::Empty, _>("graph_test_topic_1", |_msg: msg::Empty| {})?;
         let _node_2_basic_types_subscription =
             graph.node2.create_subscription::<msg::BasicTypes, _>(
                 "graph_test_topic_2",

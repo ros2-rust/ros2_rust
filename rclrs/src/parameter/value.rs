@@ -537,7 +537,7 @@ impl ParameterValue {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{Context, RclrsError, ToResult, InitOptions};
+    use crate::{Context, InitOptions, RclrsError, ToResult};
 
     // TODO(luca) tests for all from / to ParameterVariant functions
 
