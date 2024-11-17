@@ -185,6 +185,8 @@ where
 
 /// `ServiceOptions are used by [`Node::create_service`][1] to initialize a
 /// [`Service`] provider.
+///
+/// [1]: crate::NodeState::create_service
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub struct ServiceOptions<'a> {
