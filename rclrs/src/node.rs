@@ -269,8 +269,39 @@ impl NodeState {
 
     /// Creates a [`Publisher`][1].
     ///
+    /// Pass in only the topic name for the `options` argument to use all default publisher options:
+    /// ```
+    /// # use rclrs::*;
+    /// # let executor = Context::default().create_basic_executor();
+    /// # let node = executor.create_node("my_node").unwrap();
+    /// let publisher = node.create_publisher::<test_msgs::msg::Empty>(
+    ///     "my_topic"
+    /// )
+    /// .unwrap();
+    /// ```
+    ///
+    /// Take advantage of the [`IntoPrimitiveOptions`] API to easily build up the
+    /// publisher options:
+    ///
+    /// ```
+    /// # use rclrs::*;
+    /// # let executor = Context::default().create_basic_executor();
+    /// # let node = executor.create_node("my_node").unwrap();
+    /// let publisher = node.create_publisher::<test_msgs::msg::Empty>(
+    ///     "my_topic"
+    ///     .keep_last(100)
+    ///     .transient_local()
+    /// )
+    /// .unwrap();
+    ///
+    /// let reliable_publisher = node.create_publisher::<test_msgs::msg::Empty>(
+    ///     "my_topic"
+    ///     .reliable()
+    /// )
+    /// .unwrap();
+    /// ```
+    ///
     /// [1]: crate::Publisher
-    // TODO: make publisher's lifetime depend on node's lifetime
     pub fn create_publisher<'a, T>(
         &self,
         options: impl Into<PublisherOptions<'a>>,
@@ -295,7 +326,8 @@ impl NodeState {
     ///         println!("Received request!");
     ///         test_msgs::srv::Empty_Response::default()
     ///     },
-    /// );
+    /// )
+    /// .unwrap();
     /// ```
     ///
     /// Take advantage of the [`IntoPrimitiveOptions`] API to easily build up the
@@ -313,7 +345,8 @@ impl NodeState {
     ///         println!("Received request!");
     ///         test_msgs::srv::Empty_Response::default()
     ///     },
-    /// );
+    /// )
+    /// .unwrap();
     /// ```
     ///
     /// Any quality of service options that you explicitly specify will override
@@ -356,7 +389,8 @@ impl NodeState {
     ///     |_msg: test_msgs::msg::Empty| {
     ///         println!("Received message!");
     ///     },
-    /// );
+    /// )
+    /// .unwrap();
     /// ```
     ///
     /// Take advantage of the [`IntoPrimitiveOptions`] API to easily build up the
@@ -373,7 +407,8 @@ impl NodeState {
     ///     |_msg: test_msgs::msg::Empty| {
     ///         println!("Received message!");
     ///     },
-    /// );
+    /// )
+    /// .unwrap();
     ///
     /// let reliable_subscription = node.create_subscription(
     ///     "my_reliable_topic"
@@ -381,7 +416,8 @@ impl NodeState {
     ///     |_msg: test_msgs::msg::Empty| {
     ///         println!("Received message!");
     ///     },
-    /// );
+    /// )
+    /// .unwrap();
     /// ```
     ///
     /// [1]: crate::Subscription
