@@ -1,6 +1,6 @@
 use crate::{
     clock::{Clock, ClockSource, ClockType},
-    vendor::rosgraph_msgs::msg::Clock as ClockMsg,
+    vendor::rosgraph_msgs::msg::Clock as ClockMsg, IntoPrimitiveOptions,
     Node, QoSProfile, ReadOnlyParameter, Subscription, QOS_PROFILE_CLOCK,
 };
 use std::sync::{Arc, Mutex, RwLock};
@@ -123,14 +123,16 @@ impl TimeSource {
         let clock = self.clock_source.clone();
         let last_received_time = self.last_received_time.clone();
         // Safe to unwrap since the function will only fail if invalid arguments are provided
-        node.create_subscription::<ClockMsg, _>("/clock", self.clock_qos, move |msg: ClockMsg| {
-            let nanoseconds: i64 =
-                (msg.clock.sec as i64 * 1_000_000_000) + msg.clock.nanosec as i64;
-            *last_received_time.lock().unwrap() = Some(nanoseconds);
-            if let Some(clock) = clock.lock().unwrap().as_mut() {
-                Self::update_clock(clock, nanoseconds);
-            }
-        })
+        node.create_subscription::<ClockMsg, _>(
+            "/clock".qos(self.clock_qos),
+            move |msg: ClockMsg| {
+                let nanoseconds: i64 =
+                    (msg.clock.sec as i64 * 1_000_000_000) + msg.clock.nanosec as i64;
+                *last_received_time.lock().unwrap() = Some(nanoseconds);
+                if let Some(clock) = clock.lock().unwrap().as_mut() {
+                    Self::update_clock(clock, nanoseconds);
+                }
+            })
         .unwrap()
     }
 }
