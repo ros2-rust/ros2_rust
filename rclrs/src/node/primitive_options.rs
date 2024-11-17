@@ -39,8 +39,8 @@ pub struct PrimitiveOptions<'a> {
     pub liveliness: Option<QoSLivelinessPolicy>,
     /// Override the default [`QoSProfile::liveliness_lease_duration`] for the primitive.
     pub liveliness_lease: Option<QoSDuration>,
-    /// Override the default [`QoSProfile::avoid_ros_namespace_convention`] for the primitive.
-    pub avoid_ros_namespace_convention: Option<bool>,
+    /// Override the default [`QoSProfile::avoid_ros_namespace_conventions`] for the primitive.
+    pub avoid_ros_namespace_conventions: Option<bool>,
 }
 
 /// Trait to implicitly convert a compatible object into [`PrimitiveOptions`].
@@ -205,7 +205,7 @@ impl<'a> PrimitiveOptions<'a> {
             lifespan: None,
             liveliness: None,
             liveliness_lease: None,
-            avoid_ros_namespace_convention: None,
+            avoid_ros_namespace_conventions: None,
         }
     }
 
@@ -239,7 +239,7 @@ impl<'a> PrimitiveOptions<'a> {
             qos.liveliness_lease = liveliness_lease;
         }
 
-        if let Some(convention) = self.avoid_ros_namespace_convention {
+        if let Some(convention) = self.avoid_ros_namespace_conventions {
             qos.avoid_ros_namespace_conventions = convention;
         }
     }

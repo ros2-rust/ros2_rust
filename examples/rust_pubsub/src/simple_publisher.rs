@@ -3,7 +3,7 @@ use std::{sync::Arc, thread, time::Duration};
 use std_msgs::msg::String as StringMsg;
 
 struct SimplePublisher {
-    publisher: Arc<Publisher<StringMsg>>,
+    publisher: Publisher<StringMsg>,
 }
 
 impl SimplePublisher {

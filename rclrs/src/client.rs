@@ -67,7 +67,7 @@ type RequestId = i64;
 /// The only available way to instantiate clients is via [`Node::create_client`][1], this is to
 /// ensure that [`Node`][2]s can track all the clients that have been created.
 ///
-/// [1]: crate::Node::create_client
+/// [1]: crate::NodeState::create_client
 /// [2]: crate::Node
 pub struct Client<T>
 where

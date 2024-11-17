@@ -21,8 +21,9 @@ use rosidl_runtime_rs::Message;
 use crate::{
     rcl_bindings::*, Client, ClientBase, ClientOptions, Clock, ContextHandle, GuardCondition,
     ParameterBuilder, ParameterInterface, ParameterVariant, Parameters, Publisher, PublisherOptions,
-    RclrsError, Service, ServiceBase, ServiceOptions, Subscription, SubscriptionBase, SubscriptionCallback,
-    SubscriptionOptions, TimeSource, ENTITY_LIFECYCLE_MUTEX,
+    PublisherState, RclrsError, Service, ServiceBase, ServiceOptions, ServiceState, Subscription,
+    SubscriptionBase, SubscriptionCallback, SubscriptionOptions, SubscriptionState, TimeSource,
+    ENTITY_LIFECYCLE_MUTEX,
 };
 
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
@@ -39,7 +40,7 @@ unsafe impl Send for rcl_node_t {}
 /// to exist and be displayed by e.g. `ros2 topic` as long as any one of its primitives is not dropped.
 ///
 /// # Creating
-/// Use [`Executor::create_node`] to create a new node. Pass in [`NodeOptions`] to set all the different
+/// Use [`Executor::create_node`][7] to create a new node. Pass in [`NodeOptions`] to set all the different
 /// options for node creation, or just pass in a string for the node's name if the default options are okay.
 ///
 /// # Naming
@@ -58,11 +59,11 @@ unsafe impl Send for rcl_node_t {}
 /// In that sense, the parameters to the node creation functions are only the _default_ namespace and
 /// name.
 /// See also the [official tutorial][1] on the command line arguments for ROS nodes, and the
-/// [`Node::namespace()`] and [`Node::name()`] functions for examples.
+/// [`Node::namespace()`][3] and [`Node::name()`][4] functions for examples.
 ///
 /// ## Rules for valid names
 /// The rules for valid node names and node namespaces are explained in
-/// [`NodeBuilder::new()`][3] and [`NodeBuilder::namespace()`][4].
+/// [`NodeOptions::new()`][5] and [`NodeOptions::namespace()`][6].
 ///
 /// The `Node` object is really just a shared [`NodeState`], so see the [`NodeState`]
 /// API to see the various operations you can do with a node, such as creating
@@ -70,15 +71,18 @@ unsafe impl Send for rcl_node_t {}
 ///
 /// [1]: https://docs.ros.org/en/rolling/Tutorials/Understanding-ROS2-Nodes.html
 /// [2]: https://docs.ros.org/en/rolling/How-To-Guides/Node-arguments.html
-/// [3]: crate::NodeBuilder::new
-/// [4]: crate::NodeBuilder::namespace
+/// [3]: NodeState::namespace
+/// [4]: NodeState::name
+/// [5]: crate::NodeOptions::new
+/// [6]: crate::NodeOptions::namespace
+/// [7]: crate::Executor::create_node
 pub type Node = Arc<NodeState>;
 
 /// The inner state of a [`Node`].
 ///
 /// This is public so that you can choose to put it inside a [`Weak`] if you
 /// want to be able to refer to a [`Node`] in a non-owning way. It is generally
-/// recommended to manage the [`NodeState`] inside of an [`Arc`], and [`Node`]
+/// recommended to manage the `NodeState` inside of an [`Arc`], and [`Node`]
 /// is provided as convenience alias for that.
 ///
 /// The public API of the [`Node`] type is implemented via `NodeState`.
@@ -187,7 +191,7 @@ impl NodeState {
     /// Returns the fully qualified name of the node.
     ///
     /// The fully qualified name of the node is the node namespace combined with the node name.
-    /// It is subject to the remappings shown in [`Node::name()`] and [`Node::namespace()`].
+    /// It is subject to the remappings shown in [`Node::name()`][1] and [`Node::namespace()`][2].
     ///
     /// # Example
     /// ```
@@ -200,6 +204,9 @@ impl NodeState {
     /// assert_eq!(node.fully_qualified_name(), "/my/namespace/my_node");
     /// # Ok::<(), RclrsError>(())
     /// ```
+    ///
+    /// [1]: NodeState::name
+    /// [2]: NodeState::namespace
     pub fn fully_qualified_name(&self) -> String {
         self.call_string_getter(rcl_node_get_fully_qualified_name)
     }
@@ -246,7 +253,9 @@ impl NodeState {
     /// remain the default service options. Note that clients are generally
     /// expected to use [reliable][2], so it's best not to change the reliability
     /// setting unless you know what you are doing.
+    ///
     /// [1]: crate::Client
+    /// [2]: crate::QoSReliabilityPolicy::Reliable
     // TODO: make client's lifetime depend on node's lifetime
     pub fn create_client<'a, T>(
         &self,
@@ -263,12 +272,12 @@ impl NodeState {
     /// Creates a [`GuardCondition`][1] with no callback.
     ///
     /// A weak pointer to the `GuardCondition` is stored within this node.
-    /// When this node is added to a wait set (e.g. when calling `spin_once`[2]
+    /// When this node is added to a wait set (e.g. when [spinning][2]
     /// with this node as an argument), the guard condition can be used to
     /// interrupt the wait.
     ///
     /// [1]: crate::GuardCondition
-    /// [2]: crate::spin_once
+    /// [2]: crate::Executor::spin
     pub fn create_guard_condition(&self) -> Arc<GuardCondition> {
         let guard_condition = Arc::new(GuardCondition::new_with_context_handle(
             Arc::clone(&self.handle.context_handle),
@@ -282,12 +291,12 @@ impl NodeState {
     /// Creates a [`GuardCondition`][1] with a callback.
     ///
     /// A weak pointer to the `GuardCondition` is stored within this node.
-    /// When this node is added to a wait set (e.g. when calling `spin_once`[2]
+    /// When this node is added to a wait set (e.g. when [spinning][2]
     /// with this node as an argument), the guard condition can be used to
     /// interrupt the wait.
     ///
     /// [1]: crate::GuardCondition
-    /// [2]: crate::spin_once
+    /// [2]: crate::Executor::spin
     pub fn create_guard_condition_with_callback<F>(&mut self, callback: F) -> Arc<GuardCondition>
     where
         F: Fn() + Send + Sync + 'static,
@@ -339,11 +348,11 @@ impl NodeState {
     pub fn create_publisher<'a, T>(
         &self,
         options: impl Into<PublisherOptions<'a>>,
-    ) -> Result<Arc<Publisher<T>>, RclrsError>
+    ) -> Result<Publisher<T>, RclrsError>
     where
         T: Message,
     {
-        let publisher = Arc::new(Publisher::<T>::new(Arc::clone(&self.handle), options)?);
+        let publisher = Arc::new(PublisherState::<T>::new(Arc::clone(&self.handle), options)?);
         Ok(publisher)
     }
 
@@ -396,12 +405,12 @@ impl NodeState {
         &self,
         options: impl Into<ServiceOptions<'a>>,
         callback: F,
-    ) -> Result<Arc<Service<T>>, RclrsError>
+    ) -> Result<Service<T>, RclrsError>
     where
         T: rosidl_runtime_rs::Service,
         F: Fn(&rmw_request_id_t, T::Request) -> T::Response + 'static + Send,
     {
-        let service = Arc::new(Service::<T>::new(
+        let service = Arc::new(ServiceState::<T>::new(
             Arc::clone(&self.handle),
             options,
             callback,
@@ -460,11 +469,11 @@ impl NodeState {
         &self,
         options: impl Into<SubscriptionOptions<'a>>,
         callback: impl SubscriptionCallback<T, Args>,
-    ) -> Result<Arc<Subscription<T>>, RclrsError>
+    ) -> Result<Subscription<T>, RclrsError>
     where
         T: Message,
     {
-        let subscription = Arc::new(Subscription::<T>::new(
+        let subscription = Arc::new(SubscriptionState::<T>::new(
             Arc::clone(&self.handle),
             options,
             callback,

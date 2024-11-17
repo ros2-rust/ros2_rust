@@ -2,13 +2,13 @@ use std::ops::{Deref, DerefMut};
 
 use rosidl_runtime_rs::RmwMessage;
 
-use crate::{rcl_bindings::*, Publisher, RclrsError, ToResult};
+use crate::{rcl_bindings::*, PublisherState, RclrsError, ToResult};
 
 /// A message that is owned by the middleware, loaned for publishing.
 ///
 /// It dereferences to a `&mut T`.
 ///
-/// This type is returned by [`Publisher::borrow_loaned_message()`], see the documentation of
+/// This type is returned by [`PublisherState::borrow_loaned_message()`], see the documentation of
 /// that function for more information.
 ///
 /// The loan is returned by dropping the message or [publishing it][1].
@@ -19,7 +19,7 @@ where
     T: RmwMessage,
 {
     pub(super) msg_ptr: *mut T,
-    pub(super) publisher: &'a Publisher<T>,
+    pub(super) publisher: &'a PublisherState<T>,
 }
 
 impl<'a, T> Deref for LoanedMessage<'a, T>

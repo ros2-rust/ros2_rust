@@ -13,7 +13,7 @@ pub(crate) struct TimeSource {
     clock_source: Arc<Mutex<Option<ClockSource>>>,
     requested_clock_type: ClockType,
     clock_qos: QoSProfile,
-    clock_subscription: Mutex<Option<Arc<Subscription<ClockMsg>>>>,
+    clock_subscription: Mutex<Option<Subscription<ClockMsg>>>,
     last_received_time: Arc<Mutex<Option<i64>>>,
     // TODO(luca) Make this parameter editable when we have parameter callbacks implemented and can
     // safely change clock type at runtime
@@ -119,7 +119,7 @@ impl TimeSource {
         clock.set_ros_time_override(nanoseconds);
     }
 
-    fn create_clock_sub(&self, node: &Node) -> Arc<Subscription<ClockMsg>> {
+    fn create_clock_sub(&self, node: &Node) -> Subscription<ClockMsg> {
         let clock = self.clock_source.clone();
         let last_received_time = self.last_received_time.clone();
         // Safe to unwrap since the function will only fail if invalid arguments are provided

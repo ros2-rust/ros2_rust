@@ -9,10 +9,9 @@ use crate::{
     QoSProfile, RclrsError, TimeSource, ToResult, ENTITY_LIFECYCLE_MUTEX, QOS_PROFILE_CLOCK,
 };
 
-/// A builder for creating a [`Node`][1].
+/// A set of options for creating a [`Node`][1].
 ///
 /// The builder pattern allows selectively setting some fields, and leaving all others at their default values.
-/// This struct instance can be created via [`Node::builder()`][2].
 ///
 /// The default values for optional fields are:
 /// - `namespace: "/"`
@@ -43,7 +42,6 @@ use crate::{
 /// ```
 ///
 /// [1]: crate::Node
-/// [2]: crate::Node::builder
 pub struct NodeOptions {
     name: String,
     namespace: String,
@@ -68,7 +66,7 @@ impl NodeOptions {
     /// - Must not be empty and not be longer than `RMW_NODE_NAME_MAX_NAME_LENGTH`
     /// - Must not start with a number
     ///
-    /// Note that node name validation is delayed until [`NodeBuilder::build()`][3].
+    /// Note that node name validation is delayed until [`Executor::create_node`][3].
     ///
     /// # Example
     /// ```
@@ -88,7 +86,7 @@ impl NodeOptions {
     ///
     /// [1]: crate::Node#naming
     /// [2]: https://docs.ros2.org/latest/api/rmw/validate__node__name_8h.html#a5690a285aed9735f89ef11950b6e39e3
-    /// [3]: NodeBuilder::build
+    /// [3]: crate::Executor::create_node
     pub fn new(name: impl ToString) -> NodeOptions {
         NodeOptions {
             name: name.to_string(),
@@ -119,7 +117,7 @@ impl NodeOptions {
     /// - Must not contain two or more `/` characters in a row
     /// - Must not have a `/` character at the end, except if `/` is the full namespace
     ///
-    /// Note that namespace validation is delayed until [`NodeBuilder::build()`][4].
+    /// Note that namespace validation is delayed until [`Executor::create_node`][4].
     ///
     /// # Example
     /// ```
@@ -150,7 +148,7 @@ impl NodeOptions {
     /// [1]: crate::Node#naming
     /// [2]: http://design.ros2.org/articles/topic_and_service_names.html
     /// [3]: https://docs.ros2.org/latest/api/rmw/validate__namespace_8h.html#a043f17d240cf13df01321b19a469ee49
-    /// [4]: NodeBuilder::build
+    /// [4]: crate::Executor::create_node
     pub fn namespace(mut self, namespace: impl ToString) -> Self {
         self.namespace = namespace.to_string();
         self
