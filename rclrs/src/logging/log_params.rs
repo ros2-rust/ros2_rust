@@ -10,13 +10,12 @@ pub struct LogParams<'a> {
     severity: LogSeverity,
     /// Specify when a log message should be published (See[`LoggingOccurrence`] above)
     occurs: LogOccurrence,
-    /// Specify the publication interval of the message.  A value of ZERO (0) indicates that the
-    /// message should be published every time, otherwise, the message will only be published once
-    /// the specified interval has elapsed.
-    /// This field is typically used to limit the output from high-frequency messages, e.g. instead
-    /// of publishing a log message every 10 milliseconds, the `publish_interval` can be configured
-    /// such that the message is published every 10 seconds.
-    interval: Duration,
+    /// Specify a publication throttling interval for the message.  A value of ZERO (0) indicates that the
+    /// message should not be throttled. Otherwise, the message will only be published once the specified
+    /// interval has elapsed. This field is typically used to limit the output from high-frequency messages,
+    /// e.g. if `log!(logger.throttle(Duration::from_secs(1)), "message");` is called every 10ms, it will
+    /// nevertheless only be published once per second.
+    throttle: Duration,
     /// The log message will only published if the specified expression evaluates to true
     only_if: bool,
 }
@@ -28,7 +27,7 @@ impl<'a> LogParams<'a> {
             logger_name,
             severity: Default::default(),
             occurs: Default::default(),
-            interval: Duration::new(0, 0),
+            throttle: Duration::new(0, 0),
             only_if: true,
         }
     }
@@ -48,9 +47,9 @@ impl<'a> LogParams<'a> {
         self.occurs
     }
 
-    /// Get the interval
-    pub fn get_interval(&self) -> Duration {
-        self.interval
+    /// Get the throttle interval duration
+    pub fn get_throttle(&self) -> Duration {
+        self.throttle
     }
 
     /// Get the arbitrary filter set by the user
@@ -88,14 +87,14 @@ pub trait ToLogParams<'a>: Sized {
         params
     }
 
-    /// Set an interval during which this log will not publish. A value of zero
-    /// will never block the message from being published, and this is the
+    /// Set a throttling interval during which this log will not publish. A value
+    /// of zero will never block the message from being published, and this is the
     /// default behavior.
     ///
     /// A negative duration is not valid, but will be treated as a zero duration.
-    fn interval(self, interval: Duration) -> LogParams<'a> {
+    fn throttle(self, throttle: Duration) -> LogParams<'a> {
         let mut params = self.to_log_params();
-        params.interval = interval;
+        params.throttle = throttle;
         params
     }
 
@@ -103,7 +102,7 @@ pub trait ToLogParams<'a>: Sized {
     /// this function.
     ///
     /// Other factors may prevent the log from being published if a `true` is
-    /// passed in, such as `ToLogParams::interval` or `ToLogParams::once`
+    /// passed in, such as `ToLogParams::throttle` or `ToLogParams::once`
     /// filtering the log.
     fn only_if(self, only_if: bool) -> LogParams<'a> {
         let mut params = self.to_log_params();
@@ -162,8 +161,13 @@ pub enum LoggerName<'a> {
 }
 
 /// Logging severity.
+//
+// TODO(@mxgrey): Consider whether this is redundant with RCUTILS_LOG_SEVERITY.
+// Perhaps we can customize the output of bindgen to automatically change the name
+// of RCUTILS_LOG_SEVERITY to just LogSeverity so it's more idiomatic and then
+// export it from the rclrs module.
 #[doc(hidden)]
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum LogSeverity {
     /// Use the severity level of the parent logger (or the root logger if the
     /// current logger has no parent)
@@ -197,6 +201,22 @@ impl LogSeverity {
             LogSeverity::Warn => RCUTILS_LOG_SEVERITY_WARN,
             LogSeverity::Error => RCUTILS_LOG_SEVERITY_ERROR,
             LogSeverity::Fatal => RCUTILS_LOG_SEVERITY_FATAL,
+        }
+    }
+
+    /// This is only used by the log output handler during testing, so it will
+    /// not be compiled when testing is not configured
+    #[cfg(test)]
+    pub(crate) fn from_native(native: i32) -> Self {
+        use crate::rcl_bindings::rcl_log_severity_t::*;
+        match native {
+            _ if native == RCUTILS_LOG_SEVERITY_UNSET as i32 => LogSeverity::Unset,
+            _ if native == RCUTILS_LOG_SEVERITY_DEBUG as i32 => LogSeverity::Debug,
+            _ if native == RCUTILS_LOG_SEVERITY_INFO as i32 => LogSeverity::Info,
+            _ if native == RCUTILS_LOG_SEVERITY_WARN as i32 => LogSeverity::Warn,
+            _ if native == RCUTILS_LOG_SEVERITY_ERROR as i32 => LogSeverity::Error,
+            _ if native == RCUTILS_LOG_SEVERITY_FATAL as i32 => LogSeverity::Fatal,
+            _ => panic!("Invalid native severity received: {}", native),
         }
     }
 }

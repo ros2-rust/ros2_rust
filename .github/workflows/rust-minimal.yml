@@ -1,0 +1,130 @@
+name: Rust Minimal
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    # Run the CI at 02:22 UTC every Tuesday
+    # We pick an arbitrary time outside of most of the world's work hours
+    # to minimize the likelihood of running alongside a heavy workload.
+    - cron: '22 2 * * 2'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        ros_distribution:
+          - humble
+          - iron
+          - rolling
+        include:
+          # Humble Hawksbill (May 2022 - May 2027)
+          - docker_image: rostooling/setup-ros-docker:ubuntu-jammy-ros-humble-ros-base-latest
+            ros_distribution: humble
+            ros_version: 2
+          # Iron Irwini (May 2023 - November 2024)
+          - docker_image: rostooling/setup-ros-docker:ubuntu-jammy-ros-iron-ros-base-latest
+            ros_distribution: iron
+            ros_version: 2
+          # Rolling Ridley  (June 2020 - Present)
+          - docker_image: rostooling/setup-ros-docker:ubuntu-jammy-ros-rolling-ros-base-latest
+            ros_distribution: rolling
+            ros_version: 2
+    runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.ros_distribution == 'rolling' }}
+    container:
+      image: ${{ matrix.docker_image }}
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Search packages in this repository
+      id: list_packages
+      run: |
+        echo ::set-output name=package_list::$(colcon list --names-only)
+
+    - name: Setup ROS environment
+      uses: ros-tooling/setup-ros@v0.7
+      with:
+        required-ros-distributions: ${{ matrix.ros_distribution }}
+        use-ros2-testing: ${{ matrix.ros_distribution == 'rolling' }}
+
+    - name: Setup Rust
+      uses: dtolnay/rust-toolchain@1.75
+      with:
+        components: clippy, rustfmt
+
+    - name: Install colcon-cargo and colcon-ros-cargo
+      run: |
+        sudo pip3 install git+https://github.com/colcon/colcon-cargo.git
+        sudo pip3 install git+https://github.com/colcon/colcon-ros-cargo.git
+
+    - name: Check formatting of Rust packages
+      run: |
+        for path in $(colcon list | awk '$3 == "(ament_cargo)" { print $2 }'); do
+        cd $path
+        rustup toolchain install nightly
+        cargo +nightly fmt -- --check
+        cd -
+        done
+
+    - name: Install cargo-ament-build
+      run: |
+        cargo install --debug cargo-ament-build
+
+    - name: Build and test
+      id: build
+      uses: ros-tooling/action-ros-ci@v0.3
+      with:
+        package-name: ${{ steps.list_packages.outputs.package_list }}
+        target-ros2-distro: ${{ matrix.ros_distribution }}
+        vcs-repo-file-url: ros2_rust_${{ matrix.ros_distribution }}.repos
+
+    - name: Run clippy on Rust packages
+      run: |
+        cd ${{ steps.build.outputs.ros-workspace-directory-name }}
+        . /opt/ros/${{ matrix.ros_distribution }}/setup.sh
+        for path in $(colcon list | awk '$3 == "(ament_cargo)" { print $2 }'); do
+        cd $path
+        echo "Running clippy in $path"
+        # Run clippy for all features except generate_docs (needed for docs.rs)
+        if [ "$(basename $path)" = "rclrs" ]; then
+          cargo clippy --all-targets -F default,dyn_msg -- -D warnings
+        else
+          cargo clippy --all-targets --all-features -- -D warnings
+        fi
+        cd -
+        done
+
+    - name: Run cargo test on Rust packages
+      run: |
+        cd ${{ steps.build.outputs.ros-workspace-directory-name }}
+        . install/setup.sh
+        for path in $(colcon list | awk '$3 == "(ament_cargo)" && $1 != "examples_rclrs_minimal_pub_sub" && $1 != "examples_rclrs_minimal_client_service" && $1 != "rust_pubsub" { print $2 }'); do
+        cd $path
+        echo "Running cargo test in $path"
+        # Run cargo test for all features except generate_docs (needed for docs.rs)
+        if [ "$(basename $path)" = "rclrs" ]; then
+          cargo test -F default,dyn_msg
+        elif [ "$(basename $path)" = "rosidl_runtime_rs" ]; then
+          cargo test -F default
+        else
+          cargo test --all-features
+        fi
+        cd -
+        done
+
+    - name: Rustdoc check
+      run: |
+        cd ${{ steps.build.outputs.ros-workspace-directory-name }}
+        . /opt/ros/${{ matrix.ros_distribution }}/setup.sh
+        for path in $(colcon list | awk '$3 == "(ament_cargo)" && $1 != "examples_rclrs_minimal_pub_sub" && $1 != "examples_rclrs_minimal_client_service" && $1 != "rust_pubsub" { print $2 }'); do
+        cd $path
+        echo "Running rustdoc check in $path"
+        cargo rustdoc -- -D warnings
+        cd -
+        done

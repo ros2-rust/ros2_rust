@@ -42,7 +42,7 @@ pub use logger::*;
 ///     node
 ///     .error()
 ///     .skip_first()
-///     .interval(Duration::from_millis(1000)),
+///     .throttle(Duration::from_millis(1000)),
 ///     "Noisy error that we expect the first time"
 /// );
 ///
@@ -50,7 +50,7 @@ pub use logger::*;
 /// log!(
 ///     node
 ///     .info()
-///     .interval(Duration::from_millis(1000))
+///     .throttle(Duration::from_millis(1000))
 ///     .only_if(count % 10 == 0),
 ///     "Manually constructed LogConditions",
 /// );
@@ -124,10 +124,10 @@ macro_rules! log {
                 $crate::LogOccurrence::All => (),
             }
 
-            // If we have a throttle interval then check if we're inside or outside
+            // If we have a throttle duration then check if we're inside or outside
             // of that interval.
-            let interval = params.get_interval();
-            if interval > std::time::Duration::ZERO {
+            let throttle = params.get_throttle();
+            if throttle > std::time::Duration::ZERO {
                 static LAST_LOG_TIME: OnceLock<Mutex<SystemTime>> = OnceLock::new();
                 let last_log_time = LAST_LOG_TIME.get_or_init(|| {
                     Mutex::new(std::time::SystemTime::now())
@@ -136,11 +136,10 @@ macro_rules! log {
                 if !first_time {
                     let now = std::time::SystemTime::now();
                     let mut previous = last_log_time.lock().unwrap();
-                    if now >= *previous + interval {
+                    if now >= *previous + throttle {
                         *previous = now;
                     } else {
-                        // We are still inside the throttle interval, so just exit
-                        // here.
+                        // We are still inside the throttle interval, so just exit here.
                         return;
                     }
                 }
@@ -209,7 +208,16 @@ macro_rules! log_unconditional {
         // Only allocate a CString for the function name once per call to this macro.
         static FUNCTION_NAME: OnceLock<CString> = OnceLock::new();
         let function_name = FUNCTION_NAME.get_or_init(|| {
-            CString::new($crate::function!()).unwrap_or(
+            // This call to function! is nested within two layers of closures,
+            // so we need to strip away those suffixes or else users will be
+            // misled. If we ever restructure these macros or if Rust changes
+            // the way it names closures, this implementation detail may need to
+            // change.
+            let function_name = $crate::function!()
+                .strip_suffix("::{{closure}}::{{closure}}")
+                .unwrap();
+
+            CString::new(function_name).unwrap_or(
                 CString::new("<invalid name>").unwrap()
             )
         });
@@ -278,21 +286,60 @@ pub unsafe fn impl_log(
             file_name: file.as_ptr(),
             line_number: line as usize,
         };
-        static FORMAT_CSTR: OnceLock<CString> = OnceLock::new();
-        let format_cstr = FORMAT_CSTR.get_or_init(|| CString::new("%s").unwrap());
+
+        static FORMAT_STRING: OnceLock<CString> = OnceLock::new();
+        let format_string = FORMAT_STRING.get_or_init(|| CString::new("%s").unwrap());
 
         let severity = severity.as_native();
 
         let _lifecycle = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
-        // SAFETY: Global variables are protected via ENTITY_LIFECYCLE_MUTEX, no other preconditions are required
-        unsafe {
-            rcutils_log(
-                &location,
-                severity as i32,
-                logger_name.as_ptr(),
-                format_cstr.as_ptr(),
-                message.as_ptr(),
-            );
+
+        #[cfg(test)]
+        {
+            // If we are compiling for testing purposes, when the default log
+            // output handler is being used we need to use the format_string,
+            // but when our custom log output handler is being used we need to
+            // pass the raw message string so that it can be viewed by the
+            // custom log output handler, allowing us to use it for test assertions.
+            if log_handler::is_using_custom_handler() {
+                // We are using the custom log handler that is only used during
+                // logging tests, so pass the raw message as the format string.
+                unsafe {
+                    // SAFETY: The global mutex is locked as _lifecycle
+                    rcutils_log(
+                        &location,
+                        severity as i32,
+                        logger_name.as_ptr(),
+                        message.as_ptr(),
+                    );
+                }
+            } else {
+                // We are using the normal log handler so call rcutils_log the normal way.
+                unsafe {
+                    // SAFETY: The global mutex is locked as _lifecycle
+                    rcutils_log(
+                        &location,
+                        severity as i32,
+                        logger_name.as_ptr(),
+                        format_string.as_ptr(),
+                        message.as_ptr(),
+                    );
+                }
+            }
+        }
+
+        #[cfg(not(test))]
+        {
+            unsafe {
+                // SAFETY: The global mutex is locked as _lifecycle
+                rcutils_log(
+                    &location,
+                    severity as i32,
+                    logger_name.as_ptr(),
+                    format_string.as_ptr(),
+                    message.as_ptr(),
+                );
+            }
         }
     };
 
@@ -380,25 +427,121 @@ macro_rules! function {
 
 #[cfg(test)]
 mod tests {
-    use crate::{test_helpers::*, *};
+    use crate::{log_handler::*, test_helpers::*, *};
+    use std::sync::Mutex;
 
     #[test]
     fn test_logging_macros() -> Result<(), RclrsError> {
+        // This test ensures that strings which are being sent to the logger are
+        // being sanitized correctly. Rust generally and our logging macro in
+        // particular do not use C-style formatting strings, but rcutils expects
+        // to receive C-style formatting strings alongside variadic arguments
+        // that describe how to fill in the formatting.
+        //
+        // If we pass the final string into rcutils as the format with no
+        // variadic arguments, then it may trigger a crash or undefined behavior
+        // if the message happens to contain any % symbols. In particular %n
+        // will trigger a crash when no variadic arguments are given because it
+        // attempts to write to a buffer. If no buffer is given, a seg fault
+        // happens.
+        log!("please do not crash", "%n");
+
         let graph = construct_test_graph("test_logging_macros")?;
+
+        let log_collection: Arc<Mutex<Vec<LogEntry<'static>>>> = Arc::new(Mutex::new(Vec::new()));
+        let inner_log_collection = log_collection.clone();
+
+        log_handler::set_logging_output_handler(move |log_entry: log_handler::LogEntry| {
+            inner_log_collection
+                .lock()
+                .unwrap()
+                .push(log_entry.into_owned());
+        })
+        .unwrap();
+
+        let last_logger_name = || {
+            log_collection
+                .lock()
+                .unwrap()
+                .last()
+                .unwrap()
+                .logger_name
+                .clone()
+        };
+
+        let last_message = || {
+            log_collection
+                .lock()
+                .unwrap()
+                .last()
+                .unwrap()
+                .message
+                .clone()
+        };
+
+        let last_location = || {
+            log_collection
+                .lock()
+                .unwrap()
+                .last()
+                .unwrap()
+                .location
+                .clone()
+        };
+
+        let last_severity = || log_collection.lock().unwrap().last().unwrap().severity;
+
+        let count_message = |message: &str| {
+            let mut count = 0;
+            for log in log_collection.lock().unwrap().iter() {
+                if log.message == message {
+                    count += 1;
+                }
+            }
+            count
+        };
+
         let node = graph.node1;
 
         log!(&*node, "Logging with node dereference");
+        assert_eq!(last_logger_name(), node.logger().name());
+        assert_eq!(last_message(), "Logging with node dereference");
+        assert_eq!(last_severity(), LogSeverity::Info);
+        assert_eq!(
+            last_location().function_name,
+            "rclrs::logging::tests::test_logging_macros",
+        );
 
         for _ in 0..10 {
             log!(node.once(), "Logging once");
         }
+        assert_eq!(count_message("Logging once"), 1);
+        assert_eq!(last_severity(), LogSeverity::Info);
 
         log!(node.logger(), "Logging with node logger");
+        assert_eq!(last_message(), "Logging with node logger");
+        assert_eq!(last_severity(), LogSeverity::Info);
+
         log!(node.debug(), "Debug from node");
+        // The default severity level is Info so we should not see the last message
+        assert_ne!(last_message(), "Debug from node");
+        assert_ne!(last_severity(), LogSeverity::Debug);
+
         log!(node.info(), "Info from node");
+        assert_eq!(last_message(), "Info from node");
+        assert_eq!(last_severity(), LogSeverity::Info);
+
         log!(node.warn(), "Warn from node");
+        assert_eq!(last_message(), "Warn from node");
+        assert_eq!(last_severity(), LogSeverity::Warn);
+
         log!(node.error(), "Error from node");
+        assert_eq!(last_message(), "Error from node");
+        assert_eq!(last_severity(), LogSeverity::Error);
+
         log!(node.fatal(), "Fatal from node");
+        assert_eq!(last_message(), "Fatal from node");
+        assert_eq!(last_severity(), LogSeverity::Fatal);
 
         log_debug!(node.logger(), "log_debug macro");
         log_info!(node.logger(), "log_info macro");
@@ -412,26 +555,44 @@ mod tests {
         for i in 0..3 {
             log!(node.warn().skip_first(), "Formatted warning #{}", i);
         }
+        assert_eq!(count_message("Formatted warning #0"), 0);
+        assert_eq!(count_message("Formatted warning #1"), 1);
+        assert_eq!(count_message("Formatted warning #2"), 1);
 
         node.logger().set_level(LogSeverity::Debug).unwrap();
         log_debug!(node.logger(), "This debug message appears");
+        assert_eq!(last_message(), "This debug message appears");
+        assert_eq!(last_severity(), LogSeverity::Debug);
+
         node.logger().set_level(LogSeverity::Info).unwrap();
-        log_debug!(node.logger(), "This debug message does not");
+        log_debug!(node.logger(), "This debug message does not appear");
+        assert_ne!(last_message(), "This debug message does not appear");
 
         log!("custom logger name", "message for custom logger");
-        for _ in 0..3 {
-            log!(
-                "custom logger name".once(),
-                "one-time message for custom logger"
-            );
-        }
+        assert_eq!(last_logger_name(), "custom logger name");
+        assert_eq!(last_message(), "message for custom logger");
 
         for _ in 0..3 {
             log!(
-                "custom logger name".error().skip_first(),
+                "custom logger name once".once(),
+                "one-time message for custom logger",
+            );
+        }
+        assert_eq!(last_logger_name(), "custom logger name once");
+        assert_eq!(last_severity(), LogSeverity::Info);
+        assert_eq!(count_message("one-time message for custom logger"), 1);
+
+        for _ in 0..3 {
+            log!(
+                "custom logger name skip".error().skip_first(),
                 "error for custom logger",
             );
         }
+        assert_eq!(last_logger_name(), "custom logger name skip");
+        assert_eq!(last_severity(), LogSeverity::Error);
+        assert_eq!(count_message("error for custom logger"), 2);
+
+        reset_logging_output_handler();
 
         Ok(())
     }
