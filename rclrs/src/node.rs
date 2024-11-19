@@ -28,9 +28,13 @@ unsafe impl Send for rcl_node_t {}
 /// Nodes are a core concept in ROS 2. Refer to the official ["Understanding ROS 2 nodes"][1]
 /// tutorial for an introduction.
 ///
-/// Ownership of the node is shared with all [`Publisher`]s and [`Subscription`]s created from it.
-/// That means that even after the node itself is dropped, it will continue to exist and be
-/// displayed by e.g. `ros2 topic` as long as its publishers and subscriptions are not dropped.
+/// Ownership of the node is shared with all the primitives such as [`Publisher`]s and [`Subscription`]s
+/// that are created from it. That means that even after the `Node` itself is dropped, it will continue
+/// to exist and be displayed by e.g. `ros2 topic` as long as any one of its primitives is not dropped.
+///
+/// # Creating
+/// Use [`Executor::create_node`][7] to create a new node. Pass in [`NodeOptions`] to set all the different
+/// options for node creation, or just pass in a string for the node's name if the default options are okay.
 ///
 /// # Naming
 /// A node has a *name* and a *namespace*.
@@ -48,16 +52,19 @@ unsafe impl Send for rcl_node_t {}
 /// In that sense, the parameters to the node creation functions are only the _default_ namespace and
 /// name.
 /// See also the [official tutorial][1] on the command line arguments for ROS nodes, and the
-/// [`Node::namespace()`] and [`Node::name()`] functions for examples.
+/// [`Node::namespace()`][3] and [`Node::name()`][4] functions for examples.
 ///
 /// ## Rules for valid names
 /// The rules for valid node names and node namespaces are explained in
-/// [`NodeBuilder::new()`][3] and [`NodeBuilder::namespace()`][4].
+/// [`NodeOptions::new()`][5] and [`NodeOptions::namespace()`][6].
 ///
 /// [1]: https://docs.ros.org/en/rolling/Tutorials/Understanding-ROS2-Nodes.html
 /// [2]: https://docs.ros.org/en/rolling/How-To-Guides/Node-arguments.html
-/// [3]: crate::NodeBuilder::new
-/// [4]: crate::NodeBuilder::namespace
+/// [3]: Node::namespace
+/// [4]: Node::name
+/// [5]: crate::NodeOptions::new
+/// [6]: crate::NodeOptions::namespace
+/// [7]: crate::Executor::create_node
 #[derive(Clone)]
 pub struct Node {
     pub(crate) primitives: Arc<NodePrimitives>,
@@ -213,12 +220,11 @@ impl Node {
     /// Creates a [`GuardCondition`][1] with no callback.
     ///
     /// A weak pointer to the `GuardCondition` is stored within this node.
-    /// When this node is added to a wait set (e.g. when calling `spin_once`[2]
-    /// with this node as an argument), the guard condition can be used to
-    /// interrupt the wait.
+    /// When this node is added to a wait set (e.g. when its executor is [spinning][2]),
+    /// the guard condition can be used to interrupt the wait.
     ///
     /// [1]: crate::GuardCondition
-    /// [2]: crate::spin_once
+    /// [2]: crate::Executor::spin
     pub fn create_guard_condition(&self) -> Arc<GuardCondition> {
         let guard_condition = Arc::new(GuardCondition::new_with_context_handle(
             Arc::clone(&self.handle.context_handle),
@@ -232,12 +238,11 @@ impl Node {
     /// Creates a [`GuardCondition`][1] with a callback.
     ///
     /// A weak pointer to the `GuardCondition` is stored within this node.
-    /// When this node is added to a wait set (e.g. when calling `spin_once`[2]
-    /// with this node as an argument), the guard condition can be used to
-    /// interrupt the wait.
+    /// When this node is added to a wait set (e.g. when its executor is [spinning][2]),
+    /// the guard condition can be used to interrupt the wait.
     ///
     /// [1]: crate::GuardCondition
-    /// [2]: crate::spin_once
+    /// [2]: crate::Executor::spin
     pub fn create_guard_condition_with_callback<F>(&mut self, callback: F) -> Arc<GuardCondition>
     where
         F: Fn() + Send + Sync + 'static,
@@ -254,7 +259,6 @@ impl Node {
     /// Creates a [`Publisher`][1].
     ///
     /// [1]: crate::Publisher
-    // TODO: make publisher's lifetime depend on node's lifetime
     pub fn create_publisher<T>(
         &self,
         topic: &str,
@@ -270,7 +274,6 @@ impl Node {
     /// Creates a [`Service`][1].
     ///
     /// [1]: crate::Service
-    // TODO: make service's lifetime depend on node's lifetime
     pub fn create_service<T, F>(
         &self,
         topic: &str,
@@ -293,7 +296,6 @@ impl Node {
     /// Creates a [`Subscription`][1].
     ///
     /// [1]: crate::Subscription
-    // TODO: make subscription's lifetime depend on node's lifetime
     pub fn create_subscription<T, Args>(
         &self,
         topic: &str,
