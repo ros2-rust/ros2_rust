@@ -1,4 +1,4 @@
-use rclrs::{create_node, Context, Node, Publisher, RclrsError, QOS_PROFILE_DEFAULT};
+use rclrs::{create_node, Context, Node, Publisher, RclrsError};
 use std::{sync::Arc, thread, time::Duration};
 use std_msgs::msg::String as StringMsg;
 struct SimplePublisherNode {
@@ -8,9 +8,7 @@ struct SimplePublisherNode {
 impl SimplePublisherNode {
     fn new(context: &Context) -> Result<Self, RclrsError> {
         let node = create_node(context, "simple_publisher").unwrap();
-        let _publisher = node
-            .create_publisher("publish_hello", QOS_PROFILE_DEFAULT)
-            .unwrap();
+        let _publisher = node.create_publisher("publish_hello").unwrap();
         Ok(Self { node, _publisher })
     }
 

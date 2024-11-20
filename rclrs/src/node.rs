@@ -15,7 +15,7 @@ use rosidl_runtime_rs::Message;
 pub use self::{builder::*, graph::*, primitive_options::*};
 use crate::{
     rcl_bindings::*, Client, ClientBase, Clock, Context, ContextHandle, GuardCondition,
-    ParameterBuilder, ParameterInterface, ParameterVariant, Parameters, Publisher, QoSProfile,
+    ParameterBuilder, ParameterInterface, ParameterVariant, Parameters, Publisher, PublisherOptions,
     RclrsError, Service, ServiceBase, Subscription, SubscriptionBase, SubscriptionCallback,
     SubscriptionOptions, TimeSource, ENTITY_LIFECYCLE_MUTEX,
 };
@@ -252,19 +252,46 @@ impl Node {
         guard_condition
     }
 
-    /// Creates a [`Publisher`][1].
+    /// Pass in only the topic name for the `options` argument to use all default publisher options:
+    /// ```
+    /// # use rclrs::*;
+    /// # let context = Context::new([]).unwrap();
+    /// # let node = create_node(&context, "my_node").unwrap();
+    /// let publisher = node.create_publisher::<test_msgs::msg::Empty>(
+    ///     "my_topic"
+    /// )
+    /// .unwrap();
+    /// ```
     ///
-    /// [1]: crate::Publisher
-    // TODO: make publisher's lifetime depend on node's lifetime
-    pub fn create_publisher<T>(
+    /// Take advantage of the [`IntoPrimitiveOptions`] API to easily build up the
+    /// publisher options:
+    ///
+    /// ```
+    /// # use rclrs::*;
+    /// # let context = Context::new([]).unwrap();
+    /// # let node = create_node(&context, "my_node").unwrap();
+    /// let publisher = node.create_publisher::<test_msgs::msg::Empty>(
+    ///     "my_topic"
+    ///     .keep_last(100)
+    ///     .transient_local()
+    /// )
+    /// .unwrap();
+    ///
+    /// let reliable_publisher = node.create_publisher::<test_msgs::msg::Empty>(
+    ///     "my_topic"
+    ///     .reliable()
+    /// )
+    /// .unwrap();
+    /// ```
+    ///
+    pub fn create_publisher<'a, T>(
         &self,
-        topic: &str,
-        qos: QoSProfile,
+        options: impl Into<PublisherOptions<'a>>,
     ) -> Result<Arc<Publisher<T>>, RclrsError>
     where
         T: Message,
     {
-        let publisher = Arc::new(Publisher::<T>::new(Arc::clone(&self.handle), topic, qos)?);
+        let publisher = Arc::new(Publisher::<T>::new(Arc::clone(&self.handle), options)?);
         Ok(publisher)
     }
 
