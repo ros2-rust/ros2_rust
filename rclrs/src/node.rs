@@ -14,10 +14,11 @@ use rosidl_runtime_rs::Message;
 
 pub use self::{builder::*, graph::*, primitive_options::*};
 use crate::{
-    rcl_bindings::*, Client, ClientBase, Clock, Context, ContextHandle, GuardCondition,
-    ParameterBuilder, ParameterInterface, ParameterVariant, Parameters, Publisher, PublisherOptions,
-    RclrsError, Service, ServiceBase, ServiceOptions, Subscription, SubscriptionBase, SubscriptionCallback,
-    SubscriptionOptions, TimeSource, ENTITY_LIFECYCLE_MUTEX,
+    rcl_bindings::*, Client, ClientBase, ClientOptions, Clock, Context, ContextHandle,
+    GuardCondition, ParameterBuilder, ParameterInterface, ParameterVariant, Parameters, Publisher,
+    PublisherOptions, RclrsError, Service, ServiceBase, ServiceOptions, Subscription,
+    SubscriptionBase, SubscriptionCallback, SubscriptionOptions, TimeSource,
+    ENTITY_LIFECYCLE_MUTEX,
 };
 
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
@@ -200,13 +201,45 @@ impl Node {
 
     /// Creates a [`Client`][1].
     ///
-    /// [1]: crate::Client
-    // TODO: make client's lifetime depend on node's lifetime
-    pub fn create_client<T>(&self, topic: &str) -> Result<Arc<Client<T>>, RclrsError>
+    /// Pass in only the service name for the `options` argument to use all default client options:
+    /// ```
+    /// # use rclrs::*;
+    /// # let context = Context::new([]).unwrap();
+    /// # let node = create_node(&context, "my_node").unwrap();
+    /// let client = node.create_client::<test_msgs::srv::Empty>(
+    ///     "my_service"
+    /// )
+    /// .unwrap();
+    /// ```
+    ///
+    /// Take advantage of the [`IntoPrimitiveOptions`] API to easily build up the
+    /// client options:
+    ///
+    /// ```
+    /// # use rclrs::*;
+    /// # let context = Context::new([]).unwrap();
+    /// # let node = create_node(&context, "my_node").unwrap();
+    /// let client = node.create_client::<test_msgs::srv::Empty>(
+    ///     "my_service"
+    ///     .keep_all()
+    ///     .transient_local()
+    /// )
+    /// .unwrap();
+    /// ```
+    ///
+    /// Any quality of service options that you explicitly specify will override
+    /// the default service options. Any that you do not explicitly specify will
+    /// remain the default service options. Note that clients are generally
+    /// expected to use [reliable][2], so it's best not to change the reliability
+    /// setting unless you know what you are doing.
+    pub fn create_client<'a, T>(
+        &self,
+        options: impl Into<ClientOptions<'a>>,
+    ) -> Result<Arc<Client<T>>, RclrsError>
     where
         T: rosidl_runtime_rs::Service,
     {
-        let client = Arc::new(Client::<T>::new(Arc::clone(&self.handle), topic)?);
+        let client = Arc::new(Client::<T>::new(Arc::clone(&self.handle), options)?);
         { self.clients_mtx.lock().unwrap() }.push(Arc::downgrade(&client) as Weak<dyn ClientBase>);
         Ok(client)
     }
@@ -332,7 +365,7 @@ impl Node {
     /// Any quality of service options that you explicitly specify will override
     /// the default service options. Any that you do not explicitly specify will
     /// remain the default service options. Note that services are generally
-    /// expected to use [reliable][2], so is best not to change the reliability
+    /// expected to use [reliable][2], so it's best not to change the reliability
     /// setting unless you know what you are doing.
     ///
     /// [1]: crate::Service

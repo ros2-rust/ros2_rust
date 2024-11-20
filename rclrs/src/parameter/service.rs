@@ -9,8 +9,7 @@ use rosidl_runtime_rs::Sequence;
 use super::ParameterMap;
 use crate::{
     parameter::{DeclaredValue, ParameterKind, ParameterStorage},
-    rmw_request_id_t, Node, RclrsError, Service, IntoPrimitiveOptions,
-    QoSProfile,
+    rmw_request_id_t, IntoPrimitiveOptions, Node, QoSProfile, RclrsError, Service,
 };
 
 // The variables only exist to keep a strong reference to the services and are technically unused.
@@ -248,8 +247,7 @@ impl ParameterService {
         // destruction is made for the parameter map.
         let map = parameter_map.clone();
         let describe_parameters_service = node.create_service(
-            (fqn.clone() + "/describe_parameters")
-            .qos(QoSProfile::parameter_services_default()),
+            (fqn.clone() + "/describe_parameters").qos(QoSProfile::parameter_services_default()),
             move |_req_id: &rmw_request_id_t, req: DescribeParameters_Request| {
                 let map = map.lock().unwrap();
                 describe_parameters(req, &map)
@@ -257,8 +255,7 @@ impl ParameterService {
         )?;
         let map = parameter_map.clone();
         let get_parameter_types_service = node.create_service(
-            (fqn.clone() + "/get_parameter_types")
-            .qos(QoSProfile::parameter_services_default()),
+            (fqn.clone() + "/get_parameter_types").qos(QoSProfile::parameter_services_default()),
             move |_req_id: &rmw_request_id_t, req: GetParameterTypes_Request| {
                 let map = map.lock().unwrap();
                 get_parameter_types(req, &map)
@@ -266,8 +263,7 @@ impl ParameterService {
         )?;
         let map = parameter_map.clone();
         let get_parameters_service = node.create_service(
-            (fqn.clone() + "/get_parameters")
-            .qos(QoSProfile::parameter_services_default()),
+            (fqn.clone() + "/get_parameters").qos(QoSProfile::parameter_services_default()),
             move |_req_id: &rmw_request_id_t, req: GetParameters_Request| {
                 let map = map.lock().unwrap();
                 get_parameters(req, &map)
@@ -275,8 +271,7 @@ impl ParameterService {
         )?;
         let map = parameter_map.clone();
         let list_parameters_service = node.create_service(
-            (fqn.clone() + "/list_parameters")
-            .qos(QoSProfile::parameter_services_default()),
+            (fqn.clone() + "/list_parameters").qos(QoSProfile::parameter_services_default()),
             move |_req_id: &rmw_request_id_t, req: ListParameters_Request| {
                 let map = map.lock().unwrap();
                 list_parameters(req, &map)
@@ -284,8 +279,7 @@ impl ParameterService {
         )?;
         let map = parameter_map.clone();
         let set_parameters_service = node.create_service(
-            (fqn.clone() + "/set_parameters")
-            .qos(QoSProfile::parameter_services_default()),
+            (fqn.clone() + "/set_parameters").qos(QoSProfile::parameter_services_default()),
             move |_req_id: &rmw_request_id_t, req: SetParameters_Request| {
                 let mut map = map.lock().unwrap();
                 set_parameters(req, &mut map)
@@ -293,7 +287,7 @@ impl ParameterService {
         )?;
         let set_parameters_atomically_service = node.create_service(
             (fqn.clone() + "/set_parameters_atomically")
-            .qos(QoSProfile::parameter_services_default()),
+                .qos(QoSProfile::parameter_services_default()),
             move |_req_id: &rmw_request_id_t, req: SetParametersAtomically_Request| {
                 let mut map = parameter_map.lock().unwrap();
                 set_parameters_atomically(req, &mut map)

@@ -11,7 +11,7 @@ use rosidl_runtime_rs::Message;
 use crate::{
     error::{RclReturnCode, ToResult},
     rcl_bindings::*,
-    MessageCow, NodeHandle, RclrsError, ENTITY_LIFECYCLE_MUTEX,
+    IntoPrimitiveOptions, MessageCow, NodeHandle, QoSProfile, RclrsError, ENTITY_LIFECYCLE_MUTEX,
 };
 
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
@@ -83,23 +83,29 @@ where
     T: rosidl_runtime_rs::Service,
 {
     /// Creates a new client.
-    pub(crate) fn new(node_handle: Arc<NodeHandle>, topic: &str) -> Result<Self, RclrsError>
+    pub(crate) fn new<'a>(
+        node_handle: Arc<NodeHandle>,
+        options: impl Into<ClientOptions<'a>>,
+    ) -> Result<Self, RclrsError>
     // This uses pub(crate) visibility to avoid instantiating this struct outside
     // [`Node::create_client`], see the struct's documentation for the rationale
     where
         T: rosidl_runtime_rs::Service,
     {
+        let ClientOptions { service_name, qos } = options.into();
         // SAFETY: Getting a zero-initialized value is always safe.
         let mut rcl_client = unsafe { rcl_get_zero_initialized_client() };
         let type_support = <T as rosidl_runtime_rs::Service>::get_type_support()
             as *const rosidl_service_type_support_t;
-        let topic_c_string = CString::new(topic).map_err(|err| RclrsError::StringContainsNul {
-            err,
-            s: topic.into(),
-        })?;
+        let topic_c_string =
+            CString::new(service_name).map_err(|err| RclrsError::StringContainsNul {
+                err,
+                s: service_name.into(),
+            })?;
 
         // SAFETY: No preconditions for this function.
-        let client_options = unsafe { rcl_client_get_default_options() };
+        let mut client_options = unsafe { rcl_client_get_default_options() };
+        client_options.qos = qos.into();
 
         {
             let rcl_node = node_handle.rcl_node.lock().unwrap();
@@ -272,6 +278,31 @@ where
         }
         .ok()?;
         Ok(is_ready)
+    }
+}
+
+/// `ClientOptions` are used by [`Node::create_client`][1] to initialize a
+/// [`Client`] for a service.
+///
+/// [1]: crate::NodeState::create_client
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub struct ClientOptions<'a> {
+    /// The name of the service that this client will send requests to
+    pub service_name: &'a str,
+    /// The quality of the service profile for this client
+    pub qos: QoSProfile,
+}
+
+impl<'a, T: IntoPrimitiveOptions<'a>> From<T> for ClientOptions<'a> {
+    fn from(value: T) -> Self {
+        let options = value.into_primitive_options();
+        let mut qos = QoSProfile::services_default();
+        options.apply(&mut qos);
+        Self {
+            service_name: options.name,
+            qos,
+        }
     }
 }
 

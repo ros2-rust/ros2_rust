@@ -11,7 +11,7 @@ use crate::{
     error::{RclrsError, ToResult},
     qos::QoSProfile,
     rcl_bindings::*,
-    NodeHandle, ENTITY_LIFECYCLE_MUTEX, IntoPrimitiveOptions,
+    IntoPrimitiveOptions, NodeHandle, ENTITY_LIFECYCLE_MUTEX,
 };
 
 mod loaned_message;
@@ -249,7 +249,10 @@ impl<'a, T: IntoPrimitiveOptions<'a>> From<T> for PublisherOptions<'a> {
         let options = value.into_primitive_options();
         let mut qos = QoSProfile::topics_default();
         options.apply(&mut qos);
-        Self { topic: options.name, qos }
+        Self {
+            topic: options.name,
+            qos,
+        }
     }
 }
 
@@ -294,9 +297,9 @@ mod tests {
             .node1
             .create_publisher::<msg::Empty>("graph_test_topic_1")?;
         let topic1 = node_1_empty_publisher.topic_name();
-        let node_1_basic_types_publisher = graph.node1.create_publisher::<msg::BasicTypes>(
-            "graph_test_topic_2"
-        )?;
+        let node_1_basic_types_publisher = graph
+            .node1
+            .create_publisher::<msg::BasicTypes>("graph_test_topic_2")?;
         let topic2 = node_1_basic_types_publisher.topic_name();
         let node_2_default_publisher = graph
             .node2

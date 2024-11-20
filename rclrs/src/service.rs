@@ -9,7 +9,7 @@ use rosidl_runtime_rs::Message;
 use crate::{
     error::{RclReturnCode, ToResult},
     rcl_bindings::*,
-    IntoPrimitiveOptions, MessageCow, NodeHandle, RclrsError, ENTITY_LIFECYCLE_MUTEX, QoSProfile,
+    IntoPrimitiveOptions, MessageCow, NodeHandle, QoSProfile, RclrsError, ENTITY_LIFECYCLE_MUTEX,
 };
 
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
@@ -199,7 +199,10 @@ impl<'a, T: IntoPrimitiveOptions<'a>> From<T> for ServiceOptions<'a> {
         let options = value.into_primitive_options();
         let mut qos = QoSProfile::services_default();
         options.apply(&mut qos);
-        Self { name: options.name, qos }
+        Self {
+            name: options.name,
+            qos,
+        }
     }
 }
 
