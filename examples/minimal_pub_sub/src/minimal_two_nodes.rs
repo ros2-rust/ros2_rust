@@ -29,7 +29,6 @@ impl MinimalSubscriber {
             .node
             .create_subscription::<std_msgs::msg::String, _>(
                 topic,
-                rclrs::QOS_PROFILE_DEFAULT,
                 move |msg: std_msgs::msg::String| {
                     minimal_subscriber_aux.callback(msg);
                 },

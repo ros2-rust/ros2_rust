@@ -1,5 +1,6 @@
 mod builder;
 mod graph;
+mod primitive_options;
 use std::{
     cmp::PartialEq,
     ffi::CStr,
@@ -11,12 +12,12 @@ use std::{
 
 use rosidl_runtime_rs::Message;
 
-pub use self::{builder::*, graph::*};
+pub use self::{builder::*, graph::*, primitive_options::*};
 use crate::{
     rcl_bindings::*, Client, ClientBase, Clock, Context, ContextHandle, GuardCondition,
     ParameterBuilder, ParameterInterface, ParameterVariant, Parameters, Publisher, QoSProfile,
     RclrsError, Service, ServiceBase, Subscription, SubscriptionBase, SubscriptionCallback,
-    TimeSource, ENTITY_LIFECYCLE_MUTEX,
+    SubscriptionOptions, TimeSource, ENTITY_LIFECYCLE_MUTEX,
 };
 
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
@@ -292,12 +293,48 @@ impl Node {
 
     /// Creates a [`Subscription`][1].
     ///
-    /// [1]: crate::Subscription
-    // TODO: make subscription's lifetime depend on node's lifetime
-    pub fn create_subscription<T, Args>(
+    ///
+    /// Pass in only the topic name for the `options` argument to use all default subscription options:
+    /// ```
+    /// # use rclrs::*;
+    /// # let context = Context::new([]).unwrap();
+    /// # let node = create_node(&context, "my_node").unwrap();
+    /// let subscription = node.create_subscription(
+    ///     "my_subscription",
+    ///     |_msg: test_msgs::msg::Empty| {
+    ///         println!("Received message!");
+    ///     },
+    /// );
+    /// ```
+    ///
+    /// Take advantage of [`IntoPrimitiveOptions`] to easily build up the
+    /// subscription options:
+    ///
+    /// ```
+    /// # use rclrs::*;
+    /// # let context = Context::new([]).unwrap();
+    /// # let node = create_node(&context, "my_node").unwrap();
+    /// let subscription = node.create_subscription(
+    ///     "my_subscription"
+    ///     .keep_last(100)
+    ///     .transient_local(),
+    ///     |_msg: test_msgs::msg::Empty| {
+    ///         println!("Received message!");
+    ///     },
+    /// );
+    ///
+    /// let reliable_subscription = node.create_subscription(
+    ///     "my_reliable_subscription"
+    ///     .reliable(),
+    ///     |_msg: test_msgs::msg::Empty| {
+    ///         println!("Received message!");
+    ///     },
+    /// );
+    /// ```
+    ///
+    pub fn create_subscription<'a, T, Args>(
         &self,
-        topic: &str,
-        qos: QoSProfile,
+        options: impl Into<SubscriptionOptions<'a>>,
         callback: impl SubscriptionCallback<T, Args>,
     ) -> Result<Arc<Subscription<T>>, RclrsError>
     where
@@ -305,8 +342,7 @@ impl Node {
     {
         let subscription = Arc::new(Subscription::<T>::new(
             Arc::clone(&self.handle),
-            topic,
-            qos,
+            options,
             callback,
         )?);
         { self.subscriptions_mtx.lock() }
@@ -461,8 +497,7 @@ pub(crate) unsafe fn call_string_getter_with_rcl_node(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::test_helpers::*;
+    use crate::{test_helpers::*, *};
 
     #[test]
     fn traits() {
@@ -472,25 +507,20 @@ mod tests {
 
     #[test]
     fn test_topic_names_and_types() -> Result<(), RclrsError> {
-        use crate::QOS_PROFILE_SYSTEM_DEFAULT;
         use test_msgs::msg;
 
         let graph = construct_test_graph("test_topics_graph")?;
 
         let _node_1_defaults_subscription = graph.node1.create_subscription::<msg::Defaults, _>(
             "graph_test_topic_3",
-            QOS_PROFILE_SYSTEM_DEFAULT,
             |_msg: msg::Defaults| {},
         )?;
-        let _node_2_empty_subscription = graph.node2.create_subscription::<msg::Empty, _>(
-            "graph_test_topic_1",
-            QOS_PROFILE_SYSTEM_DEFAULT,
-            |_msg: msg::Empty| {},
-        )?;
+        let _node_2_empty_subscription = graph
+            .node2
+            .create_subscription::<msg::Empty, _>("graph_test_topic_1", |_msg: msg::Empty| {})?;
         let _node_2_basic_types_subscription =
             graph.node2.create_subscription::<msg::BasicTypes, _>(
                 "graph_test_topic_2",
-                QOS_PROFILE_SYSTEM_DEFAULT,
                 |_msg: msg::BasicTypes| {},
             )?;
 

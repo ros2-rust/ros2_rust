@@ -1,4 +1,4 @@
-use rclrs::{create_node, Context, Node, RclrsError, Subscription, QOS_PROFILE_DEFAULT};
+use rclrs::{create_node, Context, Node, RclrsError, Subscription};
 use std::{
     env,
     sync::{Arc, Mutex},
@@ -19,7 +19,6 @@ impl SimpleSubscriptionNode {
         let _subscriber = node
             .create_subscription::<StringMsg, _>(
                 "publish_hello",
-                QOS_PROFILE_DEFAULT,
                 move |msg: StringMsg| {
                     *data_mut.lock().unwrap() = Some(msg);
                 },
