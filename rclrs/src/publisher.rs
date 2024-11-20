@@ -234,7 +234,7 @@ where
 /// `PublisherOptions` are used by [`Node::create_publisher`][1] to initialize
 /// a [`Publisher`].
 ///
-/// [1]: crate::NodeState::create_publisher
+/// [1]: crate::Node::create_publisher
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub struct PublisherOptions<'a> {

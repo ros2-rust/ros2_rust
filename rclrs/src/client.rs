@@ -284,7 +284,7 @@ where
 /// `ClientOptions` are used by [`Node::create_client`][1] to initialize a
 /// [`Client`] for a service.
 ///
-/// [1]: crate::NodeState::create_client
+/// [1]: crate::Node::create_client
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub struct ClientOptions<'a> {

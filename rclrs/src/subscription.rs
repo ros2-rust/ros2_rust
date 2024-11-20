@@ -263,8 +263,10 @@ where
     }
 }
 
-/// `SubscriptionOptions` are used by [`Node::create_subscription`] to initialize
+/// `SubscriptionOptions` are used by [`Node::create_subscription`][1] to initialize
 /// a [`Subscription`].
+///
+/// [1]: crate::Node::create_subscription
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub struct SubscriptionOptions<'a> {

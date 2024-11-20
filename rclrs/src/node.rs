@@ -199,7 +199,7 @@ impl Node {
         unsafe { call_string_getter_with_rcl_node(&rcl_node, getter) }
     }
 
-    /// Creates a [`Client`][1].
+    /// Creates a [`Client`].
     ///
     /// Pass in only the service name for the `options` argument to use all default client options:
     /// ```
@@ -230,8 +230,10 @@ impl Node {
     /// Any quality of service options that you explicitly specify will override
     /// the default service options. Any that you do not explicitly specify will
     /// remain the default service options. Note that clients are generally
-    /// expected to use [reliable][2], so it's best not to change the reliability
+    /// expected to use [reliable][1], so it's best not to change the reliability
     /// setting unless you know what you are doing.
+    ///
+    /// [1]: crate::QoSReliabilityPolicy::Reliable
     pub fn create_client<'a, T>(
         &self,
         options: impl Into<ClientOptions<'a>>,
@@ -389,7 +391,7 @@ impl Node {
         Ok(service)
     }
 
-    /// Creates a [`Subscription`][1].
+    /// Creates a [`Subscription`].
     ///
     ///
     /// Pass in only the topic name for the `options` argument to use all default subscription options:
