@@ -1,5 +1,5 @@
-mod node_options;
 mod graph;
+mod node_options;
 use std::{
     cmp::PartialEq,
     ffi::CStr,
@@ -13,10 +13,10 @@ use rosidl_runtime_rs::Message;
 
 pub use self::{graph::*, node_options::*};
 use crate::{
-    rcl_bindings::*, Client, ClientBase, Clock, ContextHandle, GuardCondition,
-    ParameterBuilder, ParameterInterface, ParameterVariant, Parameters, Publisher, QoSProfile,
-    RclrsError, Service, ServiceBase, Subscription, SubscriptionBase, SubscriptionCallback,
-    TimeSource, ENTITY_LIFECYCLE_MUTEX,
+    rcl_bindings::*, Client, ClientBase, Clock, ContextHandle, GuardCondition, ParameterBuilder,
+    ParameterInterface, ParameterVariant, Parameters, Publisher, QoSProfile, RclrsError, Service,
+    ServiceBase, Subscription, SubscriptionBase, SubscriptionCallback, TimeSource,
+    ENTITY_LIFECYCLE_MUTEX,
 };
 
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
@@ -213,7 +213,8 @@ impl Node {
         T: rosidl_runtime_rs::Service,
     {
         let client = Arc::new(Client::<T>::new(Arc::clone(&self.handle), topic)?);
-        { self.primitives.clients_mtx.lock().unwrap() }.push(Arc::downgrade(&client) as Weak<dyn ClientBase>);
+        { self.primitives.clients_mtx.lock().unwrap() }
+            .push(Arc::downgrade(&client) as Weak<dyn ClientBase>);
         Ok(client)
     }
 

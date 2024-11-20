@@ -6,7 +6,7 @@ use std::{
     vec::Vec,
 };
 
-use crate::{rcl_bindings::*, RclrsError, ToResult, Executor};
+use crate::{rcl_bindings::*, Executor, RclrsError, ToResult};
 
 /// This is locked whenever initializing or dropping any middleware entity
 /// because we have found issues in RCL and some RMW implementations that
@@ -74,8 +74,7 @@ impl Default for Context {
     fn default() -> Self {
         // SAFETY: It should always be valid to instantiate a context with no
         // arguments, no parameters, no options, etc.
-        Self::new([], InitOptions::default())
-        .expect("Failed to instantiate a default context")
+        Self::new([], InitOptions::default()).expect("Failed to instantiate a default context")
     }
 }
 

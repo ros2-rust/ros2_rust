@@ -482,8 +482,7 @@ mod tests {
             .map(|value: usize| if value != 99 { 99 } else { 98 })
             .unwrap_or(99);
 
-        let executor =
-            Context::new([], InitOptions::new().with_domain_id(Some(domain_id)))
+        let executor = Context::new([], InitOptions::new().with_domain_id(Some(domain_id)))
             .unwrap()
             .create_basic_executor();
         let node_name = "test_publisher_names_and_types";

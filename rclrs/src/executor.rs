@@ -1,6 +1,6 @@
 use crate::{
-    rcl_bindings::rcl_context_is_valid,
-    Node, RclrsError, WaitSet, ContextHandle, NodeOptions, WeakNode,
+    rcl_bindings::rcl_context_is_valid, ContextHandle, Node, NodeOptions, RclrsError, WaitSet,
+    WeakNode,
 };
 use std::{
     sync::{Arc, Mutex},
@@ -15,10 +15,7 @@ pub struct Executor {
 
 impl Executor {
     /// Create a [`Node`] that will run on this Executor.
-    pub fn create_node(
-        &self,
-        options: impl Into<NodeOptions>,
-    ) -> Result<Node, RclrsError> {
+    pub fn create_node(&self, options: impl Into<NodeOptions>) -> Result<Node, RclrsError> {
         let options: NodeOptions = options.into();
         let node = options.build(&self.context)?;
         self.nodes_mtx.lock().unwrap().push(node.downgrade());

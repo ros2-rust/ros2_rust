@@ -312,8 +312,8 @@ mod tests {
             },
             srv::rmw::*,
         },
-        Context, MandatoryParameter, Node, ParameterRange, ParameterValue, RclrsError,
-        ReadOnlyParameter, NodeOptions, Executor, SpinOptions, RclrsErrorFilter,
+        Context, Executor, MandatoryParameter, Node, NodeOptions, ParameterRange, ParameterValue,
+        RclrsError, RclrsErrorFilter, ReadOnlyParameter, SpinOptions,
     };
     use rosidl_runtime_rs::{seq, Sequence};
     use std::{
@@ -346,11 +346,9 @@ mod tests {
 
     fn construct_test_nodes(ns: &str) -> (Executor, TestNode, Node) {
         let executor = Context::default().create_basic_executor();
-        let node = executor.create_node(
-            NodeOptions::new("node")
-            .namespace(ns)
-        )
-        .unwrap();
+        let node = executor
+            .create_node(NodeOptions::new("node").namespace(ns))
+            .unwrap();
         let range = ParameterRange {
             lower: Some(0),
             upper: Some(100),
@@ -380,11 +378,9 @@ mod tests {
             .mandatory()
             .unwrap();
 
-        let client = executor.create_node(
-            NodeOptions::new("client")
-            .namespace(ns)
-        )
-        .unwrap();
+        let client = executor
+            .create_node(NodeOptions::new("client").namespace(ns))
+            .unwrap();
 
         (
             executor,
@@ -447,12 +443,10 @@ mod tests {
         let inner_done = done.clone();
         let rclrs_spin = tokio::task::spawn(async move {
             try_until_timeout(move || {
-                executor.spin(
-                    SpinOptions::spin_once()
-                    .timeout(Duration::ZERO)
-                )
-                .timeout_ok()
-                .unwrap();
+                executor
+                    .spin(SpinOptions::spin_once().timeout(Duration::ZERO))
+                    .timeout_ok()
+                    .unwrap();
 
                 *inner_done.read().unwrap()
             })
@@ -594,12 +588,10 @@ mod tests {
         let rclrs_spin = tokio::task::spawn(async move {
             try_until_timeout(move || {
                 println!(" -- spin");
-                executor.spin(
-                    SpinOptions::spin_once()
-                    .timeout(Duration::ZERO)
-                )
-                .timeout_ok()
-                .unwrap();
+                executor
+                    .spin(SpinOptions::spin_once().timeout(Duration::ZERO))
+                    .timeout_ok()
+                    .unwrap();
 
                 *inner_done.read().unwrap()
             })
@@ -657,8 +649,8 @@ mod tests {
                 println!("checking client");
                 *client_finished.read().unwrap()
             })
-                .await
-                .unwrap();
+            .await
+            .unwrap();
 
             // Set a mix of existing, non existing, dynamic and out of range parameters
             let bool_parameter = RmwParameter {
@@ -807,8 +799,8 @@ mod tests {
                 println!("checking client finished");
                 *client_finished.read().unwrap()
             })
-                .await
-                .unwrap();
+            .await
+            .unwrap();
             *done.write().unwrap() = true;
         });
 
@@ -838,12 +830,10 @@ mod tests {
         let inner_done = done.clone();
         let rclrs_spin = tokio::task::spawn(async move {
             try_until_timeout(move || {
-                executor.spin(
-                    SpinOptions::spin_once()
-                    .timeout(Duration::ZERO)
-                )
-                .timeout_ok()
-                .unwrap();
+                executor
+                    .spin(SpinOptions::spin_once().timeout(Duration::ZERO))
+                    .timeout_ok()
+                    .unwrap();
 
                 *inner_done.read().unwrap()
             })
