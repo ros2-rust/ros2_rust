@@ -18,5 +18,7 @@ fn main() -> Result<(), Error> {
         },
     )?;
 
-    executor.spin(rclrs::SpinOptions::default()).map_err(|err| err.into())
+    executor
+        .spin(rclrs::SpinOptions::default())
+        .map_err(|err| err.into())
 }

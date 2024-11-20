@@ -28,5 +28,7 @@ fn main() -> Result<(), Error> {
     std::thread::sleep(std::time::Duration::from_millis(500));
 
     println!("Waiting for response");
-    executor.spin(rclrs::SpinOptions::default()).map_err(|err| err.into())
+    executor
+        .spin(rclrs::SpinOptions::default())
+        .map_err(|err| err.into())
 }

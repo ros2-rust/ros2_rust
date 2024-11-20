@@ -25,10 +25,7 @@ impl SimpleSubscriptionNode {
                 },
             )
             .unwrap();
-        Ok(Self {
-            _subscriber,
-            data,
-        })
+        Ok(Self { _subscriber, data })
     }
     fn data_callback(&self) -> Result<(), RclrsError> {
         if let Some(data) = self.data.lock().unwrap().as_ref() {

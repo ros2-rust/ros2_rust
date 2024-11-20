@@ -12,7 +12,11 @@ struct MinimalSubscriber {
 }
 
 impl MinimalSubscriber {
-    pub fn new(executor: &rclrs::Executor, name: &str, topic: &str) -> Result<Arc<Self>, rclrs::RclrsError> {
+    pub fn new(
+        executor: &rclrs::Executor,
+        name: &str,
+        topic: &str,
+    ) -> Result<Arc<Self>, rclrs::RclrsError> {
         let node = executor.create_node(name)?;
         let minimal_subscriber = Arc::new(MinimalSubscriber {
             num_messages: 0.into(),
@@ -49,8 +53,10 @@ fn main() -> Result<(), Error> {
     let mut executor = rclrs::Context::default_from_env()?.create_basic_executor();
     let publisher_node = executor.create_node("minimal_publisher")?;
 
-    let _subscriber_node_one = MinimalSubscriber::new(&executor, "minimal_subscriber_one", "topic")?;
-    let _subscriber_node_two = MinimalSubscriber::new(&executor, "minimal_subscriber_two", "topic")?;
+    let _subscriber_node_one =
+        MinimalSubscriber::new(&executor, "minimal_subscriber_one", "topic")?;
+    let _subscriber_node_two =
+        MinimalSubscriber::new(&executor, "minimal_subscriber_two", "topic")?;
 
     let publisher = publisher_node
         .create_publisher::<std_msgs::msg::String>("topic", rclrs::QOS_PROFILE_DEFAULT)?;
@@ -67,5 +73,7 @@ fn main() -> Result<(), Error> {
         }
     });
 
-    executor.spin(rclrs::SpinOptions::default()).map_err(|err| err.into())
+    executor
+        .spin(rclrs::SpinOptions::default())
+        .map_err(|err| err.into())
 }
