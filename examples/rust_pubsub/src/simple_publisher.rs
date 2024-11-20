@@ -2,7 +2,7 @@ use rclrs::{create_node, Context, Node, Publisher, RclrsError, QOS_PROFILE_DEFAU
 use std::{sync::Arc, thread, time::Duration};
 use std_msgs::msg::String as StringMsg;
 struct SimplePublisherNode {
-    node: Arc<Node>,
+    node: Node,
     _publisher: Arc<Publisher<StringMsg>>,
 }
 impl SimplePublisherNode {

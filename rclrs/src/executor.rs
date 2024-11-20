@@ -1,4 +1,6 @@
-use crate::{rcl_bindings::rcl_context_is_valid, Node, RclReturnCode, RclrsError, WaitSet};
+use crate::{
+    rcl_bindings::rcl_context_is_valid, Node, NodeState, RclReturnCode, RclrsError, WaitSet,
+};
 use std::{
     sync::{Arc, Mutex, Weak},
     time::Duration,
@@ -6,7 +8,7 @@ use std::{
 
 /// Single-threaded executor implementation.
 pub struct SingleThreadedExecutor {
-    nodes_mtx: Mutex<Vec<Weak<Node>>>,
+    nodes_mtx: Mutex<Vec<Weak<NodeState>>>,
 }
 
 impl Default for SingleThreadedExecutor {
@@ -24,13 +26,13 @@ impl SingleThreadedExecutor {
     }
 
     /// Add a node to the executor.
-    pub fn add_node(&self, node: &Arc<Node>) -> Result<(), RclrsError> {
+    pub fn add_node(&self, node: &Node) -> Result<(), RclrsError> {
         { self.nodes_mtx.lock().unwrap() }.push(Arc::downgrade(node));
         Ok(())
     }
 
     /// Remove a node from the executor.
-    pub fn remove_node(&self, node: Arc<Node>) -> Result<(), RclrsError> {
+    pub fn remove_node(&self, node: Node) -> Result<(), RclrsError> {
         { self.nodes_mtx.lock().unwrap() }
             .retain(|n| !n.upgrade().map(|n| Arc::ptr_eq(&n, &node)).unwrap_or(false));
         Ok(())

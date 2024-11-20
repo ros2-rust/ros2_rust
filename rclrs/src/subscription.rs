@@ -76,7 +76,7 @@ pub trait SubscriptionBase: Send + Sync {
 ///
 /// [1]: crate::spin_once
 /// [2]: crate::spin
-/// [3]: crate::Node::create_subscription
+/// [3]: crate::NodeState::create_subscription
 /// [4]: crate::Node
 pub struct Subscription<T>
 where

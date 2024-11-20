@@ -1,7 +1,7 @@
 use crate::{
     clock::{Clock, ClockSource, ClockType},
     vendor::rosgraph_msgs::msg::Clock as ClockMsg,
-    Node, QoSProfile, ReadOnlyParameter, Subscription, QOS_PROFILE_CLOCK,
+    Node, NodeState, QoSProfile, ReadOnlyParameter, Subscription, QOS_PROFILE_CLOCK,
 };
 use std::sync::{Arc, Mutex, RwLock, Weak};
 
@@ -9,7 +9,7 @@ use std::sync::{Arc, Mutex, RwLock, Weak};
 /// If the node's `use_sim_time` parameter is set to `true`, the `TimeSource` will subscribe
 /// to the `/clock` topic and drive the attached clock
 pub(crate) struct TimeSource {
-    node: Mutex<Weak<Node>>,
+    node: Mutex<Weak<NodeState>>,
     clock: RwLock<Clock>,
     clock_source: Arc<Mutex<Option<ClockSource>>>,
     requested_clock_type: ClockType,
@@ -85,7 +85,7 @@ impl TimeSource {
 
     /// Attaches the given node to to the `TimeSource`, using its interface to read the
     /// `use_sim_time` parameter and create the clock subscription.
-    pub(crate) fn attach_node(&self, node: &Arc<Node>) {
+    pub(crate) fn attach_node(&self, node: &Node) {
         // TODO(luca) Make this parameter editable and register a parameter callback
         // that calls set_ros_time(bool) once parameter callbacks are implemented.
         let param = node

@@ -10,7 +10,7 @@ use anyhow::{Error, Result};
 
 struct MinimalSubscriber {
     num_messages: AtomicU32,
-    node: Arc<rclrs::Node>,
+    node: rclrs::Node,
     subscription: Mutex<Option<Arc<rclrs::Subscription<std_msgs::msg::String>>>>,
 }
 

@@ -7,7 +7,7 @@ use std::{
 };
 use std_msgs::msg::String as StringMsg;
 pub struct SimpleSubscriptionNode {
-    node: Arc<Node>,
+    node: Node,
     _subscriber: Arc<Subscription<StringMsg>>,
     data: Arc<Mutex<Option<StringMsg>>>,
 }

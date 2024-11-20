@@ -319,7 +319,7 @@ mod tests {
     use std::sync::{Arc, RwLock};
 
     struct TestNode {
-        node: Arc<Node>,
+        node: Node,
         bool_param: MandatoryParameter<bool>,
         _ns_param: MandatoryParameter<i64>,
         _read_only_param: ReadOnlyParameter<f64>,
@@ -341,7 +341,7 @@ mod tests {
         Ok(())
     }
 
-    fn construct_test_nodes(context: &Context, ns: &str) -> (TestNode, Arc<Node>) {
+    fn construct_test_nodes(context: &Context, ns: &str) -> (TestNode, Node) {
         let node = NodeBuilder::new(context, "node")
             .namespace(ns)
             .build()

@@ -64,7 +64,7 @@ type ServiceCallback<Request, Response> =
 /// The only available way to instantiate services is via [`Node::create_service()`][1], this is to
 /// ensure that [`Node`][2]s can track all the services that have been created.
 ///
-/// [1]: crate::Node::create_service
+/// [1]: crate::NodeState::create_service
 /// [2]: crate::Node
 pub struct Service<T>
 where

@@ -48,7 +48,7 @@ unsafe impl Send for rcl_node_t {}
 /// In that sense, the parameters to the node creation functions are only the _default_ namespace and
 /// name.
 /// See also the [official tutorial][1] on the command line arguments for ROS nodes, and the
-/// [`Node::namespace()`] and [`Node::name()`] functions for examples.
+/// [`NodeState::namespace()`] and [`NodeState::name()`] functions for examples.
 ///
 /// ## Rules for valid names
 /// The rules for valid node names and node namespaces are explained in
@@ -58,7 +58,18 @@ unsafe impl Send for rcl_node_t {}
 /// [2]: https://docs.ros.org/en/rolling/How-To-Guides/Node-arguments.html
 /// [3]: crate::NodeBuilder::new
 /// [4]: crate::NodeBuilder::namespace
-pub struct Node {
+pub type Node = Arc<NodeState>;
+
+/// The inner state of a [`Node`].
+///
+/// This is public so that you can choose to put it inside a [`Weak`] if you
+/// want to be able to refer to a [`Node`] in a non-owning way. It is generally
+/// recommended to manage the [`NodeState`] inside of an [`Arc`], and [`Node`]
+/// recommended to manage the `NodeState` inside of an [`Arc`], and [`Node`]
+/// is provided as convenience alias for that.
+///
+/// The public API of the [`Node`] type is implemented via `NodeState`.
+pub struct NodeState {
     pub(crate) clients_mtx: Mutex<Vec<Weak<dyn ClientBase>>>,
     pub(crate) guard_conditions_mtx: Mutex<Vec<Weak<GuardCondition>>>,
     pub(crate) services_mtx: Mutex<Vec<Weak<dyn ServiceBase>>>,
@@ -89,15 +100,15 @@ impl Drop for NodeHandle {
     }
 }
 
-impl Eq for Node {}
+impl Eq for NodeState {}
 
-impl PartialEq for Node {
+impl PartialEq for NodeState {
     fn eq(&self, other: &Self) -> bool {
         Arc::ptr_eq(&self.handle, &other.handle)
     }
 }
 
-impl fmt::Debug for Node {
+impl fmt::Debug for NodeState {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         f.debug_struct("Node")
             .field("fully_qualified_name", &self.fully_qualified_name())
@@ -105,12 +116,12 @@ impl fmt::Debug for Node {
     }
 }
 
-impl Node {
+impl NodeState {
     /// Creates a new node in the empty namespace.
     ///
     /// See [`NodeBuilder::new()`] for documentation.
     #[allow(clippy::new_ret_no_self)]
-    pub fn new(context: &Context, node_name: &str) -> Result<Arc<Node>, RclrsError> {
+    pub fn new(context: &Context, node_name: &str) -> Result<Node, RclrsError> {
         Self::builder(context, node_name).build()
     }
 
@@ -171,7 +182,7 @@ impl Node {
     /// Returns the fully qualified name of the node.
     ///
     /// The fully qualified name of the node is the node namespace combined with the node name.
-    /// It is subject to the remappings shown in [`Node::name()`] and [`Node::namespace()`].
+    /// It is subject to the remappings shown in [`NodeState::name()`] and [`NodeState::namespace()`].
     ///
     /// # Example
     /// ```
@@ -431,9 +442,9 @@ impl Node {
     ///
     /// # Example
     /// ```
-    /// # use rclrs::{Context, Node, RclrsError};
+    /// # use rclrs::{Context, NodeState, RclrsError};
     /// let context = Context::new([])?;
-    /// let node = Node::builder(&context, "my_node").build()?;
+    /// let node = NodeState::builder(&context, "my_node").build()?;
     /// assert_eq!(node.name(), "my_node");
     /// # Ok::<(), RclrsError>(())
     /// ```

@@ -30,7 +30,7 @@ mod rcl_bindings;
 #[cfg(feature = "dyn_msg")]
 pub mod dynamic_message;
 
-use std::{sync::Arc, time::Duration};
+use std::time::Duration;
 
 pub use arguments::*;
 pub use client::*;
@@ -59,14 +59,14 @@ pub use wait::*;
 /// This can usually be ignored.
 ///
 /// [1]: crate::RclReturnCode
-pub fn spin_once(node: Arc<Node>, timeout: Option<Duration>) -> Result<(), RclrsError> {
+pub fn spin_once(node: Node, timeout: Option<Duration>) -> Result<(), RclrsError> {
     let executor = SingleThreadedExecutor::new();
     executor.add_node(&node)?;
     executor.spin_once(timeout)
 }
 
 /// Convenience function for calling [`spin_once`] in a loop.
-pub fn spin(node: Arc<Node>) -> Result<(), RclrsError> {
+pub fn spin(node: Node) -> Result<(), RclrsError> {
     let executor = SingleThreadedExecutor::new();
     executor.add_node(&node)?;
     executor.spin()
@@ -77,7 +77,7 @@ pub fn spin(node: Arc<Node>) -> Result<(), RclrsError> {
 /// Convenience function equivalent to [`Node::new`][1].
 /// Please see that function's documentation.
 ///
-/// [1]: crate::Node::new
+/// [1]: crate::NodeState::new
 ///
 /// # Example
 /// ```
@@ -87,17 +87,17 @@ pub fn spin(node: Arc<Node>) -> Result<(), RclrsError> {
 /// assert!(node.is_ok());
 /// # Ok::<(), RclrsError>(())
 /// ```
-pub fn create_node(context: &Context, node_name: &str) -> Result<Arc<Node>, RclrsError> {
-    Node::new(context, node_name)
+pub fn create_node(context: &Context, node_name: &str) -> Result<Node, RclrsError> {
+    NodeState::new(context, node_name)
 }
 
 /// Creates a [`NodeBuilder`].
 ///
-/// Convenience function equivalent to [`NodeBuilder::new()`][1] and [`Node::builder()`][2].
+/// Convenience function equivalent to [`NodeBuilder::new()`][1] and [`NodeState::builder()`][2].
 /// Please see that function's documentation.
 ///
 /// [1]: crate::NodeBuilder::new
-/// [2]: crate::Node::builder
+/// [2]: crate::NodeState::builder
 ///
 /// # Example
 /// ```
@@ -109,5 +109,5 @@ pub fn create_node(context: &Context, node_name: &str) -> Result<Arc<Node>, Rclr
 /// # Ok::<(), RclrsError>(())
 /// ```
 pub fn create_node_builder(context: &Context, node_name: &str) -> NodeBuilder {
-    Node::builder(context, node_name)
+    NodeState::builder(context, node_name)
 }
