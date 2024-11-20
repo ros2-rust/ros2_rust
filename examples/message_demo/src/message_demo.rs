@@ -141,8 +141,10 @@ fn demonstrate_pubsub() -> Result<(), Error> {
     let context = rclrs::Context::new(env::args())?;
     let node = rclrs::create_node(&context, "message_demo")?;
 
-    let idiomatic_publisher = node.create_publisher::<rclrs_example_msgs::msg::VariousTypes>("topic")?;
-    let direct_publisher = node.create_publisher::<rclrs_example_msgs::msg::rmw::VariousTypes>("topic")?;
+    let idiomatic_publisher =
+        node.create_publisher::<rclrs_example_msgs::msg::VariousTypes>("topic")?;
+    let direct_publisher =
+        node.create_publisher::<rclrs_example_msgs::msg::rmw::VariousTypes>("topic")?;
 
     let _idiomatic_subscription = node
         .create_subscription::<rclrs_example_msgs::msg::VariousTypes, _>(
