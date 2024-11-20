@@ -64,12 +64,25 @@ type RequestId = i64;
 
 /// Main class responsible for sending requests to a ROS service.
 ///
-/// The only available way to instantiate clients is via [`Node::create_client`][1], this is to
-/// ensure that [`Node`][2]s can track all the clients that have been created.
+/// Create a client using [`Node::create_client`][1].
+///
+/// Receiving responses requires the node's executor to [spin][2].
 ///
 /// [1]: crate::NodeState::create_client
-/// [2]: crate::Node
-pub struct Client<T>
+/// [2]: crate::spin
+pub type Client<T> = Arc<ClientState<T>>;
+
+/// The inner state of a [`Client`].
+///
+/// This is public so that you can choose to create a [`Weak`][1] reference to it
+/// if you want to be able to refer to a [`Client`] in a non-owning way. It is
+/// generally recommended to manage the `ClientState` inside of an [`Arc`],
+/// and [`Client`] is provided as a convenience alias for that.
+///
+/// The public API of the [`Client`] type is implemented via `ClientState`.
+///
+/// [1]: std::sync::Weak
+pub struct ClientState<T>
 where
     T: rosidl_runtime_rs::Service,
 {
@@ -78,7 +91,7 @@ where
     futures: Arc<Mutex<HashMap<RequestId, oneshot::Sender<T::Response>>>>,
 }
 
-impl<T> Client<T>
+impl<T> ClientState<T>
 where
     T: rosidl_runtime_rs::Service,
 {
@@ -275,7 +288,7 @@ where
     }
 }
 
-impl<T> ClientBase for Client<T>
+impl<T> ClientBase for ClientState<T>
 where
     T: rosidl_runtime_rs::Service,
 {

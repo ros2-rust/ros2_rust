@@ -13,10 +13,10 @@ use rosidl_runtime_rs::Message;
 
 pub use self::{builder::*, graph::*};
 use crate::{
-    rcl_bindings::*, Client, ClientBase, Clock, Context, ContextHandle, GuardCondition,
-    ParameterBuilder, ParameterInterface, ParameterVariant, Parameters, Publisher, QoSProfile,
-    RclrsError, Service, ServiceBase, Subscription, SubscriptionBase, SubscriptionCallback,
-    TimeSource, ENTITY_LIFECYCLE_MUTEX,
+    rcl_bindings::*, Client, ClientBase, ClientState, Clock, Context, ContextHandle,
+    GuardCondition, ParameterBuilder, ParameterInterface, ParameterVariant, Parameters, Publisher,
+    PublisherState, QoSProfile, RclrsError, Service, ServiceBase, ServiceState, Subscription,
+    SubscriptionBase, SubscriptionCallback, SubscriptionState, TimeSource, ENTITY_LIFECYCLE_MUTEX,
 };
 
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
@@ -212,11 +212,11 @@ impl NodeState {
     ///
     /// [1]: crate::Client
     // TODO: make client's lifetime depend on node's lifetime
-    pub fn create_client<T>(&self, topic: &str) -> Result<Arc<Client<T>>, RclrsError>
+    pub fn create_client<T>(&self, topic: &str) -> Result<Client<T>, RclrsError>
     where
         T: rosidl_runtime_rs::Service,
     {
-        let client = Arc::new(Client::<T>::new(Arc::clone(&self.handle), topic)?);
+        let client = Arc::new(ClientState::<T>::new(Arc::clone(&self.handle), topic)?);
         { self.clients_mtx.lock().unwrap() }.push(Arc::downgrade(&client) as Weak<dyn ClientBase>);
         Ok(client)
     }
@@ -270,11 +270,15 @@ impl NodeState {
         &self,
         topic: &str,
         qos: QoSProfile,
-    ) -> Result<Arc<Publisher<T>>, RclrsError>
+    ) -> Result<Publisher<T>, RclrsError>
     where
         T: Message,
     {
-        let publisher = Arc::new(Publisher::<T>::new(Arc::clone(&self.handle), topic, qos)?);
+        let publisher = Arc::new(PublisherState::<T>::new(
+            Arc::clone(&self.handle),
+            topic,
+            qos,
+        )?);
         Ok(publisher)
     }
 
@@ -282,16 +286,12 @@ impl NodeState {
     ///
     /// [1]: crate::Service
     // TODO: make service's lifetime depend on node's lifetime
-    pub fn create_service<T, F>(
-        &self,
-        topic: &str,
-        callback: F,
-    ) -> Result<Arc<Service<T>>, RclrsError>
+    pub fn create_service<T, F>(&self, topic: &str, callback: F) -> Result<Service<T>, RclrsError>
     where
         T: rosidl_runtime_rs::Service,
         F: Fn(&rmw_request_id_t, T::Request) -> T::Response + 'static + Send,
     {
-        let service = Arc::new(Service::<T>::new(
+        let service = Arc::new(ServiceState::<T>::new(
             Arc::clone(&self.handle),
             topic,
             callback,
@@ -310,11 +310,11 @@ impl NodeState {
         topic: &str,
         qos: QoSProfile,
         callback: impl SubscriptionCallback<T, Args>,
-    ) -> Result<Arc<Subscription<T>>, RclrsError>
+    ) -> Result<Subscription<T>, RclrsError>
     where
         T: Message,
     {
-        let subscription = Arc::new(Subscription::<T>::new(
+        let subscription = Arc::new(SubscriptionState::<T>::new(
             Arc::clone(&self.handle),
             topic,
             qos,

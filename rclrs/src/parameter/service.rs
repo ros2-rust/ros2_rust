@@ -16,17 +16,17 @@ use crate::{
 // What is used is the Weak that is stored in the node, and is upgraded when spinning.
 pub struct ParameterService {
     #[allow(dead_code)]
-    describe_parameters_service: Arc<Service<DescribeParameters>>,
+    describe_parameters_service: Service<DescribeParameters>,
     #[allow(dead_code)]
-    get_parameter_types_service: Arc<Service<GetParameterTypes>>,
+    get_parameter_types_service: Service<GetParameterTypes>,
     #[allow(dead_code)]
-    get_parameters_service: Arc<Service<GetParameters>>,
+    get_parameters_service: Service<GetParameters>,
     #[allow(dead_code)]
-    list_parameters_service: Arc<Service<ListParameters>>,
+    list_parameters_service: Service<ListParameters>,
     #[allow(dead_code)]
-    set_parameters_service: Arc<Service<SetParameters>>,
+    set_parameters_service: Service<SetParameters>,
     #[allow(dead_code)]
-    set_parameters_atomically_service: Arc<Service<SetParametersAtomically>>,
+    set_parameters_atomically_service: Service<SetParametersAtomically>,
 }
 
 fn describe_parameters(

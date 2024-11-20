@@ -59,14 +59,33 @@ pub trait ServiceBase: Send + Sync {
 type ServiceCallback<Request, Response> =
     Box<dyn Fn(&rmw_request_id_t, Request) -> Response + 'static + Send>;
 
-/// Main class responsible for responding to requests sent by ROS clients.
+/// Provide a service that can respond to requests sent by ROS service clients.
 ///
-/// The only available way to instantiate services is via [`Node::create_service()`][1], this is to
-/// ensure that [`Node`][2]s can track all the services that have been created.
+/// Create a service using [`Node::create_service`][1].
+///
+/// ROS only supports having one service provider for any given fully-qualified
+/// service name. "Fully-qualified" means the namespace is also taken into account
+/// for uniqueness. A clone of a `Service` will refer to the same service provider
+/// instance as the original. The underlying instance is tied to [`ServiceState`]
+/// which implements the [`Service`] API.
+///
+/// Responding to requests requires the node's executor to [spin][2].
 ///
 /// [1]: crate::NodeState::create_service
-/// [2]: crate::Node
-pub struct Service<T>
+/// [2]: crate::spin
+pub type Service<T> = Arc<ServiceState<T>>;
+
+/// The inner state of a [`Service`].
+///
+/// This is public so that you can choose to create a [`Weak`][1] reference to it
+/// if you want to be able to refer to a [`Service`] in a non-owning way. It is
+/// generally recommended to manage the `ServiceState` inside of an [`Arc`],
+/// and [`Service`] is provided as a convenience alias for that.
+///
+/// The public API of the [`Service`] type is implemented via `ServiceState`.
+///
+/// [1]: std::sync::Weak
+pub struct ServiceState<T>
 where
     T: rosidl_runtime_rs::Service,
 {
@@ -75,7 +94,7 @@ where
     pub callback: Mutex<ServiceCallback<T::Request, T::Response>>,
 }
 
-impl<T> Service<T>
+impl<T> ServiceState<T>
 where
     T: rosidl_runtime_rs::Service,
 {
@@ -181,7 +200,7 @@ where
     }
 }
 
-impl<T> ServiceBase for Service<T>
+impl<T> ServiceBase for ServiceState<T>
 where
     T: rosidl_runtime_rs::Service,
 {
