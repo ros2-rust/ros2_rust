@@ -3,7 +3,7 @@ use std::{sync::Arc, thread, time::Duration};
 use std_msgs::msg::String as StringMsg;
 struct SimplePublisherNode {
     node: Node,
-    _publisher: Arc<Publisher<StringMsg>>,
+    _publisher: Publisher<StringMsg>,
 }
 impl SimplePublisherNode {
     fn new(context: &Context) -> Result<Self, RclrsError> {
