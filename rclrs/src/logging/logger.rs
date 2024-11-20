@@ -1,4 +1,4 @@
-use std::{borrow::Borrow, ffi::CString};
+use std::{borrow::Borrow, ffi::CString, sync::Arc};
 
 use crate::{
     rcl_bindings::{rcutils_logging_set_default_logger_level, rcutils_logging_set_logger_level},
@@ -21,26 +21,30 @@ use crate::{
 ///
 /// [1]: crate::log
 /// [2]: crate::Node::logger
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Logger {
-    name: Box<str>,
-    c_name: CString,
+    name: Arc<str>,
+    c_name: Arc<CString>,
 }
 
 impl Logger {
     /// Create a new logger with the given name.
     pub fn new(name: impl Borrow<str>) -> Result<Logger, RclrsError> {
-        let name: Box<str> = name.borrow().into();
-        let c_name = match CString::new(name.clone().into_string()) {
+        let name: Arc<str> = name.borrow().into();
+        let c_name = match CString::new((*name).to_owned()) {
             Ok(c_name) => c_name,
             Err(err) => {
                 return Err(RclrsError::StringContainsNul {
-                    s: name.into_string(),
+                    s: (*name).to_owned(),
                     err,
                 });
             }
         };
 
-        Ok(Self { name, c_name })
+        Ok(Self {
+            name,
+            c_name: Arc::new(c_name),
+        })
     }
 
     /// Create a new logger which will be a child of this logger.
@@ -97,5 +101,11 @@ impl<'a> ToLogParams<'a> for &'a Logger {
 impl Default for Logger {
     fn default() -> Self {
         Self::new("").unwrap()
+    }
+}
+
+impl std::hash::Hash for Logger {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.name.hash(state);
     }
 }

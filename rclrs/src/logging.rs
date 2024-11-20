@@ -81,7 +81,7 @@ macro_rules! log {
         // Note: that issue appears to be specific to jetbrains intellisense however,
         // observed same/similar behaviour with rust-analyzer/rustc
         use std::sync::{Once, OnceLock, Mutex};
-        use std::time::SystemTime;
+        use std::time::{SystemTime, Instant};
 
         // We wrap the functional body of the macro inside of a closure which
         // we immediately trigger. This allows us to use `return` to exit the
@@ -128,19 +128,64 @@ macro_rules! log {
             // of that interval.
             let throttle = params.get_throttle();
             if throttle > std::time::Duration::ZERO {
-                static LAST_LOG_TIME: OnceLock<Mutex<SystemTime>> = OnceLock::new();
-                let last_log_time = LAST_LOG_TIME.get_or_init(|| {
-                    Mutex::new(std::time::SystemTime::now())
-                });
+                match params.get_throttle_clock() {
+                    $crate::ThrottleClock::SteadyTime => {
+                        static LAST_LOG_STEADY_TIME: OnceLock<Mutex<Instant>> = OnceLock::new();
+                        let last_log_time = LAST_LOG_STEADY_TIME.get_or_init(|| {
+                            Mutex::new(Instant::now())
+                        });
 
-                if !first_time {
-                    let now = std::time::SystemTime::now();
-                    let mut previous = last_log_time.lock().unwrap();
-                    if now >= *previous + throttle {
-                        *previous = now;
-                    } else {
-                        // We are still inside the throttle interval, so just exit here.
-                        return;
+                        if !first_time {
+                            let now = Instant::now();
+                            let mut previous = last_log_time.lock().unwrap();
+                            if now >= *previous + throttle {
+                                *previous = now;
+                            } else {
+                                // We are still inside the throttle interval, so just exit here.
+                                return;
+                            }
+                        }
+                    }
+                    $crate::ThrottleClock::SystemTime => {
+                        static LAST_LOG_SYSTEM_TIME: OnceLock<Mutex<SystemTime>> = OnceLock::new();
+                        let last_log_time = LAST_LOG_SYSTEM_TIME.get_or_init(|| {
+                            Mutex::new(SystemTime::now())
+                        });
+
+                        if !first_time {
+                            let now = SystemTime::now();
+                            let mut previous = last_log_time.lock().unwrap();
+                            if now >= *previous + throttle {
+                                *previous = now;
+                            } else {
+                                // We are still inside the throttle interval, so just exit here.
+                                return;
+                            }
+                        }
+                    }
+                    $crate::ThrottleClock::Clock(clock) => {
+                        static LAST_LOG_CLOCK_TIME: OnceLock<Mutex<$crate::Time>> = OnceLock::new();
+                        let last_log_time = LAST_LOG_CLOCK_TIME.get_or_init(|| {
+                            Mutex::new(clock.now())
+                        });
+
+                        if !first_time {
+                            let now = clock.now();
+                            let mut previous = last_log_time.lock().unwrap();
+
+                            let new_interval = !now.compare_with(
+                                &(previous.clone() + throttle),
+                                |now, interval| now < interval,
+                            )
+                            .is_some_and(|eval| eval);
+
+                            if new_interval {
+                                *previous = now;
+                            } else {
+                                // We are still inside the throttle interval, so just exit here.
+                                return;
+                            }
+                        }
                     }
                 }
             }
@@ -592,8 +637,26 @@ mod tests {
         assert_eq!(last_severity(), LogSeverity::Error);
         assert_eq!(count_message("error for custom logger"), 2);
 
-        reset_logging_output_handler();
+        // Test whether throttling works correctly with a ROS clock
+        let (clock, source) = Clock::with_source();
+        source.set_ros_time_override(0);
 
+        for i in 0..15 {
+            log!(
+                "logger"
+                    .throttle(Duration::from_nanos(10))
+                    .throttle_clock(ThrottleClock::Clock(&clock)),
+                "custom clock throttled message",
+            );
+            source.set_ros_time_override(i);
+        }
+
+        // The throttle interval is 10ns and the loop shifted the time from 0ns
+        // to 14ns, triggering the log macro once per nanosecond. That means we
+        // should see two messages in the log.
+        assert_eq!(count_message("custom clock throttled message"), 2);
+
+        reset_logging_output_handler();
         Ok(())
     }
 

@@ -82,7 +82,7 @@ pub struct Node {
 pub(crate) struct NodeHandle {
     pub(crate) rcl_node: Mutex<rcl_node_t>,
     pub(crate) context_handle: Arc<ContextHandle>,
-    /// In the humbe distro, rcl is sensitive to the address of the rcl_node_t
+    /// In the humble distro, rcl is sensitive to the address of the rcl_node_t
     /// object being moved (this issue seems to be gone in jazzy), so we need
     /// to initialize the rcl_node_t in-place inside this struct. In the event
     /// that the initialization fails (e.g. it was created with an invalid name)

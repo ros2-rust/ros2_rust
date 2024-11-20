@@ -1,4 +1,4 @@
-use crate::rcl_bindings::RCUTILS_LOG_SEVERITY;
+use crate::{rcl_bindings::RCUTILS_LOG_SEVERITY, Clock};
 use std::{borrow::Borrow, ffi::CString, time::Duration};
 
 /// These parameters determine the behavior of an instance of logging.
@@ -16,6 +16,8 @@ pub struct LogParams<'a> {
     /// e.g. if `log!(logger.throttle(Duration::from_secs(1)), "message");` is called every 10ms, it will
     /// nevertheless only be published once per second.
     throttle: Duration,
+    /// Specify a clock to use for throttling. By default this will be [`ThrottleClock::SteadyTime`].
+    throttle_clock: ThrottleClock<'a>,
     /// The log message will only published if the specified expression evaluates to true
     only_if: bool,
 }
@@ -28,6 +30,7 @@ impl<'a> LogParams<'a> {
             severity: Default::default(),
             occurs: Default::default(),
             throttle: Duration::new(0, 0),
+            throttle_clock: Default::default(),
             only_if: true,
         }
     }
@@ -50,6 +53,11 @@ impl<'a> LogParams<'a> {
     /// Get the throttle interval duration
     pub fn get_throttle(&self) -> Duration {
         self.throttle
+    }
+
+    /// Get the throttle clock
+    pub fn get_throttle_clock(&self) -> ThrottleClock<'a> {
+        self.throttle_clock
     }
 
     /// Get the arbitrary filter set by the user
@@ -95,6 +103,13 @@ pub trait ToLogParams<'a>: Sized {
     fn throttle(self, throttle: Duration) -> LogParams<'a> {
         let mut params = self.to_log_params();
         params.throttle = throttle;
+        params
+    }
+
+    /// Set the clock that will be used to control [throttling][Self::throttle].
+    fn throttle_clock(self, clock: ThrottleClock<'a>) -> LogParams<'a> {
+        let mut params = self.to_log_params();
+        params.throttle_clock = clock;
         params
     }
 
@@ -237,6 +252,18 @@ pub enum LogOccurrence {
     /// The log message will not be published on the first occurrence, but will be published on
     /// each subsequent occurrence (assuming all other conditions are met)
     SkipFirst,
+}
+
+/// This parameter can specify a type of clock for a logger to use when throttling.
+#[derive(Debug, Default, Clone, Copy)]
+pub enum ThrottleClock<'a> {
+    /// Use [`std::time::Instant`] as a clock.
+    #[default]
+    SteadyTime,
+    /// Use [`std::time::SystemTime`] as a clock.
+    SystemTime,
+    /// Use some [`Clock`] as a clock.
+    Clock(&'a Clock),
 }
 
 impl Default for LogOccurrence {
