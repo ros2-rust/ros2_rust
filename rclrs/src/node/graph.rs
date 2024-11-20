@@ -3,7 +3,7 @@ use std::{
     ffi::{CStr, CString},
 };
 
-use crate::{rcl_bindings::*, Node, RclrsError, ToResult};
+use crate::{rcl_bindings::*, NodeState, RclrsError, ToResult};
 
 impl Drop for rmw_names_and_types_t {
     fn drop(&mut self) {
@@ -57,7 +57,7 @@ pub struct TopicEndpointInfo {
     pub topic_type: String,
 }
 
-impl Node {
+impl NodeState {
     /// Returns a list of topic names and types for publishers associated with a node.
     pub fn get_publisher_names_and_types_by_node(
         &self,
@@ -486,7 +486,7 @@ mod tests {
             Context::new_with_options([], InitOptions::new().with_domain_id(Some(domain_id)))
                 .unwrap();
         let node_name = "test_publisher_names_and_types";
-        let node = Node::new(&context, node_name).unwrap();
+        let node = NodeState::new(&context, node_name).unwrap();
         // Test that the graph has no publishers
         let names_and_topics = node
             .get_publisher_names_and_types_by_node(node_name, "")
@@ -545,7 +545,7 @@ mod tests {
     fn test_node_names() {
         let context = Context::new([]).unwrap();
         let node_name = "test_node_names";
-        let node = Node::new(&context, node_name).unwrap();
+        let node = NodeState::new(&context, node_name).unwrap();
 
         let names_and_namespaces = node.get_node_names().unwrap();
 
@@ -561,7 +561,7 @@ mod tests {
     fn test_node_names_with_enclaves() {
         let context = Context::new([]).unwrap();
         let node_name = "test_node_names_with_enclaves";
-        let node = Node::new(&context, node_name).unwrap();
+        let node = NodeState::new(&context, node_name).unwrap();
 
         let names_and_namespaces = node.get_node_names_with_enclaves().unwrap();
 

@@ -4,14 +4,15 @@ use std::{
 };
 
 use crate::{
-    rcl_bindings::*, ClockType, Context, ContextHandle, Node, NodeHandle, ParameterInterface,
-    QoSProfile, RclrsError, TimeSource, ToResult, ENTITY_LIFECYCLE_MUTEX, QOS_PROFILE_CLOCK,
+    rcl_bindings::*, ClockType, Context, ContextHandle, Node, NodeHandle, NodeState,
+    ParameterInterface, QoSProfile, RclrsError, TimeSource, ToResult, ENTITY_LIFECYCLE_MUTEX,
+    QOS_PROFILE_CLOCK,
 };
 
 /// A builder for creating a [`Node`][1].
 ///
 /// The builder pattern allows selectively setting some fields, and leaving all others at their default values.
-/// This struct instance can be created via [`Node::builder()`][2].
+/// This struct instance can be created via [`NodeState::builder()`][2].
 ///
 /// The default values for optional fields are:
 /// - `namespace: "/"`
@@ -24,17 +25,17 @@ use crate::{
 ///
 /// # Example
 /// ```
-/// # use rclrs::{Context, NodeBuilder, Node, RclrsError};
+/// # use rclrs::{Context, NodeBuilder, NodeState, RclrsError};
 /// let context = Context::new([])?;
 /// // Building a node in a single expression
 /// let node = NodeBuilder::new(&context, "foo_node").namespace("/bar").build()?;
 /// assert_eq!(node.name(), "foo_node");
 /// assert_eq!(node.namespace(), "/bar");
-/// // Building a node via Node::builder()
-/// let node = Node::builder(&context, "bar_node").build()?;
+/// // Building a node via NodeState::builder()
+/// let node = NodeState::builder(&context, "bar_node").build()?;
 /// assert_eq!(node.name(), "bar_node");
 /// // Building a node step-by-step
-/// let mut builder = Node::builder(&context, "goose");
+/// let mut builder = NodeState::builder(&context, "goose");
 /// builder = builder.namespace("/duck/duck");
 /// let node = builder.build()?;
 /// assert_eq!(node.fully_qualified_name(), "/duck/duck/goose");
@@ -42,7 +43,7 @@ use crate::{
 /// ```
 ///
 /// [1]: crate::Node
-/// [2]: crate::Node::builder
+/// [2]: crate::NodeState::builder
 pub struct NodeBuilder {
     context: Arc<ContextHandle>,
     name: String,
@@ -126,14 +127,14 @@ impl NodeBuilder {
     ///
     /// # Example
     /// ```
-    /// # use rclrs::{Context, Node, RclrsError, RclReturnCode};
+    /// # use rclrs::{Context, NodeState, RclrsError, RclReturnCode};
     /// let context = Context::new([])?;
     /// // This is a valid namespace
-    /// let builder_ok_ns = Node::builder(&context, "my_node").namespace("/some/nested/namespace");
+    /// let builder_ok_ns = NodeState::builder(&context, "my_node").namespace("/some/nested/namespace");
     /// assert!(builder_ok_ns.build().is_ok());
     /// // This is an invalid namespace
     /// assert!(matches!(
-    ///     Node::builder(&context, "my_node")
+    ///     NodeState::builder(&context, "my_node")
     ///         .namespace("/10_percent_luck/20_percent_skill")
     ///         .build()
     ///         .unwrap_err(),
@@ -141,7 +142,7 @@ impl NodeBuilder {
     /// ));
     /// // A missing forward slash at the beginning is automatically added
     /// assert_eq!(
-    ///     Node::builder(&context, "my_node")
+    ///     NodeState::builder(&context, "my_node")
     ///         .namespace("foo")
     ///         .build()?
     ///         .namespace(),
@@ -262,7 +263,7 @@ impl NodeBuilder {
     /// For example usage, see the [`NodeBuilder`][1] docs.
     ///
     /// [1]: crate::NodeBuilder
-    pub fn build(&self) -> Result<Arc<Node>, RclrsError> {
+    pub fn build(&self) -> Result<Node, RclrsError> {
         let node_name =
             CString::new(self.name.as_str()).map_err(|err| RclrsError::StringContainsNul {
                 err,
@@ -308,7 +309,7 @@ impl NodeBuilder {
                 &rcl_context.global_arguments,
             )?
         };
-        let node = Arc::new(Node {
+        let node = Arc::new(NodeState {
             handle,
             clients_mtx: Mutex::new(vec![]),
             guard_conditions_mtx: Mutex::new(vec![]),
