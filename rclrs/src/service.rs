@@ -190,19 +190,26 @@ where
 pub struct ServiceOptions<'a> {
     /// The name for the service
     pub name: &'a str,
-    /// The quality of service for the service.
+    /// The quality of service profile for the service.
     pub qos: QoSProfile,
+}
+
+impl<'a> ServiceOptions<'a> {
+    /// Initialize a new [`ServiceOptions`] with default settings.
+    pub fn new(name: &'a str) -> Self {
+        Self {
+            name,
+            qos: QoSProfile::services_default(),
+        }
+    }
 }
 
 impl<'a, T: IntoPrimitiveOptions<'a>> From<T> for ServiceOptions<'a> {
     fn from(value: T) -> Self {
-        let options = value.into_primitive_options();
-        let mut qos = QoSProfile::services_default();
-        options.apply(&mut qos);
-        Self {
-            name: options.name,
-            qos,
-        }
+        let primitive = value.into_primitive_options();
+        let mut options = Self::new(primitive.name);
+        primitive.apply(&mut options.qos);
+        options
     }
 }
 

@@ -294,15 +294,22 @@ pub struct ClientOptions<'a> {
     pub qos: QoSProfile,
 }
 
+impl<'a> ClientOptions<'a> {
+    /// Initialize a new [`ClientOptions`] with default settings.
+    pub fn new(service_name: &'a str) -> Self {
+        Self {
+            service_name,
+            qos: QoSProfile::services_default(),
+        }
+    }
+}
+
 impl<'a, T: IntoPrimitiveOptions<'a>> From<T> for ClientOptions<'a> {
     fn from(value: T) -> Self {
-        let options = value.into_primitive_options();
-        let mut qos = QoSProfile::services_default();
-        options.apply(&mut qos);
-        Self {
-            service_name: options.name,
-            qos,
-        }
+        let primitive = value.into_primitive_options();
+        let mut options = Self::new(primitive.name);
+        primitive.apply(&mut options.qos);
+        options
     }
 }
 
