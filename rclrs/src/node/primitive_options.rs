@@ -171,6 +171,15 @@ pub trait IntoPrimitiveOptions<'a>: Sized {
     fn liveliness_lease_duration(self, duration: Duration) -> PrimitiveOptions<'a> {
         self.liveliness_lease(QoSDuration::Custom(duration))
     }
+
+    /// [Avoid the ROS namespace conventions][1] for the primitive.
+    ///
+    /// [1]: QoSProfile::avoid_ros_namespace_conventions
+    fn avoid_ros_namespace_conventions(self) -> PrimitiveOptions<'a> {
+        let mut options = self.into_primitive_options();
+        options.avoid_ros_namespace_conventions = Some(true);
+        options
+    }
 }
 
 impl<'a> IntoPrimitiveOptions<'a> for PrimitiveOptions<'a> {
