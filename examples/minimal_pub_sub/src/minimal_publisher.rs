@@ -7,8 +7,7 @@ fn main() -> Result<(), Error> {
 
     let node = rclrs::create_node(&context, "minimal_publisher")?;
 
-    let publisher =
-        node.create_publisher::<std_msgs::msg::String>("topic", rclrs::QOS_PROFILE_DEFAULT)?;
+    let publisher = node.create_publisher::<std_msgs::msg::String>("topic")?;
 
     let mut message = std_msgs::msg::String::default();
 
