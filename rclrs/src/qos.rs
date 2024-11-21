@@ -244,7 +244,7 @@ impl QoSProfile {
     }
 
     /// Sets the QoS profile deadline to the specified `Duration`.
-    pub fn deadline(mut self, deadline: Duration) -> Self {
+    pub fn deadline_duration(mut self, deadline: Duration) -> Self {
         self.deadline = QoSDuration::Custom(deadline);
         self
     }
@@ -256,7 +256,7 @@ impl QoSProfile {
     }
 
     /// Sets the QoS profile lifespan to the specified `Duration`.
-    pub fn lifespan(mut self, lifespan: Duration) -> Self {
+    pub fn lifespan_duration(mut self, lifespan: Duration) -> Self {
         self.lifespan = QoSDuration::Custom(lifespan);
         self
     }

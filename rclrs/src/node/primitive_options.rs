@@ -37,7 +37,7 @@ pub struct PrimitiveOptions<'a> {
     pub lifespan: Option<QoSDuration>,
     /// Override the default [`QoSProfile::liveliness`] for the primitive.
     pub liveliness: Option<QoSLivelinessPolicy>,
-    /// Override the default [`QoSProfile::liveliness_lease_duration`] for the primitive.
+    /// Override the default [`QoSProfile::liveliness_lease`] for the primitive.
     pub liveliness_lease: Option<QoSDuration>,
     /// Override the default [`QoSProfile::avoid_ros_namespace_conventions`] for the primitive.
     pub avoid_ros_namespace_conventions: Option<bool>,
