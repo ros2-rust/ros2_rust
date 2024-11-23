@@ -574,7 +574,6 @@ mod tests {
             .create_client::<SetParametersAtomically>("/get_set/node/set_parameters_atomically")?;
 
         try_until_timeout(|| {
-            println!(" >> testing services");
             get_client.service_is_ready().unwrap()
                 && set_client.service_is_ready().unwrap()
                 && set_atomically_client.service_is_ready().unwrap()
@@ -587,7 +586,6 @@ mod tests {
         let inner_done = done.clone();
         let rclrs_spin = tokio::task::spawn(async move {
             try_until_timeout(move || {
-                println!(" -- spin");
                 executor
                     .spin(SpinOptions::spin_once().timeout(Duration::ZERO))
                     .timeout_ok()
@@ -646,7 +644,6 @@ mod tests {
                 )
                 .unwrap();
             try_until_timeout(|| {
-                println!("checking client");
                 *client_finished.read().unwrap()
             })
             .await
@@ -796,7 +793,6 @@ mod tests {
                 )
                 .unwrap();
             try_until_timeout(|| {
-                println!("checking client finished");
                 *client_finished.read().unwrap()
             })
             .await
