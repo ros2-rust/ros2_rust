@@ -156,11 +156,11 @@ impl Node {
     ///
     /// # Example
     /// ```
-    /// # use rclrs::{Context, InitOptions, RclrsError, NodeOptions};
+    /// # use rclrs::{Context, InitOptions, RclrsError, IntoNodeOptions};
     /// // Without remapping
     /// let executor = Context::default().create_basic_executor();
     /// let node = executor.create_node(
-    ///     NodeOptions::new("my_node")
+    ///     "my_node"
     ///     .namespace("/my/namespace")
     /// )?;
     /// assert_eq!(node.namespace(), "/my/namespace");
@@ -182,10 +182,10 @@ impl Node {
     ///
     /// # Example
     /// ```
-    /// # use rclrs::{Context, RclrsError, NodeOptions};
+    /// # use rclrs::{Context, RclrsError, IntoNodeOptions};
     /// let executor = Context::default().create_basic_executor();
     /// let node = executor.create_node(
-    ///     NodeOptions::new("my_node")
+    ///     "my_node"
     ///     .namespace("/my/namespace")
     /// )?;
     /// assert_eq!(node.fully_qualified_name(), "/my/namespace/my_node");

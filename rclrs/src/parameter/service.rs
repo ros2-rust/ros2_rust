@@ -312,8 +312,8 @@ mod tests {
             },
             srv::rmw::*,
         },
-        Context, Executor, MandatoryParameter, Node, NodeOptions, ParameterRange, ParameterValue,
-        RclrsError, RclrsErrorFilter, ReadOnlyParameter, SpinOptions,
+        Context, Executor, IntoNodeOptions, MandatoryParameter, Node, NodeOptions, ParameterRange,
+        ParameterValue, RclrsError, RclrsErrorFilter, ReadOnlyParameter, SpinOptions,
     };
     use rosidl_runtime_rs::{seq, Sequence};
     use std::{

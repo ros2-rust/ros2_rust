@@ -1,5 +1,5 @@
 use crate::{
-    rcl_bindings::rcl_context_is_valid, ContextHandle, Node, NodeOptions, RclrsError, WaitSet,
+    rcl_bindings::rcl_context_is_valid, ContextHandle, IntoNodeOptions, Node, RclrsError, WaitSet,
     WeakNode,
 };
 use std::{
@@ -15,8 +15,11 @@ pub struct Executor {
 
 impl Executor {
     /// Create a [`Node`] that will run on this Executor.
-    pub fn create_node(&self, options: impl Into<NodeOptions>) -> Result<Node, RclrsError> {
-        let options: NodeOptions = options.into();
+    pub fn create_node<'a>(
+        &'a self,
+        options: impl IntoNodeOptions<'a>,
+    ) -> Result<Node, RclrsError> {
+        let options = options.into_node_options();
         let node = options.build(&self.context)?;
         self.nodes_mtx.lock().unwrap().push(node.downgrade());
         Ok(node)
