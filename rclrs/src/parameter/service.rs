@@ -643,11 +643,9 @@ mod tests {
                     },
                 )
                 .unwrap();
-            try_until_timeout(|| {
-                *client_finished.read().unwrap()
-            })
-            .await
-            .unwrap();
+            try_until_timeout(|| *client_finished.read().unwrap())
+                .await
+                .unwrap();
 
             // Set a mix of existing, non existing, dynamic and out of range parameters
             let bool_parameter = RmwParameter {
@@ -792,11 +790,9 @@ mod tests {
                     },
                 )
                 .unwrap();
-            try_until_timeout(|| {
-                *client_finished.read().unwrap()
-            })
-            .await
-            .unwrap();
+            try_until_timeout(|| *client_finished.read().unwrap())
+                .await
+                .unwrap();
             *done.write().unwrap() = true;
         });
 
