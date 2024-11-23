@@ -1,5 +1,5 @@
-mod builder;
 mod graph;
+mod node_options;
 use std::{
     cmp::PartialEq,
     ffi::CStr,
@@ -11,12 +11,12 @@ use std::{
 
 use rosidl_runtime_rs::Message;
 
-pub use self::{builder::*, graph::*};
+pub use self::{graph::*, node_options::*};
 use crate::{
-    rcl_bindings::*, Client, ClientBase, Clock, Context, ContextHandle, GuardCondition,
-    ParameterBuilder, ParameterInterface, ParameterVariant, Parameters, Publisher, QoSProfile,
-    RclrsError, Service, ServiceBase, Subscription, SubscriptionBase, SubscriptionCallback,
-    TimeSource, ENTITY_LIFECYCLE_MUTEX,
+    rcl_bindings::*, Client, ClientBase, Clock, ContextHandle, GuardCondition, ParameterBuilder,
+    ParameterInterface, ParameterVariant, Parameters, Publisher, QoSProfile, RclrsError, Service,
+    ServiceBase, Subscription, SubscriptionBase, SubscriptionCallback, TimeSource,
+    ENTITY_LIFECYCLE_MUTEX,
 };
 
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
@@ -28,9 +28,13 @@ unsafe impl Send for rcl_node_t {}
 /// Nodes are a core concept in ROS 2. Refer to the official ["Understanding ROS 2 nodes"][1]
 /// tutorial for an introduction.
 ///
-/// Ownership of the node is shared with all [`Publisher`]s and [`Subscription`]s created from it.
-/// That means that even after the node itself is dropped, it will continue to exist and be
-/// displayed by e.g. `ros2 topic` as long as its publishers and subscriptions are not dropped.
+/// Ownership of the node is shared with all the primitives such as [`Publisher`]s and [`Subscription`]s
+/// that are created from it. That means that even after the `Node` itself is dropped, it will continue
+/// to exist and be displayed by e.g. `ros2 topic` as long as any one of its primitives is not dropped.
+///
+/// # Creating
+/// Use [`Executor::create_node`][7] to create a new node. Pass in [`NodeOptions`] to set all the different
+/// options for node creation, or just pass in a string for the node's name if the default options are okay.
 ///
 /// # Naming
 /// A node has a *name* and a *namespace*.
@@ -48,23 +52,22 @@ unsafe impl Send for rcl_node_t {}
 /// In that sense, the parameters to the node creation functions are only the _default_ namespace and
 /// name.
 /// See also the [official tutorial][1] on the command line arguments for ROS nodes, and the
-/// [`Node::namespace()`] and [`Node::name()`] functions for examples.
+/// [`Node::namespace()`][3] and [`Node::name()`][4] functions for examples.
 ///
 /// ## Rules for valid names
 /// The rules for valid node names and node namespaces are explained in
-/// [`NodeBuilder::new()`][3] and [`NodeBuilder::namespace()`][4].
+/// [`NodeOptions::new()`][5] and [`NodeOptions::namespace()`][6].
 ///
 /// [1]: https://docs.ros.org/en/rolling/Tutorials/Understanding-ROS2-Nodes.html
 /// [2]: https://docs.ros.org/en/rolling/How-To-Guides/Node-arguments.html
-/// [3]: crate::NodeBuilder::new
-/// [4]: crate::NodeBuilder::namespace
+/// [3]: Node::namespace
+/// [4]: Node::name
+/// [5]: crate::NodeOptions::new
+/// [6]: crate::NodeOptions::namespace
+/// [7]: crate::Executor::create_node
+#[derive(Clone)]
 pub struct Node {
-    pub(crate) clients_mtx: Mutex<Vec<Weak<dyn ClientBase>>>,
-    pub(crate) guard_conditions_mtx: Mutex<Vec<Weak<GuardCondition>>>,
-    pub(crate) services_mtx: Mutex<Vec<Weak<dyn ServiceBase>>>,
-    pub(crate) subscriptions_mtx: Mutex<Vec<Weak<dyn SubscriptionBase>>>,
-    time_source: TimeSource,
-    parameter: ParameterInterface,
+    pub(crate) primitives: Arc<NodePrimitives>,
     pub(crate) handle: Arc<NodeHandle>,
 }
 
@@ -76,6 +79,18 @@ pub struct Node {
 pub(crate) struct NodeHandle {
     pub(crate) rcl_node: Mutex<rcl_node_t>,
     pub(crate) context_handle: Arc<ContextHandle>,
+}
+
+/// This struct manages the primitives that are associated with a [`Node`].
+/// Storing them here allows the inner state of the `Node` to be shared across
+/// clones.
+pub(crate) struct NodePrimitives {
+    pub(crate) clients_mtx: Mutex<Vec<Weak<dyn ClientBase>>>,
+    pub(crate) guard_conditions_mtx: Mutex<Vec<Weak<GuardCondition>>>,
+    pub(crate) services_mtx: Mutex<Vec<Weak<dyn ServiceBase>>>,
+    pub(crate) subscriptions_mtx: Mutex<Vec<Weak<dyn SubscriptionBase>>>,
+    time_source: TimeSource,
+    parameter: ParameterInterface,
 }
 
 impl Drop for NodeHandle {
@@ -106,17 +121,9 @@ impl fmt::Debug for Node {
 }
 
 impl Node {
-    /// Creates a new node in the empty namespace.
-    ///
-    /// See [`NodeBuilder::new()`] for documentation.
-    #[allow(clippy::new_ret_no_self)]
-    pub fn new(context: &Context, node_name: &str) -> Result<Arc<Node>, RclrsError> {
-        Self::builder(context, node_name).build()
-    }
-
     /// Returns the clock associated with this node.
     pub fn get_clock(&self) -> Clock {
-        self.time_source.get_clock()
+        self.primitives.time_source.get_clock()
     }
 
     /// Returns the name of the node.
@@ -126,15 +133,15 @@ impl Node {
     ///
     /// # Example
     /// ```
-    /// # use rclrs::{Context, RclrsError};
+    /// # use rclrs::{Context, InitOptions, RclrsError};
     /// // Without remapping
-    /// let context = Context::new([])?;
-    /// let node = rclrs::create_node(&context, "my_node")?;
+    /// let executor = Context::default().create_basic_executor();
+    /// let node = executor.create_node("my_node")?;
     /// assert_eq!(node.name(), "my_node");
     /// // With remapping
     /// let remapping = ["--ros-args", "-r", "__node:=your_node"].map(String::from);
-    /// let context_r = Context::new(remapping)?;
-    /// let node_r = rclrs::create_node(&context_r, "my_node")?;
+    /// let executor_r = Context::new(remapping, InitOptions::default())?.create_basic_executor();
+    /// let node_r = executor_r.create_node("my_node")?;
     /// assert_eq!(node_r.name(), "your_node");
     /// # Ok::<(), RclrsError>(())
     /// ```
@@ -149,18 +156,18 @@ impl Node {
     ///
     /// # Example
     /// ```
-    /// # use rclrs::{Context, RclrsError};
+    /// # use rclrs::{Context, InitOptions, RclrsError, IntoNodeOptions};
     /// // Without remapping
-    /// let context = Context::new([])?;
-    /// let node =
-    ///   rclrs::create_node_builder(&context, "my_node")
-    ///   .namespace("/my/namespace")
-    ///   .build()?;
+    /// let executor = Context::default().create_basic_executor();
+    /// let node = executor.create_node(
+    ///     "my_node"
+    ///     .namespace("/my/namespace")
+    /// )?;
     /// assert_eq!(node.namespace(), "/my/namespace");
     /// // With remapping
     /// let remapping = ["--ros-args", "-r", "__ns:=/your_namespace"].map(String::from);
-    /// let context_r = Context::new(remapping)?;
-    /// let node_r = rclrs::create_node(&context_r, "my_node")?;
+    /// let executor_r = Context::new(remapping, InitOptions::default())?.create_basic_executor();
+    /// let node_r = executor_r.create_node("my_node")?;
     /// assert_eq!(node_r.namespace(), "/your_namespace");
     /// # Ok::<(), RclrsError>(())
     /// ```
@@ -175,12 +182,12 @@ impl Node {
     ///
     /// # Example
     /// ```
-    /// # use rclrs::{Context, RclrsError};
-    /// let context = Context::new([])?;
-    /// let node =
-    ///   rclrs::create_node_builder(&context, "my_node")
-    ///   .namespace("/my/namespace")
-    ///   .build()?;
+    /// # use rclrs::{Context, RclrsError, IntoNodeOptions};
+    /// let executor = Context::default().create_basic_executor();
+    /// let node = executor.create_node(
+    ///     "my_node"
+    ///     .namespace("/my/namespace")
+    /// )?;
     /// assert_eq!(node.fully_qualified_name(), "/my/namespace/my_node");
     /// # Ok::<(), RclrsError>(())
     /// ```
@@ -206,25 +213,25 @@ impl Node {
         T: rosidl_runtime_rs::Service,
     {
         let client = Arc::new(Client::<T>::new(Arc::clone(&self.handle), topic)?);
-        { self.clients_mtx.lock().unwrap() }.push(Arc::downgrade(&client) as Weak<dyn ClientBase>);
+        { self.primitives.clients_mtx.lock().unwrap() }
+            .push(Arc::downgrade(&client) as Weak<dyn ClientBase>);
         Ok(client)
     }
 
     /// Creates a [`GuardCondition`][1] with no callback.
     ///
     /// A weak pointer to the `GuardCondition` is stored within this node.
-    /// When this node is added to a wait set (e.g. when calling `spin_once`[2]
-    /// with this node as an argument), the guard condition can be used to
-    /// interrupt the wait.
+    /// When this node is added to a wait set (e.g. when its executor is [spinning][2]),
+    /// the guard condition can be used to interrupt the wait.
     ///
     /// [1]: crate::GuardCondition
-    /// [2]: crate::spin_once
+    /// [2]: crate::Executor::spin
     pub fn create_guard_condition(&self) -> Arc<GuardCondition> {
         let guard_condition = Arc::new(GuardCondition::new_with_context_handle(
             Arc::clone(&self.handle.context_handle),
             None,
         ));
-        { self.guard_conditions_mtx.lock().unwrap() }
+        { self.primitives.guard_conditions_mtx.lock().unwrap() }
             .push(Arc::downgrade(&guard_condition) as Weak<GuardCondition>);
         guard_condition
     }
@@ -232,12 +239,11 @@ impl Node {
     /// Creates a [`GuardCondition`][1] with a callback.
     ///
     /// A weak pointer to the `GuardCondition` is stored within this node.
-    /// When this node is added to a wait set (e.g. when calling `spin_once`[2]
-    /// with this node as an argument), the guard condition can be used to
-    /// interrupt the wait.
+    /// When this node is added to a wait set (e.g. when its executor is [spinning][2]),
+    /// the guard condition can be used to interrupt the wait.
     ///
     /// [1]: crate::GuardCondition
-    /// [2]: crate::spin_once
+    /// [2]: crate::Executor::spin
     pub fn create_guard_condition_with_callback<F>(&mut self, callback: F) -> Arc<GuardCondition>
     where
         F: Fn() + Send + Sync + 'static,
@@ -246,7 +252,7 @@ impl Node {
             Arc::clone(&self.handle.context_handle),
             Some(Box::new(callback) as Box<dyn Fn() + Send + Sync>),
         ));
-        { self.guard_conditions_mtx.lock().unwrap() }
+        { self.primitives.guard_conditions_mtx.lock().unwrap() }
             .push(Arc::downgrade(&guard_condition) as Weak<GuardCondition>);
         guard_condition
     }
@@ -254,7 +260,6 @@ impl Node {
     /// Creates a [`Publisher`][1].
     ///
     /// [1]: crate::Publisher
-    // TODO: make publisher's lifetime depend on node's lifetime
     pub fn create_publisher<T>(
         &self,
         topic: &str,
@@ -270,7 +275,6 @@ impl Node {
     /// Creates a [`Service`][1].
     ///
     /// [1]: crate::Service
-    // TODO: make service's lifetime depend on node's lifetime
     pub fn create_service<T, F>(
         &self,
         topic: &str,
@@ -285,7 +289,7 @@ impl Node {
             topic,
             callback,
         )?);
-        { self.services_mtx.lock().unwrap() }
+        { self.primitives.services_mtx.lock().unwrap() }
             .push(Arc::downgrade(&service) as Weak<dyn ServiceBase>);
         Ok(service)
     }
@@ -293,7 +297,6 @@ impl Node {
     /// Creates a [`Subscription`][1].
     ///
     /// [1]: crate::Subscription
-    // TODO: make subscription's lifetime depend on node's lifetime
     pub fn create_subscription<T, Args>(
         &self,
         topic: &str,
@@ -309,7 +312,7 @@ impl Node {
             qos,
             callback,
         )?);
-        { self.subscriptions_mtx.lock() }
+        { self.primitives.subscriptions_mtx.lock() }
             .unwrap()
             .push(Arc::downgrade(&subscription) as Weak<dyn SubscriptionBase>);
         Ok(subscription)
@@ -317,28 +320,28 @@ impl Node {
 
     /// Returns the subscriptions that have not been dropped yet.
     pub(crate) fn live_subscriptions(&self) -> Vec<Arc<dyn SubscriptionBase>> {
-        { self.subscriptions_mtx.lock().unwrap() }
+        { self.primitives.subscriptions_mtx.lock().unwrap() }
             .iter()
             .filter_map(Weak::upgrade)
             .collect()
     }
 
     pub(crate) fn live_clients(&self) -> Vec<Arc<dyn ClientBase>> {
-        { self.clients_mtx.lock().unwrap() }
+        { self.primitives.clients_mtx.lock().unwrap() }
             .iter()
             .filter_map(Weak::upgrade)
             .collect()
     }
 
     pub(crate) fn live_guard_conditions(&self) -> Vec<Arc<GuardCondition>> {
-        { self.guard_conditions_mtx.lock().unwrap() }
+        { self.primitives.guard_conditions_mtx.lock().unwrap() }
             .iter()
             .filter_map(Weak::upgrade)
             .collect()
     }
 
     pub(crate) fn live_services(&self) -> Vec<Arc<dyn ServiceBase>> {
-        { self.services_mtx.lock().unwrap() }
+        { self.primitives.services_mtx.lock().unwrap() }
             .iter()
             .filter_map(Weak::upgrade)
             .collect()
@@ -347,24 +350,24 @@ impl Node {
     /// Returns the ROS domain ID that the node is using.
     ///
     /// The domain ID controls which nodes can send messages to each other, see the [ROS 2 concept article][1].
-    /// It can be set through the `ROS_DOMAIN_ID` environment variable.
+    /// It can be set through the `ROS_DOMAIN_ID` environment variable or by
+    /// passing custom [`NodeOptions`] into [`Context::new`][2] or [`Context::from_env`][3].
     ///
     /// [1]: https://docs.ros.org/en/rolling/Concepts/About-Domain-ID.html
+    /// [2]: crate::Context::new
+    /// [3]: crate::Context::from_env
     ///
     /// # Example
     /// ```
     /// # use rclrs::{Context, RclrsError};
     /// // Set default ROS domain ID to 10 here
     /// std::env::set_var("ROS_DOMAIN_ID", "10");
-    /// let context = Context::new([])?;
-    /// let node = rclrs::create_node(&context, "domain_id_node")?;
+    /// let executor = Context::default().create_basic_executor();
+    /// let node = executor.create_node("domain_id_node")?;
     /// let domain_id = node.domain_id();
     /// assert_eq!(domain_id, 10);
     /// # Ok::<(), RclrsError>(())
     /// ```
-    // TODO: If node option is supported,
-    // add description about this function is for getting actual domain_id
-    // and about override of domain_id via node option
     pub fn domain_id(&self) -> usize {
         let rcl_node = self.handle.rcl_node.lock().unwrap();
         let mut domain_id: usize = 0;
@@ -385,8 +388,8 @@ impl Node {
     /// # Example
     /// ```
     /// # use rclrs::{Context, ParameterRange, RclrsError};
-    /// let context = Context::new([])?;
-    /// let node = rclrs::create_node(&context, "domain_id_node")?;
+    /// let executor = Context::default().create_basic_executor();
+    /// let node = executor.create_node("domain_id_node")?;
     /// // Set it to a range of 0-100, with a step of 2
     /// let range = ParameterRange {
     ///     lower: Some(0),
@@ -409,36 +412,50 @@ impl Node {
         &'a self,
         name: impl Into<Arc<str>>,
     ) -> ParameterBuilder<'a, T> {
-        self.parameter.declare(name.into())
+        self.primitives.parameter.declare(name.into())
     }
 
     /// Enables usage of undeclared parameters for this node.
     ///
     /// Returns a [`Parameters`] struct that can be used to get and set all parameters.
     pub fn use_undeclared_parameters(&self) -> Parameters {
-        self.parameter.allow_undeclared();
+        self.primitives.parameter.allow_undeclared();
         Parameters {
-            interface: &self.parameter,
+            interface: &self.primitives.parameter,
         }
     }
 
-    /// Creates a [`NodeBuilder`][1] with the given name.
-    ///
-    /// Convenience function equivalent to [`NodeBuilder::new()`][2].
-    ///
-    /// [1]: crate::NodeBuilder
-    /// [2]: crate::NodeBuilder::new
-    ///
-    /// # Example
-    /// ```
-    /// # use rclrs::{Context, Node, RclrsError};
-    /// let context = Context::new([])?;
-    /// let node = Node::builder(&context, "my_node").build()?;
-    /// assert_eq!(node.name(), "my_node");
-    /// # Ok::<(), RclrsError>(())
-    /// ```
-    pub fn builder(context: &Context, node_name: &str) -> NodeBuilder {
-        NodeBuilder::new(context, node_name)
+    /// Get a `WeakNode` for this `Node`.
+    pub fn downgrade(&self) -> WeakNode {
+        WeakNode {
+            primitives: Arc::downgrade(&self.primitives),
+            handle: Arc::downgrade(&self.handle),
+        }
+    }
+}
+
+/// This gives weak access to a [`Node`].
+///
+/// Holding onto this will not keep the `Node` alive, but calling [`Self::upgrade`]
+/// on it will give you access to the `Node` if it is still alive.
+#[derive(Default)]
+pub struct WeakNode {
+    primitives: Weak<NodePrimitives>,
+    handle: Weak<NodeHandle>,
+}
+
+impl WeakNode {
+    /// Create a `WeakNode` that is not associated with any `Node`.
+    pub fn new() -> WeakNode {
+        Self::default()
+    }
+
+    /// Get the [`Node`] that this `WeakNode` refers to if it's available.
+    pub fn upgrade(&self) -> Option<Node> {
+        Some(Node {
+            primitives: self.primitives.upgrade()?,
+            handle: self.handle.upgrade()?,
+        })
     }
 }
 

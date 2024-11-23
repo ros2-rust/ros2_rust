@@ -871,18 +871,23 @@ impl ParameterInterface {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{create_node, Context};
+    use crate::{Context, InitOptions};
 
     #[test]
     fn test_parameter_override_errors() {
         // Create a new node with a few parameter overrides
-        let ctx = Context::new([
-            String::from("--ros-args"),
-            String::from("-p"),
-            String::from("declared_int:=10"),
-        ])
-        .unwrap();
-        let node = create_node(&ctx, "param_test_node").unwrap();
+        let executor = Context::new(
+            [
+                String::from("--ros-args"),
+                String::from("-p"),
+                String::from("declared_int:=10"),
+            ],
+            InitOptions::default(),
+        )
+        .unwrap()
+        .create_basic_executor();
+
+        let node = executor.create_node("param_test_node").unwrap();
 
         // Declaring a parameter with a different type than what was overridden should return an
         // error
@@ -928,19 +933,24 @@ mod tests {
     #[test]
     fn test_parameter_setting_declaring() {
         // Create a new node with a few parameter overrides
-        let ctx = Context::new([
-            String::from("--ros-args"),
-            String::from("-p"),
-            String::from("declared_int:=10"),
-            String::from("-p"),
-            String::from("double_array:=[1.0, 2.0]"),
-            String::from("-p"),
-            String::from("optional_bool:=true"),
-            String::from("-p"),
-            String::from("non_declared_string:='param'"),
-        ])
-        .unwrap();
-        let node = create_node(&ctx, "param_test_node").unwrap();
+        let executor = Context::new(
+            [
+                String::from("--ros-args"),
+                String::from("-p"),
+                String::from("declared_int:=10"),
+                String::from("-p"),
+                String::from("double_array:=[1.0, 2.0]"),
+                String::from("-p"),
+                String::from("optional_bool:=true"),
+                String::from("-p"),
+                String::from("non_declared_string:='param'"),
+            ],
+            InitOptions::default(),
+        )
+        .unwrap()
+        .create_basic_executor();
+
+        let node = executor.create_node("param_test_node").unwrap();
 
         let overridden_int = node
             .declare_parameter("declared_int")
@@ -1084,13 +1094,18 @@ mod tests {
 
     #[test]
     fn test_override_undeclared_set_priority() {
-        let ctx = Context::new([
-            String::from("--ros-args"),
-            String::from("-p"),
-            String::from("declared_int:=10"),
-        ])
-        .unwrap();
-        let node = create_node(&ctx, "param_test_node").unwrap();
+        let executor = Context::new(
+            [
+                String::from("--ros-args"),
+                String::from("-p"),
+                String::from("declared_int:=10"),
+            ],
+            InitOptions::default(),
+        )
+        .unwrap()
+        .create_basic_executor();
+
+        let node = executor.create_node("param_test_node").unwrap();
         // If a parameter was set as an override and as an undeclared parameter, the undeclared
         // value should get priority
         node.use_undeclared_parameters()
@@ -1106,13 +1121,18 @@ mod tests {
 
     #[test]
     fn test_parameter_scope_redeclaring() {
-        let ctx = Context::new([
-            String::from("--ros-args"),
-            String::from("-p"),
-            String::from("declared_int:=10"),
-        ])
-        .unwrap();
-        let node = create_node(&ctx, "param_test_node").unwrap();
+        let executor = Context::new(
+            [
+                String::from("--ros-args"),
+                String::from("-p"),
+                String::from("declared_int:=10"),
+            ],
+            InitOptions::default(),
+        )
+        .unwrap()
+        .create_basic_executor();
+
+        let node = executor.create_node("param_test_node").unwrap();
         {
             // Setting a parameter with an override
             let param = node
@@ -1157,8 +1177,10 @@ mod tests {
 
     #[test]
     fn test_parameter_ranges() {
-        let ctx = Context::new([]).unwrap();
-        let node = create_node(&ctx, "param_test_node").unwrap();
+        let node = Context::default()
+            .create_basic_executor()
+            .create_node("param_test_node")
+            .unwrap();
         // Setting invalid ranges should fail
         let range = ParameterRange {
             lower: Some(10),
@@ -1285,8 +1307,10 @@ mod tests {
 
     #[test]
     fn test_readonly_parameters() {
-        let ctx = Context::new([]).unwrap();
-        let node = create_node(&ctx, "param_test_node").unwrap();
+        let node = Context::default()
+            .create_basic_executor()
+            .create_node("param_test_node")
+            .unwrap();
         let param = node
             .declare_parameter("int_param")
             .default(100)
@@ -1312,8 +1336,10 @@ mod tests {
 
     #[test]
     fn test_preexisting_value_error() {
-        let ctx = Context::new([]).unwrap();
-        let node = create_node(&ctx, "param_test_node").unwrap();
+        let node = Context::default()
+            .create_basic_executor()
+            .create_node("param_test_node")
+            .unwrap();
         node.use_undeclared_parameters()
             .set("int_param", 100)
             .unwrap();
@@ -1365,8 +1391,10 @@ mod tests {
 
     #[test]
     fn test_optional_parameter_apis() {
-        let ctx = Context::new([]).unwrap();
-        let node = create_node(&ctx, "param_test_node").unwrap();
+        let node = Context::default()
+            .create_basic_executor()
+            .create_node("param_test_node")
+            .unwrap();
         node.declare_parameter::<i64>("int_param")
             .optional()
             .unwrap();
