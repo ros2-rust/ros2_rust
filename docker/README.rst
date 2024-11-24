@@ -1,8 +1,3 @@
-#.. redirect-from::
-#
-#    Deploying-ROS2-on-IBM-Cloud
-#    Tutorials/Deploying-ROS-2-on-IBM-Cloud
-
 ROS2 Rust Docker Environment
 =========================================================
 

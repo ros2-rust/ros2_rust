@@ -1,8 +1,3 @@
-#.. redirect-from::
-#
-#    Deploying-ROS2-on-IBM-Cloud
-#    Tutorials/Deploying-ROS-2-on-IBM-Cloud
-
 Development Container for ROS2 Rust
 ====================================
 
@@ -17,7 +12,7 @@ File Description
 
 The provided ``devcontainer.json`` file specifies the configuration for running a containerized development environment with the following features:
 
-- **Image Configuration**: Uses the Docker image ros2_rust_dev:latest.
+- **Image Configuration**: Uses the Docker image ``ros2_rust_dev:latest``.
 - **Build Settings**:
     - Context: Specifies the root directory of the project (``..``).
     - Dockerfile: Uses the Dockerfile located at ``../docker/Dockerfile``.
@@ -75,7 +70,7 @@ Notes
 
 - **Container Network**: The ``--network=host`` option is enabled to allow network sharing between the host and container.
 - **Privilege**: The ``--privileged`` flag is enabled, which may be required for specific ROS2 features but should be used cautiously.
-- If you encounter permission issues with X11, ensure the host system is configured to allow access in each terminal:
+- If you encounter permission issues with X11, ensure the host system is configured to allow access in the vscode:
 
 .. code-block:: bash
 
