@@ -440,6 +440,17 @@ impl Node {
     pub fn builder(context: &Context, node_name: &str) -> NodeBuilder {
         NodeBuilder::new(context, node_name)
     }
+
+    /// Returns the logger name of the node.
+    pub fn logger_name(&self) -> &str {
+        let rcl_node = self.handle.rcl_node.lock().unwrap();
+        let name_raw_ptr = unsafe { rcl_node_get_logger_name(&*rcl_node) };
+        if name_raw_ptr.is_null() {
+            return "";
+        }
+        let name_cstr = unsafe { CStr::from_ptr(name_raw_ptr) };
+        name_cstr.to_str().unwrap_or("")
+    }
 }
 
 // Helper used to implement call_string_getter(), but also used to get the FQN in the Node::new()
