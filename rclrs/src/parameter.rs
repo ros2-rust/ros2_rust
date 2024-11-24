@@ -10,7 +10,9 @@ pub use value::*;
 
 use crate::vendor::rcl_interfaces::msg::rmw::{ParameterType, ParameterValue as RmwParameterValue};
 
-use crate::{call_string_getter_with_rcl_node, rcl_bindings::*, Node, RclrsError};
+use crate::{
+    call_string_getter_with_rcl_node, rcl_bindings::*, Node, RclrsError, ENTITY_LIFECYCLE_MUTEX,
+};
 use std::{
     collections::{btree_map::Entry, BTreeMap},
     fmt::Debug,
@@ -760,6 +762,7 @@ impl ParameterInterface {
         global_arguments: &rcl_arguments_t,
     ) -> Result<Self, RclrsError> {
         let override_map = unsafe {
+            let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
             let fqn = call_string_getter_with_rcl_node(rcl_node, rcl_node_get_fully_qualified_name);
             resolve_parameter_overrides(&fqn, node_arguments, global_arguments)?
         };
@@ -882,7 +885,7 @@ mod tests {
             String::from("declared_int:=10"),
         ])
         .unwrap();
-        let node = create_node(&ctx, "param_test_node").unwrap();
+        let node = create_node(&ctx, &format!("param_test_node_{}", line!())).unwrap();
 
         // Declaring a parameter with a different type than what was overridden should return an
         // error
@@ -940,7 +943,7 @@ mod tests {
             String::from("non_declared_string:='param'"),
         ])
         .unwrap();
-        let node = create_node(&ctx, "param_test_node").unwrap();
+        let node = create_node(&ctx, &format!("param_test_node_{}", line!())).unwrap();
 
         let overridden_int = node
             .declare_parameter("declared_int")
@@ -1090,7 +1093,7 @@ mod tests {
             String::from("declared_int:=10"),
         ])
         .unwrap();
-        let node = create_node(&ctx, "param_test_node").unwrap();
+        let node = create_node(&ctx, &format!("param_test_node_{}", line!())).unwrap();
         // If a parameter was set as an override and as an undeclared parameter, the undeclared
         // value should get priority
         node.use_undeclared_parameters()
@@ -1112,7 +1115,7 @@ mod tests {
             String::from("declared_int:=10"),
         ])
         .unwrap();
-        let node = create_node(&ctx, "param_test_node").unwrap();
+        let node = create_node(&ctx, &format!("param_test_node_{}", line!())).unwrap();
         {
             // Setting a parameter with an override
             let param = node
@@ -1158,7 +1161,7 @@ mod tests {
     #[test]
     fn test_parameter_ranges() {
         let ctx = Context::new([]).unwrap();
-        let node = create_node(&ctx, "param_test_node").unwrap();
+        let node = create_node(&ctx, &format!("param_test_node_{}", line!())).unwrap();
         // Setting invalid ranges should fail
         let range = ParameterRange {
             lower: Some(10),
@@ -1286,7 +1289,7 @@ mod tests {
     #[test]
     fn test_readonly_parameters() {
         let ctx = Context::new([]).unwrap();
-        let node = create_node(&ctx, "param_test_node").unwrap();
+        let node = create_node(&ctx, &format!("param_test_node_{}", line!())).unwrap();
         let param = node
             .declare_parameter("int_param")
             .default(100)
@@ -1313,7 +1316,7 @@ mod tests {
     #[test]
     fn test_preexisting_value_error() {
         let ctx = Context::new([]).unwrap();
-        let node = create_node(&ctx, "param_test_node").unwrap();
+        let node = create_node(&ctx, &format!("param_test_node_{}", line!())).unwrap();
         node.use_undeclared_parameters()
             .set("int_param", 100)
             .unwrap();
@@ -1366,7 +1369,7 @@ mod tests {
     #[test]
     fn test_optional_parameter_apis() {
         let ctx = Context::new([]).unwrap();
-        let node = create_node(&ctx, "param_test_node").unwrap();
+        let node = create_node(&ctx, &format!("param_test_node_{}", line!())).unwrap();
         node.declare_parameter::<i64>("int_param")
             .optional()
             .unwrap();

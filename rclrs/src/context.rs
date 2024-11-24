@@ -6,7 +6,7 @@ use std::{
     vec::Vec,
 };
 
-use crate::{rcl_bindings::*, RclrsError, ToResult};
+use crate::{rcl_bindings::*, LoggingLifecycle, RclrsError, ToResult};
 
 /// This is locked whenever initializing or dropping any middleware entity
 /// because we have found issues in RCL and some RMW implementations that
@@ -56,6 +56,10 @@ unsafe impl Send for rcl_context_t {}
 /// - middleware-specific data, e.g. the domain participant in DDS
 /// - the allocator used (left as the default by `rclrs`)
 ///
+/// The context also configures the rcl_logging_* layer to allow publication to /rosout
+/// (as well as the terminal).  TODO: This behaviour should be configurable using an
+/// "auto logging initialise" flag as per rclcpp and rclpy.
+///
 pub struct Context {
     pub(crate) handle: Arc<ContextHandle>,
 }
@@ -68,6 +72,10 @@ pub struct Context {
 /// bindings in this library.
 pub(crate) struct ContextHandle {
     pub(crate) rcl_context: Mutex<rcl_context_t>,
+    /// This ensures that logging does not get cleaned up until after this ContextHandle
+    /// has dropped.
+    #[allow(unused)]
+    logging: Arc<LoggingLifecycle>,
 }
 
 impl Context {
@@ -143,9 +151,16 @@ impl Context {
             // Move the check after the last fini()
             ret?;
         }
+
+        // TODO: "Auto set-up logging" is forced but should be configurable as per rclcpp and rclpy
+        // SAFETY: We created this context a moment ago and verified that it is valid.
+        // No other conditions are needed.
+        let logging = unsafe { LoggingLifecycle::configure(&rcl_context)? };
+
         Ok(Self {
             handle: Arc::new(ContextHandle {
                 rcl_context: Mutex::new(rcl_context),
+                logging,
             }),
         })
     }

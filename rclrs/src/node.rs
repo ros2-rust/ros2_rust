@@ -5,7 +5,7 @@ use std::{
     ffi::CStr,
     fmt,
     os::raw::c_char,
-    sync::{Arc, Mutex, Weak},
+    sync::{atomic::AtomicBool, Arc, Mutex, Weak},
     vec::Vec,
 };
 
@@ -13,10 +13,10 @@ use rosidl_runtime_rs::Message;
 
 pub use self::{builder::*, graph::*};
 use crate::{
-    rcl_bindings::*, Client, ClientBase, Clock, Context, ContextHandle, GuardCondition,
-    ParameterBuilder, ParameterInterface, ParameterVariant, Parameters, Publisher, QoSProfile,
-    RclrsError, Service, ServiceBase, Subscription, SubscriptionBase, SubscriptionCallback,
-    TimeSource, ENTITY_LIFECYCLE_MUTEX,
+    rcl_bindings::*, Client, ClientBase, Clock, Context, ContextHandle, GuardCondition, LogParams,
+    Logger, ParameterBuilder, ParameterInterface, ParameterVariant, Parameters, Publisher,
+    QoSProfile, RclrsError, Service, ServiceBase, Subscription, SubscriptionBase,
+    SubscriptionCallback, TimeSource, ToLogParams, ENTITY_LIFECYCLE_MUTEX,
 };
 
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
@@ -44,7 +44,7 @@ unsafe impl Send for rcl_node_t {}
 /// It's a good idea for node names in the same executable to be unique.
 ///
 /// ## Remapping
-/// The namespace and name given when creating the node can be overriden through the command line.
+/// The namespace and name given when creating the node can be overridden through the command line.
 /// In that sense, the parameters to the node creation functions are only the _default_ namespace and
 /// name.
 /// See also the [official tutorial][1] on the command line arguments for ROS nodes, and the
@@ -66,23 +66,48 @@ pub struct Node {
     time_source: TimeSource,
     parameter: ParameterInterface,
     pub(crate) handle: Arc<NodeHandle>,
+    logger: Logger,
 }
 
 /// This struct manages the lifetime of an `rcl_node_t`, and accounts for its
 /// dependency on the lifetime of its `rcl_context_t` by ensuring that this
 /// dependency is [dropped after][1] the `rcl_node_t`.
+/// Note: we capture the rcl_node_t returned from rcl_get_zero_initialized_node()
+/// to guarantee that the node handle exists until we drop the NodeHandle
+/// instance. This addresses an issue where previously the address of the variable
+/// in the builder.rs was being used, and whose lifespan was (just) shorter than the
+/// NodeHandle instance.
 ///
 /// [1]: <https://doc.rust-lang.org/reference/destructors.html>
 pub(crate) struct NodeHandle {
     pub(crate) rcl_node: Mutex<rcl_node_t>,
     pub(crate) context_handle: Arc<ContextHandle>,
+    /// In the humble distro, rcl is sensitive to the address of the rcl_node_t
+    /// object being moved (this issue seems to be gone in jazzy), so we need
+    /// to initialize the rcl_node_t in-place inside this struct. In the event
+    /// that the initialization fails (e.g. it was created with an invalid name)
+    /// we need to make sure that we do not call rcl_node_fini on it while
+    /// dropping the NodeHandle, so we keep track of successful initialization
+    /// with this variable.
+    ///
+    /// We may be able to restructure this in the future when we no longer need
+    /// to support Humble.
+    pub(crate) initialized: AtomicBool,
 }
 
 impl Drop for NodeHandle {
     fn drop(&mut self) {
+        if !self.initialized.load(std::sync::atomic::Ordering::Acquire) {
+            // The node was not correctly initialized, e.g. it was created with
+            // an invalid name, so we must not try to finalize it or else we
+            // will get undefined behavior.
+            return;
+        }
+
         let _context_lock = self.context_handle.rcl_context.lock().unwrap();
         let mut rcl_node = self.rcl_node.lock().unwrap();
         let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
+
         // SAFETY: The entity lifecycle mutex is locked to protect against the risk of
         // global variables in the rmw implementation being unsafely modified during cleanup.
         unsafe { rcl_node_fini(&mut *rcl_node) };
@@ -440,6 +465,17 @@ impl Node {
     pub fn builder(context: &Context, node_name: &str) -> NodeBuilder {
         NodeBuilder::new(context, node_name)
     }
+
+    /// Get the logger associated with this Node.
+    pub fn logger(&self) -> &Logger {
+        &self.logger
+    }
+}
+
+impl<'a> ToLogParams<'a> for &'a Node {
+    fn to_log_params(self) -> LogParams<'a> {
+        self.logger().to_log_params()
+    }
 }
 
 // Helper used to implement call_string_getter(), but also used to get the FQN in the Node::new()
@@ -511,6 +547,23 @@ mod tests {
             .get("/test_topics_graph/graph_test_topic_3")
             .unwrap();
         assert!(types.contains(&"test_msgs/msg/Defaults".to_string()));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_logger_name() -> Result<(), RclrsError> {
+        // Use helper to create 2 nodes for us
+        let graph = construct_test_graph("test_logger_name")?;
+
+        assert_eq!(
+            graph.node1.logger().name(),
+            "test_logger_name.graph_test_node_1"
+        );
+        assert_eq!(
+            graph.node2.logger().name(),
+            "test_logger_name.graph_test_node_2"
+        );
 
         Ok(())
     }
