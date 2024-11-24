@@ -3,8 +3,8 @@
 // Adapted from https://github.com/sequenceplanner/r2r/blob/89cec03d07a1496a225751159cbc7bfb529d9dd1/r2r/src/utils.rs
 
 use std::{
-  ffi::CString,
-  sync::{Mutex, Once},
+    ffi::CString,
+    sync::{Mutex, Once},
 };
 
 use crate::error;
@@ -16,69 +16,75 @@ static LOG_GUARD: Mutex<()> = Mutex::new(());
 /// Don't call this directly, use the logging macros instead.
 #[doc(hidden)]
 pub fn log(msg: &str, logger_name: &str, file: &str, line: u32, severity: LogSeverity) {
-  // currently not possible to get function name in rust.
-  // see https://github.com/rust-lang/rfcs/pull/2818
-  let function = CString::new("").unwrap();
-  let file = CString::new(file).unwrap();
-  let location = rcutils_log_location_t {
-      function_name: function.as_ptr(),
-      file_name: file.as_ptr(),
-      line_number: line as usize,
-  };
-  let format = CString::new("%s").unwrap();
-  let logger_name = CString::new(logger_name).unwrap();
-  let message = CString::new(msg).unwrap();
-  let severity = severity.to_native();
+    // currently not possible to get function name in rust.
+    // see https://github.com/rust-lang/rfcs/pull/2818
+    let function = CString::new("").unwrap();
+    let file = CString::new(file).unwrap();
+    let location = rcutils_log_location_t {
+        function_name: function.as_ptr(),
+        file_name: file.as_ptr(),
+        line_number: line as usize,
+    };
+    let format = CString::new("%s").unwrap();
+    let logger_name = CString::new(logger_name).unwrap();
+    let message = CString::new(msg).unwrap();
+    let severity = severity.to_native();
 
-  INIT.call_once(|| {
-      let ret = unsafe { rcutils_logging_initialize() };
-      if let Err(code) = error::to_rclrs_result(ret) {
-          panic!("Failed to initialize logging: {:?}", code);
-      }
-  });
-  let _guard = LOG_GUARD.lock().unwrap();
-  unsafe {
-      rcutils_log(
-          &location,
-          severity as i32,
-          logger_name.as_ptr(),
-          format.as_ptr(),
-          message.as_ptr(),
-      );
-  }
+    INIT.call_once(|| {
+        let ret = unsafe { rcutils_logging_initialize() };
+        if let Err(code) = error::to_rclrs_result(ret) {
+            panic!("Failed to initialize logging: {:?}", code);
+        }
+    });
+    let _guard = LOG_GUARD.lock().unwrap();
+    unsafe {
+        rcutils_log(
+            &location,
+            severity as i32,
+            logger_name.as_ptr(),
+            format.as_ptr(),
+            message.as_ptr(),
+        );
+    }
 }
 
 /// Logging severity
 #[doc(hidden)]
 pub enum LogSeverity {
-  Unset,
-  Debug,
-  Info,
-  Warn,
-  Error,
-  Fatal,
+    Unset,
+    Debug,
+    Info,
+    Warn,
+    Error,
+    Fatal,
 }
 
 impl LogSeverity {
-  fn to_native(&self) -> RCUTILS_LOG_SEVERITY {
-      use crate::rcl_bindings::rcl_log_severity_t::*;
-      match self {
-          LogSeverity::Unset => RCUTILS_LOG_SEVERITY_UNSET,
-          LogSeverity::Debug => RCUTILS_LOG_SEVERITY_DEBUG,
-          LogSeverity::Info => RCUTILS_LOG_SEVERITY_INFO,
-          LogSeverity::Warn => RCUTILS_LOG_SEVERITY_WARN,
-          LogSeverity::Error => RCUTILS_LOG_SEVERITY_ERROR,
-          LogSeverity::Fatal => RCUTILS_LOG_SEVERITY_FATAL,
-      }
-  }
+    fn to_native(&self) -> RCUTILS_LOG_SEVERITY {
+        use crate::rcl_bindings::rcl_log_severity_t::*;
+        match self {
+            LogSeverity::Unset => RCUTILS_LOG_SEVERITY_UNSET,
+            LogSeverity::Debug => RCUTILS_LOG_SEVERITY_DEBUG,
+            LogSeverity::Info => RCUTILS_LOG_SEVERITY_INFO,
+            LogSeverity::Warn => RCUTILS_LOG_SEVERITY_WARN,
+            LogSeverity::Error => RCUTILS_LOG_SEVERITY_ERROR,
+            LogSeverity::Fatal => RCUTILS_LOG_SEVERITY_FATAL,
+        }
+    }
 }
 
 /// A helper macro to log the message.
 #[macro_export]
 macro_rules! __impl_log {
-  ($logger_name:expr, $msg:expr, $file:expr, $line:expr, $severity:expr) => {{
-      $crate::log(&std::fmt::format($msg), $logger_name, $file, $line, $severity);
-  }};
+    ($logger_name:expr, $msg:expr, $file:expr, $line:expr, $severity:expr) => {{
+        $crate::log(
+            &std::fmt::format($msg),
+            $logger_name,
+            $file,
+            $line,
+            $severity,
+        );
+    }};
 }
 
 /// Debug log message.
