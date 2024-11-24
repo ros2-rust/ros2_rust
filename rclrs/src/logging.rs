@@ -7,8 +7,7 @@ use std::{
     sync::{Mutex, Once},
 };
 
-use crate::error;
-use crate::rcl_bindings::*;
+use crate::{error, rcl_bindings::*};
 
 static INIT: Once = Once::new();
 static LOG_GUARD: Mutex<()> = Mutex::new(());
