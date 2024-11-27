@@ -40,4 +40,5 @@ RUN pip install --upgrade pytest
 # Install the colcon-cargo and colcon-ros-cargo plugins
 RUN pip install git+https://github.com/colcon/colcon-cargo.git git+https://github.com/colcon/colcon-ros-cargo.git
 
+RUN mkdir -p ~/workspace && echo "Did you forget to mount the repository into the Docker container?" > ~/workspace/HELLO.txt
 WORKDIR /home/${CONTAINER_USER}/workspace
