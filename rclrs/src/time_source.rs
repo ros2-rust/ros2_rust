@@ -149,7 +149,11 @@ mod tests {
 
     #[test]
     fn time_source_default_clock() {
-        let node = create_node(&Context::new([]).unwrap(), "test_node").unwrap();
+        let node = create_node(
+            &Context::new([]).unwrap(),
+            &format!("time_source_test_node_{}", line!()),
+        )
+        .unwrap();
         // Default clock should be above 0 (use_sim_time is default false)
         assert!(node.get_clock().now().nsec > 0);
     }
@@ -162,7 +166,7 @@ mod tests {
             String::from("use_sim_time:=true"),
         ])
         .unwrap();
-        let node = create_node(&ctx, "test_node").unwrap();
+        let node = create_node(&ctx, &format!("time_source_test_node_{}", line!())).unwrap();
         // Default sim time value should be 0 (no message received)
         assert_eq!(node.get_clock().now().nsec, 0);
     }
