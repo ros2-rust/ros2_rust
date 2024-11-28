@@ -28,7 +28,7 @@ impl From<ClockType> for rcl_clock_type_t {
 #[derive(Clone, Debug)]
 pub struct Clock {
     kind: ClockType,
-    rcl_clock: Arc<Mutex<rcl_clock_t>>,
+    pub rcl_clock: Arc<Mutex<rcl_clock_t>>,
     // TODO(luca) Implement jump callbacks
 }
 
