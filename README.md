@@ -1,9 +1,9 @@
 ROS 2 for Rust
 ==============
 
-| Target | Status |
-|----------|--------|
-| **Ubuntu 20.04** | [![Build Status](https://github.com/ros2-rust/ros2_rust/actions/workflows/rust.yml/badge.svg?branch=main)](https://github.com/ros2-rust/ros2_rust/actions/workflows/rust.yml?branch=main) |
+[![Minimal Version Status](https://github.com/ros2-rust/ros2_rust/actions/workflows/rust-minimal.yml/badge.svg?branch=main)](https://github.com/ros2-rust/ros2_rust/actions/workflows/rust-minimal.yml)
+[![Stable CI Status](https://github.com/ros2-rust/ros2_rust/actions/workflows/rust-stable.yml/badge.svg?branch=main)](https://github.com/ros2-rust/ros2_rust/actions/workflows/rust-stable.yml)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
 Introduction
 ------------
