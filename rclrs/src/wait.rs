@@ -331,7 +331,7 @@ impl WaitSet {
             // Passing in a null pointer for the third argument is explicitly allowed.
             rcl_wait_set_add_timer(
                 &mut self.handle.rcl_wait_set,
-                &*(*(*timer).rcl_timer).lock().unwrap() as *const _, // TODO :)
+                &* timer.rcl_timer.lock().unwrap() as *const _,
                 core::ptr::null_mut(),
             )
         }
