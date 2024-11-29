@@ -4,13 +4,15 @@ use crate::{
 use std::sync::{Arc, Mutex};
 
 
+
+pub trait TimerCallback {
+    fn call(time_since_last_callback_ns: i64);
+}
+
 #[derive(Debug)]
 pub struct Timer {
     rcl_timer: Arc<Mutex<rcl_timer_t>>,
-}
-
-unsafe extern "C" fn timer_callback(_: *mut rcl_timer_t, time_since_last_callback_ns: i64) {
-    println!("timer_callback, time_since_last_callback_ns {0}", time_since_last_callback_ns);
+    // callback: Option<T>,
 }
 
 impl Timer {
@@ -22,7 +24,7 @@ impl Timer {
             let allocator = rcutils_get_default_allocator();
             let mut rcl_clock = clock.rcl_clock.lock().unwrap();
             let mut rcl_context = context.handle.rcl_context.lock().unwrap();
-            let callback: rcl_timer_callback_t = Some(timer_callback);
+            let callback: rcl_timer_callback_t = None;
             // Function will return Err(_) only if there isn't enough memory to allocate a clock
             // object.
             rcl_timer_init(
@@ -36,7 +38,8 @@ impl Timer {
         };
         to_rclrs_result(timer_init_result).map(|_| {
             Timer {
-                rcl_timer: Arc::new(Mutex::new(rcl_timer))
+                rcl_timer: Arc::new(Mutex::new(rcl_timer)),
+                // callback: None
             }
         })
     }
