@@ -16,7 +16,7 @@ use crate::{
     rcl_bindings::*, Client, ClientBase, Clock, Context, ContextHandle, GuardCondition, LogParams,
     Logger, ParameterBuilder, ParameterInterface, ParameterVariant, Parameters, Publisher,
     QoSProfile, RclrsError, Service, ServiceBase, Subscription, SubscriptionBase,
-    SubscriptionCallback, Timer, TimerCallback, TimeSource, ToLogParams, ENTITY_LIFECYCLE_MUTEX,
+    SubscriptionCallback, TimeSource, Timer, TimerCallback, ToLogParams, ENTITY_LIFECYCLE_MUTEX,
 };
 
 /// Constant conversion from seconds to nanoseconds
@@ -350,7 +350,7 @@ impl Node {
         period_ns: i64,
         context: &Context,
         callback: Option<TimerCallback>,
-        clock: Option<Clock>
+        clock: Option<Clock>,
     ) -> Result<Arc<Timer>, RclrsError> {
         let clock_used = match clock {
             Some(value) => value,
@@ -358,7 +358,10 @@ impl Node {
         };
         let timer = Timer::new_with_callback(&clock_used, &context, period_ns, callback)?;
         let timer = Arc::new(timer);
-        self.timers_mtx.lock().unwrap().push(Arc::downgrade(&timer) as Weak<Timer>);
+        self.timers_mtx
+            .lock()
+            .unwrap()
+            .push(Arc::downgrade(&timer) as Weak<Timer>);
         Ok(timer)
     }
 

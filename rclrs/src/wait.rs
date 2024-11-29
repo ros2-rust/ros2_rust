@@ -20,7 +20,7 @@ use std::{sync::Arc, time::Duration, vec::Vec};
 use crate::{
     error::{to_rclrs_result, RclReturnCode, RclrsError, ToResult},
     rcl_bindings::*,
-    ClientBase, Context, ContextHandle, Node, ServiceBase, SubscriptionBase, Timer
+    ClientBase, Context, ContextHandle, Node, ServiceBase, SubscriptionBase, Timer,
 };
 
 mod exclusivity_guard;
@@ -323,17 +323,15 @@ impl WaitSet {
 
     /// TBD
     pub fn add_timer(&mut self, timer: Arc<Timer>) -> Result<(), RclrsError> {
-        let exclusive_timer = ExclusivityGuard::new(
-            Arc::clone(&timer),
-            Arc::clone(&timer.in_use_by_wait_set),
-        )?;
+        let exclusive_timer =
+            ExclusivityGuard::new(Arc::clone(&timer), Arc::clone(&timer.in_use_by_wait_set))?;
         unsafe {
             // SAFETY: I'm not sure if it's required, but the timer pointer will remain valid
             // for as long as the wait set exists, because it's stored in self.timers.
             // Passing in a null pointer for the third argument is explicitly allowed.
             rcl_wait_set_add_timer(
                 &mut self.handle.rcl_wait_set,
-                &* (*(*timer).rcl_timer).lock().unwrap() as *const _, // TODO :)
+                &*(*(*timer).rcl_timer).lock().unwrap() as *const _, // TODO :)
                 core::ptr::null_mut(),
             )
         }
@@ -458,7 +456,7 @@ impl WaitSet {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{clock::Clock};
+    use crate::clock::Clock;
 
     #[test]
     fn traits() {
@@ -488,7 +486,7 @@ mod tests {
     fn timer_in_wait_not_set_readies() -> Result<(), RclrsError> {
         let context = Context::new([])?;
         let clock = Clock::steady();
-        let period: i64 = 1e6 as i64;  // 1 milliseconds.
+        let period: i64 = 1e6 as i64; // 1 milliseconds.
         let timer = Arc::new(Timer::new(&clock, &context, period)?);
 
         let mut wait_set = WaitSet::new(0, 0, 1, 0, 0, 0, &context)?;
@@ -504,7 +502,7 @@ mod tests {
     fn timer_in_wait_set_readies() -> Result<(), RclrsError> {
         let context = Context::new([])?;
         let clock = Clock::steady();
-        let period: i64 = 1e6 as i64;  // 1 milliseconds.
+        let period: i64 = 1e6 as i64; // 1 milliseconds.
         let timer = Arc::new(Timer::new(&clock, &context, period)?);
 
         let mut wait_set = WaitSet::new(0, 0, 1, 0, 0, 0, &context)?;

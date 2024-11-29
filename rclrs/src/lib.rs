@@ -19,8 +19,8 @@ mod qos;
 mod service;
 mod subscription;
 mod time;
-mod timer;
 mod time_source;
+mod timer;
 mod vendor;
 mod wait;
 
@@ -49,8 +49,8 @@ pub use rcl_bindings::rmw_request_id_t;
 pub use service::*;
 pub use subscription::*;
 pub use time::*;
-pub use timer::*;
 use time_source::*;
+pub use timer::*;
 pub use wait::*;
 
 /// Polls the node for new messages and executes the corresponding callbacks.
