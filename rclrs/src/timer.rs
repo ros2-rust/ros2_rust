@@ -13,7 +13,7 @@ pub struct Timer {
 }
 
 impl Timer {
-
+    /// Creates a new timer (constructor)
     pub fn new(clock: &Clock, context: &Context, period: i64) -> Result<Timer, RclrsError> {
         Self::with_callback(clock, context, period, None)
     }
@@ -23,8 +23,8 @@ impl Timer {
         let timer_init_result = unsafe {
             // SAFETY: Getting a default value is always safe.
             rcl_timer = rcl_get_zero_initialized_timer();
+            let mut rcl_clock = clock.get_rcl_clock().lock().unwrap();
             let allocator = rcutils_get_default_allocator();
-            let mut rcl_clock = clock.rcl_clock.lock().unwrap();
             let mut rcl_context = context.handle.rcl_context.lock().unwrap();
             // Callbacks will be handled in the WaitSet.
             let rcl_timer_callback: rcl_timer_callback_t = None;
@@ -47,7 +47,8 @@ impl Timer {
         })
     }
 
-    pub fn timer_period_ns(&self) -> Result<i64, RclrsError> {
+    /// Gets the period of the timer in nanoseconds
+    pub fn get_timer_period_ns(&self) -> Result<i64, RclrsError> {
         let mut timer_period_ns = 0;
         let get_period_result = unsafe {
             let rcl_timer = self.rcl_timer.lock().unwrap();
@@ -61,12 +62,14 @@ impl Timer {
         })
     }
 
+    /// Cancels the timer, stopping the execution of the callback
     pub fn cancel(&self) -> Result<(), RclrsError> {
         let mut rcl_timer = self.rcl_timer.lock().unwrap();
         let cancel_result = unsafe { rcl_timer_cancel(&mut *rcl_timer) };
         to_rclrs_result(cancel_result)
     }
 
+    /// Checks whether the timer is canceled or not
     pub fn is_canceled(&self) -> Result<bool, RclrsError> {
         let mut is_canceled = false;
         let is_canceled_result = unsafe {
@@ -81,6 +84,7 @@ impl Timer {
         })
     }
 
+    /// Retrieves the time since the last call to the callback
     pub fn time_since_last_call(&self) -> Result<i64, RclrsError> {
         let mut time_value_ns: i64 = 0;
         let time_since_last_call_result = unsafe {
@@ -95,6 +99,7 @@ impl Timer {
         })
     }
 
+    /// Retrieves the time until the next call of the callback
     pub fn time_until_next_call(&self) -> Result<i64, RclrsError> {
         let mut time_value_ns: i64 = 0;
         let time_until_next_call_result = unsafe {
@@ -109,18 +114,21 @@ impl Timer {
         })
     }
 
+    /// Resets the timer, setting the last call time to now
     pub fn reset(&mut self) -> Result<(), RclrsError>
     {
         let mut rcl_timer = self.rcl_timer.lock().unwrap();
         to_rclrs_result(unsafe {rcl_timer_reset(&mut *rcl_timer)})
     }
 
+    /// Executes the callback of the timer (this is triggered by the executor or the node directly)
     pub fn call(&mut self) -> Result<(), RclrsError>
     {
         let mut rcl_timer = self.rcl_timer.lock().unwrap();
         to_rclrs_result(unsafe {rcl_timer_call(&mut *rcl_timer)})
     }
 
+    /// Checks if the timer is ready (not canceled)
     pub fn is_ready(&self) -> Result<bool, RclrsError>
     {
         let (is_ready, is_ready_result) = unsafe {
@@ -137,10 +145,9 @@ impl Timer {
         })
     }
     // handle() -> RCLC Timer Type
-
-    // clock() -> Clock ?
 }
 
+/// 'Drop' trait implementation to be able to release the resources
 impl Drop for rcl_timer_t {
     fn drop(&mut self) {
         // SAFETY: No preconditions for this function
@@ -215,7 +222,7 @@ mod tests {
         let dut = Timer::new(&clock, &context, period);
         assert!(dut.is_ok());
         let dut = dut.unwrap();
-        let period_result = dut.timer_period_ns();
+        let period_result = dut.get_timer_period_ns();
         assert!(period_result.is_ok());
         let period_result = period_result.unwrap();
         assert_eq!(period_result, 1e6 as i64);
@@ -293,14 +300,14 @@ mod tests {
         let mut dut = Timer::new(&clock, &context, period_ns).unwrap();
         let elapsed = period_ns - dut.time_until_next_call().unwrap();
         assert!(elapsed < tolerance , "elapsed before reset: {}", elapsed);
-        
+
         thread::sleep(time::Duration::from_micros(1500));
 
         let elapsed = period_ns - dut.time_until_next_call().unwrap();
         assert!(elapsed > 1500000i64, "time_until_next_call before call: {}", elapsed);
-        
+
         assert!(dut.call().is_ok());
-        
+
         let elapsed = dut.time_until_next_call().unwrap();
         assert!(elapsed < 500000i64, "time_until_next_call after call: {}", elapsed);
     }
@@ -311,7 +318,7 @@ mod tests {
         let context = Context::new(vec![]).unwrap();
         let period_ns: i64 = 1e6 as i64;  // 1 millisecond.
         let dut = Timer::new(&clock, &context, period_ns).unwrap();
-        
+
         let is_ready = dut.is_ready();
         assert!(is_ready.is_ok());
         assert!(!is_ready.unwrap());

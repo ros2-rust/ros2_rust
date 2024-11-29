@@ -28,8 +28,7 @@ impl From<ClockType> for rcl_clock_type_t {
 #[derive(Clone, Debug)]
 pub struct Clock {
     kind: ClockType,
-    // TODO(ekumen): Fix the extra pub here.
-    pub rcl_clock: Arc<Mutex<rcl_clock_t>>,
+    rcl_clock: Arc<Mutex<rcl_clock_t>>,
     // TODO(luca) Implement jump callbacks
 }
 
@@ -82,6 +81,11 @@ impl Clock {
             kind,
             rcl_clock: Arc::new(Mutex::new(rcl_clock)),
         }
+    }
+
+    /// Return the 'rcl_clock_t' of the Clock
+    pub(crate) fn get_rcl_clock(&self) -> &Arc<Mutex<rcl_clock_t>> {
+        &self.rcl_clock
     }
 
     /// Returns the clock's `ClockType`.
