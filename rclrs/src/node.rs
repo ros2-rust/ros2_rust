@@ -16,8 +16,11 @@ use crate::{
     rcl_bindings::*, Client, ClientBase, Clock, Context, ContextHandle, GuardCondition, LogParams,
     Logger, ParameterBuilder, ParameterInterface, ParameterVariant, Parameters, Publisher,
     QoSProfile, RclrsError, Service, ServiceBase, Subscription, SubscriptionBase,
-    SubscriptionCallback, TimeSource, ToLogParams, ENTITY_LIFECYCLE_MUTEX,
+    SubscriptionCallback, Timer, TimerCallback, TimeSource, ToLogParams, ENTITY_LIFECYCLE_MUTEX,
 };
+
+/// Constant conversion from seconds to nanoseconds
+const S_TO_NS: f64 = 1e9;
 
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
 // they are running in. Therefore, this type can be safely sent to another thread.
@@ -63,6 +66,7 @@ pub struct Node {
     pub(crate) guard_conditions_mtx: Mutex<Vec<Weak<GuardCondition>>>,
     pub(crate) services_mtx: Mutex<Vec<Weak<dyn ServiceBase>>>,
     pub(crate) subscriptions_mtx: Mutex<Vec<Weak<dyn SubscriptionBase>>>,
+    pub(crate) timers_mtx: Mutex<Vec<Weak<Timer>>>,
     time_source: TimeSource,
     parameter: ParameterInterface,
     pub(crate) handle: Arc<NodeHandle>,
@@ -338,6 +342,31 @@ impl Node {
             .unwrap()
             .push(Arc::downgrade(&subscription) as Weak<dyn SubscriptionBase>);
         Ok(subscription)
+    }
+
+    /// Creates a [`Timer`]
+    pub(crate) fn create_timer(
+        &self,
+        timer_period_s: i64,
+        context: Context,
+        callback: Option<TimerCallback>,
+        clock: Option<Clock>
+    ) -> Arc<Timer> {
+        let timer_period_ns = (timer_period_s as f64 * S_TO_NS) as i64;
+        let clock_used;
+        match clock {
+            Some(value) => {
+                clock_used = value;
+            }
+            None => {
+                clock_used = self.get_clock();
+            }
+        }
+        let context = Context::new(vec![]).unwrap();
+        let timer = Timer::new(&clock_used, &context, timer_period_ns);
+        let timer = Arc::new(timer.unwrap());
+        self.timers_mtx.lock().unwrap().push(Arc::downgrade(&timer) as Weak<Timer>);
+        timer
     }
 
     /// Returns the subscriptions that have not been dropped yet.

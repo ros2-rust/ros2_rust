@@ -340,6 +340,7 @@ impl NodeBuilder {
             guard_conditions_mtx: Mutex::new(vec![]),
             services_mtx: Mutex::new(vec![]),
             subscriptions_mtx: Mutex::new(vec![]),
+            timers_mtx: Mutex::new(vec![]),
             time_source: TimeSource::builder(self.clock_type)
                 .clock_qos(self.clock_qos)
                 .build(),
