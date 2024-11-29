@@ -55,6 +55,20 @@ impl Timer {
         })
     }
 
+    pub fn time_until_next_call(&self) -> Result<i64, RclrsError> {
+        let mut time_value_ns: i64 = 0;
+        let time_until_next_call_result = unsafe {
+            let rcl_timer = self.rcl_timer.lock().unwrap();
+            rcl_timer_get_time_until_next_call(
+                &* rcl_timer,
+                &mut time_value_ns
+            )
+        };
+        to_rclrs_result(time_until_next_call_result).map(|_| {
+            time_value_ns
+        })
+    }
+
     // handle() -> RCLC Timer Type
 
     // destroy() -> None 
@@ -94,6 +108,7 @@ unsafe impl Send for rcl_timer_t {}
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::{thread, time};
 
     #[test]
     fn traits() {
@@ -107,7 +122,7 @@ mod tests {
     fn test_new_with_system_clock() {
         let clock = Clock::system();
         let context = Context::new(vec![]).unwrap();
-        let period: i64 = 1000000000;  // 1000 milliseconds.
+        let period: i64 = 1e6 as i64;  // 1 milliseconds.
 
         let dut = Timer::new(&clock, &context, period);
         assert!(dut.is_ok());
@@ -117,7 +132,7 @@ mod tests {
     fn test_new_with_steady_clock() {
         let clock = Clock::steady();
         let context = Context::new(vec![]).unwrap();
-        let period: i64 = 1000000000;  // 1000 milliseconds.
+        let period: i64 = 1e6 as i64;  // 1 milliseconds.
 
         let dut = Timer::new(&clock, &context, period);
         assert!(dut.is_ok());
@@ -134,11 +149,43 @@ mod tests {
         // Ros time is set, should return the value that was set
         assert_eq!(clock.now().nsec, set_time);
 
-
         let context = Context::new(vec![]).unwrap();
-        let period: i64 = 1000000000;  // 1000 milliseconds.
+        let period: i64 = 1e6 as i64;  // 1 milliseconds..
 
         let dut = Timer::new(&clock, &context, period);
         assert!(dut.is_ok());
+    }
+
+    #[test]
+    fn test_time_since_last_call_before_first_event() {
+        let clock = Clock::steady();
+        let context = Context::new(vec![]).unwrap();
+        let period_ns: i64 = 2e6 as i64;  // 2 milliseconds.
+        let sleep_period_ms = time::Duration::from_millis(1);
+
+        let dut = Timer::new(&clock, &context, period_ns);
+        assert!(dut.is_ok());
+        let dut = dut.unwrap();
+        thread::sleep(sleep_period_ms);
+        let time_since_last_call = dut.time_since_last_call();
+        assert!(time_since_last_call.is_ok());
+        let time_since_last_call = time_since_last_call.unwrap();
+        assert!(time_since_last_call > 9e5 as i64, "time_since_last_call: {}", time_since_last_call);
+    }
+
+    #[test]
+    fn test_time_until_next_call_before_first_event() {
+        let clock = Clock::steady();
+        let context = Context::new(vec![]).unwrap();
+        let period_ns: i64 = 2e6 as i64;  // 2 milliseconds.
+        let sleep_period_ms = time::Duration::from_millis(1);
+
+        let dut = Timer::new(&clock, &context, period_ns);
+        assert!(dut.is_ok());
+        let dut = dut.unwrap();
+        let time_until_next_call = dut.time_until_next_call();
+        assert!(time_until_next_call.is_ok());
+        let time_until_next_call = time_until_next_call.unwrap();
+        assert!(time_until_next_call < period_ns, "time_until_next_call: {}", time_until_next_call);
     }
 }
