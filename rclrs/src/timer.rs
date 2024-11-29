@@ -41,6 +41,20 @@ impl Timer {
         })
     }
 
+    pub fn timer_period_ns(&self) -> Result<i64, RclrsError> {
+        let mut timer_period_ns = 0;
+        let get_period_result = unsafe {
+            let rcl_timer = self.rcl_timer.lock().unwrap();
+            rcl_timer_get_period(
+                &* rcl_timer,
+                &mut timer_period_ns
+            )
+        };
+        to_rclrs_result(get_period_result).map(|_| {
+            timer_period_ns
+        })
+    }
+
     pub fn cancel(&self) -> Result<(), RclrsError> {
         let mut rcl_timer = self.rcl_timer.lock().unwrap();
         let cancel_result = unsafe { rcl_timer_cancel(&mut *rcl_timer) };
@@ -104,8 +118,6 @@ impl Timer {
     // handle() -> RCLC Timer Type
 
     // clock() -> Clock ?
-
-    // timer_period_ns -> i64 ?
 
     // is_ready() -> bool
 
@@ -176,6 +188,21 @@ mod tests {
 
         let dut = Timer::new(&clock, &context, period);
         assert!(dut.is_ok());
+    }
+
+    #[test]
+    fn test_get_period() {
+        let clock = Clock::steady();
+        let context = Context::new(vec![]).unwrap();
+        let period: i64 = 1e6 as i64;  // 1 milliseconds.
+
+        let dut = Timer::new(&clock, &context, period);
+        assert!(dut.is_ok());
+        let dut = dut.unwrap();
+        let period_result = dut.timer_period_ns();
+        assert!(period_result.is_ok());
+        let period_result = period_result.unwrap();
+        assert_eq!(period_result, 1e6 as i64);
     }
 
     #[test]
