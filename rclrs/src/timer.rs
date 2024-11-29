@@ -41,6 +41,26 @@ impl Timer {
         })
     }
 
+    pub fn cancel(&self) -> Result<(), RclrsError> {
+        let mut rcl_timer = self.rcl_timer.lock().unwrap();
+        let cancel_result = unsafe { rcl_timer_cancel(&mut *rcl_timer) };
+        to_rclrs_result(cancel_result)
+    }
+
+    pub fn is_canceled(&self) -> Result<bool, RclrsError> {
+        let mut is_canceled = false;
+        let is_canceled_result = unsafe {
+            let rcl_timer = self.rcl_timer.lock().unwrap();
+            rcl_timer_is_canceled(
+                &* rcl_timer,
+                &mut is_canceled
+            )
+        };
+        to_rclrs_result(is_canceled_result).map(|_| {
+            is_canceled
+        })
+    }
+
     pub fn time_since_last_call(&self) -> Result<i64, RclrsError> {
         let mut time_value_ns: i64 = 0;
         let time_since_last_call_result = unsafe {
@@ -71,23 +91,13 @@ impl Timer {
 
     // handle() -> RCLC Timer Type
 
-    // destroy() -> None 
-
     // clock() -> Clock ?
 
     // timer_period_ns -> i64 ?
 
     // is_ready() -> bool
 
-    // is_cancelled() -> bool
-
-    // cancel() -> None
-
     // reset() -> None
-
-    // time_since_last_call() -> i64
-
-    // time_until_next_call() -> Option<i64>
 
 }
 
@@ -154,6 +164,23 @@ mod tests {
 
         let dut = Timer::new(&clock, &context, period);
         assert!(dut.is_ok());
+    }
+
+    #[test]
+    fn test_cancel() {
+        let clock = Clock::steady();
+        let context = Context::new(vec![]).unwrap();
+        let period: i64 = 1e6 as i64;  // 1 milliseconds.
+
+        let dut = Timer::new(&clock, &context, period);
+        assert!(dut.is_ok());
+        let dut = dut.unwrap();
+        assert!(dut.is_canceled().is_ok());
+        assert!(!dut.is_canceled().unwrap());
+        let cancel_result = dut.cancel();
+        assert!(cancel_result.is_ok());
+        assert!(dut.is_canceled().is_ok());
+        assert!(dut.is_canceled().unwrap());
     }
 
     #[test]
