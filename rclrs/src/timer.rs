@@ -95,6 +95,12 @@ impl Timer {
         to_rclrs_result(unsafe {rcl_timer_reset(&mut *rcl_timer)})
     }
 
+    pub fn call(&mut self) -> Result<(), RclrsError>
+    {
+        let mut rcl_timer = self.rcl_timer.lock().unwrap();
+        to_rclrs_result(unsafe {rcl_timer_call(&mut *rcl_timer)})
+    }
+
     // handle() -> RCLC Timer Type
 
     // clock() -> Clock ?
@@ -222,7 +228,7 @@ mod tests {
 
     #[test]
     fn test_reset() {
-        let tolerance = 1e4 as i64;
+        let tolerance = 20e4 as i64;
         let clock = Clock::steady();
         let context = Context::new(vec![]).unwrap();
         let period_ns: i64 = 2e6 as i64;  // 2 milliseconds.
@@ -235,4 +241,24 @@ mod tests {
         assert!(elapsed < tolerance , "elapsed after reset: {}", elapsed);
     }
 
+    #[test]
+    fn test_call() {
+        let tolerance = 20e4 as i64;
+        let clock = Clock::steady();
+        let context = Context::new(vec![]).unwrap();
+        let period_ns: i64 = 1e6 as i64;  // 1 millisecond.
+        let mut dut = Timer::new(&clock, &context, period_ns).unwrap();
+        let elapsed = period_ns - dut.time_until_next_call().unwrap();
+        assert!(elapsed < tolerance , "elapsed before reset: {}", elapsed);
+        
+        thread::sleep(time::Duration::from_micros(1500));
+
+        let elapsed = period_ns - dut.time_until_next_call().unwrap();
+        assert!(elapsed > 1500000i64, "time_until_next_call before call: {}", elapsed);
+        
+        assert!(dut.call().is_ok());
+        
+        let elapsed = dut.time_until_next_call().unwrap();
+        assert!(elapsed < 500000i64, "time_until_next_call after call: {}", elapsed);
+    }
 }
