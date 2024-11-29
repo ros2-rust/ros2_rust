@@ -123,7 +123,7 @@ impl Timer {
     }
 
     /// Executes the callback of the timer (this is triggered by the executor or the node directly)
-    pub fn call(&mut self) -> Result<(), RclrsError>
+    pub fn call(&self) -> Result<(), RclrsError>
     {
         let mut rcl_timer = self.rcl_timer.lock().unwrap();
         to_rclrs_result(unsafe {rcl_timer_call(&mut *rcl_timer)})
@@ -146,7 +146,7 @@ impl Timer {
         })
     }
     
-    pub(crate) fn execute(&self) -> Result<(), RclrsError>
+    pub/* (crate)*/ fn execute(&self) -> Result<(), RclrsError>
     {
         if self.is_ready()?
         {
