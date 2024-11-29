@@ -2,23 +2,24 @@ use crate::{
     clock::Clock, context::Context, error::RclrsError, rcl_bindings::*, to_rclrs_result
 };
 // use std::fmt::Debug;
-use std::sync::{Arc, Mutex};
+use std::sync::{atomic::AtomicBool, Arc,  Mutex};
 
-pub type TimerCallback = Box<dyn FnMut(i64) + Send + Sync>;
+pub type TimerCallback = Box<dyn Fn(i64) + Send + Sync>;
 
 // #[derive(Debug)]
 pub struct Timer {
-    rcl_timer: Arc<Mutex<rcl_timer_t>>,
+    pub(crate) rcl_timer: Arc<Mutex<rcl_timer_t>>,
     callback: Option<TimerCallback>,
+    pub(crate) in_use_by_wait_set: Arc<AtomicBool>,
 }
 
 impl Timer {
     /// Creates a new timer (constructor)
     pub fn new(clock: &Clock, context: &Context, period: i64) -> Result<Timer, RclrsError> {
-        Self::with_callback(clock, context, period, None)
+        Self::new_with_callback(clock, context, period, None)
     }
 
-    pub fn with_callback(clock: &Clock, context: &Context, period: i64, callback: Option<TimerCallback>) -> Result<Timer, RclrsError> {
+    pub fn new_with_callback(clock: &Clock, context: &Context, period: i64, callback: Option<TimerCallback>) -> Result<Timer, RclrsError> {
         let mut rcl_timer;
         let timer_init_result = unsafe {
             // SAFETY: Getting a default value is always safe.
@@ -43,6 +44,7 @@ impl Timer {
             Timer {
                 rcl_timer: Arc::new(Mutex::new(rcl_timer)),
                 callback,
+                in_use_by_wait_set: Arc::new(AtomicBool::new(false)),
             }
         })
     }
@@ -114,8 +116,7 @@ impl Timer {
         })
     }
 
-    /// Resets the timer, setting the last call time to now
-    pub fn reset(&mut self) -> Result<(), RclrsError>
+    pub fn reset(&self) -> Result<(), RclrsError>
     {
         let mut rcl_timer = self.rcl_timer.lock().unwrap();
         to_rclrs_result(unsafe {rcl_timer_reset(&mut *rcl_timer)})
@@ -144,7 +145,20 @@ impl Timer {
             is_ready
         })
     }
-    // handle() -> RCLC Timer Type
+    
+    pub(crate) fn execute(&self) -> Result<(), RclrsError>
+    {
+        if self.is_ready()?
+        {
+            let time_since_last_call = self.time_since_last_call()?;
+            self.call()?;
+            if let Some(ref callback) = self.callback
+            {
+                callback(time_since_last_call);
+            }
+        }
+        Ok(())
+    } 
 }
 
 /// 'Drop' trait implementation to be able to release the resources
@@ -155,6 +169,12 @@ impl Drop for rcl_timer_t {
         if let Err(e) = to_rclrs_result(rc) {
             panic!("Unable to release Timer. {:?}", e)
         }
+    }
+}
+
+impl PartialEq for Timer {
+    fn eq(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.rcl_timer, &other.rcl_timer)
     }
 }
 
@@ -282,7 +302,7 @@ mod tests {
         let clock = Clock::steady();
         let context = Context::new(vec![]).unwrap();
         let period_ns: i64 = 2e6 as i64;  // 2 milliseconds.
-        let mut dut = Timer::new(&clock, &context, period_ns).unwrap();
+        let dut = Timer::new(&clock, &context, period_ns).unwrap();
         let elapsed = period_ns - dut.time_until_next_call().unwrap();
         assert!(elapsed < tolerance , "elapsed before reset: {}", elapsed);
         thread::sleep(time::Duration::from_millis(1));
@@ -297,7 +317,7 @@ mod tests {
         let clock = Clock::steady();
         let context = Context::new(vec![]).unwrap();
         let period_ns: i64 = 1e6 as i64;  // 1 millisecond.
-        let mut dut = Timer::new(&clock, &context, period_ns).unwrap();
+        let dut = Timer::new(&clock, &context, period_ns).unwrap();
         let elapsed = period_ns - dut.time_until_next_call().unwrap();
         assert!(elapsed < tolerance , "elapsed before reset: {}", elapsed);
 
@@ -337,8 +357,35 @@ mod tests {
         let period_ns: i64 = 1e6 as i64;  // 1 millisecond.
         let foo = Arc::new(Mutex::new(0i64));
         let foo_callback = foo.clone();
-        let dut = Timer::with_callback(&clock, &context, period_ns, Some(Box::new(move |x| *foo_callback.lock().unwrap() = x ))).unwrap();
+        let dut = Timer::new_with_callback(&clock, &context, period_ns, Some(Box::new(move |x| *foo_callback.lock().unwrap() = x ))).unwrap();
         dut.callback.unwrap()(123);
         assert_eq!(*foo.lock().unwrap(), 123);
+    }
+
+    #[test]
+    fn test_execute_when_is_not_ready() {
+        let clock = Clock::steady();
+        let context = Context::new(vec![]).unwrap();
+        let period_ns: i64 = 1e6 as i64;  // 1 millisecond.
+        let foo = Arc::new(Mutex::new(0i64));
+        let foo_callback = foo.clone();
+        let dut = Timer::new_with_callback(&clock, &context, period_ns, Some(Box::new(move |x| *foo_callback.lock().unwrap() = x ))).unwrap();
+        assert!(dut.execute().is_ok());
+        assert_eq!(*foo.lock().unwrap(), 0i64);
+    }
+
+    #[test]
+    fn test_execute_when_is_ready() {
+        let clock = Clock::steady();
+        let context = Context::new(vec![]).unwrap();
+        let period_ns: i64 = 1e6 as i64;  // 1 millisecond.
+        let foo = Arc::new(Mutex::new(0i64));
+        let foo_callback = foo.clone();
+        let dut = Timer::new_with_callback(&clock, &context, period_ns, Some(Box::new(move |x| *foo_callback.lock().unwrap() = x ))).unwrap();
+        thread::sleep(time::Duration::from_micros(1500));
+        assert!(dut.execute().is_ok());
+        let x = *foo.lock().unwrap();
+        assert!(x > 1500000i64);
+        assert!(x < 1600000i64);
     }
 }
