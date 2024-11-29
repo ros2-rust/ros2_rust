@@ -115,14 +115,24 @@ impl Timer {
         to_rclrs_result(unsafe {rcl_timer_call(&mut *rcl_timer)})
     }
 
+    pub fn is_ready(&self) -> Result<bool, RclrsError>
+    {
+        let (is_ready, is_ready_result) = unsafe {
+            let mut is_ready: bool = false;
+            let rcl_timer = self.rcl_timer.lock().unwrap();
+            let is_ready_result = rcl_timer_is_ready(
+                &* rcl_timer,
+                &mut is_ready
+            );
+            (is_ready, is_ready_result)
+        };
+        to_rclrs_result(is_ready_result).map(|_| {
+            is_ready
+        })
+    }
     // handle() -> RCLC Timer Type
 
     // clock() -> Clock ?
-
-    // is_ready() -> bool
-
-    // reset() -> None
-
 }
 
 impl Drop for rcl_timer_t {
@@ -287,5 +297,23 @@ mod tests {
         
         let elapsed = dut.time_until_next_call().unwrap();
         assert!(elapsed < 500000i64, "time_until_next_call after call: {}", elapsed);
+    }
+
+    #[test]
+    fn test_is_ready() {
+        let clock = Clock::steady();
+        let context = Context::new(vec![]).unwrap();
+        let period_ns: i64 = 1e6 as i64;  // 1 millisecond.
+        let dut = Timer::new(&clock, &context, period_ns).unwrap();
+        
+        let is_ready = dut.is_ready();
+        assert!(is_ready.is_ok());
+        assert!(!is_ready.unwrap());
+
+        thread::sleep(time::Duration::from_micros(1100));
+
+        let is_ready = dut.is_ready();
+        assert!(is_ready.is_ok());
+        assert!(is_ready.unwrap());
     }
 }
