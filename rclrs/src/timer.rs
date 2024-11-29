@@ -1,22 +1,24 @@
 use crate::{
     clock::Clock, context::Context, error::RclrsError, rcl_bindings::*, to_rclrs_result
 };
+// use std::fmt::Debug;
 use std::sync::{Arc, Mutex};
 
+pub type TimerCallback = Box<dyn FnMut(i64) + Send + Sync>;
 
-
-pub trait TimerCallback {
-    fn call(time_since_last_callback_ns: i64);
-}
-
-#[derive(Debug)]
+// #[derive(Debug)]
 pub struct Timer {
     rcl_timer: Arc<Mutex<rcl_timer_t>>,
-    // callback: Option<T>,
+    callback: Option<TimerCallback>,
 }
 
 impl Timer {
+
     pub fn new(clock: &Clock, context: &Context, period: i64) -> Result<Timer, RclrsError> {
+        Self::with_callback(clock, context, period, None)
+    }
+
+    pub fn with_callback(clock: &Clock, context: &Context, period: i64, callback: Option<TimerCallback>) -> Result<Timer, RclrsError> {
         let mut rcl_timer;
         let timer_init_result = unsafe {
             // SAFETY: Getting a default value is always safe.
@@ -24,7 +26,8 @@ impl Timer {
             let allocator = rcutils_get_default_allocator();
             let mut rcl_clock = clock.rcl_clock.lock().unwrap();
             let mut rcl_context = context.handle.rcl_context.lock().unwrap();
-            let callback: rcl_timer_callback_t = None;
+            // Callbacks will be handled in the WaitSet.
+            let rcl_timer_callback: rcl_timer_callback_t = None;
             // Function will return Err(_) only if there isn't enough memory to allocate a clock
             // object.
             rcl_timer_init(
@@ -32,14 +35,14 @@ impl Timer {
                 &mut *rcl_clock,
                 &mut *rcl_context,
                 period,
-                callback,
+                rcl_timer_callback,
                 allocator,
             )
         };
         to_rclrs_result(timer_init_result).map(|_| {
             Timer {
                 rcl_timer: Arc::new(Mutex::new(rcl_timer)),
-                // callback: None
+                callback,
             }
         })
     }
@@ -318,5 +321,17 @@ mod tests {
         let is_ready = dut.is_ready();
         assert!(is_ready.is_ok());
         assert!(is_ready.unwrap());
+    }
+
+    #[test]
+    fn test_callback_wip() {
+        let clock = Clock::steady();
+        let context = Context::new(vec![]).unwrap();
+        let period_ns: i64 = 1e6 as i64;  // 1 millisecond.
+        let foo = Arc::new(Mutex::new(0i64));
+        let foo_callback = foo.clone();
+        let dut = Timer::with_callback(&clock, &context, period_ns, Some(Box::new(move |x| *foo_callback.lock().unwrap() = x ))).unwrap();
+        dut.callback.unwrap()(123);
+        assert_eq!(*foo.lock().unwrap(), 123);
     }
 }
