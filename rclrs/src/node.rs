@@ -345,28 +345,21 @@ impl Node {
     }
 
     /// Creates a [`Timer`]
-    pub(crate) fn create_timer(
+    pub fn create_timer(
         &self,
-        timer_period_s: i64,
-        context: Context,
+        period_ns: i64,
+        context: &Context,
         callback: Option<TimerCallback>,
         clock: Option<Clock>
-    ) -> Arc<Timer> {
-        let timer_period_ns = (timer_period_s as f64 * S_TO_NS) as i64;
-        let clock_used;
-        match clock {
-            Some(value) => {
-                clock_used = value;
-            }
-            None => {
-                clock_used = self.get_clock();
-            }
-        }
-        let context = Context::new(vec![]).unwrap();
-        let timer = Timer::new(&clock_used, &context, timer_period_ns);
-        let timer = Arc::new(timer.unwrap());
+    ) -> Result<Arc<Timer>, RclrsError> {
+        let clock_used = match clock {
+            Some(value) => value,
+            None => self.get_clock(),
+        };
+        let timer = Timer::new_with_callback(&clock_used, &context, period_ns, callback)?;
+        let timer = Arc::new(timer);
         self.timers_mtx.lock().unwrap().push(Arc::downgrade(&timer) as Weak<Timer>);
-        timer
+        Ok(timer)
     }
 
     /// Returns the subscriptions that have not been dropped yet.
@@ -393,6 +386,13 @@ impl Node {
 
     pub(crate) fn live_services(&self) -> Vec<Arc<dyn ServiceBase>> {
         { self.services_mtx.lock().unwrap() }
+            .iter()
+            .filter_map(Weak::upgrade)
+            .collect()
+    }
+
+    pub(crate) fn live_timers(&self) -> Vec<Arc<Timer>> {
+        { self.timers_mtx.lock().unwrap() }
             .iter()
             .filter_map(Weak::upgrade)
             .collect()

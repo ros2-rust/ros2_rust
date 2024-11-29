@@ -142,13 +142,14 @@ impl WaitSet {
         let live_clients = node.live_clients();
         let live_guard_conditions = node.live_guard_conditions();
         let live_services = node.live_services();
+        let live_timers = node.live_timers();
         let ctx = Context {
             handle: Arc::clone(&node.handle.context_handle),
         };
         let mut wait_set = WaitSet::new(
             live_subscriptions.len(),
             live_guard_conditions.len(),
-            0,
+            live_timers.len(),
             live_clients.len(),
             live_services.len(),
             0,
@@ -169,6 +170,10 @@ impl WaitSet {
 
         for live_service in &live_services {
             wait_set.add_service(live_service.clone())?;
+        }
+
+        for live_timer in &live_timers {
+            wait_set.add_timer(live_timer.clone())?;
         }
         Ok(wait_set)
     }

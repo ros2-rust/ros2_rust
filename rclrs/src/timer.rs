@@ -146,7 +146,7 @@ impl Timer {
         })
     }
     
-    pub/* (crate)*/ fn execute(&self) -> Result<(), RclrsError>
+    pub fn execute(&self) -> Result<(), RclrsError>
     {
         if self.is_ready()?
         {
