@@ -83,7 +83,7 @@ impl Clock {
         }
     }
 
-    /// Return the 'rcl_clock_t' of the Clock
+    /// Returns the clock's `rcl_clock_t`.
     pub(crate) fn get_rcl_clock(&self) -> &Arc<Mutex<rcl_clock_t>> {
         &self.rcl_clock
     }
