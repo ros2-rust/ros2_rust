@@ -2,8 +2,11 @@
 /// that prints the timer callback execution iteration. The callback is executed
 /// thanks to the spin, which is in charge of executing the timer's events among
 /// other entities' events.
-use rclrs::{create_node, Context, Node, Timer, RclrsError};
-use std::{env, sync::{Arc, Mutex}};
+use rclrs::{create_node, Context, Node, RclrsError, Timer};
+use std::{
+    env,
+    sync::{Arc, Mutex},
+};
 
 /// Contains both the node and timer.
 struct SimpleTimerNode {
@@ -12,7 +15,6 @@ struct SimpleTimerNode {
 }
 
 impl SimpleTimerNode {
-
     /// Creates a node and a timer with a callback.
     ///
     /// The callback will simply print to stdout:
@@ -26,7 +28,10 @@ impl SimpleTimerNode {
             context,
             Some(Box::new(move |_| {
                 let x = *count.lock().unwrap();
-                println!("Drinking 🧉 for the {}th time every {} nanoseconds.", x, timer_period_ns);
+                println!(
+                    "Drinking 🧉 for the {}th time every {} nanoseconds.",
+                    x, timer_period_ns
+                );
                 *count.lock().unwrap() = x + 1;
             })),
             None,
@@ -34,7 +39,6 @@ impl SimpleTimerNode {
         Ok(Self { node, timer })
     }
 }
-
 
 fn main() -> Result<(), RclrsError> {
     let timer_period: i64 = 1e9 as i64; // 1 seconds.
