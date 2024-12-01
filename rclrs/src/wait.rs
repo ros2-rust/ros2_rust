@@ -64,7 +64,7 @@ pub struct ReadyEntities {
     pub guard_conditions: Vec<Arc<GuardCondition>>,
     /// A list of services that have potentially received requests.
     pub services: Vec<Arc<dyn ServiceBase>>,
-    /// TODO
+    /// A list of timers that are potentially due.
     pub timers: Vec<Arc<Timer>>,
 }
 
@@ -321,7 +321,16 @@ impl WaitSet {
         Ok(())
     }
 
-    /// TBD
+    /// Adds a timer to the wait set.
+    ///
+    /// # Errors
+    /// - If the timer was already added to this wait set or another one,
+    ///   [`AlreadyAddedToWaitSet`][1] will be returned
+    /// - If the number of timer in the wait set is larger than the
+    ///   capacity set in [`WaitSet::new`], [`WaitSetFull`][2] will be returned
+    ///
+    /// [1]: crate::RclrsError
+    /// [2]: crate::RclReturnCode
     pub fn add_timer(&mut self, timer: Arc<Timer>) -> Result<(), RclrsError> {
         let exclusive_timer =
             ExclusivityGuard::new(Arc::clone(&timer), Arc::clone(&timer.in_use_by_wait_set))?;
@@ -331,7 +340,7 @@ impl WaitSet {
             // Passing in a null pointer for the third argument is explicitly allowed.
             rcl_wait_set_add_timer(
                 &mut self.handle.rcl_wait_set,
-                &* timer.rcl_timer.lock().unwrap() as *const _,
+                &*timer.rcl_timer.lock().unwrap() as *const _,
                 core::ptr::null_mut(),
             )
         }
@@ -486,7 +495,7 @@ mod tests {
     fn timer_in_wait_not_set_readies() -> Result<(), RclrsError> {
         let context = Context::new([])?;
         let clock = Clock::steady();
-        let period: i64 = 1e6 as i64; // 1 milliseconds.
+        let period: i64 = 1e6 as i64; // 1 millisecond.
         let timer = Arc::new(Timer::new(&clock, &context, period)?);
 
         let mut wait_set = WaitSet::new(0, 0, 1, 0, 0, 0, &context)?;
@@ -502,7 +511,7 @@ mod tests {
     fn timer_in_wait_set_readies() -> Result<(), RclrsError> {
         let context = Context::new([])?;
         let clock = Clock::steady();
-        let period: i64 = 1e6 as i64; // 1 milliseconds.
+        let period: i64 = 1e6 as i64; // 1 millisecond.
         let timer = Arc::new(Timer::new(&clock, &context, period)?);
 
         let mut wait_set = WaitSet::new(0, 0, 1, 0, 0, 0, &context)?;
