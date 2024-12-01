@@ -356,7 +356,7 @@ impl Node {
             Some(value) => value,
             None => self.get_clock(),
         };
-        let timer = Timer::new_with_callback(&clock_used, &context, period_ns, callback)?;
+        let timer = Timer::new(&clock_used, &context, period_ns, callback)?;
         let timer = Arc::new(timer);
         self.timers_mtx
             .lock()
@@ -591,12 +591,8 @@ mod tests {
             .namespace("test_create_timer")
             .build()?;
 
-        let _timer = dut.create_timer(
-            timer_period_ns,
-            &context,
-            Some(Box::new(move |_| { })),
-            None,
-        )?;
+        let _timer =
+            dut.create_timer(timer_period_ns, &context, Some(Box::new(move |_| {})), None)?;
         assert_eq!(dut.live_timers().len(), 1);
 
         Ok(())

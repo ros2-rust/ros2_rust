@@ -466,6 +466,7 @@ impl WaitSet {
 mod tests {
     use super::*;
     use crate::clock::Clock;
+    use crate::timer::TimerCallback;
 
     #[test]
     fn traits() {
@@ -496,7 +497,8 @@ mod tests {
         let context = Context::new([])?;
         let clock = Clock::steady();
         let period: i64 = 1e6 as i64; // 1 millisecond.
-        let timer = Arc::new(Timer::new(&clock, &context, period)?);
+        let callback: Option<TimerCallback> = Some(Box::new(move |_| {}));
+        let timer = Arc::new(Timer::new(&clock, &context, period, callback)?);
 
         let mut wait_set = WaitSet::new(0, 0, 1, 0, 0, 0, &context)?;
         wait_set.add_timer(timer.clone())?;
@@ -512,7 +514,8 @@ mod tests {
         let context = Context::new([])?;
         let clock = Clock::steady();
         let period: i64 = 1e6 as i64; // 1 millisecond.
-        let timer = Arc::new(Timer::new(&clock, &context, period)?);
+        let callback: Option<TimerCallback> = Some(Box::new(move |_| {}));
+        let timer = Arc::new(Timer::new(&clock, &context, period, callback)?);
 
         let mut wait_set = WaitSet::new(0, 0, 1, 0, 0, 0, &context)?;
         wait_set.add_timer(timer.clone())?;

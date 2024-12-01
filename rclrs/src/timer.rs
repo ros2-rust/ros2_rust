@@ -1,23 +1,35 @@
 use crate::{clock::Clock, context::Context, error::RclrsError, rcl_bindings::*, to_rclrs_result};
+// TODO: fix me when the callback type is properly defined.
 // use std::fmt::Debug;
 use std::sync::{atomic::AtomicBool, Arc, Mutex};
 
+/// Type alias for the `Timer` callback.
 pub type TimerCallback = Box<dyn Fn(i64) + Send + Sync>;
 
+/// Struct for executing periodic events.
+///
+/// The execution of the callbacks is tied to [`spin_once`][1] or [`spin`][2] on the timers's node.
+///
+/// Timer can be created via [`Node::create_timer()`][3], this is to ensure that [`Node`][4]s can
+/// track all the timers that have been created. However, a user of a `Timer` can also
+/// use it standalone.
+///
+/// [1]: crate::spin_once
+/// [2]: crate::spin
+/// [3]: crate::Node::create_timer
+/// [4]: crate::Node
+// TODO: callback type prevents us from making the Timer implement the Debug trait.
 // #[derive(Debug)]
 pub struct Timer {
     pub(crate) rcl_timer: Arc<Mutex<rcl_timer_t>>,
+    /// The callback function that runs when the timer is due.
     callback: Option<TimerCallback>,
     pub(crate) in_use_by_wait_set: Arc<AtomicBool>,
 }
 
 impl Timer {
-    /// Creates a new timer (constructor)
-    pub fn new(clock: &Clock, context: &Context, period: i64) -> Result<Timer, RclrsError> {
-        Self::new_with_callback(clock, context, period, None)
-    }
-
-    pub fn new_with_callback(
+    /// Creates a new timer.
+    pub fn new(
         clock: &Clock,
         context: &Context,
         period: i64,
@@ -97,6 +109,7 @@ impl Timer {
         to_rclrs_result(time_until_next_call_result).map(|_| time_value_ns)
     }
 
+    /// Resets the timer.
     pub fn reset(&self) -> Result<(), RclrsError> {
         let mut rcl_timer = self.rcl_timer.lock().unwrap();
         to_rclrs_result(unsafe { rcl_timer_reset(&mut *rcl_timer) })
@@ -119,7 +132,7 @@ impl Timer {
         to_rclrs_result(is_ready_result).map(|_| is_ready)
     }
 
-    pub fn execute(&self) -> Result<(), RclrsError> {
+    pub(crate) fn execute(&self) -> Result<(), RclrsError> {
         if self.is_ready()? {
             let time_since_last_call = self.time_since_last_call()?;
             self.call()?;
@@ -157,6 +170,10 @@ mod tests {
     use super::*;
     use std::{thread, time};
 
+    fn create_dummy_callback() -> Option<TimerCallback> {
+        Some(Box::new(move |_| {}))
+    }
+
     #[test]
     fn traits() {
         use crate::test_helpers::*;
@@ -170,8 +187,7 @@ mod tests {
         let clock = Clock::system();
         let context = Context::new(vec![]).unwrap();
         let period: i64 = 1e6 as i64; // 1 milliseconds.
-
-        let dut = Timer::new(&clock, &context, period);
+        let dut = Timer::new(&clock, &context, period, create_dummy_callback());
         assert!(dut.is_ok());
     }
 
@@ -180,8 +196,7 @@ mod tests {
         let clock = Clock::steady();
         let context = Context::new(vec![]).unwrap();
         let period: i64 = 1e6 as i64; // 1 milliseconds.
-
-        let dut = Timer::new(&clock, &context, period);
+        let dut = Timer::new(&clock, &context, period, create_dummy_callback());
         assert!(dut.is_ok());
     }
 
@@ -195,11 +210,9 @@ mod tests {
         source.set_ros_time_override(set_time);
         // Ros time is set, should return the value that was set
         assert_eq!(clock.now().nsec, set_time);
-
         let context = Context::new(vec![]).unwrap();
         let period: i64 = 1e6 as i64; // 1 milliseconds..
-
-        let dut = Timer::new(&clock, &context, period);
+        let dut = Timer::new(&clock, &context, period, create_dummy_callback());
         assert!(dut.is_ok());
     }
 
@@ -208,8 +221,7 @@ mod tests {
         let clock = Clock::steady();
         let context = Context::new(vec![]).unwrap();
         let period: i64 = 1e6 as i64; // 1 milliseconds.
-
-        let dut = Timer::new(&clock, &context, period);
+        let dut = Timer::new(&clock, &context, period, create_dummy_callback());
         assert!(dut.is_ok());
         let dut = dut.unwrap();
         let period_result = dut.get_timer_period_ns();
@@ -223,8 +235,7 @@ mod tests {
         let clock = Clock::steady();
         let context = Context::new(vec![]).unwrap();
         let period: i64 = 1e6 as i64; // 1 milliseconds.
-
-        let dut = Timer::new(&clock, &context, period);
+        let dut = Timer::new(&clock, &context, period, create_dummy_callback());
         assert!(dut.is_ok());
         let dut = dut.unwrap();
         assert!(dut.is_canceled().is_ok());
@@ -241,8 +252,7 @@ mod tests {
         let context = Context::new(vec![]).unwrap();
         let period_ns: i64 = 2e6 as i64; // 2 milliseconds.
         let sleep_period_ms = time::Duration::from_millis(1);
-
-        let dut = Timer::new(&clock, &context, period_ns);
+        let dut = Timer::new(&clock, &context, period_ns, create_dummy_callback());
         assert!(dut.is_ok());
         let dut = dut.unwrap();
         thread::sleep(sleep_period_ms);
@@ -261,7 +271,7 @@ mod tests {
         let clock = Clock::steady();
         let context = Context::new(vec![]).unwrap();
         let period_ns: i64 = 2e6 as i64; // 2 milliseconds.
-        let dut = Timer::new(&clock, &context, period_ns);
+        let dut = Timer::new(&clock, &context, period_ns, create_dummy_callback());
         assert!(dut.is_ok());
         let dut = dut.unwrap();
         let time_until_next_call = dut.time_until_next_call();
@@ -280,7 +290,7 @@ mod tests {
         let clock = Clock::steady();
         let context = Context::new(vec![]).unwrap();
         let period_ns: i64 = 2e6 as i64; // 2 milliseconds.
-        let dut = Timer::new(&clock, &context, period_ns).unwrap();
+        let dut = Timer::new(&clock, &context, period_ns, create_dummy_callback()).unwrap();
         let elapsed = period_ns - dut.time_until_next_call().unwrap();
         assert!(elapsed < tolerance, "elapsed before reset: {}", elapsed);
         thread::sleep(time::Duration::from_millis(1));
@@ -295,21 +305,17 @@ mod tests {
         let clock = Clock::steady();
         let context = Context::new(vec![]).unwrap();
         let period_ns: i64 = 1e6 as i64; // 1 millisecond.
-        let dut = Timer::new(&clock, &context, period_ns).unwrap();
+        let dut = Timer::new(&clock, &context, period_ns, create_dummy_callback()).unwrap();
         let elapsed = period_ns - dut.time_until_next_call().unwrap();
         assert!(elapsed < tolerance, "elapsed before reset: {}", elapsed);
-
         thread::sleep(time::Duration::from_micros(1500));
-
         let elapsed = period_ns - dut.time_until_next_call().unwrap();
         assert!(
             elapsed > 1500000i64,
             "time_until_next_call before call: {}",
             elapsed
         );
-
         assert!(dut.call().is_ok());
-
         let elapsed = dut.time_until_next_call().unwrap();
         assert!(
             elapsed < 500000i64,
@@ -323,27 +329,24 @@ mod tests {
         let clock = Clock::steady();
         let context = Context::new(vec![]).unwrap();
         let period_ns: i64 = 1e6 as i64; // 1 millisecond.
-        let dut = Timer::new(&clock, &context, period_ns).unwrap();
-
+        let dut = Timer::new(&clock, &context, period_ns, create_dummy_callback()).unwrap();
         let is_ready = dut.is_ready();
         assert!(is_ready.is_ok());
         assert!(!is_ready.unwrap());
-
         thread::sleep(time::Duration::from_micros(1100));
-
         let is_ready = dut.is_ready();
         assert!(is_ready.is_ok());
         assert!(is_ready.unwrap());
     }
 
     #[test]
-    fn test_callback_wip() {
+    fn test_callback() {
         let clock = Clock::steady();
         let context = Context::new(vec![]).unwrap();
         let period_ns: i64 = 1e6 as i64; // 1 millisecond.
         let foo = Arc::new(Mutex::new(0i64));
         let foo_callback = foo.clone();
-        let dut = Timer::new_with_callback(
+        let dut = Timer::new(
             &clock,
             &context,
             period_ns,
@@ -361,7 +364,7 @@ mod tests {
         let period_ns: i64 = 1e6 as i64; // 1 millisecond.
         let foo = Arc::new(Mutex::new(0i64));
         let foo_callback = foo.clone();
-        let dut = Timer::new_with_callback(
+        let dut = Timer::new(
             &clock,
             &context,
             period_ns,
@@ -379,7 +382,7 @@ mod tests {
         let period_ns: i64 = 1e6 as i64; // 1 millisecond.
         let foo = Arc::new(Mutex::new(0i64));
         let foo_callback = foo.clone();
-        let dut = Timer::new_with_callback(
+        let dut = Timer::new(
             &clock,
             &context,
             period_ns,
