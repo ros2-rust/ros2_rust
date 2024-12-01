@@ -586,19 +586,15 @@ mod tests {
     #[test]
     fn test_create_timer_without_clock_source() -> Result<(), RclrsError> {
         let timer_period_ns: i64 = 1e6 as i64; // 1 millisecond.
-        let flag: Arc<Mutex<bool>> = Arc::new(Mutex::new(false));
-        let callback_flag: Arc<Mutex<bool>> = Arc::new(Mutex::new(false));
         let context = Context::new([])?;
         let dut = NodeBuilder::new(&context, "node_with_timer")
             .namespace("test_create_timer")
             .build()?;
 
-        let timer = dut.create_timer(
+        let _timer = dut.create_timer(
             timer_period_ns,
             &context,
-            Some(Box::new(move |_| {
-                *callback_flag.lock().unwrap() = true;
-            })),
+            Some(Box::new(move |_| { })),
             None,
         )?;
         assert_eq!(dut.live_timers().len(), 1);
