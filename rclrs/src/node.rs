@@ -19,9 +19,6 @@ use crate::{
     SubscriptionCallback, TimeSource, Timer, TimerCallback, ToLogParams, ENTITY_LIFECYCLE_MUTEX,
 };
 
-/// Constant conversion from seconds to nanoseconds
-const S_TO_NS: f64 = 1e9;
-
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
 // they are running in. Therefore, this type can be safely sent to another thread.
 unsafe impl Send for rcl_node_t {}
@@ -344,7 +341,10 @@ impl Node {
         Ok(subscription)
     }
 
-    /// Creates a [`Timer`]
+    /// Creates a [`Timer`][1].
+    ///
+    /// [1]: crate::Timer
+    /// TODO: make timer's lifetime depend on node's lifetime.
     pub fn create_timer(
         &self,
         period_ns: i64,
@@ -579,6 +579,52 @@ mod tests {
             .get("/test_topics_graph/graph_test_topic_3")
             .unwrap();
         assert!(types.contains(&"test_msgs/msg/Defaults".to_string()));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_create_timer_without_clock_source() -> Result<(), RclrsError> {
+        let timer_period_ns: i64 = 1e6 as i64; // 1 millisecond.
+        let flag: Arc<Mutex<bool>> = Arc::new(Mutex::new(false));
+        let callback_flag: Arc<Mutex<bool>> = Arc::new(Mutex::new(false));
+        let context = Context::new([])?;
+        let dut = NodeBuilder::new(&context, "node_with_timer")
+            .namespace("test_create_timer")
+            .build()?;
+
+        let timer = dut.create_timer(
+            timer_period_ns,
+            &context,
+            Some(Box::new(move |_| {
+                *callback_flag.lock().unwrap() = true;
+            })),
+            None,
+        )?;
+        assert_eq!(dut.live_timers().len(), 1);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_create_timer_with_clock_source() -> Result<(), RclrsError> {
+        let timer_period_ns: i64 = 1e6 as i64; // 1 millisecond.
+        let flag: Arc<Mutex<bool>> = Arc::new(Mutex::new(false));
+        let callback_flag: Arc<Mutex<bool>> = Arc::new(Mutex::new(false));
+        let context = Context::new([])?;
+        let dut = NodeBuilder::new(&context, "node_with_timer")
+            .namespace("test_create_timer")
+            .build()?;
+
+        let timer = dut.create_timer(
+            timer_period_ns,
+            &context,
+            Some(Box::new(move |_| {
+                *callback_flag.lock().unwrap() = true;
+            })),
+            None,
+        )?;
+        assert_eq!(dut.live_timers().len(), 1);
 
         Ok(())
     }
