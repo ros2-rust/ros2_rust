@@ -1,0 +1,13 @@
+<package format="3">
+  <name>rclrs_timer_demo</name>
+  <version>0.1.0</version>
+  <description>Shows how to implement a timer within a Node using rclrs.</description>
+  <maintainer email="user@todo.todo">user</maintainer>
+  <license>TODO: License declaration.</license>
+
+  <depend>rclrs</depend>
+
+  <export>
+    <build_type>ament_cargo</build_type>
+  </export>
+</package>

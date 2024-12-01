@@ -1,0 +1,12 @@
+[package]
+name = "rclrs_timer_demo"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name="rclrs_timer_demo"
+path="src/rclrs_timer_demo.rs"
+
+
+[dependencies]
+rclrs = "*"
