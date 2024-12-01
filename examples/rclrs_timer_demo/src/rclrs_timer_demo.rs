@@ -18,8 +18,8 @@ impl SimpleTimerNode {
     /// Creates a node and a timer with a callback.
     ///
     /// The callback will simply print to stdout:
-    /// "Drinking 🧉 for the <x>th time every <p> nanoseconds."
-    /// where <x> is the iteration callback counter and <p> is the period of the timer.
+    /// "Drinking 🧉 for the xth time every p nanoseconds."
+    /// where x is the iteration callback counter and p is the period of the timer.
     fn new(context: &Context, timer_period_ns: i64) -> Result<Self, RclrsError> {
         let node = create_node(context, "simple_timer_node")?;
         let count: Arc<Mutex<i32>> = Arc::new(Mutex::new(0));
