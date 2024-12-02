@@ -93,9 +93,9 @@ jobs:
         echo "Running clippy in $path"
         # Run clippy for all features except generate_docs (needed for docs.rs)
         if [ "$(basename $path)" = "rclrs" ]; then
-          cargo clippy --all-targets -F default,dyn_msg -- -D warnings
+          cargo clippy --no-deps --all-targets -F default,dyn_msg -- -D warnings
         else
-          cargo clippy --all-targets --all-features -- -D warnings
+          cargo clippy --no-deps --all-targets --all-features -- -D warnings
         fi
         cd -
         done

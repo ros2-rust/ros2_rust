@@ -103,7 +103,7 @@ pub(crate) mod log_handler {
         pub(crate) message: Cow<'a, str>,
     }
 
-    impl<'a> LogEntry<'a> {
+    impl LogEntry<'_> {
         /// Change the entry from something borrowed into something owned
         pub(crate) fn into_owned(self) -> LogEntry<'static> {
             LogEntry {
@@ -124,7 +124,7 @@ pub(crate) mod log_handler {
         pub line_number: usize,
     }
 
-    impl<'a> LogLocation<'a> {
+    impl LogLocation<'_> {
         pub(crate) fn into_owned(self) -> LogLocation<'static> {
             LogLocation {
                 function_name: Cow::Owned(self.function_name.into_owned()),

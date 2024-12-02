@@ -124,10 +124,11 @@ pub trait RmwMessage: Clone + Debug + Default + Send + Sync + Message {
 ///
 /// Memory ownership by C is achieved by calling `init()` when any string or sequence is created,
 /// as well as in the `Default` impl for messages.
+///
 /// User code can still create messages explicitly, which will not call `init()`, but this is not a
-///  problem, since nothing is allocated this way.
+/// problem, since nothing is allocated this way.
+///
 /// The `Drop` impl for any sequence or string will call `fini()`.
-
 pub trait Message: Clone + Debug + Default + 'static + Send + Sync {
     /// The corresponding RMW-native message type.
     type RmwMsg: RmwMessage;
