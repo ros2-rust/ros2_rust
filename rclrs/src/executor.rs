@@ -48,7 +48,11 @@ impl SingleThreadedExecutor {
             })
         {
             let wait_set = WaitSet::new_for_node(&node)?;
-            let ready_entities = wait_set.wait(timeout)?;
+            let mut ready_entities = wait_set.wait(timeout)?;
+
+            for ready_timer in ready_entities.timers.iter_mut() {
+                ready_timer.execute()?;
+            }
 
             for ready_subscription in ready_entities.subscriptions {
                 ready_subscription.execute()?;
