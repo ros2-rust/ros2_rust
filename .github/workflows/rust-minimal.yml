@@ -76,10 +76,6 @@ jobs:
         cd -
         done
 
-    - name: Install cargo-ament-build
-      run: |
-        cargo install --debug cargo-ament-build
-
     - name: Build and test
       id: build
       uses: ros-tooling/action-ros-ci@v0.3
