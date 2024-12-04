@@ -11,6 +11,11 @@ Introduction
 This is a set of projects (the `rclrs` client library, code generator, examples and more) that
 enables developers to write ROS 2 applications in Rust.
 
+Installation
+------------
+
+Follow the [instructions in the documentation directory](docs/building.md).
+
 Features and limitations
 ------------------------
 
