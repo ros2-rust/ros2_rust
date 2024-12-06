@@ -195,7 +195,7 @@ impl<'a, T: ParameterVariant> ParameterBuilder<'a, T> {
     }
 }
 
-impl<'a, T> ParameterBuilder<'a, Arc<[T]>>
+impl<T> ParameterBuilder<'_, Arc<[T]>>
 where
     Arc<[T]>: ParameterVariant,
 {
@@ -206,7 +206,7 @@ where
     }
 }
 
-impl<'a> ParameterBuilder<'a, Arc<[Arc<str>]>> {
+impl ParameterBuilder<'_, Arc<[Arc<str>]>> {
     /// Sets the default for the parameter from a string-like array.
     pub fn default_string_array<U>(mut self, default_value: U) -> Self
     where
@@ -679,7 +679,7 @@ impl std::fmt::Display for DeclarationError {
 
 impl std::error::Error for DeclarationError {}
 
-impl<'a> Parameters<'a> {
+impl Parameters<'_> {
     /// Tries to read a parameter of the requested type.
     ///
     /// Returns `Some(T)` if a parameter of the requested type exists, `None` otherwise.

@@ -27,13 +27,13 @@ RUN apt-get update && apt-get install -y \
     python3-pip \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Rust and the cargo-ament-build plugin
 
+# Install Rust
 USER $CONTAINER_USER
 WORKDIR /home/${CONTAINER_USER}
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- --default-toolchain 1.75.0 -y
-ENV PATH="/home/${CONTAINER_USER}/.cargo/bin:$PATH"
-RUN cargo install cargo-ament-build
+ENV PATH=/root/.cargo/bin:$PATH
+
 
 RUN pip install --upgrade pytest 
 
