@@ -1,4 +1,4 @@
-use rclrs::{Context, Executor, RclrsError, SpinOptions, Subscription, QOS_PROFILE_DEFAULT};
+use rclrs::{Context, Executor, RclrsError, SpinOptions, Subscription};
 use std::{
     sync::{Arc, Mutex},
     thread,
@@ -7,7 +7,8 @@ use std::{
 use std_msgs::msg::String as StringMsg;
 
 pub struct SimpleSubscriptionNode {
-    _subscriber: Arc<Subscription<StringMsg>>,
+    #[allow(unused)]
+    subscriber: Subscription<StringMsg>,
     data: Arc<Mutex<Option<StringMsg>>>,
 }
 
@@ -16,7 +17,7 @@ impl SimpleSubscriptionNode {
         let node = executor.create_node("simple_subscription").unwrap();
         let data: Arc<Mutex<Option<StringMsg>>> = Arc::new(Mutex::new(None));
         let data_mut: Arc<Mutex<Option<StringMsg>>> = Arc::clone(&data);
-        let _subscriber = node
+        let subscriber = node
             .create_subscription::<StringMsg, _>(
                 "publish_hello",
                 move |msg: StringMsg| {
@@ -24,7 +25,7 @@ impl SimpleSubscriptionNode {
                 },
             )
             .unwrap();
-        Ok(Self { _subscriber, data })
+        Ok(Self { subscriber, data })
     }
     fn data_callback(&self) -> Result<(), RclrsError> {
         if let Some(data) = self.data.lock().unwrap().as_ref() {
@@ -37,7 +38,7 @@ impl SimpleSubscriptionNode {
 }
 fn main() -> Result<(), RclrsError> {
     let mut executor = Context::default_from_env().unwrap().create_basic_executor();
-    let node = Arc::new(SimpleSubscriptionNode::new(&executor).unwrap());
+    let node = SimpleSubscriptionNode::new(&executor).unwrap();
     thread::spawn(move || loop {
         thread::sleep(Duration::from_millis(1000));
         node.data_callback().unwrap()

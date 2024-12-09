@@ -1,5 +1,5 @@
-use rclrs::{Context, Executor, Publisher, RclrsError, SpinOptions, QOS_PROFILE_DEFAULT};
-use std::{sync::Arc, thread, time::Duration};
+use rclrs::{Context, Executor, Publisher, RclrsError, SpinOptions};
+use std::{thread, time::Duration};
 use std_msgs::msg::String as StringMsg;
 
 struct SimplePublisherNode {
@@ -26,7 +26,7 @@ impl SimplePublisherNode {
 
 fn main() -> Result<(), RclrsError> {
     let mut executor = Context::default_from_env().unwrap().create_basic_executor();
-    let node = Arc::new(SimplePublisher::new(&executor).unwrap());
+    let node = SimplePublisherNode::new(&executor).unwrap();
     let mut count: i32 = 0;
     thread::spawn(move || loop {
         thread::sleep(Duration::from_millis(1000));
