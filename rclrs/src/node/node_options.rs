@@ -1,13 +1,12 @@
 use std::{
     borrow::Borrow,
-    ffi::CString,
-    sync::{Arc, Mutex},
+    ffi::{CStr, CString},
+    sync::{atomic::AtomicBool, Arc, Mutex},
 };
 
 use crate::{
-    rcl_bindings::*, ClockType, ContextHandle, Node, NodeHandle, NodePrimitives,
-    ParameterInterface, QoSProfile, RclrsError, TimeSource, ToResult, ENTITY_LIFECYCLE_MUTEX,
-    QOS_PROFILE_CLOCK,
+    rcl_bindings::*, ClockType, ContextHandle, Logger, Node, NodeHandle, ParameterInterface,
+    QoSProfile, RclrsError, TimeSource, ToResult, ENTITY_LIFECYCLE_MUTEX, QOS_PROFILE_CLOCK,
 };
 
 /// This trait helps to build [`NodeOptions`] which can be passed into
@@ -286,7 +285,7 @@ impl<'a> NodeOptions<'a> {
     ///
     /// Only used internally. Downstream users should call
     /// [`Executor::create_node`].
-    pub(crate) fn build(self, context: &Arc<ContextHandle>) -> Result<Node, RclrsError> {
+    pub(crate) fn build(self, context: &Arc<ContextHandle>) -> Result<Arc<Node>, RclrsError> {
         let node_name = CString::new(self.name).map_err(|err| RclrsError::StringContainsNul {
             err,
             s: self.name.to_owned(),
@@ -299,8 +298,13 @@ impl<'a> NodeOptions<'a> {
         let rcl_node_options = self.create_rcl_node_options()?;
         let rcl_context = &mut *context.rcl_context.lock().unwrap();
 
-        // SAFETY: Getting a zero-initialized value is always safe.
-        let mut rcl_node = unsafe { rcl_get_zero_initialized_node() };
+        let handle = Arc::new(NodeHandle {
+            // SAFETY: Getting a zero-initialized value is always safe.
+            rcl_node: Mutex::new(unsafe { rcl_get_zero_initialized_node() }),
+            context_handle: Arc::clone(context),
+            initialized: AtomicBool::new(false),
+        });
+
         unsafe {
             // SAFETY:
             // * The rcl_node is zero-initialized as mandated by this function.
@@ -310,7 +314,7 @@ impl<'a> NodeOptions<'a> {
             //   global variables in the rmw implementation being unsafely modified during cleanup.
             let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
             rcl_node_init(
-                &mut rcl_node,
+                &mut *handle.rcl_node.lock().unwrap(),
                 node_name.as_ptr(),
                 node_namespace.as_ptr(),
                 rcl_context,
@@ -319,10 +323,10 @@ impl<'a> NodeOptions<'a> {
             .ok()?;
         };
 
-        let handle = Arc::new(NodeHandle {
-            rcl_node: Mutex::new(rcl_node),
-            context_handle: Arc::clone(context),
-        });
+        handle
+            .initialized
+            .store(true, std::sync::atomic::Ordering::Release);
+
         let parameter = {
             let rcl_node = handle.rcl_node.lock().unwrap();
             ParameterInterface::new(
@@ -332,23 +336,41 @@ impl<'a> NodeOptions<'a> {
             )?
         };
 
-        let node = Node {
-            handle,
-            primitives: Arc::new(NodePrimitives {
-                clients_mtx: Mutex::default(),
-                guard_conditions_mtx: Mutex::default(),
-                services_mtx: Mutex::default(),
-                subscriptions_mtx: Mutex::default(),
-                time_source: TimeSource::builder(self.clock_type)
-                    .clock_qos(self.clock_qos)
-                    .build(),
-                parameter,
-            }),
+        let logger_name = {
+            let rcl_node = handle.rcl_node.lock().unwrap();
+            let logger_name_raw_ptr = unsafe { rcl_node_get_logger_name(&*rcl_node) };
+            if logger_name_raw_ptr.is_null() {
+                ""
+            } else {
+                // SAFETY: rcl_node_get_logger_name will either return a nullptr
+                // if the provided node was invalid or provide a valid null-terminated
+                // const char* if the provided node was valid. We have already
+                // verified that it is not a nullptr. We are also preventing the
+                // pointed-to value from being modified while we view it by locking
+                // the mutex of rcl_node while we view it. This means all the
+                // safety conditions of CStr::from_ptr are met.
+                unsafe { CStr::from_ptr(logger_name_raw_ptr) }
+                    .to_str()
+                    .unwrap_or("")
+            }
         };
-        node.primitives.time_source.attach_node(&node);
+
+        let node = Arc::new(Node {
+            clients_mtx: Mutex::default(),
+            guard_conditions_mtx: Mutex::default(),
+            services_mtx: Mutex::default(),
+            subscriptions_mtx: Mutex::default(),
+            time_source: TimeSource::builder(self.clock_type)
+                .clock_qos(self.clock_qos)
+                .build(),
+            parameter,
+            logger: Logger::new(logger_name)?,
+            handle,
+        });
+        node.time_source.attach_node(&node);
 
         if self.start_parameter_services {
-            node.primitives.parameter.create_services(&node)?;
+            node.parameter.create_services(&node)?;
         }
 
         Ok(node)

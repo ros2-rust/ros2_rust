@@ -22,7 +22,7 @@ where
     pub(super) subscription: &'a Subscription<T>,
 }
 
-impl<'a, T> Deref for ReadOnlyLoanedMessage<'a, T>
+impl<T> Deref for ReadOnlyLoanedMessage<'_, T>
 where
     T: Message,
 {
@@ -32,7 +32,7 @@ where
     }
 }
 
-impl<'a, T> Drop for ReadOnlyLoanedMessage<'a, T>
+impl<T> Drop for ReadOnlyLoanedMessage<'_, T>
 where
     T: Message,
 {
@@ -50,9 +50,9 @@ where
 
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
 // they are running in. Therefore, this type can be safely sent to another thread.
-unsafe impl<'a, T> Send for ReadOnlyLoanedMessage<'a, T> where T: Message {}
+unsafe impl<T> Send for ReadOnlyLoanedMessage<'_, T> where T: Message {}
 // SAFETY: This type has no interior mutability, in fact it has no mutability at all.
-unsafe impl<'a, T> Sync for ReadOnlyLoanedMessage<'a, T> where T: Message {}
+unsafe impl<T> Sync for ReadOnlyLoanedMessage<'_, T> where T: Message {}
 
 #[cfg(test)]
 mod tests {

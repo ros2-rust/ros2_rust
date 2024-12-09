@@ -35,6 +35,7 @@ fn main() {
         }
     };
 
+    println!("cargo:rustc-check-cfg=cfg(ros_distro, values(\"humble\", \"iron\", \"jazzy\", \"rolling\"))");
     println!("cargo:rustc-cfg=ros_distro=\"{ros_distro}\"");
 
     let mut builder = bindgen::Builder::default()

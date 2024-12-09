@@ -322,7 +322,7 @@ mod tests {
     };
 
     struct TestNode {
-        node: Node,
+        node: Arc<Node>,
         bool_param: MandatoryParameter<bool>,
         _ns_param: MandatoryParameter<i64>,
         _read_only_param: ReadOnlyParameter<f64>,
@@ -344,7 +344,7 @@ mod tests {
         Ok(())
     }
 
-    fn construct_test_nodes(ns: &str) -> (Executor, TestNode, Node) {
+    fn construct_test_nodes(ns: &str) -> (Executor, TestNode, Arc<Node>) {
         let executor = Context::default().create_basic_executor();
         let node = executor
             .create_node(NodeOptions::new("node").namespace(ns))

@@ -229,6 +229,11 @@ where
             msg_ptr: msg_ptr as *mut T,
         })
     }
+
+    /// Returns true if message loans are possible, false otherwise.
+    pub fn can_loan_messages(&self) -> bool {
+        unsafe { rcl_publisher_can_loan_messages(&*self.handle.rcl_publisher.lock().unwrap()) }
+    }
 }
 
 /// Convenience trait for [`Publisher::publish`].
