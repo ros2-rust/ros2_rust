@@ -15,7 +15,7 @@ fn check_default_values() {
     assert_eq!(msg.float_seq_unbounded, seq![6.0]);
     assert_eq!(msg.string_member.to_string(), "Χαίρετε 你好");
     assert_eq!(msg.wstring_member.to_string(), "αντίο σου 再见");
-    assert_eq!(msg.bounded_string_member.to_string(), "äöü");
+    assert_eq!(msg.bounded_string_member.to_string(), "aou");
     assert_eq!(msg.bounded_wstring_member.to_string(), "äöü");
     assert_eq!(
         msg.string_array.clone().map(|s| s.to_string()),
