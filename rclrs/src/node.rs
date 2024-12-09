@@ -29,11 +29,12 @@ use async_std::future::timeout;
 use rosidl_runtime_rs::Message;
 
 use crate::{
-    rcl_bindings::*, Client, ClientOptions, Clock, ContextHandle, ExecutorCommands, LogParams,
-    Logger, ParameterBuilder, ParameterInterface, ParameterVariant, Parameters, Promise, Publisher,
-    PublisherOptions, QoSProfile, RclrsError, Service, ServiceAsyncCallback, ServiceCallback,
-    ServiceOptions, Subscription, SubscriptionAsyncCallback, SubscriptionCallback,
-    SubscriptionOptions, TimeSource, ToLogParams, ENTITY_LIFECYCLE_MUTEX,
+    rcl_bindings::*, Client, ClientOptions, ClientState, Clock, ContextHandle, ExecutorCommands,
+    LogParams, Logger, ParameterBuilder, ParameterInterface, ParameterVariant, Parameters, Promise,
+    Publisher, PublisherOptions, PublisherState, QoSProfile, RclrsError, Service,
+    ServiceAsyncCallback, ServiceCallback, ServiceOptions, ServiceState, Subscription,
+    SubscriptionAsyncCallback, SubscriptionCallback, SubscriptionOptions, SubscriptionState,
+    TimeSource, ToLogParams, ENTITY_LIFECYCLE_MUTEX,
 };
 
 /// A processing unit that can communicate with other nodes.
@@ -78,7 +79,19 @@ use crate::{
 /// [5]: crate::NodeOptions::new
 /// [6]: crate::NodeOptions::namespace
 /// [7]: crate::Executor::create_node
-pub struct Node {
+
+pub type Node = Arc<NodeState>;
+
+/// The inner state of a [`Node`].
+///
+/// This is public so that you can choose to put it inside a [`Weak`] if you
+/// want to be able to refer to a [`Node`] in a non-owning way. It is generally
+/// recommended to manage the [`NodeState`] inside of an [`Arc`], and [`Node`]
+/// recommended to manage the `NodeState` inside of an [`Arc`], and [`Node`]
+/// is provided as convenience alias for that.
+///
+/// The public API of the [`Node`] type is implemented via `NodeState`.
+pub struct NodeState {
     time_source: TimeSource,
     parameter: ParameterInterface,
     logger: Logger,
@@ -132,15 +145,15 @@ impl Drop for NodeHandle {
     }
 }
 
-impl Eq for Node {}
+impl Eq for NodeState {}
 
-impl PartialEq for Node {
+impl PartialEq for NodeState {
     fn eq(&self, other: &Self) -> bool {
         Arc::ptr_eq(&self.handle, &other.handle)
     }
 }
 
-impl fmt::Debug for Node {
+impl fmt::Debug for NodeState {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         f.debug_struct("Node")
             .field("fully_qualified_name", &self.fully_qualified_name())
@@ -148,7 +161,7 @@ impl fmt::Debug for Node {
     }
 }
 
-impl Node {
+impl NodeState {
     /// Returns the clock associated with this node.
     pub fn get_clock(&self) -> Clock {
         self.time_source.get_clock()
@@ -206,7 +219,7 @@ impl Node {
     /// Returns the fully qualified name of the node.
     ///
     /// The fully qualified name of the node is the node namespace combined with the node name.
-    /// It is subject to the remappings shown in [`Node::name()`] and [`Node::namespace()`].
+    /// It is subject to the remappings shown in [`NodeState::name()`] and [`NodeState::namespace()`].
     ///
     /// # Example
     /// ```
@@ -261,11 +274,11 @@ impl Node {
     pub fn create_client<'a, T>(
         self: &Arc<Self>,
         options: impl Into<ClientOptions<'a>>,
-    ) -> Result<Arc<Client<T>>, RclrsError>
+    ) -> Result<Client<T>, RclrsError>
     where
         T: rosidl_runtime_rs::Service,
     {
-        Client::<T>::create(self, options)
+        ClientState::<T>::create(self, options)
     }
 
     /// Creates a [`Publisher`][1].
@@ -305,11 +318,11 @@ impl Node {
     pub fn create_publisher<'a, T>(
         &self,
         options: impl Into<PublisherOptions<'a>>,
-    ) -> Result<Arc<Publisher<T>>, RclrsError>
+    ) -> Result<Publisher<T>, RclrsError>
     where
         T: Message,
     {
-        Publisher::<T>::create(Arc::clone(&self.handle), options)
+        PublisherState::<T>::create(Arc::clone(&self.handle), options)
     }
 
     /// Creates a [`Service`] with an ordinary callback.
@@ -373,11 +386,11 @@ impl Node {
         &self,
         options: impl Into<ServiceOptions<'a>>,
         callback: impl ServiceCallback<T, Args>,
-    ) -> Result<Arc<Service<T>>, RclrsError>
+    ) -> Result<Service<T>, RclrsError>
     where
         T: rosidl_runtime_rs::Service,
     {
-        Service::<T>::create(
+        ServiceState::<T>::create(
             options,
             callback.into_service_callback(),
             &self.handle,
@@ -408,11 +421,11 @@ impl Node {
         &self,
         options: impl Into<ServiceOptions<'a>>,
         callback: impl ServiceAsyncCallback<T, Args>,
-    ) -> Result<Arc<Service<T>>, RclrsError>
+    ) -> Result<Service<T>, RclrsError>
     where
         T: rosidl_runtime_rs::Service,
     {
-        Service::<T>::create(
+        ServiceState::<T>::create(
             options,
             callback.into_service_async_callback(),
             &self.handle,
@@ -480,11 +493,11 @@ impl Node {
         &self,
         options: impl Into<SubscriptionOptions<'a>>,
         callback: impl SubscriptionCallback<T, Args>,
-    ) -> Result<Arc<Subscription<T>>, RclrsError>
+    ) -> Result<Subscription<T>, RclrsError>
     where
         T: Message,
     {
-        Subscription::<T>::create(
+        SubscriptionState::<T>::create(
             options,
             callback.into_subscription_callback(),
             &self.handle,
@@ -515,11 +528,11 @@ impl Node {
         &self,
         options: impl Into<SubscriptionOptions<'a>>,
         callback: impl SubscriptionAsyncCallback<T, Args>,
-    ) -> Result<Arc<Subscription<T>>, RclrsError>
+    ) -> Result<Subscription<T>, RclrsError>
     where
         T: Message,
     {
-        Subscription::<T>::create(
+        SubscriptionState::<T>::create(
             options,
             callback.into_subscription_async_callback(),
             &self.handle,
@@ -689,7 +702,7 @@ impl Node {
     }
 }
 
-impl<'a> ToLogParams<'a> for &'a Node {
+impl<'a> ToLogParams<'a> for &'a NodeState {
     fn to_log_params(self) -> LogParams<'a> {
         self.logger().to_log_params()
     }

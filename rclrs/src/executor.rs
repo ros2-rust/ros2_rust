@@ -34,7 +34,7 @@ impl Executor {
     pub fn create_node<'a>(
         &'a self,
         options: impl IntoNodeOptions<'a>,
-    ) -> Result<Arc<Node>, RclrsError> {
+    ) -> Result<Node, RclrsError> {
         let options = options.into_node_options();
         let node = options.build(&self.commands)?;
         Ok(node)
@@ -128,7 +128,7 @@ impl ExecutorCommands {
     pub fn create_node<'a>(
         self: &Arc<Self>,
         options: impl IntoNodeOptions<'a>,
-    ) -> Result<Arc<Node>, RclrsError> {
+    ) -> Result<Node, RclrsError> {
         let options = options.into_node_options();
         options.build(self)
     }

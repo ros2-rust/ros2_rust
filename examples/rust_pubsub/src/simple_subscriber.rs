@@ -37,11 +37,10 @@ impl SimpleSubscriptionNode {
 }
 fn main() -> Result<(), RclrsError> {
     let mut executor = Context::default_from_env().unwrap().create_basic_executor();
-    let subscription = Arc::new(SimpleSubscriptionNode::new(&executor).unwrap());
-    let subscription_other_thread = Arc::clone(&subscription);
+    let node = Arc::new(SimpleSubscriptionNode::new(&executor).unwrap());
     thread::spawn(move || loop {
         thread::sleep(Duration::from_millis(1000));
-        subscription_other_thread.data_callback().unwrap()
+        node.data_callback().unwrap()
     });
     executor.spin(SpinOptions::default())
 }

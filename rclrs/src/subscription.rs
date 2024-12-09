@@ -28,10 +28,12 @@ pub use readonly_loaned_message::*;
 
 /// Struct for receiving messages of type `T`.
 ///
-/// The only way to instantiate a subscription is via [`Node::create_subscription()`][2]
+/// Create a subscription using [`Node::create_subscription()`][2]
 /// or [`Node::create_async_subscription`][3].
 ///
 /// There can be multiple subscriptions for the same topic, in different nodes or the same node.
+/// A clone of a `Subscription` will refer to the same subscription instance as the original.
+/// The underlying instance is tied to [`SubscriptionState`] which implements the [`Subscription`] API.
 ///
 /// Receiving messages requires calling [`spin`][1] on the `Executor` of subscription's [Node][4].
 ///
@@ -42,7 +44,19 @@ pub use readonly_loaned_message::*;
 /// [2]: crate::Node::create_subscription
 /// [3]: crate::Node::create_async_subscription
 /// [4]: crate::Node
-pub struct Subscription<T>
+pub type Subscription<T> = Arc<SubscriptionState<T>>;
+
+/// The inner state of a [`Subscription`].
+///
+/// This is public so that you can choose to create a [`Weak`][1] reference to it
+/// if you want to be able to refer to a [`Subscription`] in a non-owning way. It is
+/// generally recommended to manage the `SubscriptionState` inside of an [`Arc`],
+/// and [`Subscription`] is provided as a convenience alias for that.
+///
+/// The public API of the [`Subscription`] type is implemented via `SubscriptionState`.
+///
+/// [1]: std::sync::Weak
+pub struct SubscriptionState<T>
 where
     T: Message,
 {
@@ -59,7 +73,7 @@ where
     lifecycle: WaitableLifecycle,
 }
 
-impl<T> Subscription<T>
+impl<T> SubscriptionState<T>
 where
     T: Message,
 {
@@ -262,8 +276,8 @@ mod tests {
 
     #[test]
     fn traits() {
-        assert_send::<Subscription<msg::BoundedSequences>>();
-        assert_sync::<Subscription<msg::BoundedSequences>>();
+        assert_send::<SubscriptionState<msg::BoundedSequences>>();
+        assert_sync::<SubscriptionState<msg::BoundedSequences>>();
     }
 
     #[test]

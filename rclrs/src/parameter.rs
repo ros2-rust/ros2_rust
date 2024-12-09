@@ -84,7 +84,7 @@ enum DeclaredValue {
 }
 
 /// Builder used to declare a parameter. Obtain this by calling
-/// [`crate::Node::declare_parameter`].
+/// [`crate::NodeState::declare_parameter`].
 #[must_use]
 pub struct ParameterBuilder<'a, T: ParameterVariant> {
     name: Arc<str>,

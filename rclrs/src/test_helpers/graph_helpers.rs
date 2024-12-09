@@ -2,8 +2,8 @@ use crate::{Context, IntoNodeOptions, Node, RclrsError};
 use std::sync::Arc;
 
 pub(crate) struct TestGraph {
-    pub node1: Arc<Node>,
-    pub node2: Arc<Node>,
+    pub node1: Node,
+    pub node2: Node,
 }
 
 pub(crate) fn construct_test_graph(namespace: &str) -> Result<TestGraph, RclrsError> {

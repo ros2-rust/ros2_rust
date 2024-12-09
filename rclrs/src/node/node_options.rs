@@ -9,8 +9,9 @@ use futures::channel::mpsc::unbounded;
 use crate::{
     node::node_graph_task::{node_graph_task, NodeGraphAction},
     rcl_bindings::*,
-    ClockType, ExecutorCommands, GuardCondition, Logger, Node, NodeHandle, ParameterInterface,
-    QoSProfile, RclrsError, TimeSource, ToResult, ENTITY_LIFECYCLE_MUTEX, QOS_PROFILE_CLOCK,
+    ClockType, ExecutorCommands, GuardCondition, Logger, Node, NodeHandle, NodeState,
+    ParameterInterface, QoSProfile, RclrsError, TimeSource, ToResult, ENTITY_LIFECYCLE_MUTEX,
+    QOS_PROFILE_CLOCK,
 };
 
 /// This trait helps to build [`NodeOptions`] which can be passed into
@@ -289,7 +290,7 @@ impl<'a> NodeOptions<'a> {
     ///
     /// Only used internally. Downstream users should call
     /// [`Executor::create_node`].
-    pub(crate) fn build(self, commands: &Arc<ExecutorCommands>) -> Result<Arc<Node>, RclrsError> {
+    pub(crate) fn build(self, commands: &Arc<ExecutorCommands>) -> Result<Node, RclrsError> {
         let node_name = CString::new(self.name).map_err(|err| RclrsError::StringContainsNul {
             err,
             s: self.name.to_owned(),
@@ -388,7 +389,7 @@ impl<'a> NodeOptions<'a> {
             graph_change_guard_condition,
         ));
 
-        let node = Arc::new(Node {
+        let node = Arc::new(NodeState {
             time_source: TimeSource::builder(self.clock_type)
                 .clock_qos(self.clock_qos)
                 .build(),
