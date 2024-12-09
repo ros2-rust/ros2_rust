@@ -8,6 +8,7 @@ use futures::{
     future::{select, BoxFuture, Either},
 };
 use std::{
+    any::Any,
     future::Future,
     sync::{
         atomic::{AtomicBool, Ordering},
@@ -90,7 +91,7 @@ impl Executor {
             context: Context {
                 handle: Arc::clone(&context),
             },
-            channel: runtime.channel(),
+            channel: runtime.default_channel(),
             halt_spinning: Arc::new(AtomicBool::new(false)),
             wakeup_wait_set: Arc::new(wakeup_wait_set),
         });
@@ -217,20 +218,29 @@ impl ExecutorCommands {
     }
 }
 
+pub trait WorkerChannel: Send + Sync {
+    /// Add new entities to the waitset of the executor.
+    fn add_to_waitset(&self, new_entity: Waitable);
+}
+
 /// This trait defines the interface for passing new items into an executor to
 /// run.
-pub trait ExecutorChannel: Send + Sync {
+pub trait ExecutorChannel: WorkerChannel {
     /// Add a new item for the executor to run.
     fn add_async_task(&self, f: BoxFuture<'static, ()>);
 
-    /// Add new entities to the waitset of the executor.
-    fn add_to_waitset(&self, new_entity: Waitable);
+    /// Create a new channel specific to a worker whose payload must be
+    /// initialized with the given function.
+    fn create_worker_channel(
+        &self,
+        payload: Box<dyn Any + Send>,
+    ) -> Box<dyn ExecutorChannel>;
 }
 
 /// This trait defines the interface for having an executor run.
 pub trait ExecutorRuntime: Send {
     /// Get a channel that can add new items for the executor to run.
-    fn channel(&self) -> Box<dyn ExecutorChannel>;
+    fn default_channel(&self) -> Box<dyn ExecutorChannel>;
 
     /// Tell the runtime to spin while blocking any further execution until the
     /// spinning is complete.

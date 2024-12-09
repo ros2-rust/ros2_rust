@@ -202,7 +202,7 @@ struct GuardConditionExecutable {
 }
 
 impl RclPrimitive for GuardConditionExecutable {
-    fn execute(&mut self) -> Result<(), RclrsError> {
+    unsafe fn execute(&mut self, _: &mut dyn Any) -> Result<(), RclrsError> {
         if let Some(callback) = &mut self.callback {
             callback();
         }

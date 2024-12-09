@@ -1,4 +1,5 @@
 use std::{
+    any::Any,
     collections::HashMap,
     ffi::CString,
     sync::{Arc, Mutex, MutexGuard},
@@ -299,7 +300,7 @@ impl<T> RclPrimitive for ClientExecutable<T>
 where
     T: rosidl_runtime_rs::Service,
 {
-    fn execute(&mut self) -> Result<(), RclrsError> {
+    unsafe fn execute(&mut self, payload: &mut dyn Any) -> Result<(), RclrsError> {
         self.board.lock().unwrap().execute(&self.handle)
     }
 

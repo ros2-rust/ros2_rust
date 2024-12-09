@@ -35,6 +35,14 @@ pub enum RclrsError {
     /// The guard condition that you tried to trigger is not owned by the
     /// [`GuardCondition`][crate::GuardCondition] instance.
     UnownedGuardCondition,
+    /// The payload given to a primitive that belongs to a worker was the wrong
+    /// type.
+    InvalidPayload {
+        /// The payload type expected by the primitive
+        expected: std::any::TypeId,
+        /// The payload type given by the worker
+        received: std::any::TypeId,
+    }
 }
 
 impl Display for RclrsError {
@@ -55,6 +63,12 @@ impl Display for RclrsError {
                 write!(
                     f,
                     "Could not trigger guard condition because it is not owned by rclrs"
+                )
+            }
+            RclrsError::InvalidPayload { expected, received } => {
+                write!(
+                    f,
+                    "Received invalid payload: expected {expected:?}, received {received:?}",
                 )
             }
         }
@@ -92,6 +106,7 @@ impl Error for RclrsError {
             // It should be easy to do this using the thiserror crate.
             RclrsError::AlreadyAddedToWaitSet => None,
             RclrsError::UnownedGuardCondition => None,
+            RclrsError::InvalidPayload { .. } => None,
         }
     }
 }
@@ -369,6 +384,10 @@ impl ToResult for rcl_ret_t {
 pub trait RclrsErrorFilter {
     /// If the result was a timeout error, change it to `Ok(())`.
     fn timeout_ok(self) -> Result<(), RclrsError>;
+
+    /// If a subscription, service, or client take failed, change the result
+    /// to be `Ok(())`.
+    fn take_failed_ok(self) -> Result<(), RclrsError>;
 }
 
 impl RclrsErrorFilter for Result<(), RclrsError> {
@@ -388,6 +407,20 @@ impl RclrsErrorFilter for Result<(), RclrsError> {
 
                 Err(err)
             }
+        }
+    }
+
+    fn take_failed_ok(self) -> Result<(), RclrsError> {
+        match self {
+            Err(RclrsError::RclError {
+                code: RclReturnCode::SubscriptionTakeFailed | RclReturnCode::ServiceTakeFailed | RclReturnCode::ClientTakeFailed,
+                ..
+            }) => {
+                // Spurious wakeup - this may happen even when a waitset indicated that
+                // work was ready, so we won't report it as an error
+                Ok(())
+            }
+            other => other,
         }
     }
 }

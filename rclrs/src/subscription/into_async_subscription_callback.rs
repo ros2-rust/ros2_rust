@@ -1,6 +1,8 @@
 use rosidl_runtime_rs::Message;
 
-use super::{any_subscription_callback::AnySubscriptionCallback, MessageInfo};
+use super::{
+    AnySubscriptionCallback, MessageInfo, NodeSubscriptionCallback,
+};
 use crate::ReadOnlyLoanedMessage;
 
 use std::future::Future;
@@ -8,37 +10,37 @@ use std::future::Future;
 /// A trait for async callbacks of subscriptions.
 ///
 // TODO(@mxgrey): Add a description of what callback signatures are supported
-pub trait SubscriptionAsyncCallback<T, Args>: Send + 'static
+pub trait IntoAsyncSubscriptionCallback<T, Args>: Send + 'static
 where
     T: Message,
 {
     /// Converts the callback into an enum.
     ///
     /// User code never needs to call this function.
-    fn into_subscription_async_callback(self) -> AnySubscriptionCallback<T>;
+    fn into_async_subscription_callback(self) -> AnySubscriptionCallback<T, ()>;
 }
 
 // We need one implementation per arity. This was inspired by Bevy's systems.
-impl<T, A0, Out, Func> SubscriptionAsyncCallback<T, (A0,)> for Func
+impl<T, A0, Out, Func> IntoAsyncSubscriptionCallback<T, (A0,)> for Func
 where
     T: Message,
     (A0,): SubscriptionAsyncArgs<T, Func>,
     Out: Future<Output = ()> + Send + 'static,
     Func: FnMut(A0) -> Out + Send + 'static,
 {
-    fn into_subscription_async_callback(self) -> AnySubscriptionCallback<T> {
+    fn into_async_subscription_callback(self) -> AnySubscriptionCallback<T, ()> {
         <(A0,) as SubscriptionAsyncArgs<T, Func>>::into_any_callback(self)
     }
 }
 
-impl<T, A0, A1, Out, Func> SubscriptionAsyncCallback<T, (A0, A1)> for Func
+impl<T, A0, A1, Out, Func> IntoAsyncSubscriptionCallback<T, (A0, A1)> for Func
 where
     T: Message,
     (A0, A1): SubscriptionAsyncArgs<T, Func>,
     Out: Future<Output = ()> + Send + 'static,
     Func: FnMut(A0, A1) -> Out + Send + 'static,
 {
-    fn into_subscription_async_callback(self) -> AnySubscriptionCallback<T> {
+    fn into_async_subscription_callback(self) -> AnySubscriptionCallback<T, ()> {
         <(A0, A1) as SubscriptionAsyncArgs<T, Func>>::into_any_callback(self)
     }
 }
@@ -51,7 +53,7 @@ trait SubscriptionAsyncArgs<T, Func>
 where
     T: Message,
 {
-    fn into_any_callback(func: Func) -> AnySubscriptionCallback<T>;
+    fn into_any_callback(func: Func) -> AnySubscriptionCallback<T, ()>;
 }
 
 impl<T, Out, Func> SubscriptionAsyncArgs<T, Func> for (T,)
@@ -60,8 +62,8 @@ where
     Func: FnMut(T) -> Out + Send + 'static,
     Out: Future<Output = ()> + Send + 'static,
 {
-    fn into_any_callback(mut func: Func) -> AnySubscriptionCallback<T> {
-        AnySubscriptionCallback::Regular(Box::new(move |message| Box::pin(func(message))))
+    fn into_any_callback(mut func: Func) -> AnySubscriptionCallback<T, ()> {
+        NodeSubscriptionCallback::Regular(Box::new(move |message| Box::pin(func(message)))).into()
     }
 }
 
@@ -71,10 +73,11 @@ where
     Func: FnMut(T, MessageInfo) -> Out + Send + 'static,
     Out: Future<Output = ()> + Send + 'static,
 {
-    fn into_any_callback(mut func: Func) -> AnySubscriptionCallback<T> {
-        AnySubscriptionCallback::RegularWithMessageInfo(Box::new(move |message, info| {
+    fn into_any_callback(mut func: Func) -> AnySubscriptionCallback<T, ()> {
+        NodeSubscriptionCallback::RegularWithMessageInfo(Box::new(move |message, info| {
             Box::pin(func(message, info))
         }))
+        .into()
     }
 }
 
@@ -84,8 +87,8 @@ where
     Func: FnMut(Box<T>) -> Out + Send + 'static,
     Out: Future<Output = ()> + Send + 'static,
 {
-    fn into_any_callback(mut func: Func) -> AnySubscriptionCallback<T> {
-        AnySubscriptionCallback::Boxed(Box::new(move |message| Box::pin(func(message))))
+    fn into_any_callback(mut func: Func) -> AnySubscriptionCallback<T, ()> {
+        NodeSubscriptionCallback::Boxed(Box::new(move |message| Box::pin(func(message)))).into()
     }
 }
 
@@ -95,10 +98,11 @@ where
     Func: FnMut(Box<T>, MessageInfo) -> F + Send + 'static,
     F: Future<Output = ()> + Send + 'static,
 {
-    fn into_any_callback(mut func: Func) -> AnySubscriptionCallback<T> {
-        AnySubscriptionCallback::BoxedWithMessageInfo(Box::new(move |message, info| {
+    fn into_any_callback(mut func: Func) -> AnySubscriptionCallback<T, ()> {
+        NodeSubscriptionCallback::BoxedWithMessageInfo(Box::new(move |message, info| {
             Box::pin(func(message, info))
         }))
+        .into()
     }
 }
 
@@ -108,8 +112,8 @@ where
     Func: FnMut(ReadOnlyLoanedMessage<T>) -> F + Send + 'static,
     F: Future<Output = ()> + Send + 'static,
 {
-    fn into_any_callback(mut func: Func) -> AnySubscriptionCallback<T> {
-        AnySubscriptionCallback::Loaned(Box::new(move |message| Box::pin(func(message))))
+    fn into_any_callback(mut func: Func) -> AnySubscriptionCallback<T, ()> {
+        NodeSubscriptionCallback::Loaned(Box::new(move |message| Box::pin(func(message)))).into()
     }
 }
 
@@ -119,10 +123,11 @@ where
     Func: FnMut(ReadOnlyLoanedMessage<T>, MessageInfo) -> F + Send + 'static,
     F: Future<Output = ()> + Send + 'static,
 {
-    fn into_any_callback(mut func: Func) -> AnySubscriptionCallback<T> {
-        AnySubscriptionCallback::LoanedWithMessageInfo(Box::new(move |message, info| {
+    fn into_any_callback(mut func: Func) -> AnySubscriptionCallback<T, ()> {
+        NodeSubscriptionCallback::LoanedWithMessageInfo(Box::new(move |message, info| {
             Box::pin(func(message, info))
         }))
+        .into()
     }
 }
 
@@ -136,58 +141,82 @@ mod tests {
     fn callback_conversion() {
         let cb = |_msg: TestMessage| async {};
         assert!(matches!(
-            cb.into_subscription_async_callback(),
-            AnySubscriptionCallback::<TestMessage>::Regular(_)
+            cb.into_async_subscription_callback(),
+            AnySubscriptionCallback::Node(
+                NodeSubscriptionCallback::<TestMessage>::Regular(_)
+            ),
         ));
         let cb = |_msg: TestMessage, _info: MessageInfo| async {};
         assert!(matches!(
-            cb.into_subscription_async_callback(),
-            AnySubscriptionCallback::<TestMessage>::RegularWithMessageInfo(_)
+            cb.into_async_subscription_callback(),
+            AnySubscriptionCallback::Node(
+                NodeSubscriptionCallback::<TestMessage>::RegularWithMessageInfo(_)
+            ),
         ));
         let cb = |_msg: Box<TestMessage>| async {};
         assert!(matches!(
-            cb.into_subscription_async_callback(),
-            AnySubscriptionCallback::<TestMessage>::Boxed(_)
+            cb.into_async_subscription_callback(),
+            AnySubscriptionCallback::Node(
+                NodeSubscriptionCallback::<TestMessage>::Boxed(_)
+            ),
         ));
         let cb = |_msg: Box<TestMessage>, _info: MessageInfo| async {};
         assert!(matches!(
-            cb.into_subscription_async_callback(),
-            AnySubscriptionCallback::<TestMessage>::BoxedWithMessageInfo(_)
+            cb.into_async_subscription_callback(),
+            AnySubscriptionCallback::Node(
+                NodeSubscriptionCallback::<TestMessage>::BoxedWithMessageInfo(_)
+            ),
         ));
         let cb = |_msg: ReadOnlyLoanedMessage<TestMessage>| async {};
         assert!(matches!(
-            cb.into_subscription_async_callback(),
-            AnySubscriptionCallback::<TestMessage>::Loaned(_)
+            cb.into_async_subscription_callback(),
+            AnySubscriptionCallback::Node(
+                NodeSubscriptionCallback::<TestMessage>::Loaned(_)
+            ),
         ));
         let cb = |_msg: ReadOnlyLoanedMessage<TestMessage>, _info: MessageInfo| async {};
         assert!(matches!(
-            cb.into_subscription_async_callback(),
-            AnySubscriptionCallback::<TestMessage>::LoanedWithMessageInfo(_)
+            cb.into_async_subscription_callback(),
+            AnySubscriptionCallback::Node(
+                NodeSubscriptionCallback::<TestMessage>::LoanedWithMessageInfo(_)
+            ),
         ));
 
         assert!(matches!(
-            test_regular.into_subscription_async_callback(),
-            AnySubscriptionCallback::<TestMessage>::Regular(_),
+            test_regular.into_async_subscription_callback(),
+            AnySubscriptionCallback::Node(
+                NodeSubscriptionCallback::<TestMessage>::Regular(_)
+            ),
         ));
         assert!(matches!(
-            test_regular_with_info.into_subscription_async_callback(),
-            AnySubscriptionCallback::<TestMessage>::RegularWithMessageInfo(_),
+            test_regular_with_info.into_async_subscription_callback(),
+            AnySubscriptionCallback::Node(
+                NodeSubscriptionCallback::<TestMessage>::RegularWithMessageInfo(_)
+            ),
         ));
         assert!(matches!(
-            test_boxed.into_subscription_async_callback(),
-            AnySubscriptionCallback::<TestMessage>::Boxed(_),
+            test_boxed.into_async_subscription_callback(),
+            AnySubscriptionCallback::Node(
+                NodeSubscriptionCallback::<TestMessage>::Boxed(_)
+            ),
         ));
         assert!(matches!(
-            test_boxed_with_info.into_subscription_async_callback(),
-            AnySubscriptionCallback::<TestMessage>::BoxedWithMessageInfo(_),
+            test_boxed_with_info.into_async_subscription_callback(),
+            AnySubscriptionCallback::Node(
+                NodeSubscriptionCallback::<TestMessage>::BoxedWithMessageInfo(_)
+            ),
         ));
         assert!(matches!(
-            test_loaned.into_subscription_async_callback(),
-            AnySubscriptionCallback::<TestMessage>::Loaned(_),
+            test_loaned.into_async_subscription_callback(),
+            AnySubscriptionCallback::Node(
+                NodeSubscriptionCallback::<TestMessage>::Loaned(_)
+            ),
         ));
         assert!(matches!(
-            test_loaned_with_info.into_subscription_async_callback(),
-            AnySubscriptionCallback::<TestMessage>::LoanedWithMessageInfo(_),
+            test_loaned_with_info.into_async_subscription_callback(),
+            AnySubscriptionCallback::Node(
+                NodeSubscriptionCallback::<TestMessage>::LoanedWithMessageInfo(_)
+            ),
         ));
     }
 

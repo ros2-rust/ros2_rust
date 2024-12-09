@@ -2,6 +2,7 @@ use std::{
     boxed::Box,
     ffi::{CStr, CString},
     sync::{Arc, Mutex, MutexGuard},
+    any::Any,
 };
 
 use crate::{
@@ -51,7 +52,7 @@ pub type Service<T> = Arc<ServiceState<T>>;
 /// The public API of the [`Service`] type is implemented via `ServiceState`.
 ///
 /// [1]: std::sync::Weak
-pub struct ServiceState<T>
+pub struct ServiceState<T, Payload = ()>
 where
     T: rosidl_runtime_rs::Service,
 {
@@ -212,7 +213,7 @@ impl<T> RclPrimitive for ServiceExecutable<T>
 where
     T: rosidl_runtime_rs::Service,
 {
-    fn execute(&mut self) -> Result<(), RclrsError> {
+    unsafe fn execute(&mut self, payload: &mut dyn Any) -> Result<(), RclrsError> {
         if let Err(err) = self
             .callback
             .lock()

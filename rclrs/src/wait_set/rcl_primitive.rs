@@ -1,11 +1,25 @@
-use std::sync::MutexGuard;
+use std::{
+    any::Any,
+    sync::MutexGuard,
+};
 
 use crate::{rcl_bindings::*, InnerGuardConditionHandle, RclrsError};
 
 /// This provides the public API for executing a waitable item.
 pub trait RclPrimitive: Send + Sync {
     /// Trigger this primitive to run.
-    fn execute(&mut self) -> Result<(), RclrsError>;
+    ///
+    /// * `payload` - The shared payload expected by the primitive. For primitives
+    ///   sent through the [`ExecutorChannel`], this must be `&mut ()`. For
+    ///   primitives sent through a [`WorkerChannel`] by a [`Worker`] this must be
+    ///   the same type as the `Worker`'s generic argument.
+    ///
+    /// SAFETY: Make sure the type of the payload always matches what the primitive
+    /// expects to receive. For now we will return an error if there is a mismatch.
+    /// In the future we may use [`std::Any::downcast_mut_unchecked`] once it
+    /// stabilizes, which would give undefined behavior in a mismatch, making it
+    /// a serious safety concern.
+    unsafe fn execute(&mut self, payload: &mut dyn Any) -> Result<(), RclrsError>;
 
     /// Indicate what kind of primitive this is.
     fn kind(&self) -> RclPrimitiveKind;

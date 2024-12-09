@@ -4,6 +4,7 @@ use futures::{
     task::{waker_ref, ArcWake},
 };
 use std::{
+    any::Any,
     sync::{
         atomic::{AtomicBool, Ordering},
         mpsc::{channel, Receiver, Sender},
@@ -13,7 +14,7 @@ use std::{
 };
 
 use crate::{
-    executor::{ExecutorChannel, ExecutorRuntime, SpinConditions},
+    executor::{ExecutorChannel, ExecutorRuntime, SpinConditions, WorkerChannel},
     Context, RclrsError, WaitSetRunner, Waitable,
 };
 
@@ -131,7 +132,7 @@ impl ExecutorRuntime for BasicExecutorRuntime {
         })
     }
 
-    fn channel(&self) -> Box<dyn ExecutorChannel> {
+    fn default_channel(&self) -> Box<dyn ExecutorChannel> {
         let waitable_sender = self.wait_set_runner.as_ref().expect(
             "The wait set runner of the basic executor is missing while creating a channel. \
             This is a critical bug in rclrs. \
@@ -195,14 +196,23 @@ struct BasicExecutorChannel {
     waitable_sender: UnboundedSender<Waitable>,
 }
 
+impl WorkerChannel for BasicExecutorChannel {
+    fn add_to_waitset(&self, new_entity: Waitable) {
+        // TODO(@mxgrey): Log errors here once logging becomes available.
+        self.waitable_sender.unbounded_send(new_entity).ok();
+    }
+}
+
 impl ExecutorChannel for BasicExecutorChannel {
     fn add_async_task(&self, f: BoxFuture<'static, ()>) {
         self.task_sender.add_async_task(f);
     }
 
-    fn add_to_waitset(&self, new_entity: Waitable) {
-        // TODO(@mxgrey): Log errors here once logging becomes available.
-        self.waitable_sender.unbounded_send(new_entity).ok();
+    fn create_worker_channel(
+        &self,
+        payload: Box<dyn Any + Send>,
+    ) -> Box<dyn ExecutorChannel> {
+
     }
 }
 

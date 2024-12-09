@@ -4,6 +4,7 @@ use futures::channel::{
 };
 
 use std::{
+    any::Any,
     sync::atomic::Ordering,
     time::{Duration, Instant},
 };
@@ -16,11 +17,15 @@ pub struct WaitSetRunner {
     wait_set: WaitSet,
     waitable_sender: UnboundedSender<Waitable>,
     waitable_receiver: UnboundedReceiver<Waitable>,
+    payload: Box<dyn Any + Send>,
 }
 
 impl WaitSetRunner {
     /// Create a new WaitSetRunner.
-    pub fn new(context: &Context) -> Self {
+    pub fn new(
+        context: &Context,
+        payload: Box<dyn Any + Send>,
+    ) -> Self {
         let (waitable_sender, waitable_receiver) = unbounded();
         Self {
             wait_set: WaitSet::new(context)
@@ -29,6 +34,7 @@ impl WaitSetRunner {
                 .expect("Unable to create wait set for basic executor"),
             waitable_sender,
             waitable_receiver,
+            payload,
         }
     }
 

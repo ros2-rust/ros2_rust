@@ -32,8 +32,8 @@ use crate::{
     rcl_bindings::*, Client, ClientOptions, ClientState, Clock, ContextHandle, ExecutorCommands,
     LogParams, Logger, ParameterBuilder, ParameterInterface, ParameterVariant, Parameters, Promise,
     Publisher, PublisherOptions, PublisherState, RclrsError, Service, ServiceAsyncCallback,
-    ServiceCallback, ServiceOptions, ServiceState, Subscription, SubscriptionAsyncCallback,
-    SubscriptionCallback, SubscriptionOptions, SubscriptionState, TimeSource, ToLogParams,
+    ServiceCallback, ServiceOptions, ServiceState, Subscription, IntoAsyncSubscriptionCallback,
+    IntoNodeSubscriptionCallback, SubscriptionOptions, SubscriptionState, TimeSource, ToLogParams,
     ENTITY_LIFECYCLE_MUTEX,
 };
 
@@ -492,14 +492,14 @@ impl NodeState {
     pub fn create_subscription<'a, T, Args>(
         &self,
         options: impl Into<SubscriptionOptions<'a>>,
-        callback: impl SubscriptionCallback<T, Args>,
+        callback: impl IntoNodeSubscriptionCallback<T, Args>,
     ) -> Result<Subscription<T>, RclrsError>
     where
         T: Message,
     {
         SubscriptionState::<T>::create(
             options,
-            callback.into_subscription_callback(),
+            callback.into_node_subscription_callback(),
             &self.handle,
             &self.commands,
         )
@@ -527,14 +527,14 @@ impl NodeState {
     pub fn create_async_subscription<'a, T, Args>(
         &self,
         options: impl Into<SubscriptionOptions<'a>>,
-        callback: impl SubscriptionAsyncCallback<T, Args>,
+        callback: impl IntoAsyncSubscriptionCallback<T, Args>,
     ) -> Result<Subscription<T>, RclrsError>
     where
         T: Message,
     {
         SubscriptionState::<T>::create(
             options,
-            callback.into_subscription_async_callback(),
+            callback.into_async_subscription_callback(),
             &self.handle,
             &self.commands,
         )
