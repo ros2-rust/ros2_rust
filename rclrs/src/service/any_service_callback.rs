@@ -1,13 +1,12 @@
-use rosidl_runtime_rs::{Service, Message};
+use rosidl_runtime_rs::{Message, Service};
 
 use crate::{
     error::ToResult,
     rcl_bindings::{
-        rmw_request_id_t, rmw_service_info_t, rcl_take_request, rcl_take_request_with_info,
-        rcl_send_response,
+        rcl_send_response, rcl_take_request, rcl_take_request_with_info, rmw_request_id_t,
+        rmw_service_info_t,
     },
-    RequestId, ServiceInfo, ServiceHandle, ExecutorCommands,
-    RclrsError, RclReturnCode, MessageCow,
+    ExecutorCommands, MessageCow, RclReturnCode, RclrsError, RequestId, ServiceHandle, ServiceInfo,
 };
 
 use futures::future::BoxFuture;
@@ -132,7 +131,9 @@ impl<T: Service> AnyServiceCallback<T> {
     }
 
     /// Same as [`Self::take_request`] but includes additional info about the service
-    fn take_request_with_info(handle: &ServiceHandle) -> Result<(T::Request, rmw_service_info_t), RclrsError> {
+    fn take_request_with_info(
+        handle: &ServiceHandle,
+    ) -> Result<(T::Request, rmw_service_info_t), RclrsError> {
         let mut service_info_out = ServiceInfo::zero_initialized_rmw();
         type RmwMsg<T> = <<T as Service>::Request as Message>::RmwMsg;
         let mut request_out = RmwMsg::<T>::default();

@@ -2,15 +2,15 @@ use rclrs::{Context, Executor, Publisher, RclrsError, SpinOptions, QOS_PROFILE_D
 use std::{sync::Arc, thread, time::Duration};
 use std_msgs::msg::String as StringMsg;
 
-struct SimplePublisher {
+struct SimplePublisherNode {
     publisher: Arc<Publisher<StringMsg>>,
 }
 
-impl SimplePublisher {
+impl SimplePublisherNode {
     fn new(executor: &Executor) -> Result<Self, RclrsError> {
         let node = executor.create_node("simple_publisher").unwrap();
         let publisher = node
-            .create_publisher("publish_hello", QOS_PROFILE_DEFAULT)
+            .create_publisher("publish_hello")
             .unwrap();
         Ok(Self { publisher })
     }

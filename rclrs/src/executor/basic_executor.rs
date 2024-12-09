@@ -1,20 +1,20 @@
 use futures::{
+    channel::{mpsc::UnboundedSender, oneshot},
     future::BoxFuture,
     task::{waker_ref, ArcWake},
-    channel::{oneshot, mpsc::UnboundedSender},
 };
 use std::{
     sync::{
-        mpsc::{Sender, Receiver, channel},
         atomic::{AtomicBool, Ordering},
+        mpsc::{channel, Receiver, Sender},
         Arc, Mutex,
     },
     task::Context as TaskContext,
 };
 
 use crate::{
-    executor::{ExecutorRuntime, ExecutorChannel, SpinConditions},
-    Waitable, Context, WaitSetRunner,
+    executor::{ExecutorChannel, ExecutorRuntime, SpinConditions},
+    Context, WaitSetRunner, Waitable,
 };
 
 /// The implementation of this runtime is based off of the async Rust reference book:
@@ -220,7 +220,6 @@ impl TaskSender {
         // TODO(@mxgrey): Consider logging errors here once logging is available.
         self.task_sender.send(task).ok();
     }
-
 }
 
 struct Task {

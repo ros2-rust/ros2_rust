@@ -1,9 +1,6 @@
 use std::time::SystemTime;
 
-use crate::{
-    rcl_bindings::*,
-    timestamp_to_system_time,
-};
+use crate::{rcl_bindings::*, timestamp_to_system_time};
 
 /// Information about an incoming service request.
 #[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]

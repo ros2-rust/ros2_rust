@@ -1,9 +1,6 @@
 use std::sync::MutexGuard;
 
-use crate::{
-    rcl_bindings::*,
-    RclrsError, InnerGuardConditionHandle,
-};
+use crate::{rcl_bindings::*, InnerGuardConditionHandle, RclrsError};
 
 /// This provides the public API for executing a waitable item.
 pub trait RclPrimitive: Send + Sync {

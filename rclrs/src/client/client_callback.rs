@@ -1,6 +1,6 @@
 use rosidl_runtime_rs::Service;
 
-use crate::{ServiceInfo, RequestId};
+use crate::{RequestId, ServiceInfo};
 
 /// A trait to deduce regular callbacks of service clients.
 ///

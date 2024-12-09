@@ -2,9 +2,8 @@ use rosidl_runtime_rs::Message;
 
 use super::{MessageInfo, SubscriptionHandle};
 use crate::{
-    error::ToResult,
-    rcl_bindings::*,
-    ReadOnlyLoanedMessage, ExecutorCommands, RclrsError, RclReturnCode,
+    error::ToResult, rcl_bindings::*, ExecutorCommands, RclReturnCode, RclrsError,
+    ReadOnlyLoanedMessage,
 };
 
 use futures::future::BoxFuture;
@@ -35,7 +34,12 @@ where
     Loaned(Box<dyn for<'a> FnMut(ReadOnlyLoanedMessage<T>) -> BoxFuture<'static, ()> + Send>),
     /// A callback with the loaned message and the message info as arguments.
     #[allow(clippy::type_complexity)]
-    LoanedWithMessageInfo(Box<dyn for<'a> FnMut(ReadOnlyLoanedMessage<T>, MessageInfo) -> BoxFuture<'static, ()> + Send>),
+    LoanedWithMessageInfo(
+        Box<
+            dyn for<'a> FnMut(ReadOnlyLoanedMessage<T>, MessageInfo) -> BoxFuture<'static, ()>
+                + Send,
+        >,
+    ),
 }
 
 impl<T: Message> AnySubscriptionCallback<T> {

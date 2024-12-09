@@ -1,17 +1,15 @@
 use std::{
+    collections::HashMap,
     ffi::CString,
     sync::{Arc, Mutex, MutexGuard},
-    collections::HashMap,
 };
 
 use rosidl_runtime_rs::Message;
 
 use crate::{
-    error::ToResult,
-    rcl_bindings::*,
-    MessageCow, Node, RclrsError, RclReturnCode, Promise, ENTITY_LIFECYCLE_MUTEX,
-    RclPrimitive, QoSProfile, Waitable, WaitableLifecycle,
-    RclPrimitiveHandle, RclPrimitiveKind, ServiceInfo,
+    error::ToResult, rcl_bindings::*, IntoPrimitiveOptions, MessageCow, Node, Promise, QoSProfile,
+    RclPrimitive, RclPrimitiveHandle, RclPrimitiveKind, RclReturnCode, RclrsError, ServiceInfo,
+    Waitable, WaitableLifecycle, ENTITY_LIFECYCLE_MUTEX,
 };
 
 mod client_async_callback;
@@ -59,10 +57,7 @@ where
     ///
     /// [1]: crate::RequestId
     /// [2]: crate::ServiceInfo
-    pub fn call<'a, Req, Out>(
-        &self,
-        request: Req,
-    ) -> Result<Promise<Out>, RclrsError>
+    pub fn call<'a, Req, Out>(&self, request: Req) -> Result<Promise<Out>, RclrsError>
     where
         Req: MessageCow<'a, T::Request>,
         Out: ClientOutput<T::Response>,
@@ -82,7 +77,10 @@ where
         .ok()?;
 
         // TODO(@mxgrey): Log errors here when logging becomes available.
-        self.board.lock().unwrap().new_request(sequence_number, sender);
+        self.board
+            .lock()
+            .unwrap()
+            .new_request(sequence_number, sender);
 
         Ok(promise)
     }
@@ -103,8 +101,8 @@ where
     where
         Req: MessageCow<'a, T::Request>,
     {
-        let callback = move |response, info| {
-            async { callback.run_client_callback(response, info); }
+        let callback = move |response, info| async {
+            callback.run_client_callback(response, info);
         };
         self.call_then_async(request, callback)
     }
@@ -167,29 +165,30 @@ where
         let client = Arc::clone(self);
         self.handle.node.notify_on_graph_change(
             // TODO(@mxgrey): Log any errors here once logging is available
-            move || client.service_is_ready().is_ok_and(|r| r)
+            move || client.service_is_ready().is_ok_and(|r| r),
         )
     }
 
     /// Creates a new client.
-    pub(crate) fn create(
-        topic: &str,
-        qos: QoSProfile,
+    pub(crate) fn create<'a>(
         node: &Arc<Node>,
+        options: impl Into<ClientOptions<'a>>,
     ) -> Result<Arc<Self>, RclrsError>
     // This uses pub(crate) visibility to avoid instantiating this struct outside
     // [`Node::create_client`], see the struct's documentation for the rationale
     where
         T: rosidl_runtime_rs::Service,
     {
+        let ClientOptions { service_name, qos } = options.into();
         // SAFETY: Getting a zero-initialized value is always safe.
         let mut rcl_client = unsafe { rcl_get_zero_initialized_client() };
         let type_support = <T as rosidl_runtime_rs::Service>::get_type_support()
             as *const rosidl_service_type_support_t;
-        let topic_c_string = CString::new(topic).map_err(|err| RclrsError::StringContainsNul {
-            err,
-            s: topic.into(),
-        })?;
+        let topic_c_string =
+            CString::new(service_name).map_err(|err| RclrsError::StringContainsNul {
+                err,
+                s: service_name.into(),
+            })?;
 
         // SAFETY: No preconditions for this function.
         let mut client_options = unsafe { rcl_client_get_default_options() };
@@ -243,12 +242,44 @@ where
     }
 }
 
+/// `ClientOptions` are used by [`Node::create_client`][1] to initialize a
+/// [`Client`] for a service.
+///
+/// [1]: crate::Node::create_client
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub struct ClientOptions<'a> {
+    /// The name of the service that this client will send requests to
+    pub service_name: &'a str,
+    /// The quality of the service profile for this client
+    pub qos: QoSProfile,
+}
+
+impl<'a> ClientOptions<'a> {
+    /// Initialize a new [`ClientOptions`] with default settings.
+    pub fn new(service_name: &'a str) -> Self {
+        Self {
+            service_name,
+            qos: QoSProfile::services_default(),
+        }
+    }
+}
+
+impl<'a, T: IntoPrimitiveOptions<'a>> From<T> for ClientOptions<'a> {
+    fn from(value: T) -> Self {
+        let primitive = value.into_primitive_options();
+        let mut options = Self::new(primitive.name);
+        primitive.apply(&mut options.qos);
+        options
+    }
+}
+
 struct ClientExecutable<T>
 where
     T: rosidl_runtime_rs::Service,
 {
     handle: Arc<ClientHandle>,
-    board: Arc<Mutex<ClientRequestBoard<T>>>
+    board: Arc<Mutex<ClientRequestBoard<T>>>,
 }
 
 impl<T> RclPrimitive for ClientExecutable<T>
@@ -326,7 +357,10 @@ where
             }
             Err(err) => {
                 match err {
-                    RclrsError::RclError { code: RclReturnCode::ClientTakeFailed, .. } => {
+                    RclrsError::RclError {
+                        code: RclReturnCode::ClientTakeFailed,
+                        ..
+                    } => {
                         // This is okay, it means a spurious wakeup happened
                     }
                     err => {
@@ -355,10 +389,12 @@ where
             )
         }
         .ok()
-        .map(|_| (
-            T::Response::from_rmw_message(response_out),
-            service_info_out,
-        ))
+        .map(|_| {
+            (
+                T::Response::from_rmw_message(response_out),
+                service_info_out,
+            )
+        })
     }
 }
 
@@ -415,7 +451,7 @@ mod tests {
         let graph = construct_test_graph(namespace)?;
         let _node_2_empty_client = graph
             .node2
-            .create_client::<srv::Empty>("graph_test_topic_4", QoSProfile::services_default())?;
+            .create_client::<srv::Empty>("graph_test_topic_4")?;
 
         std::thread::sleep(std::time::Duration::from_millis(200));
 

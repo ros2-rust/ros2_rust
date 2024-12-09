@@ -1,14 +1,15 @@
 use std::{
     boxed::Box,
     ffi::{CStr, CString},
-    sync::{Arc, Mutex, MutexGuard},
+    sync::{atomic::AtomicBool, Arc, Mutex, MutexGuard},
 };
 
+use rosidl_runtime_rs::Message;
+
 use crate::{
-    error::ToResult,
-    rcl_bindings::*,
-    NodeHandle, RclrsError, Waitable, WaitableLifecycle, QoSProfile,
-    RclPrimitive, RclPrimitiveKind, RclPrimitiveHandle, ENTITY_LIFECYCLE_MUTEX, ExecutorCommands,
+    error::ToResult, rcl_bindings::*, ExecutorCommands, IntoPrimitiveOptions, NodeHandle,
+    QoSProfile, RclPrimitive, RclPrimitiveHandle, RclPrimitiveKind, RclrsError, Waitable,
+    WaitableLifecycle, ENTITY_LIFECYCLE_MUTEX,
 };
 
 mod any_service_callback;
@@ -71,10 +72,7 @@ where
     /// previously set.
     ///
     /// This can be used even if the service previously used an async callback.
-    pub fn set_callback<Args>(
-        &self,
-        callback: impl ServiceCallback<T, Args>,
-    ) {
+    pub fn set_callback<Args>(&self, callback: impl ServiceCallback<T, Args>) {
         let callback = callback.into_service_callback();
         // TODO(@mxgrey): Log any errors here when logging becomes available
         *self.callback.lock().unwrap() = callback;
@@ -84,30 +82,27 @@ where
     /// previously set.
     ///
     /// This can be used even if the service previously used a non-async callback.
-    pub fn set_async_callback<Args>(
-        &self,
-        callback: impl ServiceAsyncCallback<T, Args>,
-    ) {
+    pub fn set_async_callback<Args>(&self, callback: impl ServiceAsyncCallback<T, Args>) {
         let callback = callback.into_service_async_callback();
         *self.callback.lock().unwrap() = callback;
     }
 
     /// Used by [`Node`][crate::Node] to create a new service
-    pub(crate) fn create(
-        topic: &str,
-        qos: QoSProfile,
+    pub(crate) fn create<'a>(
+        options: impl Into<ServiceOptions<'a>>,
         callback: AnyServiceCallback<T>,
         node_handle: &Arc<NodeHandle>,
         commands: &Arc<ExecutorCommands>,
     ) -> Result<Arc<Self>, RclrsError> {
+        let ServiceOptions { name, qos } = options.into();
         let callback = Arc::new(Mutex::new(callback));
         // SAFETY: Getting a zero-initialized value is always safe.
         let mut rcl_service = unsafe { rcl_get_zero_initialized_service() };
         let type_support = <T as rosidl_runtime_rs::Service>::get_type_support()
             as *const rosidl_service_type_support_t;
-        let topic_c_string = CString::new(topic).map_err(|err| RclrsError::StringContainsNul {
+        let topic_c_string = CString::new(name).map_err(|err| RclrsError::StringContainsNul {
             err,
-            s: topic.into(),
+            s: name.into(),
         })?;
 
         // SAFETY: No preconditions for this function.
@@ -150,10 +145,44 @@ where
             Some(Arc::clone(commands.get_guard_condition())),
         );
 
-        let service = Arc::new(Self { handle, callback, lifecycle });
+        let service = Arc::new(Self {
+            handle,
+            callback,
+            lifecycle,
+        });
         commands.add_to_wait_set(waitable);
 
         Ok(service)
+    }
+}
+
+/// `ServiceOptions are used by [`Node::create_service`][1] to initialize a
+/// [`Service`] provider.
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub struct ServiceOptions<'a> {
+    /// The name for the service
+    pub name: &'a str,
+    /// The quality of service profile for the service.
+    pub qos: QoSProfile,
+}
+
+impl<'a> ServiceOptions<'a> {
+    /// Initialize a new [`ServiceOptions`] with default settings.
+    pub fn new(name: &'a str) -> Self {
+        Self {
+            name,
+            qos: QoSProfile::services_default(),
+        }
+    }
+}
+
+impl<'a, T: IntoPrimitiveOptions<'a>> From<T> for ServiceOptions<'a> {
+    fn from(value: T) -> Self {
+        let primitive = value.into_primitive_options();
+        let mut options = Self::new(primitive.name);
+        primitive.apply(&mut options.qos);
+        options
     }
 }
 
@@ -168,7 +197,12 @@ where
     T: rosidl_runtime_rs::Service,
 {
     fn execute(&mut self) -> Result<(), RclrsError> {
-        if let Err(err) = self.callback.lock().unwrap().execute(&self.handle, &self.commands) {
+        if let Err(err) = self
+            .callback
+            .lock()
+            .unwrap()
+            .execute(&self.handle, &self.commands)
+        {
             // TODO(@mxgrey): Log the error here once logging is implemented
             eprintln!("Error while executing a service callback: {err}");
         }
@@ -242,21 +276,15 @@ mod tests {
             assert!(types.contains(&"test_msgs/srv/Empty".to_string()));
         };
 
-        let _node_1_empty_service =
-            graph
-                .node1
-                .create_service::<srv::Empty, _>(
-                    "graph_test_topic_4",
-                    QoSProfile::services_default(),
-                    |_| {
-                        srv::Empty_Response {
-                            structure_needs_at_least_one_member: 0,
-                        }
-                    },
-                )?;
+        let _node_1_empty_service = graph.node1.create_service::<srv::Empty, _>(
+            "graph_test_topic_4",
+            |_: srv::Empty_Request| srv::Empty_Response {
+                structure_needs_at_least_one_member: 0,
+            },
+        )?;
         let _node_2_empty_client = graph
             .node2
-            .create_client::<srv::Empty>("graph_test_topic_4", QoSProfile::services_default())?;
+            .create_client::<srv::Empty>("graph_test_topic_4")?;
 
         std::thread::sleep(std::time::Duration::from_millis(100));
 

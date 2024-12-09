@@ -15,7 +15,7 @@
 // DISTRIBUTION A. Approved for public release; distribution unlimited.
 // OPSEC #4584.
 
-use std::{sync::Arc, time::Duration, vec::Vec, collections::HashMap};
+use std::{collections::HashMap, sync::Arc, time::Duration, vec::Vec};
 
 use crate::{
     error::{to_rclrs_result, RclReturnCode, RclrsError, ToResult},
@@ -50,25 +50,24 @@ impl WaitSet {
     /// Creates a new empty wait set.
     pub fn new(context: &Context) -> Result<Self, RclrsError> {
         let count = WaitableCount::new();
-        let rcl_wait_set = unsafe {
-            count.initialize(&mut context.handle.rcl_context.lock().unwrap())?
-        };
+        let rcl_wait_set =
+            unsafe { count.initialize(&mut context.handle.rcl_context.lock().unwrap())? };
 
         let handle = WaitSetHandle {
             rcl_wait_set,
             context_handle: Arc::clone(&context.handle),
         };
 
-        let mut wait_set = Self { primitives: HashMap::new(), handle };
+        let mut wait_set = Self {
+            primitives: HashMap::new(),
+            handle,
+        };
         wait_set.register_rcl_primitives()?;
         Ok(wait_set)
     }
 
     /// Take all the items out of `entities` and move them into this wait set.
-    pub fn add(
-        &mut self,
-        entities: impl IntoIterator<Item = Waitable>,
-    ) -> Result<(), RclrsError> {
+    pub fn add(&mut self, entities: impl IntoIterator<Item = Waitable>) -> Result<(), RclrsError> {
         for entity in entities {
             if entity.in_wait_set() {
                 return Err(RclrsError::AlreadyAddedToWaitSet);
@@ -271,10 +270,7 @@ mod tests {
         let start = std::time::Instant::now();
         // This should stop spinning right away because the guard condition was
         // already triggered.
-        executor.spin(
-            SpinOptions::spin_once()
-            .timeout(Duration::from_secs(10))
-        );
+        executor.spin(SpinOptions::spin_once().timeout(Duration::from_secs(10)));
 
         // If it took more than a second to finish spinning then something is
         // probably wrong.

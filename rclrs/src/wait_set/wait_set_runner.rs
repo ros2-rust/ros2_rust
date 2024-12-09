@@ -1,16 +1,14 @@
 use futures::channel::{
+    mpsc::{unbounded, UnboundedReceiver, UnboundedSender},
     oneshot::channel,
-    mpsc::{UnboundedSender, UnboundedReceiver, unbounded},
 };
 
 use std::{
     sync::atomic::Ordering,
-    time::{Instant, Duration},
+    time::{Duration, Instant},
 };
 
-use crate::{
-    WaitSet, Context, SpinConditions, Promise, Waitable, RclrsError, RclReturnCode,
-};
+use crate::{Context, Promise, RclReturnCode, RclrsError, SpinConditions, WaitSet, Waitable};
 
 /// This is a utility class that executors can use to easily run and manage
 /// their wait set.
@@ -115,12 +113,15 @@ impl WaitSetRunner {
                 }
             });
 
-            if let Err(err) = self.wait_set.wait(
-                timeout,
-                |executable| executable.execute(),
-            ) {
+            if let Err(err) = self
+                .wait_set
+                .wait(timeout, |executable| executable.execute())
+            {
                 match err {
-                    RclrsError::RclError { code: RclReturnCode::Timeout, .. } => {
+                    RclrsError::RclError {
+                        code: RclReturnCode::Timeout,
+                        ..
+                    } => {
                         // We have timed out, so we should stop waiting.
                         break;
                     }

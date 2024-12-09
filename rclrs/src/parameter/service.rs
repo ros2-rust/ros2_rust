@@ -9,7 +9,7 @@ use rosidl_runtime_rs::Sequence;
 use super::ParameterMap;
 use crate::{
     parameter::{DeclaredValue, ParameterKind, ParameterStorage},
-    Node, RclrsError, Service, QoSProfile,
+    rmw_request_id_t, IntoPrimitiveOptions, Node, QoSProfile, RclrsError, Service,
 };
 
 // The variables only exist to keep a strong reference to the services and are technically unused.
@@ -247,8 +247,7 @@ impl ParameterService {
         // destruction is made for the parameter map.
         let map = parameter_map.clone();
         let describe_parameters_service = node.create_service(
-            &(fqn.clone() + "/describe_parameters"),
-            QoSProfile::parameter_services_default(),
+            (fqn.clone() + "/describe_parameters").qos(QoSProfile::parameter_services_default()),
             move |req: DescribeParameters_Request| {
                 let map = map.lock().unwrap();
                 describe_parameters(req, &map)
@@ -256,8 +255,7 @@ impl ParameterService {
         )?;
         let map = parameter_map.clone();
         let get_parameter_types_service = node.create_service(
-            &(fqn.clone() + "/get_parameter_types"),
-            QoSProfile::parameter_services_default(),
+            (fqn.clone() + "/get_parameter_types").qos(QoSProfile::parameter_services_default()),
             move |req: GetParameterTypes_Request| {
                 let map = map.lock().unwrap();
                 get_parameter_types(req, &map)
@@ -265,8 +263,7 @@ impl ParameterService {
         )?;
         let map = parameter_map.clone();
         let get_parameters_service = node.create_service(
-            &(fqn.clone() + "/get_parameters"),
-            QoSProfile::parameter_services_default(),
+            (fqn.clone() + "/get_parameters").qos(QoSProfile::parameter_services_default()),
             move |req: GetParameters_Request| {
                 let map = map.lock().unwrap();
                 get_parameters(req, &map)
@@ -274,8 +271,7 @@ impl ParameterService {
         )?;
         let map = parameter_map.clone();
         let list_parameters_service = node.create_service(
-            &(fqn.clone() + "/list_parameters"),
-            QoSProfile::parameter_services_default(),
+            (fqn.clone() + "/list_parameters").qos(QoSProfile::parameter_services_default()),
             move |req: ListParameters_Request| {
                 let map = map.lock().unwrap();
                 list_parameters(req, &map)
@@ -283,16 +279,15 @@ impl ParameterService {
         )?;
         let map = parameter_map.clone();
         let set_parameters_service = node.create_service(
-            &(fqn.clone() + "/set_parameters"),
-            QoSProfile::parameter_services_default(),
+            (fqn.clone() + "/set_parameters").qos(QoSProfile::parameter_services_default()),
             move |req: SetParameters_Request| {
                 let mut map = map.lock().unwrap();
                 set_parameters(req, &mut map)
             },
         )?;
         let set_parameters_atomically_service = node.create_service(
-            &(fqn.clone() + "/set_parameters_atomically"),
-            QoSProfile::parameter_services_default(),
+            (fqn.clone() + "/set_parameters_atomically")
+                .qos(QoSProfile::parameter_services_default()),
             move |req: SetParametersAtomically_Request| {
                 let mut map = parameter_map.lock().unwrap();
                 set_parameters_atomically(req, &mut map)
@@ -318,12 +313,15 @@ mod tests {
             },
             srv::rmw::*,
         },
-        Context, Executor, IntoNodeOptions, MandatoryParameter, Node, NodeOptions, ParameterRange, ParameterValue, QoSProfile, RclrsError,
-        ReadOnlyParameter,  SpinOptions,
+        Context, Executor, IntoNodeOptions, MandatoryParameter, Node, NodeOptions, ParameterRange,
+        ParameterValue, QoSProfile, RclrsError, ReadOnlyParameter, SpinOptions,
     };
     use rosidl_runtime_rs::{seq, Sequence};
     use std::{
-        sync::{atomic::{AtomicBool, Ordering}, Arc},
+        sync::{
+            atomic::{AtomicBool, Ordering},
+            Arc,
+        },
         time::Duration,
     };
 
@@ -337,10 +335,9 @@ mod tests {
 
     fn construct_test_nodes(ns: &str) -> (Executor, TestNode, Arc<Node>) {
         let executor = Context::default().create_basic_executor();
-        let node = executor.create_node(
-            NodeOptions::new("node")
-            .namespace(ns)
-        ).unwrap();
+        let node = executor
+            .create_node(NodeOptions::new("node").namespace(ns))
+            .unwrap();
         let range = ParameterRange {
             lower: Some(0),
             upper: Some(100),
@@ -397,52 +394,53 @@ mod tests {
         let initial_time = std::time::Instant::now();
 
         let node = Arc::clone(&test.node);
-        let promise = test.node.notify_on_graph_change_with_period(
-            Duration::from_millis(1),
-            move || {
-                let mut not_finished = false;
-                let max_time_reached = initial_time.elapsed() > timeout;
-                let mut check = |condition: bool| {
-                    if max_time_reached {
-                        assert!(condition);
-                    } else {
-                        not_finished &= !condition;
-                    }
-                };
+        let promise =
+            test.node
+                .notify_on_graph_change_with_period(Duration::from_millis(1), move || {
+                    let mut not_finished = false;
+                    let max_time_reached = initial_time.elapsed() > timeout;
+                    let mut check = |condition: bool| {
+                        if max_time_reached {
+                            assert!(condition);
+                        } else {
+                            not_finished &= !condition;
+                        }
+                    };
 
-                let names_and_types = node.get_service_names_and_types().unwrap();
-                let types = names_and_types
-                    .get("/names_types/node/describe_parameters")
-                    .unwrap();
-                check(!types.contains(&"rcl_interfaces/srv/DescribeParameters".to_string()));
-                let types = names_and_types
-                    .get("/names_types/node/get_parameters")
-                    .unwrap();
-                check(!types.contains(&"rcl_interfaces/srv/GetParameters".to_string()));
-                let types = names_and_types
-                    .get("/names_types/node/set_parameters")
-                    .unwrap();
-                check(!types.contains(&"rcl_interfaces/srv/SetParameters".to_string()));
-                let types = names_and_types
-                    .get("/names_types/node/set_parameters_atomically")
-                    .unwrap();
-                check(!types.contains(&"rcl_interfaces/srv/SetParametersAtomically".to_string()));
-                let types = names_and_types
-                    .get("/names_types/node/list_parameters")
-                    .unwrap();
-                check(types.contains(&"rcl_interfaces/srv/ListParameters".to_string()));
-                let types = names_and_types
-                    .get("/names_types/node/get_parameter_types")
-                    .unwrap();
-                check(types.contains(&"rcl_interfaces/srv/GetParameterTypes".to_string()));
-                !not_finished
-            }
-        );
+                    let names_and_types = node.get_service_names_and_types().unwrap();
+                    let types = names_and_types
+                        .get("/names_types/node/describe_parameters")
+                        .unwrap();
+                    check(!types.contains(&"rcl_interfaces/srv/DescribeParameters".to_string()));
+                    let types = names_and_types
+                        .get("/names_types/node/get_parameters")
+                        .unwrap();
+                    check(!types.contains(&"rcl_interfaces/srv/GetParameters".to_string()));
+                    let types = names_and_types
+                        .get("/names_types/node/set_parameters")
+                        .unwrap();
+                    check(!types.contains(&"rcl_interfaces/srv/SetParameters".to_string()));
+                    let types = names_and_types
+                        .get("/names_types/node/set_parameters_atomically")
+                        .unwrap();
+                    check(
+                        !types.contains(&"rcl_interfaces/srv/SetParametersAtomically".to_string()),
+                    );
+                    let types = names_and_types
+                        .get("/names_types/node/list_parameters")
+                        .unwrap();
+                    check(types.contains(&"rcl_interfaces/srv/ListParameters".to_string()));
+                    let types = names_and_types
+                        .get("/names_types/node/get_parameter_types")
+                        .unwrap();
+                    check(types.contains(&"rcl_interfaces/srv/GetParameterTypes".to_string()));
+                    !not_finished
+                });
 
         executor.spin(
             SpinOptions::new()
-            .until_promise_resolved(promise)
-            .timeout(Duration::from_secs(1))
+                .until_promise_resolved(promise)
+                .timeout(Duration::from_secs(1)),
         );
 
         Ok(())
@@ -451,16 +449,14 @@ mod tests {
     #[test]
     fn test_list_parameters_service() -> Result<(), RclrsError> {
         let (mut executor, _test, client_node) = construct_test_nodes("list");
-        let list_client = client_node.create_client::<ListParameters>(
-            "/list/node/list_parameters",
-            QoSProfile::services_default(),
-        )?;
+        let list_client =
+            client_node.create_client::<ListParameters>("/list/node/list_parameters")?;
 
         // return Ok(());
         executor.spin(
             SpinOptions::default()
-            .until_promise_resolved(list_client.notify_on_service_ready())
-            .timeout(Duration::from_secs(2))
+                .until_promise_resolved(list_client.notify_on_service_ready())
+                .timeout(Duration::from_secs(2)),
         );
 
         // List all parameters
@@ -471,30 +467,27 @@ mod tests {
             depth: 0,
         };
         let promise = list_client
-            .call_then(
-                &request,
-                move |response: ListParameters_Response| {
-                    // use_sim_time + all the manually defined ones
-                    let names = response.result.names;
-                    assert_eq!(names.len(), 5);
-                    // Parameter names are returned in alphabetical order
-                    assert_eq!(names[0].to_string(), "bool");
-                    assert_eq!(names[1].to_string(), "dynamic");
-                    assert_eq!(names[2].to_string(), "ns1.ns2.ns3.int");
-                    assert_eq!(names[3].to_string(), "read_only");
-                    assert_eq!(names[4].to_string(), "use_sim_time");
-                    // Only one prefix
-                    assert_eq!(response.result.prefixes.len(), 1);
-                    assert_eq!(response.result.prefixes[0].to_string(), "ns1.ns2.ns3");
-                    callback_ran_inner.store(true, Ordering::Release);
-                },
-            )
+            .call_then(&request, move |response: ListParameters_Response| {
+                // use_sim_time + all the manually defined ones
+                let names = response.result.names;
+                assert_eq!(names.len(), 5);
+                // Parameter names are returned in alphabetical order
+                assert_eq!(names[0].to_string(), "bool");
+                assert_eq!(names[1].to_string(), "dynamic");
+                assert_eq!(names[2].to_string(), "ns1.ns2.ns3.int");
+                assert_eq!(names[3].to_string(), "read_only");
+                assert_eq!(names[4].to_string(), "use_sim_time");
+                // Only one prefix
+                assert_eq!(response.result.prefixes.len(), 1);
+                assert_eq!(response.result.prefixes[0].to_string(), "ns1.ns2.ns3");
+                callback_ran_inner.store(true, Ordering::Release);
+            })
             .unwrap();
 
         executor.spin(
             SpinOptions::default()
-            .until_promise_resolved(promise)
-            .timeout(Duration::from_secs(5))
+                .until_promise_resolved(promise)
+                .timeout(Duration::from_secs(5)),
         );
         assert!(callback_ran.load(Ordering::Acquire));
 
@@ -506,22 +499,16 @@ mod tests {
             depth: 1,
         };
         let promise = list_client
-            .call_then(
-                &request,
-                move |response: ListParameters_Response| {
-                    let names = response.result.names;
-                    assert_eq!(names.len(), 4);
-                    assert!(names.iter().all(|n| n.to_string() != "ns1.ns2.ns3.int"));
-                    assert_eq!(response.result.prefixes.len(), 0);
-                    callback_ran_inner.store(true, Ordering::Release);
-                },
-            )
+            .call_then(&request, move |response: ListParameters_Response| {
+                let names = response.result.names;
+                assert_eq!(names.len(), 4);
+                assert!(names.iter().all(|n| n.to_string() != "ns1.ns2.ns3.int"));
+                assert_eq!(response.result.prefixes.len(), 0);
+                callback_ran_inner.store(true, Ordering::Release);
+            })
             .unwrap();
 
-        executor.spin(
-            SpinOptions::default()
-            .until_promise_resolved(promise)
-        );
+        executor.spin(SpinOptions::default().until_promise_resolved(promise));
         assert!(callback_ran.load(Ordering::Acquire));
 
         // Filter by prefix, just return the requested one with the right prefix
@@ -532,23 +519,17 @@ mod tests {
             depth: 0,
         };
         let promise = list_client
-            .call_then(
-                &request,
-                move |response: ListParameters_Response| {
-                    let names = response.result.names;
-                    assert_eq!(names.len(), 1);
-                    assert_eq!(names[0].to_string(), "ns1.ns2.ns3.int");
-                    assert_eq!(response.result.prefixes.len(), 1);
-                    assert_eq!(response.result.prefixes[0].to_string(), "ns1.ns2.ns3");
-                    callback_ran_inner.store(true, Ordering::Release);
-                },
-            )
+            .call_then(&request, move |response: ListParameters_Response| {
+                let names = response.result.names;
+                assert_eq!(names.len(), 1);
+                assert_eq!(names[0].to_string(), "ns1.ns2.ns3.int");
+                assert_eq!(response.result.prefixes.len(), 1);
+                assert_eq!(response.result.prefixes[0].to_string(), "ns1.ns2.ns3");
+                callback_ran_inner.store(true, Ordering::Release);
+            })
             .unwrap();
 
-        executor.spin(
-            SpinOptions::default()
-            .until_promise_resolved(promise)
-        );
+        executor.spin(SpinOptions::default().until_promise_resolved(promise));
         assert!(callback_ran.load(Ordering::Acquire));
 
         // If prefix is equal to names, parameters should be returned
@@ -559,23 +540,17 @@ mod tests {
             depth: 0,
         };
         let promise = list_client
-            .call_then(
-                &request,
-                move |response: ListParameters_Response| {
-                    let names = response.result.names;
-                    assert_eq!(names.len(), 2);
-                    assert_eq!(names[0].to_string(), "bool");
-                    assert_eq!(names[1].to_string(), "use_sim_time");
-                    assert_eq!(response.result.prefixes.len(), 0);
-                    callback_ran_inner.store(true, Ordering::Release);
-                },
-            )
+            .call_then(&request, move |response: ListParameters_Response| {
+                let names = response.result.names;
+                assert_eq!(names.len(), 2);
+                assert_eq!(names[0].to_string(), "bool");
+                assert_eq!(names[1].to_string(), "use_sim_time");
+                assert_eq!(response.result.prefixes.len(), 0);
+                callback_ran_inner.store(true, Ordering::Release);
+            })
             .unwrap();
 
-        executor.spin(
-            SpinOptions::default()
-            .until_promise_resolved(promise)
-        );
+        executor.spin(SpinOptions::default().until_promise_resolved(promise));
         assert!(callback_ran.load(Ordering::Acquire));
 
         Ok(())
@@ -584,29 +559,26 @@ mod tests {
     #[test]
     fn test_get_set_parameters_service() -> Result<(), RclrsError> {
         let (mut executor, test, client_node) = construct_test_nodes("get_set");
-        let get_client = client_node.create_client::<GetParameters>("/get_set/node/get_parameters", QoSProfile::services_default())?;
-        let set_client = client_node.create_client::<SetParameters>("/get_set/node/set_parameters", QoSProfile::services_default())?;
+        let get_client =
+            client_node.create_client::<GetParameters>("/get_set/node/get_parameters")?;
+        let set_client =
+            client_node.create_client::<SetParameters>("/get_set/node/set_parameters")?;
         let set_atomically_client = client_node
-            .create_client::<SetParametersAtomically>("/get_set/node/set_parameters_atomically", QoSProfile::services_default())?;
+            .create_client::<SetParametersAtomically>("/get_set/node/set_parameters_atomically")?;
 
         let get_client_inner = Arc::clone(&get_client);
         let set_client_inner = Arc::clone(&set_client);
         let set_atomically_client_inner = Arc::clone(&set_atomically_client);
         let clients_ready_condition = move || {
             get_client_inner.service_is_ready().unwrap()
-            && set_client_inner.service_is_ready().unwrap()
-            && set_atomically_client_inner.service_is_ready().unwrap()
+                && set_client_inner.service_is_ready().unwrap()
+                && set_atomically_client_inner.service_is_ready().unwrap()
         };
 
-        let clients_ready = client_node.notify_on_graph_change_with_period(
-            Duration::from_millis(1),
-            clients_ready_condition,
-        );
+        let clients_ready = client_node
+            .notify_on_graph_change_with_period(Duration::from_millis(1), clients_ready_condition);
 
-        executor.spin(
-            SpinOptions::default()
-            .until_promise_resolved(clients_ready)
-        );
+        executor.spin(SpinOptions::default().until_promise_resolved(clients_ready));
 
         // Get an existing parameter
         let callback_ran = Arc::new(AtomicBool::new(false));
@@ -615,22 +587,16 @@ mod tests {
             names: seq!["bool".into()],
         };
         let promise = get_client
-            .call_then(
-                &request,
-                move |response: GetParameters_Response| {
-                    assert_eq!(response.values.len(), 1);
-                    let param = &response.values[0];
-                    assert_eq!(param.type_, ParameterType::PARAMETER_BOOL);
-                    assert!(param.bool_value);
-                    callback_ran_inner.store(true, Ordering::Release);
-                },
-            )
+            .call_then(&request, move |response: GetParameters_Response| {
+                assert_eq!(response.values.len(), 1);
+                let param = &response.values[0];
+                assert_eq!(param.type_, ParameterType::PARAMETER_BOOL);
+                assert!(param.bool_value);
+                callback_ran_inner.store(true, Ordering::Release);
+            })
             .unwrap();
 
-        executor.spin(
-            SpinOptions::default()
-            .until_promise_resolved(promise)
-        );
+        executor.spin(SpinOptions::default().until_promise_resolved(promise));
         assert!(callback_ran.load(Ordering::Acquire));
 
         // Getting both existing and non existing parameters, missing one should return
@@ -641,23 +607,17 @@ mod tests {
             names: seq!["bool".into(), "non_existing".into()],
         };
         let promise = get_client
-            .call_then(
-                &request,
-                move |response: GetParameters_Response| {
-                    assert_eq!(response.values.len(), 2);
-                    let param = &response.values[0];
-                    assert_eq!(param.type_, ParameterType::PARAMETER_BOOL);
-                    assert!(param.bool_value);
-                    assert_eq!(response.values[1].type_, ParameterType::PARAMETER_NOT_SET);
-                    callback_ran_inner.store(true, Ordering::Release);
-                },
-            )
+            .call_then(&request, move |response: GetParameters_Response| {
+                assert_eq!(response.values.len(), 2);
+                let param = &response.values[0];
+                assert_eq!(param.type_, ParameterType::PARAMETER_BOOL);
+                assert!(param.bool_value);
+                assert_eq!(response.values[1].type_, ParameterType::PARAMETER_NOT_SET);
+                callback_ran_inner.store(true, Ordering::Release);
+            })
             .unwrap();
 
-        executor.spin(
-            SpinOptions::default()
-            .until_promise_resolved(promise)
-        );
+        executor.spin(SpinOptions::default().until_promise_resolved(promise));
         assert!(callback_ran.load(Ordering::Acquire));
 
         // Set a mix of existing, non existing, dynamic and out of range parameters
@@ -734,36 +694,30 @@ mod tests {
         let callback_ran_inner = Arc::clone(&callback_ran);
         assert!(test.bool_param.get());
         let promise = set_client
-            .call_then(
-                &request,
-                move |response: SetParameters_Response| {
-                    assert_eq!(response.results.len(), 7);
-                    // Setting a bool value set for a bool parameter
-                    assert!(response.results[0].successful);
-                    // Value was set to false, node parameter get should reflect this
-                    assert!(!test.bool_param.get());
-                    // Setting a parameter to the wrong type
-                    assert!(!response.results[1].successful);
-                    // Setting a read only parameter
-                    assert!(!response.results[2].successful);
-                    // Setting a dynamic parameter to a new type
-                    assert!(response.results[3].successful);
-                    assert_eq!(test.dynamic_param.get(), ParameterValue::Bool(true));
-                    // Setting a value out of range
-                    assert!(!response.results[4].successful);
-                    // Setting an invalid type
-                    assert!(!response.results[5].successful);
-                    // Setting an undeclared parameter, without allowing undeclared parameters
-                    assert!(!response.results[6].successful);
-                    callback_ran_inner.store(true, Ordering::Release);
-                },
-            )
+            .call_then(&request, move |response: SetParameters_Response| {
+                assert_eq!(response.results.len(), 7);
+                // Setting a bool value set for a bool parameter
+                assert!(response.results[0].successful);
+                // Value was set to false, node parameter get should reflect this
+                assert!(!test.bool_param.get());
+                // Setting a parameter to the wrong type
+                assert!(!response.results[1].successful);
+                // Setting a read only parameter
+                assert!(!response.results[2].successful);
+                // Setting a dynamic parameter to a new type
+                assert!(response.results[3].successful);
+                assert_eq!(test.dynamic_param.get(), ParameterValue::Bool(true));
+                // Setting a value out of range
+                assert!(!response.results[4].successful);
+                // Setting an invalid type
+                assert!(!response.results[5].successful);
+                // Setting an undeclared parameter, without allowing undeclared parameters
+                assert!(!response.results[6].successful);
+                callback_ran_inner.store(true, Ordering::Release);
+            })
             .unwrap();
 
-        executor.spin(
-            SpinOptions::default()
-            .until_promise_resolved(promise)
-        );
+        executor.spin(SpinOptions::default().until_promise_resolved(promise));
         assert!(callback_ran.load(Ordering::Acquire));
 
         // Set the node to use undeclared parameters and try to set one
@@ -780,25 +734,19 @@ mod tests {
         let test_node = Arc::clone(&test.node);
 
         let promise = set_client
-            .call_then(
-                &request,
-                move |response: SetParameters_Response| {
-                    assert_eq!(response.results.len(), 1);
-                    // Setting the undeclared parameter is now allowed
-                    assert!(response.results[0].successful);
-                    assert_eq!(
-                        test_node.use_undeclared_parameters().get("undeclared_bool"),
-                        Some(ParameterValue::Bool(true))
-                    );
-                    callback_ran_inner.store(true, Ordering::Release);
-                },
-            )
+            .call_then(&request, move |response: SetParameters_Response| {
+                assert_eq!(response.results.len(), 1);
+                // Setting the undeclared parameter is now allowed
+                assert!(response.results[0].successful);
+                assert_eq!(
+                    test_node.use_undeclared_parameters().get("undeclared_bool"),
+                    Some(ParameterValue::Bool(true))
+                );
+                callback_ran_inner.store(true, Ordering::Release);
+            })
             .unwrap();
 
-        executor.spin(
-            SpinOptions::default()
-            .until_promise_resolved(promise)
-        );
+        executor.spin(SpinOptions::default().until_promise_resolved(promise));
         assert!(callback_ran.load(Ordering::Acquire));
 
         // With set_parameters_atomically, if one fails all should fail
@@ -817,10 +765,7 @@ mod tests {
             )
             .unwrap();
 
-        executor.spin(
-            SpinOptions::default()
-            .until_promise_resolved(promise)
-        );
+        executor.spin(SpinOptions::default().until_promise_resolved(promise));
         assert!(callback_ran.load(Ordering::Acquire));
 
         Ok(())
@@ -829,27 +774,22 @@ mod tests {
     #[test]
     fn test_describe_get_types_parameters_service() -> Result<(), RclrsError> {
         let (mut executor, _test, client_node) = construct_test_nodes("describe");
-        let describe_client =
-            client_node.create_client::<DescribeParameters>("/describe/node/describe_parameters", QoSProfile::services_default())?;
+        let describe_client = client_node
+            .create_client::<DescribeParameters>("/describe/node/describe_parameters")?;
         let get_types_client =
-            client_node.create_client::<GetParameterTypes>("/describe/node/get_parameter_types", QoSProfile::services_default())?;
+            client_node.create_client::<GetParameterTypes>("/describe/node/get_parameter_types")?;
 
         let describe_client_inner = Arc::clone(&describe_client);
         let get_types_client_inner = Arc::clone(&get_types_client);
         let clients_ready_condition = move || {
             describe_client_inner.service_is_ready().unwrap()
-            && get_types_client_inner.service_is_ready().unwrap()
+                && get_types_client_inner.service_is_ready().unwrap()
         };
 
-        let promise = client_node.notify_on_graph_change_with_period(
-            Duration::from_millis(1),
-            clients_ready_condition,
-        );
+        let promise = client_node
+            .notify_on_graph_change_with_period(Duration::from_millis(1), clients_ready_condition);
 
-        executor.spin(
-            SpinOptions::default()
-            .until_promise_resolved(promise)
-        );
+        executor.spin(SpinOptions::default().until_promise_resolved(promise));
 
         // Describe all parameters
         let request = DescribeParameters_Request {
@@ -863,46 +803,40 @@ mod tests {
         let callback_ran = Arc::new(AtomicBool::new(false));
         let callback_ran_inner = Arc::clone(&callback_ran);
         let promise = describe_client
-            .call_then(
-                &request,
-                move |response: DescribeParameters_Response| {
-                    let desc = response.descriptors;
-                    assert_eq!(desc.len(), 4);
-                    // Descriptors are returned in the requested order
-                    assert_eq!(desc[0].name.to_string(), "bool");
-                    assert_eq!(desc[0].type_, ParameterType::PARAMETER_BOOL);
-                    assert_eq!(desc[0].description.to_string(), "A boolean value");
-                    assert!(!desc[0].read_only);
-                    assert!(!desc[0].dynamic_typing);
-                    assert_eq!(desc[1].name.to_string(), "ns1.ns2.ns3.int");
-                    assert_eq!(desc[1].type_, ParameterType::PARAMETER_INTEGER);
-                    assert_eq!(desc[1].integer_range.len(), 1);
-                    assert_eq!(desc[1].integer_range[0].from_value, 0);
-                    assert_eq!(desc[1].integer_range[0].to_value, 100);
-                    assert_eq!(desc[1].integer_range[0].step, 0);
-                    assert!(!desc[1].read_only);
-                    assert!(!desc[1].dynamic_typing);
-                    assert_eq!(
-                        desc[1].additional_constraints.to_string(),
-                        "Only the answer"
-                    );
-                    assert_eq!(desc[2].name.to_string(), "read_only");
-                    assert_eq!(desc[2].type_, ParameterType::PARAMETER_DOUBLE);
-                    assert!(desc[2].read_only);
-                    assert!(!desc[2].dynamic_typing);
-                    assert_eq!(desc[3].name.to_string(), "dynamic");
-                    assert_eq!(desc[3].type_, ParameterType::PARAMETER_STRING);
-                    assert!(desc[3].dynamic_typing);
-                    assert!(!desc[3].read_only);
-                    callback_ran_inner.store(true, Ordering::Release);
-                },
-            )
+            .call_then(&request, move |response: DescribeParameters_Response| {
+                let desc = response.descriptors;
+                assert_eq!(desc.len(), 4);
+                // Descriptors are returned in the requested order
+                assert_eq!(desc[0].name.to_string(), "bool");
+                assert_eq!(desc[0].type_, ParameterType::PARAMETER_BOOL);
+                assert_eq!(desc[0].description.to_string(), "A boolean value");
+                assert!(!desc[0].read_only);
+                assert!(!desc[0].dynamic_typing);
+                assert_eq!(desc[1].name.to_string(), "ns1.ns2.ns3.int");
+                assert_eq!(desc[1].type_, ParameterType::PARAMETER_INTEGER);
+                assert_eq!(desc[1].integer_range.len(), 1);
+                assert_eq!(desc[1].integer_range[0].from_value, 0);
+                assert_eq!(desc[1].integer_range[0].to_value, 100);
+                assert_eq!(desc[1].integer_range[0].step, 0);
+                assert!(!desc[1].read_only);
+                assert!(!desc[1].dynamic_typing);
+                assert_eq!(
+                    desc[1].additional_constraints.to_string(),
+                    "Only the answer"
+                );
+                assert_eq!(desc[2].name.to_string(), "read_only");
+                assert_eq!(desc[2].type_, ParameterType::PARAMETER_DOUBLE);
+                assert!(desc[2].read_only);
+                assert!(!desc[2].dynamic_typing);
+                assert_eq!(desc[3].name.to_string(), "dynamic");
+                assert_eq!(desc[3].type_, ParameterType::PARAMETER_STRING);
+                assert!(desc[3].dynamic_typing);
+                assert!(!desc[3].read_only);
+                callback_ran_inner.store(true, Ordering::Release);
+            })
             .unwrap();
 
-        executor.spin(
-            SpinOptions::default()
-            .until_promise_resolved(promise)
-        );
+        executor.spin(SpinOptions::default().until_promise_resolved(promise));
         assert!(callback_ran.load(Ordering::Acquire));
 
         // If a describe parameters request is sent with a non existing parameter, an empty
@@ -913,26 +847,20 @@ mod tests {
             names: seq!["bool".into(), "non_existing".into()],
         };
         let promise = describe_client
-            .call_then(
-                &request,
-                move |response: DescribeParameters_Response| {
-                    assert_eq!(response.descriptors[0].name.to_string(), "bool");
-                    assert_eq!(response.descriptors[0].type_, ParameterType::PARAMETER_BOOL);
-                    assert_eq!(response.descriptors.len(), 2);
-                    assert_eq!(response.descriptors[1].name.to_string(), "non_existing");
-                    assert_eq!(
-                        response.descriptors[1].type_,
-                        ParameterType::PARAMETER_NOT_SET
-                    );
-                    callback_ran_inner.store(true, Ordering::Release);
-                },
-            )
+            .call_then(&request, move |response: DescribeParameters_Response| {
+                assert_eq!(response.descriptors[0].name.to_string(), "bool");
+                assert_eq!(response.descriptors[0].type_, ParameterType::PARAMETER_BOOL);
+                assert_eq!(response.descriptors.len(), 2);
+                assert_eq!(response.descriptors[1].name.to_string(), "non_existing");
+                assert_eq!(
+                    response.descriptors[1].type_,
+                    ParameterType::PARAMETER_NOT_SET
+                );
+                callback_ran_inner.store(true, Ordering::Release);
+            })
             .unwrap();
 
-        executor.spin(
-            SpinOptions::default()
-            .until_promise_resolved(promise)
-        );
+        executor.spin(SpinOptions::default().until_promise_resolved(promise));
         assert!(callback_ran.load(Ordering::Acquire));
 
         // Get all parameter types, including a non existing one that will be NOT_SET
@@ -948,25 +876,19 @@ mod tests {
             ],
         };
         let promise = get_types_client
-            .call_then(
-                &request,
-                move |response: GetParameterTypes_Response| {
-                    assert_eq!(response.types.len(), 5);
-                    // Types are returned in the requested order
-                    assert_eq!(response.types[0], ParameterType::PARAMETER_BOOL);
-                    assert_eq!(response.types[1], ParameterType::PARAMETER_INTEGER);
-                    assert_eq!(response.types[2], ParameterType::PARAMETER_DOUBLE);
-                    assert_eq!(response.types[3], ParameterType::PARAMETER_STRING);
-                    assert_eq!(response.types[4], ParameterType::PARAMETER_NOT_SET);
-                    callback_ran_inner.store(true, Ordering::Release);
-                },
-            )
+            .call_then(&request, move |response: GetParameterTypes_Response| {
+                assert_eq!(response.types.len(), 5);
+                // Types are returned in the requested order
+                assert_eq!(response.types[0], ParameterType::PARAMETER_BOOL);
+                assert_eq!(response.types[1], ParameterType::PARAMETER_INTEGER);
+                assert_eq!(response.types[2], ParameterType::PARAMETER_DOUBLE);
+                assert_eq!(response.types[3], ParameterType::PARAMETER_STRING);
+                assert_eq!(response.types[4], ParameterType::PARAMETER_NOT_SET);
+                callback_ran_inner.store(true, Ordering::Release);
+            })
             .unwrap();
 
-        executor.spin(
-            SpinOptions::default()
-            .until_promise_resolved(promise)
-        );
+        executor.spin(SpinOptions::default().until_promise_resolved(promise));
         assert!(callback_ran.load(Ordering::Acquire));
 
         Ok(())

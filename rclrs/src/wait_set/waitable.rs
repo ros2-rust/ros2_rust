@@ -4,9 +4,8 @@ use std::sync::{
 };
 
 use crate::{
-    error::ToResult,
-    rcl_bindings::*,
-    RclrsError, GuardCondition, RclPrimitiveKind, RclPrimitive, RclPrimitiveHandle,
+    error::ToResult, rcl_bindings::*, GuardCondition, RclPrimitive, RclPrimitiveHandle,
+    RclPrimitiveKind, RclrsError,
 };
 
 /// This struct manages the presence of an rcl primitive inside the wait set.
@@ -33,7 +32,10 @@ impl Waitable {
             index_in_wait_set: None,
         };
 
-        let lifecycle = WaitableLifecycle { in_use, guard_condition };
+        let lifecycle = WaitableLifecycle {
+            in_use,
+            guard_condition,
+        };
         (waiter, lifecycle)
     }
 
@@ -53,7 +55,9 @@ impl Waitable {
                 // element of the array at the index-th position.
                 match self.primitive.kind() {
                     RclPrimitiveKind::Subscription => wait_set.subscriptions.add(index).is_null(),
-                    RclPrimitiveKind::GuardCondition => wait_set.guard_conditions.add(index).is_null(),
+                    RclPrimitiveKind::GuardCondition => {
+                        wait_set.guard_conditions.add(index).is_null()
+                    }
                     RclPrimitiveKind::Service => wait_set.services.add(index).is_null(),
                     RclPrimitiveKind::Client => wait_set.clients.add(index).is_null(),
                     RclPrimitiveKind::Timer => wait_set.timers.add(index).is_null(),
@@ -68,7 +72,6 @@ impl Waitable {
         &mut self,
         wait_set: &mut rcl_wait_set_t,
     ) -> Result<(), RclrsError> {
-
         let mut index = 0;
         unsafe {
             // SAFETY: The Executable is responsible for maintaining the lifecycle
@@ -77,11 +80,9 @@ impl Waitable {
                 RclPrimitiveHandle::Subscription(handle) => {
                     rcl_wait_set_add_subscription(wait_set, &*handle, &mut index)
                 }
-                RclPrimitiveHandle::GuardCondition(handle) => {
-                    handle.use_handle(|handle| {
-                        rcl_wait_set_add_guard_condition(wait_set, &*handle, &mut index)
-                    })
-                }
+                RclPrimitiveHandle::GuardCondition(handle) => handle.use_handle(|handle| {
+                    rcl_wait_set_add_guard_condition(wait_set, &*handle, &mut index)
+                }),
                 RclPrimitiveHandle::Service(handle) => {
                     rcl_wait_set_add_service(wait_set, &*handle, &mut index)
                 }

@@ -19,7 +19,6 @@ impl SimpleSubscriptionNode {
         let _subscriber = node
             .create_subscription::<StringMsg, _>(
                 "publish_hello",
-                QOS_PROFILE_DEFAULT,
                 move |msg: StringMsg| {
                     *data_mut.lock().unwrap() = Some(msg);
                 },

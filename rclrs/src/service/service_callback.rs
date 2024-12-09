@@ -1,9 +1,6 @@
 use rosidl_runtime_rs::Service;
 
-use crate::{
-    ServiceInfo, RequestId,
-    service::any_service_callback::AnyServiceCallback,
-};
+use crate::{service::any_service_callback::AnyServiceCallback, RequestId, ServiceInfo};
 
 use std::sync::Arc;
 
@@ -29,14 +26,10 @@ where
 {
     fn into_service_callback(self) -> AnyServiceCallback<T> {
         let func = Arc::new(self);
-        AnyServiceCallback::OnlyRequest(Box::new(
-            move |request| {
-                let f = Arc::clone(&func);
-                Box::pin(async move {
-                    f(request)
-                })
-            }
-        ))
+        AnyServiceCallback::OnlyRequest(Box::new(move |request| {
+            let f = Arc::clone(&func);
+            Box::pin(async move { f(request) })
+        }))
     }
 }
 
@@ -47,14 +40,10 @@ where
 {
     fn into_service_callback(self) -> AnyServiceCallback<T> {
         let func = Arc::new(self);
-        AnyServiceCallback::WithId(Box::new(
-            move |request, request_id| {
-                let f = Arc::clone(&func);
-                Box::pin(async move {
-                    f(request, request_id)
-                })
-            }
-        ))
+        AnyServiceCallback::WithId(Box::new(move |request, request_id| {
+            let f = Arc::clone(&func);
+            Box::pin(async move { f(request, request_id) })
+        }))
     }
 }
 
@@ -65,13 +54,9 @@ where
 {
     fn into_service_callback(self) -> AnyServiceCallback<T> {
         let func = Arc::new(self);
-        AnyServiceCallback::WithInfo(Box::new(
-            move |request, service_info| {
-                let f = Arc::clone(&func);
-                Box::pin(async move {
-                    f(request, service_info)
-                })
-            }
-        ))
+        AnyServiceCallback::WithInfo(Box::new(move |request, service_info| {
+            let f = Arc::clone(&func);
+            Box::pin(async move { f(request, service_info) })
+        }))
     }
 }

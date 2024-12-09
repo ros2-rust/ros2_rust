@@ -1,19 +1,19 @@
 mod basic_executor;
 pub use self::basic_executor::*;
 
-use crate::{
-    Context, ContextHandle, GuardCondition, IntoNodeOptions, Node, RclrsError,
-    Waitable,
-};
-use std::{
-    sync::{Arc, atomic::{AtomicBool, Ordering}},
-    time::Duration,
-    future::Future,
-};
+use crate::{Context, ContextHandle, GuardCondition, IntoNodeOptions, Node, RclrsError, Waitable};
 pub use futures::channel::oneshot::Receiver as Promise;
 use futures::{
-    future::{BoxFuture, Either, select},
     channel::oneshot,
+    future::{select, BoxFuture, Either},
+};
+use std::{
+    future::Future,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+    time::Duration,
 };
 
 /// An executor that can be used to create nodes and run their callbacks.
@@ -62,10 +62,18 @@ impl Executor {
     /// which you can use to resume spinning after the task is finished.
     pub async fn spin_async(self, options: SpinOptions) -> Self {
         let conditions = self.make_spin_conditions(options);
-        let Self { context, commands, runtime } = self;
+        let Self {
+            context,
+            commands,
+            runtime,
+        } = self;
 
         let runtime = runtime.spin_async(conditions).await;
-        Self { context, commands, runtime }
+        Self {
+            context,
+            commands,
+            runtime,
+        }
     }
 
     /// Creates a new executor using the provided runtime. Users of rclrs should
@@ -76,7 +84,9 @@ impl Executor {
     {
         let (wakeup_wait_set, waitable) = GuardCondition::new(&context, None);
         let commands = Arc::new(ExecutorCommands {
-            context: Context { handle: Arc::clone(&context) },
+            context: Context {
+                handle: Arc::clone(&context),
+            },
             channel: runtime.channel(),
             halt_spinning: Arc::new(AtomicBool::new(false)),
             wakeup_wait_set: Arc::new(wakeup_wait_set),
@@ -96,7 +106,9 @@ impl Executor {
         SpinConditions {
             options,
             halt_spinning: Arc::clone(&self.commands.halt_spinning),
-            context: Context { handle: Arc::clone(&self.context) },
+            context: Context {
+                handle: Arc::clone(&self.context),
+            },
             guard_condition: Arc::clone(&self.commands.wakeup_wait_set),
         }
     }
@@ -146,18 +158,16 @@ impl ExecutorCommands {
         F::Output: Send,
     {
         let (mut sender, receiver) = oneshot::channel();
-        self.channel.add_async_task(Box::pin(
-            async move {
-                let cancellation = sender.cancellation();
-                let output = match select(cancellation, std::pin::pin!(f)).await {
-                    // The task was cancelled
-                    Either::Left(_) => return,
-                    // The task completed
-                    Either::Right((output, _)) => output,
-                };
-                sender.send(output).ok();
-            }
-        ));
+        self.channel.add_async_task(Box::pin(async move {
+            let cancellation = sender.cancellation();
+            let output = match select(cancellation, std::pin::pin!(f)).await {
+                // The task was cancelled
+                Either::Left(_) => return,
+                // The task completed
+                Either::Right((output, _)) => output,
+            };
+            sender.send(output).ok();
+        }));
 
         receiver
     }
@@ -183,11 +193,9 @@ impl ExecutorCommands {
         F::Output: Send,
     {
         let (sender, receiver) = oneshot::channel();
-        self.channel.add_async_task(Box::pin(
-            async move {
-                sender.send(f.await).ok();
-            }
-        ));
+        self.channel.add_async_task(Box::pin(async move {
+            sender.send(f.await).ok();
+        }));
         receiver
     }
 

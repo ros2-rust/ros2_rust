@@ -1,12 +1,11 @@
 use std::{
     any::Any,
-    sync::{Arc, Mutex}
+    sync::{Arc, Mutex},
 };
 
 use crate::{
-    rcl_bindings::*,
-    ContextHandle, RclrsError, ToResult, WaitableLifecycle, RclPrimitive,
-    Waitable, RclPrimitiveKind, RclPrimitiveHandle,
+    rcl_bindings::*, ContextHandle, RclPrimitive, RclPrimitiveHandle, RclPrimitiveKind, RclrsError,
+    ToResult, Waitable, WaitableLifecycle,
 };
 
 /// A waitable entity used for waking up a wait set manually.
@@ -173,23 +172,21 @@ impl InnerGuardConditionHandle {
     pub fn use_handle<Out>(&self, f: impl FnOnce(&rcl_guard_condition_t) -> Out) -> Out {
         match self {
             Self::Owned(handle) => f(handle),
-            Self::Unowned { handle, .. } => f(
-                unsafe {
-                    // SAFETY: The enum ensures that the pointer remains valid
-                    handle.as_ref().unwrap()
-                }
-            ),
+            Self::Unowned { handle, .. } => f(unsafe {
+                // SAFETY: The enum ensures that the pointer remains valid
+                handle.as_ref().unwrap()
+            }),
         }
     }
 }
 
 impl Drop for GuardConditionHandle {
     fn drop(&mut self) {
-        if let InnerGuardConditionHandle::Owned(
-            rcl_guard_condition
-        ) =  &mut *self.rcl_guard_condition.lock().unwrap() {
+        if let InnerGuardConditionHandle::Owned(rcl_guard_condition) =
+            &mut *self.rcl_guard_condition.lock().unwrap()
+        {
             unsafe {
-            // SAFETY: No precondition for this function (besides passing in a valid guard condition)
+                // SAFETY: No precondition for this function (besides passing in a valid guard condition)
                 rcl_guard_condition_fini(rcl_guard_condition);
             }
         }
@@ -217,9 +214,7 @@ impl RclPrimitive for GuardConditionExecutable {
     }
 
     fn handle(&self) -> RclPrimitiveHandle {
-        RclPrimitiveHandle::GuardCondition(
-            self.handle.rcl_guard_condition.lock().unwrap()
-        )
+        RclPrimitiveHandle::GuardCondition(self.handle.rcl_guard_condition.lock().unwrap())
     }
 }
 

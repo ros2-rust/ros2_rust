@@ -2,7 +2,7 @@ use rosidl_runtime_rs::Service;
 
 use std::future::Future;
 
-use crate::{ServiceInfo, RequestId};
+use crate::{RequestId, ServiceInfo};
 
 /// A trait to deduce async callbacks of service clients.
 ///

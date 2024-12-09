@@ -1,9 +1,6 @@
 use rosidl_runtime_rs::Message;
 
-use super::{
-    MessageInfo,
-    any_subscription_callback::AnySubscriptionCallback,
-};
+use super::{any_subscription_callback::AnySubscriptionCallback, MessageInfo};
 use crate::ReadOnlyLoanedMessage;
 
 use std::sync::Arc;
@@ -58,14 +55,12 @@ where
 {
     fn into_any_callback(func: Func) -> AnySubscriptionCallback<T> {
         let func = Arc::new(func);
-        AnySubscriptionCallback::Regular(Box::new(
-            move |message| {
-                let f = Arc::clone(&func);
-                Box::pin(async move {
-                    f(message);
-                })
-            }
-        ))
+        AnySubscriptionCallback::Regular(Box::new(move |message| {
+            let f = Arc::clone(&func);
+            Box::pin(async move {
+                f(message);
+            })
+        }))
     }
 }
 
@@ -76,14 +71,12 @@ where
 {
     fn into_any_callback(func: Func) -> AnySubscriptionCallback<T> {
         let func = Arc::new(func);
-        AnySubscriptionCallback::RegularWithMessageInfo(Box::new(
-            move |message, info| {
-                let f = Arc::clone(&func);
-                Box::pin(async move {
-                    f(message, info);
-                })
-            }
-        ))
+        AnySubscriptionCallback::RegularWithMessageInfo(Box::new(move |message, info| {
+            let f = Arc::clone(&func);
+            Box::pin(async move {
+                f(message, info);
+            })
+        }))
     }
 }
 
@@ -94,14 +87,12 @@ where
 {
     fn into_any_callback(func: Func) -> AnySubscriptionCallback<T> {
         let func = Arc::new(func);
-        AnySubscriptionCallback::Boxed(Box::new(
-            move |message| {
-                let f = Arc::clone(&func);
-                Box::pin(async move {
-                    f(message);
-                })
-            }
-        ))
+        AnySubscriptionCallback::Boxed(Box::new(move |message| {
+            let f = Arc::clone(&func);
+            Box::pin(async move {
+                f(message);
+            })
+        }))
     }
 }
 
@@ -112,14 +103,12 @@ where
 {
     fn into_any_callback(func: Func) -> AnySubscriptionCallback<T> {
         let func = Arc::new(func);
-        AnySubscriptionCallback::BoxedWithMessageInfo(Box::new(
-            move |message, info| {
-                let f = Arc::clone(&func);
-                Box::pin(async move {
-                    f(message, info);
-                })
-            }
-        ))
+        AnySubscriptionCallback::BoxedWithMessageInfo(Box::new(move |message, info| {
+            let f = Arc::clone(&func);
+            Box::pin(async move {
+                f(message, info);
+            })
+        }))
     }
 }
 
@@ -130,14 +119,12 @@ where
 {
     fn into_any_callback(func: Func) -> AnySubscriptionCallback<T> {
         let func = Arc::new(func);
-        AnySubscriptionCallback::Loaned(Box::new(
-            move |message| {
-                let f = Arc::clone(&func);
-                Box::pin(async move {
-                    f(message);
-                })
-            }
-        ))
+        AnySubscriptionCallback::Loaned(Box::new(move |message| {
+            let f = Arc::clone(&func);
+            Box::pin(async move {
+                f(message);
+            })
+        }))
     }
 }
 
@@ -148,14 +135,12 @@ where
 {
     fn into_any_callback(func: Func) -> AnySubscriptionCallback<T> {
         let func = Arc::new(func);
-        AnySubscriptionCallback::LoanedWithMessageInfo(Box::new(
-            move |message, info| {
-                let f = Arc::clone(&func);
-                Box::pin(async move {
-                    f(message, info);
-                })
-            }
-        ))
+        AnySubscriptionCallback::LoanedWithMessageInfo(Box::new(move |message, info| {
+            let f = Arc::clone(&func);
+            Box::pin(async move {
+                f(message, info);
+            })
+        }))
     }
 }
 
@@ -167,32 +152,32 @@ mod tests {
 
     #[test]
     fn callback_conversion() {
-        let cb = |_msg: TestMessage| { };
+        let cb = |_msg: TestMessage| {};
         assert!(matches!(
             cb.into_subscription_callback(),
             AnySubscriptionCallback::<TestMessage>::Regular(_)
         ));
-        let cb = |_msg: TestMessage, _info: MessageInfo| { };
+        let cb = |_msg: TestMessage, _info: MessageInfo| {};
         assert!(matches!(
             cb.into_subscription_callback(),
             AnySubscriptionCallback::<TestMessage>::RegularWithMessageInfo(_)
         ));
-        let cb = |_msg: Box<TestMessage>| { };
+        let cb = |_msg: Box<TestMessage>| {};
         assert!(matches!(
             cb.into_subscription_callback(),
             AnySubscriptionCallback::<TestMessage>::Boxed(_)
         ));
-        let cb = |_msg: Box<TestMessage>, _info: MessageInfo| { };
+        let cb = |_msg: Box<TestMessage>, _info: MessageInfo| {};
         assert!(matches!(
             cb.into_subscription_callback(),
             AnySubscriptionCallback::<TestMessage>::BoxedWithMessageInfo(_)
         ));
-        let cb = |_msg: ReadOnlyLoanedMessage<TestMessage>| { };
+        let cb = |_msg: ReadOnlyLoanedMessage<TestMessage>| {};
         assert!(matches!(
             cb.into_subscription_callback(),
             AnySubscriptionCallback::<TestMessage>::Loaned(_)
         ));
-        let cb = |_msg: ReadOnlyLoanedMessage<TestMessage>, _info: MessageInfo| { };
+        let cb = |_msg: ReadOnlyLoanedMessage<TestMessage>, _info: MessageInfo| {};
         assert!(matches!(
             cb.into_subscription_callback(),
             AnySubscriptionCallback::<TestMessage>::LoanedWithMessageInfo(_)
@@ -224,27 +209,15 @@ mod tests {
         ));
     }
 
-    fn test_regular(_msg: TestMessage) {
+    fn test_regular(_msg: TestMessage) {}
 
-    }
+    fn test_regular_with_info(_msg: TestMessage, _info: MessageInfo) {}
 
-    fn test_regular_with_info(_msg: TestMessage, _info: MessageInfo) {
+    fn test_boxed(_msg: Box<TestMessage>) {}
 
-    }
+    fn test_boxed_with_info(_msg: Box<TestMessage>, _info: MessageInfo) {}
 
-    fn test_boxed(_msg: Box<TestMessage>) {
+    fn test_loaned(_msg: ReadOnlyLoanedMessage<TestMessage>) {}
 
-    }
-
-    fn test_boxed_with_info(_msg: Box<TestMessage>, _info: MessageInfo) {
-
-    }
-
-    fn test_loaned(_msg: ReadOnlyLoanedMessage<TestMessage>) {
-
-    }
-
-    fn test_loaned_with_info(_msg: ReadOnlyLoanedMessage<TestMessage>, _info: MessageInfo) {
-
-    }
+    fn test_loaned_with_info(_msg: ReadOnlyLoanedMessage<TestMessage>, _info: MessageInfo) {}
 }

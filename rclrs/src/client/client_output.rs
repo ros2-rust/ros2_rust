@@ -1,11 +1,8 @@
 use rosidl_runtime_rs::Message;
 
-use futures::channel::oneshot::{Sender, channel};
+use futures::channel::oneshot::{channel, Sender};
 
-use crate::{
-    rcl_bindings::rmw_service_info_t,
-    RequestId, ServiceInfo, Promise,
-};
+use crate::{rcl_bindings::rmw_service_info_t, Promise, RequestId, ServiceInfo};
 
 /// This trait allows us to deduce how much information a user wants to receive
 /// from a client call. A user can choose to receive only the response from the
@@ -50,11 +47,7 @@ pub enum AnyClientOutputSender<Response> {
 }
 
 impl<Response: Message> AnyClientOutputSender<Response> {
-    pub(super) fn send_response(
-        self,
-        response: Response,
-        service_info: rmw_service_info_t,
-    ) {
+    pub(super) fn send_response(self, response: Response, service_info: rmw_service_info_t) {
         match self {
             Self::ResponseOnly(sender) => {
                 let _ = sender.send(response);
@@ -66,10 +59,7 @@ impl<Response: Message> AnyClientOutputSender<Response> {
                 ));
             }
             Self::WithServiceInfo(sender) => {
-                let _ = sender.send((
-                    response,
-                    ServiceInfo::from_rmw_service_info(&service_info),
-                ));
+                let _ = sender.send((response, ServiceInfo::from_rmw_service_info(&service_info)));
             }
         }
     }

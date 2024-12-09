@@ -15,8 +15,7 @@ pub(super) enum NodeGraphAction {
 // as the Node that started it is alive.
 pub(super) async fn node_graph_task(
     mut receiver: UnboundedReceiver<NodeGraphAction>,
-    #[allow(unused)]
-    guard_condition: GuardCondition,
+    #[allow(unused)] guard_condition: GuardCondition,
 ) {
     let mut listeners = Vec::new();
     while let Some(action) = receiver.next().await {
@@ -33,9 +32,7 @@ pub(super) async fn node_graph_task(
                 // If we see that the listener's receiver has dropped (i.e.
                 // unbounded_send returns an Err) then we remove it from the
                 // container.
-                listeners.retain(|listener|
-                    listener.unbounded_send(()).is_ok()
-                );
+                listeners.retain(|listener| listener.unbounded_send(()).is_ok());
             }
         }
     }

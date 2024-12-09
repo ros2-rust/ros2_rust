@@ -119,9 +119,7 @@ impl MessageInfo {
     }
 }
 
-pub(crate) fn timestamp_to_system_time(
-    timestamp: rmw_time_point_value_t
-) -> Option<SystemTime> {
+pub(crate) fn timestamp_to_system_time(timestamp: rmw_time_point_value_t) -> Option<SystemTime> {
     match timestamp {
         0 => None,
         ts if ts < 0 => Some(SystemTime::UNIX_EPOCH - Duration::from_nanos(ts.unsigned_abs())),

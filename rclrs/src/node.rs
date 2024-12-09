@@ -1,6 +1,9 @@
 mod node_options;
 pub use node_options::*;
 
+mod primitive_options;
+pub use primitive_options::*;
+
 mod graph;
 pub use graph::*;
 
@@ -17,8 +20,8 @@ use std::{
 };
 
 use futures::{
-    StreamExt,
     channel::mpsc::{unbounded, UnboundedSender},
+    StreamExt,
 };
 
 use async_std::future::timeout;
@@ -26,11 +29,11 @@ use async_std::future::timeout;
 use rosidl_runtime_rs::Message;
 
 use crate::{
-    rcl_bindings::*,
-    Client, Clock, ContextHandle, LogParams, Logger, Promise, ParameterBuilder, ParameterInterface,
-    ParameterVariant, Parameters, Publisher, QoSProfile, RclrsError, Service,
-    Subscription, SubscriptionCallback, SubscriptionAsyncCallback, ServiceCallback,
-    ServiceAsyncCallback, ExecutorCommands, TimeSource, ToLogParams, ENTITY_LIFECYCLE_MUTEX,
+    rcl_bindings::*, Client, ClientOptions, Clock, ContextHandle, ExecutorCommands, LogParams,
+    Logger, ParameterBuilder, ParameterInterface, ParameterVariant, Parameters, Promise, Publisher,
+    PublisherOptions, QoSProfile, RclrsError, Service, ServiceAsyncCallback, ServiceCallback,
+    ServiceOptions, Subscription, SubscriptionAsyncCallback, SubscriptionCallback,
+    SubscriptionOptions, TimeSource, ToLogParams, ENTITY_LIFECYCLE_MUTEX,
 };
 
 /// A processing unit that can communicate with other nodes.
@@ -222,34 +225,96 @@ impl Node {
 
     /// Creates a [`Client`][1].
     ///
-    /// [1]: crate::Client
-    // TODO: make client's lifetime depend on node's lifetime
-    pub fn create_client<T>(
+    /// Pass in only the service name for the `options` argument to use all default client options:
+    /// ```
+    /// # use rclrs::*;
+    /// # let executor = Context::default().create_basic_executor();
+    /// # let node = executor.create_node("my_node").unwrap();
+    /// let client = node.create_client::<test_msgs::srv::Empty>(
+    ///     "my_service"
+    /// )
+    /// .unwrap();
+    /// ```
+    ///
+    /// Take advantage of the [`IntoPrimitiveOptions`] API to easily build up the
+    /// client options:
+    ///
+    /// ```
+    /// # use rclrs::*;
+    /// # let executor = Context::default().create_basic_executor();
+    /// # let node = executor.create_node("my_node").unwrap();
+    /// let client = node.create_client::<test_msgs::srv::Empty>(
+    ///     "my_service"
+    ///     .keep_all()
+    ///     .transient_local()
+    /// )
+    /// .unwrap();
+    /// ```
+    ///
+    /// Any quality of service options that you explicitly specify will override
+    /// the default service options. Any that you do not explicitly specify will
+    /// remain the default service options. Note that clients are generally
+    /// expected to use [reliable][1], so it's best not to change the reliability
+    /// setting unless you know what you are doing.
+    ///
+    /// [1]: crate::QoSReliabilityPolicy::Reliable
+    pub fn create_client<'a, T>(
         self: &Arc<Self>,
-        topic: &str,
-        qos: QoSProfile,
+        options: impl Into<ClientOptions<'a>>,
     ) -> Result<Arc<Client<T>>, RclrsError>
     where
         T: rosidl_runtime_rs::Service,
     {
-        Client::<T>::create(topic, qos, &self)
+        Client::<T>::create(self, options)
     }
 
     /// Creates a [`Publisher`][1].
     ///
-    /// [1]: crate::Publisher
-    pub fn create_publisher<T>(
+    /// Pass in only the topic name for the `options` argument to use all default publisher options:
+    /// ```
+    /// # use rclrs::*;
+    /// # let executor = Context::default().create_basic_executor();
+    /// # let node = executor.create_node("my_node").unwrap();
+    /// let publisher = node.create_publisher::<test_msgs::msg::Empty>(
+    ///     "my_topic"
+    /// )
+    /// .unwrap();
+    /// ```
+    ///
+    /// Take advantage of the [`IntoPrimitiveOptions`] API to easily build up the
+    /// publisher options:
+    ///
+    /// ```
+    /// # use rclrs::*;
+    /// # let executor = Context::default().create_basic_executor();
+    /// # let node = executor.create_node("my_node").unwrap();
+    /// let publisher = node.create_publisher::<test_msgs::msg::Empty>(
+    ///     "my_topic"
+    ///     .keep_last(100)
+    ///     .transient_local()
+    /// )
+    /// .unwrap();
+    ///
+    /// let reliable_publisher = node.create_publisher::<test_msgs::msg::Empty>(
+    ///     "my_topic"
+    ///     .reliable()
+    /// )
+    /// .unwrap();
+    /// ```
+    ///
+    pub fn create_publisher<'a, T>(
         &self,
-        topic: &str,
-        qos: QoSProfile,
+        options: impl Into<PublisherOptions<'a>>,
     ) -> Result<Arc<Publisher<T>>, RclrsError>
     where
         T: Message,
     {
-        Ok(Arc::new(Publisher::<T>::new(Arc::clone(&self.handle), topic, qos)?))
+        Publisher::<T>::create(Arc::clone(&self.handle), options)
     }
 
     /// Creates a [`Service`] with an ordinary callback.
+    ///
+    /// # Behavior
     ///
     /// Even though this takes in a blocking (non-async) function, the callback
     /// may run in parallel with other callbacks. This callback may even run
@@ -259,20 +324,61 @@ impl Node {
     /// [`Mutex`] to ensure it is synchronized across multiple simultaneous runs
     /// of the callback. To share internal state outside of the callback you will
     /// need to wrap it in [`Arc`] or `Arc<Mutex<S>>`.
+    ///
+    /// # Usage
+    ///
+    /// Pass in only the service name for the `options` argument to use all default service options:
+    /// ```
+    /// # use rclrs::*;
+    /// # let executor = Context::default().create_basic_executor();
+    /// # let node = executor.create_node("my_node").unwrap();
+    /// let service = node.create_service::<test_msgs::srv::Empty, _>(
+    ///     "my_service",
+    ///     |_request: test_msgs::srv::Empty_Request| {
+    ///         println!("Received request!");
+    ///         test_msgs::srv::Empty_Response::default()
+    ///     },
+    /// );
+    /// ```
+    ///
+    /// Take advantage of the [`IntoPrimitiveOptions`] API to easily build up the
+    /// service options:
+    ///
+    /// ```
+    /// # use rclrs::*;
+    /// # let executor = Context::default().create_basic_executor();
+    /// # let node = executor.create_node("my_node").unwrap();
+    /// let service = node.create_service::<test_msgs::srv::Empty, _>(
+    ///     "my_service"
+    ///     .keep_all()
+    ///     .transient_local(),
+    ///     |_request: test_msgs::srv::Empty_Request| {
+    ///         println!("Received request!");
+    ///         test_msgs::srv::Empty_Response::default()
+    ///     },
+    /// );
+    /// ```
+    ///
+    /// Any quality of service options that you explicitly specify will override
+    /// the default service options. Any that you do not explicitly specify will
+    /// remain the default service options. Note that services are generally
+    /// expected to use [reliable][2], so it's best not to change the reliability
+    /// setting unless you know what you are doing.
+    ///
+    /// [1]: crate::Service
+    /// [2]: crate::QoSReliabilityPolicy::Reliable
     //
     // TODO(@mxgrey): Add examples showing each supported signature
-    pub fn create_service<T, Args>(
+    pub fn create_service<'a, T, Args>(
         &self,
-        topic: &str,
-        qos: QoSProfile,
+        options: impl Into<ServiceOptions<'a>>,
         callback: impl ServiceCallback<T, Args>,
     ) -> Result<Arc<Service<T>>, RclrsError>
     where
         T: rosidl_runtime_rs::Service,
     {
         Service::<T>::create(
-            topic,
-            qos,
+            options,
             callback.into_service_callback(),
             &self.handle,
             &self.commands,
@@ -280,6 +386,8 @@ impl Node {
     }
 
     /// Creates a [`Service`] with an async callback.
+    ///
+    /// # Behavior
     ///
     /// This callback may run in parallel with other callbacks. It may even run
     /// multiple times simultaneously with different incoming requests. This
@@ -290,20 +398,22 @@ impl Node {
     /// [`Mutex`] to ensure it is synchronized across multiple runs of the
     /// callback. To share internal state outside of the callback you will need
     /// to wrap it in [`Arc`] (immutable) or `Arc<Mutex<S>>` (mutable).
+    ///
+    /// # Usage
+    ///
+    /// See [create_service][Node::create_service#Usage] for usage.
     //
     // TODO(@mxgrey): Add examples showing each supported signature
-    pub fn create_async_service<T, Args>(
+    pub fn create_async_service<'a, T, Args>(
         &self,
-        topic: &str,
-        qos: QoSProfile,
+        options: impl Into<ServiceOptions<'a>>,
         callback: impl ServiceAsyncCallback<T, Args>,
     ) -> Result<Arc<Service<T>>, RclrsError>
     where
         T: rosidl_runtime_rs::Service,
     {
         Service::<T>::create(
-            topic,
-            qos,
+            options,
             callback.into_service_async_callback(),
             &self.handle,
             &self.commands,
@@ -311,6 +421,8 @@ impl Node {
     }
 
     /// Creates a [`Subscription`] with an ordinary callback.
+    ///
+    /// # Behavior
     ///
     /// Even though this takes in a blocking (non-async) function, the callback
     /// may run in parallel with other callbacks. This callback may even run
@@ -321,20 +433,59 @@ impl Node {
     /// [`Mutex`] to ensure it is synchronized across multiple simultaneous runs
     /// of the callback. To share internal state outside of the callback you will
     /// need to wrap it in [`Arc`] or `Arc<Mutex<S>>`.
+    ///
+    /// # Usage
+    ///
+    /// Pass in only the topic name for the `options` argument to use all default subscription options:
+    /// ```
+    /// # use rclrs::*;
+    /// # let executor = Context::default().create_basic_executor();
+    /// # let node = executor.create_node("my_node").unwrap();
+    /// let subscription = node.create_subscription(
+    ///     "my_topic",
+    ///     |_msg: test_msgs::msg::Empty| {
+    ///         println!("Received message!");
+    ///     },
+    /// );
+    /// ```
+    ///
+    /// Take advantage of the [`IntoPrimitiveOptions`] API to easily build up the
+    /// subscription options:
+    ///
+    /// ```
+    /// # use rclrs::*;
+    /// # let executor = Context::default().create_basic_executor();
+    /// # let node = executor.create_node("my_node").unwrap();
+    /// let subscription = node.create_subscription(
+    ///     "my_topic"
+    ///     .keep_last(100)
+    ///     .transient_local(),
+    ///     |_msg: test_msgs::msg::Empty| {
+    ///         println!("Received message!");
+    ///     },
+    /// );
+    ///
+    /// let reliable_subscription = node.create_subscription(
+    ///     "my_reliable_topic"
+    ///     .reliable(),
+    ///     |_msg: test_msgs::msg::Empty| {
+    ///         println!("Received message!");
+    ///     },
+    /// );
+    /// ```
+    ///
     //
-    // TODO(@mxgrey): Add examples showing each supported signature
-    pub fn create_subscription<T, Args>(
+    // TODO(@mxgrey): Add examples showing each supported callback signatures
+    pub fn create_subscription<'a, T, Args>(
         &self,
-        topic: &str,
-        qos: QoSProfile,
+        options: impl Into<SubscriptionOptions<'a>>,
         callback: impl SubscriptionCallback<T, Args>,
     ) -> Result<Arc<Subscription<T>>, RclrsError>
     where
         T: Message,
     {
         Subscription::<T>::create(
-            topic,
-            qos,
+            options,
             callback.into_subscription_callback(),
             &self.handle,
             &self.commands,
@@ -342,6 +493,8 @@ impl Node {
     }
 
     /// Creates a [`Subscription`] with an async callback.
+    ///
+    /// # Behavior
     ///
     /// This callback may run in parallel with other callbacks. It may even run
     /// multiple times simultaneously with different incoming messages. This
@@ -352,20 +505,22 @@ impl Node {
     /// [`Mutex`] to ensure it is synchronized across multiple runs of the
     /// callback. To share internal state outside of the callback you will need
     /// to wrap it in [`Arc`] or `Arc<Mutex<S>>`.
+    ///
+    /// # Usage
+    ///
+    /// See [create_subscription][Node::create_subscription#Usage] for usage.
     //
     // TODO(@mxgrey): Add examples showing each supported signature
-    pub fn create_async_subscription<T, Args>(
+    pub fn create_async_subscription<'a, T, Args>(
         &self,
-        topic: &str,
-        qos: QoSProfile,
+        options: impl Into<SubscriptionOptions<'a>>,
         callback: impl SubscriptionAsyncCallback<T, Args>,
     ) -> Result<Arc<Subscription<T>>, RclrsError>
     where
         T: Message,
     {
         Subscription::<T>::create(
-            topic,
-            qos,
+            options,
             callback.into_subscription_async_callback(),
             &self.handle,
             &self.commands,
@@ -563,8 +718,7 @@ unsafe impl Send for rcl_node_t {}
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::test_helpers::*;
+    use crate::{test_helpers::*, *};
 
     #[test]
     fn traits() {
@@ -574,25 +728,20 @@ mod tests {
 
     #[test]
     fn test_topic_names_and_types() -> Result<(), RclrsError> {
-        use crate::QOS_PROFILE_SYSTEM_DEFAULT;
         use test_msgs::msg;
 
         let graph = construct_test_graph("test_topics_graph")?;
 
         let _node_1_defaults_subscription = graph.node1.create_subscription::<msg::Defaults, _>(
             "graph_test_topic_3",
-            QOS_PROFILE_SYSTEM_DEFAULT,
             |_msg: msg::Defaults| {},
         )?;
-        let _node_2_empty_subscription = graph.node2.create_subscription::<msg::Empty, _>(
-            "graph_test_topic_1",
-            QOS_PROFILE_SYSTEM_DEFAULT,
-            |_msg: msg::Empty| {},
-        )?;
+        let _node_2_empty_subscription = graph
+            .node2
+            .create_subscription::<msg::Empty, _>("graph_test_topic_1", |_msg: msg::Empty| {})?;
         let _node_2_basic_types_subscription =
             graph.node2.create_subscription::<msg::BasicTypes, _>(
                 "graph_test_topic_2",
-                QOS_PROFILE_SYSTEM_DEFAULT,
                 |_msg: msg::BasicTypes| {},
             )?;
 

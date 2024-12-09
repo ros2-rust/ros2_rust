@@ -6,9 +6,9 @@ use std::{
     vec::Vec,
 };
 
-use crate::
-    {rcl_bindings::*, Executor, ExecutorRuntime, LoggingLifecycle, RclrsError, ToResult,
-    BasicExecutorRuntime,
+use crate::{
+    rcl_bindings::*, BasicExecutorRuntime, Executor, ExecutorRuntime, LoggingLifecycle, RclrsError,
+    ToResult,
 };
 
 /// This is locked whenever initializing or dropping any middleware entity

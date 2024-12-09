@@ -9,7 +9,7 @@ use futures::channel::mpsc::unbounded;
 use crate::{
     node::node_graph_task::{node_graph_task, NodeGraphAction},
     rcl_bindings::*,
-    ClockType, Logger, Node, NodeHandle, ParameterInterface, GuardCondition, ExecutorCommands,
+    ClockType, ExecutorCommands, GuardCondition, Logger, Node, NodeHandle, ParameterInterface,
     QoSProfile, RclrsError, TimeSource, ToResult, ENTITY_LIFECYCLE_MUTEX, QOS_PROFILE_CLOCK,
 };
 
@@ -289,10 +289,7 @@ impl<'a> NodeOptions<'a> {
     ///
     /// Only used internally. Downstream users should call
     /// [`Executor::create_node`].
-    pub(crate) fn build(
-        self,
-        commands: &Arc<ExecutorCommands>,
-    ) -> Result<Arc<Node>, RclrsError> {
+    pub(crate) fn build(self, commands: &Arc<ExecutorCommands>) -> Result<Arc<Node>, RclrsError> {
         let node_name = CString::new(self.name).map_err(|err| RclrsError::StringContainsNul {
             err,
             s: self.name.to_owned(),
@@ -380,8 +377,8 @@ impl<'a> NodeOptions<'a> {
                 Box::new(Arc::clone(&handle)),
                 Some(Box::new(move || {
                     graph_change_execute_sender
-                    .unbounded_send(NodeGraphAction::GraphChange)
-                    .ok();
+                        .unbounded_send(NodeGraphAction::GraphChange)
+                        .ok();
                 })),
             )
         };

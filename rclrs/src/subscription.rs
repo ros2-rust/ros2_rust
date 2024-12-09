@@ -6,11 +6,9 @@ use std::{
 use rosidl_runtime_rs::{Message, RmwMessage};
 
 use crate::{
-    error::ToResult,
-    qos::QoSProfile,
-    rcl_bindings::*,
-    ExecutorCommands, NodeHandle, RclrsError, Waitable, RclPrimitive, RclPrimitiveHandle,
-    RclPrimitiveKind, WaitableLifecycle, ENTITY_LIFECYCLE_MUTEX,
+    error::ToResult, qos::QoSProfile, rcl_bindings::*, ExecutorCommands, IntoPrimitiveOptions,
+    NodeHandle, RclPrimitive, RclPrimitiveHandle, RclPrimitiveKind, RclrsError, Waitable,
+    WaitableLifecycle, ENTITY_LIFECYCLE_MUTEX,
 };
 
 mod any_subscription_callback;
@@ -84,10 +82,7 @@ where
     /// previously set.
     ///
     /// This can be used even if the subscription previously used an async callback.
-    pub fn set_callback<Args>(
-        &self,
-        callback: impl SubscriptionCallback<T, Args>,
-    ) {
+    pub fn set_callback<Args>(&self, callback: impl SubscriptionCallback<T, Args>) {
         let callback = callback.into_subscription_callback();
         *self.callback.lock().unwrap() = callback;
     }
@@ -96,22 +91,19 @@ where
     /// previously set.
     ///
     /// This can be used even if the subscription previously used a non-async callback.
-    pub fn set_async_callback<Args>(
-        &self,
-        callback: impl SubscriptionAsyncCallback<T, Args>,
-    ) {
+    pub fn set_async_callback<Args>(&self, callback: impl SubscriptionAsyncCallback<T, Args>) {
         let callback = callback.into_subscription_async_callback();
         *self.callback.lock().unwrap() = callback;
     }
 
     /// Used by [`Node`][crate::Node] to create a new subscription.
-    pub(crate) fn create(
-        topic: &str,
-        qos: QoSProfile,
+    pub(crate) fn create<'a>(
+        options: impl Into<SubscriptionOptions<'a>>,
         callback: AnySubscriptionCallback<T>,
         node_handle: &Arc<NodeHandle>,
         commands: &Arc<ExecutorCommands>,
     ) -> Result<Arc<Self>, RclrsError> {
+        let SubscriptionOptions { topic, qos } = options.into();
         let callback = Arc::new(Mutex::new(callback));
 
         // SAFETY: Getting a zero-initialized value is always safe.
@@ -124,8 +116,8 @@ where
         })?;
 
         // SAFETY: No preconditions for this function.
-        let mut subscription_options = unsafe { rcl_subscription_get_default_options() };
-        subscription_options.qos = qos.into();
+        let mut rcl_subscription_options = unsafe { rcl_subscription_get_default_options() };
+        rcl_subscription_options.qos = qos.into();
 
         {
             let rcl_node = node_handle.rcl_node.lock().unwrap();
@@ -142,7 +134,7 @@ where
                     &*rcl_node,
                     type_support,
                     topic_c_string.as_ptr(),
-                    &subscription_options,
+                    &rcl_subscription_options,
                 )
                 .ok()?;
             }
@@ -163,7 +155,43 @@ where
         );
         commands.add_to_wait_set(waitable);
 
-        Ok(Arc::new(Self { handle, callback, lifecycle }))
+        Ok(Arc::new(Self {
+            handle,
+            callback,
+            lifecycle,
+        }))
+    }
+}
+
+/// `SubscriptionOptions` are used by [`Node::create_subscription`][1] to initialize
+/// a [`Subscription`].
+///
+/// [1]: crate::Node::create_subscription
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub struct SubscriptionOptions<'a> {
+    /// The topic name for the subscription.
+    pub topic: &'a str,
+    /// The quality of service settings for the subscription.
+    pub qos: QoSProfile,
+}
+
+impl<'a> SubscriptionOptions<'a> {
+    /// Initialize a new [`SubscriptionOptions`] with default settings.
+    pub fn new(topic: &'a str) -> Self {
+        Self {
+            topic,
+            qos: QoSProfile::topics_default(),
+        }
+    }
+}
+
+impl<'a, T: IntoPrimitiveOptions<'a>> From<T> for SubscriptionOptions<'a> {
+    fn from(value: T) -> Self {
+        let primitive = value.into_primitive_options();
+        let mut options = Self::new(primitive.name);
+        primitive.apply(&mut options.qos);
+        options
     }
 }
 
@@ -178,7 +206,10 @@ where
     T: Message,
 {
     fn execute(&mut self) -> Result<(), RclrsError> {
-        self.callback.lock().unwrap().execute(&self.handle, &self.commands)
+        self.callback
+            .lock()
+            .unwrap()
+            .execute(&self.handle, &self.commands)
     }
 
     fn kind(&self) -> crate::RclPrimitiveKind {
@@ -237,27 +268,23 @@ mod tests {
 
     #[test]
     fn test_subscriptions() -> Result<(), RclrsError> {
-        use crate::{TopicEndpointInfo, QOS_PROFILE_SYSTEM_DEFAULT};
+        use crate::TopicEndpointInfo;
 
         let namespace = "/test_subscriptions_graph";
         let graph = construct_test_graph(namespace)?;
 
-        let node_2_empty_subscription = graph.node2.create_subscription::<msg::Empty, _>(
-            "graph_test_topic_1",
-            QOS_PROFILE_SYSTEM_DEFAULT,
-            |_msg: msg::Empty| {},
-        )?;
+        let node_2_empty_subscription = graph
+            .node2
+            .create_subscription::<msg::Empty, _>("graph_test_topic_1", |_msg: msg::Empty| {})?;
         let topic1 = node_2_empty_subscription.topic_name();
         let node_2_basic_types_subscription =
             graph.node2.create_subscription::<msg::BasicTypes, _>(
                 "graph_test_topic_2",
-                QOS_PROFILE_SYSTEM_DEFAULT,
                 |_msg: msg::BasicTypes| {},
             )?;
         let topic2 = node_2_basic_types_subscription.topic_name();
         let node_1_defaults_subscription = graph.node1.create_subscription::<msg::Defaults, _>(
             "graph_test_topic_3",
-            QOS_PROFILE_SYSTEM_DEFAULT,
             |_msg: msg::Defaults| {},
         )?;
         let topic3 = node_1_defaults_subscription.topic_name();

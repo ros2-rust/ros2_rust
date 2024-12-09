@@ -1,9 +1,6 @@
 use rosidl_runtime_rs::Service;
 
-use super::{
-    ServiceInfo, RequestId,
-    any_service_callback::AnyServiceCallback,
-};
+use super::{any_service_callback::AnyServiceCallback, RequestId, ServiceInfo};
 
 use std::future::Future;
 
@@ -27,9 +24,7 @@ where
     F: Future<Output = T::Response> + Send + 'static,
 {
     fn into_service_async_callback(mut self) -> AnyServiceCallback<T> {
-        AnyServiceCallback::OnlyRequest(Box::new(
-            move |request| Box::pin(self(request))
-        ))
+        AnyServiceCallback::OnlyRequest(Box::new(move |request| Box::pin(self(request))))
     }
 }
 
@@ -40,9 +35,9 @@ where
     F: Future<Output = T::Response> + Send + 'static,
 {
     fn into_service_async_callback(mut self) -> AnyServiceCallback<T> {
-        AnyServiceCallback::WithId(Box::new(
-            move |request, request_id| Box::pin(self(request, request_id))
-        ))
+        AnyServiceCallback::WithId(Box::new(move |request, request_id| {
+            Box::pin(self(request, request_id))
+        }))
     }
 }
 
@@ -53,8 +48,8 @@ where
     F: Future<Output = T::Response> + Send + 'static,
 {
     fn into_service_async_callback(mut self) -> AnyServiceCallback<T> {
-        AnyServiceCallback::WithInfo(Box::new(
-            move |request, service_info| Box::pin(self(request, service_info))
-        ))
+        AnyServiceCallback::WithInfo(Box::new(move |request, service_info| {
+            Box::pin(self(request, service_info))
+        }))
     }
 }
