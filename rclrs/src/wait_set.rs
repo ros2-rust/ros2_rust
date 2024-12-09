@@ -270,7 +270,9 @@ mod tests {
         let start = std::time::Instant::now();
         // This should stop spinning right away because the guard condition was
         // already triggered.
-        executor.spin(SpinOptions::spin_once().timeout(Duration::from_secs(10)));
+        executor
+            .spin(SpinOptions::spin_once().timeout(Duration::from_secs(10)))
+            .unwrap();
 
         // If it took more than a second to finish spinning then something is
         // probably wrong.

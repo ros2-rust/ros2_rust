@@ -9,7 +9,7 @@ use rosidl_runtime_rs::Sequence;
 use super::ParameterMap;
 use crate::{
     parameter::{DeclaredValue, ParameterKind, ParameterStorage},
-    rmw_request_id_t, IntoPrimitiveOptions, Node, QoSProfile, RclrsError, Service,
+    IntoPrimitiveOptions, Node, QoSProfile, RclrsError, Service,
 };
 
 // The variables only exist to keep a strong reference to the services and are technically unused.
@@ -437,11 +437,13 @@ mod tests {
                     !not_finished
                 });
 
-        executor.spin(
-            SpinOptions::new()
-                .until_promise_resolved(promise)
-                .timeout(Duration::from_secs(1)),
-        );
+        executor
+            .spin(
+                SpinOptions::new()
+                    .until_promise_resolved(promise)
+                    .timeout(Duration::from_secs(1)),
+            )
+            .unwrap();
 
         Ok(())
     }
@@ -453,11 +455,13 @@ mod tests {
             client_node.create_client::<ListParameters>("/list/node/list_parameters")?;
 
         // return Ok(());
-        executor.spin(
-            SpinOptions::default()
-                .until_promise_resolved(list_client.notify_on_service_ready())
-                .timeout(Duration::from_secs(2)),
-        );
+        executor
+            .spin(
+                SpinOptions::default()
+                    .until_promise_resolved(list_client.notify_on_service_ready())
+                    .timeout(Duration::from_secs(2)),
+            )
+            .unwrap();
 
         // List all parameters
         let callback_ran = Arc::new(AtomicBool::new(false));
@@ -484,11 +488,13 @@ mod tests {
             })
             .unwrap();
 
-        executor.spin(
-            SpinOptions::default()
-                .until_promise_resolved(promise)
-                .timeout(Duration::from_secs(5)),
-        );
+        executor
+            .spin(
+                SpinOptions::default()
+                    .until_promise_resolved(promise)
+                    .timeout(Duration::from_secs(5)),
+            )
+            .unwrap();
         assert!(callback_ran.load(Ordering::Acquire));
 
         // Limit depth, namespaced parameter is not returned
@@ -508,7 +514,9 @@ mod tests {
             })
             .unwrap();
 
-        executor.spin(SpinOptions::default().until_promise_resolved(promise));
+        executor
+            .spin(SpinOptions::default().until_promise_resolved(promise))
+            .unwrap();
         assert!(callback_ran.load(Ordering::Acquire));
 
         // Filter by prefix, just return the requested one with the right prefix
@@ -529,7 +537,9 @@ mod tests {
             })
             .unwrap();
 
-        executor.spin(SpinOptions::default().until_promise_resolved(promise));
+        executor
+            .spin(SpinOptions::default().until_promise_resolved(promise))
+            .unwrap();
         assert!(callback_ran.load(Ordering::Acquire));
 
         // If prefix is equal to names, parameters should be returned
@@ -550,7 +560,9 @@ mod tests {
             })
             .unwrap();
 
-        executor.spin(SpinOptions::default().until_promise_resolved(promise));
+        executor
+            .spin(SpinOptions::default().until_promise_resolved(promise))
+            .unwrap();
         assert!(callback_ran.load(Ordering::Acquire));
 
         Ok(())
@@ -578,7 +590,9 @@ mod tests {
         let clients_ready = client_node
             .notify_on_graph_change_with_period(Duration::from_millis(1), clients_ready_condition);
 
-        executor.spin(SpinOptions::default().until_promise_resolved(clients_ready));
+        executor
+            .spin(SpinOptions::default().until_promise_resolved(clients_ready))
+            .unwrap();
 
         // Get an existing parameter
         let callback_ran = Arc::new(AtomicBool::new(false));
@@ -596,7 +610,9 @@ mod tests {
             })
             .unwrap();
 
-        executor.spin(SpinOptions::default().until_promise_resolved(promise));
+        executor
+            .spin(SpinOptions::default().until_promise_resolved(promise))
+            .unwrap();
         assert!(callback_ran.load(Ordering::Acquire));
 
         // Getting both existing and non existing parameters, missing one should return
@@ -617,7 +633,9 @@ mod tests {
             })
             .unwrap();
 
-        executor.spin(SpinOptions::default().until_promise_resolved(promise));
+        executor
+            .spin(SpinOptions::default().until_promise_resolved(promise))
+            .unwrap();
         assert!(callback_ran.load(Ordering::Acquire));
 
         // Set a mix of existing, non existing, dynamic and out of range parameters
@@ -717,7 +735,9 @@ mod tests {
             })
             .unwrap();
 
-        executor.spin(SpinOptions::default().until_promise_resolved(promise));
+        executor
+            .spin(SpinOptions::default().until_promise_resolved(promise))
+            .unwrap();
         assert!(callback_ran.load(Ordering::Acquire));
 
         // Set the node to use undeclared parameters and try to set one
@@ -746,7 +766,9 @@ mod tests {
             })
             .unwrap();
 
-        executor.spin(SpinOptions::default().until_promise_resolved(promise));
+        executor
+            .spin(SpinOptions::default().until_promise_resolved(promise))
+            .unwrap();
         assert!(callback_ran.load(Ordering::Acquire));
 
         // With set_parameters_atomically, if one fails all should fail
@@ -765,7 +787,9 @@ mod tests {
             )
             .unwrap();
 
-        executor.spin(SpinOptions::default().until_promise_resolved(promise));
+        executor
+            .spin(SpinOptions::default().until_promise_resolved(promise))
+            .unwrap();
         assert!(callback_ran.load(Ordering::Acquire));
 
         Ok(())
@@ -789,7 +813,9 @@ mod tests {
         let promise = client_node
             .notify_on_graph_change_with_period(Duration::from_millis(1), clients_ready_condition);
 
-        executor.spin(SpinOptions::default().until_promise_resolved(promise));
+        executor
+            .spin(SpinOptions::default().until_promise_resolved(promise))
+            .unwrap();
 
         // Describe all parameters
         let request = DescribeParameters_Request {
@@ -836,7 +862,9 @@ mod tests {
             })
             .unwrap();
 
-        executor.spin(SpinOptions::default().until_promise_resolved(promise));
+        executor
+            .spin(SpinOptions::default().until_promise_resolved(promise))
+            .unwrap();
         assert!(callback_ran.load(Ordering::Acquire));
 
         // If a describe parameters request is sent with a non existing parameter, an empty
@@ -860,7 +888,9 @@ mod tests {
             })
             .unwrap();
 
-        executor.spin(SpinOptions::default().until_promise_resolved(promise));
+        executor
+            .spin(SpinOptions::default().until_promise_resolved(promise))
+            .unwrap();
         assert!(callback_ran.load(Ordering::Acquire));
 
         // Get all parameter types, including a non existing one that will be NOT_SET
@@ -888,7 +918,9 @@ mod tests {
             })
             .unwrap();
 
-        executor.spin(SpinOptions::default().until_promise_resolved(promise));
+        executor
+            .spin(SpinOptions::default().until_promise_resolved(promise))
+            .unwrap();
         assert!(callback_ran.load(Ordering::Acquire));
 
         Ok(())

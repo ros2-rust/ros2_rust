@@ -46,9 +46,9 @@ impl Executor {
     /// [`SpinOptions`] can be used to automatically stop the spinning when
     /// certain conditions are met. Use `SpinOptions::default()` to allow the
     /// Executor to keep spinning indefinitely.
-    pub fn spin(&mut self, options: SpinOptions) {
+    pub fn spin(&mut self, options: SpinOptions) -> Result<(), RclrsError> {
         let conditions = self.make_spin_conditions(options);
-        self.runtime.spin(conditions);
+        self.runtime.spin(conditions)
     }
 
     /// Spin the Executor as an async task. This does not block the current thread.
@@ -60,7 +60,7 @@ impl Executor {
     /// The async task will run until the [`SpinConditions`] stop the Executor
     /// from spinning. The output of the async task will be the restored Executor,
     /// which you can use to resume spinning after the task is finished.
-    pub async fn spin_async(self, options: SpinOptions) -> Self {
+    pub async fn spin_async(self, options: SpinOptions) -> (Self, Result<(), RclrsError>) {
         let conditions = self.make_spin_conditions(options);
         let Self {
             context,
@@ -68,12 +68,15 @@ impl Executor {
             runtime,
         } = self;
 
-        let runtime = runtime.spin_async(conditions).await;
-        Self {
-            context,
-            commands,
-            runtime,
-        }
+        let (runtime, result) = runtime.spin_async(conditions).await;
+        (
+            Self {
+                context,
+                commands,
+                runtime,
+            },
+            result,
+        )
     }
 
     /// Creates a new executor using the provided runtime. Users of rclrs should
@@ -231,7 +234,7 @@ pub trait ExecutorRuntime: Send {
 
     /// Tell the runtime to spin while blocking any further execution until the
     /// spinning is complete.
-    fn spin(&mut self, conditions: SpinConditions);
+    fn spin(&mut self, conditions: SpinConditions) -> Result<(), RclrsError>;
 
     /// Tell the runtime to spin asynchronously, not blocking the current
     /// thread. The runtime instance will be consumed by this function, but it
@@ -240,7 +243,7 @@ pub trait ExecutorRuntime: Send {
     fn spin_async(
         self: Box<Self>,
         conditions: SpinConditions,
-    ) -> BoxFuture<'static, Box<dyn ExecutorRuntime>>;
+    ) -> BoxFuture<'static, (Box<dyn ExecutorRuntime>, Result<(), RclrsError>)>;
 }
 
 /// A bundle of optional conditions that a user may want to impose on how long

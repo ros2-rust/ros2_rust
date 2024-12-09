@@ -1,7 +1,7 @@
 use std::{
     collections::HashMap,
     ffi::CString,
-    sync::{atomic::AtomicBool, Arc, Mutex, MutexGuard},
+    sync::{Arc, Mutex, MutexGuard},
 };
 
 use rosidl_runtime_rs::Message;

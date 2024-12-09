@@ -14,7 +14,7 @@ use std::{
 
 use crate::{
     executor::{ExecutorChannel, ExecutorRuntime, SpinConditions},
-    Context, WaitSetRunner, Waitable,
+    Context, RclrsError, WaitSetRunner, Waitable,
 };
 
 /// The implementation of this runtime is based off of the async Rust reference book:
@@ -40,7 +40,7 @@ pub struct BasicExecutorRuntime {
 }
 
 impl ExecutorRuntime for BasicExecutorRuntime {
-    fn spin(&mut self, mut conditions: SpinConditions) {
+    fn spin(&mut self, mut conditions: SpinConditions) -> Result<(), RclrsError> {
         self.process_spin_conditions(&mut conditions);
 
         let wait_set_runner = self.wait_set_runner.take().expect(
@@ -92,19 +92,20 @@ impl ExecutorRuntime for BasicExecutorRuntime {
             }
         }
 
-        self.wait_set_runner = Some(
-            wait_set_receiver.recv().expect(
-                "Basic executor failed to receive the WaitSetRunner at the end of its spinning. \
-                This is a critical bug in rclrs. \
-                Please report this bug to the maintainers of rclrs by providing a minimum reproduction of the problem."
-            )
+        let (runner, result) = wait_set_receiver.recv().expect(
+            "Basic executor failed to receive the WaitSetRunner at the end of its spinning. \
+            This is a critical bug in rclrs. \
+            Please report this bug to the maintainers of rclrs by providing a minimum reproduction of the problem."
         );
+
+        self.wait_set_runner = Some(runner);
+        result
     }
 
     fn spin_async(
         mut self: Box<Self>,
         conditions: SpinConditions,
-    ) -> BoxFuture<'static, Box<dyn ExecutorRuntime>> {
+    ) -> BoxFuture<'static, (Box<dyn ExecutorRuntime>, Result<(), RclrsError>)> {
         let (sender, receiver) = oneshot::channel();
         // Create a thread to run the executor. We should not run the executor
         // as an async task because it blocks its current thread while running.
@@ -117,8 +118,8 @@ impl ExecutorRuntime for BasicExecutorRuntime {
         // executor. But that would probably require us to introduce a new
         // dependency such as tokio.
         std::thread::spawn(move || {
-            self.spin(conditions);
-            sender.send(self as Box<dyn ExecutorRuntime>).ok();
+            let result = self.spin(conditions);
+            sender.send((self as Box<dyn ExecutorRuntime>, result)).ok();
         });
 
         Box::pin(async move {

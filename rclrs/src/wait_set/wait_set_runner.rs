@@ -8,7 +8,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use crate::{Context, Promise, RclReturnCode, RclrsError, SpinConditions, WaitSet, Waitable};
+use crate::{Context, Promise, RclrsError, SpinConditions, WaitSet, Waitable};
 
 /// This is a utility class that executors can use to easily run and manage
 /// their wait set.
@@ -45,12 +45,12 @@ impl WaitSetRunner {
     /// the best practice is for your executor runtime to swap that out with a
     /// new promise which ensures that the [`SpinConditions::guard_condition`]
     /// will be triggered after the user-provided promise is resolved.
-    pub fn run(mut self, conditions: SpinConditions) -> Promise<Self> {
+    pub fn run(mut self, conditions: SpinConditions) -> Promise<(Self, Result<(), RclrsError>)> {
         let (sender, promise) = channel();
         std::thread::spawn(move || {
-            self.run_blocking(conditions);
+            let result = self.run_blocking(conditions);
             // TODO(@mxgrey): Log any error here when logging becomes available
-            sender.send(self).ok();
+            sender.send((self, result)).ok();
         });
 
         promise
@@ -63,7 +63,7 @@ impl WaitSetRunner {
     /// the best practice is for your executor runtime to swap that out with a
     /// new promise which ensures that the [`SpinConditions::guard_condition`]
     /// will be triggered after the user-provided promise is resolved.
-    pub fn run_blocking(&mut self, mut conditions: SpinConditions) {
+    pub fn run_blocking(&mut self, mut conditions: SpinConditions) -> Result<(), RclrsError> {
         let mut first_spin = true;
         let t_stop_spinning = conditions.options.timeout.map(|dt| Instant::now() + dt);
         loop {
@@ -81,7 +81,7 @@ impl WaitSetRunner {
             if conditions.options.only_next_available_work && !first_spin {
                 // We've already completed a spin and were asked to only do one,
                 // so break here
-                break;
+                return Ok(());
             }
             first_spin = false;
 
@@ -89,19 +89,19 @@ impl WaitSetRunner {
                 let r = promise.try_recv();
                 if r.is_ok_and(|r| r.is_some()) || r.is_err() {
                     // The promise has been resolved, so we should stop spinning.
-                    break;
+                    return Ok(());
                 }
             }
 
             if conditions.halt_spinning.load(Ordering::Acquire) {
                 // The user has manually asked for the spinning to stop
-                break;
+                return Ok(());
             }
 
             if !conditions.context.ok() {
                 // The ROS context has switched to being invalid, so we should
                 // stop spinning.
-                break;
+                return Ok(());
             }
 
             let timeout = t_stop_spinning.map(|t| {
@@ -113,24 +113,8 @@ impl WaitSetRunner {
                 }
             });
 
-            if let Err(err) = self
-                .wait_set
-                .wait(timeout, |executable| executable.execute())
-            {
-                match err {
-                    RclrsError::RclError {
-                        code: RclReturnCode::Timeout,
-                        ..
-                    } => {
-                        // We have timed out, so we should stop waiting.
-                        break;
-                    }
-                    err => {
-                        // TODO(@mxgrey): Change this to a log when logging becomes available
-                        eprintln!("Error while processing wait set: {err}");
-                    }
-                }
-            }
+            self.wait_set
+                .wait(timeout, |executable| executable.execute())?;
         }
     }
 }

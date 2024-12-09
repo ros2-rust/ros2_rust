@@ -1,10 +1,8 @@
 use std::{
     boxed::Box,
     ffi::{CStr, CString},
-    sync::{atomic::AtomicBool, Arc, Mutex, MutexGuard},
+    sync::{Arc, Mutex, MutexGuard},
 };
-
-use rosidl_runtime_rs::Message;
 
 use crate::{
     error::ToResult, rcl_bindings::*, ExecutorCommands, IntoPrimitiveOptions, NodeHandle,

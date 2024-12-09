@@ -31,10 +31,10 @@ use rosidl_runtime_rs::Message;
 use crate::{
     rcl_bindings::*, Client, ClientOptions, ClientState, Clock, ContextHandle, ExecutorCommands,
     LogParams, Logger, ParameterBuilder, ParameterInterface, ParameterVariant, Parameters, Promise,
-    Publisher, PublisherOptions, PublisherState, QoSProfile, RclrsError, Service,
-    ServiceAsyncCallback, ServiceCallback, ServiceOptions, ServiceState, Subscription,
-    SubscriptionAsyncCallback, SubscriptionCallback, SubscriptionOptions, SubscriptionState,
-    TimeSource, ToLogParams, ENTITY_LIFECYCLE_MUTEX,
+    Publisher, PublisherOptions, PublisherState, RclrsError, Service, ServiceAsyncCallback,
+    ServiceCallback, ServiceOptions, ServiceState, Subscription, SubscriptionAsyncCallback,
+    SubscriptionCallback, SubscriptionOptions, SubscriptionState, TimeSource, ToLogParams,
+    ENTITY_LIFECYCLE_MUTEX,
 };
 
 /// A processing unit that can communicate with other nodes.
