@@ -1,4 +1,4 @@
-use std::{convert::TryInto, env, sync::Arc};
+use std::convert::TryInto;
 
 use anyhow::{Error, Result};
 use rosidl_runtime_rs::{seq, BoundedSequence, Message, Sequence};
@@ -138,8 +138,8 @@ fn demonstrate_sequences() {
 fn demonstrate_pubsub() -> Result<(), Error> {
     println!("================== Interoperability demo ==================");
     // Demonstrate interoperability between idiomatic and RMW-native message types
-    let context = rclrs::Context::new(env::args())?;
-    let node = rclrs::create_node(&context, "message_demo")?;
+    let mut executor = rclrs::Context::default_from_env()?.create_basic_executor();
+    let node = executor.create_node("message_demo")?;
 
     let idiomatic_publisher = node.create_publisher::<rclrs_example_msgs::msg::VariousTypes>(
         "topic",
@@ -166,10 +166,10 @@ fn demonstrate_pubsub() -> Result<(), Error> {
         )?;
     println!("Sending idiomatic message.");
     idiomatic_publisher.publish(rclrs_example_msgs::msg::VariousTypes::default())?;
-    rclrs::spin_once(Arc::clone(&node), None)?;
+    executor.spin(rclrs::SpinOptions::spin_once())?;
     println!("Sending RMW-native message.");
     direct_publisher.publish(rclrs_example_msgs::msg::rmw::VariousTypes::default())?;
-    rclrs::spin_once(Arc::clone(&node), None)?;
+    executor.spin(rclrs::SpinOptions::spin_once())?;
 
     Ok(())
 }

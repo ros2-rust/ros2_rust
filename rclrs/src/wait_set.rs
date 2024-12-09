@@ -264,7 +264,7 @@ mod tests {
 
     #[test]
     fn guard_condition_in_wait_set_readies() -> Result<(), RclrsError> {
-        let mut executor = Context::new([])?.create_basic_executor();
+        let mut executor = Context::default().create_basic_executor();
 
         executor.commands().get_guard_condition().trigger().unwrap();
 

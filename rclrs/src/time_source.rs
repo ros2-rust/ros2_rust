@@ -145,14 +145,13 @@ impl TimeSource {
 
 #[cfg(test)]
 mod tests {
-    use crate::Context;
+    use crate::{Context, InitOptions};
 
     #[test]
     fn time_source_default_clock() {
-        let node = Context::new([])
-            .unwrap()
+        let node = Context::default()
             .create_basic_executor()
-            .create_node("test_node")
+            .create_node(&format!("time_source_test_node_{}", line!()))
             .unwrap();
         // Default clock should be above 0 (use_sim_time is default false)
         assert!(node.get_clock().now().nsec > 0);
@@ -160,15 +159,20 @@ mod tests {
 
     #[test]
     fn time_source_sim_time() {
-        let executor = Context::new([
-            String::from("--ros-args"),
-            String::from("-p"),
-            String::from("use_sim_time:=true"),
-        ])
+        let executor = Context::new(
+            [
+                String::from("--ros-args"),
+                String::from("-p"),
+                String::from("use_sim_time:=true"),
+            ],
+            InitOptions::default(),
+        )
         .unwrap()
         .create_basic_executor();
 
-        let node = executor.create_node("test_node").unwrap();
+        let node = executor
+            .create_node(&format!("time_source_test_node_{}", line!()))
+            .unwrap();
         // Default sim time value should be 0 (no message received)
         assert_eq!(node.get_clock().now().nsec, 0);
     }

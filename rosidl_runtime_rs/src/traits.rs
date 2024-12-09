@@ -41,7 +41,7 @@ pub trait RmwMessage: Clone + Debug + Default + Send + Sync + Message {
     const TYPE_NAME: &'static str;
 
     /// Get a pointer to the correct `rosidl_message_type_support_t` structure.
-    fn get_type_support() -> *const std::os::raw::c_void;
+    fn get_type_support() -> *const std::ffi::c_void;
 }
 
 /// Trait for types that can be used in a `rclrs::Subscription` and a `rclrs::Publisher`.
@@ -124,10 +124,11 @@ pub trait RmwMessage: Clone + Debug + Default + Send + Sync + Message {
 ///
 /// Memory ownership by C is achieved by calling `init()` when any string or sequence is created,
 /// as well as in the `Default` impl for messages.
+///
 /// User code can still create messages explicitly, which will not call `init()`, but this is not a
-///  problem, since nothing is allocated this way.
+/// problem, since nothing is allocated this way.
+///
 /// The `Drop` impl for any sequence or string will call `fini()`.
-
 pub trait Message: Clone + Debug + Default + 'static + Send + Sync {
     /// The corresponding RMW-native message type.
     type RmwMsg: RmwMessage;
@@ -157,5 +158,97 @@ pub trait Service: 'static {
     type Response: Message;
 
     /// Get a pointer to the correct `rosidl_service_type_support_t` structure.
-    fn get_type_support() -> *const std::os::raw::c_void;
+    fn get_type_support() -> *const std::ffi::c_void;
 }
+
+/// Trait for actions.
+///
+/// User code never needs to call this trait's method, much less implement this trait.
+pub trait Action: 'static {
+    /// The goal message associated with this action.
+    type Goal: Message;
+
+    /// The result message associated with this action.
+    type Result: Message;
+
+    /// The feedback message associated with this action.
+    type Feedback: Message;
+
+    /// Get a pointer to the correct `rosidl_action_type_support_t` structure.
+    fn get_type_support() -> *const std::ffi::c_void;
+}
+
+/// Trait for action implementation details.
+///
+/// User code never needs to implement this trait, nor use its associated types.
+pub trait ActionImpl: 'static + Action {
+    /// The goal_status message associated with this action.
+    type GoalStatusMessage: Message;
+
+    /// The feedback message associated with this action.
+    type FeedbackMessage: Message;
+
+    /// The send_goal service associated with this action.
+    type SendGoalService: Service;
+
+    /// The cancel_goal service associated with this action.
+    type CancelGoalService: Service;
+
+    /// The get_result service associated with this action.
+    type GetResultService: Service;
+
+    /// Create a goal request message with the given UUID and goal.
+    fn create_goal_request(goal_id: &[u8; 16], goal: RmwGoalData<Self>) -> RmwGoalRequest<Self>;
+
+    /// Get the UUID of a goal request.
+    fn get_goal_request_uuid(request: &RmwGoalRequest<Self>) -> &[u8; 16];
+
+    /// Create a goal response message with the given acceptance and timestamp.
+    fn create_goal_response(accepted: bool, stamp: (i32, u32)) -> RmwGoalResponse<Self>;
+
+    /// Get the `accepted` field of a goal response.
+    fn get_goal_response_accepted(response: &RmwGoalResponse<Self>) -> bool;
+
+    /// Get the `stamp` field of a goal response.
+    fn get_goal_response_stamp(response: &RmwGoalResponse<Self>) -> (i32, u32);
+
+    /// Create a feedback message with the given goal ID and contents.
+    fn create_feedback_message(
+        goal_id: &[u8; 16],
+        feedback: RmwFeedbackData<Self>,
+    ) -> RmwFeedbackMessage<Self>;
+
+    /// Get the UUID of a feedback message.
+    fn get_feedback_message_uuid(feedback: &RmwFeedbackMessage<Self>) -> &[u8; 16];
+
+    /// Get the feedback of a feedback message.
+    fn get_feedback_message_feedback(feedback: &RmwFeedbackMessage<Self>)
+        -> &RmwFeedbackData<Self>;
+
+    /// Create a result request message with the given goal ID.
+    fn create_result_request(goal_id: &[u8; 16]) -> RmwResultRequest<Self>;
+
+    /// Get the UUID of a result request.
+    fn get_result_request_uuid(request: &RmwResultRequest<Self>) -> &[u8; 16];
+
+    /// Create a result response message with the given status and contents.
+    fn create_result_response(status: i8, result: RmwResultData<Self>) -> RmwResultResponse<Self>;
+
+    /// Get the result of a result response.
+    fn get_result_response_result(response: &RmwResultResponse<Self>) -> &RmwResultData<Self>;
+
+    /// Get the status of a result response.
+    fn get_result_response_status(response: &RmwResultResponse<Self>) -> i8;
+}
+
+// Type definitions to simplify the ActionImpl trait
+pub type RmwServiceRequest<S> = <<S as Service>::Request as Message>::RmwMsg;
+pub type RmwServiceResponse<S> = <<S as Service>::Response as Message>::RmwMsg;
+pub type RmwGoalRequest<A> = RmwServiceRequest<<A as ActionImpl>::SendGoalService>;
+pub type RmwGoalResponse<A> = RmwServiceResponse<<A as ActionImpl>::SendGoalService>;
+pub type RmwGoalData<A> = <<A as Action>::Goal as Message>::RmwMsg;
+pub type RmwFeedbackData<A> = <<A as Action>::Feedback as Message>::RmwMsg;
+pub type RmwFeedbackMessage<A> = <<A as ActionImpl>::FeedbackMessage as Message>::RmwMsg;
+pub type RmwResultRequest<A> = RmwServiceRequest<<A as ActionImpl>::GetResultService>;
+pub type RmwResultResponse<A> = RmwServiceResponse<<A as ActionImpl>::GetResultService>;
+pub type RmwResultData<A> = <<A as Action>::Result as Message>::RmwMsg;

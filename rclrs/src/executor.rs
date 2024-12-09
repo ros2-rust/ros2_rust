@@ -2,7 +2,8 @@ mod basic_executor;
 pub use self::basic_executor::*;
 
 use crate::{
-    Node, NodeOptions, RclrsError, Context, ContextHandle, Waitable, GuardCondition,
+    Context, ContextHandle, GuardCondition, IntoNodeOptions, Node, RclrsError,
+    Waitable,
 };
 use std::{
     sync::{Arc, atomic::{AtomicBool, Ordering}},
@@ -30,11 +31,13 @@ impl Executor {
     }
 
     /// Create a [`Node`] that will run on this Executor.
-    pub fn create_node(
-        &self,
-        options: impl Into<NodeOptions>,
+    pub fn create_node<'a>(
+        &'a self,
+        options: impl IntoNodeOptions<'a>,
     ) -> Result<Arc<Node>, RclrsError> {
-        self.commands.create_node(options)
+        let options = options.into_node_options();
+        let node = options.build(&self.commands)?;
+        Ok(node)
     }
 
     /// Spin the Executor. The current thread will be blocked until the Executor
@@ -110,11 +113,11 @@ pub struct ExecutorCommands {
 
 impl ExecutorCommands {
     /// Create a new node that will run on the [`Executor`] that is being commanded.
-    pub fn create_node(
+    pub fn create_node<'a>(
         self: &Arc<Self>,
-        options: impl Into<NodeOptions>,
+        options: impl IntoNodeOptions<'a>,
     ) -> Result<Arc<Node>, RclrsError> {
-        let options: NodeOptions = options.into();
+        let options = options.into_node_options();
         options.build(self)
     }
 

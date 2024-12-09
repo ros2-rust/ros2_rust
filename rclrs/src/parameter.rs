@@ -10,7 +10,9 @@ pub use value::*;
 
 use crate::vendor::rcl_interfaces::msg::rmw::{ParameterType, ParameterValue as RmwParameterValue};
 
-use crate::{call_string_getter_with_rcl_node, rcl_bindings::*, Node, RclrsError};
+use crate::{
+    call_string_getter_with_rcl_node, rcl_bindings::*, Node, RclrsError, ENTITY_LIFECYCLE_MUTEX,
+};
 use std::{
     collections::{btree_map::Entry, BTreeMap},
     fmt::Debug,
@@ -25,18 +27,18 @@ use std::{
 // Among the most relevant ones:
 //
 // * Parameter declaration returns an object which will be the main accessor to the parameter,
-// providing getters and, except for read only parameters, setters. Object destruction will
-// undeclare the parameter.
+//   providing getters and, except for read only parameters, setters. Object destruction will
+//   undeclare the parameter.
 // * Declaration uses a builder pattern to specify ranges, description, human readable constraints
-// instead of an ParameterDescriptor argument.
+//   instead of an ParameterDescriptor argument.
 // * Parameters properties of read only and dynamic are embedded in their type rather than being a
-// boolean parameter.
+//   boolean parameter.
 // * There are no runtime exceptions for common cases such as undeclared parameter, already
-// declared, or uninitialized.
+//   declared, or uninitialized.
 // * There is no "parameter not set" type, users can instead decide to have a `Mandatory` parameter
-// that must always have a value or `Optional` parameter that can be unset.
+//   that must always have a value or `Optional` parameter that can be unset.
 // * Explicit API for access to undeclared parameters by having a
-// `node.use_undeclared_parameters()` API that allows access to all parameters.
+//   `node.use_undeclared_parameters()` API that allows access to all parameters.
 
 #[derive(Clone, Debug)]
 struct ParameterOptionsStorage {
@@ -193,7 +195,7 @@ impl<'a, T: ParameterVariant> ParameterBuilder<'a, T> {
     }
 }
 
-impl<'a, T> ParameterBuilder<'a, Arc<[T]>>
+impl<T> ParameterBuilder<'_, Arc<[T]>>
 where
     Arc<[T]>: ParameterVariant,
 {
@@ -204,7 +206,7 @@ where
     }
 }
 
-impl<'a> ParameterBuilder<'a, Arc<[Arc<str>]>> {
+impl ParameterBuilder<'_, Arc<[Arc<str>]>> {
     /// Sets the default for the parameter from a string-like array.
     pub fn default_string_array<U>(mut self, default_value: U) -> Self
     where
@@ -624,6 +626,18 @@ pub enum ParameterValueError {
     ReadOnly,
 }
 
+impl std::fmt::Display for ParameterValueError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ParameterValueError::OutOfRange => write!(f, "parameter value was out of the parameter's range"),
+            ParameterValueError::TypeMismatch => write!(f, "parameter was stored in a static type and an operation on a different type was attempted"),
+            ParameterValueError::ReadOnly => write!(f, "a write on a read-only parameter was attempted"),
+        }
+    }
+}
+
+impl std::error::Error for ParameterValueError {}
+
 /// Error that can be generated when doing operations on parameters.
 #[derive(Debug)]
 pub enum DeclarationError {
@@ -644,7 +658,28 @@ pub enum DeclarationError {
     InvalidRange,
 }
 
-impl<'a> Parameters<'a> {
+impl std::fmt::Display for DeclarationError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            DeclarationError::AlreadyDeclared => write!(f, "parameter was already declared, but a new declaration was attempted"),
+            DeclarationError::NoValueAvailable => {
+                write!(f, "parameter was declared as non-optional but no value was available, either through a user specified default, a command-line override, or a previously set value")
+            },
+            DeclarationError::OverrideValueTypeMismatch => {
+                write!(f, "the override value that was provided has the wrong type")
+            },
+            DeclarationError::PriorValueTypeMismatch => {
+                write!(f, "the value that the parameter was already set to has the wrong type")
+            },
+            DeclarationError::InitialValueOutOfRange => write!(f, "the initial value that was selected is out of range"),
+            DeclarationError::InvalidRange => write!(f, "an invalid range was provided to a parameter declaration (i.e. lower bound > higher bound)"),
+        }
+    }
+}
+
+impl std::error::Error for DeclarationError {}
+
+impl Parameters<'_> {
     /// Tries to read a parameter of the requested type.
     ///
     /// Returns `Some(T)` if a parameter of the requested type exists, `None` otherwise.
@@ -668,9 +703,9 @@ impl<'a> Parameters<'a> {
     /// Returns:
     /// * `Ok(())` if setting was successful.
     /// * [`Err(DeclarationError::TypeMismatch)`] if the type of the requested value is different
-    /// from the parameter's type.
+    ///   from the parameter's type.
     /// * [`Err(DeclarationError::OutOfRange)`] if the requested value is out of the parameter's
-    /// range.
+    ///   range.
     /// * [`Err(DeclarationError::ReadOnly)`] if the parameter is read only.
     pub fn set<T: ParameterVariant>(
         &self,
@@ -727,6 +762,7 @@ impl ParameterInterface {
         global_arguments: &rcl_arguments_t,
     ) -> Result<Self, RclrsError> {
         let override_map = unsafe {
+            let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
             let fqn = call_string_getter_with_rcl_node(rcl_node, rcl_node_get_fully_qualified_name);
             resolve_parameter_overrides(&fqn, node_arguments, global_arguments)?
         };
@@ -838,19 +874,25 @@ impl ParameterInterface {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::Context;
+    use crate::{Context, InitOptions};
 
     #[test]
     fn test_parameter_override_errors() {
         // Create a new node with a few parameter overrides
-        let executor = Context::new([
-            String::from("--ros-args"),
-            String::from("-p"),
-            String::from("declared_int:=10"),
-        ])
+        let executor = Context::new(
+            [
+                String::from("--ros-args"),
+                String::from("-p"),
+                String::from("declared_int:=10"),
+            ],
+            InitOptions::default(),
+        )
         .unwrap()
         .create_basic_executor();
-        let node = executor.create_node("param_test_node").unwrap();
+
+        let node = executor
+            .create_node(&format!("param_test_node_{}", line!()))
+            .unwrap();
 
         // Declaring a parameter with a different type than what was overridden should return an
         // error
@@ -896,20 +938,26 @@ mod tests {
     #[test]
     fn test_parameter_setting_declaring() {
         // Create a new node with a few parameter overrides
-        let executor = Context::new([
-            String::from("--ros-args"),
-            String::from("-p"),
-            String::from("declared_int:=10"),
-            String::from("-p"),
-            String::from("double_array:=[1.0, 2.0]"),
-            String::from("-p"),
-            String::from("optional_bool:=true"),
-            String::from("-p"),
-            String::from("non_declared_string:='param'"),
-        ])
+        let executor = Context::new(
+            [
+                String::from("--ros-args"),
+                String::from("-p"),
+                String::from("declared_int:=10"),
+                String::from("-p"),
+                String::from("double_array:=[1.0, 2.0]"),
+                String::from("-p"),
+                String::from("optional_bool:=true"),
+                String::from("-p"),
+                String::from("non_declared_string:='param'"),
+            ],
+            InitOptions::default(),
+        )
         .unwrap()
         .create_basic_executor();
-        let node = executor.create_node("param_test_node").unwrap();
+
+        let node = executor
+            .create_node(&format!("param_test_node_{}", line!()))
+            .unwrap();
 
         let overridden_int = node
             .declare_parameter("declared_int")
@@ -1053,14 +1101,20 @@ mod tests {
 
     #[test]
     fn test_override_undeclared_set_priority() {
-        let executor = Context::new([
-            String::from("--ros-args"),
-            String::from("-p"),
-            String::from("declared_int:=10"),
-        ])
+        let executor = Context::new(
+            [
+                String::from("--ros-args"),
+                String::from("-p"),
+                String::from("declared_int:=10"),
+            ],
+            InitOptions::default(),
+        )
         .unwrap()
         .create_basic_executor();
-        let node = executor.create_node("param_test_node").unwrap();
+
+        let node = executor
+            .create_node(&format!("param_test_node_{}", line!()))
+            .unwrap();
         // If a parameter was set as an override and as an undeclared parameter, the undeclared
         // value should get priority
         node.use_undeclared_parameters()
@@ -1076,15 +1130,20 @@ mod tests {
 
     #[test]
     fn test_parameter_scope_redeclaring() {
-        let executor = Context::new([
-            String::from("--ros-args"),
-            String::from("-p"),
-            String::from("declared_int:=10"),
-        ])
+        let executor = Context::new(
+            [
+                String::from("--ros-args"),
+                String::from("-p"),
+                String::from("declared_int:=10"),
+            ],
+            InitOptions::default(),
+        )
         .unwrap()
         .create_basic_executor();
 
-        let node = executor.create_node("param_test_node").unwrap();
+        let node = executor
+            .create_node(&format!("param_test_node_{}", line!()))
+            .unwrap();
         {
             // Setting a parameter with an override
             let param = node
@@ -1129,8 +1188,10 @@ mod tests {
 
     #[test]
     fn test_parameter_ranges() {
-        let executor = Context::new([]).unwrap().create_basic_executor();
-        let node = executor.create_node("param_test_node").unwrap();
+        let node = Context::default()
+            .create_basic_executor()
+            .create_node(&format!("param_test_node_{}", line!()))
+            .unwrap();
         // Setting invalid ranges should fail
         let range = ParameterRange {
             lower: Some(10),
@@ -1257,8 +1318,10 @@ mod tests {
 
     #[test]
     fn test_readonly_parameters() {
-        let executor = Context::new([]).unwrap().create_basic_executor();
-        let node = executor.create_node("param_test_node").unwrap();
+        let node = Context::default()
+            .create_basic_executor()
+            .create_node(&format!("param_test_node_{}", line!()))
+            .unwrap();
         let param = node
             .declare_parameter("int_param")
             .default(100)
@@ -1284,8 +1347,10 @@ mod tests {
 
     #[test]
     fn test_preexisting_value_error() {
-        let executor = Context::new([]).unwrap().create_basic_executor();
-        let node = executor.create_node("param_test_node").unwrap();
+        let node = Context::default()
+            .create_basic_executor()
+            .create_node(&format!("param_test_node_{}", line!()))
+            .unwrap();
         node.use_undeclared_parameters()
             .set("int_param", 100)
             .unwrap();
@@ -1337,8 +1402,10 @@ mod tests {
 
     #[test]
     fn test_optional_parameter_apis() {
-        let executor = Context::new([]).unwrap().create_basic_executor();
-        let node = executor.create_node("param_test_node").unwrap();
+        let node = Context::default()
+            .create_basic_executor()
+            .create_node(&format!("param_test_node_{}", line!()))
+            .unwrap();
         node.declare_parameter::<i64>("int_param")
             .optional()
             .unwrap();

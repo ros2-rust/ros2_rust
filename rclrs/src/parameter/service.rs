@@ -318,12 +318,12 @@ mod tests {
             },
             srv::rmw::*,
         },
-        Context, MandatoryParameter, Node, NodeOptions, ParameterRange, ParameterValue, RclrsError,
-        ReadOnlyParameter, QoSProfile, Executor, SpinOptions,
+        Context, Executor, IntoNodeOptions, MandatoryParameter, Node, NodeOptions, ParameterRange, ParameterValue, QoSProfile, RclrsError,
+        ReadOnlyParameter,  SpinOptions,
     };
     use rosidl_runtime_rs::{seq, Sequence};
     use std::{
-        sync::{Arc, atomic::{AtomicBool, Ordering}},
+        sync::{atomic::{AtomicBool, Ordering}, Arc},
         time::Duration,
     };
 
@@ -335,8 +335,8 @@ mod tests {
         dynamic_param: MandatoryParameter<ParameterValue>,
     }
 
-    fn construct_test_nodes(context: &Context, ns: &str) -> (Executor, TestNode, Arc<Node>) {
-        let executor = context.create_basic_executor();
+    fn construct_test_nodes(ns: &str) -> (Executor, TestNode, Arc<Node>) {
+        let executor = Context::default().create_basic_executor();
         let node = executor.create_node(
             NodeOptions::new("node")
             .namespace(ns)
@@ -370,10 +370,9 @@ mod tests {
             .mandatory()
             .unwrap();
 
-        let client = executor.create_node(
-            NodeOptions::new("client")
-            .namespace(ns)
-        ).unwrap();
+        let client = executor
+            .create_node(NodeOptions::new("client").namespace(ns))
+            .unwrap();
 
         (
             executor,
@@ -390,8 +389,7 @@ mod tests {
 
     #[test]
     fn test_parameter_services_names_and_types() -> Result<(), RclrsError> {
-        let context = Context::new([]).unwrap();
-        let (mut executor, test, _client) = construct_test_nodes(&context, "names_types");
+        let (mut executor, test, _client) = construct_test_nodes("names_types");
 
         // Avoid flakiness while also finishing faster in most cases by giving
         // this more maximum time but checking each time a graph change is detected.
@@ -452,8 +450,7 @@ mod tests {
 
     #[test]
     fn test_list_parameters_service() -> Result<(), RclrsError> {
-        let context = Context::default();
-        let (mut executor, _test, client_node) = construct_test_nodes(&context, "list");
+        let (mut executor, _test, client_node) = construct_test_nodes("list");
         let list_client = client_node.create_client::<ListParameters>(
             "/list/node/list_parameters",
             QoSProfile::services_default(),
@@ -586,8 +583,7 @@ mod tests {
 
     #[test]
     fn test_get_set_parameters_service() -> Result<(), RclrsError> {
-        let context = Context::new([]).unwrap();
-        let (mut executor, test, client_node) = construct_test_nodes(&context, "get_set");
+        let (mut executor, test, client_node) = construct_test_nodes("get_set");
         let get_client = client_node.create_client::<GetParameters>("/get_set/node/get_parameters", QoSProfile::services_default())?;
         let set_client = client_node.create_client::<SetParameters>("/get_set/node/set_parameters", QoSProfile::services_default())?;
         let set_atomically_client = client_node
@@ -832,8 +828,7 @@ mod tests {
 
     #[test]
     fn test_describe_get_types_parameters_service() -> Result<(), RclrsError> {
-        let context = Context::new([]).unwrap();
-        let (mut executor, _test, client_node) = construct_test_nodes(&context, "describe");
+        let (mut executor, _test, client_node) = construct_test_nodes("describe");
         let describe_client =
             client_node.create_client::<DescribeParameters>("/describe/node/describe_parameters", QoSProfile::services_default())?;
         let get_types_client =

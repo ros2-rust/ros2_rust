@@ -19,7 +19,7 @@ type_name = msg_spec.structure.namespaced_type.name
 
 #[link(name = "@(package_name)__rosidl_typesupport_c")]
 extern "C" {
-    fn rosidl_typesupport_c__get_message_type_support_handle__@(package_name)__@(subfolder)__@(type_name)() -> *const std::os::raw::c_void;
+    fn rosidl_typesupport_c__get_message_type_support_handle__@(package_name)__@(subfolder)__@(type_name)() -> *const std::ffi::c_void;
 }
 
 #[link(name = "@(package_name)__rosidl_generator_c")]
@@ -103,7 +103,7 @@ impl rosidl_runtime_rs::Message for @(type_name) {
 
 impl rosidl_runtime_rs::RmwMessage for @(type_name) where Self: Sized {
   const TYPE_NAME: &'static str = "@(package_name)/@(subfolder)/@(type_name)";
-  fn get_type_support() -> *const std::os::raw::c_void {
+  fn get_type_support() -> *const std::ffi::c_void {
     // SAFETY: No preconditions for this function.
     unsafe { rosidl_typesupport_c__get_message_type_support_handle__@(package_name)__@(subfolder)__@(type_name)() }
   }

@@ -482,18 +482,34 @@ mod tests {
             .map(|value: usize| if value != 99 { 99 } else { 98 })
             .unwrap_or(99);
 
-        let context =
-            Context::new_with_options([], InitOptions::new().with_domain_id(Some(domain_id)))
-                .unwrap();
-        let executor = context.create_basic_executor();
+        let executor = Context::new([], InitOptions::new().with_domain_id(Some(domain_id)))
+            .unwrap()
+            .create_basic_executor();
         let node_name = "test_publisher_names_and_types";
         let node = executor.create_node(node_name).unwrap();
-        // Test that the graph has no publishers
+
+        let check_rosout = |topics: HashMap<String, Vec<String>>| {
+            // rosout shows up in humble and iron, even if the graph is empty
+            #[cfg(any(ros_distro = "humble", ros_distro = "iron"))]
+            {
+                assert_eq!(topics.len(), 1);
+                assert_eq!(
+                    topics.get("/rosout").unwrap().first().unwrap(),
+                    "rcl_interfaces/msg/Log"
+                );
+            }
+
+            // rosout does not automatically show up in jazzy when the graph is empty
+            #[cfg(any(ros_distro = "jazzy", ros_distro = "rolling"))]
+            {
+                assert_eq!(topics.len(), 0);
+            }
+        };
+
         let names_and_topics = node
             .get_publisher_names_and_types_by_node(node_name, "")
             .unwrap();
-
-        assert_eq!(names_and_topics.len(), 0);
+        check_rosout(names_and_topics);
 
         let num_publishers = node.count_publishers("/test").unwrap();
 
@@ -536,16 +552,13 @@ mod tests {
 
         assert_eq!(names_and_topics.len(), 0);
 
-        // Test that the graph has no topics
         let names_and_topics = node.get_topic_names_and_types().unwrap();
-
-        assert_eq!(names_and_topics.len(), 0);
+        check_rosout(names_and_topics);
     }
 
     #[test]
     fn test_node_names() {
-        let context = Context::new([]).unwrap();
-        let executor = context.create_basic_executor();
+        let executor = Context::default().create_basic_executor();
         let node_name = "test_node_names";
         let node = executor.create_node(node_name).unwrap();
 
@@ -561,8 +574,7 @@ mod tests {
 
     #[test]
     fn test_node_names_with_enclaves() {
-        let context = Context::new([]).unwrap();
-        let executor = context.create_basic_executor();
+        let executor = Context::default().create_basic_executor();
         let node_name = "test_node_names_with_enclaves";
         let node = executor.create_node(node_name).unwrap();
 

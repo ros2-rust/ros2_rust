@@ -26,9 +26,11 @@ set(_generated_common_rs_files "")
 
 set(_generated_msg_rs_files "")
 set(_generated_srv_rs_files "")
+set(_generated_action_rs_files "")
 
 set(_has_msg FALSE)
 set(_has_srv FALSE)
+set(_has_action FALSE)
 
 foreach(_idl_file ${rosidl_generate_interfaces_ABS_IDL_FILES})
   get_filename_component(_parent_folder "${_idl_file}" DIRECTORY)
@@ -37,13 +39,13 @@ foreach(_idl_file ${rosidl_generate_interfaces_ABS_IDL_FILES})
 
   if(_parent_folder STREQUAL "msg")
     set(_has_msg TRUE)
-    set(_idl_file_without_actions ${_idl_file_without_actions} ${_idl_file})
+    set(_idl_files ${_idl_files} ${_idl_file})
   elseif(_parent_folder STREQUAL "srv")
     set(_has_srv TRUE)
-    set(_idl_file_without_actions ${_idl_file_without_actions} ${_idl_file})
+    set(_idl_files ${_idl_files} ${_idl_file})
   elseif(_parent_folder STREQUAL "action")
     set(_has_action TRUE)
-    message(WARNING "Rust actions generation is not implemented")
+    set(_idl_files ${_idl_files} ${_idl_file})
   else()
     message(FATAL_ERROR "Interface file with unknown parent folder: ${_idl_file}")
   endif()
@@ -67,6 +69,12 @@ if(${_has_srv})
   )
 endif()
 
+if(${_has_action})
+  list(APPEND _generated_action_rs_files
+    "${_output_path}/rust/src/action.rs"
+  )
+endif()
+
 set(_dependency_files "")
 set(_dependencies "")
 foreach(_pkg_name ${rosidl_generate_interfaces_DEPENDENCY_PACKAGE_NAMES})
@@ -81,12 +89,15 @@ endforeach()
 set(target_dependencies
   "${rosidl_generator_rs_BIN}"
   ${rosidl_generator_rs_GENERATOR_FILES}
+  "${rosidl_generator_rs_TEMPLATE_DIR}/action.rs.em"
   "${rosidl_generator_rs_TEMPLATE_DIR}/msg_idiomatic.rs.em"
   "${rosidl_generator_rs_TEMPLATE_DIR}/msg_rmw.rs.em"
   "${rosidl_generator_rs_TEMPLATE_DIR}/msg.rs.em"
+  "${rosidl_generator_rs_TEMPLATE_DIR}/srv_idiomatic.rs.em"
+  "${rosidl_generator_rs_TEMPLATE_DIR}/srv_rmw.rs.em"
   "${rosidl_generator_rs_TEMPLATE_DIR}/srv.rs.em"
   ${rosidl_generate_interfaces_ABS_IDL_FILES}
-  ${_idl_file_without_actions}
+  ${_idl_files}
   ${_dependency_files})
 foreach(dep ${target_dependencies})
   if(NOT EXISTS "${dep}")
@@ -99,7 +110,7 @@ rosidl_write_generator_arguments(
   "${generator_arguments_file}"
   PACKAGE_NAME "${PROJECT_NAME}"
   IDL_TUPLES "${rosidl_generate_interfaces_IDL_TUPLES}"
-  ROS_INTERFACE_FILES "${_idl_file_without_actions}"
+  ROS_INTERFACE_FILES "${_idl_files}"
   ROS_INTERFACE_DEPENDENCIES "${_dependencies}"
   OUTPUT_DIR "${_output_path}"
   TEMPLATE_DIR "${rosidl_generator_rs_TEMPLATE_DIR}"
@@ -130,6 +141,7 @@ set_property(
   ${_generated_common_rs_files}
   ${_generated_msg_rs_files}
   ${_generated_srv_rs_files}
+  ${_generated_action_rs_files}
   PROPERTY GENERATED 1)
 
 set(_rsext_suffix "__rsext")
@@ -144,7 +156,8 @@ endif()
 if(BUILD_TESTING AND rosidl_generate_interfaces_ADD_LINTER_TESTS)
   if(
     NOT _generated_msg_rs_files STREQUAL "" OR
-    NOT _generated_srv_rs_files STREQUAL ""
+    NOT _generated_srv_rs_files STREQUAL "" OR
+    NOT _generated_action_rs_files STREQUAL ""
   )
   # TODO(esteve): add linters for Rust files
   endif()

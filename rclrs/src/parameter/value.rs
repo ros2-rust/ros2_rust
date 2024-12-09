@@ -376,10 +376,23 @@ impl From<ParameterValue> for RmwParameterValue {
 
 /// An error that occured when trying to convert a parameter from an
 /// `rcl_interfaces::msg::ParameterValue`
+#[derive(Debug)]
 pub enum RmwParameterConversionError {
     /// The parameter type was not valid.
     InvalidParameterType,
 }
+
+impl std::fmt::Display for RmwParameterConversionError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            RmwParameterConversionError::InvalidParameterType => {
+                write!(f, "the parameter type was not valid")
+            }
+        }
+    }
+}
+
+impl std::error::Error for RmwParameterConversionError {}
 
 impl TryFrom<RmwParameterValue> for ParameterValue {
     type Error = RmwParameterConversionError;
@@ -524,7 +537,7 @@ impl ParameterValue {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{Context, RclrsError, ToResult};
+    use crate::{Context, InitOptions, RclrsError, ToResult};
 
     // TODO(luca) tests for all from / to ParameterVariant functions
 
@@ -552,11 +565,14 @@ mod tests {
             ),
         ];
         for pair in input_output_pairs {
-            let ctx = Context::new([
-                String::from("--ros-args"),
-                String::from("-p"),
-                format!("foo:={}", pair.0),
-            ])?;
+            let ctx = Context::new(
+                [
+                    String::from("--ros-args"),
+                    String::from("-p"),
+                    format!("foo:={}", pair.0),
+                ],
+                InitOptions::default(),
+            )?;
             let mut rcl_params = std::ptr::null_mut();
             unsafe {
                 rcl_arguments_get_param_overrides(

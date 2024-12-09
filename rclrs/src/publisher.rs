@@ -50,9 +50,9 @@ impl Drop for PublisherHandle {
 /// The underlying RMW will decide on the concrete delivery mechanism (network stack, shared
 /// memory, or intraprocess).
 ///
-/// Sending messages does not require calling [`spin`][1] on the publisher's node.
+/// Sending messages does not require the node's executor to [spin][2].
 ///
-/// [1]: crate::spin
+/// [2]: crate::Executor::spin
 pub struct Publisher<T>
 where
     T: Message,
@@ -228,6 +228,11 @@ where
             publisher: self,
             msg_ptr: msg_ptr as *mut T,
         })
+    }
+
+    /// Returns true if message loans are possible, false otherwise.
+    pub fn can_loan_messages(&self) -> bool {
+        unsafe { rcl_publisher_can_loan_messages(&*self.handle.rcl_publisher.lock().unwrap()) }
     }
 }
 

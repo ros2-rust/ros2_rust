@@ -364,3 +364,30 @@ impl ToResult for rcl_ret_t {
         to_rclrs_result(*self)
     }
 }
+
+/// A helper trait to disregard timeouts as not an error.
+pub trait RclrsErrorFilter {
+    /// If the result was a timeout error, change it to `Ok(())`.
+    fn timeout_ok(self) -> Result<(), RclrsError>;
+}
+
+impl RclrsErrorFilter for Result<(), RclrsError> {
+    fn timeout_ok(self) -> Result<(), RclrsError> {
+        match self {
+            Ok(()) => Ok(()),
+            Err(err) => {
+                if matches!(
+                    err,
+                    RclrsError::RclError {
+                        code: RclReturnCode::Timeout,
+                        ..
+                    }
+                ) {
+                    return Ok(());
+                }
+
+                Err(err)
+            }
+        }
+    }
+}
