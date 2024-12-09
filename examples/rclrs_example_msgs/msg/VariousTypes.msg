@@ -14,7 +14,7 @@ float32[] float_seq_unbounded [6.0]
 string string_member "Χαίρετε 你好"
 wstring wstring_member "αντίο σου 再见"
 string<=3 bounded_string_member "aou"
-wstring<=3 bounded_wstring_member "aou"
+wstring<=3 bounded_wstring_member "äöü"
 
 # Array/sequence of string type
 string[4] string_array ["R", "O", "S", "2"]
