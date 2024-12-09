@@ -45,7 +45,7 @@ sudo apt install -y git libclang-dev python3-pip python3-vcstool # libclang-dev 
 pip install git+https://github.com/colcon/colcon-cargo.git
 pip install git+https://github.com/colcon/colcon-ros-cargo.git
 
-mkdir -p workspace/src && cd workspace
+mkdir -p ~/workspace/src && cd ~/workspace
 git clone https://github.com/ros2-rust/ros2_rust.git src/ros2_rust
 vcs import src < src/ros2_rust/ros2_rust_humble.repos
 . /opt/ros/humble/setup.sh
