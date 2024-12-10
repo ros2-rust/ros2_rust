@@ -66,7 +66,7 @@ pub trait SubscriptionBase: Send + Sync {
 ///
 /// There can be multiple subscriptions for the same topic, in different nodes or the same node.
 ///
-/// Receiving messages requires calling [`spin_once`][1] or [`spin`][2] on the subscription's node.
+/// Receiving messages requires the node's executor to [spin][2].
 ///
 /// When a subscription is created, it may take some time to get "matched" with a corresponding
 /// publisher.
@@ -74,8 +74,7 @@ pub trait SubscriptionBase: Send + Sync {
 /// The only available way to instantiate subscriptions is via [`Node::create_subscription()`][3], this
 /// is to ensure that [`Node`][4]s can track all the subscriptions that have been created.
 ///
-/// [1]: crate::spin_once
-/// [2]: crate::spin
+/// [2]: crate::Executor::spin
 /// [3]: crate::Node::create_subscription
 /// [4]: crate::Node
 pub struct Subscription<T>
