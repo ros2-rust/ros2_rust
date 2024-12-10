@@ -53,7 +53,7 @@ impl GuardCondition {
     pub(crate) fn new(
         context: &Arc<ContextHandle>,
         callback: Option<Box<dyn FnMut() + Send + Sync>>,
-    ) -> (Self, Waitable) {
+    ) -> (Arc<Self>, Waitable) {
         let rcl_guard_condition = {
             // SAFETY: Getting a zero initialized value is always safe
             let mut guard_condition = unsafe { rcl_get_zero_initialized_guard_condition() };
@@ -83,7 +83,7 @@ impl GuardCondition {
             None,
         );
 
-        (Self { handle, lifecycle }, waitable)
+        (Arc::new(Self { handle, lifecycle }), waitable)
     }
 
     /// SAFETY: The caller is responsible for ensuring that the pointer being

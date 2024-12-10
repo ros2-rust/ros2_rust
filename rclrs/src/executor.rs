@@ -47,9 +47,11 @@ impl Executor {
     /// [`SpinOptions`] can be used to automatically stop the spinning when
     /// certain conditions are met. Use `SpinOptions::default()` to allow the
     /// Executor to keep spinning indefinitely.
-    pub fn spin(&mut self, options: SpinOptions) -> Result<(), RclrsError> {
+    pub fn spin(&mut self, options: SpinOptions) -> Vec<RclrsError> {
         let conditions = self.make_spin_conditions(options);
-        self.runtime.spin(conditions)
+        let result = self.runtime.spin(conditions);
+        self.commands.halt_spinning.store(false, Ordering::Release);
+        result
     }
 
     /// Spin the Executor as an async task. This does not block the current thread.
@@ -61,7 +63,7 @@ impl Executor {
     /// The async task will run until the [`SpinConditions`] stop the Executor
     /// from spinning. The output of the async task will be the restored Executor,
     /// which you can use to resume spinning after the task is finished.
-    pub async fn spin_async(self, options: SpinOptions) -> (Self, Result<(), RclrsError>) {
+    pub async fn spin_async(self, options: SpinOptions) -> (Self, Vec<RclrsError>) {
         let conditions = self.make_spin_conditions(options);
         let Self {
             context,
@@ -70,6 +72,8 @@ impl Executor {
         } = self;
 
         let (runtime, result) = runtime.spin_async(conditions).await;
+        commands.halt_spinning.store(false, Ordering::Release);
+
         (
             Self {
                 context,
@@ -86,17 +90,21 @@ impl Executor {
     where
         E: 'static + ExecutorRuntime + Send,
     {
-        let (wakeup_wait_set, waitable) = GuardCondition::new(&context, None);
+        let executor_channel = runtime.channel();
+        let node_worker_commands = ExecutorCommands::impl_create_worker_commands(
+            &Context { handle: Arc::clone(&context) },
+            &*executor_channel,
+            Box::new(()),
+        );
+
         let commands = Arc::new(ExecutorCommands {
             context: Context {
                 handle: Arc::clone(&context),
             },
-            channel: runtime.default_channel(),
+            executor_channel,
             halt_spinning: Arc::new(AtomicBool::new(false)),
-            wakeup_wait_set: Arc::new(wakeup_wait_set),
+            node_worker_commands,
         });
-
-        commands.add_to_wait_set(waitable);
 
         Self {
             context,
@@ -113,7 +121,6 @@ impl Executor {
             context: Context {
                 handle: Arc::clone(&self.context),
             },
-            guard_condition: Arc::clone(&self.commands.wakeup_wait_set),
         }
     }
 }
@@ -122,9 +129,9 @@ impl Executor {
 /// while the executor is spinning.
 pub struct ExecutorCommands {
     context: Context,
-    channel: Arc<dyn ExecutorChannel>,
+    executor_channel: Arc<dyn ExecutorChannel>,
+    node_worker_commands: Arc<WorkerCommands>,
     halt_spinning: Arc<AtomicBool>,
-    wakeup_wait_set: Arc<GuardCondition>,
 }
 
 impl ExecutorCommands {
@@ -141,7 +148,7 @@ impl ExecutorCommands {
     pub fn halt_spinning(&self) {
         self.halt_spinning.store(true, Ordering::Release);
         // TODO(@mxgrey): Log errors here when logging becomes available
-        self.wakeup_wait_set.trigger().ok();
+        self.executor_channel.wake_all_wait_sets();
     }
 
     /// Run a task on the [`Executor`]. If the returned [`Promise`] is dropped
@@ -162,7 +169,7 @@ impl ExecutorCommands {
         F::Output: Send,
     {
         let (mut sender, receiver) = oneshot::channel();
-        self.channel.add_async_task(Box::pin(async move {
+        self.node_worker_commands.channel.add_async_task(Box::pin(async move {
             let cancellation = sender.cancellation();
             let output = match select(cancellation, std::pin::pin!(f)).await {
                 // The task was cancelled
@@ -197,7 +204,7 @@ impl ExecutorCommands {
         F::Output: Send,
     {
         let (sender, receiver) = oneshot::channel();
-        self.channel.add_async_task(Box::pin(async move {
+        self.node_worker_commands.channel.add_async_task(Box::pin(async move {
             sender.send(f.await).ok();
         }));
         receiver
@@ -209,27 +216,62 @@ impl ExecutorCommands {
     }
 
     pub(crate) fn add_to_wait_set(&self, waitable: Waitable) {
-        self.channel.add_to_waitset(waitable);
+        self.node_worker_commands.channel.add_to_waitset(waitable);
     }
 
-    /// Get a guard condition that can be used to wake up the wait set of the executor.
-    pub(crate) fn get_guard_condition(&self) -> &Arc<GuardCondition> {
-        &self.wakeup_wait_set
+    #[cfg(test)]
+    pub(crate) fn wake_all_wait_sets(&self) {
+        self.executor_channel.wake_all_wait_sets();
     }
 
-    pub(crate) fn as_worker_commands(&self) -> WorkerCommands {
-        WorkerCommands::new(Arc::clone(&self.channel).as_worker_channel())
+    pub(crate) fn node_worker_commands(&self) -> &Arc<WorkerCommands> {
+        &self.node_worker_commands
+    }
+
+    pub(crate) fn create_worker_commands(&self, payload: Box<dyn Any + Send>) -> Arc<WorkerCommands> {
+        Self::impl_create_worker_commands(&self.context, &*self.executor_channel, payload)
+    }
+
+    /// We separate out this impl function so that we can create the node worker
+    /// before the [`ExecutorCommands`] is finished being constructed.
+    fn impl_create_worker_commands(
+        context: &Context,
+        executor_channel: &dyn ExecutorChannel,
+        payload: Box<dyn Any + Send>,
+    ) -> Arc<WorkerCommands> {
+        let (guard_condition, waitable) = GuardCondition::new(&context.handle, None);
+
+        let worker_channel = executor_channel.create_worker(ExecutorWorkerOptions {
+            context: context.clone(),
+            payload,
+            guard_condition: Arc::clone(&guard_condition),
+        });
+
+        worker_channel.add_to_waitset(waitable);
+
+        Arc::new(WorkerCommands {
+            channel: worker_channel,
+            wakeup_wait_set: guard_condition,
+        })
     }
 }
 
-#[derive(Clone)]
+/// This is used internally to transmit commands to a specific worker in the
+/// executor. It is not accessible to downstream users because it does not
+/// retain information about the worker's payload type.
+///
+/// Downstream users of rclrs should instead use [`Worker`][crate::Worker].
 pub(crate) struct WorkerCommands {
     channel: Arc<dyn WorkerChannel>,
+    wakeup_wait_set: Arc<GuardCondition>,
 }
 
 impl WorkerCommands {
-    pub(crate) fn new(channel: Arc<dyn WorkerChannel>) -> Self {
-        Self { channel }
+    pub(crate) fn new(
+        channel: Arc<dyn WorkerChannel>,
+        wakeup_wait_set: Arc<GuardCondition>,
+    ) -> Self {
+        Self { channel, wakeup_wait_set }
     }
 
     pub(crate) fn add_to_wait_set(&self, waitable: Waitable) {
@@ -242,38 +284,56 @@ impl WorkerCommands {
     {
         self.channel.add_async_task(Box::pin(f));
     }
+
+    /// Get a guard condition that can be used to wake up the wait set of the executor.
+    pub(crate) fn get_guard_condition(&self) -> &Arc<GuardCondition> {
+        &self.wakeup_wait_set
+    }
 }
 
+/// Channel to send commands related to a specific worker.
 pub trait WorkerChannel: Send + Sync {
     /// Add a new item for the executor to run.
     fn add_async_task(&self, f: BoxFuture<'static, ()>);
 
     /// Add new entities to the waitset of the executor.
     fn add_to_waitset(&self, new_entity: Waitable);
+}
 
-    /// Allows an ExecutorChannel to be cast to a WorkerChannel.
-    fn as_worker_channel(self: Arc<Self>) -> Arc<dyn WorkerChannel + 'static>;
+/// This is constructed by [`ExecutorCommands`] and passed to the [`ExecutorRuntime`]
+/// to create a new worker. Downstream users of rclrs should not be using this class
+/// unless you are implementing your own [`ExecutorRuntime`].
+pub struct ExecutorWorkerOptions {
+    pub context: Context,
+    /// The payload that the worker provides to different primitives.
+    pub payload: Box<dyn Any + Send>,
+    /// The guard condition that should wake up the wait set for the worker.
+    pub guard_condition: Arc<GuardCondition>,
 }
 
 /// This trait defines the interface for passing new items into an executor to
 /// run.
-pub trait ExecutorChannel: WorkerChannel {
+pub trait ExecutorChannel: Send + Sync {
     /// Create a new channel specific to a worker whose payload must be
     /// initialized with the given function.
     fn create_worker(
         &self,
-        payload: Box<dyn Any + Send>,
+        options: ExecutorWorkerOptions,
     ) -> Arc<dyn WorkerChannel>;
+
+    /// Wake all the wait sets that are being managed by this executor. This is
+    /// used to make sure they respond to [`ExecutorCommands::halt_spinning`].
+    fn wake_all_wait_sets(&self);
 }
 
 /// This trait defines the interface for having an executor run.
 pub trait ExecutorRuntime: Send {
     /// Get a channel that can add new items for the executor to run.
-    fn default_channel(&self) -> Arc<dyn ExecutorChannel>;
+    fn channel(&self) -> Arc<dyn ExecutorChannel>;
 
     /// Tell the runtime to spin while blocking any further execution until the
     /// spinning is complete.
-    fn spin(&mut self, conditions: SpinConditions) -> Result<(), RclrsError>;
+    fn spin(&mut self, conditions: SpinConditions) -> Vec<RclrsError>;
 
     /// Tell the runtime to spin asynchronously, not blocking the current
     /// thread. The runtime instance will be consumed by this function, but it
@@ -282,7 +342,7 @@ pub trait ExecutorRuntime: Send {
     fn spin_async(
         self: Box<Self>,
         conditions: SpinConditions,
-    ) -> BoxFuture<'static, (Box<dyn ExecutorRuntime>, Result<(), RclrsError>)>;
+    ) -> BoxFuture<'static, (Box<dyn ExecutorRuntime>, Vec<RclrsError>)>;
 }
 
 /// A bundle of optional conditions that a user may want to impose on how long
@@ -333,6 +393,17 @@ impl SpinOptions {
         self.timeout = Some(timeout);
         self
     }
+
+    /// Clone the items inside of [`SpinOptions`] that are able to be cloned.
+    /// This will exclude:
+    /// - [`until_promise_resolved`][Self::until_promise_resolved]
+    pub fn clone_partial(&self) -> SpinOptions {
+        SpinOptions {
+            only_next_available_work: self.only_next_available_work,
+            timeout: self.timeout,
+            until_promise_resolved: None,
+        }
+    }
 }
 
 /// A bundle of conditions that tell the [`ExecutorRuntime`] how long to keep
@@ -351,7 +422,17 @@ pub struct SpinConditions {
     /// valid. When the context is invalid, the executor runtime should stop
     /// spinning.
     pub context: Context,
-    /// This is a guard condition which is present in the wait set. The executor
-    /// can use this to wake up the wait set.
-    pub guard_condition: Arc<GuardCondition>,
+}
+
+impl SpinConditions {
+    /// Clone the items inside of [`SpinConditions`] that are able to be cloned.
+    /// This will exclude:
+    /// - [`until_promise_resolved`][SpinOptions::until_promise_resolved]
+    pub fn clone_partial(&self) -> SpinConditions {
+        SpinConditions {
+            options: self.options.clone_partial(),
+            halt_spinning: Arc::clone(&self.halt_spinning),
+            context: self.context.clone(),
+        }
+    }
 }

@@ -1,21 +1,24 @@
 use futures::{
-    channel::{mpsc::UnboundedSender, oneshot},
-    future::BoxFuture,
+    channel::{mpsc::{UnboundedSender, UnboundedReceiver, unbounded}, oneshot},
+    future::{BoxFuture, select, select_all, Either},
     task::{waker_ref, ArcWake},
+    stream::StreamFuture,
+    StreamExt,
 };
 use std::{
-    any::Any,
     sync::{
         atomic::{AtomicBool, Ordering},
         mpsc::{channel, Receiver, Sender},
-        Arc, Mutex,
+        Arc, Mutex, Weak,
     },
     task::Context as TaskContext,
+    time::Instant,
 };
 
 use crate::{
-    executor::{ExecutorChannel, ExecutorRuntime, SpinConditions, WorkerChannel},
-    Context, RclrsError, WaitSetRunner, Waitable,
+    ExecutorChannel, ExecutorRuntime, SpinConditions, WorkerChannel,
+    RclrsError, WaitSetRunner, WaitSetRunConditions, Waitable, log_warn, log_fatal, ToLogParams,
+    GuardCondition, ExecutorWorkerOptions,
 };
 
 /// The implementation of this runtime is based off of the async Rust reference book:
@@ -34,49 +37,69 @@ use crate::{
 pub struct BasicExecutorRuntime {
     ready_queue: Receiver<Arc<Task>>,
     task_sender: TaskSender,
-    /// We use an Option here because we need to hand the WaitSetRunner off to
-    /// another thread while spinning. It should only be None while the spin
-    /// function is active. At any other time this should contain Some.
-    wait_set_runner: Option<WaitSetRunner>,
+    wait_set_runners: Vec<WaitSetRunner>,
+    all_guard_conditions: AllGuardConditions,
+    new_worker_receiver: Option<StreamFuture<UnboundedReceiver<WaitSetRunner>>>,
+    new_worker_sender: UnboundedSender<WaitSetRunner>,
+}
+
+#[derive(Clone, Default)]
+struct AllGuardConditions {
+    inner: Arc<Mutex<Vec<Weak<GuardCondition>>>>,
+}
+
+impl AllGuardConditions {
+    fn trigger(&self) {
+        self.inner.lock().unwrap().retain(|guard_condition| {
+            if let Some(guard_condition) = guard_condition.upgrade() {
+                guard_condition.trigger();
+                true
+            } else {
+                false
+            }
+        });
+    }
+
+    fn push(&self, guard_condition: Weak<GuardCondition>) {
+        self.inner.lock().unwrap().push(guard_condition);
+    }
 }
 
 impl ExecutorRuntime for BasicExecutorRuntime {
-    fn spin(&mut self, mut conditions: SpinConditions) -> Result<(), RclrsError> {
-        self.process_spin_conditions(&mut conditions);
+    fn spin(&mut self, conditions: SpinConditions) -> Vec<RclrsError> {
+        let conditions = self.process_spin_conditions(conditions);
 
-        let wait_set_runner = self.wait_set_runner.take().expect(
-            "The wait set runner of the basic executor is missing while beginning to spin. \
+        let new_workers = self.new_worker_receiver.take().expect(
+            "Basic executor was missing its new_worker_receiver at the start of its spinning. \
             This is a critical bug in rclrs. \
             Please report this bug to the maintainers of rclrs by providing a minimum reproduction of the problem."
         );
+        let all_guard_conditions = self.all_guard_conditions.clone();
 
-        let wait_set_promise = wait_set_runner.run(conditions);
         // futures::channel::oneshot::Receiver is only suitable for async, but
         // we need to block this function from exiting until the WaitSetRunner
         // is returned to self. Therefore we create this blocking channel to
         // prevent the function from returning until the WaitSetRunner has been
         // re-obtained.
-        let (wait_set_sender, wait_set_receiver) = channel();
+        let (worker_sender, worker_receiver) = channel();
 
         // Use this atomic bool to recognize when we should stop spinning.
-        let wait_set_finished = Arc::new(AtomicBool::new(false));
+        let workers_finished = Arc::new(AtomicBool::new(false));
 
         // Use this to terminate the spinning once the wait set is finished.
-        let wait_set_finished_clone = Arc::clone(&wait_set_finished);
+        let workers_finished_clone = Arc::clone(&workers_finished);
         self.task_sender.add_async_task(Box::pin(async move {
-            let wait_set_runner = wait_set_promise.await.expect(
-                "The wait set thread of the basic executor dropped prematurely. \
-                This is a critical bug in rclrs. \
-                Please report this bug to the maintainers of rclrs by providing a minimum reproduction of the problem."
-            );
-            // TODO(@mxgrey): Log errors here when logging becomes available.
-            wait_set_sender.send(wait_set_runner).ok();
+            let workers = manage_workers(
+                new_workers,
+                all_guard_conditions,
+                conditions,
+            ).await;
 
-            // Notify the main loop that it should stop
-            wait_set_finished_clone.store(true, Ordering::Release);
+            worker_sender.send(workers);
+            workers_finished_clone.store(true, Ordering::Release);
         }));
 
-        while let Ok(task) = self.next_task(&wait_set_finished) {
+        while let Ok(task) = self.next_task(&workers_finished) {
             // SAFETY: If the mutex is poisoned then we have unrecoverable situation.
             let mut future_slot = task.future.lock().unwrap();
             if let Some(mut future) = future_slot.take() {
@@ -93,20 +116,22 @@ impl ExecutorRuntime for BasicExecutorRuntime {
             }
         }
 
-        let (runner, result) = wait_set_receiver.recv().expect(
+        let (runners, new_worker_receiver, errors) = worker_receiver.recv().expect(
             "Basic executor failed to receive the WaitSetRunner at the end of its spinning. \
             This is a critical bug in rclrs. \
             Please report this bug to the maintainers of rclrs by providing a minimum reproduction of the problem."
         );
 
-        self.wait_set_runner = Some(runner);
-        result
+        self.wait_set_runners = runners;
+        self.new_worker_receiver = Some(new_worker_receiver);
+
+        errors
     }
 
     fn spin_async(
         mut self: Box<Self>,
         conditions: SpinConditions,
-    ) -> BoxFuture<'static, (Box<dyn ExecutorRuntime>, Result<(), RclrsError>)> {
+    ) -> BoxFuture<'static, (Box<dyn ExecutorRuntime>, Vec<RclrsError>)> {
         let (sender, receiver) = oneshot::channel();
         // Create a thread to run the executor. We should not run the executor
         // as an async task because it blocks its current thread while running.
@@ -132,51 +157,68 @@ impl ExecutorRuntime for BasicExecutorRuntime {
         })
     }
 
-    fn default_channel(&self) -> Box<dyn ExecutorChannel> {
-        let waitable_sender = self.wait_set_runner.as_ref().expect(
-            "The wait set runner of the basic executor is missing while creating a channel. \
-            This is a critical bug in rclrs. \
-            Please report this bug to the maintainers of rclrs by providing a minimum reproduction of the problem."
-        )
-        .sender();
-
-        Box::new(BasicExecutorChannel {
+    fn channel(&self) -> Arc<dyn ExecutorChannel> {
+        Arc::new(BasicExecutorChannel {
             task_sender: self.task_sender.clone(),
-            waitable_sender,
+            new_worker_sender: self.new_worker_sender.clone(),
+            all_guard_conditions: self.all_guard_conditions.clone(),
         })
     }
 }
 
 impl BasicExecutorRuntime {
-    pub(crate) fn new(context: &Context) -> Self {
+    pub(crate) fn new() -> Self {
         let (task_sender, ready_queue) = channel();
+        let (new_worker_sender, new_worker_receiver) = unbounded();
+
         Self {
             ready_queue,
             task_sender: TaskSender { task_sender },
-            wait_set_runner: Some(WaitSetRunner::new(context)),
+            wait_set_runners: Vec::new(),
+            all_guard_conditions: AllGuardConditions::default(),
+            new_worker_receiver: Some(new_worker_receiver.into_future()),
+            new_worker_sender,
         }
     }
 
-    fn process_spin_conditions(&self, conditions: &mut SpinConditions) {
+    fn process_spin_conditions(&self, mut conditions: SpinConditions) -> WaitSetRunConditions {
         if let Some(promise) = conditions.options.until_promise_resolved.take() {
-            let guard_condition = Arc::clone(&conditions.guard_condition);
-            let (sender, receiver) = oneshot::channel();
+            let halt_spinning = Arc::clone(&conditions.halt_spinning);
+            let all_guard_conditions = self.all_guard_conditions.clone();
             self.task_sender.add_async_task(Box::pin(async move {
                 if let Err(err) = promise.await {
                     // TODO(@mxgrey): We should change this to a log when logging
                     // becomes available.
-                    eprintln!(
+                    log_warn!(
+                        "basic_executor",
                         "Sender for SpinOptions::until_promise_resolved was \
                         dropped, so the Promise will never be fulfilled. \
                         Spinning will stop now. Error message: {err}"
                     );
                 }
-                // TODO(@mxgrey): Log errors here when logging becomes available.
-                guard_condition.trigger().ok();
-                sender.send(()).ok();
-            }));
 
-            conditions.options.until_promise_resolved = Some(receiver);
+                // Ordering is very important here. halt_spinning must be set
+                // before we lock and trigger the guard conditions. This ensures
+                // that when the wait sets wake up, the halt_spinning value is
+                // already set to true. Ordering::Release is also important for
+                // that purpose.
+                //
+                // When a new worker is added, the guard conditions will be locked
+                // and the new guard condition will be added before checking the
+                // value of halt_spinning. That's the opposite order of using
+                // these variables. This opposite usage prevents a race condition
+                // where the new wait set will start running after we've already
+                // triggered all the known guard conditions.
+                halt_spinning.store(true, Ordering::Release);
+                all_guard_conditions.trigger();
+            }));
+        }
+
+        WaitSetRunConditions {
+            only_next_available_work: conditions.options.only_next_available_work,
+            stop_time: conditions.options.timeout.map(|t| Instant::now() + t),
+            context: conditions.context,
+            halt_spinning: conditions.halt_spinning,
         }
     }
 
@@ -193,26 +235,42 @@ impl BasicExecutorRuntime {
 
 struct BasicExecutorChannel {
     task_sender: TaskSender,
+    all_guard_conditions: AllGuardConditions,
+    new_worker_sender: UnboundedSender<WaitSetRunner>,
+}
+
+impl ExecutorChannel for BasicExecutorChannel {
+    fn create_worker(
+        &self,
+        options: ExecutorWorkerOptions,
+    ) -> Arc<dyn WorkerChannel> {
+        let runner = WaitSetRunner::new(options);
+        let waitable_sender = runner.sender();
+        self.new_worker_sender.unbounded_send(runner);
+        Arc::new(BasicWorkerChannel {
+            waitable_sender,
+            task_sender: self.task_sender.clone(),
+        })
+    }
+
+    fn wake_all_wait_sets(&self) {
+        self.all_guard_conditions.trigger();
+    }
+}
+
+struct BasicWorkerChannel {
+    task_sender: TaskSender,
     waitable_sender: UnboundedSender<Waitable>,
 }
 
-impl WorkerChannel for BasicExecutorChannel {
+impl WorkerChannel for BasicWorkerChannel {
     fn add_to_waitset(&self, new_entity: Waitable) {
         // TODO(@mxgrey): Log errors here once logging becomes available.
         self.waitable_sender.unbounded_send(new_entity).ok();
     }
-}
 
-impl ExecutorChannel for BasicExecutorChannel {
     fn add_async_task(&self, f: BoxFuture<'static, ()>) {
         self.task_sender.add_async_task(f);
-    }
-
-    fn create_worker_channel(
-        &self,
-        payload: Box<dyn Any + Send>,
-    ) -> Box<dyn ExecutorChannel> {
-
     }
 }
 
@@ -252,4 +310,67 @@ impl ArcWake for Task {
         let cloned = Arc::clone(arc_self);
         arc_self.task_sender.send(cloned).ok();
     }
+}
+
+async fn manage_workers(
+    mut new_workers: StreamFuture<UnboundedReceiver<WaitSetRunner>>,
+    all_guard_conditions: AllGuardConditions,
+    conditions: WaitSetRunConditions,
+) -> (Vec<WaitSetRunner>, StreamFuture<UnboundedReceiver<WaitSetRunner>>, Vec<RclrsError>) {
+    let mut active_runners: Vec<oneshot::Receiver<(WaitSetRunner, Result<(), RclrsError>)>> = Vec::new();
+    let mut finished_runners: Vec<WaitSetRunner> = Vec::new();
+    let mut errors: Vec<RclrsError> = Vec::new();
+
+    while !active_runners.is_empty() {
+        let next_event = select(
+            select_all(active_runners),
+            new_workers,
+        );
+
+        match next_event.await {
+            Either::Left((
+                (finished_worker, _, remaining_workers),
+                new_worker_stream,
+            )) => {
+                match finished_worker {
+                    Ok((runner, result)) => {
+                        finished_runners.push(runner);
+                        if let Err(err) = result {
+                            errors.push(err);
+                        }
+                    }
+                    Err(_) => {
+                        log_fatal!(
+                            "basic_executor",
+                            "WaitSetRunner unexpectedly dropped. This should never happen. \
+                            Please report this to the rclrs maintainers with a minimal \
+                            reproducible example.",
+                        );
+                    }
+                }
+
+                active_runners = remaining_workers;
+                new_workers = new_worker_stream;
+            }
+            Either::Right((
+                (new_worker, new_worker_stream),
+                remaining_workers,
+            )) => {
+                active_runners = remaining_workers.into_inner();
+
+                if let Some(runner) = new_worker {
+                    all_guard_conditions.push(Arc::downgrade(runner.guard_condition()));
+                    if conditions.halt_spinning.load(Ordering::Acquire) {
+                        finished_runners.push(runner);
+                    } else {
+                        active_runners.push(runner.run(conditions.clone()));
+                    }
+                }
+
+                new_workers = new_worker_stream.into_future();
+            }
+        }
+    };
+
+    (finished_runners, new_workers, errors)
 }

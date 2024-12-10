@@ -63,6 +63,7 @@ unsafe impl Send for rcl_context_t {}
 /// (as well as the terminal).  TODO: This behaviour should be configurable using an
 /// "auto logging initialise" flag as per rclcpp and rclpy.
 ///
+#[derive(Clone)]
 pub struct Context {
     pub(crate) handle: Arc<ContextHandle>,
 }
@@ -191,7 +192,7 @@ impl Context {
     ///
     /// [1]: BasicExecutorRuntime
     pub fn create_basic_executor(&self) -> Executor {
-        let runtime = BasicExecutorRuntime::new(self);
+        let runtime = BasicExecutorRuntime::new();
         self.create_executor(runtime)
     }
 

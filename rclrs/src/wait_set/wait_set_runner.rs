@@ -5,11 +5,13 @@ use futures::channel::{
 
 use std::{
     any::Any,
-    sync::atomic::Ordering,
+    sync::{atomic::{AtomicBool, Ordering}, Arc},
     time::{Duration, Instant},
 };
 
-use crate::{Context, Promise, RclrsError, SpinConditions, WaitSet, Waitable};
+use crate::{
+    Context, Promise, RclrsError, WaitSet, Waitable, GuardCondition, ExecutorWorkerOptions,
+};
 
 /// This is a utility class that executors can use to easily run and manage
 /// their wait set.
@@ -17,24 +19,45 @@ pub struct WaitSetRunner {
     wait_set: WaitSet,
     waitable_sender: UnboundedSender<Waitable>,
     waitable_receiver: UnboundedReceiver<Waitable>,
+    guard_condition: Arc<GuardCondition>,
     payload: Box<dyn Any + Send>,
+}
+
+/// These are the conditions used by the [`WaitSetRunner`] to determine when it
+/// needs to halt.
+#[derive(Clone)]
+pub struct WaitSetRunConditions {
+    /// Only perform the next available work. This is similar to spin_once in
+    /// rclcpp and rclpy.
+    ///
+    /// To only process work that is immediately available without waiting at all,
+    /// set a timeout of zero.
+    pub only_next_available_work: bool,
+    /// Stop spinning once this instant in time is reached.
+    pub stop_time: Option<Instant>,
+    /// Use this to check [`Context::ok`] to make sure that the context is still
+    /// valid. When the context is invalid, the executor runtime should stop
+    /// spinning.
+    pub context: Context,
+    /// Halt trigger that gets set by [`ExecutorCommands`].
+    pub halt_spinning: Arc<AtomicBool>,
 }
 
 impl WaitSetRunner {
     /// Create a new WaitSetRunner.
     pub fn new(
-        context: &Context,
-        payload: Box<dyn Any + Send>,
+        worker_options: ExecutorWorkerOptions,
     ) -> Self {
         let (waitable_sender, waitable_receiver) = unbounded();
         Self {
-            wait_set: WaitSet::new(context)
+            wait_set: WaitSet::new(&worker_options.context)
                 // SAFETY: This only gets called from Context which ensures that
                 // everything is valid when creating a wait set.
                 .expect("Unable to create wait set for basic executor"),
             waitable_sender,
             waitable_receiver,
-            payload,
+            guard_condition: worker_options.guard_condition,
+            payload: worker_options.payload,
         }
     }
 
@@ -44,6 +67,10 @@ impl WaitSetRunner {
         self.waitable_sender.clone()
     }
 
+    pub fn guard_condition(&self) -> &Arc<GuardCondition> {
+        &self.guard_condition
+    }
+
     /// Spawn a thread to run the wait set. You will receive a Promise that will
     /// be resolved once the wait set stops spinning.
     ///
@@ -51,7 +78,7 @@ impl WaitSetRunner {
     /// the best practice is for your executor runtime to swap that out with a
     /// new promise which ensures that the [`SpinConditions::guard_condition`]
     /// will be triggered after the user-provided promise is resolved.
-    pub fn run(mut self, conditions: SpinConditions) -> Promise<(Self, Result<(), RclrsError>)> {
+    pub fn run(mut self, conditions: WaitSetRunConditions) -> Promise<(Self, Result<(), RclrsError>)> {
         let (sender, promise) = channel();
         std::thread::spawn(move || {
             let result = self.run_blocking(conditions);
@@ -69,9 +96,8 @@ impl WaitSetRunner {
     /// the best practice is for your executor runtime to swap that out with a
     /// new promise which ensures that the [`SpinConditions::guard_condition`]
     /// will be triggered after the user-provided promise is resolved.
-    pub fn run_blocking(&mut self, mut conditions: SpinConditions) -> Result<(), RclrsError> {
+    pub fn run_blocking(&mut self, conditions: WaitSetRunConditions) -> Result<(), RclrsError> {
         let mut first_spin = true;
-        let t_stop_spinning = conditions.options.timeout.map(|dt| Instant::now() + dt);
         loop {
             // TODO(@mxgrey): SmallVec would be better suited here if we are
             // okay with adding that as a dependency.
@@ -84,20 +110,12 @@ impl WaitSetRunner {
                 self.wait_set.add(new_waitables).ok();
             }
 
-            if conditions.options.only_next_available_work && !first_spin {
+            if conditions.only_next_available_work && !first_spin {
                 // We've already completed a spin and were asked to only do one,
                 // so break here
                 return Ok(());
             }
             first_spin = false;
-
-            if let Some(promise) = &mut conditions.options.until_promise_resolved {
-                let r = promise.try_recv();
-                if r.is_ok_and(|r| r.is_some()) || r.is_err() {
-                    // The promise has been resolved, so we should stop spinning.
-                    return Ok(());
-                }
-            }
 
             if conditions.halt_spinning.load(Ordering::Acquire) {
                 // The user has manually asked for the spinning to stop
@@ -110,7 +128,7 @@ impl WaitSetRunner {
                 return Ok(());
             }
 
-            let timeout = t_stop_spinning.map(|t| {
+            let timeout = conditions.stop_time.map(|t| {
                 let timeout = t - Instant::now();
                 if timeout < Duration::ZERO {
                     Duration::ZERO
@@ -119,8 +137,14 @@ impl WaitSetRunner {
                 }
             });
 
-            self.wait_set
-                .wait(timeout, |executable| executable.execute())?;
+            self.wait_set.wait(timeout, |executable| {
+                // SAFETY: The user of WaitSetRunner is responsible for ensuring
+                // the runner has the same payload type as the executables that
+                // are given to it.
+                unsafe {
+                    executable.execute(&mut self.payload)
+                }
+            })?;
         }
     }
 }

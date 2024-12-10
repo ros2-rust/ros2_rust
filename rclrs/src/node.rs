@@ -497,11 +497,11 @@ impl NodeState {
     where
         T: Message,
     {
-        SubscriptionState::<T>::create(
+        SubscriptionState::<T, Node>::create(
             options,
             callback.into_node_subscription_callback(),
             &self.handle,
-            &self.commands,
+            self.commands.node_worker_commands(),
         )
     }
 
@@ -532,11 +532,11 @@ impl NodeState {
     where
         T: Message,
     {
-        SubscriptionState::<T>::create(
+        SubscriptionState::<T, Node>::create(
             options,
             callback.into_async_subscription_callback(),
             &self.handle,
-            &self.commands,
+            self.commands.node_worker_commands(),
         )
     }
 
@@ -735,8 +735,8 @@ mod tests {
 
     #[test]
     fn traits() {
-        assert_send::<Node>();
-        assert_sync::<Node>();
+        assert_send::<NodeState>();
+        assert_sync::<NodeState>();
     }
 
     #[test]

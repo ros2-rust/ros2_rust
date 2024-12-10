@@ -314,7 +314,7 @@ mod tests {
             srv::rmw::*,
         },
         Context, Executor, IntoNodeOptions, MandatoryParameter, Node, NodeOptions, ParameterRange,
-        ParameterValue, RclrsError, ReadOnlyParameter, SpinOptions,
+        ParameterValue, RclrsError, ReadOnlyParameter, SpinOptions, RclrsErrorFilter,
     };
     use rosidl_runtime_rs::{seq, Sequence};
     use std::{
@@ -443,7 +443,7 @@ mod tests {
                     .until_promise_resolved(promise)
                     .timeout(Duration::from_secs(1)),
             )
-            .unwrap();
+            .first_error()?;
 
         Ok(())
     }
@@ -461,7 +461,7 @@ mod tests {
                     .until_promise_resolved(list_client.notify_on_service_ready())
                     .timeout(Duration::from_secs(2)),
             )
-            .unwrap();
+            .first_error()?;
 
         // List all parameters
         let callback_ran = Arc::new(AtomicBool::new(false));
@@ -494,7 +494,7 @@ mod tests {
                     .until_promise_resolved(promise)
                     .timeout(Duration::from_secs(5)),
             )
-            .unwrap();
+            .first_error()?;
         assert!(callback_ran.load(Ordering::Acquire));
 
         // Limit depth, namespaced parameter is not returned
@@ -516,7 +516,7 @@ mod tests {
 
         executor
             .spin(SpinOptions::default().until_promise_resolved(promise))
-            .unwrap();
+            .first_error()?;
         assert!(callback_ran.load(Ordering::Acquire));
 
         // Filter by prefix, just return the requested one with the right prefix
@@ -539,7 +539,7 @@ mod tests {
 
         executor
             .spin(SpinOptions::default().until_promise_resolved(promise))
-            .unwrap();
+            .first_error()?;
         assert!(callback_ran.load(Ordering::Acquire));
 
         // If prefix is equal to names, parameters should be returned
@@ -562,7 +562,7 @@ mod tests {
 
         executor
             .spin(SpinOptions::default().until_promise_resolved(promise))
-            .unwrap();
+            .first_error()?;
         assert!(callback_ran.load(Ordering::Acquire));
 
         Ok(())
@@ -592,7 +592,7 @@ mod tests {
 
         executor
             .spin(SpinOptions::default().until_promise_resolved(clients_ready))
-            .unwrap();
+            .first_error()?;
 
         // Get an existing parameter
         let callback_ran = Arc::new(AtomicBool::new(false));
@@ -612,7 +612,7 @@ mod tests {
 
         executor
             .spin(SpinOptions::default().until_promise_resolved(promise))
-            .unwrap();
+            .first_error()?;
         assert!(callback_ran.load(Ordering::Acquire));
 
         // Getting both existing and non existing parameters, missing one should return
@@ -635,7 +635,7 @@ mod tests {
 
         executor
             .spin(SpinOptions::default().until_promise_resolved(promise))
-            .unwrap();
+            .first_error()?;
         assert!(callback_ran.load(Ordering::Acquire));
 
         // Set a mix of existing, non existing, dynamic and out of range parameters
@@ -737,7 +737,7 @@ mod tests {
 
         executor
             .spin(SpinOptions::default().until_promise_resolved(promise))
-            .unwrap();
+            .first_error()?;
         assert!(callback_ran.load(Ordering::Acquire));
 
         // Set the node to use undeclared parameters and try to set one
@@ -768,7 +768,7 @@ mod tests {
 
         executor
             .spin(SpinOptions::default().until_promise_resolved(promise))
-            .unwrap();
+            .first_error()?;
         assert!(callback_ran.load(Ordering::Acquire));
 
         // With set_parameters_atomically, if one fails all should fail
@@ -789,7 +789,7 @@ mod tests {
 
         executor
             .spin(SpinOptions::default().until_promise_resolved(promise))
-            .unwrap();
+            .first_error()?;
         assert!(callback_ran.load(Ordering::Acquire));
 
         Ok(())
@@ -815,7 +815,7 @@ mod tests {
 
         executor
             .spin(SpinOptions::default().until_promise_resolved(promise))
-            .unwrap();
+            .first_error()?;
 
         // Describe all parameters
         let request = DescribeParameters_Request {
@@ -864,7 +864,7 @@ mod tests {
 
         executor
             .spin(SpinOptions::default().until_promise_resolved(promise))
-            .unwrap();
+            .first_error()?;
         assert!(callback_ran.load(Ordering::Acquire));
 
         // If a describe parameters request is sent with a non existing parameter, an empty
@@ -890,7 +890,7 @@ mod tests {
 
         executor
             .spin(SpinOptions::default().until_promise_resolved(promise))
-            .unwrap();
+            .first_error()?;
         assert!(callback_ran.load(Ordering::Acquire));
 
         // Get all parameter types, including a non existing one that will be NOT_SET
@@ -920,7 +920,7 @@ mod tests {
 
         executor
             .spin(SpinOptions::default().until_promise_resolved(promise))
-            .unwrap();
+            .first_error()?;
         assert!(callback_ran.load(Ordering::Acquire));
 
         Ok(())

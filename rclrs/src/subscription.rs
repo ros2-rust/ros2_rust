@@ -121,7 +121,7 @@ where
         options: impl Into<SubscriptionOptions<'a>>,
         callback: AnySubscriptionCallback<T, Scope::Payload>,
         node_handle: &Arc<NodeHandle>,
-        commands: WorkerCommands,
+        commands: &Arc<WorkerCommands>,
     ) -> Result<Arc<Self>, RclrsError> {
         let SubscriptionOptions { topic, qos } = options.into();
         let callback = Arc::new(Mutex::new(callback));
@@ -169,7 +169,7 @@ where
             Box::new(SubscriptionExecutable {
                 handle: Arc::clone(&handle),
                 callback: Arc::clone(&callback),
-                commands: commands.clone(),
+                commands: Arc::clone(commands),
             }),
             Some(Arc::clone(commands.get_guard_condition())),
         );
@@ -218,7 +218,7 @@ impl<'a, T: IntoPrimitiveOptions<'a>> From<T> for SubscriptionOptions<'a> {
 struct SubscriptionExecutable<T: Message, Payload> {
     handle: Arc<SubscriptionHandle>,
     callback: Arc<Mutex<AnySubscriptionCallback<T, Payload>>>,
-    commands: WorkerCommands,
+    commands: Arc<WorkerCommands>,
 }
 
 impl<T, Payload: 'static> RclPrimitive for SubscriptionExecutable<T, Payload>
