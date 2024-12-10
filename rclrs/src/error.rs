@@ -32,6 +32,9 @@ pub enum RclrsError {
     },
     /// It was attempted to add a waitable to a wait set twice.
     AlreadyAddedToWaitSet,
+    /// The guard condition that you tried to trigger is not owned by the
+    /// [`GuardCondition`][crate::GuardCondition] instance.
+    UnownedGuardCondition,
 }
 
 impl Display for RclrsError {
@@ -46,6 +49,12 @@ impl Display for RclrsError {
                 write!(
                     f,
                     "Could not add entity to wait set because it was already added to a wait set"
+                )
+            }
+            RclrsError::UnownedGuardCondition => {
+                write!(
+                    f,
+                    "Could not trigger guard condition because it is not owned by rclrs"
                 )
             }
         }
@@ -79,7 +88,10 @@ impl Error for RclrsError {
             RclrsError::RclError { msg, .. } => msg.as_ref().map(|e| e as &dyn Error),
             RclrsError::UnknownRclError { msg, .. } => msg.as_ref().map(|e| e as &dyn Error),
             RclrsError::StringContainsNul { err, .. } => Some(err).map(|e| e as &dyn Error),
+            // TODO(@mxgrey): We should provide source information for these other types.
+            // It should be easy to do this using the thiserror crate.
             RclrsError::AlreadyAddedToWaitSet => None,
+            RclrsError::UnownedGuardCondition => None,
         }
     }
 }
@@ -350,5 +362,32 @@ pub(crate) trait ToResult {
 impl ToResult for rcl_ret_t {
     fn ok(&self) -> Result<(), RclrsError> {
         to_rclrs_result(*self)
+    }
+}
+
+/// A helper trait to disregard timeouts as not an error.
+pub trait RclrsErrorFilter {
+    /// If the result was a timeout error, change it to `Ok(())`.
+    fn timeout_ok(self) -> Result<(), RclrsError>;
+}
+
+impl RclrsErrorFilter for Result<(), RclrsError> {
+    fn timeout_ok(self) -> Result<(), RclrsError> {
+        match self {
+            Ok(()) => Ok(()),
+            Err(err) => {
+                if matches!(
+                    err,
+                    RclrsError::RclError {
+                        code: RclReturnCode::Timeout,
+                        ..
+                    }
+                ) {
+                    return Ok(());
+                }
+
+                Err(err)
+            }
+        }
     }
 }

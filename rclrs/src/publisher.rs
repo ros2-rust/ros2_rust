@@ -11,7 +11,7 @@ use crate::{
     error::{RclrsError, ToResult},
     qos::QoSProfile,
     rcl_bindings::*,
-    NodeHandle, ENTITY_LIFECYCLE_MUTEX,
+    IntoPrimitiveOptions, NodeHandle, ENTITY_LIFECYCLE_MUTEX,
 };
 
 mod loaned_message;
@@ -45,15 +45,32 @@ impl Drop for PublisherHandle {
 
 /// Struct for sending messages of type `T`.
 ///
+/// Create a publisher using [`Node::create_publisher`][1].
+///
 /// Multiple publishers can be created for the same topic, in different nodes or the same node.
+/// A clone of a `Publisher` will refer to the same publisher instance as the original.
+/// The underlying instance is tied to [`PublisherState`] which implements the [`Publisher`] API.
 ///
 /// The underlying RMW will decide on the concrete delivery mechanism (network stack, shared
 /// memory, or intraprocess).
 ///
-/// Sending messages does not require calling [`spin`][1] on the publisher's node.
+/// Sending messages does not require the node's executor to [spin][2].
 ///
-/// [1]: crate::spin
-pub struct Publisher<T>
+/// [1]: crate::NodeState::create_publisher
+/// [2]: crate::Executor::spin
+pub type Publisher<T> = Arc<PublisherState<T>>;
+
+/// The inner state of a [`Publisher`].
+///
+/// This is public so that you can choose to create a [`Weak`][1] reference to it
+/// if you want to be able to refer to a [`Publisher`] in a non-owning way. It is
+/// generally recommended to manage the `PublisherState` inside of an [`Arc`],
+/// and [`Publisher`] is provided as a convenience alias for that.
+///
+/// The public API of the [`Publisher`] type is implemented via `PublisherState`.
+///
+/// [1]: std::sync::Weak
+pub struct PublisherState<T>
 where
     T: Message,
 {
@@ -66,26 +83,26 @@ where
 
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
 // they are running in. Therefore, this type can be safely sent to another thread.
-unsafe impl<T> Send for Publisher<T> where T: Message {}
+unsafe impl<T> Send for PublisherState<T> where T: Message {}
 // SAFETY: The type_support_ptr prevents the default Sync impl.
 // rosidl_message_type_support_t is a read-only type without interior mutability.
-unsafe impl<T> Sync for Publisher<T> where T: Message {}
+unsafe impl<T> Sync for PublisherState<T> where T: Message {}
 
-impl<T> Publisher<T>
+impl<T> PublisherState<T>
 where
     T: Message,
 {
     /// Creates a new `Publisher`.
     ///
     /// Node and namespace changes are always applied _before_ topic remapping.
-    pub(crate) fn new(
+    pub(crate) fn create<'a>(
         node_handle: Arc<NodeHandle>,
-        topic: &str,
-        qos: QoSProfile,
-    ) -> Result<Self, RclrsError>
+        options: impl Into<PublisherOptions<'a>>,
+    ) -> Result<Arc<Self>, RclrsError>
     where
         T: Message,
     {
+        let PublisherOptions { topic, qos } = options.into();
         // SAFETY: Getting a zero-initialized value is always safe.
         let mut rcl_publisher = unsafe { rcl_get_zero_initialized_publisher() };
         let type_support_ptr =
@@ -120,14 +137,14 @@ where
             }
         }
 
-        Ok(Self {
+        Ok(Arc::new(Self {
             type_support_ptr,
             message: PhantomData,
             handle: PublisherHandle {
                 rcl_publisher: Mutex::new(rcl_publisher),
                 node_handle,
             },
-        })
+        }))
     }
 
     /// Returns the topic name of the publisher.
@@ -179,7 +196,7 @@ where
     }
 }
 
-impl<T> Publisher<T>
+impl<T> PublisherState<T>
 where
     T: RmwMessage,
 {
@@ -236,7 +253,39 @@ where
     }
 }
 
-/// Convenience trait for [`Publisher::publish`].
+/// `PublisherOptions` are used by [`Node::create_publisher`][1] to initialize
+/// a [`Publisher`].
+///
+/// [1]: crate::Node::create_publisher
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub struct PublisherOptions<'a> {
+    /// The topic name for the publisher.
+    pub topic: &'a str,
+    /// The quality of service settings for the publisher.
+    pub qos: QoSProfile,
+}
+
+impl<'a> PublisherOptions<'a> {
+    /// Initialize a new [`PublisherOptions`] with default settings.
+    pub fn new(topic: &'a str) -> Self {
+        Self {
+            topic,
+            qos: QoSProfile::topics_default(),
+        }
+    }
+}
+
+impl<'a, T: IntoPrimitiveOptions<'a>> From<T> for PublisherOptions<'a> {
+    fn from(value: T) -> Self {
+        let primitive = value.into_primitive_options();
+        let mut options = Self::new(primitive.name);
+        primitive.apply(&mut options.qos);
+        options
+    }
+}
+
+/// Convenience trait for [`PublisherState::publish`].
 pub trait MessageCow<'a, T: Message> {
     /// Wrap the owned or borrowed message in a `Cow`.
     fn into_cow(self) -> Cow<'a, T>;
@@ -267,7 +316,7 @@ mod tests {
 
     #[test]
     fn test_publishers() -> Result<(), RclrsError> {
-        use crate::{TopicEndpointInfo, QOS_PROFILE_SYSTEM_DEFAULT};
+        use crate::TopicEndpointInfo;
         use test_msgs::msg;
 
         let namespace = "/test_publishers_graph";
@@ -275,16 +324,15 @@ mod tests {
 
         let node_1_empty_publisher = graph
             .node1
-            .create_publisher::<msg::Empty>("graph_test_topic_1", QOS_PROFILE_SYSTEM_DEFAULT)?;
+            .create_publisher::<msg::Empty>("graph_test_topic_1")?;
         let topic1 = node_1_empty_publisher.topic_name();
-        let node_1_basic_types_publisher = graph.node1.create_publisher::<msg::BasicTypes>(
-            "graph_test_topic_2",
-            QOS_PROFILE_SYSTEM_DEFAULT,
-        )?;
+        let node_1_basic_types_publisher = graph
+            .node1
+            .create_publisher::<msg::BasicTypes>("graph_test_topic_2")?;
         let topic2 = node_1_basic_types_publisher.topic_name();
         let node_2_default_publisher = graph
             .node2
-            .create_publisher::<msg::Defaults>("graph_test_topic_3", QOS_PROFILE_SYSTEM_DEFAULT)?;
+            .create_publisher::<msg::Defaults>("graph_test_topic_3")?;
         let topic3 = node_2_default_publisher.topic_name();
 
         std::thread::sleep(std::time::Duration::from_millis(100));

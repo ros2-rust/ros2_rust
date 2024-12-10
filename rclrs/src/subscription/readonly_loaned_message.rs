@@ -1,8 +1,8 @@
-use std::ops::Deref;
+use std::{ops::Deref, sync::Arc};
 
 use rosidl_runtime_rs::Message;
 
-use crate::{rcl_bindings::*, Subscription, ToResult};
+use crate::{rcl_bindings::*, subscription::SubscriptionHandle, ToResult};
 
 /// A message that is owned by the middleware, loaned out for reading.
 ///
@@ -14,15 +14,15 @@ use crate::{rcl_bindings::*, Subscription, ToResult};
 /// subscription callbacks.
 ///
 /// The loan is returned by dropping the `ReadOnlyLoanedMessage`.
-pub struct ReadOnlyLoanedMessage<'a, T>
+pub struct ReadOnlyLoanedMessage<T>
 where
     T: Message,
 {
     pub(super) msg_ptr: *const T::RmwMsg,
-    pub(super) subscription: &'a Subscription<T>,
+    pub(super) handle: Arc<SubscriptionHandle>,
 }
 
-impl<T> Deref for ReadOnlyLoanedMessage<'_, T>
+impl<T> Deref for ReadOnlyLoanedMessage<T>
 where
     T: Message,
 {
@@ -32,14 +32,14 @@ where
     }
 }
 
-impl<T> Drop for ReadOnlyLoanedMessage<'_, T>
+impl<T> Drop for ReadOnlyLoanedMessage<T>
 where
     T: Message,
 {
     fn drop(&mut self) {
         unsafe {
             rcl_return_loaned_message_from_subscription(
-                &*self.subscription.handle.lock(),
+                &*self.handle.lock(),
                 self.msg_ptr as *mut _,
             )
             .ok()
@@ -50,9 +50,9 @@ where
 
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
 // they are running in. Therefore, this type can be safely sent to another thread.
-unsafe impl<T> Send for ReadOnlyLoanedMessage<'_, T> where T: Message {}
+unsafe impl<T> Send for ReadOnlyLoanedMessage<T> where T: Message {}
 // SAFETY: This type has no interior mutability, in fact it has no mutability at all.
-unsafe impl<T> Sync for ReadOnlyLoanedMessage<'_, T> where T: Message {}
+unsafe impl<T> Sync for ReadOnlyLoanedMessage<T> where T: Message {}
 
 #[cfg(test)]
 mod tests {
