@@ -21,7 +21,7 @@ fn main() {
         native_options,
         Box::new(|cc| {
             install_image_loaders(&cc.egui_ctx);
-            Ok(Box::new(MyEguiApp::new(cc)))
+            Box::new(MyEguiApp::new(cc))
         }),
     );
 }
