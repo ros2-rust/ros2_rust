@@ -2,7 +2,7 @@ use rosidl_runtime_rs::Message;
 
 use crate::{
     subscription::SubscriptionHandle,
-    error::ToResult, rcl_bindings::*, ExecutorCommands, RclReturnCode, RclrsError,
+    error::ToResult, rcl_bindings::*, WorkerCommands, RclReturnCode, RclrsError,
     ReadOnlyLoanedMessage, MessageInfo, NodeSubscriptionCallback, WorkerSubscriptionCallback,
 };
 
@@ -21,7 +21,7 @@ impl<T: Message, Payload: 'static> AnySubscriptionCallback<T, Payload> {
         &mut self,
         handle: &Arc<SubscriptionHandle>,
         payload: &mut dyn Any,
-        commands: &Arc<ExecutorCommands>,
+        commands: &WorkerCommands,
     ) -> Result<(), RclrsError> {
         match self {
             Self::Node(node) => node.execute(handle, commands),

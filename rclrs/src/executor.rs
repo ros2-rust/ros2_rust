@@ -122,7 +122,7 @@ impl Executor {
 /// while the executor is spinning.
 pub struct ExecutorCommands {
     context: Context,
-    channel: Box<dyn ExecutorChannel>,
+    channel: Arc<dyn ExecutorChannel>,
     halt_spinning: Arc<AtomicBool>,
     wakeup_wait_set: Arc<GuardCondition>,
 }
@@ -216,31 +216,60 @@ impl ExecutorCommands {
     pub(crate) fn get_guard_condition(&self) -> &Arc<GuardCondition> {
         &self.wakeup_wait_set
     }
+
+    pub(crate) fn as_worker_commands(&self) -> WorkerCommands {
+        WorkerCommands::new(Arc::clone(&self.channel).as_worker_channel())
+    }
+}
+
+#[derive(Clone)]
+pub(crate) struct WorkerCommands {
+    channel: Arc<dyn WorkerChannel>,
+}
+
+impl WorkerCommands {
+    pub(crate) fn new(channel: Arc<dyn WorkerChannel>) -> Self {
+        Self { channel }
+    }
+
+    pub(crate) fn add_to_wait_set(&self, waitable: Waitable) {
+        self.channel.add_to_waitset(waitable);
+    }
+
+    pub(crate) fn run<F>(&self, f: F)
+    where
+        F: 'static + Future<Output = ()> + Send,
+    {
+        self.channel.add_async_task(Box::pin(f));
+    }
 }
 
 pub trait WorkerChannel: Send + Sync {
+    /// Add a new item for the executor to run.
+    fn add_async_task(&self, f: BoxFuture<'static, ()>);
+
     /// Add new entities to the waitset of the executor.
     fn add_to_waitset(&self, new_entity: Waitable);
+
+    /// Allows an ExecutorChannel to be cast to a WorkerChannel.
+    fn as_worker_channel(self: Arc<Self>) -> Arc<dyn WorkerChannel + 'static>;
 }
 
 /// This trait defines the interface for passing new items into an executor to
 /// run.
 pub trait ExecutorChannel: WorkerChannel {
-    /// Add a new item for the executor to run.
-    fn add_async_task(&self, f: BoxFuture<'static, ()>);
-
     /// Create a new channel specific to a worker whose payload must be
     /// initialized with the given function.
-    fn create_worker_channel(
+    fn create_worker(
         &self,
         payload: Box<dyn Any + Send>,
-    ) -> Box<dyn ExecutorChannel>;
+    ) -> Arc<dyn WorkerChannel>;
 }
 
 /// This trait defines the interface for having an executor run.
 pub trait ExecutorRuntime: Send {
     /// Get a channel that can add new items for the executor to run.
-    fn default_channel(&self) -> Box<dyn ExecutorChannel>;
+    fn default_channel(&self) -> Arc<dyn ExecutorChannel>;
 
     /// Tell the runtime to spin while blocking any further execution until the
     /// spinning is complete.

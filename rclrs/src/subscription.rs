@@ -7,7 +7,7 @@ use std::{
 use rosidl_runtime_rs::{Message, RmwMessage};
 
 use crate::{
-    error::ToResult, qos::QoSProfile, rcl_bindings::*, ExecutorCommands, IntoPrimitiveOptions,
+    error::ToResult, qos::QoSProfile, rcl_bindings::*, WorkerCommands, IntoPrimitiveOptions,
     Node, NodeHandle, RclPrimitive, RclPrimitiveHandle, RclPrimitiveKind, RclrsError, Waitable,
     WaitableLifecycle, Worker, ENTITY_LIFECYCLE_MUTEX,
 };
@@ -121,7 +121,7 @@ where
         options: impl Into<SubscriptionOptions<'a>>,
         callback: AnySubscriptionCallback<T, Scope::Payload>,
         node_handle: &Arc<NodeHandle>,
-        commands: &Arc<ExecutorCommands>,
+        commands: WorkerCommands,
     ) -> Result<Arc<Self>, RclrsError> {
         let SubscriptionOptions { topic, qos } = options.into();
         let callback = Arc::new(Mutex::new(callback));
@@ -169,7 +169,7 @@ where
             Box::new(SubscriptionExecutable {
                 handle: Arc::clone(&handle),
                 callback: Arc::clone(&callback),
-                commands: Arc::clone(commands),
+                commands: commands.clone(),
             }),
             Some(Arc::clone(commands.get_guard_condition())),
         );
@@ -218,7 +218,7 @@ impl<'a, T: IntoPrimitiveOptions<'a>> From<T> for SubscriptionOptions<'a> {
 struct SubscriptionExecutable<T: Message, Payload> {
     handle: Arc<SubscriptionHandle>,
     callback: Arc<Mutex<AnySubscriptionCallback<T, Payload>>>,
-    commands: Arc<ExecutorCommands>,
+    commands: WorkerCommands,
 }
 
 impl<T, Payload: 'static> RclPrimitive for SubscriptionExecutable<T, Payload>

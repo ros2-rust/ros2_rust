@@ -1,10 +1,7 @@
 use rosidl_runtime_rs::Message;
 
 use super::{MessageInfo, SubscriptionHandle};
-use crate::{
-    ExecutorCommands, RclReturnCode, RclrsError,
-    ReadOnlyLoanedMessage, RclrsErrorFilter,
-};
+use crate::{WorkerCommands, RclrsError, ReadOnlyLoanedMessage, RclrsErrorFilter};
 
 use futures::future::BoxFuture;
 
@@ -40,33 +37,33 @@ impl<T: Message> NodeSubscriptionCallback<T> {
     pub(super) fn execute(
         &mut self,
         handle: &Arc<SubscriptionHandle>,
-        commands: &Arc<ExecutorCommands>,
+        commands: &WorkerCommands,
     ) -> Result<(), RclrsError> {
         let mut evaluate = || {
             match self {
                 NodeSubscriptionCallback::Regular(cb) => {
                     let (msg, _) = handle.take::<T>()?;
-                    let _ = commands.run(cb(msg));
+                    commands.run(cb(msg));
                 }
                 NodeSubscriptionCallback::RegularWithMessageInfo(cb) => {
                     let (msg, msg_info) = handle.take::<T>()?;
-                    let _ = commands.run(cb(msg, msg_info));
+                    commands.run(cb(msg, msg_info));
                 }
                 NodeSubscriptionCallback::Boxed(cb) => {
                     let (msg, _) = handle.take_boxed::<T>()?;
-                    let _ = commands.run(cb(msg));
+                    commands.run(cb(msg));
                 }
                 NodeSubscriptionCallback::BoxedWithMessageInfo(cb) => {
                     let (msg, msg_info) = handle.take_boxed::<T>()?;
-                    let _ = commands.run(cb(msg, msg_info));
+                    commands.run(cb(msg, msg_info));
                 }
                 NodeSubscriptionCallback::Loaned(cb) => {
                     let (msg, _) = handle.take_loaned::<T>()?;
-                    let _ = commands.run(cb(msg));
+                    commands.run(cb(msg));
                 }
                 NodeSubscriptionCallback::LoanedWithMessageInfo(cb) => {
                     let (msg, msg_info) = handle.take_loaned::<T>()?;
-                    let _ = commands.run(cb(msg, msg_info));
+                    commands.run(cb(msg, msg_info));
                 }
             }
             Ok(())
