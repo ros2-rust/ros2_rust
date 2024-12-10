@@ -9,7 +9,7 @@ use rosidl_runtime_rs::Sequence;
 use super::ParameterMap;
 use crate::{
     parameter::{DeclaredValue, ParameterKind, ParameterStorage},
-    rmw_request_id_t, Node, RclrsError, Service,
+    rmw_request_id_t, Node, RclrsError, Service, QOS_PROFILE_SERVICES_DEFAULT,
 };
 
 // The variables only exist to keep a strong reference to the services and are technically unused.
@@ -248,6 +248,7 @@ impl ParameterService {
         let map = parameter_map.clone();
         let describe_parameters_service = node.create_service(
             &(fqn.clone() + "/describe_parameters"),
+            QOS_PROFILE_SERVICES_DEFAULT,
             move |_req_id: &rmw_request_id_t, req: DescribeParameters_Request| {
                 let map = map.lock().unwrap();
                 describe_parameters(req, &map)
@@ -256,6 +257,7 @@ impl ParameterService {
         let map = parameter_map.clone();
         let get_parameter_types_service = node.create_service(
             &(fqn.clone() + "/get_parameter_types"),
+            QOS_PROFILE_SERVICES_DEFAULT,
             move |_req_id: &rmw_request_id_t, req: GetParameterTypes_Request| {
                 let map = map.lock().unwrap();
                 get_parameter_types(req, &map)
@@ -264,6 +266,7 @@ impl ParameterService {
         let map = parameter_map.clone();
         let get_parameters_service = node.create_service(
             &(fqn.clone() + "/get_parameters"),
+            QOS_PROFILE_SERVICES_DEFAULT,
             move |_req_id: &rmw_request_id_t, req: GetParameters_Request| {
                 let map = map.lock().unwrap();
                 get_parameters(req, &map)
@@ -272,6 +275,7 @@ impl ParameterService {
         let map = parameter_map.clone();
         let list_parameters_service = node.create_service(
             &(fqn.clone() + "/list_parameters"),
+            QOS_PROFILE_SERVICES_DEFAULT,
             move |_req_id: &rmw_request_id_t, req: ListParameters_Request| {
                 let map = map.lock().unwrap();
                 list_parameters(req, &map)
@@ -280,6 +284,7 @@ impl ParameterService {
         let map = parameter_map.clone();
         let set_parameters_service = node.create_service(
             &(fqn.clone() + "/set_parameters"),
+            QOS_PROFILE_SERVICES_DEFAULT,
             move |_req_id: &rmw_request_id_t, req: SetParameters_Request| {
                 let mut map = map.lock().unwrap();
                 set_parameters(req, &mut map)
@@ -287,6 +292,7 @@ impl ParameterService {
         )?;
         let set_parameters_atomically_service = node.create_service(
             &(fqn.clone() + "/set_parameters_atomically"),
+            QOS_PROFILE_SERVICES_DEFAULT,
             move |_req_id: &rmw_request_id_t, req: SetParametersAtomically_Request| {
                 let mut map = parameter_map.lock().unwrap();
                 set_parameters_atomically(req, &mut map)
@@ -313,7 +319,7 @@ mod tests {
             srv::rmw::*,
         },
         Context, MandatoryParameter, Node, NodeBuilder, ParameterRange, ParameterValue, RclrsError,
-        ReadOnlyParameter,
+        ReadOnlyParameter, QOS_PROFILE_SERVICES_DEFAULT,
     };
     use rosidl_runtime_rs::{seq, Sequence};
     use std::sync::{Arc, RwLock};
@@ -431,7 +437,10 @@ mod tests {
     async fn test_list_parameters_service() -> Result<(), RclrsError> {
         let context = Context::new([]).unwrap();
         let (node, client) = construct_test_nodes(&context, "list");
-        let list_client = client.create_client::<ListParameters>("/list/node/list_parameters")?;
+        let list_client = client.create_client::<ListParameters>(
+            "/list/node/list_parameters",
+            QOS_PROFILE_SERVICES_DEFAULT,
+        )?;
 
         try_until_timeout(|| list_client.service_is_ready().unwrap())
             .await
@@ -566,10 +575,18 @@ mod tests {
     async fn test_get_set_parameters_service() -> Result<(), RclrsError> {
         let context = Context::new([]).unwrap();
         let (node, client) = construct_test_nodes(&context, "get_set");
-        let get_client = client.create_client::<GetParameters>("/get_set/node/get_parameters")?;
-        let set_client = client.create_client::<SetParameters>("/get_set/node/set_parameters")?;
-        let set_atomically_client = client
-            .create_client::<SetParametersAtomically>("/get_set/node/set_parameters_atomically")?;
+        let get_client = client.create_client::<GetParameters>(
+            "/get_set/node/get_parameters",
+            QOS_PROFILE_SERVICES_DEFAULT,
+        )?;
+        let set_client = client.create_client::<SetParameters>(
+            "/get_set/node/set_parameters",
+            QOS_PROFILE_SERVICES_DEFAULT,
+        )?;
+        let set_atomically_client = client.create_client::<SetParametersAtomically>(
+            "/get_set/node/set_parameters_atomically",
+            QOS_PROFILE_SERVICES_DEFAULT,
+        )?;
 
         try_until_timeout(|| {
             get_client.service_is_ready().unwrap()
@@ -799,10 +816,14 @@ mod tests {
     async fn test_describe_get_types_parameters_service() -> Result<(), RclrsError> {
         let context = Context::new([]).unwrap();
         let (node, client) = construct_test_nodes(&context, "describe");
-        let describe_client =
-            client.create_client::<DescribeParameters>("/describe/node/describe_parameters")?;
-        let get_types_client =
-            client.create_client::<GetParameterTypes>("/describe/node/get_parameter_types")?;
+        let describe_client = client.create_client::<DescribeParameters>(
+            "/describe/node/describe_parameters",
+            QOS_PROFILE_SERVICES_DEFAULT,
+        )?;
+        let get_types_client = client.create_client::<GetParameterTypes>(
+            "/describe/node/get_parameter_types",
+            QOS_PROFILE_SERVICES_DEFAULT,
+        )?;
 
         try_until_timeout(|| {
             describe_client.service_is_ready().unwrap()
