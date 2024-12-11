@@ -20,112 +20,76 @@ where
     fn into_async_subscription_callback(self) -> AnySubscriptionCallback<T, ()>;
 }
 
-// We need one implementation per arity. This was inspired by Bevy's systems.
-impl<T, A0, Out, Func> IntoAsyncSubscriptionCallback<T, (A0,)> for Func
-where
-    T: Message,
-    (A0,): SubscriptionAsyncArgs<T, Func>,
-    Out: Future<Output = ()> + Send + 'static,
-    Func: FnMut(A0) -> Out + Send + 'static,
-{
-    fn into_async_subscription_callback(self) -> AnySubscriptionCallback<T, ()> {
-        <(A0,) as SubscriptionAsyncArgs<T, Func>>::into_any_callback(self)
-    }
-}
-
-impl<T, A0, A1, Out, Func> IntoAsyncSubscriptionCallback<T, (A0, A1)> for Func
-where
-    T: Message,
-    (A0, A1): SubscriptionAsyncArgs<T, Func>,
-    Out: Future<Output = ()> + Send + 'static,
-    Func: FnMut(A0, A1) -> Out + Send + 'static,
-{
-    fn into_async_subscription_callback(self) -> AnySubscriptionCallback<T, ()> {
-        <(A0, A1) as SubscriptionAsyncArgs<T, Func>>::into_any_callback(self)
-    }
-}
-
-/// Helper trait for SubscriptionCallback.
-///
-/// For each tuple of args, it provides conversion from a function with
-/// these args to the correct enum variant.
-trait SubscriptionAsyncArgs<T, Func>
-where
-    T: Message,
-{
-    fn into_any_callback(func: Func) -> AnySubscriptionCallback<T, ()>;
-}
-
-impl<T, Out, Func> SubscriptionAsyncArgs<T, Func> for (T,)
+impl<T, Out, Func> IntoAsyncSubscriptionCallback<T, (T,)> for Func
 where
     T: Message,
     Func: FnMut(T) -> Out + Send + 'static,
     Out: Future<Output = ()> + Send + 'static,
 {
-    fn into_any_callback(mut func: Func) -> AnySubscriptionCallback<T, ()> {
-        NodeSubscriptionCallback::Regular(Box::new(move |message| Box::pin(func(message)))).into()
+    fn into_async_subscription_callback(mut self) -> AnySubscriptionCallback<T, ()> {
+        NodeSubscriptionCallback::Regular(Box::new(move |message| Box::pin(self(message)))).into()
     }
 }
 
-impl<T, Out, Func> SubscriptionAsyncArgs<T, Func> for (T, MessageInfo)
+impl<T, Out, Func> IntoAsyncSubscriptionCallback<T, (T, MessageInfo)> for Func
 where
     T: Message,
     Func: FnMut(T, MessageInfo) -> Out + Send + 'static,
     Out: Future<Output = ()> + Send + 'static,
 {
-    fn into_any_callback(mut func: Func) -> AnySubscriptionCallback<T, ()> {
+    fn into_async_subscription_callback(mut self) -> AnySubscriptionCallback<T, ()> {
         NodeSubscriptionCallback::RegularWithMessageInfo(Box::new(move |message, info| {
-            Box::pin(func(message, info))
+            Box::pin(self(message, info))
         }))
         .into()
     }
 }
 
-impl<T, Out, Func> SubscriptionAsyncArgs<T, Func> for (Box<T>,)
+impl<T, Out, Func> IntoAsyncSubscriptionCallback<T, (Box<T>,)> for Func
 where
     T: Message,
     Func: FnMut(Box<T>) -> Out + Send + 'static,
     Out: Future<Output = ()> + Send + 'static,
 {
-    fn into_any_callback(mut func: Func) -> AnySubscriptionCallback<T, ()> {
-        NodeSubscriptionCallback::Boxed(Box::new(move |message| Box::pin(func(message)))).into()
+    fn into_async_subscription_callback(mut self) -> AnySubscriptionCallback<T, ()> {
+        NodeSubscriptionCallback::Boxed(Box::new(move |message| Box::pin(self(message)))).into()
     }
 }
 
-impl<T, F, Func> SubscriptionAsyncArgs<T, Func> for (Box<T>, MessageInfo)
+impl<T, F, Func> IntoAsyncSubscriptionCallback<T, (Box<T>, MessageInfo)> for Func
 where
     T: Message,
     Func: FnMut(Box<T>, MessageInfo) -> F + Send + 'static,
     F: Future<Output = ()> + Send + 'static,
 {
-    fn into_any_callback(mut func: Func) -> AnySubscriptionCallback<T, ()> {
+    fn into_async_subscription_callback(mut self) -> AnySubscriptionCallback<T, ()> {
         NodeSubscriptionCallback::BoxedWithMessageInfo(Box::new(move |message, info| {
-            Box::pin(func(message, info))
+            Box::pin(self(message, info))
         }))
         .into()
     }
 }
 
-impl<T, F, Func> SubscriptionAsyncArgs<T, Func> for (ReadOnlyLoanedMessage<T>,)
+impl<T, F, Func> IntoAsyncSubscriptionCallback<T, (ReadOnlyLoanedMessage<T>,)> for Func
 where
     T: Message,
     Func: FnMut(ReadOnlyLoanedMessage<T>) -> F + Send + 'static,
     F: Future<Output = ()> + Send + 'static,
 {
-    fn into_any_callback(mut func: Func) -> AnySubscriptionCallback<T, ()> {
-        NodeSubscriptionCallback::Loaned(Box::new(move |message| Box::pin(func(message)))).into()
+    fn into_async_subscription_callback(mut self) -> AnySubscriptionCallback<T, ()> {
+        NodeSubscriptionCallback::Loaned(Box::new(move |message| Box::pin(self(message)))).into()
     }
 }
 
-impl<T, F, Func> SubscriptionAsyncArgs<T, Func> for (ReadOnlyLoanedMessage<T>, MessageInfo)
+impl<T, F, Func> IntoAsyncSubscriptionCallback<T, (ReadOnlyLoanedMessage<T>, MessageInfo)> for Func
 where
     T: Message,
     Func: FnMut(ReadOnlyLoanedMessage<T>, MessageInfo) -> F + Send + 'static,
     F: Future<Output = ()> + Send + 'static,
 {
-    fn into_any_callback(mut func: Func) -> AnySubscriptionCallback<T, ()> {
+    fn into_async_subscription_callback(mut self) -> AnySubscriptionCallback<T, ()> {
         NodeSubscriptionCallback::LoanedWithMessageInfo(Box::new(move |message, info| {
-            Box::pin(func(message, info))
+            Box::pin(self(message, info))
         }))
         .into()
     }

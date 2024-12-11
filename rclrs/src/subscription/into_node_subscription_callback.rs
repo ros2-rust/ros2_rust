@@ -19,43 +19,13 @@ where
     fn into_node_subscription_callback(self) -> AnySubscriptionCallback<T, ()>;
 }
 
-// We need one implementation per arity. This was inspired by Bevy's systems.
-impl<T, A0, Func> IntoNodeSubscriptionCallback<T, (A0,)> for Func
-where
-    T: Message,
-    (A0,): NodeSubscriptionArgs<T, Func>,
-    Func: Fn(A0) + Send + Sync + 'static,
-{
-    fn into_node_subscription_callback(self) -> AnySubscriptionCallback<T, ()> {
-        <(A0,) as NodeSubscriptionArgs<T, Func>>::into_any_callback(self)
-    }
-}
-
-impl<T, A0, A1, Func> IntoNodeSubscriptionCallback<T, (A0, A1)> for Func
-where
-    T: Message,
-    (A0, A1): NodeSubscriptionArgs<T, Func>,
-    Func: Fn(A0, A1) + Clone + Send + 'static,
-{
-    fn into_node_subscription_callback(self) -> AnySubscriptionCallback<T, ()> {
-        <(A0, A1) as NodeSubscriptionArgs<T, Func>>::into_any_callback(self)
-    }
-}
-
-trait NodeSubscriptionArgs<T, Func>
-where
-    T: Message,
-{
-    fn into_any_callback(func: Func) -> AnySubscriptionCallback<T, ()>;
-}
-
-impl<T, Func> NodeSubscriptionArgs<T, Func> for (T,)
+impl<T, Func> IntoNodeSubscriptionCallback<T, (T,)> for Func
 where
     T: Message,
     Func: Fn(T) + Send + Sync + 'static,
 {
-    fn into_any_callback(func: Func) -> AnySubscriptionCallback<T, ()> {
-        let func = Arc::new(func);
+    fn into_node_subscription_callback(self) -> AnySubscriptionCallback<T, ()> {
+        let func = Arc::new(self);
         NodeSubscriptionCallback::Regular(Box::new(move |message| {
             let f = Arc::clone(&func);
             Box::pin(async move {
@@ -66,13 +36,13 @@ where
     }
 }
 
-impl<T, Func> NodeSubscriptionArgs<T, Func> for (T, MessageInfo)
+impl<T, Func> IntoNodeSubscriptionCallback<T, (T, MessageInfo)> for Func
 where
     T: Message,
     Func: Fn(T, MessageInfo) + Send + Sync + 'static,
 {
-    fn into_any_callback(func: Func) -> AnySubscriptionCallback<T, ()> {
-        let func = Arc::new(func);
+    fn into_node_subscription_callback(self) -> AnySubscriptionCallback<T, ()> {
+        let func = Arc::new(self);
         NodeSubscriptionCallback::RegularWithMessageInfo(Box::new(move |message, info| {
             let f = Arc::clone(&func);
             Box::pin(async move {
@@ -83,13 +53,13 @@ where
     }
 }
 
-impl<T, Func> NodeSubscriptionArgs<T, Func> for (Box<T>,)
+impl<T, Func> IntoNodeSubscriptionCallback<T, (Box<T>,)> for Func
 where
     T: Message,
     Func: Fn(Box<T>) + Send + Sync + 'static,
 {
-    fn into_any_callback(func: Func) -> AnySubscriptionCallback<T, ()> {
-        let func = Arc::new(func);
+    fn into_node_subscription_callback(self) -> AnySubscriptionCallback<T, ()> {
+        let func = Arc::new(self);
         NodeSubscriptionCallback::Boxed(Box::new(move |message| {
             let f = Arc::clone(&func);
             Box::pin(async move {
@@ -100,13 +70,13 @@ where
     }
 }
 
-impl<T, Func> NodeSubscriptionArgs<T, Func> for (Box<T>, MessageInfo)
+impl<T, Func> IntoNodeSubscriptionCallback<T, (Box<T>, MessageInfo)> for Func
 where
     T: Message,
     Func: Fn(Box<T>, MessageInfo) + Send + Sync + 'static,
 {
-    fn into_any_callback(func: Func) -> AnySubscriptionCallback<T, ()> {
-        let func = Arc::new(func);
+    fn into_node_subscription_callback(self) -> AnySubscriptionCallback<T, ()> {
+        let func = Arc::new(self);
         NodeSubscriptionCallback::BoxedWithMessageInfo(Box::new(move |message, info| {
             let f = Arc::clone(&func);
             Box::pin(async move {
@@ -117,13 +87,13 @@ where
     }
 }
 
-impl<T, Func> NodeSubscriptionArgs<T, Func> for (ReadOnlyLoanedMessage<T>,)
+impl<T, Func> IntoNodeSubscriptionCallback<T, (ReadOnlyLoanedMessage<T>,)> for Func
 where
     T: Message,
     Func: Fn(ReadOnlyLoanedMessage<T>) + Send + Sync + 'static,
 {
-    fn into_any_callback(func: Func) -> AnySubscriptionCallback<T, ()> {
-        let func = Arc::new(func);
+    fn into_node_subscription_callback(self) -> AnySubscriptionCallback<T, ()> {
+        let func = Arc::new(self);
         NodeSubscriptionCallback::Loaned(Box::new(move |message| {
             let f = Arc::clone(&func);
             Box::pin(async move {
@@ -134,13 +104,13 @@ where
     }
 }
 
-impl<T, Func> NodeSubscriptionArgs<T, Func> for (ReadOnlyLoanedMessage<T>, MessageInfo)
+impl<T, Func> IntoNodeSubscriptionCallback<T, (ReadOnlyLoanedMessage<T>, MessageInfo)> for Func
 where
     T: Message,
     Func: Fn(ReadOnlyLoanedMessage<T>, MessageInfo) + Send + Sync + 'static,
 {
-    fn into_any_callback(func: Func) -> AnySubscriptionCallback<T, ()> {
-        let func = Arc::new(func);
+    fn into_node_subscription_callback(self) -> AnySubscriptionCallback<T, ()> {
+        let func = Arc::new(self);
         NodeSubscriptionCallback::LoanedWithMessageInfo(Box::new(move |message, info| {
             let f = Arc::clone(&func);
             Box::pin(async move {
