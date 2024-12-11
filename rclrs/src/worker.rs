@@ -86,7 +86,7 @@ impl<Payload: 'static + Send> WorkerState<Payload> {
         (receiver, notice_receiver)
     }
 
-
+    /// Listen to activity that happens with this worker's primitives.
     pub fn listen<F>(&self, mut f: F) -> ActivityListener<Payload>
     where
         F: FnMut(&mut Payload) + 'static + Send + Sync,
@@ -227,6 +227,15 @@ impl<Payload> IntoWorkerOptions<Payload> for Payload {
     }
 }
 
+/// `ActivityListener` is used to watch the activity of the primitives of a [`Worker`].
+///
+/// Each listener will be triggered each time a primitive is active on the `Worker`.
+/// Listeners will not be triggered when something other than a primitive modifies
+/// the payload, which can happen through [interior mutability][1] or by one of
+/// the other listeners, so this is not a sure-fire way to track changes in the
+/// payload.
+///
+/// [1]: https://doc.rust-lang.org/book/ch15-05-interior-mutability.html
 pub struct ActivityListener<Payload> {
     callback: Arc<Mutex<Option<ActivityListenerCallback>>>,
     _ignore: std::marker::PhantomData<Payload>,
@@ -242,6 +251,7 @@ impl<Payload> Clone for ActivityListener<Payload> {
 }
 
 impl<Payload: 'static + Send + Sync> ActivityListener<Payload> {
+    /// Change the callback for this listener.
     pub fn set_callback<F>(&self, mut f: F)
     where
         F: FnMut(&mut Payload) + 'static + Send + Sync,
@@ -259,16 +269,25 @@ impl<Payload: 'static + Send + Sync> ActivityListener<Payload> {
         *self.callback.lock().unwrap() = Some(ActivityListenerCallback::Listen(f));
     }
 
+    /// Change the listener to be inert but remain alive.
+    pub fn set_inert(&self) {
+        *self.callback.lock().unwrap() = Some(ActivityListenerCallback::Inert);
+    }
+
     fn new(callback: ActivityListenerCallback) -> Self {
         let callback = Arc::new(Mutex::new(Some(callback)));
         Self { callback, _ignore: Default::default() }
     }
 }
 
+/// This type is used by executor runtimes to keep track of listeners.
 pub type WeakActivityListener = Weak<Mutex<Option<ActivityListenerCallback>>>;
 
+/// Enum for the different types of callbacks that a listener may have
 pub enum ActivityListenerCallback {
+    /// The listener is listening
     Listen(Box<dyn FnMut(&mut dyn Any) + 'static + Send>),
+    /// The listener is inert
     Inert,
 }
 
