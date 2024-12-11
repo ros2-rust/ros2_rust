@@ -96,8 +96,8 @@ where
     ///
     /// Node and namespace changes are always applied _before_ topic remapping.
     pub(crate) fn create<'a>(
-        node_handle: Arc<NodeHandle>,
         options: impl Into<PublisherOptions<'a>>,
+        node_handle: Arc<NodeHandle>,
     ) -> Result<Arc<Self>, RclrsError>
     where
         T: Message,

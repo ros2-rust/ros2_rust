@@ -24,6 +24,9 @@ pub use into_async_subscription_callback::*;
 mod into_node_subscription_callback;
 pub use into_node_subscription_callback::*;
 
+mod into_worker_subscription_callback;
+pub use into_worker_subscription_callback::*;
+
 mod subscription_scope;
 pub use subscription_scope::*;
 
@@ -71,7 +74,7 @@ pub type WorkerSubscription<T, Payload> = Arc<SubscriptionState<T, Worker<Payloa
 pub struct SubscriptionState<T, Scope>
 where
     T: Message,
-    Scope: SubscriptionScope<T>,
+    Scope: SubscriptionScope,
 {
     /// This handle is used to access the data that rcl holds for this subscription.
     handle: Arc<SubscriptionHandle>,
@@ -89,8 +92,7 @@ where
 impl<T, Scope> SubscriptionState<T, Scope>
 where
     T: Message,
-    Scope: SubscriptionScope<T>,
-    Scope::Payload: 'static,
+    Scope: SubscriptionScope,
 {
     /// Returns the topic name of the subscription.
     ///
@@ -105,15 +107,6 @@ where
         }
         .to_string_lossy()
         .into_owned()
-    }
-
-    /// Get an API to set the callback for this subscription.
-    ///
-    /// If your scope is `Node` then this will be [`SetNodeSubscriptionCallback`].
-    ///
-    /// If your scope is `Worker<Payload>` then this will be [`SetWorkerSubscriptionCallback`].
-    pub fn callback(&self) -> Scope::SetCallback<'_> {
-        Scope::set_callback(self.callback.lock().unwrap())
     }
 
     /// Used by [`Node`][crate::Node] to create a new subscription.
@@ -180,6 +173,54 @@ where
             callback,
             lifecycle,
         }))
+    }
+}
+
+impl<T: Message> SubscriptionState<T, Node> {
+    /// Set the callback of this subscription, replacing the callback that was
+    /// previously set.
+    ///
+    /// This can be used even if the subscription previously used an async callback.
+    ///
+    /// This can only be called when the `Scope` of the [`SubscriptionState`] is [`Node`].
+    /// If the `Scope` is [`Worker<Payload>`] then use [`Self::set_worker_callback`] instead.
+    pub fn set_callback<Args>(
+        &self,
+        callback: impl IntoNodeSubscriptionCallback<T, Args>,
+    ) {
+        let callback = callback.into_node_subscription_callback();
+        *self.callback.lock().unwrap() = callback;
+    }
+
+    /// Set the callback of this subscription, replacing the callback that was
+    /// previously set.
+    ///
+    /// This can be used even if the subscription previously used a non-async callback.
+    ///
+    /// This can only be called when the `Scope` of the [`SubscriptionState`] is [`Node`].
+    /// If the `Scope` is [`Worker<Payload>`] then use [`Self::set_worker_callback`] instead.
+    pub fn set_async_callback<Args>(
+        &self,
+        callback: impl IntoAsyncSubscriptionCallback<T, Args>,
+    ) {
+        let callback = callback.into_async_subscription_callback();
+        *self.callback.lock().unwrap() = callback;
+    }
+}
+
+impl<T: Message, Payload: 'static + Send> SubscriptionState<T, Worker<Payload>> {
+    /// Set the callback of this subscription, replacing the callback that was
+    /// previously set.
+    ///
+    /// This can only be called when the `Scope` of the [`SubscriptionState`] is [`Worker`].
+    /// If the `Scope` is [`Node`] then use [`Self::set_callback`] or
+    /// [`Self::set_async_callback`] instead.
+    pub fn set_worker_callback<Args>(
+        &self,
+        callback: impl IntoWorkerSubscriptionCallback<T, Payload, Args>,
+    ) {
+        let callback = callback.into_worker_subscription_callback();
+        *self.callback.lock().unwrap() = callback;
     }
 }
 

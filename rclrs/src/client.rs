@@ -185,8 +185,8 @@ where
 
     /// Creates a new client.
     pub(crate) fn create<'a>(
-        node: &Node,
         options: impl Into<ClientOptions<'a>>,
+        node: &Node,
     ) -> Result<Arc<Self>, RclrsError>
     // This uses pub(crate) visibility to avoid instantiating this struct outside
     // [`Node::create_client`], see the struct's documentation for the rationale
@@ -231,12 +231,12 @@ where
             }
         }
 
+        let commands = node.commands().async_worker_commands();
         let handle = Arc::new(ClientHandle {
             rcl_client: Mutex::new(rcl_client),
             node: Arc::clone(&node),
         });
 
-        let commands = node.commands();
         let board = Arc::new(Mutex::new(ClientRequestBoard::new()));
 
         let (waitable, lifecycle) = Waitable::new(
@@ -300,7 +300,7 @@ impl<T> RclPrimitive for ClientExecutable<T>
 where
     T: rosidl_runtime_rs::Service,
 {
-    unsafe fn execute(&mut self, payload: &mut dyn Any) -> Result<(), RclrsError> {
+    unsafe fn execute(&mut self, _: &mut dyn Any) -> Result<(), RclrsError> {
         self.board.lock().unwrap().execute(&self.handle)
     }
 

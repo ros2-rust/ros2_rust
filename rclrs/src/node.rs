@@ -31,8 +31,8 @@ use rosidl_runtime_rs::Message;
 use crate::{
     rcl_bindings::*, Client, ClientOptions, ClientState, Clock, ContextHandle, ExecutorCommands,
     LogParams, Logger, ParameterBuilder, ParameterInterface, ParameterVariant, Parameters, Promise,
-    Publisher, PublisherOptions, PublisherState, RclrsError, Service, ServiceAsyncCallback,
-    ServiceCallback, ServiceOptions, ServiceState, Subscription, IntoAsyncSubscriptionCallback,
+    Publisher, PublisherOptions, PublisherState, RclrsError, Service, IntoAsyncServiceCallback,
+    IntoNodeServiceCallback, ServiceOptions, ServiceState, Subscription, IntoAsyncSubscriptionCallback,
     IntoNodeSubscriptionCallback, SubscriptionOptions, SubscriptionState, TimeSource, ToLogParams,
     ENTITY_LIFECYCLE_MUTEX,
 };
@@ -278,7 +278,7 @@ impl NodeState {
     where
         T: rosidl_runtime_rs::Service,
     {
-        ClientState::<T>::create(self, options)
+        ClientState::<T>::create(options, self)
     }
 
     /// Creates a [`Publisher`][1].
@@ -322,7 +322,7 @@ impl NodeState {
     where
         T: Message,
     {
-        PublisherState::<T>::create(Arc::clone(&self.handle), options)
+        PublisherState::<T>::create(options, Arc::clone(&self.handle))
     }
 
     /// Creates a [`Service`] with an ordinary callback.
@@ -385,16 +385,16 @@ impl NodeState {
     pub fn create_service<'a, T, Args>(
         &self,
         options: impl Into<ServiceOptions<'a>>,
-        callback: impl ServiceCallback<T, Args>,
+        callback: impl IntoNodeServiceCallback<T, Args>,
     ) -> Result<Service<T>, RclrsError>
     where
         T: rosidl_runtime_rs::Service,
     {
-        ServiceState::<T>::create(
+        ServiceState::<T, Node>::create(
             options,
-            callback.into_service_callback(),
+            callback.into_node_service_callback(),
             &self.handle,
-            &self.commands,
+            self.commands.async_worker_commands(),
         )
     }
 
@@ -420,16 +420,16 @@ impl NodeState {
     pub fn create_async_service<'a, T, Args>(
         &self,
         options: impl Into<ServiceOptions<'a>>,
-        callback: impl ServiceAsyncCallback<T, Args>,
+        callback: impl IntoAsyncServiceCallback<T, Args>,
     ) -> Result<Service<T>, RclrsError>
     where
         T: rosidl_runtime_rs::Service,
     {
-        ServiceState::<T>::create(
+        ServiceState::<T, Node>::create(
             options,
-            callback.into_service_async_callback(),
+            callback.into_async_service_callback(),
             &self.handle,
-            &self.commands,
+            self.commands.async_worker_commands(),
         )
     }
 
@@ -501,7 +501,7 @@ impl NodeState {
             options,
             callback.into_node_subscription_callback(),
             &self.handle,
-            self.commands.node_worker_commands(),
+            self.commands.async_worker_commands(),
         )
     }
 
@@ -536,7 +536,7 @@ impl NodeState {
             options,
             callback.into_async_subscription_callback(),
             &self.handle,
-            self.commands.node_worker_commands(),
+            self.commands.async_worker_commands(),
         )
     }
 

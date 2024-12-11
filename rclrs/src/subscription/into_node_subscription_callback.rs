@@ -7,7 +7,7 @@ use crate::{
 use std::sync::Arc;
 
 /// A trait for regular callbacks of subscriptions.
-///
+//
 // TODO(@mxgrey): Add a description of what callbacks signatures are supported
 pub trait IntoNodeSubscriptionCallback<T, Args>: Send + 'static
 where

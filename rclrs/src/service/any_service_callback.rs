@@ -1,169 +1,45 @@
 use rosidl_runtime_rs::{Message, Service};
 
-use crate::{
-    error::ToResult,
-    rcl_bindings::{
-        rcl_send_response, rcl_take_request, rcl_take_request_with_info, rmw_request_id_t,
-        rmw_service_info_t,
-    },
-    ExecutorCommands, MessageCow, RclReturnCode, RclrsError, RequestId, ServiceHandle, ServiceInfo,
-};
+use crate::{WorkerCommands, RclrsError, ServiceHandle, NodeServiceCallback, WorkerServiceCallback};
 
-use futures::future::BoxFuture;
-
-use std::sync::Arc;
+use std::{any::Any, sync::Arc};
 
 /// An enum capturing the various possible function signatures for service callbacks.
-pub enum AnyServiceCallback<T>
+pub enum AnyServiceCallback<T, Payload>
 where
     T: Service,
+    Payload: 'static + Send,
 {
-    /// A callback that only takes in the request value
-    OnlyRequest(Box<dyn FnMut(T::Request) -> BoxFuture<'static, T::Response> + Send>),
-    /// A callback that takes in the request value and the ID of the request
-    WithId(Box<dyn FnMut(T::Request, RequestId) -> BoxFuture<'static, T::Response> + Send>),
-    /// A callback that takes in the request value and all available
-    WithInfo(Box<dyn FnMut(T::Request, ServiceInfo) -> BoxFuture<'static, T::Response> + Send>),
+    Node(NodeServiceCallback<T>),
+    Worker(WorkerServiceCallback<T, Payload>),
 }
 
-impl<T: Service> AnyServiceCallback<T> {
+impl<T, Payload> AnyServiceCallback<T, Payload>
+where
+    T: Service,
+    Payload: 'static + Send,
+{
     pub(super) fn execute(
         &mut self,
         handle: &Arc<ServiceHandle>,
-        commands: &Arc<ExecutorCommands>,
+        payload: &mut dyn Any,
+        commands: &Arc<WorkerCommands>,
     ) -> Result<(), RclrsError> {
-        let mut evaluate = || {
-            match self {
-                AnyServiceCallback::OnlyRequest(cb) => {
-                    let (msg, mut rmw_request_id) = Self::take_request(handle)?;
-                    let handle = Arc::clone(&handle);
-                    let response = cb(msg);
-                    let _ = commands.run(async move {
-                        if let Err(err) = Self::send_response(&handle, &mut rmw_request_id, response.await) {
-                            // TODO(@mxgrey): Use logging instead when it becomes available
-                            eprintln!("Error while sending service response for {rmw_request_id:?}: {err}");
-                        }
-                    });
-                }
-                AnyServiceCallback::WithId(cb) => {
-                    let (msg, mut rmw_request_id) = Self::take_request(handle)?;
-                    let request_id = RequestId::from_rmw_request_id(&rmw_request_id);
-                    let handle = Arc::clone(&handle);
-                    let response = cb(msg, request_id);
-                    let _ = commands.run(async move {
-                        if let Err(err) = Self::send_response(&handle, &mut rmw_request_id, response.await) {
-                            // TODO(@mxgrey): Use logging instead when it becomes available
-                            eprintln!("Error while sending service response for {rmw_request_id:?}: {err}");
-                        }
-                    });
-                }
-                AnyServiceCallback::WithInfo(cb) => {
-                    let (msg, rmw_service_info) = Self::take_request_with_info(handle)?;
-                    let mut rmw_request_id = rmw_request_id_t {
-                        writer_guid: rmw_service_info.request_id.writer_guid,
-                        sequence_number: rmw_service_info.request_id.sequence_number,
-                    };
-                    let service_info = ServiceInfo::from_rmw_service_info(&rmw_service_info);
-                    let handle = Arc::clone(&handle);
-                    let response = cb(msg, service_info);
-                    let _ = commands.run(async move {
-                        if let Err(err) = Self::send_response(&handle, &mut rmw_request_id, response.await) {
-                            // TODO(@mxgrey): Use logging instead when it becomes available
-                            eprintln!("Error while sending service response for {rmw_request_id:?}: {err}");
-                        }
-                    });
-                }
-            }
-
-            Ok(())
-        };
-
-        match evaluate() {
-            Err(RclrsError::RclError {
-                code: RclReturnCode::ServiceTakeFailed,
-                ..
-            }) => {
-                // Spurious wakeup - this may happen even when a waitlist indicated that this
-                // subscription was ready, so it shouldn't be an error.
-                Ok(())
-            }
-            other => other,
+        match self {
+            Self::Node(node) => node.execute(Arc::clone(&handle), commands),
+            Self::Worker(worker) => worker.execute(handle, payload),
         }
     }
+}
 
-    /// Fetches a new request.
-    ///
-    /// When there is no new message, this will return a
-    /// [`ServiceTakeFailed`][1].
-    ///
-    /// [1]: crate::RclrsError
-    //
-    // ```text
-    // +---------------------+
-    // | rclrs::take_request |
-    // +----------+----------+
-    //            |
-    //            |
-    // +----------v----------+
-    // |  rcl_take_request   |
-    // +----------+----------+
-    //            |
-    //            |
-    // +----------v----------+
-    // |      rmw_take       |
-    // +---------------------+
-    // ```
-    fn take_request(handle: &ServiceHandle) -> Result<(T::Request, rmw_request_id_t), RclrsError> {
-        let mut request_id_out = RequestId::zero_initialized_rmw();
-        type RmwMsg<T> = <<T as Service>::Request as Message>::RmwMsg;
-        let mut request_out = RmwMsg::<T>::default();
-        let handle = &*handle.lock();
-        unsafe {
-            // SAFETY: The three pointers are valid and initialized
-            rcl_take_request(
-                handle,
-                &mut request_id_out,
-                &mut request_out as *mut RmwMsg<T> as *mut _,
-            )
-        }
-        .ok()?;
-        Ok((T::Request::from_rmw_message(request_out), request_id_out))
+impl<T: Service> From<NodeServiceCallback<T>> for AnyServiceCallback<T, ()> {
+    fn from(value: NodeServiceCallback<T>) -> Self {
+        AnyServiceCallback::Node(value)
     }
+}
 
-    /// Same as [`Self::take_request`] but includes additional info about the service
-    fn take_request_with_info(
-        handle: &ServiceHandle,
-    ) -> Result<(T::Request, rmw_service_info_t), RclrsError> {
-        let mut service_info_out = ServiceInfo::zero_initialized_rmw();
-        type RmwMsg<T> = <<T as Service>::Request as Message>::RmwMsg;
-        let mut request_out = RmwMsg::<T>::default();
-        let handle = &*handle.lock();
-        unsafe {
-            // SAFETY: The three pointers are valid and initialized
-            rcl_take_request_with_info(
-                handle,
-                &mut service_info_out,
-                &mut request_out as *mut RmwMsg<T> as *mut _,
-            )
-        }
-        .ok()?;
-        Ok((T::Request::from_rmw_message(request_out), service_info_out))
-    }
-
-    fn send_response(
-        handle: &Arc<ServiceHandle>,
-        request_id: &mut rmw_request_id_t,
-        response: T::Response,
-    ) -> Result<(), RclrsError> {
-        let rmw_message = <T::Response as Message>::into_rmw_message(response.into_cow());
-        let handle = &*handle.lock();
-        unsafe {
-            rcl_send_response(
-                handle,
-                request_id,
-                rmw_message.as_ref() as *const <T::Response as Message>::RmwMsg as *mut _,
-            )
-        }
-        .ok()
+impl<T: Service, Payload: 'static + Send> From<WorkerServiceCallback<T, Payload>> for AnyServiceCallback<T, Payload> {
+    fn from(value: WorkerServiceCallback<T, Payload>) -> Self {
+        AnyServiceCallback::Worker(value)
     }
 }

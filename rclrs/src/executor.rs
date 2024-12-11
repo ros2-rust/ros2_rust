@@ -91,7 +91,7 @@ impl Executor {
         E: 'static + ExecutorRuntime + Send,
     {
         let executor_channel = runtime.channel();
-        let node_worker_commands = ExecutorCommands::impl_create_worker_commands(
+        let async_worker_commands = ExecutorCommands::impl_create_worker_commands(
             &Context { handle: Arc::clone(&context) },
             &*executor_channel,
             Box::new(()),
@@ -103,7 +103,7 @@ impl Executor {
             },
             executor_channel,
             halt_spinning: Arc::new(AtomicBool::new(false)),
-            node_worker_commands,
+            async_worker_commands,
         });
 
         Self {
@@ -130,7 +130,7 @@ impl Executor {
 pub struct ExecutorCommands {
     context: Context,
     executor_channel: Arc<dyn ExecutorChannel>,
-    node_worker_commands: Arc<WorkerCommands>,
+    async_worker_commands: Arc<WorkerCommands>,
     halt_spinning: Arc<AtomicBool>,
 }
 
@@ -169,7 +169,7 @@ impl ExecutorCommands {
         F::Output: Send,
     {
         let (mut sender, receiver) = oneshot::channel();
-        self.node_worker_commands.channel.add_async_task(Box::pin(async move {
+        self.async_worker_commands.channel.add_async_task(Box::pin(async move {
             let cancellation = sender.cancellation();
             let output = match select(cancellation, std::pin::pin!(f)).await {
                 // The task was cancelled
@@ -204,7 +204,7 @@ impl ExecutorCommands {
         F::Output: Send,
     {
         let (sender, receiver) = oneshot::channel();
-        self.node_worker_commands.channel.add_async_task(Box::pin(async move {
+        self.async_worker_commands.channel.add_async_task(Box::pin(async move {
             sender.send(f.await).ok();
         }));
         receiver
@@ -216,7 +216,7 @@ impl ExecutorCommands {
     }
 
     pub(crate) fn add_to_wait_set(&self, waitable: Waitable) {
-        self.node_worker_commands.channel.add_to_waitset(waitable);
+        self.async_worker_commands.channel.add_to_waitset(waitable);
     }
 
     #[cfg(test)]
@@ -224,15 +224,15 @@ impl ExecutorCommands {
         self.executor_channel.wake_all_wait_sets();
     }
 
-    pub(crate) fn node_worker_commands(&self) -> &Arc<WorkerCommands> {
-        &self.node_worker_commands
+    pub(crate) fn async_worker_commands(&self) -> &Arc<WorkerCommands> {
+        &self.async_worker_commands
     }
 
     pub(crate) fn create_worker_commands(&self, payload: Box<dyn Any + Send>) -> Arc<WorkerCommands> {
         Self::impl_create_worker_commands(&self.context, &*self.executor_channel, payload)
     }
 
-    /// We separate out this impl function so that we can create the node worker
+    /// We separate out this impl function so that we can create the async worker
     /// before the [`ExecutorCommands`] is finished being constructed.
     fn impl_create_worker_commands(
         context: &Context,

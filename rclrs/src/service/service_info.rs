@@ -67,3 +67,12 @@ impl RequestId {
         }
     }
 }
+
+impl rmw_service_info_t {
+    pub(super) fn rmw_request_id(&self) -> rmw_request_id_t {
+        rmw_request_id_t {
+            writer_guid: self.request_id.writer_guid,
+            sequence_number: self.request_id.sequence_number,
+        }
+    }
+}
