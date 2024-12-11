@@ -1,4 +1,4 @@
-use rosidl_runtime_rs::{Message, Service};
+use rosidl_runtime_rs::Service;
 
 use crate::{WorkerCommands, RclrsError, ServiceHandle, NodeServiceCallback, WorkerServiceCallback};
 
@@ -10,7 +10,9 @@ where
     T: Service,
     Payload: 'static + Send,
 {
+    /// A callback in the Node scope
     Node(NodeServiceCallback<T>),
+    /// A callback in the worker scope
     Worker(WorkerServiceCallback<T, Payload>),
 }
 

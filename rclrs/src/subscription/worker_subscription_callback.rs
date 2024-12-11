@@ -2,7 +2,7 @@ use rosidl_runtime_rs::Message;
 
 use crate::{
     subscription::SubscriptionHandle, RclrsError,
-    ReadOnlyLoanedMessage, MessageInfo, AnySubscriptionCallback, RclrsErrorFilter,
+    ReadOnlyLoanedMessage, MessageInfo, RclrsErrorFilter,
 };
 
 use std::{
@@ -10,6 +10,12 @@ use std::{
     sync::Arc,
 };
 
+/// An enum capturing the various possible function signatures for subscription
+/// callbacks that can be used by a [`Worker`][crate::Worker].
+///
+/// The correct enum variant is deduced by the [`IntoWorkerSubscriptionCallback`][1] trait.
+///
+/// [1]: crate::IntoWorkerSubscriptionCallback
 pub enum WorkerSubscriptionCallback<T: Message, Payload> {
     /// A callback that only takes the payload and the message as arguments.
     Regular(Box<dyn FnMut(&mut Payload, T) + Send>),

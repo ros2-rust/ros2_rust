@@ -56,6 +56,9 @@ pub use worker_service_callback::*;
 ///
 pub type Service<T> = Arc<ServiceState<T, Node>>;
 
+/// Provide a [`Service`] that runs on a [`Worker`].
+///
+/// Create a worker service using [`Worker::create_service`].
 pub type WorkerService<T, Payload> = Arc<ServiceState<T, Worker<Payload>>>;
 
 /// The inner state of a [`Service`].

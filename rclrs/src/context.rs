@@ -68,6 +68,14 @@ pub struct Context {
     pub(crate) handle: Arc<ContextHandle>,
 }
 
+impl std::fmt::Debug for Context {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Context")
+            .field("handle", &self.handle.rcl_context.lock())
+            .finish()
+    }
+}
+
 /// This struct manages the lifetime and access to the `rcl_context_t`. It will also
 /// account for the lifetimes of any dependencies, if we need to add
 /// dependencies in the future (currently there are none). It is not strictly

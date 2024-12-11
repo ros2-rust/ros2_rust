@@ -4,6 +4,7 @@ use crate::{Node, Worker};
 /// well as what kind of callbacks can be used with it. Users should not implement
 /// this trait.
 pub trait ServiceScope {
+    /// What kind of payload should the worker hold for this scope.
     type Payload: 'static + Send;
 }
 

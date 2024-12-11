@@ -1,12 +1,8 @@
-use rosidl_runtime_rs::{Message, Service};
+use rosidl_runtime_rs::Service;
 
 use crate::{
-    error::ToResult,
-    rcl_bindings::{
-        rcl_send_response, rcl_take_request, rcl_take_request_with_info, rmw_request_id_t,
-        rmw_service_info_t,
-    },
-    WorkerCommands, MessageCow, RclReturnCode, RclrsError, RequestId, ServiceHandle, ServiceInfo,
+    rcl_bindings::rmw_request_id_t,
+    WorkerCommands, RclrsError, RequestId, ServiceHandle, ServiceInfo,
     log_error, ToLogParams, RclrsErrorFilter,
 };
 

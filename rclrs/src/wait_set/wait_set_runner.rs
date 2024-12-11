@@ -25,7 +25,7 @@ pub struct WaitSetRunner {
 
 /// These are the conditions used by the [`WaitSetRunner`] to determine when it
 /// needs to halt.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct WaitSetRunConditions {
     /// Only perform the next available work. This is similar to spin_once in
     /// rclcpp and rclpy.
@@ -67,6 +67,7 @@ impl WaitSetRunner {
         self.waitable_sender.clone()
     }
 
+    /// Get the guard condition associated with the wait set of this runner.
     pub fn guard_condition(&self) -> &Arc<GuardCondition> {
         &self.guard_condition
     }

@@ -21,6 +21,10 @@ use crate::{
     GuardCondition, ExecutorWorkerOptions,
 };
 
+static FAILED_TO_SEND_WORKER: &'static str =
+    "Failed to send the new runner. This should never happen. \
+    Please report this to the rclrs maintainers with a minimal reproducible example.";
+
 /// The implementation of this runtime is based off of the async Rust reference book:
 /// https://rust-lang.github.io/async-book/02_execution/04_executor.html
 ///
@@ -52,7 +56,14 @@ impl AllGuardConditions {
     fn trigger(&self) {
         self.inner.lock().unwrap().retain(|guard_condition| {
             if let Some(guard_condition) = guard_condition.upgrade() {
-                guard_condition.trigger();
+                if let Err(err) = guard_condition.trigger() {
+                    log_fatal!(
+                        "rclrs.executor.basic_executor",
+                        "Failed to trigger a guard condition. This should never happen. \
+                        Please report this to the rclrs maintainers with a minimal reproducible example. \
+                        Error: {err}",
+                    );
+                }
                 true
             } else {
                 false
@@ -61,7 +72,13 @@ impl AllGuardConditions {
     }
 
     fn push(&self, guard_condition: Weak<GuardCondition>) {
-        self.inner.lock().unwrap().push(guard_condition);
+        let mut inner = self.inner.lock().unwrap();
+        if inner.iter().find(|other| guard_condition.ptr_eq(other)).is_some() {
+            // This guard condition is already known
+            return;
+        }
+
+        inner.push(guard_condition);
     }
 }
 
@@ -81,10 +98,19 @@ impl ExecutorRuntime for BasicExecutorRuntime {
         // is returned to self. Therefore we create this blocking channel to
         // prevent the function from returning until the WaitSetRunner has been
         // re-obtained.
-        let (worker_sender, worker_receiver) = channel();
+        let (worker_result_sender, worker_result_receiver) = channel();
 
         // Use this atomic bool to recognize when we should stop spinning.
         let workers_finished = Arc::new(AtomicBool::new(false));
+
+        for runner in self.wait_set_runners.drain(..) {
+            if let Err(err) = self.new_worker_sender.unbounded_send(runner) {
+                log_fatal!(
+                    "rclrs.executor.basic_executor",
+                    "{FAILED_TO_SEND_WORKER} Error: {err}",
+                );
+            }
+        }
 
         // Use this to terminate the spinning once the wait set is finished.
         let workers_finished_clone = Arc::clone(&workers_finished);
@@ -95,7 +121,14 @@ impl ExecutorRuntime for BasicExecutorRuntime {
                 conditions,
             ).await;
 
-            worker_sender.send(workers);
+            if let Err(err) = worker_result_sender.send(workers) {
+                log_fatal!(
+                    "rclrs.executor.basic_executor",
+                    "Failed to send a runner result. This should never happen. \
+                    Please report this to the rclrs maintainers with a minimal \
+                    reproducible example. Error: {err}",
+                );
+            }
             workers_finished_clone.store(true, Ordering::Release);
         }));
 
@@ -116,7 +149,7 @@ impl ExecutorRuntime for BasicExecutorRuntime {
             }
         }
 
-        let (runners, new_worker_receiver, errors) = worker_receiver.recv().expect(
+        let (runners, new_worker_receiver, errors) = worker_result_receiver.recv().expect(
             "Basic executor failed to receive the WaitSetRunner at the end of its spinning. \
             This is a critical bug in rclrs. \
             Please report this bug to the maintainers of rclrs by providing a minimum reproduction of the problem."
@@ -190,7 +223,7 @@ impl BasicExecutorRuntime {
                     // TODO(@mxgrey): We should change this to a log when logging
                     // becomes available.
                     log_warn!(
-                        "basic_executor",
+                        "rclrs.executor.basic_executor",
                         "Sender for SpinOptions::until_promise_resolved was \
                         dropped, so the Promise will never be fulfilled. \
                         Spinning will stop now. Error message: {err}"
@@ -246,7 +279,14 @@ impl ExecutorChannel for BasicExecutorChannel {
     ) -> Arc<dyn WorkerChannel> {
         let runner = WaitSetRunner::new(options);
         let waitable_sender = runner.sender();
-        self.new_worker_sender.unbounded_send(runner);
+
+        if let Err(err) = self.new_worker_sender.unbounded_send(runner) {
+            log_fatal!(
+                "rclrs.executor.basic_executor",
+                "{FAILED_TO_SEND_WORKER} Error: {err}",
+            );
+        }
+
         Arc::new(BasicWorkerChannel {
             waitable_sender,
             task_sender: self.task_sender.clone(),
@@ -321,6 +361,26 @@ async fn manage_workers(
     let mut finished_runners: Vec<WaitSetRunner> = Vec::new();
     let mut errors: Vec<RclrsError> = Vec::new();
 
+    let add_runner = |
+        new_runner: Option<WaitSetRunner>,
+        active_runners: &mut Vec<_>,
+        finished_runners: &mut Vec<_>,
+    | {
+        if let Some(runner) = new_runner {
+            all_guard_conditions.push(Arc::downgrade(runner.guard_condition()));
+            if conditions.halt_spinning.load(Ordering::Acquire) {
+                finished_runners.push(runner);
+            } else {
+                active_runners.push(runner.run(conditions.clone()));
+            }
+        }
+    };
+
+    // We expect to start with at least one worker
+    let (initial_worker, new_worker_receiver) = new_workers.await;
+    new_workers = new_worker_receiver.into_future();
+    add_runner(initial_worker, &mut active_runners, &mut finished_runners);
+
     while !active_runners.is_empty() {
         let next_event = select(
             select_all(active_runners),
@@ -341,7 +401,7 @@ async fn manage_workers(
                     }
                     Err(_) => {
                         log_fatal!(
-                            "basic_executor",
+                            "rclrs.basic_executor",
                             "WaitSetRunner unexpectedly dropped. This should never happen. \
                             Please report this to the rclrs maintainers with a minimal \
                             reproducible example.",
@@ -353,21 +413,12 @@ async fn manage_workers(
                 new_workers = new_worker_stream;
             }
             Either::Right((
-                (new_worker, new_worker_stream),
+                (new_worker, new_worker_receiver),
                 remaining_workers,
             )) => {
                 active_runners = remaining_workers.into_inner();
-
-                if let Some(runner) = new_worker {
-                    all_guard_conditions.push(Arc::downgrade(runner.guard_condition()));
-                    if conditions.halt_spinning.load(Ordering::Acquire) {
-                        finished_runners.push(runner);
-                    } else {
-                        active_runners.push(runner.run(conditions.clone()));
-                    }
-                }
-
-                new_workers = new_worker_stream.into_future();
+                add_runner(new_worker, &mut active_runners, &mut finished_runners);
+                new_workers = new_worker_receiver.into_future();
             }
         }
     };

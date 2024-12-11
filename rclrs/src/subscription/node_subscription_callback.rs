@@ -7,13 +7,14 @@ use futures::future::BoxFuture;
 
 use std::sync::Arc;
 
-/// An enum capturing the various possible function signatures for subscription callbacks.
+/// An enum capturing the various possible function signatures for subscription callbacks
+/// that can be used with the async worker.
 ///
-/// The correct enum variant is deduced by the [`SubscriptionCallback`][1] or
-/// [`SubscriptionAsyncCallback`][2] trait.
+/// The correct enum variant is deduced by the [`IntoNodeSubscriptionCallback`][1] or
+/// [`IntoAsyncSubscriptionCallback`][2] trait.
 ///
-/// [1]: crate::SubscriptionCallback
-/// [2]: crate::SubscriptionAsyncCallback
+/// [1]: crate::IntoNodeSubscriptionCallback
+/// [2]: crate::IntoAsyncSubscriptionCallback
 pub enum NodeSubscriptionCallback<T: Message> {
     /// A callback with only the message as an argument.
     Regular(Box<dyn FnMut(T) -> BoxFuture<'static, ()> + Send>),

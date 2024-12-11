@@ -265,7 +265,13 @@ mod tests {
     fn guard_condition_in_wait_set_readies() -> Result<(), RclrsError> {
         let mut executor = Context::default().create_basic_executor();
 
-        executor.commands().wake_all_wait_sets();
+        // After spinning has started, wait a moment and then wake up the wait sets.
+        // TODO(@mxgrey): When we have timers, change this to use a one-shot timer instead.
+        let commands = executor.commands().clone();
+        std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(1));
+            commands.wake_all_wait_sets();
+        });
 
         let start = std::time::Instant::now();
         // This should stop spinning right away because the guard condition was

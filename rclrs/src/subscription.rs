@@ -59,6 +59,9 @@ pub use worker_subscription_callback::*;
 /// [4]: crate::Node
 pub type Subscription<T> = Arc<SubscriptionState<T, Node>>;
 
+/// A [`Subscription`] that runs on a [`Worker`].
+///
+/// Create a worker subscription using [`Worker::create_subscription`].
 pub type WorkerSubscription<T, Payload> = Arc<SubscriptionState<T, Worker<Payload>>>;
 
 /// The inner state of a [`Subscription`].

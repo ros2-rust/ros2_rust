@@ -6,6 +6,12 @@ use crate::{
 
 use std::{any::Any, sync::Arc};
 
+/// An enum capturing the various possible function signatures for service
+/// callbacks that can be used by a [`Worker`][crate::Worker].
+///
+/// The correct enum variant is deduced by the [`IntoWorkerServiceCallback`][1] trait.
+///
+/// [1]: crate::IntoWorkerServiceCallback
 pub enum WorkerServiceCallback<T, Payload>
 where
     T: Service,

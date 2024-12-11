@@ -7,8 +7,18 @@ use crate::{
 
 use std::{any::Any, sync::Arc};
 
+/// An enum capturing the various possible function signatures for subscription callbacks.
+///
+/// The correct enum variant is deduced by the [`IntoNodeSubscriptionCallback`][1],
+/// [`IntoAsyncSubscriptionCallback`][2], or [`IntoWorkerSubscriptionCallback`][3] trait.
+///
+/// [1]: crate::IntoNodeSubscriptionCallback
+/// [2]: crate::IntoAsyncSubscriptionCallback
+/// [3]: crate::IntoWorkerSubscriptionCallback
 pub enum AnySubscriptionCallback<T: Message, Payload> {
+    /// A callback in the Node scope
     Node(NodeSubscriptionCallback<T>),
+    /// A callback in the worker scope
     Worker(WorkerSubscriptionCallback<T, Payload>),
 }
 

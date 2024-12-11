@@ -304,6 +304,7 @@ pub trait WorkerChannel: Send + Sync {
 /// to create a new worker. Downstream users of rclrs should not be using this class
 /// unless you are implementing your own [`ExecutorRuntime`].
 pub struct ExecutorWorkerOptions {
+    /// The context that the executor is associated with
     pub context: Context,
     /// The payload that the worker provides to different primitives.
     pub payload: Box<dyn Any + Send>,
