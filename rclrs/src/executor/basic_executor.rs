@@ -18,7 +18,7 @@ use std::{
 use crate::{
     ExecutorChannel, ExecutorRuntime, SpinConditions, WorkerChannel,
     RclrsError, WaitSetRunner, WaitSetRunConditions, Waitable, log_warn, log_fatal, ToLogParams,
-    GuardCondition, ExecutorWorkerOptions,
+    GuardCondition, ExecutorWorkerOptions, PayloadTask,
 };
 
 static FAILED_TO_SEND_WORKER: &'static str =
@@ -278,7 +278,8 @@ impl ExecutorChannel for BasicExecutorChannel {
         options: ExecutorWorkerOptions,
     ) -> Arc<dyn WorkerChannel> {
         let runner = WaitSetRunner::new(options);
-        let waitable_sender = runner.sender();
+        let waitable_sender = runner.waitable_sender();
+        let payload_task_sender = runner.payload_task_sender();
 
         if let Err(err) = self.new_worker_sender.unbounded_send(runner) {
             log_fatal!(
@@ -290,6 +291,7 @@ impl ExecutorChannel for BasicExecutorChannel {
         Arc::new(BasicWorkerChannel {
             waitable_sender,
             task_sender: self.task_sender.clone(),
+            payload_task_sender,
         })
     }
 
@@ -301,6 +303,7 @@ impl ExecutorChannel for BasicExecutorChannel {
 struct BasicWorkerChannel {
     task_sender: TaskSender,
     waitable_sender: UnboundedSender<Waitable>,
+    payload_task_sender: UnboundedSender<PayloadTask>,
 }
 
 impl WorkerChannel for BasicWorkerChannel {
@@ -311,6 +314,10 @@ impl WorkerChannel for BasicWorkerChannel {
 
     fn add_async_task(&self, f: BoxFuture<'static, ()>) {
         self.task_sender.add_async_task(f);
+    }
+
+    fn send_payload_task(&self, f: PayloadTask) {
+        self.payload_task_sender.unbounded_send(f).ok();
     }
 }
 

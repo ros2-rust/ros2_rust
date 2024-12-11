@@ -44,27 +44,27 @@ impl<T: Message> NodeSubscriptionCallback<T> {
             match self {
                 NodeSubscriptionCallback::Regular(cb) => {
                     let (msg, _) = handle.take::<T>()?;
-                    commands.run(cb(msg));
+                    commands.run_async(cb(msg));
                 }
                 NodeSubscriptionCallback::RegularWithMessageInfo(cb) => {
                     let (msg, msg_info) = handle.take::<T>()?;
-                    commands.run(cb(msg, msg_info));
+                    commands.run_async(cb(msg, msg_info));
                 }
                 NodeSubscriptionCallback::Boxed(cb) => {
                     let (msg, _) = handle.take_boxed::<T>()?;
-                    commands.run(cb(msg));
+                    commands.run_async(cb(msg));
                 }
                 NodeSubscriptionCallback::BoxedWithMessageInfo(cb) => {
                     let (msg, msg_info) = handle.take_boxed::<T>()?;
-                    commands.run(cb(msg, msg_info));
+                    commands.run_async(cb(msg, msg_info));
                 }
                 NodeSubscriptionCallback::Loaned(cb) => {
                     let (msg, _) = handle.take_loaned::<T>()?;
-                    commands.run(cb(msg));
+                    commands.run_async(cb(msg));
                 }
                 NodeSubscriptionCallback::LoanedWithMessageInfo(cb) => {
                     let (msg, msg_info) = handle.take_loaned::<T>()?;
-                    commands.run(cb(msg, msg_info));
+                    commands.run_async(cb(msg, msg_info));
                 }
             }
             Ok(())

@@ -267,22 +267,19 @@ pub(crate) struct WorkerCommands {
 }
 
 impl WorkerCommands {
-    pub(crate) fn new(
-        channel: Arc<dyn WorkerChannel>,
-        wakeup_wait_set: Arc<GuardCondition>,
-    ) -> Self {
-        Self { channel, wakeup_wait_set }
-    }
-
     pub(crate) fn add_to_wait_set(&self, waitable: Waitable) {
         self.channel.add_to_waitset(waitable);
     }
 
-    pub(crate) fn run<F>(&self, f: F)
+    pub(crate) fn run_async<F>(&self, f: F)
     where
         F: 'static + Future<Output = ()> + Send,
     {
         self.channel.add_async_task(Box::pin(f));
+    }
+
+    pub(crate) fn run_on_payload(&self, task: PayloadTask) {
+        self.channel.send_payload_task(task);
     }
 
     /// Get a guard condition that can be used to wake up the wait set of the executor.
@@ -298,7 +295,13 @@ pub trait WorkerChannel: Send + Sync {
 
     /// Add new entities to the waitset of the executor.
     fn add_to_waitset(&self, new_entity: Waitable);
+
+    /// Send a one-time task for the worker to run with its payload.
+    fn send_payload_task(&self, f: PayloadTask);
 }
+
+/// Encapsulates a task that can operate on the payload of a worker
+pub type PayloadTask = Box<dyn FnOnce(&mut dyn Any) + Send>;
 
 /// This is constructed by [`ExecutorCommands`] and passed to the [`ExecutorRuntime`]
 /// to create a new worker. Downstream users of rclrs should not be using this class

@@ -34,7 +34,7 @@ impl<T: Service> NodeServiceCallback<T> {
                 NodeServiceCallback::OnlyRequest(cb) => {
                     let (msg, mut rmw_request_id) = handle.take_request::<T>()?;
                     let response = cb(msg);
-                    commands.run(async move {
+                    commands.run_async(async move {
                         if let Err(err) = handle.send_response::<T>(&mut rmw_request_id, response.await) {
                             log_service_send_error(&*handle, rmw_request_id, err);
                         }
@@ -44,7 +44,7 @@ impl<T: Service> NodeServiceCallback<T> {
                     let (msg, mut rmw_request_id) = handle.take_request::<T>()?;
                     let request_id = RequestId::from_rmw_request_id(&rmw_request_id);
                     let response = cb(msg, request_id);
-                    commands.run(async move {
+                    commands.run_async(async move {
                         if let Err(err) = handle.send_response::<T>(&mut rmw_request_id, response.await) {
                             log_service_send_error(&*handle, rmw_request_id, err);
                         }
@@ -55,7 +55,7 @@ impl<T: Service> NodeServiceCallback<T> {
                     let mut rmw_request_id = rmw_service_info.rmw_request_id();
                     let service_info = ServiceInfo::from_rmw_service_info(&rmw_service_info);
                     let response = cb(msg, service_info);
-                    commands.run(async move {
+                    commands.run_async(async move {
                         if let Err(err) = handle.send_response::<T>(&mut rmw_request_id, response.await) {
                             log_service_send_error(&*handle, rmw_request_id, err);
                         }

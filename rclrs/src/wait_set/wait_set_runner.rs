@@ -11,6 +11,7 @@ use std::{
 
 use crate::{
     Context, Promise, RclrsError, WaitSet, Waitable, GuardCondition, ExecutorWorkerOptions,
+    PayloadTask,
 };
 
 /// This is a utility class that executors can use to easily run and manage
@@ -19,6 +20,8 @@ pub struct WaitSetRunner {
     wait_set: WaitSet,
     waitable_sender: UnboundedSender<Waitable>,
     waitable_receiver: UnboundedReceiver<Waitable>,
+    task_sender: UnboundedSender<PayloadTask>,
+    task_receiver: UnboundedReceiver<PayloadTask>,
     guard_condition: Arc<GuardCondition>,
     payload: Box<dyn Any + Send>,
 }
@@ -49,6 +52,7 @@ impl WaitSetRunner {
         worker_options: ExecutorWorkerOptions,
     ) -> Self {
         let (waitable_sender, waitable_receiver) = unbounded();
+        let (task_sender, task_receiver) = unbounded();
         Self {
             wait_set: WaitSet::new(&worker_options.context)
                 // SAFETY: This only gets called from Context which ensures that
@@ -56,15 +60,23 @@ impl WaitSetRunner {
                 .expect("Unable to create wait set for basic executor"),
             waitable_sender,
             waitable_receiver,
+            task_sender,
+            task_receiver,
             guard_condition: worker_options.guard_condition,
             payload: worker_options.payload,
         }
     }
 
-    /// Get the sender that allows users to send new [`Waitables`] to this
+    /// Get the sender that allows users to send new [`Waitable`]s to this
     /// `WaitSetRunner`.
-    pub fn sender(&self) -> UnboundedSender<Waitable> {
+    pub fn waitable_sender(&self) -> UnboundedSender<Waitable> {
         self.waitable_sender.clone()
+    }
+
+    /// Get the sender that allows users to send new [`PayloadTask`]s to this
+    /// `WaitSetRunner`.
+    pub fn payload_task_sender(&self) -> UnboundedSender<PayloadTask> {
+        self.task_sender.clone()
     }
 
     /// Get the guard condition associated with the wait set of this runner.
@@ -109,6 +121,10 @@ impl WaitSetRunner {
             if !new_waitables.is_empty() {
                 // TODO(@mxgrey): Log any error here when logging becomes available
                 self.wait_set.add(new_waitables).ok();
+            }
+
+            while let Ok(Some(task)) = self.task_receiver.try_next() {
+                task(&mut self.payload);
             }
 
             if conditions.only_next_available_work && !first_spin {

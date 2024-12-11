@@ -34,7 +34,7 @@ use crate::{
     Publisher, PublisherOptions, PublisherState, RclrsError, Service, IntoAsyncServiceCallback,
     IntoNodeServiceCallback, ServiceOptions, ServiceState, Subscription, IntoAsyncSubscriptionCallback,
     IntoNodeSubscriptionCallback, SubscriptionOptions, SubscriptionState, TimeSource, ToLogParams,
-    ENTITY_LIFECYCLE_MUTEX,
+    ENTITY_LIFECYCLE_MUTEX, IntoWorkerOptions, Worker, WorkerState,
 };
 
 /// A processing unit that can communicate with other nodes.
@@ -234,6 +234,21 @@ impl NodeState {
     /// ```
     pub fn fully_qualified_name(&self) -> String {
         self.call_string_getter(rcl_node_get_fully_qualified_name)
+    }
+
+    /// Create a new [`Worker`] for this Node.
+    //
+    // TODO(@mxgrey): Write some usage examples.
+    pub fn create_worker<'a, Payload>(
+        &self,
+        options: impl IntoWorkerOptions<Payload>,
+    ) -> Worker<Payload>
+    where
+        Payload: 'static + Send,
+    {
+        let options = options.into_worker_options();
+        let commands = self.commands.create_worker_commands(Box::new(options.payload));
+        WorkerState::create(Arc::clone(&self.handle), commands)
     }
 
     /// Creates a [`Client`][1].
