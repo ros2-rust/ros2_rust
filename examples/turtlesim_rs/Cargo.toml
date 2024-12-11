@@ -18,6 +18,10 @@ path = "src/turtlesim.rs"
 name = "turtle_teleop_key"
 path = "tutorials/turtle_teleop_key.rs"
 
+[[bin]]
+name = "mimic"
+path = "tutorials/mimic.rs"
+
 [dependencies.rclrs]
 version = "0.4"
 
