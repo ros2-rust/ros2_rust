@@ -5,13 +5,13 @@ use futures::channel::{
 
 use std::{
     any::Any,
-    sync::{atomic::{AtomicBool, Ordering}, Arc},
+    sync::{atomic::{AtomicBool, Ordering}, Arc, Mutex},
     time::{Duration, Instant},
 };
 
 use crate::{
     Context, Promise, RclrsError, WaitSet, Waitable, GuardCondition, ExecutorWorkerOptions,
-    PayloadTask,
+    PayloadTask, WeakActivityListener, ActivityListenerCallback,
 };
 
 /// This is a utility class that executors can use to easily run and manage
@@ -22,6 +22,7 @@ pub struct WaitSetRunner {
     waitable_receiver: UnboundedReceiver<Waitable>,
     task_sender: UnboundedSender<PayloadTask>,
     task_receiver: UnboundedReceiver<PayloadTask>,
+    activity_listeners: Arc<Mutex<Vec<WeakActivityListener>>>,
     guard_condition: Arc<GuardCondition>,
     payload: Box<dyn Any + Send>,
 }
@@ -62,6 +63,7 @@ impl WaitSetRunner {
             waitable_receiver,
             task_sender,
             task_receiver,
+            activity_listeners: Arc::default(),
             guard_condition: worker_options.guard_condition,
             payload: worker_options.payload,
         }
@@ -77,6 +79,12 @@ impl WaitSetRunner {
     /// `WaitSetRunner`.
     pub fn payload_task_sender(&self) -> UnboundedSender<PayloadTask> {
         self.task_sender.clone()
+    }
+
+    /// Get the group of senders that will be triggered each time the wait set
+    /// is woken up. This is used
+    pub fn activity_listeners(&self) -> Arc<Mutex<Vec<WeakActivityListener>>> {
+        Arc::clone(&self.activity_listeners)
     }
 
     /// Get the guard condition associated with the wait set of this runner.
@@ -111,6 +119,7 @@ impl WaitSetRunner {
     /// will be triggered after the user-provided promise is resolved.
     pub fn run_blocking(&mut self, conditions: WaitSetRunConditions) -> Result<(), RclrsError> {
         let mut first_spin = true;
+        let mut listeners = Vec::new();
         loop {
             // TODO(@mxgrey): SmallVec would be better suited here if we are
             // okay with adding that as a dependency.
@@ -124,7 +133,7 @@ impl WaitSetRunner {
             }
 
             while let Ok(Some(task)) = self.task_receiver.try_next() {
-                task(&mut self.payload);
+                task(&mut *self.payload);
             }
 
             if conditions.only_next_available_work && !first_spin {
@@ -154,14 +163,57 @@ impl WaitSetRunner {
                 }
             });
 
+            let mut at_least_one = false;
             self.wait_set.wait(timeout, |executable| {
+                at_least_one = true;
                 // SAFETY: The user of WaitSetRunner is responsible for ensuring
                 // the runner has the same payload type as the executables that
                 // are given to it.
                 unsafe {
-                    executable.execute(&mut self.payload)
+                    executable.execute(&mut *self.payload)
                 }
             })?;
+
+            if at_least_one {
+                // We drain all listeners from activity_listeners to ensure that we
+                // don't get a deadlock from double-locking the activity_listeners
+                // mutex while executing one of the listeners. If the listener has
+                // access to the Worker<T> then it could attempt to add another
+                // listener while we have the vector locked, which would cause a
+                // deadlock.
+                listeners.extend(
+                    self.activity_listeners.lock().unwrap().drain(..)
+                        .filter_map(|x| x.upgrade())
+                );
+
+                for arc_listener in &listeners {
+                    // We pull the callback out of its mutex entirely and release
+                    // the lock on the mutex before executing the callback. Otherwise
+                    // if the callback triggers its own WorkerActivity to change the
+                    // callback then we would get a deadlock from double-locking the
+                    // mutex.
+                    let listener = { arc_listener.lock().unwrap().take() };
+                    if let Some(mut listener) = listener {
+                        match &mut listener {
+                            ActivityListenerCallback::Listen(listen) => {
+                                listen(&mut *self.payload);
+                            }
+                            ActivityListenerCallback::Inert => {
+                                // Do nothing
+                            }
+                        }
+
+                        // We replace instead of assigning in case the callback
+                        // inserted its own
+                        arc_listener.lock().unwrap().replace(listener);
+                    }
+                }
+
+                self.activity_listeners.lock().unwrap().extend(
+                    listeners.drain(..)
+                        .map(|x| Arc::downgrade(&x))
+                );
+            }
         }
     }
 }

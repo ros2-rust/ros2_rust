@@ -16,7 +16,7 @@ use std::{
 };
 
 use crate::{
-    ExecutorChannel, ExecutorRuntime, SpinConditions, WorkerChannel,
+    WeakActivityListener, ExecutorChannel, ExecutorRuntime, SpinConditions, WorkerChannel,
     RclrsError, WaitSetRunner, WaitSetRunConditions, Waitable, log_warn, log_fatal, ToLogParams,
     GuardCondition, ExecutorWorkerOptions, PayloadTask,
 };
@@ -280,6 +280,7 @@ impl ExecutorChannel for BasicExecutorChannel {
         let runner = WaitSetRunner::new(options);
         let waitable_sender = runner.waitable_sender();
         let payload_task_sender = runner.payload_task_sender();
+        let activity_listeners = runner.activity_listeners();
 
         if let Err(err) = self.new_worker_sender.unbounded_send(runner) {
             log_fatal!(
@@ -292,6 +293,7 @@ impl ExecutorChannel for BasicExecutorChannel {
             waitable_sender,
             task_sender: self.task_sender.clone(),
             payload_task_sender,
+            activity_listeners,
         })
     }
 
@@ -304,6 +306,7 @@ struct BasicWorkerChannel {
     task_sender: TaskSender,
     waitable_sender: UnboundedSender<Waitable>,
     payload_task_sender: UnboundedSender<PayloadTask>,
+    activity_listeners: Arc<Mutex<Vec<WeakActivityListener>>>,
 }
 
 impl WorkerChannel for BasicWorkerChannel {
@@ -318,6 +321,10 @@ impl WorkerChannel for BasicWorkerChannel {
 
     fn send_payload_task(&self, f: PayloadTask) {
         self.payload_task_sender.unbounded_send(f).ok();
+    }
+
+    fn add_activity_listener(&self, listener: WeakActivityListener) {
+        self.activity_listeners.lock().unwrap().push(listener);
     }
 }
 

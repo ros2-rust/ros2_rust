@@ -1,5 +1,5 @@
 use rosidl_runtime_rs::{Message, Service as IdlService};
-use std::{any::Any, sync::Arc};
+use std::{any::Any, sync::{Arc, Mutex, Weak}};
 use futures::channel::oneshot;
 use crate::{
     WorkerCommands, NodeHandle, ToLogParams, Promise, log_fatal,
@@ -49,22 +49,101 @@ impl<Payload: 'static + Send> WorkerState<Payload> {
         Out: 'static + Send,
     {
         let (sender, receiver) = oneshot::channel();
-        self.commands.run_on_payload(Box::new(move |any_payload: &mut dyn Any| {
+        self.commands.run_on_payload(Box::new(move |any_payload| {
             let Some(payload) = any_payload.downcast_mut::<Payload>() else {
-                log_fatal!(
-                    "rclrs.worker",
-                    "Received invalid payload from worker. Expected: {:?}, received: {:?}. \
-                    This should never happen. Please report this to the maintainers of rclrs \
-                    with a minimal reproducible example.",
-                    std::any::TypeId::of::<Payload>(),
-                    any_payload,
-                );
+                log_fatal!("rclrs.worker", "{}", Self::conversion_failure_message(any_payload));
                 return;
             };
 
             let out = f(payload);
             sender.send(out).ok();
         }));
+        receiver
+    }
+
+    /// Same as [`Self::run`] but you will additionally receive a notification
+    /// promise that will be triggered after the output is available. The
+    /// notification is suitable to be passed into [`until_promise_resolved`][1].
+    ///
+    /// [1]: SpinOptions::until_promise_resolved
+    pub fn run_with_notice<Out, F>(&self, f: F) -> (Promise<Out>, Promise<()>)
+    where
+        F: FnOnce(&mut Payload) -> Out + 'static + Send,
+        Out: 'static + Send,
+    {
+        let (notice_sender, notice_receiver) = oneshot::channel();
+        let (sender, receiver) = oneshot::channel();
+        self.commands.run_on_payload(Box::new(move |any_payload| {
+            let Some(payload) = any_payload.downcast_mut::<Payload>() else {
+                log_fatal!("rclrs.worker", "{}", Self::conversion_failure_message(any_payload));
+                return;
+            };
+
+            let out = f(payload);
+            sender.send(out).ok();
+            notice_sender.send(()).ok();
+        }));
+        (receiver, notice_receiver)
+    }
+
+
+    pub fn listen<F>(&self, mut f: F) -> ActivityListener<Payload>
+    where
+        F: FnMut(&mut Payload) + 'static + Send + Sync,
+        Payload: Sync,
+    {
+        let f = Box::new(move |any_payload: &mut dyn Any| {
+            let Some(payload) = any_payload.downcast_mut::<Payload>() else {
+                log_fatal!("rclrs.worker", "{}", Self::conversion_failure_message(any_payload));
+                return;
+            };
+
+            f(payload);
+        });
+
+        let listener = ActivityListener::new(ActivityListenerCallback::Listen(f));
+        self.commands.add_activity_listener(Arc::downgrade(&listener.callback));
+        listener
+    }
+
+    /// This will be triggered each time the worker has some activity until it
+    /// returns [`Some<Out>`] or until the [`Promise`] is droped.
+    ///
+    /// As long as the [`Promise`] is alive and the callback returns [`None`],
+    /// the listener will keep running.
+    pub fn listen_until<Out, F>(&self, mut f: F) -> Promise<Out>
+    where
+        F: FnMut(&mut Payload) -> Option<Out> + 'static + Send + Sync,
+        Out: 'static + Send + Sync,
+        Payload: Sync,
+    {
+        let (sender, receiver) = oneshot::channel();
+        let mut captured_sender = Some(sender);
+        let listener = ActivityListener::new(ActivityListenerCallback::Inert);
+
+        // We capture the listener so that its lifecycle is tied to the success
+        // of the callback.
+        let mut _captured_listener = Some(listener.clone());
+        listener.set_callback(move |payload| {
+            if let Some(sender) = captured_sender.take() {
+                if sender.is_canceled() {
+                    _captured_listener = None;
+                    return;
+                }
+
+                if let Some(out) = f(payload) {
+                    sender.send(out).ok();
+                    _captured_listener = None;
+                } else {
+                    captured_sender = Some(sender);
+                }
+            } else {
+                _captured_listener = None;
+            }
+        });
+
+        self.commands.add_activity_listener(Arc::downgrade(&listener.callback));
+
         receiver
     }
 
@@ -111,6 +190,16 @@ impl<Payload: 'static + Send> WorkerState<Payload> {
     ) -> Arc<Self> {
         Arc::new(Self { node, commands, _ignore: Default::default() })
     }
+
+    fn conversion_failure_message(any_payload: &mut dyn Any) -> String {
+        format!(
+            "Received invalid payload from worker. Expected: {:?}, received: {:?}. \
+            This should never happen. Please report this to the maintainers of rclrs \
+            with a minimal reproducible example.",
+            std::any::TypeId::of::<Payload>(),
+            any_payload,
+        )
+    }
 }
 
 /// Options used while creating a new [`Worker`].
@@ -135,5 +224,115 @@ pub trait IntoWorkerOptions<Payload> {
 impl<Payload> IntoWorkerOptions<Payload> for Payload {
     fn into_worker_options(self) -> WorkerOptions<Payload> {
         WorkerOptions::new(self)
+    }
+}
+
+pub struct ActivityListener<Payload> {
+    callback: Arc<Mutex<Option<ActivityListenerCallback>>>,
+    _ignore: std::marker::PhantomData<Payload>,
+}
+
+impl<Payload> Clone for ActivityListener<Payload> {
+    fn clone(&self) -> Self {
+        Self {
+            callback: Arc::clone(&self.callback),
+            _ignore: Default::default(),
+        }
+    }
+}
+
+impl<Payload: 'static + Send + Sync> ActivityListener<Payload> {
+    pub fn set_callback<F>(&self, mut f: F)
+    where
+        F: FnMut(&mut Payload) + 'static + Send + Sync,
+    {
+        let f = Box::new(move |any_payload: &mut dyn Any| {
+            let Some(payload) = any_payload.downcast_mut::<Payload>() else {
+                let msg = WorkerState::<Payload>::conversion_failure_message(any_payload);
+                log_fatal!("rclrs.worker", "{msg}");
+                return;
+            };
+
+            f(payload);
+        });
+
+        *self.callback.lock().unwrap() = Some(ActivityListenerCallback::Listen(f));
+    }
+
+    fn new(callback: ActivityListenerCallback) -> Self {
+        let callback = Arc::new(Mutex::new(Some(callback)));
+        Self { callback, _ignore: Default::default() }
+    }
+}
+
+pub type WeakActivityListener = Weak<Mutex<Option<ActivityListenerCallback>>>;
+
+pub enum ActivityListenerCallback {
+    Listen(Box<dyn FnMut(&mut dyn Any) + 'static + Send>),
+    Inert,
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::*;
+    use test_msgs::{
+        msg::Empty as EmptyMsg,
+        srv::{Empty as EmptySrv, Empty_Request, Empty_Response},
+    };
+    use std::time::Duration;
+
+    #[derive(Default, Clone, Copy, Debug)]
+    struct TestPayload {
+        subscription_count: usize,
+        service_count: usize,
+    }
+
+    #[test]
+    fn test_worker() {
+        let mut executor = Context::default().create_basic_executor();
+        let node = executor.create_node("test_worker_node").unwrap();
+        let worker = node.create_worker(TestPayload::default());
+        let _count_sub = worker.create_subscription(
+            "test_worker_topic",
+            |payload: &mut TestPayload, _msg: EmptyMsg| {
+                payload.subscription_count += 1;
+            }
+        );
+
+        let _count_srv = worker.create_service::<EmptySrv, _>(
+            "test_worker_service",
+            |payload: &mut TestPayload, _req: Empty_Request| {
+                payload.service_count += 1;
+                Empty_Response::default()
+            }
+        );
+
+        let promise = worker.listen_until(move |payload| {
+            if payload.service_count > 0 && payload.subscription_count > 0 {
+                Some(*payload)
+            } else {
+                None
+            }
+        });
+
+        let publisher = node.create_publisher("test_worker_topic").unwrap();
+        publisher.publish(EmptyMsg::default()).unwrap();
+
+        let client = node.create_client::<EmptySrv>("test_worker_service").unwrap();
+        let _: Promise<Empty_Response> = client.call(Empty_Request::default()).unwrap();
+
+        let (mut promise, notice) = executor.commands().create_notice(promise);
+
+        executor.spin(
+            SpinOptions::new()
+            .until_promise_resolved(notice)
+            .timeout(Duration::from_millis(500))
+        )
+            .first_error()
+            .unwrap();
+
+        let payload = promise.try_recv().unwrap().unwrap();
+        assert_eq!(payload.subscription_count, 1);
+        assert_eq!(payload.service_count, 1);
     }
 }

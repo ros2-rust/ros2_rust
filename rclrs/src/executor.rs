@@ -1,7 +1,7 @@
 mod basic_executor;
 pub use self::basic_executor::*;
 
-use crate::{Context, ContextHandle, GuardCondition, IntoNodeOptions, Node, RclrsError, Waitable};
+use crate::{WeakActivityListener, Context, ContextHandle, GuardCondition, IntoNodeOptions, Node, RclrsError, Waitable};
 pub use futures::channel::oneshot::Receiver as Promise;
 use futures::{
     channel::oneshot,
@@ -210,6 +210,23 @@ impl ExecutorCommands {
         receiver
     }
 
+    /// Pass in a promise to get a second promise that will notify when the main
+    /// promise is fulfilled. This second promise can be passed into
+    /// [`SpinOptions::until_promise_resolved`].
+    pub fn create_notice<Out>(&self, promise: Promise<Out>) -> (Promise<Out>, Promise<()>)
+    where
+        Out: 'static + Send,
+    {
+        let (main_sender, main_receiver) = oneshot::channel();
+        let notice_receiver = self.run(async move {
+            if let Ok(out) = promise.await {
+                main_sender.send(out).ok();
+            }
+        });
+
+        (main_receiver, notice_receiver)
+    }
+
     /// Get the context that the executor is associated with.
     pub fn context(&self) -> &Context {
         &self.context
@@ -282,6 +299,10 @@ impl WorkerCommands {
         self.channel.send_payload_task(task);
     }
 
+    pub(crate) fn add_activity_listener(&self, listener: WeakActivityListener) {
+        self.channel.add_activity_listener(listener);
+    }
+
     /// Get a guard condition that can be used to wake up the wait set of the executor.
     pub(crate) fn get_guard_condition(&self) -> &Arc<GuardCondition> {
         &self.wakeup_wait_set
@@ -298,6 +319,9 @@ pub trait WorkerChannel: Send + Sync {
 
     /// Send a one-time task for the worker to run with its payload.
     fn send_payload_task(&self, f: PayloadTask);
+
+    /// Send something to listen to worker activity.
+    fn add_activity_listener(&self, listener: WeakActivityListener);
 }
 
 /// Encapsulates a task that can operate on the payload of a worker
