@@ -359,7 +359,7 @@ impl<Payload: 'static + Send + Sync> TimerState<Worker<Payload>> {
         &self,
         f: impl IntoWorkerTimerRepeatingCallback<Worker<Payload>, Args>,
     ) -> Option<AnyTimerCallback<Worker<Payload>>> {
-        self.set_callback(f.into_timer_repeating_callback())
+        self.set_callback(f.into_worker_timer_repeating_callback())
     }
 
     /// Set a one-shot callback for the worker timer.
@@ -376,7 +376,7 @@ impl<Payload: 'static + Send + Sync> TimerState<Worker<Payload>> {
         &self,
         f: impl IntoWorkerTimerOneshotCallback<Worker<Payload>, Args>,
     ) -> Option<AnyTimerCallback<Worker<Payload>>> {
-        self.set_callback(f.into_timer_oneshot_callback())
+        self.set_callback(f.into_worker_timer_oneshot_callback())
     }
 }
 

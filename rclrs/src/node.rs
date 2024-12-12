@@ -241,7 +241,7 @@ impl NodeState {
     //
     // TODO(@mxgrey): Write some usage examples.
     pub fn create_worker<'a, Payload>(
-        &self,
+        self: &Arc<Self>,
         options: impl IntoWorkerOptions<Payload>,
     ) -> Worker<Payload>
     where
@@ -249,7 +249,7 @@ impl NodeState {
     {
         let options = options.into_worker_options();
         let commands = self.commands.create_worker_commands(Box::new(options.payload));
-        WorkerState::create(Arc::clone(&self.handle), commands)
+        WorkerState::create(Arc::clone(self), commands)
     }
 
     /// Creates a [`Client`][1].
@@ -571,7 +571,7 @@ impl NodeState {
 
     /// Create a [`Timer`] whose callback will be triggered once after the period
     /// of the timer has elapsed. After that you will need to use
-    /// [`Timer::set_callback`] or a related method or else nothing will happen
+    /// [`Timer::set_repeating`] or [`Timer::set_oneshot`] or else nothing will happen
     /// the following times that the `Timer` elapses.
     ///
     /// See also:
