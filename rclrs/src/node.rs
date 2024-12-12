@@ -866,7 +866,6 @@ mod tests {
 
     #[test]
     fn test_create_timer() -> Result<(), RclrsError> {
-        dbg!();
         let mut executor = Context::default().create_basic_executor();
         let node = executor.create_node("node_with_timer")?;
 
@@ -875,7 +874,6 @@ mod tests {
         let _repeating_timer = node.create_timer_repeating(
             Duration::from_millis(1),
             move || {
-                dbg!();
                 repeat_counter.fetch_add(1, Ordering::AcqRel);
             },
         )?;
@@ -886,7 +884,6 @@ mod tests {
             Duration::from_millis(1)
             .node_time(),
             move || {
-                dbg!();
                 oneshot_counter.fetch_add(1, Ordering::AcqRel);
             },
         )?;
@@ -896,12 +893,10 @@ mod tests {
         let _oneshot_resetting_timer = node.create_timer_oneshot(
             Duration::from_millis(1),
             move |timer: &Timer| {
-                dbg!();
                 recursive_oneshot(timer, oneshot_resetting_counter);
             },
         );
 
-        dbg!();
         executor.spin(SpinOptions::new().timeout(Duration::from_millis(10)));
 
         // We give a little leeway to the exact count since timers won't always

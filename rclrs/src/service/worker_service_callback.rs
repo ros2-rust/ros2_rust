@@ -36,7 +36,6 @@ where
         any_payload: &mut dyn Any,
     ) -> Result<(), RclrsError> {
         let Some(payload) = any_payload.downcast_mut::<Payload>() else {
-            dbg!();
             return Err(RclrsError::InvalidPayload {
                 expected: std::any::TypeId::of::<Payload>(),
                 received: (*any_payload).type_id(),

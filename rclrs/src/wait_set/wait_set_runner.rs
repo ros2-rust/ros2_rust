@@ -163,8 +163,6 @@ impl WaitSetRunner {
                 }
             });
 
-            dbg!(&timeout);
-
             let mut at_least_one = false;
             self.wait_set.wait(timeout, |executable| {
                 at_least_one = true;
