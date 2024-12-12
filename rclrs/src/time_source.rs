@@ -1,7 +1,8 @@
 use crate::{
     clock::{Clock, ClockSource, ClockType},
     vendor::rosgraph_msgs::msg::Clock as ClockMsg,
-    Node, QoSProfile, ReadOnlyParameter, Subscription, QOS_PROFILE_CLOCK,
+    IntoPrimitiveOptions, Node, NodeState, QoSProfile, ReadOnlyParameter, Subscription,
+    QOS_PROFILE_CLOCK,
 };
 use std::sync::{Arc, Mutex, RwLock, Weak};
 
@@ -9,12 +10,12 @@ use std::sync::{Arc, Mutex, RwLock, Weak};
 /// If the node's `use_sim_time` parameter is set to `true`, the `TimeSource` will subscribe
 /// to the `/clock` topic and drive the attached clock
 pub(crate) struct TimeSource {
-    node: Mutex<Weak<Node>>,
+    node: Mutex<Weak<NodeState>>,
     clock: RwLock<Clock>,
     clock_source: Arc<Mutex<Option<ClockSource>>>,
     requested_clock_type: ClockType,
     clock_qos: QoSProfile,
-    clock_subscription: Mutex<Option<Arc<Subscription<ClockMsg>>>>,
+    clock_subscription: Mutex<Option<Subscription<ClockMsg>>>,
     last_received_time: Arc<Mutex<Option<i64>>>,
     // TODO(luca) Make this parameter editable when we have parameter callbacks implemented and can
     // safely change clock type at runtime
@@ -85,7 +86,7 @@ impl TimeSource {
 
     /// Attaches the given node to to the `TimeSource`, using its interface to read the
     /// `use_sim_time` parameter and create the clock subscription.
-    pub(crate) fn attach_node(&self, node: &Arc<Node>) {
+    pub(crate) fn attach_node(&self, node: &Node) {
         // TODO(luca) Make this parameter editable and register a parameter callback
         // that calls set_ros_time(bool) once parameter callbacks are implemented.
         let param = node
@@ -122,7 +123,7 @@ impl TimeSource {
         clock.set_ros_time_override(nanoseconds);
     }
 
-    fn create_clock_sub(&self) -> Arc<Subscription<ClockMsg>> {
+    fn create_clock_sub(&self) -> Subscription<ClockMsg> {
         let clock = self.clock_source.clone();
         let last_received_time = self.last_received_time.clone();
         // Safe to unwrap since the function will only fail if invalid arguments are provided
@@ -131,42 +132,51 @@ impl TimeSource {
             .unwrap()
             .upgrade()
             .unwrap()
-            .create_subscription::<ClockMsg, _>("/clock", self.clock_qos, move |msg: ClockMsg| {
-                let nanoseconds: i64 =
-                    (msg.clock.sec as i64 * 1_000_000_000) + msg.clock.nanosec as i64;
-                *last_received_time.lock().unwrap() = Some(nanoseconds);
-                if let Some(clock) = clock.lock().unwrap().as_mut() {
-                    Self::update_clock(clock, nanoseconds);
-                }
-            })
+            .create_subscription::<ClockMsg, _>(
+                "/clock".qos(self.clock_qos),
+                move |msg: ClockMsg| {
+                    let nanoseconds: i64 =
+                        (msg.clock.sec as i64 * 1_000_000_000) + msg.clock.nanosec as i64;
+                    *last_received_time.lock().unwrap() = Some(nanoseconds);
+                    if let Some(clock) = clock.lock().unwrap().as_mut() {
+                        Self::update_clock(clock, nanoseconds);
+                    }
+                },
+            )
             .unwrap()
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::{create_node, Context};
+    use crate::{Context, InitOptions};
 
     #[test]
     fn time_source_default_clock() {
-        let node = create_node(
-            &Context::new([]).unwrap(),
-            &format!("time_source_test_node_{}", line!()),
-        )
-        .unwrap();
+        let node = Context::default()
+            .create_basic_executor()
+            .create_node(&format!("time_source_test_node_{}", line!()))
+            .unwrap();
         // Default clock should be above 0 (use_sim_time is default false)
         assert!(node.get_clock().now().nsec > 0);
     }
 
     #[test]
     fn time_source_sim_time() {
-        let ctx = Context::new([
-            String::from("--ros-args"),
-            String::from("-p"),
-            String::from("use_sim_time:=true"),
-        ])
-        .unwrap();
-        let node = create_node(&ctx, &format!("time_source_test_node_{}", line!())).unwrap();
+        let executor = Context::new(
+            [
+                String::from("--ros-args"),
+                String::from("-p"),
+                String::from("use_sim_time:=true"),
+            ],
+            InitOptions::default(),
+        )
+        .unwrap()
+        .create_basic_executor();
+
+        let node = executor
+            .create_node(&format!("time_source_test_node_{}", line!()))
+            .unwrap();
         // Default sim time value should be 0 (no message received)
         assert_eq!(node.get_clock().now().nsec, 0);
     }

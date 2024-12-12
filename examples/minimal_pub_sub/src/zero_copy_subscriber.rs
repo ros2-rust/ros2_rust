@@ -1,23 +1,24 @@
-use std::env;
-
 use anyhow::{Error, Result};
+use std::sync::Mutex;
+use rclrs::ReadOnlyLoanedMessage;
 
 fn main() -> Result<(), Error> {
-    let context = rclrs::Context::new(env::args())?;
+    let mut executor = rclrs::Context::default_from_env()?.create_basic_executor();
 
-    let node = rclrs::create_node(&context, "minimal_subscriber")?;
+    let node = executor.create_node("minimal_subscriber")?;
 
-    let mut num_messages: usize = 0;
+    let num_messages = Mutex::new(0usize);
 
     let _subscription = node.create_subscription::<std_msgs::msg::UInt32, _>(
         "topic",
-        rclrs::QOS_PROFILE_DEFAULT,
-        move |msg: rclrs::ReadOnlyLoanedMessage<'_, std_msgs::msg::UInt32>| {
-            num_messages += 1;
+        move |msg: ReadOnlyLoanedMessage<std_msgs::msg::UInt32>| {
+            let mut num = num_messages.lock().unwrap();
+            *num += 1;
             println!("I heard: '{}'", msg.data);
-            println!("(Got {} messages so far)", num_messages);
+            println!("(Got {} messages so far)", *num);
         },
     )?;
 
-    rclrs::spin(node).map_err(|err| err.into())
+    executor.spin(rclrs::SpinOptions::default())?;
+    Ok(())
 }

@@ -23,6 +23,9 @@ cfg-if = "1.0.0"
 # Needed for clients
 futures = "0.3"
 
+# Needed for the runtime-agnostic timeout feature
+async-std = "1.13"
+
 # Needed for dynamic messages
 libloading = { version = "0.8", optional = true }
 
@@ -39,7 +42,7 @@ tempfile = "3.3.0"
 # Needed for publisher and subscriber tests
 test_msgs = {version = "*"}
 # Needed for parameter service tests
-tokio = { version = "*", features = ["rt", "time", "macros"] }
+tokio = { version = "1", features = ["rt", "time", "macros"] }
 
 [build-dependencies]
 # Needed for FFI
