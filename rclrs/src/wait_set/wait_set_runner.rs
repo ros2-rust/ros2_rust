@@ -11,7 +11,7 @@ use std::{
 
 use crate::{
     Context, Promise, RclrsError, WaitSet, Waitable, GuardCondition, ExecutorWorkerOptions,
-    PayloadTask, WeakActivityListener, ActivityListenerCallback,
+    PayloadTask, WeakActivityListener, ActivityListenerCallback, RclReturnCode,
 };
 
 /// This is a utility class that executors can use to easily run and manage
@@ -163,6 +163,8 @@ impl WaitSetRunner {
                 }
             });
 
+            dbg!(&timeout);
+
             let mut at_least_one = false;
             self.wait_set.wait(timeout, |executable| {
                 at_least_one = true;
@@ -213,6 +215,19 @@ impl WaitSetRunner {
                     listeners.drain(..)
                         .map(|x| Arc::downgrade(&x))
                 );
+            }
+
+            if let Some(stop_time) = conditions.stop_time {
+                if stop_time <= Instant::now() {
+                    // If we have exceeded the stop time, then quit spinning.
+                    // self.wait_set.wait will not always return Err after a
+                    // timeout because it's possible for a primitive to produce
+                    // new worker faster than this loop spins.
+                    return Err(RclrsError::RclError {
+                        code: RclReturnCode::Timeout,
+                        msg: None,
+                    });
+                }
             }
         }
     }

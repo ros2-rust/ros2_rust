@@ -34,7 +34,8 @@ use crate::{
     Publisher, PublisherOptions, PublisherState, RclrsError, Service, IntoAsyncServiceCallback,
     IntoNodeServiceCallback, ServiceOptions, ServiceState, Subscription, IntoAsyncSubscriptionCallback,
     IntoNodeSubscriptionCallback, SubscriptionOptions, SubscriptionState, TimeSource, ToLogParams,
-    ENTITY_LIFECYCLE_MUTEX, IntoWorkerOptions, Worker, WorkerState,
+    ENTITY_LIFECYCLE_MUTEX, IntoWorkerOptions, Worker, WorkerState, IntoTimerOptions, AnyTimerCallback,
+    Timer, IntoNodeTimerRepeatingCallback, IntoNodeTimerOneshotCallback, TimerState,
 };
 
 /// A processing unit that can communicate with other nodes.
@@ -244,7 +245,7 @@ impl NodeState {
         options: impl IntoWorkerOptions<Payload>,
     ) -> Worker<Payload>
     where
-        Payload: 'static + Send,
+        Payload: 'static + Send + Sync,
     {
         let options = options.into_worker_options();
         let commands = self.commands.create_worker_commands(Box::new(options.payload));
@@ -555,6 +556,70 @@ impl NodeState {
         )
     }
 
+    /// Create a [`Timer`] with a repeating callback.
+    ///
+    /// See also:
+    /// * [`Self::create_timer_oneshot`]
+    /// * [`Self::create_timer_inert`]
+    pub fn create_timer_repeating<'a, Args>(
+        &self,
+        options: impl IntoTimerOptions<'a>,
+        callback: impl IntoNodeTimerRepeatingCallback<Args>,
+    ) -> Result<Timer, RclrsError> {
+        self.create_timer(options, callback.into_node_timer_repeating_callback())
+    }
+
+    /// Create a [`Timer`] whose callback will be triggered once after the period
+    /// of the timer has elapsed. After that you will need to use
+    /// [`Timer::set_callback`] or a related method or else nothing will happen
+    /// the following times that the `Timer` elapses.
+    ///
+    /// See also:
+    /// * [`Self::create_timer_repeating`]
+    /// * [`Self::create_time_inert`]
+    pub fn create_timer_oneshot<'a, Args>(
+        &self,
+        options: impl IntoTimerOptions<'a>,
+        callback: impl IntoNodeTimerOneshotCallback<Args>,
+    ) -> Result<Timer, RclrsError> {
+        self.create_timer(options, callback.into_node_timer_oneshot_callback())
+    }
+
+    /// Create a [`Timer`] without a callback. Nothing will happen when this
+    /// `Timer` elapses until you use [`Timer::set_callback`] or a related method.
+    ///
+    /// See also:
+    /// * [`Self::create_timer_repeating`]
+    /// * [`Self::create_timer_oneshot`]
+    pub fn create_timer_inert<'a>(
+        &self,
+        options: impl IntoTimerOptions<'a>,
+    ) -> Result<Timer, RclrsError> {
+        self.create_timer(options, AnyTimerCallback::Inert)
+    }
+
+    /// Used internally to create a [`Timer`].
+    ///
+    /// Downstream users should instead use:
+    /// * [`Self::create_timer_repeating`]
+    /// * [`Self::create_timer_oneshot`]
+    /// * [`Self::create_timer_inert`]
+    fn create_timer<'a>(
+        &self,
+        options: impl IntoTimerOptions<'a>,
+        callback: AnyTimerCallback<Node>,
+    ) -> Result<Timer, RclrsError> {
+        let options = options.into_timer_options();
+        let clock = options.clock.as_clock(self);
+        TimerState::create(
+            options.period,
+            clock,
+            callback,
+            self.commands.async_worker_commands(),
+            &self.handle.context_handle,
+        )
+    }
+
     /// Returns the ROS domain ID that the node is using.
     ///
     /// The domain ID controls which nodes can send messages to each other, see the [ROS 2 concept article][1].
@@ -748,6 +813,11 @@ unsafe impl Send for rcl_node_t {}
 mod tests {
     use crate::{test_helpers::*, *};
 
+    use std::{
+        time::Duration,
+        sync::{Arc, atomic::{AtomicU64, Ordering}},
+    };
+
     #[test]
     fn traits() {
         assert_send::<NodeState>();
@@ -792,6 +862,68 @@ mod tests {
         assert!(types.contains(&"test_msgs/msg/Defaults".to_string()));
 
         Ok(())
+    }
+
+    #[test]
+    fn test_create_timer() -> Result<(), RclrsError> {
+        dbg!();
+        let mut executor = Context::default().create_basic_executor();
+        let node = executor.create_node("node_with_timer")?;
+
+        let repeat_counter = Arc::new(AtomicU64::new(0));
+        let repeat_counter_check = Arc::clone(&repeat_counter);
+        let _repeating_timer = node.create_timer_repeating(
+            Duration::from_millis(1),
+            move || {
+                dbg!();
+                repeat_counter.fetch_add(1, Ordering::AcqRel);
+            },
+        )?;
+
+        let oneshot_counter = Arc::new(AtomicU64::new(0));
+        let oneshot_counter_check = Arc::clone(&oneshot_counter);
+        let _oneshot_timer = node.create_timer_oneshot(
+            Duration::from_millis(1)
+            .node_time(),
+            move || {
+                dbg!();
+                oneshot_counter.fetch_add(1, Ordering::AcqRel);
+            },
+        )?;
+
+        let oneshot_resetting_counter = Arc::new(AtomicU64::new(0));
+        let oneshot_resetting_counter_check = Arc::clone(&oneshot_resetting_counter);
+        let _oneshot_resetting_timer = node.create_timer_oneshot(
+            Duration::from_millis(1),
+            move |timer: &Timer| {
+                dbg!();
+                recursive_oneshot(timer, oneshot_resetting_counter);
+            },
+        );
+
+        dbg!();
+        executor.spin(SpinOptions::new().timeout(Duration::from_millis(10)));
+
+        // We give a little leeway to the exact count since timers won't always
+        // be triggered perfectly. The important thing is that it was
+        // successfully called repeatedly.
+        assert!(repeat_counter_check.load(Ordering::Acquire) > 5);
+        assert!(oneshot_resetting_counter_check.load(Ordering::Acquire) > 5);
+
+        // This should only have been triggered exactly once
+        assert_eq!(oneshot_counter_check.load(Ordering::Acquire), 1);
+
+        Ok(())
+    }
+
+    fn recursive_oneshot(
+        timer: &Timer,
+        counter: Arc<AtomicU64>,
+    ) {
+        counter.fetch_add(1, Ordering::AcqRel);
+        timer.set_oneshot(move |timer: &Timer| {
+            recursive_oneshot(timer, counter);
+        });
     }
 
     #[test]

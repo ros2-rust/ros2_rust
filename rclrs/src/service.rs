@@ -10,7 +10,7 @@ use rosidl_runtime_rs::{Message, Service as IdlService};
 use crate::{
     error::ToResult, rcl_bindings::*, WorkerCommands, IntoPrimitiveOptions, NodeHandle,
     QoSProfile, RclPrimitive, RclPrimitiveHandle, RclPrimitiveKind, RclrsError, Waitable,
-    WaitableLifecycle, ENTITY_LIFECYCLE_MUTEX, MessageCow, Node, Worker,
+    WaitableLifecycle, ENTITY_LIFECYCLE_MUTEX, MessageCow, Node, Worker, WorkScope,
 };
 
 mod any_service_callback;
@@ -30,9 +30,6 @@ pub use into_worker_service_callback::*;
 
 mod service_info;
 pub use service_info::*;
-
-mod service_scope;
-pub use service_scope::*;
 
 mod worker_service_callback;
 pub use worker_service_callback::*;
@@ -74,7 +71,7 @@ pub type WorkerService<T, Payload> = Arc<ServiceState<T, Worker<Payload>>>;
 pub struct ServiceState<T, Scope>
 where
     T: IdlService,
-    Scope: ServiceScope,
+    Scope: WorkScope,
 {
     /// This handle is used to access the data that rcl holds for this service.
     handle: Arc<ServiceHandle>,
@@ -89,7 +86,7 @@ where
 impl<T, Scope> ServiceState<T, Scope>
 where
     T: IdlService,
-    Scope: ServiceScope + 'static,
+    Scope: WorkScope + 'static,
 {
     /// Returns the name of the service.
     ///
@@ -195,7 +192,7 @@ impl<T: IdlService> ServiceState<T, Node> {
     }
 }
 
-impl<T: IdlService, Payload: 'static + Send> ServiceState<T, Worker<Payload>> {
+impl<T: IdlService, Payload: 'static + Send + Sync> ServiceState<T, Worker<Payload>> {
     /// Set the callback of this service, replacing the callback that was
     /// previously set.
     ///
@@ -241,7 +238,7 @@ impl<'a, T: IntoPrimitiveOptions<'a>> From<T> for ServiceOptions<'a> {
     }
 }
 
-struct ServiceExecutable<T: IdlService, Scope: ServiceScope> {
+struct ServiceExecutable<T: IdlService, Scope: WorkScope> {
     handle: Arc<ServiceHandle>,
     callback: Arc<Mutex<AnyServiceCallback<T, Scope::Payload>>>,
     commands: Arc<WorkerCommands>,
@@ -250,7 +247,7 @@ struct ServiceExecutable<T: IdlService, Scope: ServiceScope> {
 impl<T, Scope> RclPrimitive for ServiceExecutable<T, Scope>
 where
     T: IdlService,
-    Scope: ServiceScope,
+    Scope: WorkScope,
 {
     unsafe fn execute(&mut self, payload: &mut dyn Any) -> Result<(), RclrsError> {
         self.callback

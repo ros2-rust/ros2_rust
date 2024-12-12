@@ -5,7 +5,7 @@ use crate::{
     WorkerCommands, NodeHandle, ToLogParams, Promise, log_fatal,
     IntoWorkerSubscriptionCallback, IntoWorkerServiceCallback,
     WorkerSubscription, SubscriptionState, WorkerService, ServiceState,
-    SubscriptionOptions, ServiceOptions, RclrsError,
+    SubscriptionOptions, ServiceOptions, RclrsError, Node,
 };
 
 /// A worker that carries a payload and synchronizes callbacks for subscriptions
@@ -39,7 +39,7 @@ pub struct WorkerState<Payload> {
     _ignore: std::marker::PhantomData<Payload>,
 }
 
-impl<Payload: 'static + Send> WorkerState<Payload> {
+impl<Payload: 'static + Send + Sync> WorkerState<Payload> {
     /// Run a task on this worker. This allows you to view and modify the payload
     /// of the worker. You will receive a [`Promise`] which you can use to view
     /// what happened inside the callback.
@@ -289,6 +289,22 @@ pub enum ActivityListenerCallback {
     Listen(Box<dyn FnMut(&mut dyn Any) + 'static + Send>),
     /// The listener is inert
     Inert,
+}
+
+/// This is used to determine what kind of payload a callback can accept, as
+/// well as what kind of callbacks can be used with it. Users should not implement
+/// this trait.
+pub trait WorkScope: 'static + Send + Sync {
+    /// What kind of payload should the worker hold for this scope.
+    type Payload: 'static + Send;
+}
+
+impl WorkScope for Node {
+    type Payload = ();
+}
+
+impl<Payload: 'static + Send + Sync> WorkScope for Worker<Payload> {
+    type Payload = Payload;
 }
 
 #[cfg(test)]

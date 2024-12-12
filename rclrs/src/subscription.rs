@@ -9,7 +9,7 @@ use rosidl_runtime_rs::{Message, RmwMessage};
 use crate::{
     error::ToResult, qos::QoSProfile, rcl_bindings::*, WorkerCommands, IntoPrimitiveOptions,
     Node, NodeHandle, RclPrimitive, RclPrimitiveHandle, RclPrimitiveKind, RclrsError, Waitable,
-    WaitableLifecycle, Worker, ENTITY_LIFECYCLE_MUTEX,
+    WaitableLifecycle, Worker, WorkScope, ENTITY_LIFECYCLE_MUTEX,
 };
 
 mod any_subscription_callback;
@@ -26,9 +26,6 @@ pub use into_node_subscription_callback::*;
 
 mod into_worker_subscription_callback;
 pub use into_worker_subscription_callback::*;
-
-mod subscription_scope;
-pub use subscription_scope::*;
 
 mod message_info;
 pub use message_info::*;
@@ -77,7 +74,7 @@ pub type WorkerSubscription<T, Payload> = Arc<SubscriptionState<T, Worker<Payloa
 pub struct SubscriptionState<T, Scope>
 where
     T: Message,
-    Scope: SubscriptionScope,
+    Scope: WorkScope,
 {
     /// This handle is used to access the data that rcl holds for this subscription.
     handle: Arc<SubscriptionHandle>,
@@ -95,7 +92,7 @@ where
 impl<T, Scope> SubscriptionState<T, Scope>
 where
     T: Message,
-    Scope: SubscriptionScope,
+    Scope: WorkScope,
 {
     /// Returns the topic name of the subscription.
     ///
@@ -211,7 +208,7 @@ impl<T: Message> SubscriptionState<T, Node> {
     }
 }
 
-impl<T: Message, Payload: 'static + Send> SubscriptionState<T, Worker<Payload>> {
+impl<T: Message, Payload: 'static + Send + Sync> SubscriptionState<T, Worker<Payload>> {
     /// Set the callback of this subscription, replacing the callback that was
     /// previously set.
     ///
@@ -276,7 +273,7 @@ where
             .execute(&self.handle, payload, &self.commands)
     }
 
-    fn kind(&self) -> crate::RclPrimitiveKind {
+    fn kind(&self) -> RclPrimitiveKind {
         RclPrimitiveKind::Subscription
     }
 
