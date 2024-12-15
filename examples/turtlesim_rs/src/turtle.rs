@@ -149,8 +149,8 @@ impl<'a> Turtle<'a> {
         let mut paint = Paint::default();
         paint.set_color_rgba8(
             DEFAULT_PEN_R,
-            DEFAULT_PEN_B,
             DEFAULT_PEN_G,
+            DEFAULT_PEN_B,
             DEFAULT_PEN_ALPHA,
         );
         paint.anti_alias = true;
@@ -255,7 +255,7 @@ impl<'a> Turtle<'a> {
 
         let pixel_color = path_image.pixel(
             (self.pos.x * self.meter) as u32,
-            ((canvas_height - self.pos.y) * self.meter) as u32,
+            (self.pos.y * self.meter) as u32,
         );
 
         if let Some(color) = pixel_color {
