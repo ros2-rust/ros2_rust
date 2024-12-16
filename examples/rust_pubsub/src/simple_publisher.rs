@@ -1,4 +1,6 @@
-use rclrs::{Context, Executor, Publisher, RclrsError, SpinOptions, QOS_PROFILE_DEFAULT, RclrsErrorFilter};
+use rclrs::{
+    Context, Executor, Publisher, RclrsError, RclrsErrorFilter, SpinOptions, QOS_PROFILE_DEFAULT,
+};
 use std::{sync::Arc, thread, time::Duration};
 use std_msgs::msg::String as StringMsg;
 

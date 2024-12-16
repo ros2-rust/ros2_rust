@@ -1,8 +1,8 @@
+use rclrs::RclrsErrorFilter;
 use std::sync::{
     atomic::{AtomicU32, Ordering},
     Arc, Mutex,
 };
-use rclrs::RclrsErrorFilter;
 
 use anyhow::{Error, Result};
 

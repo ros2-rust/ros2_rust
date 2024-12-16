@@ -1,4 +1,6 @@
-use rclrs::{Context, Executor, RclrsError, SpinOptions, Subscription, QOS_PROFILE_DEFAULT, RclrsErrorFilter};
+use rclrs::{
+    Context, Executor, RclrsError, RclrsErrorFilter, SpinOptions, Subscription, QOS_PROFILE_DEFAULT,
+};
 use std::{
     sync::{Arc, Mutex},
     thread,
