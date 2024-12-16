@@ -1,4 +1,5 @@
 use anyhow::{Error, Result};
+use rclrs::RclrsErrorFilter;
 
 fn handle_service(
     _request_header: &rclrs::rmw_request_id_t,
@@ -21,5 +22,6 @@ fn main() -> Result<(), Error> {
     println!("Starting server");
     executor
         .spin(rclrs::SpinOptions::default())
+        .first_error()
         .map_err(|err| err.into())
 }

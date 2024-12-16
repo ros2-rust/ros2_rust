@@ -1,4 +1,4 @@
-use rclrs::{Context, Executor, Publisher, RclrsError, SpinOptions, QOS_PROFILE_DEFAULT};
+use rclrs::{Context, Executor, Publisher, RclrsError, SpinOptions, QOS_PROFILE_DEFAULT, RclrsErrorFilter};
 use std::{sync::Arc, thread, time::Duration};
 use std_msgs::msg::String as StringMsg;
 
@@ -33,5 +33,5 @@ fn main() -> Result<(), RclrsError> {
         thread::sleep(Duration::from_millis(1000));
         count = publisher_other_thread.publish_data(count).unwrap();
     });
-    executor.spin(SpinOptions::default())
+    executor.spin(SpinOptions::default()).first_error()
 }

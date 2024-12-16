@@ -2,6 +2,7 @@ use std::sync::{
     atomic::{AtomicU32, Ordering},
     Arc, Mutex,
 };
+use rclrs::RclrsErrorFilter;
 
 use anyhow::{Error, Result};
 
@@ -75,5 +76,6 @@ fn main() -> Result<(), Error> {
 
     executor
         .spin(rclrs::SpinOptions::default())
+        .first_error()
         .map_err(|err| err.into())
 }

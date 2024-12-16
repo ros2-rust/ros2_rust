@@ -3,6 +3,8 @@ use std::convert::TryInto;
 use anyhow::{Error, Result};
 use rosidl_runtime_rs::{seq, BoundedSequence, Message, Sequence};
 
+use rclrs::RclrsErrorFilter;
+
 fn check_default_values() {
     let msg = rclrs_example_msgs::msg::rmw::VariousTypes::default();
     assert!(msg.bool_member);
@@ -166,10 +168,10 @@ fn demonstrate_pubsub() -> Result<(), Error> {
         )?;
     println!("Sending idiomatic message.");
     idiomatic_publisher.publish(rclrs_example_msgs::msg::VariousTypes::default())?;
-    executor.spin(rclrs::SpinOptions::spin_once())?;
+    executor.spin(rclrs::SpinOptions::spin_once()).first_error()?;
     println!("Sending RMW-native message.");
     direct_publisher.publish(rclrs_example_msgs::msg::rmw::VariousTypes::default())?;
-    executor.spin(rclrs::SpinOptions::spin_once())?;
+    executor.spin(rclrs::SpinOptions::spin_once()).first_error()?;
 
     Ok(())
 }

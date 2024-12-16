@@ -1,4 +1,5 @@
 use anyhow::{Error, Result};
+use rclrs::RclrsErrorFilter;
 
 fn main() -> Result<(), Error> {
     let mut executor = rclrs::Context::default_from_env()?.create_basic_executor();
@@ -19,5 +20,6 @@ fn main() -> Result<(), Error> {
 
     executor
         .spin(rclrs::SpinOptions::default())
+        .first_error()
         .map_err(|err| err.into())
 }

@@ -1,4 +1,4 @@
-use rclrs::{Context, Executor, RclrsError, SpinOptions, Subscription, QOS_PROFILE_DEFAULT};
+use rclrs::{Context, Executor, RclrsError, SpinOptions, Subscription, QOS_PROFILE_DEFAULT, RclrsErrorFilter};
 use std::{
     sync::{Arc, Mutex},
     thread,
@@ -44,5 +44,5 @@ fn main() -> Result<(), RclrsError> {
         thread::sleep(Duration::from_millis(1000));
         subscription_other_thread.data_callback().unwrap()
     });
-    executor.spin(SpinOptions::default())
+    executor.spin(SpinOptions::default()).first_error()
 }
