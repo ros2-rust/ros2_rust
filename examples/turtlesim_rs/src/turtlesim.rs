@@ -41,12 +41,17 @@ impl MyEguiApp {
 
         let turtle_frame = Arc::new(Mutex::new(turtle_frame));
 
-        let turtle_frame_clone = Arc::clone(&turtle_frame);
+        let turtle_frame_weak = Arc::downgrade(&turtle_frame);
+
         thread::spawn(move || loop {
             std::thread::sleep(time::Duration::from_millis(UPDATE_INTERVAL_MS));
-            let mut frame = turtle_frame_clone.lock().unwrap();
-            frame.update_turtles();
-            frame.handle_service_requests();
+            if let Some(turtle_frame_clone) = turtle_frame_weak.upgrade() {
+                let mut frame = turtle_frame_clone.lock().unwrap();
+                frame.update_turtles();
+                frame.handle_service_requests();
+            } else {
+                break;
+            }
         });
 
         MyEguiApp { turtle_frame }

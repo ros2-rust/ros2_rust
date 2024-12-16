@@ -161,10 +161,14 @@ impl<'a> TurtleFrame<'a> {
             )
             .unwrap();
 
-        let nh_clone = Arc::clone(&nh);
+        let nh_weak = Arc::downgrade(&nh);
         thread::spawn(move || loop {
             std::thread::sleep(time::Duration::from_millis(UPDATE_INTERVAL_MS / 2));
-            let _v = rclrs::spin_once(nh_clone.clone(), Some(time::Duration::ZERO));
+            if let Some(nh_clone) = nh_weak.upgrade() {
+                let _ = rclrs::spin_once(nh_clone, Some(time::Duration::ZERO));
+            } else {
+                break;
+            }
         });
 
         TurtleFrame {
