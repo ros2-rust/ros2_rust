@@ -446,6 +446,7 @@ mod tests {
                 executor
                     .spin(SpinOptions::spin_once().timeout(Duration::ZERO))
                     .timeout_ok()
+                    .first_error()
                     .unwrap();
 
                 *inner_done.read().unwrap()
@@ -589,6 +590,7 @@ mod tests {
                 executor
                     .spin(SpinOptions::spin_once().timeout(Duration::ZERO))
                     .timeout_ok()
+                    .first_error()
                     .unwrap();
 
                 *inner_done.read().unwrap()
@@ -825,6 +827,7 @@ mod tests {
                 executor
                     .spin(SpinOptions::spin_once().timeout(Duration::ZERO))
                     .timeout_ok()
+                    .first_error()
                     .unwrap();
 
                 *inner_done.read().unwrap()

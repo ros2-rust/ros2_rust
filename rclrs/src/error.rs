@@ -34,6 +34,33 @@ pub enum RclrsError {
     AlreadyAddedToWaitSet,
 }
 
+impl RclrsError {
+    /// Returns true if the error was due to a timeout, otherwise returns false.
+    pub fn is_timeout(&self) -> bool {
+        matches!(
+            self,
+            RclrsError::RclError {
+                code: RclReturnCode::Timeout,
+                ..
+            }
+        )
+    }
+
+    /// Returns true if the error was because a subscription, service, or client
+    /// take failed, otherwise returns false.
+    pub fn is_take_failed(&self) -> bool {
+        matches!(
+            self,
+            RclrsError::RclError {
+                code: RclReturnCode::SubscriptionTakeFailed
+                    | RclReturnCode::ServiceTakeFailed
+                    | RclReturnCode::ClientTakeFailed,
+                ..
+            }
+        )
+    }
+}
+
 impl Display for RclrsError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
@@ -355,27 +382,77 @@ impl ToResult for rcl_ret_t {
 
 /// A helper trait to disregard timeouts as not an error.
 pub trait RclrsErrorFilter {
+    /// Get the first error available, or Ok(()) if there are no errors.
+    fn first_error(self) -> Result<(), RclrsError>;
+
     /// If the result was a timeout error, change it to `Ok(())`.
-    fn timeout_ok(self) -> Result<(), RclrsError>;
+    fn timeout_ok(self) -> Self;
+
+    /// If a subscription, service, or client take failed, change the result
+    /// to be `Ok(())`.
+    fn take_failed_ok(self) -> Self;
+
+    /// Some error types just indicate an early termination but do not indicate
+    /// that anything in the system has misbehaved. This filters out anything
+    /// that is part of the normal operation of rcl.
+    fn ignore_non_errors(self) -> Self
+    where
+        Self: Sized,
+    {
+        self.timeout_ok().take_failed_ok()
+    }
 }
 
 impl RclrsErrorFilter for Result<(), RclrsError> {
+    fn first_error(self) -> Result<(), RclrsError> {
+        self
+    }
+
     fn timeout_ok(self) -> Result<(), RclrsError> {
         match self {
             Ok(()) => Ok(()),
             Err(err) => {
-                if matches!(
-                    err,
-                    RclrsError::RclError {
-                        code: RclReturnCode::Timeout,
-                        ..
-                    }
-                ) {
-                    return Ok(());
+                if err.is_timeout() {
+                    Ok(())
+                } else {
+                    Err(err)
                 }
-
-                Err(err)
             }
         }
+    }
+
+    fn take_failed_ok(self) -> Result<(), RclrsError> {
+        match self {
+            Err(err) => {
+                if err.is_take_failed() {
+                    // Spurious wakeup - this may happen even when a waitset indicated that
+                    // work was ready, so we won't report it as an error
+                    Ok(())
+                } else {
+                    Err(err)
+                }
+            }
+            other => other,
+        }
+    }
+}
+
+impl RclrsErrorFilter for Vec<RclrsError> {
+    fn first_error(mut self) -> Result<(), RclrsError> {
+        if self.is_empty() {
+            return Ok(());
+        }
+
+        Err(self.remove(0))
+    }
+
+    fn timeout_ok(mut self) -> Self {
+        self.retain(|err| !err.is_timeout());
+        self
+    }
+
+    fn take_failed_ok(mut self) -> Self {
+        self.retain(|err| !err.is_take_failed());
+        self
     }
 }

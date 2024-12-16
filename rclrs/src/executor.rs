@@ -30,18 +30,20 @@ impl Executor {
     /// [`SpinOptions`] can be used to automatically stop the spinning when
     /// certain conditions are met. Use `SpinOptions::default()` to allow the
     /// Executor to keep spinning indefinitely.
-    pub fn spin(&mut self, options: SpinOptions) -> Result<(), RclrsError> {
+    pub fn spin(&mut self, options: SpinOptions) -> Vec<RclrsError> {
         loop {
             if self.nodes_mtx.lock().unwrap().is_empty() {
                 // Nothing to spin for, so just quit here
-                return Ok(());
+                return Vec::new();
             }
 
-            self.spin_once(options.timeout)?;
+            if let Err(err) = self.spin_once(options.timeout) {
+                return vec![err];
+            }
 
             if options.only_next_available_work {
                 // We were only suppposed to spin once, so quit here
-                return Ok(());
+                return Vec::new();
             }
 
             std::thread::yield_now();
