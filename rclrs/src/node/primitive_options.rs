@@ -50,7 +50,21 @@ pub trait IntoPrimitiveOptions<'a>: Sized {
 
     /// Override all the quality of service settings for the primitive.
     fn qos(self, profile: QoSProfile) -> PrimitiveOptions<'a> {
-        self.into_primitive_options().history(profile.history)
+        let mut options = self
+            .into_primitive_options()
+            .history(profile.history)
+            .reliability(profile.reliability)
+            .durability(profile.durability)
+            .deadline(profile.deadline)
+            .lifespan(profile.lifespan)
+            .liveliness(profile.liveliness)
+            .liveliness_lease(profile.liveliness_lease);
+
+        if profile.avoid_ros_namespace_conventions {
+            options.avoid_ros_namespace_conventions = Some(true);
+        }
+
+        options
     }
 
     /// Use the default topics quality of service profile.
@@ -158,6 +172,23 @@ pub trait IntoPrimitiveOptions<'a>: Sized {
     /// Do not use a deadline for liveliness for this primitive.
     fn no_deadline(self) -> PrimitiveOptions<'a> {
         self.deadline(QoSDuration::Infinite)
+    }
+
+    /// Override the default [`QoSProfile::liveliness`] for the primitive.
+    fn liveliness(self, liveliness: QoSLivelinessPolicy) -> PrimitiveOptions<'a> {
+        let mut options = self.into_primitive_options();
+        options.liveliness = Some(liveliness);
+        options
+    }
+
+    /// Set liveliness to [`QoSLivelinessPolicy::Automatic`].
+    fn liveliness_automatic(self) -> PrimitiveOptions<'a> {
+        self.liveliness(QoSLivelinessPolicy::Automatic)
+    }
+
+    /// Set liveliness to [`QoSLivelinessPolicy::ManualByTopic`]
+    fn liveliness_manual(self) -> PrimitiveOptions<'a> {
+        self.liveliness(QoSLivelinessPolicy::ManualByTopic)
     }
 
     /// Override the default [`QoSProfile::liveliness_lease`] for the primitive.
