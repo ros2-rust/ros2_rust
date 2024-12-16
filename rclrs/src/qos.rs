@@ -286,9 +286,12 @@ impl QoSProfile {
         QOS_PROFILE_PARAMETER_EVENTS
     }
 
-    /// Get the system-defined default quality of service profile. This profile
-    /// is determined by the underlying RMW implementation, so you cannot rely
-    /// on this profile being consistent or appropriate for your needs.
+    /// Get the system-defined default quality of service profile. Topics and
+    /// services created with this default do not use the recommended ROS
+    /// defaults; they will instead use the default as defined by the underlying
+    /// RMW implementation (rmw_fastrtps, rmw_connextdds, etc). These defaults
+    /// may not always be appropriate for every use-case, and may be different
+    /// depending on which RMW implementation you are using, so use caution!
     pub fn system_default() -> Self {
         QOS_PROFILE_SYSTEM_DEFAULT
     }
