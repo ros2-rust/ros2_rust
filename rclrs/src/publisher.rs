@@ -258,7 +258,7 @@ impl<'a, T: IntoPrimitiveOptions<'a>> From<T> for PublisherOptions<'a> {
     fn from(value: T) -> Self {
         let primitive = value.into_primitive_options();
         let mut options = Self::new(primitive.name);
-        primitive.apply(&mut options.qos);
+        primitive.apply_to(&mut options.qos);
         options
     }
 }

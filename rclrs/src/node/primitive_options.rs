@@ -251,7 +251,7 @@ impl<'a> PrimitiveOptions<'a> {
     }
 
     /// Apply the user-specified options to a pre-initialized [`QoSProfile`].
-    pub fn apply(&self, qos: &mut QoSProfile) {
+    pub fn apply_to(&self, qos: &mut QoSProfile) {
         if let Some(history) = self.history {
             qos.history = history;
         }
