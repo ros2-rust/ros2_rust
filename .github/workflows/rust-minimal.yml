@@ -90,6 +90,7 @@ jobs:
         . /opt/ros/${{ matrix.ros_distribution }}/setup.sh
         for path in $(colcon list | awk '$3 == "(ament_cargo)" { print $2 }'); do
         cd $path
+        cp Cargo.lock.minimal Cargo.lock
         echo "Running clippy in $path"
         # Run clippy for all features except generate_docs (needed for docs.rs)
         if [ "$(basename $path)" = "rclrs" ]; then
@@ -106,6 +107,7 @@ jobs:
         . install/setup.sh
         for path in $(colcon list | awk '$3 == "(ament_cargo)" && $1 != "examples_rclrs_minimal_pub_sub" && $1 != "examples_rclrs_minimal_client_service" && $1 != "rust_pubsub" { print $2 }'); do
         cd $path
+        cp Cargo.lock.minimal Cargo.lock
         echo "Running cargo test in $path"
         # Run cargo test for all features except generate_docs (needed for docs.rs)
         if [ "$(basename $path)" = "rclrs" ]; then
@@ -124,6 +126,7 @@ jobs:
         . /opt/ros/${{ matrix.ros_distribution }}/setup.sh
         for path in $(colcon list | awk '$3 == "(ament_cargo)" && $1 != "examples_rclrs_minimal_pub_sub" && $1 != "examples_rclrs_minimal_client_service" && $1 != "rust_pubsub" { print $2 }'); do
         cd $path
+        cp Cargo.lock.minimal Cargo.lock
         echo "Running rustdoc check in $path"
         cargo rustdoc -- -D warnings
         cd -
