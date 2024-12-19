@@ -93,7 +93,7 @@ jobs:
       run: |
         cd ${{ steps.build.outputs.ros-workspace-directory-name }}
         cd $(colcon list | awk '$1 == "rclrs" { print $2 }')
-        cargo update home --precise 0.5.9
+        cargo add home@=0.5.9
         cd -
         . /opt/ros/${{ matrix.ros_distribution }}/setup.sh
         colcon build
