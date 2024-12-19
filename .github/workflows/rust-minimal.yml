@@ -90,8 +90,10 @@ jobs:
     # has run and failed.
     - name: Patch Dependencies and Rebuild
       run: |
+        echo "PWD: $PWD"
+        ls -R -I build -I target -I install -I log
         cd ${{ steps.build.outputs.ros-workspace-directory-name }}
-        for path in $(colcon list | awk '$3 == "(ament_cargo)" && $1 == "rclrs" { print $2 }'); do
+        for path in $(colcon list | awk '$1 == "rclrs" { print $2 }'); do
         cd $path
         cargo update home --precise 0.5.9
         done
