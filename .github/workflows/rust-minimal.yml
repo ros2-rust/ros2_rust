@@ -78,11 +78,25 @@ jobs:
 
     - name: Build and test
       id: build
+      continue-on-error: true
       uses: ros-tooling/action-ros-ci@v0.3
       with:
         package-name: ${{ steps.list_packages.outputs.package_list }}
         target-ros2-distro: ${{ matrix.ros_distribution }}
         vcs-repo-file-url: ros2_rust_${{ matrix.ros_distribution }}.repos
+
+    # We need specific versions of some dependencies to be compatible with v1.75
+    # of the compiler, but we can't specify those versions until after action-ros-ci
+    # has run and failed.
+    - name: Patch Dependencies and Rebuild
+      run: |
+        cd ${{ steps.build.outputs.ros-workspace-directory-name }}
+        for path in $(colcon list | awk '$3 == "(ament_cargo)" && $1 == "rclrs" { print $2 }'); do
+        cd $path
+        cargo update home --precise 0.5.9
+        done
+        cd ${{ steps.build.outputs.ros-workspace-directory-name }}
+        colcon build
 
     - name: Run clippy on Rust packages
       run: |
