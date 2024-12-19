@@ -94,6 +94,7 @@ jobs:
         cd $(colcon list | awk '$1 == "rclrs" { print $2 }')
         cargo update home --precise 0.5.9
         cd -
+        source /opt/ros/${{ matrix.ros_distribution }}/setup.bash
         colcon build
 
     - name: Run clippy on Rust packages
