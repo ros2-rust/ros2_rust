@@ -45,7 +45,6 @@ jobs:
     - name: Search packages in this repository
       id: list_packages
       run: |
-        echo ${{ matrix.ros_distribution }}
         {
           echo 'package_list<<EOF'
           colcon list --names-only
