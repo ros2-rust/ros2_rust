@@ -57,7 +57,7 @@ fn main() {
         .default_enum_style(bindgen::EnumVariation::Rust {
             non_exhaustive: false,
         })
-        .parse_callbacks(Box::new(bindgen::CargoCallbacks));
+        .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()));
 
     // Invalidate the built crate whenever this script or the wrapper changes
     println!("cargo:rerun-if-changed=build.rs");
