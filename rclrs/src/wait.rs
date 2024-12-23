@@ -20,7 +20,7 @@ use std::{sync::Arc, time::Duration, vec::Vec};
 use crate::{
     error::{to_rclrs_result, RclReturnCode, RclrsError, ToResult},
     rcl_bindings::*,
-    ClientBase, Context, ContextHandle, Node, ServiceBase, SubscriptionBase,
+    ClientBase, Context, ContextHandle, Node, ServiceBase, SubscriptionBase, Timer,
 };
 
 mod exclusivity_guard;
@@ -51,6 +51,7 @@ pub struct WaitSet {
     guard_conditions: Vec<ExclusivityGuard<Arc<GuardCondition>>>,
     services: Vec<ExclusivityGuard<Arc<dyn ServiceBase>>>,
     handle: WaitSetHandle,
+    timers: Vec<ExclusivityGuard<Arc<Timer>>>,
 }
 
 /// A list of entities that are ready, returned by [`WaitSet::wait`].
@@ -63,6 +64,8 @@ pub struct ReadyEntities {
     pub guard_conditions: Vec<Arc<GuardCondition>>,
     /// A list of services that have potentially received requests.
     pub services: Vec<Arc<dyn ServiceBase>>,
+    /// A list of timers that are potentially due.
+    pub timers: Vec<Arc<Timer>>,
 }
 
 impl Drop for rcl_wait_set_t {
@@ -127,6 +130,7 @@ impl WaitSet {
                 rcl_wait_set,
                 context_handle: Arc::clone(&context.handle),
             },
+            timers: Vec::new(),
         })
     }
 
@@ -138,13 +142,14 @@ impl WaitSet {
         let live_clients = node.live_clients();
         let live_guard_conditions = node.live_guard_conditions();
         let live_services = node.live_services();
+        let live_timers = node.live_timers();
         let ctx = Context {
             handle: Arc::clone(&node.handle.context_handle),
         };
         let mut wait_set = WaitSet::new(
             live_subscriptions.len(),
             live_guard_conditions.len(),
-            0,
+            live_timers.len(),
             live_clients.len(),
             live_services.len(),
             0,
@@ -166,6 +171,10 @@ impl WaitSet {
         for live_service in &live_services {
             wait_set.add_service(live_service.clone())?;
         }
+
+        for live_timer in &live_timers {
+            wait_set.add_timer(live_timer.clone())?;
+        }
         Ok(wait_set)
     }
 
@@ -178,6 +187,7 @@ impl WaitSet {
         self.guard_conditions.clear();
         self.clients.clear();
         self.services.clear();
+        self.timers.clear();
         // This cannot fail – the rcl_wait_set_clear function only checks that the input handle is
         // valid, which it always is in our case. Hence, only debug_assert instead of returning
         // Result.
@@ -311,6 +321,34 @@ impl WaitSet {
         Ok(())
     }
 
+    /// Adds a timer to the wait set.
+    ///
+    /// # Errors
+    /// - If the timer was already added to this wait set or another one,
+    ///   [`AlreadyAddedToWaitSet`][1] will be returned
+    /// - If the number of timer in the wait set is larger than the
+    ///   capacity set in [`WaitSet::new`], [`WaitSetFull`][2] will be returned
+    ///
+    /// [1]: crate::RclrsError
+    /// [2]: crate::RclReturnCode
+    pub fn add_timer(&mut self, timer: Arc<Timer>) -> Result<(), RclrsError> {
+        let exclusive_timer =
+            ExclusivityGuard::new(Arc::clone(&timer), Arc::clone(&timer.in_use_by_wait_set))?;
+        unsafe {
+            // SAFETY: I'm not sure if it's required, but the timer pointer will remain valid
+            // for as long as the wait set exists, because it's stored in self.timers.
+            // Passing in a null pointer for the third argument is explicitly allowed.
+            rcl_wait_set_add_timer(
+                &mut self.handle.rcl_wait_set,
+                &*timer.rcl_timer.lock().unwrap() as *const _,
+                core::ptr::null_mut(),
+            )
+        }
+        .ok()?;
+        self.timers.push(exclusive_timer);
+        Ok(())
+    }
+
     /// Blocks until the wait set is ready, or until the timeout has been exceeded.
     ///
     /// If the timeout is `None` then this function will block indefinitely until
@@ -365,6 +403,7 @@ impl WaitSet {
             clients: Vec::new(),
             guard_conditions: Vec::new(),
             services: Vec::new(),
+            timers: Vec::new(),
         };
         for (i, subscription) in self.subscriptions.iter().enumerate() {
             // SAFETY: The `subscriptions` entry is an array of pointers, and this dereferencing is
@@ -409,6 +448,16 @@ impl WaitSet {
                 ready_entities.services.push(Arc::clone(&service.waitable));
             }
         }
+
+        for (i, timer) in self.timers.iter().enumerate() {
+            // SAFETY: The `timers` entry is an array of pointers, and this dereferencing is
+            // equivalent to
+            // https://github.com/ros2/rcl/blob/35a31b00a12f259d492bf53c0701003bd7f1745c/rcl/include/rcl/wait.h#L419
+            let wait_set_entry = unsafe { *self.handle.rcl_wait_set.timers.add(i) };
+            if !wait_set_entry.is_null() {
+                ready_entities.timers.push(Arc::clone(&timer.waitable));
+            }
+        }
         Ok(ready_entities)
     }
 }
@@ -416,6 +465,8 @@ impl WaitSet {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::clock::Clock;
+    use crate::timer::TimerCallback;
 
     #[test]
     fn traits() {
@@ -437,6 +488,40 @@ mod tests {
 
         let readies = wait_set.wait(Some(std::time::Duration::from_millis(10)))?;
         assert!(readies.guard_conditions.contains(&guard_condition));
+
+        Ok(())
+    }
+
+    #[test]
+    fn timer_in_wait_not_set_readies() -> Result<(), RclrsError> {
+        let context = Context::new([])?;
+        let clock = Clock::steady();
+        let period: i64 = 1e6 as i64; // 1 millisecond.
+        let callback: Option<TimerCallback> = Some(Box::new(move |_| {}));
+        let timer = Arc::new(Timer::new(&clock, &context, period, callback)?);
+
+        let mut wait_set = WaitSet::new(0, 0, 1, 0, 0, 0, &context)?;
+        wait_set.add_timer(timer.clone())?;
+
+        let readies = wait_set.wait(Some(std::time::Duration::from_micros(0)))?;
+        assert!(!readies.timers.contains(&timer));
+
+        Ok(())
+    }
+
+    #[test]
+    fn timer_in_wait_set_readies() -> Result<(), RclrsError> {
+        let context = Context::new([])?;
+        let clock = Clock::steady();
+        let period: i64 = 1e6 as i64; // 1 millisecond.
+        let callback: Option<TimerCallback> = Some(Box::new(move |_| {}));
+        let timer = Arc::new(Timer::new(&clock, &context, period, callback)?);
+
+        let mut wait_set = WaitSet::new(0, 0, 1, 0, 0, 0, &context)?;
+        wait_set.add_timer(timer.clone())?;
+
+        let readies = wait_set.wait(Some(std::time::Duration::from_micros(1500)))?;
+        assert!(readies.timers.contains(&timer));
 
         Ok(())
     }

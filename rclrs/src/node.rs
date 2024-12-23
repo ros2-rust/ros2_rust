@@ -16,7 +16,7 @@ use crate::{
     rcl_bindings::*, Client, ClientBase, Clock, Context, ContextHandle, GuardCondition, LogParams,
     Logger, ParameterBuilder, ParameterInterface, ParameterVariant, Parameters, Publisher,
     QoSProfile, RclrsError, Service, ServiceBase, Subscription, SubscriptionBase,
-    SubscriptionCallback, TimeSource, ToLogParams, ENTITY_LIFECYCLE_MUTEX,
+    SubscriptionCallback, TimeSource, Timer, TimerCallback, ToLogParams, ENTITY_LIFECYCLE_MUTEX,
 };
 
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
@@ -63,6 +63,7 @@ pub struct Node {
     pub(crate) guard_conditions_mtx: Mutex<Vec<Weak<GuardCondition>>>,
     pub(crate) services_mtx: Mutex<Vec<Weak<dyn ServiceBase>>>,
     pub(crate) subscriptions_mtx: Mutex<Vec<Weak<dyn SubscriptionBase>>>,
+    pub(crate) timers_mtx: Mutex<Vec<Weak<Timer>>>,
     time_source: TimeSource,
     parameter: ParameterInterface,
     pub(crate) handle: Arc<NodeHandle>,
@@ -340,6 +341,30 @@ impl Node {
         Ok(subscription)
     }
 
+    /// Creates a [`Timer`][1].
+    ///
+    /// [1]: crate::Timer
+    /// TODO: make timer's lifetime depend on node's lifetime.
+    pub fn create_timer(
+        &self,
+        period_ns: i64,
+        context: &Context,
+        callback: Option<TimerCallback>,
+        clock: Option<Clock>,
+    ) -> Result<Arc<Timer>, RclrsError> {
+        let clock_used = match clock {
+            Some(value) => value,
+            None => self.get_clock(),
+        };
+        let timer = Timer::new(&clock_used, &context, period_ns, callback)?;
+        let timer = Arc::new(timer);
+        self.timers_mtx
+            .lock()
+            .unwrap()
+            .push(Arc::downgrade(&timer) as Weak<Timer>);
+        Ok(timer)
+    }
+
     /// Returns the subscriptions that have not been dropped yet.
     pub(crate) fn live_subscriptions(&self) -> Vec<Arc<dyn SubscriptionBase>> {
         { self.subscriptions_mtx.lock().unwrap() }
@@ -364,6 +389,13 @@ impl Node {
 
     pub(crate) fn live_services(&self) -> Vec<Arc<dyn ServiceBase>> {
         { self.services_mtx.lock().unwrap() }
+            .iter()
+            .filter_map(Weak::upgrade)
+            .collect()
+    }
+
+    pub(crate) fn live_timers(&self) -> Vec<Arc<Timer>> {
+        { self.timers_mtx.lock().unwrap() }
             .iter()
             .filter_map(Weak::upgrade)
             .collect()
@@ -547,6 +579,21 @@ mod tests {
             .get("/test_topics_graph/graph_test_topic_3")
             .unwrap();
         assert!(types.contains(&"test_msgs/msg/Defaults".to_string()));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_create_timer_without_clock_source() -> Result<(), RclrsError> {
+        let timer_period_ns: i64 = 1e6 as i64; // 1 millisecond.
+        let context = Context::new([])?;
+        let dut = NodeBuilder::new(&context, "node_with_timer")
+            .namespace("test_create_timer")
+            .build()?;
+
+        let _timer =
+            dut.create_timer(timer_period_ns, &context, Some(Box::new(move |_| {})), None)?;
+        assert_eq!(dut.live_timers().len(), 1);
 
         Ok(())
     }
