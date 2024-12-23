@@ -427,7 +427,7 @@ mod tests {
 
     #[test]
     fn guard_condition_in_wait_set_readies() -> Result<(), RclrsError> {
-        let context = Context::new([])?;
+        let context = Context::default();
 
         let guard_condition = Arc::new(GuardCondition::new(&context));
 

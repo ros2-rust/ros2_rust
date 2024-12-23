@@ -16,7 +16,7 @@ use crate::{rcl_bindings::*, Context, ContextHandle, RclrsError, ToResult};
 /// # use rclrs::{Context, GuardCondition, WaitSet, RclrsError};
 /// # use std::sync::{Arc, atomic::Ordering};
 ///
-/// let context = Context::new([])?;
+/// let context = Context::default();
 ///
 /// let atomic_bool = Arc::new(std::sync::atomic::AtomicBool::new(false));
 /// let atomic_bool_for_closure = Arc::clone(&atomic_bool);
@@ -162,7 +162,7 @@ mod tests {
 
     #[test]
     fn test_guard_condition() -> Result<(), RclrsError> {
-        let context = Context::new([])?;
+        let context = Context::default();
 
         let atomic_bool = Arc::new(std::sync::atomic::AtomicBool::new(false));
         let atomic_bool_for_closure = Arc::clone(&atomic_bool);
@@ -180,7 +180,7 @@ mod tests {
 
     #[test]
     fn test_guard_condition_wait() -> Result<(), RclrsError> {
-        let context = Context::new([])?;
+        let context = Context::default();
 
         let atomic_bool = Arc::new(std::sync::atomic::AtomicBool::new(false));
         let atomic_bool_for_closure = Arc::clone(&atomic_bool);
