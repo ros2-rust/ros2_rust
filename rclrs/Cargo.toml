@@ -43,7 +43,7 @@ tokio = { version = "*", features = ["rt", "time", "macros"] }
 
 [build-dependencies]
 # Needed for FFI
-bindgen = "0.66.1"
+bindgen = "0.70"
 # Needed for uploading documentation to docs.rs
 cfg-if = "1.0.0"
 
