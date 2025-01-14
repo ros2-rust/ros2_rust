@@ -13,11 +13,7 @@ struct MinimalSubscriber {
 }
 
 impl MinimalSubscriber {
-    pub fn new(
-        executor: &Executor,
-        name: &str,
-        topic: &str,
-    ) -> Result<Arc<Self>, RclrsError> {
+    pub fn new(executor: &Executor, name: &str, topic: &str) -> Result<Arc<Self>, RclrsError> {
         let node = executor.create_node(name)?;
         let minimal_subscriber = Arc::new(MinimalSubscriber {
             num_messages: 0.into(),
@@ -59,8 +55,8 @@ fn main() -> Result<(), Error> {
     let _subscriber_node_two =
         MinimalSubscriber::new(&executor, "minimal_subscriber_two", "topic")?;
 
-    let publisher = publisher_node
-        .create_publisher::<std_msgs::msg::String>("topic", QOS_PROFILE_DEFAULT)?;
+    let publisher =
+        publisher_node.create_publisher::<std_msgs::msg::String>("topic", QOS_PROFILE_DEFAULT)?;
 
     std::thread::spawn(move || -> Result<(), RclrsError> {
         let mut message = std_msgs::msg::String::default();

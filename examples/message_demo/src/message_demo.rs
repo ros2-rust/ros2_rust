@@ -143,10 +143,8 @@ fn demonstrate_pubsub() -> Result<(), Error> {
     let mut executor = Context::default_from_env()?.create_basic_executor();
     let node = executor.create_node("message_demo")?;
 
-    let idiomatic_publisher = node.create_publisher::<rclrs_example_msgs::msg::VariousTypes>(
-        "topic",
-        QOS_PROFILE_DEFAULT,
-    )?;
+    let idiomatic_publisher = node
+        .create_publisher::<rclrs_example_msgs::msg::VariousTypes>("topic", QOS_PROFILE_DEFAULT)?;
     let direct_publisher = node.create_publisher::<rclrs_example_msgs::msg::rmw::VariousTypes>(
         "topic",
         QOS_PROFILE_DEFAULT,
@@ -168,14 +166,10 @@ fn demonstrate_pubsub() -> Result<(), Error> {
         )?;
     println!("Sending idiomatic message.");
     idiomatic_publisher.publish(rclrs_example_msgs::msg::VariousTypes::default())?;
-    executor
-        .spin(SpinOptions::spin_once())
-        .first_error()?;
+    executor.spin(SpinOptions::spin_once()).first_error()?;
     println!("Sending RMW-native message.");
     direct_publisher.publish(rclrs_example_msgs::msg::rmw::VariousTypes::default())?;
-    executor
-        .spin(SpinOptions::spin_once())
-        .first_error()?;
+    executor.spin(SpinOptions::spin_once()).first_error()?;
 
     Ok(())
 }

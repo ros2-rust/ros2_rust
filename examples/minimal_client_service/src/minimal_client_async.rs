@@ -21,8 +21,7 @@ async fn main() -> Result<(), Error> {
 
     println!("Waiting for response");
 
-    let rclrs_spin =
-        tokio::task::spawn_blocking(move || executor.spin(SpinOptions::default()));
+    let rclrs_spin = tokio::task::spawn_blocking(move || executor.spin(SpinOptions::default()));
 
     let response = future.await?;
     println!(
