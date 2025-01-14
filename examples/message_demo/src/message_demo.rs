@@ -3,7 +3,7 @@ use std::convert::TryInto;
 use anyhow::{Error, Result};
 use rosidl_runtime_rs::{seq, BoundedSequence, Message, Sequence};
 
-use rclrs::RclrsErrorFilter;
+use rclrs::*;
 
 fn check_default_values() {
     let msg = rclrs_example_msgs::msg::rmw::VariousTypes::default();
@@ -140,28 +140,28 @@ fn demonstrate_sequences() {
 fn demonstrate_pubsub() -> Result<(), Error> {
     println!("================== Interoperability demo ==================");
     // Demonstrate interoperability between idiomatic and RMW-native message types
-    let mut executor = rclrs::Context::default_from_env()?.create_basic_executor();
+    let mut executor = Context::default_from_env()?.create_basic_executor();
     let node = executor.create_node("message_demo")?;
 
     let idiomatic_publisher = node.create_publisher::<rclrs_example_msgs::msg::VariousTypes>(
         "topic",
-        rclrs::QOS_PROFILE_DEFAULT,
+        QOS_PROFILE_DEFAULT,
     )?;
     let direct_publisher = node.create_publisher::<rclrs_example_msgs::msg::rmw::VariousTypes>(
         "topic",
-        rclrs::QOS_PROFILE_DEFAULT,
+        QOS_PROFILE_DEFAULT,
     )?;
 
     let _idiomatic_subscription = node
         .create_subscription::<rclrs_example_msgs::msg::VariousTypes, _>(
             "topic",
-            rclrs::QOS_PROFILE_DEFAULT,
+            QOS_PROFILE_DEFAULT,
             move |_msg: rclrs_example_msgs::msg::VariousTypes| println!("Got idiomatic message!"),
         )?;
     let _direct_subscription = node
         .create_subscription::<rclrs_example_msgs::msg::rmw::VariousTypes, _>(
             "topic",
-            rclrs::QOS_PROFILE_DEFAULT,
+            QOS_PROFILE_DEFAULT,
             move |_msg: rclrs_example_msgs::msg::rmw::VariousTypes| {
                 println!("Got RMW-native message!")
             },
@@ -169,12 +169,12 @@ fn demonstrate_pubsub() -> Result<(), Error> {
     println!("Sending idiomatic message.");
     idiomatic_publisher.publish(rclrs_example_msgs::msg::VariousTypes::default())?;
     executor
-        .spin(rclrs::SpinOptions::spin_once())
+        .spin(SpinOptions::spin_once())
         .first_error()?;
     println!("Sending RMW-native message.");
     direct_publisher.publish(rclrs_example_msgs::msg::rmw::VariousTypes::default())?;
     executor
-        .spin(rclrs::SpinOptions::spin_once())
+        .spin(SpinOptions::spin_once())
         .first_error()?;
 
     Ok(())

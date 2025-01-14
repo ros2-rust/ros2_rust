@@ -1,5 +1,6 @@
 use crate::{
-    rcl_bindings::rcl_context_is_valid, ContextHandle, IntoNodeOptions, Node, RclrsError, WaitSet,
+    rcl_bindings::rcl_context_is_valid, Context, ContextHandle, IntoNodeOptions, Node, RclrsError,
+    WaitSet,
 };
 use std::{
     sync::{Arc, Mutex, Weak},
@@ -126,5 +127,17 @@ impl SpinOptions {
     pub fn timeout(mut self, timeout: Duration) -> Self {
         self.timeout = Some(timeout);
         self
+    }
+}
+
+/// This trait allows [`Context`] to create a basic executor.
+pub trait CreateBasicExecutor {
+    /// Create a basic executor associated with this [`Context`].
+    fn create_basic_executor(&self) -> Executor;
+}
+
+impl CreateBasicExecutor for Context {
+    fn create_basic_executor(&self) -> Executor {
+        Executor::new(Arc::clone(&self.handle))
     }
 }

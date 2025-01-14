@@ -1,5 +1,5 @@
 use anyhow::{Error, Result};
-use rclrs::RclrsErrorFilter;
+use rclrs::*;
 
 fn handle_service(
     _request_header: &rclrs::rmw_request_id_t,
@@ -12,7 +12,7 @@ fn handle_service(
 }
 
 fn main() -> Result<(), Error> {
-    let mut executor = rclrs::Context::default_from_env()?.create_basic_executor();
+    let mut executor = Context::default_from_env()?.create_basic_executor();
 
     let node = executor.create_node("minimal_service")?;
 
@@ -21,7 +21,7 @@ fn main() -> Result<(), Error> {
 
     println!("Starting server");
     executor
-        .spin(rclrs::SpinOptions::default())
+        .spin(SpinOptions::default())
         .first_error()
         .map_err(|err| err.into())
 }

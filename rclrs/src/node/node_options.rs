@@ -38,7 +38,7 @@ pub trait IntoNodeOptions<'a>: Sized {
     ///
     /// # Example
     /// ```
-    /// # use rclrs::{Context, Node, IntoNodeOptions, RclrsError, RclReturnCode};
+    /// # use rclrs::*;
     /// let executor = Context::default().create_basic_executor();
     /// // This is a valid namespace
     /// let options_ok_ns = "my_node".namespace("/some/nested/namespace");
@@ -78,7 +78,7 @@ pub trait IntoNodeOptions<'a>: Sized {
     ///
     /// # Example
     /// ```
-    /// # use rclrs::{Context, InitOptions, Node, IntoNodeOptions, RclrsError};
+    /// # use rclrs::*;
     /// let context_args = ["--ros-args", "--remap", "__node:=your_node"]
     ///   .map(String::from);
     /// let executor = Context::new(context_args, InitOptions::default())?.create_basic_executor();
@@ -114,7 +114,7 @@ pub trait IntoNodeOptions<'a>: Sized {
     ///
     /// # Example
     /// ```
-    /// # use rclrs::{Context, InitOptions, IntoNodeOptions, Node, RclrsError};
+    /// # use rclrs::*;
     /// // Usually, this would change the name of "my_node" to "context_args_node":
     /// let context_args = ["--ros-args", "--remap", "my_node:__node:=context_args_node"]
     ///   .map(String::from);
@@ -194,7 +194,7 @@ pub trait IntoNodeOptions<'a>: Sized {
 ///
 /// # Example
 /// ```
-/// # use rclrs::{ClockType, Context, IntoNodeOptions, NodeOptions, Node, RclrsError};
+/// # use rclrs::*;
 /// let executor = Context::default().create_basic_executor();
 ///
 /// // Building a node with default options
@@ -251,7 +251,7 @@ impl<'a> NodeOptions<'a> {
     ///
     /// # Example
     /// ```
-    /// # use rclrs::{Context, NodeOptions, RclrsError, RclReturnCode};
+    /// # use rclrs::*;
     /// let executor = Context::default().create_basic_executor();
     /// // This is a valid node name
     /// assert!(executor.create_node(NodeOptions::new("my_node")).is_ok());

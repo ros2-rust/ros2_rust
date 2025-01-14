@@ -25,7 +25,7 @@ pub use logger::*;
 /// # Examples
 ///
 /// ```
-/// use rclrs::{log, ToLogParams};
+/// use rclrs::*;
 /// use std::sync::Mutex;
 /// use std::time::Duration;
 /// use std::env;

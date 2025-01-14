@@ -6,7 +6,7 @@ use std::{
     vec::Vec,
 };
 
-use crate::{rcl_bindings::*, Executor, LoggingLifecycle, RclrsError, ToResult};
+use crate::{rcl_bindings::*, LoggingLifecycle, RclrsError, ToResult};
 
 /// This is locked whenever initializing or dropping any middleware entity
 /// because we have found issues in RCL and some RMW implementations that
@@ -181,11 +181,6 @@ impl Context {
     /// for `options`.
     pub fn default_from_env() -> Result<Self, RclrsError> {
         Self::new(std::env::args(), InitOptions::default())
-    }
-
-    /// Create a basic executor that comes built into rclrs.
-    pub fn create_basic_executor(&self) -> Executor {
-        Executor::new(Arc::clone(&self.handle))
     }
 
     /// Returns the ROS domain ID that the context is using.

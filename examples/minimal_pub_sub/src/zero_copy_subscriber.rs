@@ -1,8 +1,8 @@
 use anyhow::{Error, Result};
-use rclrs::RclrsErrorFilter;
+use rclrs::*;
 
 fn main() -> Result<(), Error> {
-    let mut executor = rclrs::Context::default_from_env()?.create_basic_executor();
+    let mut executor = Context::default_from_env()?.create_basic_executor();
 
     let node = executor.create_node("minimal_subscriber")?;
 
@@ -10,8 +10,8 @@ fn main() -> Result<(), Error> {
 
     let _subscription = node.create_subscription::<std_msgs::msg::UInt32, _>(
         "topic",
-        rclrs::QOS_PROFILE_DEFAULT,
-        move |msg: rclrs::ReadOnlyLoanedMessage<'_, std_msgs::msg::UInt32>| {
+        QOS_PROFILE_DEFAULT,
+        move |msg: ReadOnlyLoanedMessage<'_, std_msgs::msg::UInt32>| {
             num_messages += 1;
             println!("I heard: '{}'", msg.data);
             println!("(Got {} messages so far)", num_messages);
@@ -19,7 +19,7 @@ fn main() -> Result<(), Error> {
     )?;
 
     executor
-        .spin(rclrs::SpinOptions::default())
+        .spin(SpinOptions::default())
         .first_error()
         .map_err(|err| err.into())
 }

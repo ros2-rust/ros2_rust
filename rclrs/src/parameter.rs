@@ -874,7 +874,7 @@ impl ParameterInterface {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{Context, InitOptions};
+    use crate::*;
 
     #[test]
     fn test_parameter_override_errors() {

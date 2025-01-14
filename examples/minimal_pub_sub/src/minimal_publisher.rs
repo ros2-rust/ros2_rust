@@ -1,13 +1,14 @@
 use anyhow::{Error, Result};
+use rclrs::*;
 
 fn main() -> Result<(), Error> {
-    let context = rclrs::Context::default_from_env()?;
+    let context = Context::default_from_env()?;
     let executor = context.create_basic_executor();
 
     let node = executor.create_node("minimal_publisher")?;
 
     let publisher =
-        node.create_publisher::<std_msgs::msg::String>("topic", rclrs::QOS_PROFILE_DEFAULT)?;
+        node.create_publisher::<std_msgs::msg::String>("topic", QOS_PROFILE_DEFAULT)?;
 
     let mut message = std_msgs::msg::String::default();
 

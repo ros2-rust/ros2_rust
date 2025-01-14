@@ -150,7 +150,7 @@ impl Node {
     ///
     /// # Example
     /// ```
-    /// # use rclrs::{Context, InitOptions, RclrsError};
+    /// # use rclrs::*;
     /// // Without remapping
     /// let executor = Context::default().create_basic_executor();
     /// let node = executor.create_node("my_node")?;
@@ -173,7 +173,7 @@ impl Node {
     ///
     /// # Example
     /// ```
-    /// # use rclrs::{Context, InitOptions, RclrsError, IntoNodeOptions};
+    /// # use rclrs::*;
     /// // Without remapping
     /// let executor = Context::default().create_basic_executor();
     /// let node = executor.create_node(
@@ -199,7 +199,7 @@ impl Node {
     ///
     /// # Example
     /// ```
-    /// # use rclrs::{Context, RclrsError, IntoNodeOptions};
+    /// # use rclrs::*;
     /// let executor = Context::default().create_basic_executor();
     /// let node = executor.create_node(
     ///     "my_node"
@@ -375,7 +375,7 @@ impl Node {
     ///
     /// # Example
     /// ```
-    /// # use rclrs::{Context, RclrsError};
+    /// # use rclrs::*;
     /// // Set default ROS domain ID to 10 here
     /// std::env::set_var("ROS_DOMAIN_ID", "10");
     /// let executor = Context::default().create_basic_executor();
@@ -403,7 +403,7 @@ impl Node {
     ///
     /// # Example
     /// ```
-    /// # use rclrs::{Context, ParameterRange, RclrsError};
+    /// # use rclrs::*;
     /// let executor = Context::default().create_basic_executor();
     /// let node = executor.create_node("domain_id_node")?;
     /// // Set it to a range of 0-100, with a step of 2

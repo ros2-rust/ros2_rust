@@ -145,7 +145,7 @@ impl TimeSource {
 
 #[cfg(test)]
 mod tests {
-    use crate::{Context, InitOptions};
+    use crate::*;
 
     #[test]
     fn time_source_default_clock() {
