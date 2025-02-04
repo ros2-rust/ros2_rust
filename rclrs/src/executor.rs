@@ -78,6 +78,9 @@ impl Executor {
             }
         }
 
+        // Clear out any nodes that have been dropped.
+        self.nodes_mtx.lock().unwrap().retain(|weak_node| weak_node.strong_count() > 0);
+
         Ok(())
     }
 
