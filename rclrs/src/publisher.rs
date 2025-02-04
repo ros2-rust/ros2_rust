@@ -50,9 +50,9 @@ impl Drop for PublisherHandle {
 /// The underlying RMW will decide on the concrete delivery mechanism (network stack, shared
 /// memory, or intraprocess).
 ///
-/// Sending messages does not require the node's executor to [spin][2].
+/// Sending messages does not require the node's executor to [spin][1].
 ///
-/// [2]: crate::Executor::spin
+/// [1]: crate::Executor::spin
 pub struct Publisher<T>
 where
     T: Message,
