@@ -79,6 +79,13 @@ pub(crate) struct ContextHandle {
 }
 
 impl Default for Context {
+    /// This will produce a [`Context`] without providing any command line
+    /// arguments and using only the default [`InitOptions`]. This is always
+    /// guaranteed to produce a valid [`Context`] instance.
+    ///
+    /// This is **not** the same as the "default context" defined for `rclcpp`
+    /// which is a globally shared context instance. `rclrs` does not offer a
+    /// globally shared context instance.
     fn default() -> Self {
         // SAFETY: It should always be valid to instantiate a context with no
         // arguments, no parameters, no options, etc.
