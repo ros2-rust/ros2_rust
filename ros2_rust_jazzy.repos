@@ -27,3 +27,11 @@ repositories:
     type: git
     url: https://github.com/ros2/unique_identifier_msgs.git
     version: jazzy
+  ros2-rust/rosidl_rust:
+    type: git
+    url: https://github.com/ros2-rust/rosidl_rust.git
+    version: main
+  ros2-rust/rosidl_runtime_rs:
+    type: git
+    url: https://github.com/ros2-rust/rosidl_runtime_rs.git
+    version: main
