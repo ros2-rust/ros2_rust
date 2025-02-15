@@ -32,6 +32,46 @@ pub enum RclrsError {
     },
     /// It was attempted to add a waitable to a wait set twice.
     AlreadyAddedToWaitSet,
+    /// A negative duration was obtained from rcl which should have been positive.
+    ///
+    /// The value represents nanoseconds.
+    NegativeDuration(i64),
+    /// The guard condition that you tried to trigger is not owned by the
+    /// [`GuardCondition`][crate::GuardCondition] instance.
+    UnownedGuardCondition,
+    /// The payload given to a primitive that belongs to a worker was the wrong
+    /// type.
+    InvalidPayload {
+        /// The payload type expected by the primitive
+        expected: std::any::TypeId,
+        /// The payload type given by the worker
+        received: std::any::TypeId,
+    }
+}
+
+impl RclrsError {
+    /// Returns true if the error was due to a timeout, otherwise returns false.
+    pub fn is_timeout(&self) -> bool {
+        matches!(
+            self,
+            RclrsError::RclError {
+                code: RclReturnCode::Timeout,
+                ..
+            }
+        )
+    }
+
+    /// Returns true if the error was because a subscription, service, or client
+    /// take failed, otherwise returns false.
+    pub fn is_take_failed(&self) -> bool {
+        matches!(
+            self,
+            RclrsError::RclError {
+                code: RclReturnCode::SubscriptionTakeFailed | RclReturnCode::ServiceTakeFailed | RclReturnCode::ClientTakeFailed,
+                ..
+            }
+        )
+    }
 }
 
 impl Display for RclrsError {
@@ -46,6 +86,24 @@ impl Display for RclrsError {
                 write!(
                     f,
                     "Could not add entity to wait set because it was already added to a wait set"
+                )
+            }
+            RclrsError::NegativeDuration(duration) => {
+                write!(
+                    f,
+                    "A duration was negative when it should not have been: {duration:?}"
+                )
+            }
+            RclrsError::UnownedGuardCondition => {
+                write!(
+                    f,
+                    "Could not trigger guard condition because it is not owned by rclrs"
+                )
+            }
+            RclrsError::InvalidPayload { expected, received } => {
+                write!(
+                    f,
+                    "Received invalid payload: expected {expected:?}, received {received:?}",
                 )
             }
         }
@@ -79,7 +137,12 @@ impl Error for RclrsError {
             RclrsError::RclError { msg, .. } => msg.as_ref().map(|e| e as &dyn Error),
             RclrsError::UnknownRclError { msg, .. } => msg.as_ref().map(|e| e as &dyn Error),
             RclrsError::StringContainsNul { err, .. } => Some(err).map(|e| e as &dyn Error),
+            // TODO(@mxgrey): We should provide source information for these other types.
+            // It should be easy to do this using the thiserror crate.
             RclrsError::AlreadyAddedToWaitSet => None,
+            RclrsError::NegativeDuration(_) => None,
+            RclrsError::UnownedGuardCondition => None,
+            RclrsError::InvalidPayload { .. } => None,
         }
     }
 }
@@ -350,5 +413,84 @@ pub(crate) trait ToResult {
 impl ToResult for rcl_ret_t {
     fn ok(&self) -> Result<(), RclrsError> {
         to_rclrs_result(*self)
+    }
+}
+
+/// A helper trait to disregard timeouts as not an error.
+pub trait RclrsErrorFilter {
+    /// Get the first error available, or Ok(()) if there are no errors.
+    fn first_error(self) -> Result<(), RclrsError>;
+
+    /// If the result was a timeout error, change it to `Ok(())`.
+    fn timeout_ok(self) -> Self;
+
+    /// If a subscription, service, or client take failed, change the result
+    /// to be `Ok(())`.
+    fn take_failed_ok(self) -> Self;
+
+    /// Some error types just indicate an early termination but do not indicate
+    /// that anything in the system has misbehaved. This filters out anything
+    /// that is part of the normal operation of rcl.
+    fn ignore_non_errors(self) -> Self
+    where
+        Self: Sized,
+    {
+        self
+        .timeout_ok()
+        .take_failed_ok()
+    }
+}
+
+impl RclrsErrorFilter for Result<(), RclrsError> {
+    fn first_error(self) -> Result<(), RclrsError> {
+        self
+    }
+
+    fn timeout_ok(self) -> Result<(), RclrsError> {
+        match self {
+            Ok(()) => Ok(()),
+            Err(err) => {
+                if err.is_timeout() {
+                    Ok(())
+                } else {
+                    Err(err)
+                }
+            }
+        }
+    }
+
+    fn take_failed_ok(self) -> Result<(), RclrsError> {
+        match self {
+            Err(err) => {
+                if err.is_take_failed() {
+                    // Spurious wakeup - this may happen even when a waitset indicated that
+                    // work was ready, so we won't report it as an error
+                    Ok(())
+                } else {
+                    Err(err)
+                }
+            }
+            other => other,
+        }
+    }
+}
+
+impl RclrsErrorFilter for Vec<RclrsError> {
+    fn first_error(mut self) -> Result<(), RclrsError> {
+        if self.is_empty() {
+            return Ok(());
+        }
+
+        Err(self.remove(0))
+    }
+
+    fn timeout_ok(mut self) -> Self {
+        self.retain(|err| !err.is_timeout());
+        self
+    }
+
+    fn take_failed_ok(mut self) -> Self {
+        self.retain(|err| !err.is_take_failed());
+        self
     }
 }
