@@ -1,36 +1,37 @@
-use rclrs::{create_node, Context, Node, Publisher, RclrsError, QOS_PROFILE_DEFAULT};
+use rclrs::*;
 use std::{sync::Arc, thread, time::Duration};
 use std_msgs::msg::String as StringMsg;
-struct SimplePublisherNode {
-    node: Arc<Node>,
-    _publisher: Arc<Publisher<StringMsg>>,
+
+struct SimplePublisher {
+    publisher: Arc<Publisher<StringMsg>>,
 }
-impl SimplePublisherNode {
-    fn new(context: &Context) -> Result<Self, RclrsError> {
-        let node = create_node(context, "simple_publisher").unwrap();
-        let _publisher = node
+
+impl SimplePublisher {
+    fn new(executor: &Executor) -> Result<Self, RclrsError> {
+        let node = executor.create_node("simple_publisher").unwrap();
+        let publisher = node
             .create_publisher("publish_hello", QOS_PROFILE_DEFAULT)
             .unwrap();
-        Ok(Self { node, _publisher })
+        Ok(Self { publisher })
     }
 
     fn publish_data(&self, increment: i32) -> Result<i32, RclrsError> {
         let msg: StringMsg = StringMsg {
             data: format!("Hello World {}", increment),
         };
-        self._publisher.publish(msg).unwrap();
+        self.publisher.publish(msg).unwrap();
         Ok(increment + 1_i32)
     }
 }
 
 fn main() -> Result<(), RclrsError> {
-    let context = Context::new(std::env::args()).unwrap();
-    let publisher = Arc::new(SimplePublisherNode::new(&context).unwrap());
+    let mut executor = Context::default_from_env().unwrap().create_basic_executor();
+    let publisher = Arc::new(SimplePublisher::new(&executor).unwrap());
     let publisher_other_thread = Arc::clone(&publisher);
     let mut count: i32 = 0;
     thread::spawn(move || loop {
         thread::sleep(Duration::from_millis(1000));
         count = publisher_other_thread.publish_data(count).unwrap();
     });
-    rclrs::spin(publisher.node.clone())
+    executor.spin(SpinOptions::default()).first_error()
 }

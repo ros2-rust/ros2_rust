@@ -25,13 +25,13 @@ pub use logger::*;
 /// # Examples
 ///
 /// ```
-/// use rclrs::{log, ToLogParams};
+/// use rclrs::*;
 /// use std::sync::Mutex;
 /// use std::time::Duration;
 /// use std::env;
 ///
-/// let context = rclrs::Context::new(env::args()).unwrap();
-/// let node = rclrs::Node::new(&context, "test_node").unwrap();
+/// let executor = rclrs::Context::default().create_basic_executor();
+/// let node = executor.create_node("test_node").unwrap();
 ///
 /// log!(node.debug(), "Simple debug message");
 /// let some_variable = 43;
@@ -473,7 +473,10 @@ macro_rules! function {
 #[cfg(test)]
 mod tests {
     use crate::{log_handler::*, test_helpers::*, *};
-    use std::sync::Mutex;
+    use std::{
+        sync::{Arc, Mutex},
+        time::Duration,
+    };
 
     #[test]
     fn test_logging_macros() -> Result<(), RclrsError> {

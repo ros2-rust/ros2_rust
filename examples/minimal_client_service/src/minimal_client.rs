@@ -1,11 +1,10 @@
-use std::env;
-
 use anyhow::{Error, Result};
+use rclrs::*;
 
 fn main() -> Result<(), Error> {
-    let context = rclrs::Context::new(env::args())?;
+    let mut executor = Context::default_from_env()?.create_basic_executor();
 
-    let node = rclrs::create_node(&context, "minimal_client")?;
+    let node = executor.create_node("minimal_client")?;
 
     let client = node.create_client::<example_interfaces::srv::AddTwoInts>("add_two_ints")?;
 
@@ -30,5 +29,8 @@ fn main() -> Result<(), Error> {
     std::thread::sleep(std::time::Duration::from_millis(500));
 
     println!("Waiting for response");
-    rclrs::spin(node).map_err(|err| err.into())
+    executor
+        .spin(SpinOptions::default())
+        .first_error()
+        .map_err(|err| err.into())
 }

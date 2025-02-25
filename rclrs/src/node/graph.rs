@@ -454,7 +454,7 @@ fn convert_names_and_types(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{Context, InitOptions};
+    use crate::*;
 
     #[test]
     fn test_graph_empty() {
@@ -482,11 +482,11 @@ mod tests {
             .map(|value: usize| if value != 99 { 99 } else { 98 })
             .unwrap_or(99);
 
-        let context =
-            Context::new_with_options([], InitOptions::new().with_domain_id(Some(domain_id)))
-                .unwrap();
+        let executor = Context::new([], InitOptions::new().with_domain_id(Some(domain_id)))
+            .unwrap()
+            .create_basic_executor();
         let node_name = "test_publisher_names_and_types";
-        let node = Node::new(&context, node_name).unwrap();
+        let node = executor.create_node(node_name).unwrap();
 
         let check_rosout = |topics: HashMap<String, Vec<String>>| {
             // rosout shows up in humble, even if the graph is empty
@@ -558,9 +558,9 @@ mod tests {
 
     #[test]
     fn test_node_names() {
-        let context = Context::new([]).unwrap();
+        let executor = Context::default().create_basic_executor();
         let node_name = "test_node_names";
-        let node = Node::new(&context, node_name).unwrap();
+        let node = executor.create_node(node_name).unwrap();
 
         let names_and_namespaces = node.get_node_names().unwrap();
 
@@ -574,9 +574,9 @@ mod tests {
 
     #[test]
     fn test_node_names_with_enclaves() {
-        let context = Context::new([]).unwrap();
+        let executor = Context::default().create_basic_executor();
         let node_name = "test_node_names_with_enclaves";
-        let node = Node::new(&context, node_name).unwrap();
+        let node = executor.create_node(node_name).unwrap();
 
         let names_and_namespaces = node.get_node_names_with_enclaves().unwrap();
 

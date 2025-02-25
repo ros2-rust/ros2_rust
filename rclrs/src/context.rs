@@ -78,34 +78,47 @@ pub(crate) struct ContextHandle {
     logging: Arc<LoggingLifecycle>,
 }
 
+impl Default for Context {
+    /// This will produce a [`Context`] without providing any command line
+    /// arguments and using only the default [`InitOptions`]. This is always
+    /// guaranteed to produce a valid [`Context`] instance.
+    ///
+    /// This is **not** the same as the "default context" defined for `rclcpp`
+    /// which is a globally shared context instance. `rclrs` does not offer a
+    /// globally shared context instance.
+    fn default() -> Self {
+        // SAFETY: It should always be valid to instantiate a context with no
+        // arguments, no parameters, no options, etc.
+        Self::new([], InitOptions::default()).expect("Failed to instantiate a default context")
+    }
+}
+
 impl Context {
     /// Creates a new context.
     ///
-    /// Usually this would be called with `std::env::args()`, analogously to `rclcpp::init()`.
-    /// See also the official "Passing ROS arguments to nodes via the command-line" tutorial.
+    /// * `args` - A sequence of strings that resembles command line arguments
+    ///   that users can pass into a ROS executable. See [the official tutorial][1]
+    ///   to know what these arguments may look like. To simply pass in the arguments
+    ///   that the user has provided from the command line, call [`Self::from_env`]
+    ///   or [`Self::default_from_env`] instead.
     ///
-    /// Creating a context will fail if the args contain invalid ROS arguments.
+    /// * `options` - Additional options that your application can use to override
+    ///   settings that would otherwise be determined by the environment.
     ///
-    /// # Example
-    /// ```
-    /// # use rclrs::Context;
-    /// assert!(Context::new([]).is_ok());
-    /// let invalid_remapping = ["--ros-args", "-r", ":=:*/]"].map(String::from);
-    /// assert!(Context::new(invalid_remapping).is_err());
-    /// ```
-    pub fn new(args: impl IntoIterator<Item = String>) -> Result<Self, RclrsError> {
-        Self::new_with_options(args, InitOptions::new())
-    }
-
-    /// Same as [`Context::new`] except you can additionally provide initialization options.
+    /// Creating a context will fail if `args` contains invalid ROS arguments.
     ///
     /// # Example
     /// ```
     /// use rclrs::{Context, InitOptions};
-    /// let context = Context::new_with_options([], InitOptions::new().with_domain_id(Some(5))).unwrap();
+    /// let context = Context::new(
+    ///     std::env::args(),
+    ///     InitOptions::new().with_domain_id(Some(5)),
+    /// ).unwrap();
     /// assert_eq!(context.domain_id(), 5);
-    /// ````
-    pub fn new_with_options(
+    /// ```
+    ///
+    /// [1]: https://docs.ros.org/en/rolling/How-To-Guides/Node-arguments.html
+    pub fn new(
         args: impl IntoIterator<Item = String>,
         options: InitOptions,
     ) -> Result<Self, RclrsError> {
@@ -163,6 +176,18 @@ impl Context {
                 logging,
             }),
         })
+    }
+
+    /// Same as [`Self::new`] but [`std::env::args`] is automatically passed in
+    /// for `args`.
+    pub fn from_env(options: InitOptions) -> Result<Self, RclrsError> {
+        Self::new(std::env::args(), options)
+    }
+
+    /// Same as [`Self::from_env`] but the default [`InitOptions`] is passed in
+    /// for `options`.
+    pub fn default_from_env() -> Result<Self, RclrsError> {
+        Self::new(std::env::args(), InitOptions::default())
     }
 
     /// Returns the ROS domain ID that the context is using.
@@ -265,14 +290,14 @@ mod tests {
     #[test]
     fn test_create_context() -> Result<(), RclrsError> {
         // If the context fails to be created, this will cause a panic
-        let _ = Context::new(vec![])?;
+        let _ = Context::new(vec![], InitOptions::default())?;
         Ok(())
     }
 
     #[test]
     fn test_context_ok() -> Result<(), RclrsError> {
         // If the context fails to be created, this will cause a panic
-        let created_context = Context::new(vec![]).unwrap();
+        let created_context = Context::new(vec![], InitOptions::default()).unwrap();
         assert!(created_context.ok());
 
         Ok(())

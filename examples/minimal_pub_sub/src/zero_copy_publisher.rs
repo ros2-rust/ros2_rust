@@ -1,14 +1,14 @@
-use std::env;
-
 use anyhow::{Error, Result};
+use rclrs::*;
 
 fn main() -> Result<(), Error> {
-    let context = rclrs::Context::new(env::args())?;
+    let context = Context::default_from_env()?;
+    let executor = context.create_basic_executor();
 
-    let node = rclrs::create_node(&context, "minimal_publisher")?;
+    let node = executor.create_node("minimal_publisher")?;
 
     let publisher =
-        node.create_publisher::<std_msgs::msg::rmw::UInt32>("topic", rclrs::QOS_PROFILE_DEFAULT)?;
+        node.create_publisher::<std_msgs::msg::rmw::UInt32>("topic", QOS_PROFILE_DEFAULT)?;
 
     let mut publish_count: u32 = 1;
 

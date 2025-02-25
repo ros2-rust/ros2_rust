@@ -1,6 +1,5 @@
-use std::env;
-
 use anyhow::{Error, Result};
+use rclrs::*;
 
 fn handle_service(
     _request_header: &rclrs::rmw_request_id_t,
@@ -13,13 +12,16 @@ fn handle_service(
 }
 
 fn main() -> Result<(), Error> {
-    let context = rclrs::Context::new(env::args())?;
+    let mut executor = Context::default_from_env()?.create_basic_executor();
 
-    let node = rclrs::create_node(&context, "minimal_service")?;
+    let node = executor.create_node("minimal_service")?;
 
     let _server = node
         .create_service::<example_interfaces::srv::AddTwoInts, _>("add_two_ints", handle_service)?;
 
     println!("Starting server");
-    rclrs::spin(node).map_err(|err| err.into())
+    executor
+        .spin(SpinOptions::default())
+        .first_error()
+        .map_err(|err| err.into())
 }
