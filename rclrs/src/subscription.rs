@@ -31,7 +31,7 @@ unsafe impl Send for rcl_subscription_t {}
 /// [1]: <https://doc.rust-lang.org/reference/destructors.html>
 pub struct SubscriptionHandle {
     rcl_subscription: Mutex<rcl_subscription_t>,
-    node_handle: Arc<Node>,
+    node_handle: Arc<NodeHandle>,
     pub(crate) in_use_by_wait_set: Arc<AtomicBool>,
 }
 
@@ -86,6 +86,7 @@ where
     pub callback: Mutex<AnySubscriptionCallback<T>>,
     /// Ensure the parent node remains alive as long as the subscription is held.
     /// This implementation will change in the future.
+    #[allow(unused)]
     node: Arc<Node>,
     message: PhantomData<T>,
 }
@@ -142,7 +143,7 @@ where
 
         let handle = Arc::new(SubscriptionHandle {
             rcl_subscription: Mutex::new(rcl_subscription),
-            node_handle,
+            node_handle: Arc::clone(&node.handle),
             in_use_by_wait_set: Arc::new(AtomicBool::new(false)),
         });
 
@@ -403,24 +404,25 @@ mod tests {
 
     #[test]
     fn test_node_subscription_raii() {
-        use rclrs::*;
+        use crate::*;
         use std::sync::atomic::Ordering;
 
-        let executor = Context::default().create_basic_executor();
+        let mut executor = Context::default().create_basic_executor();
 
         let triggered = Arc::new(AtomicBool::new(false));
-        let callback = |_| {
-            triggered.store(true, Ordering::AcqRel);
+        let inner_triggered = Arc::clone(&triggered);
+        let callback = move |_: msg::Empty| {
+            inner_triggered.store(true, Ordering::Release);
         };
 
-        let (subscription, publisher) = {
+        let (_subscription, publisher) = {
             let node = executor
                 .create_node(&format!("test_node_subscription_raii_{}", line!()))
                 .unwrap();
 
             let qos = QoSProfile::default().keep_all().reliable();
             let subscription = node
-                .create_subscription::<msg::Empty>("test_topic", qos, callback)
+                .create_subscription::<msg::Empty, _>("test_topic", qos, callback)
                 .unwrap();
             let publisher = node
                 .create_publisher::<msg::Empty>("test_topic", qos)
@@ -429,9 +431,9 @@ mod tests {
             (subscription, publisher)
         };
 
-        publisher.publish(msg::Empty {});
+        publisher.publish(msg::Empty::default()).unwrap();
         let start_time = std::time::Instant::now();
-        while !triggered.load(Ordering::AcqRel) {
+        while !triggered.load(Ordering::Acquire) {
             assert!(executor.spin(SpinOptions::spin_once()).is_empty());
             assert!(start_time.elapsed() < std::time::Duration::from_secs(10));
         }

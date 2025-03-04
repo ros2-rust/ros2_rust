@@ -75,6 +75,7 @@ where
     pub callback: Mutex<ServiceCallback<T::Request, T::Response>>,
     /// Ensure the parent node remains alive as long as the subscription is held.
     /// This implementation will change in the future.
+    #[allow(unused)]
     node: Arc<Node>,
 }
 
@@ -126,7 +127,7 @@ where
 
         let handle = Arc::new(ServiceHandle {
             rcl_service: Mutex::new(rcl_service),
-            node_handle,
+            node_handle: Arc::clone(&node.handle),
             in_use_by_wait_set: Arc::new(AtomicBool::new(false)),
         });
 

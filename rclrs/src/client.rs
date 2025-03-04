@@ -78,6 +78,7 @@ where
     futures: Arc<Mutex<HashMap<RequestId, oneshot::Sender<T::Response>>>>,
     /// Ensure the parent node remains alive as long as the subscription is held.
     /// This implementation will change in the future.
+    #[allow(unused)]
     node: Arc<Node>,
 }
 
@@ -129,7 +130,7 @@ where
 
         let handle = Arc::new(ClientHandle {
             rcl_client: Mutex::new(rcl_client),
-            node_handle,
+            node_handle: Arc::clone(&node.handle),
             in_use_by_wait_set: Arc::new(AtomicBool::new(false)),
         });
 
