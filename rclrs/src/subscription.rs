@@ -419,8 +419,12 @@ mod tests {
                 .unwrap();
 
             let qos = QoSProfile::default().keep_all().reliable();
-            let subscription = node.create_subscription::<msg::Empty>("test_topic", qos, callback).unwrap();
-            let publisher = node.create_publisher::<msg::Empty>("test_topic", qos).unwrap();
+            let subscription = node
+                .create_subscription::<msg::Empty>("test_topic", qos, callback)
+                .unwrap();
+            let publisher = node
+                .create_publisher::<msg::Empty>("test_topic", qos)
+                .unwrap();
 
             (subscription, publisher)
         };

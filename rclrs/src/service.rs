@@ -83,11 +83,7 @@ where
     T: rosidl_runtime_rs::Service,
 {
     /// Creates a new service.
-    pub(crate) fn new<F>(
-        node: &Arc<Node>,
-        topic: &str,
-        callback: F,
-    ) -> Result<Self, RclrsError>
+    pub(crate) fn new<F>(node: &Arc<Node>, topic: &str, callback: F) -> Result<Self, RclrsError>
     // This uses pub(crate) visibility to avoid instantiating this struct outside
     // [`Node::create_service`], see the struct's documentation for the rationale
     where
