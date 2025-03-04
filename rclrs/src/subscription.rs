@@ -10,7 +10,7 @@ use crate::{
     error::{RclReturnCode, ToResult},
     qos::QoSProfile,
     rcl_bindings::*,
-    NodeHandle, RclrsError, ENTITY_LIFECYCLE_MUTEX,
+    Node, NodeHandle, RclrsError, ENTITY_LIFECYCLE_MUTEX,
 };
 
 mod callback;
@@ -31,7 +31,7 @@ unsafe impl Send for rcl_subscription_t {}
 /// [1]: <https://doc.rust-lang.org/reference/destructors.html>
 pub struct SubscriptionHandle {
     rcl_subscription: Mutex<rcl_subscription_t>,
-    node_handle: Arc<NodeHandle>,
+    node_handle: Arc<Node>,
     pub(crate) in_use_by_wait_set: Arc<AtomicBool>,
 }
 
@@ -84,6 +84,9 @@ where
     pub(crate) handle: Arc<SubscriptionHandle>,
     /// The callback function that runs when a message was received.
     pub callback: Mutex<AnySubscriptionCallback<T>>,
+    /// Ensure the parent node remains alive as long as the subscription is held.
+    /// This implementation will change in the future.
+    node: Arc<Node>,
     message: PhantomData<T>,
 }
 
@@ -93,7 +96,7 @@ where
 {
     /// Creates a new subscription.
     pub(crate) fn new<Args>(
-        node_handle: Arc<NodeHandle>,
+        node: &Arc<Node>,
         topic: &str,
         qos: QoSProfile,
         callback: impl SubscriptionCallback<T, Args>,
@@ -117,7 +120,7 @@ where
         subscription_options.qos = qos.into();
 
         {
-            let rcl_node = node_handle.rcl_node.lock().unwrap();
+            let rcl_node = node.handle.rcl_node.lock().unwrap();
             let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
             unsafe {
                 // SAFETY:
@@ -146,6 +149,7 @@ where
         Ok(Self {
             handle,
             callback: Mutex::new(callback.into_callback()),
+            node: Arc::clone(node),
             message: PhantomData,
         })
     }
@@ -395,5 +399,37 @@ mod tests {
             expected_subscriptions_info
         );
         Ok(())
+    }
+
+    #[test]
+    fn test_node_subscription_raii() {
+        use rclrs::*;
+        use std::sync::atomic::Ordering;
+
+        let executor = Context::default().create_basic_executor();
+
+        let triggered = Arc::new(AtomicBool::new(false));
+        let callback = |_| {
+            triggered.store(true, Ordering::AcqRel);
+        };
+
+        let (subscription, publisher) = {
+            let node = executor
+                .create_node(&format!("test_node_subscription_raii_{}", line!()))
+                .unwrap();
+
+            let qos = QoSProfile::default().keep_all().reliable();
+            let subscription = node.create_subscription::<msg::Empty>("test_topic", qos, callback).unwrap();
+            let publisher = node.create_publisher::<msg::Empty>("test_topic", qos).unwrap();
+
+            (subscription, publisher)
+        };
+
+        publisher.publish(msg::Empty {});
+        let start_time = std::time::Instant::now();
+        while !triggered.load(Ordering::AcqRel) {
+            assert!(executor.spin(SpinOptions::spin_once()).is_empty());
+            assert!(start_time.elapsed() < std::time::Duration::from_secs(10));
+        }
     }
 }

@@ -11,7 +11,7 @@ use rosidl_runtime_rs::Message;
 use crate::{
     error::{RclReturnCode, ToResult},
     rcl_bindings::*,
-    MessageCow, NodeHandle, RclrsError, ENTITY_LIFECYCLE_MUTEX,
+    MessageCow, Node, NodeHandle, RclrsError, ENTITY_LIFECYCLE_MUTEX,
 };
 
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
@@ -76,6 +76,9 @@ where
     pub(crate) handle: Arc<ClientHandle>,
     requests: Mutex<HashMap<RequestId, RequestValue<T::Response>>>,
     futures: Arc<Mutex<HashMap<RequestId, oneshot::Sender<T::Response>>>>,
+    /// Ensure the parent node remains alive as long as the subscription is held.
+    /// This implementation will change in the future.
+    node: Arc<Node>,
 }
 
 impl<T> Client<T>
@@ -83,7 +86,7 @@ where
     T: rosidl_runtime_rs::Service,
 {
     /// Creates a new client.
-    pub(crate) fn new(node_handle: Arc<NodeHandle>, topic: &str) -> Result<Self, RclrsError>
+    pub(crate) fn new(node: &Arc<Node>, topic: &str) -> Result<Self, RclrsError>
     // This uses pub(crate) visibility to avoid instantiating this struct outside
     // [`Node::create_client`], see the struct's documentation for the rationale
     where
@@ -102,7 +105,7 @@ where
         let client_options = unsafe { rcl_client_get_default_options() };
 
         {
-            let rcl_node = node_handle.rcl_node.lock().unwrap();
+            let rcl_node = node.handle.rcl_node.lock().unwrap();
             let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
 
             // SAFETY:
@@ -136,6 +139,7 @@ where
             futures: Arc::new(Mutex::new(
                 HashMap::<RequestId, oneshot::Sender<T::Response>>::new(),
             )),
+            node: Arc::clone(node),
         })
     }
 

@@ -9,7 +9,7 @@ use rosidl_runtime_rs::Message;
 use crate::{
     error::{RclReturnCode, ToResult},
     rcl_bindings::*,
-    MessageCow, NodeHandle, RclrsError, ENTITY_LIFECYCLE_MUTEX,
+    MessageCow, Node, NodeHandle, RclrsError, ENTITY_LIFECYCLE_MUTEX,
 };
 
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
@@ -73,6 +73,9 @@ where
     pub(crate) handle: Arc<ServiceHandle>,
     /// The callback function that runs when a request was received.
     pub callback: Mutex<ServiceCallback<T::Request, T::Response>>,
+    /// Ensure the parent node remains alive as long as the subscription is held.
+    /// This implementation will change in the future.
+    node: Arc<Node>,
 }
 
 impl<T> Service<T>
@@ -81,7 +84,7 @@ where
 {
     /// Creates a new service.
     pub(crate) fn new<F>(
-        node_handle: Arc<NodeHandle>,
+        node: &Arc<Node>,
         topic: &str,
         callback: F,
     ) -> Result<Self, RclrsError>
@@ -104,7 +107,7 @@ where
         let service_options = unsafe { rcl_service_get_default_options() };
 
         {
-            let rcl_node = node_handle.rcl_node.lock().unwrap();
+            let rcl_node = node.handle.rcl_node.lock().unwrap();
             let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
             unsafe {
                 // SAFETY:
@@ -133,6 +136,7 @@ where
 
         Ok(Self {
             handle,
+            node: Arc::clone(node),
             callback: Mutex::new(Box::new(callback)),
         })
     }
