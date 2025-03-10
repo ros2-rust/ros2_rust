@@ -789,7 +789,7 @@ impl ParameterInterface {
         }
     }
 
-    pub(crate) fn create_services(&self, node: &Node) -> Result<(), RclrsError> {
+    pub(crate) fn create_services(&self, node: &Arc<Node>) -> Result<(), RclrsError> {
         *self.services.lock().unwrap() =
             Some(ParameterService::new(node, self.parameter_map.clone())?);
         Ok(())

@@ -225,11 +225,11 @@ impl Node {
     ///
     /// [1]: crate::Client
     // TODO: make client's lifetime depend on node's lifetime
-    pub fn create_client<T>(&self, topic: &str) -> Result<Arc<Client<T>>, RclrsError>
+    pub fn create_client<T>(self: &Arc<Self>, topic: &str) -> Result<Arc<Client<T>>, RclrsError>
     where
         T: rosidl_runtime_rs::Service,
     {
-        let client = Arc::new(Client::<T>::new(Arc::clone(&self.handle), topic)?);
+        let client = Arc::new(Client::<T>::new(self, topic)?);
         { self.clients_mtx.lock().unwrap() }.push(Arc::downgrade(&client) as Weak<dyn ClientBase>);
         Ok(client)
     }
@@ -292,7 +292,7 @@ impl Node {
     ///
     /// [1]: crate::Service
     pub fn create_service<T, F>(
-        &self,
+        self: &Arc<Self>,
         topic: &str,
         callback: F,
     ) -> Result<Arc<Service<T>>, RclrsError>
@@ -300,11 +300,7 @@ impl Node {
         T: rosidl_runtime_rs::Service,
         F: Fn(&rmw_request_id_t, T::Request) -> T::Response + 'static + Send,
     {
-        let service = Arc::new(Service::<T>::new(
-            Arc::clone(&self.handle),
-            topic,
-            callback,
-        )?);
+        let service = Arc::new(Service::<T>::new(self, topic, callback)?);
         { self.services_mtx.lock().unwrap() }
             .push(Arc::downgrade(&service) as Weak<dyn ServiceBase>);
         Ok(service)
@@ -314,7 +310,7 @@ impl Node {
     ///
     /// [1]: crate::Subscription
     pub fn create_subscription<T, Args>(
-        &self,
+        self: &Arc<Self>,
         topic: &str,
         qos: QoSProfile,
         callback: impl SubscriptionCallback<T, Args>,
@@ -322,12 +318,7 @@ impl Node {
     where
         T: Message,
     {
-        let subscription = Arc::new(Subscription::<T>::new(
-            Arc::clone(&self.handle),
-            topic,
-            qos,
-            callback,
-        )?);
+        let subscription = Arc::new(Subscription::<T>::new(self, topic, qos, callback)?);
         { self.subscriptions_mtx.lock() }
             .unwrap()
             .push(Arc::downgrade(&subscription) as Weak<dyn SubscriptionBase>);
