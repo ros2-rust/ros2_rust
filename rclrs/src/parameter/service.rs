@@ -239,7 +239,7 @@ fn set_parameters_atomically(
 
 impl ParameterService {
     pub(crate) fn new(
-        node: &Node,
+        node: &Arc<Node>,
         parameter_map: Arc<Mutex<ParameterMap>>,
     ) -> Result<Self, RclrsError> {
         let fqn = node.fully_qualified_name();
