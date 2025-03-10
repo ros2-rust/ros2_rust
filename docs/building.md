@@ -43,7 +43,6 @@ The exact steps may differ between platforms, but as an example, here is how you
 # Assuming you installed the minimal version of ROS 2, you need these additional packages:
 sudo apt install -y git libclang-dev python3-pip python3-vcstool # libclang-dev is required by bindgen
 # Install these plugins for cargo and colcon:
-cargo install cargo-ament-build
 pip install git+https://github.com/colcon/colcon-cargo.git
 pip install git+https://github.com/colcon/colcon-ros-cargo.git
 ```
@@ -54,8 +53,8 @@ Build the Docker image with
 
 ```shell
 # Make sure to run this in the workspace directory
-# ROS_DISTRO can be humble|iron|rolling
-docker build -f src/ros2_rust/Dockerfile --build-arg "ROS_DISTRO=humble" -t ros2_rust_dev
+# ROS_DISTRO can be humble|rolling
+docker build -f src/ros2_rust/Dockerfile --build-arg "ROS_DISTRO=humble" -t ros2_rust_dev .
 ```
 
 and then run it with

@@ -1,4 +1,4 @@
-use crate::{Context, Node, NodeBuilder, RclrsError};
+use crate::*;
 use std::sync::Arc;
 
 pub(crate) struct TestGraph {
@@ -7,13 +7,9 @@ pub(crate) struct TestGraph {
 }
 
 pub(crate) fn construct_test_graph(namespace: &str) -> Result<TestGraph, RclrsError> {
-    let context = Context::new([])?;
+    let executor = Context::default().create_basic_executor();
     Ok(TestGraph {
-        node1: NodeBuilder::new(&context, "graph_test_node_1")
-            .namespace(namespace)
-            .build()?,
-        node2: NodeBuilder::new(&context, "graph_test_node_2")
-            .namespace(namespace)
-            .build()?,
+        node1: executor.create_node("graph_test_node_1".namespace(namespace))?,
+        node2: executor.create_node("graph_test_node_2".namespace(namespace))?,
     })
 }

@@ -22,7 +22,7 @@ where
     pub(super) publisher: &'a Publisher<T>,
 }
 
-impl<'a, T> Deref for LoanedMessage<'a, T>
+impl<T> Deref for LoanedMessage<'_, T>
 where
     T: RmwMessage,
 {
@@ -33,7 +33,7 @@ where
     }
 }
 
-impl<'a, T> DerefMut for LoanedMessage<'a, T>
+impl<T> DerefMut for LoanedMessage<'_, T>
 where
     T: RmwMessage,
 {
@@ -43,7 +43,7 @@ where
     }
 }
 
-impl<'a, T> Drop for LoanedMessage<'a, T>
+impl<T> Drop for LoanedMessage<'_, T>
 where
     T: RmwMessage,
 {
@@ -66,11 +66,11 @@ where
 
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
 // they are running in. Therefore, this type can be safely sent to another thread.
-unsafe impl<'a, T> Send for LoanedMessage<'a, T> where T: RmwMessage {}
+unsafe impl<T> Send for LoanedMessage<'_, T> where T: RmwMessage {}
 // SAFETY: There is no interior mutability in this type. All mutation happens through &mut references.
-unsafe impl<'a, T> Sync for LoanedMessage<'a, T> where T: RmwMessage {}
+unsafe impl<T> Sync for LoanedMessage<'_, T> where T: RmwMessage {}
 
-impl<'a, T> LoanedMessage<'a, T>
+impl<T> LoanedMessage<'_, T>
 where
     T: RmwMessage,
 {

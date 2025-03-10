@@ -50,9 +50,9 @@ impl Drop for PublisherHandle {
 /// The underlying RMW will decide on the concrete delivery mechanism (network stack, shared
 /// memory, or intraprocess).
 ///
-/// Sending messages does not require calling [`spin`][1] on the publisher's node.
+/// Sending messages does not require the node's executor to [spin][1].
 ///
-/// [1]: crate::spin
+/// [1]: crate::Executor::spin
 pub struct Publisher<T>
 where
     T: Message,
@@ -146,6 +146,20 @@ where
         }
     }
 
+    /// Returns the number of subscriptions of the publisher.
+    pub fn get_subscription_count(&self) -> Result<usize, RclrsError> {
+        let mut subscription_count = 0;
+        // SAFETY: No preconditions for the function called.
+        unsafe {
+            rcl_publisher_get_subscription_count(
+                &*self.handle.rcl_publisher.lock().unwrap(),
+                &mut subscription_count,
+            )
+            .ok()?
+        };
+        Ok(subscription_count)
+    }
+
     /// Publishes a message.
     ///
     /// The [`MessageCow`] trait is implemented by any
@@ -228,6 +242,11 @@ where
             publisher: self,
             msg_ptr: msg_ptr as *mut T,
         })
+    }
+
+    /// Returns true if message loans are possible, false otherwise.
+    pub fn can_loan_messages(&self) -> bool {
+        unsafe { rcl_publisher_can_loan_messages(&*self.handle.rcl_publisher.lock().unwrap()) }
     }
 }
 
@@ -352,6 +371,23 @@ mod tests {
             graph.node2.get_publishers_info_by_topic(&topic1)?,
             expected_publishers_info
         );
+
+        // Test get_subscription_count()
+        assert_eq!(node_1_empty_publisher.get_subscription_count(), Ok(0));
+        assert_eq!(node_1_basic_types_publisher.get_subscription_count(), Ok(0));
+        assert_eq!(node_2_default_publisher.get_subscription_count(), Ok(0));
+        let _node_1_empty_subscriber = graph
+            .node1
+            .create_subscription("graph_test_topic_1", |_msg: msg::Empty| {});
+        let _node_1_basic_types_subscriber = graph
+            .node1
+            .create_subscription("graph_test_topic_2", |_msg: msg::BasicTypes| {});
+        let _node_2_default_subscriber = graph
+            .node2
+            .create_subscription("graph_test_topic_3", |_msg: msg::Defaults| {});
+        assert_eq!(node_1_empty_publisher.get_subscription_count(), Ok(1));
+        assert_eq!(node_1_basic_types_publisher.get_subscription_count(), Ok(1));
+        assert_eq!(node_2_default_publisher.get_subscription_count(), Ok(1));
 
         Ok(())
     }

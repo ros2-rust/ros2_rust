@@ -1,11 +1,10 @@
-use std::env;
-
 use anyhow::{Error, Result};
+use rclrs::*;
 
 fn main() -> Result<(), Error> {
-    let context = rclrs::Context::new(env::args())?;
+    let mut executor = Context::default_from_env()?.create_basic_executor();
 
-    let node = rclrs::create_node(&context, "minimal_subscriber")?;
+    let node = executor.create_node("minimal_subscriber")?;
 
     let mut num_messages: usize = 0;
 
@@ -18,5 +17,8 @@ fn main() -> Result<(), Error> {
         },
     )?;
 
-    rclrs::spin(node).map_err(|err| err.into())
+    executor
+        .spin(SpinOptions::default())
+        .first_error()
+        .map_err(|err| err.into())
 }
