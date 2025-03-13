@@ -11,7 +11,6 @@ fn main() -> Result<(), Error> {
 
     let _subscription = node.create_subscription::<std_msgs::msg::String, _>(
         "topic",
-        QOS_PROFILE_DEFAULT,
         move |msg: std_msgs::msg::String| {
             num_messages += 1;
             println!("I heard: '{}'", msg.data);

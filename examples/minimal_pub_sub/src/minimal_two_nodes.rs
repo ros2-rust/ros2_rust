@@ -26,7 +26,6 @@ impl MinimalSubscriber {
             .node
             .create_subscription::<std_msgs::msg::String, _>(
                 topic,
-                QOS_PROFILE_DEFAULT,
                 move |msg: std_msgs::msg::String| {
                     minimal_subscriber_aux.callback(msg);
                 },
@@ -55,8 +54,7 @@ fn main() -> Result<(), Error> {
     let _subscriber_node_two =
         MinimalSubscriber::new(&executor, "minimal_subscriber_two", "topic")?;
 
-    let publisher =
-        publisher_node.create_publisher::<std_msgs::msg::String>("topic", QOS_PROFILE_DEFAULT)?;
+    let publisher = publisher_node.create_publisher::<std_msgs::msg::String>("topic")?;
 
     std::thread::spawn(move || -> Result<(), RclrsError> {
         let mut message = std_msgs::msg::String::default();

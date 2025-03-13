@@ -1,5 +1,12 @@
 mod graph;
+pub use graph::*;
+
 mod node_options;
+pub use node_options::*;
+
+mod primitive_options;
+pub use primitive_options::*;
+
 use std::{
     cmp::PartialEq,
     ffi::CStr,
@@ -11,12 +18,12 @@ use std::{
 
 use rosidl_runtime_rs::Message;
 
-pub use self::{graph::*, node_options::*};
 use crate::{
-    rcl_bindings::*, Client, ClientBase, Clock, ContextHandle, GuardCondition, LogParams, Logger,
-    ParameterBuilder, ParameterInterface, ParameterVariant, Parameters, Publisher, QoSProfile,
-    RclrsError, Service, ServiceBase, Subscription, SubscriptionBase, SubscriptionCallback,
-    TimeSource, ToLogParams, ENTITY_LIFECYCLE_MUTEX,
+    rcl_bindings::*, Client, ClientBase, ClientOptions, Clock, ContextHandle, GuardCondition,
+    LogParams, Logger, ParameterBuilder, ParameterInterface, ParameterVariant, Parameters,
+    Publisher, PublisherOptions, RclrsError, Service, ServiceBase, ServiceOptions, Subscription,
+    SubscriptionBase, SubscriptionCallback, SubscriptionOptions, TimeSource, ToLogParams,
+    ENTITY_LIFECYCLE_MUTEX,
 };
 
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
@@ -221,15 +228,49 @@ impl Node {
         unsafe { call_string_getter_with_rcl_node(&rcl_node, getter) }
     }
 
-    /// Creates a [`Client`][1].
+    /// Creates a [`Client`].
     ///
-    /// [1]: crate::Client
-    // TODO: make client's lifetime depend on node's lifetime
-    pub fn create_client<T>(self: &Arc<Self>, topic: &str) -> Result<Arc<Client<T>>, RclrsError>
+    /// Pass in only the service name for the `options` argument to use all default client options:
+    /// ```
+    /// # use rclrs::*;
+    /// # let executor = Context::default().create_basic_executor();
+    /// # let node = executor.create_node("my_node").unwrap();
+    /// let client = node.create_client::<test_msgs::srv::Empty>(
+    ///     "my_service"
+    /// )
+    /// .unwrap();
+    /// ```
+    ///
+    /// Take advantage of the [`IntoPrimitiveOptions`] API to easily build up the
+    /// client options:
+    ///
+    /// ```
+    /// # use rclrs::*;
+    /// # let executor = Context::default().create_basic_executor();
+    /// # let node = executor.create_node("my_node").unwrap();
+    /// let client = node.create_client::<test_msgs::srv::Empty>(
+    ///     "my_service"
+    ///     .keep_all()
+    ///     .transient_local()
+    /// )
+    /// .unwrap();
+    /// ```
+    ///
+    /// Any quality of service options that you explicitly specify will override
+    /// the default service options. Any that you do not explicitly specify will
+    /// remain the default service options. Note that clients are generally
+    /// expected to use [reliable][1], so it's best not to change the reliability
+    /// setting unless you know what you are doing.
+    ///
+    /// [1]: crate::QoSReliabilityPolicy::Reliable
+    pub fn create_client<'a, T>(
+        self: &Arc<Self>,
+        options: impl Into<ClientOptions<'a>>,
+    ) -> Result<Arc<Client<T>>, RclrsError>
     where
         T: rosidl_runtime_rs::Service,
     {
-        let client = Arc::new(Client::<T>::new(self, topic)?);
+        let client = Arc::new(Client::<T>::new(self, options)?);
         { self.clients_mtx.lock().unwrap() }.push(Arc::downgrade(&client) as Weak<dyn ClientBase>);
         Ok(client)
     }
@@ -273,52 +314,156 @@ impl Node {
         guard_condition
     }
 
-    /// Creates a [`Publisher`][1].
+    /// Pass in only the topic name for the `options` argument to use all default publisher options:
+    /// ```
+    /// # use rclrs::*;
+    /// # let executor = Context::default().create_basic_executor();
+    /// # let node = executor.create_node("my_node").unwrap();
+    /// let publisher = node.create_publisher::<test_msgs::msg::Empty>(
+    ///     "my_topic"
+    /// )
+    /// .unwrap();
+    /// ```
     ///
-    /// [1]: crate::Publisher
-    pub fn create_publisher<T>(
+    /// Take advantage of the [`IntoPrimitiveOptions`] API to easily build up the
+    /// publisher options:
+    ///
+    /// ```
+    /// # use rclrs::*;
+    /// # let executor = Context::default().create_basic_executor();
+    /// # let node = executor.create_node("my_node").unwrap();
+    /// let publisher = node.create_publisher::<test_msgs::msg::Empty>(
+    ///     "my_topic"
+    ///     .keep_last(100)
+    ///     .transient_local()
+    /// )
+    /// .unwrap();
+    ///
+    /// let reliable_publisher = node.create_publisher::<test_msgs::msg::Empty>(
+    ///     "my_topic"
+    ///     .reliable()
+    /// )
+    /// .unwrap();
+    /// ```
+    ///
+    pub fn create_publisher<'a, T>(
         &self,
-        topic: &str,
-        qos: QoSProfile,
+        options: impl Into<PublisherOptions<'a>>,
     ) -> Result<Arc<Publisher<T>>, RclrsError>
     where
         T: Message,
     {
-        let publisher = Arc::new(Publisher::<T>::new(Arc::clone(&self.handle), topic, qos)?);
+        let publisher = Arc::new(Publisher::<T>::new(Arc::clone(&self.handle), options)?);
         Ok(publisher)
     }
 
     /// Creates a [`Service`][1].
     ///
+    /// Pass in only the service name for the `options` argument to use all default service options:
+    /// ```
+    /// # use rclrs::*;
+    /// # let executor = Context::default().create_basic_executor();
+    /// # let node = executor.create_node("my_node").unwrap();
+    /// let service = node.create_service::<test_msgs::srv::Empty, _>(
+    ///     "my_service",
+    ///     |_info, _request| {
+    ///         println!("Received request!");
+    ///         test_msgs::srv::Empty_Response::default()
+    ///     },
+    /// );
+    /// ```
+    ///
+    /// Take advantage of the [`IntoPrimitiveOptions`] API to easily build up the
+    /// service options:
+    ///
+    /// ```
+    /// # use rclrs::*;
+    /// # let executor = Context::default().create_basic_executor();
+    /// # let node = executor.create_node("my_node").unwrap();
+    /// let service = node.create_service::<test_msgs::srv::Empty, _>(
+    ///     "my_service"
+    ///     .keep_all()
+    ///     .transient_local(),
+    ///     |_info, _request| {
+    ///         println!("Received request!");
+    ///         test_msgs::srv::Empty_Response::default()
+    ///     },
+    /// );
+    /// ```
+    ///
+    /// Any quality of service options that you explicitly specify will override
+    /// the default service options. Any that you do not explicitly specify will
+    /// remain the default service options. Note that services are generally
+    /// expected to use [reliable][2], so it's best not to change the reliability
+    /// setting unless you know what you are doing.
+    ///
     /// [1]: crate::Service
-    pub fn create_service<T, F>(
+    /// [2]: crate::QoSReliabilityPolicy::Reliable
+    pub fn create_service<'a, T, F>(
         self: &Arc<Self>,
-        topic: &str,
+        options: impl Into<ServiceOptions<'a>>,
         callback: F,
     ) -> Result<Arc<Service<T>>, RclrsError>
     where
         T: rosidl_runtime_rs::Service,
         F: Fn(&rmw_request_id_t, T::Request) -> T::Response + 'static + Send,
     {
-        let service = Arc::new(Service::<T>::new(self, topic, callback)?);
+        let service = Arc::new(Service::<T>::new(self, options, callback)?);
         { self.services_mtx.lock().unwrap() }
             .push(Arc::downgrade(&service) as Weak<dyn ServiceBase>);
         Ok(service)
     }
 
-    /// Creates a [`Subscription`][1].
+    /// Creates a [`Subscription`].
     ///
-    /// [1]: crate::Subscription
-    pub fn create_subscription<T, Args>(
+    ///
+    /// Pass in only the topic name for the `options` argument to use all default subscription options:
+    /// ```
+    /// # use rclrs::*;
+    /// # let executor = Context::default().create_basic_executor();
+    /// # let node = executor.create_node("my_node").unwrap();
+    /// let subscription = node.create_subscription(
+    ///     "my_topic",
+    ///     |_msg: test_msgs::msg::Empty| {
+    ///         println!("Received message!");
+    ///     },
+    /// );
+    /// ```
+    ///
+    /// Take advantage of the [`IntoPrimitiveOptions`] API to easily build up the
+    /// subscription options:
+    ///
+    /// ```
+    /// # use rclrs::*;
+    /// # let executor = Context::default().create_basic_executor();
+    /// # let node = executor.create_node("my_node").unwrap();
+    /// let subscription = node.create_subscription(
+    ///     "my_topic"
+    ///     .keep_last(100)
+    ///     .transient_local(),
+    ///     |_msg: test_msgs::msg::Empty| {
+    ///         println!("Received message!");
+    ///     },
+    /// );
+    ///
+    /// let reliable_subscription = node.create_subscription(
+    ///     "my_reliable_topic"
+    ///     .reliable(),
+    ///     |_msg: test_msgs::msg::Empty| {
+    ///         println!("Received message!");
+    ///     },
+    /// );
+    /// ```
+    ///
+    pub fn create_subscription<'a, T, Args>(
         self: &Arc<Self>,
-        topic: &str,
-        qos: QoSProfile,
+        options: impl Into<SubscriptionOptions<'a>>,
         callback: impl SubscriptionCallback<T, Args>,
     ) -> Result<Arc<Subscription<T>>, RclrsError>
     where
         T: Message,
     {
-        let subscription = Arc::new(Subscription::<T>::new(self, topic, qos, callback)?);
+        let subscription = Arc::new(Subscription::<T>::new(self, options, callback)?);
         { self.subscriptions_mtx.lock() }
             .unwrap()
             .push(Arc::downgrade(&subscription) as Weak<dyn SubscriptionBase>);
@@ -463,8 +608,7 @@ pub(crate) unsafe fn call_string_getter_with_rcl_node(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::test_helpers::*;
+    use crate::{test_helpers::*, *};
 
     #[test]
     fn traits() {
@@ -474,25 +618,20 @@ mod tests {
 
     #[test]
     fn test_topic_names_and_types() -> Result<(), RclrsError> {
-        use crate::QOS_PROFILE_SYSTEM_DEFAULT;
         use test_msgs::msg;
 
         let graph = construct_test_graph("test_topics_graph")?;
 
         let _node_1_defaults_subscription = graph.node1.create_subscription::<msg::Defaults, _>(
             "graph_test_topic_3",
-            QOS_PROFILE_SYSTEM_DEFAULT,
             |_msg: msg::Defaults| {},
         )?;
-        let _node_2_empty_subscription = graph.node2.create_subscription::<msg::Empty, _>(
-            "graph_test_topic_1",
-            QOS_PROFILE_SYSTEM_DEFAULT,
-            |_msg: msg::Empty| {},
-        )?;
+        let _node_2_empty_subscription = graph
+            .node2
+            .create_subscription::<msg::Empty, _>("graph_test_topic_1", |_msg: msg::Empty| {})?;
         let _node_2_basic_types_subscription =
             graph.node2.create_subscription::<msg::BasicTypes, _>(
                 "graph_test_topic_2",
-                QOS_PROFILE_SYSTEM_DEFAULT,
                 |_msg: msg::BasicTypes| {},
             )?;
 

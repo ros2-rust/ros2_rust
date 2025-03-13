@@ -17,13 +17,9 @@ impl SimpleSubscriptionNode {
         let data: Arc<Mutex<Option<StringMsg>>> = Arc::new(Mutex::new(None));
         let data_mut: Arc<Mutex<Option<StringMsg>>> = Arc::clone(&data);
         let _subscriber = node
-            .create_subscription::<StringMsg, _>(
-                "publish_hello",
-                QOS_PROFILE_DEFAULT,
-                move |msg: StringMsg| {
-                    *data_mut.lock().unwrap() = Some(msg);
-                },
-            )
+            .create_subscription::<StringMsg, _>("publish_hello", move |msg: StringMsg| {
+                *data_mut.lock().unwrap() = Some(msg);
+            })
             .unwrap();
         Ok(Self { _subscriber, data })
     }

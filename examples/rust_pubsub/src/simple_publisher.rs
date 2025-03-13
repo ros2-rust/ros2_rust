@@ -9,9 +9,7 @@ struct SimplePublisher {
 impl SimplePublisher {
     fn new(executor: &Executor) -> Result<Self, RclrsError> {
         let node = executor.create_node("simple_publisher").unwrap();
-        let publisher = node
-            .create_publisher("publish_hello", QOS_PROFILE_DEFAULT)
-            .unwrap();
+        let publisher = node.create_publisher("publish_hello").unwrap();
         Ok(Self { publisher })
     }
 

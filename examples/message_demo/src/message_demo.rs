@@ -143,23 +143,19 @@ fn demonstrate_pubsub() -> Result<(), Error> {
     let mut executor = Context::default_from_env()?.create_basic_executor();
     let node = executor.create_node("message_demo")?;
 
-    let idiomatic_publisher = node
-        .create_publisher::<rclrs_example_msgs::msg::VariousTypes>("topic", QOS_PROFILE_DEFAULT)?;
-    let direct_publisher = node.create_publisher::<rclrs_example_msgs::msg::rmw::VariousTypes>(
-        "topic",
-        QOS_PROFILE_DEFAULT,
-    )?;
+    let idiomatic_publisher =
+        node.create_publisher::<rclrs_example_msgs::msg::VariousTypes>("topic")?;
+    let direct_publisher =
+        node.create_publisher::<rclrs_example_msgs::msg::rmw::VariousTypes>("topic")?;
 
     let _idiomatic_subscription = node
         .create_subscription::<rclrs_example_msgs::msg::VariousTypes, _>(
             "topic",
-            QOS_PROFILE_DEFAULT,
             move |_msg: rclrs_example_msgs::msg::VariousTypes| println!("Got idiomatic message!"),
         )?;
     let _direct_subscription = node
         .create_subscription::<rclrs_example_msgs::msg::rmw::VariousTypes, _>(
             "topic",
-            QOS_PROFILE_DEFAULT,
             move |_msg: rclrs_example_msgs::msg::rmw::VariousTypes| {
                 println!("Got RMW-native message!")
             },
