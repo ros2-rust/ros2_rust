@@ -25,6 +25,11 @@ path = "src/zero_copy_subscriber.rs"
 name = "zero_copy_publisher"
 path = "src/zero_copy_publisher.rs"
 
+[[bin]]
+name = "first_rclrs_node"
+path = "src/first_rclrs_node.rs"
+
+
 [dependencies]
 anyhow = {version = "1", features = ["backtrace"]}
 

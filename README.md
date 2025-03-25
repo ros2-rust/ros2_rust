@@ -71,5 +71,5 @@ ros2 launch examples_rclrs_minimal_pub_sub minimal_pub_sub.launch.xml
 ```
 
 Further documentation articles:
-- [Tutorial on writing your first node with `rclrs`](docs/writing-your-first-rclrs-node.md)
+- [Tutorial on writing your first node with `rclrs`](./examples/minimal_pub_sub/src/first_rclrs_node.rs)
 - [Contributor's guide](docs/CONTRIBUTING.md)
