@@ -61,7 +61,8 @@
 //!            _data,
 //!        })
 //!    }
-//!}```
+//!}
+//! ```
 //! Next, add a main function to launch it:
 
 //! ```rust
@@ -73,7 +74,8 @@
 //!         .spin(SpinOptions::default())
 //!         .first_error()
 //!         .map_err(|err| err.into())
-//! }```
+//! }
+//! ```
 
 //! ## Run the node
 //! You should now be able to run this node with `cargo build` and then `cargo run`. However, the subscription callback still has a `todo!` in it, so it will exit with an error when it receives a message.
@@ -105,9 +107,9 @@
 //! 4. Make the closure `move`, and inside it, lock the `Mutex` and store the message
 
 //! ```rust
+//! use rclrs::*;
 //! use std::sync::{Arc, Mutex};  // (1)
 //! use std_msgs::msg::String as StringMsg;
-//! use rclrs::*;
 
 //! struct RepublisherNode {
 //!    _node: Arc<rclrs::Node>,
@@ -175,7 +177,7 @@
 //!     let context = Context::default_from_env()?;
 //!     let mut executor = context.create_basic_executor();
 //!     let _republisher = RepublisherNode::new(&executor)?;
-//!     std::thread::spawn(move || -> Result<(), rclrs::RclrsError> {
+//!     std::thread::spawn(|| -> Result<(), rclrs::RclrsError> {
 //!         loop {
 //!             use std::time::Duration;
 //!             std::thread::sleep(Duration::from_millis(1000));
@@ -194,7 +196,7 @@
 //! because the function that the variable is coming from might return before the thread that borrows the variable ends.
 //! > 💡 Of course, you could argue that this cannot really happen here, because returning from `main()` will also terminate the other threads, but Rust isn't that smart.
 //!
-//! The solution is also the same as above: Shared ownership with `Arc`. Only this time, `Mutex` isn't needed since both the `rclcpp::spin()`
+//! The solution is also the same as above: Shared ownership with `Arc`. Only this time, `Mutex` isn't needed since both the `executor::spin()`
 //! and the `republish()` function only require a shared reference:
 //! ```rust
 //! fn main() -> Result<(), rclrs::RclrsError> {
@@ -216,8 +218,13 @@
 //!```
 
 //! ## Try it out
-//! In separate terminals, run `cargo run --bin first_rclrs_node` if running the current node or `cargo run` otherwise and `ros2 topic echo /out_topic`. Nothing will be shown yet, since our node hasn't received any data yet.
-//!
+//! ### Terminal 1:
+//! In a first terminal, in the workspace root, run:
+//! 1. `colcon build --packages-select examples_rclrs_minimal_pub_sub` to build the node.
+//! 2. `ros2 run examples_rclrs_minimal_pub_sub first_rclrs_node` to run the node.
+//! ### Terminal 2:
+//! In another terminal, run `ros2 topic echo /out_topic`. Nothing will be shown yet, since our node hasn't received any data yet.
+//! ### Terminal 3:
 //! In another terminal, publish a single message with `ros2 topic pub /in_topic std_msgs/msg/String '{data: "Bonjour"}' -1`.
 //! The terminal with `ros2 topic echo` should now receive a new `Bonjour` message every second.
 //!
