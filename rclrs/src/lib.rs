@@ -49,9 +49,8 @@ pub use time::*;
 use time_source::*;
 pub use wait::*;
 
-
 /// # rclrs - ROS 2 Client Library for Rust
-/// 
+///
 /// `rclrs` provides Rust bindings and idiomatic wrappers for ROS 2 (Robot Operating System).
 /// It enables writing ROS 2 nodes, publishers, subscribers, services and clients in Rust.
 ///
@@ -67,7 +66,6 @@ pub use wait::*;
 ///
 /// ## Example
 /// Here's a simple publisher-subscriber node:
-
 use std::sync::{Arc, Mutex};
 use std_msgs::msg::String as StringMsg;
 
