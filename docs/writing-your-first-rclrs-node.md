@@ -138,7 +138,8 @@ impl RepublisherNode {
            _data,
        })
    }
-}```
+}
+```
 
 If that seems needlessly complicated – maybe it is, in the sense that `rclrs` could potentially introduce new abstractions to improve the ergonomics of this use case. This is to be discussed.
 
@@ -149,14 +150,14 @@ If you couldn't follow the explanation involving borrowing, closures etc. above,
 The node still doesn't republish the received messages. First, let's add a publisher to the node:
 
 ```
-<!-- MARKDOWN-AUTO-DOCS:START (CODE:src=../examples/minimal_pub_sub/src/first_rclrs_node.rs&lines=5-10) -->
+<!-- MARKDOWN-AUTO-DOCS:START (CODE:src=../rclrs/src/lib.rs&lines=78-83) -->
 <!-- MARKDOWN-AUTO-DOCS:END -->
 ```
 
 Create a publisher and add it to the newly instantiated `RepublisherNode`:
 
 ```
-<!-- MARKDOWN-AUTO-DOCS:START (CODE:src=../examples/minimal_pub_sub/src/first_rclrs_node.rs&lines=23-29) -->
+<!-- MARKDOWN-AUTO-DOCS:START (CODE:src=../rclrs/src/lib.rs&lines=96-102) -->
 <!-- MARKDOWN-AUTO-DOCS:END -->
 ```
 
@@ -164,7 +165,7 @@ Create a publisher and add it to the newly instantiated `RepublisherNode`:
 Then, let's add a `republish()` function to the `RepublisherNode` that publishes the latest message received, or does nothing if none was received:
 
 ```
-<!-- MARKDOWN-AUTO-DOCS:START (CODE:src=../examples/minimal_pub_sub/src/first_rclrs_node.rs&lines=32-37) -->
+<!-- MARKDOWN-AUTO-DOCS:START (CODE:src=../rclrs/src/lib.rs&lines=105-110) -->
 <!-- MARKDOWN-AUTO-DOCS:END -->
 ```
 
@@ -197,7 +198,7 @@ But wait, this doesn't work – there is an error about the thread closure needi
 The solution is also the same as above: Shared ownership with `Arc`. Only this time, `Mutex` isn't needed since both the `rclcpp::spin()` and the `republish()` function only require a shared reference:
 
 ```
-<!-- MARKDOWN-AUTO-DOCS:START (CODE:src=../examples/minimal_pub_sub/src/first_rclrs_node.rs&lines=40-55) -->
+<!-- MARKDOWN-AUTO-DOCS:START (CODE:src=../rclrs/src/lib.rs&lines=113-128) -->
 <!-- MARKDOWN-AUTO-DOCS:END -->
 ```
 
