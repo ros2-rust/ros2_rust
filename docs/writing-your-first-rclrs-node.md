@@ -58,7 +58,6 @@ impl RepublisherNode {
         let data = None;
         let _subscription = node.create_subscription(
             "in_topic",
-            rclrs::QOS_PROFILE_DEFAULT,
             |msg: StringMsg| { todo!("Assign msg to self.data") },
         )?;
         Ok(Self {
@@ -74,9 +73,13 @@ Next, add a main function to launch it:
 
 ```rust
 fn main() -> Result<(), rclrs::RclrsError> {
-    let context = rclrs::Context::new(std::env::args())?;
-    let republisher = RepublisherNode::new(&context)?;
-    rclrs::spin(republisher.node)
+    let context = Context::default_from_env()?;
+    let mut executor = context.create_basic_executor();
+    let _republisher = RepublisherNode::new(&executor)?;
+    executor
+        .spin(SpinOptions::default())
+        .first_error()
+        .map_err(|err| err.into())
 }
 ```
 
@@ -110,37 +113,31 @@ So, to store the received data in the struct, the following things have to chang
 4. Make the closure `move`, and inside it, lock the `Mutex` and store the message  
 
 ```rust
+use rclrs::*;
 use std::sync::{Arc, Mutex};  // (1)
 use std_msgs::msg::String as StringMsg;
-
 struct RepublisherNode {
-    node: Arc<rclrs::Node>,
-    _subscription: Arc<rclrs::Subscription<StringMsg>>,
-    data: Arc<Mutex<Option<StringMsg>>>,  // (2)
+   _node: Arc<rclrs::Node>,
+   _subscription: Arc<rclrs::Subscription<StringMsg>>,
+   _data: Arc<Mutex<Option<StringMsg>>>,  // (2)
 }
-
 impl RepublisherNode {
-    fn new(context: &rclrs::Context) -> Result<Self, rclrs::RclrsError> {
-        let node = rclrs::Node::new(context, "republisher")?;
-        let data = Arc::new(Mutex::new(None));  // (3)
-        let data_cb = Arc::clone(&data);
-        let _subscription = {
-            // Create a new shared pointer instance that will be owned by the closure
-            node.create_subscription(
-                "in_topic",
-                rclrs::QOS_PROFILE_DEFAULT,
-                move |msg: StringMsg| {
-                    // This subscription now owns the data_cb variable
-                    *data_cb.lock().unwrap() = Some(msg);  // (4)
-                },
-            )?
-        };
-        Ok(Self {
-            node,
-            _subscription,
-            data,
-        })
-    }
+   fn new(executor: &rclrs::Executor) -> Result<Self, rclrs::RclrsError> {
+       let _node = executor.create_node("republisher")?;
+       let _data = Arc::new(Mutex::new(None));  // (3)
+       let data_cb = Arc::clone(&_data);
+       let _subscription = _node.create_subscription(
+           "in_topic".keep_last(10).transient_local(),  // (4)
+           move |msg: StringMsg| {
+               *data_cb.lock().unwrap() = Some(msg);
+           },
+       )?;
+       Ok(Self {
+           _node,
+           _subscription,
+           _data,
+       })
+   }
 }
 ```
 
@@ -152,45 +149,45 @@ If you couldn't follow the explanation involving borrowing, closures etc. above,
 
 The node still doesn't republish the received messages. First, let's add a publisher to the node:
 
-```rust
-// Add this new field to the RepublisherNode struct, after the subscription:
-publisher: Arc<rclrs::Publisher<StringMsg>>,
-
-// Change the end of RepublisherNode::new() to this:
-let publisher = node.create_publisher("out_topic", rclrs::QOS_PROFILE_DEFAULT)?;
-Ok(Self {
-    node,
-    _subscription,
-    publisher,
-    data,
-})
 ```
+<!-- MARKDOWN-AUTO-DOCS:START (CODE:src=../rclrs/src/lib.rs&lines=78-83) -->
+<!-- MARKDOWN-AUTO-DOCS:END -->
+```
+
+Create a publisher and add it to the newly instantiated `RepublisherNode`:
+
+```
+<!-- MARKDOWN-AUTO-DOCS:START (CODE:src=../rclrs/src/lib.rs&lines=96-102) -->
+<!-- MARKDOWN-AUTO-DOCS:END -->
+```
+
 
 Then, let's add a `republish()` function to the `RepublisherNode` that publishes the latest message received, or does nothing if none was received:
 
-```rust
-fn republish(&self) -> Result<(), rclrs::RclrsError> {
-    if let Some(s) = &*self.data.lock().unwrap() {
-        self.publisher.publish(s)?;
-    }
-    Ok(())
-}
 ```
+<!-- MARKDOWN-AUTO-DOCS:START (CODE:src=../rclrs/src/lib.rs&lines=105-110) -->
+<!-- MARKDOWN-AUTO-DOCS:END -->
+```
+
 
 What's left to do is to call this function every second. `rclrs` doesn't yet have ROS timers, which run a function at a fixed interval, but it's easy enough to achieve with a thread, a loop, and the sleep function. Change your main function to spawn a separate thread:
 
 ```rust
 fn main() -> Result<(), rclrs::RclrsError> {
-    let context = rclrs::Context::new(std::env::args())?;
-    let republisher = RepublisherNode::new(&context)?;
+    let context = Context::default_from_env()?;
+    let mut executor = context.create_basic_executor();
+    let _republisher = RepublisherNode::new(&executor)?;
     std::thread::spawn(|| -> Result<(), rclrs::RclrsError> {
         loop {
             use std::time::Duration;
             std::thread::sleep(Duration::from_millis(1000));
-            republisher.republish()?;
+            _republisher.republish()?;
         }
     });
-    rclrs::spin(republisher.node)
+    executor
+        .spin(SpinOptions::default())
+        .first_error()
+        .map_err(|err| err.into())
 }
 ```
 
@@ -200,20 +197,9 @@ But wait, this doesn't work – there is an error about the thread closure needi
 
 The solution is also the same as above: Shared ownership with `Arc`. Only this time, `Mutex` isn't needed since both the `rclcpp::spin()` and the `republish()` function only require a shared reference:
 
-```rust
-fn main() -> Result<(), rclrs::RclrsError> {
-    let context = rclrs::Context::new(std::env::args())?;
-    let republisher = Arc::new(RepublisherNode::new(&context)?);
-    let republisher_other_thread = Arc::clone(&republisher);
-    std::thread::spawn(move || -> Result<(), rclrs::RclrsError> {
-        loop {
-            use std::time::Duration;
-            std::thread::sleep(Duration::from_millis(1000));
-            republisher_other_thread.republish()?;
-        }
-    });
-    rclrs::spin(Arc::clone(&republisher.node))
-}
+```
+<!-- MARKDOWN-AUTO-DOCS:START (CODE:src=../rclrs/src/lib.rs&lines=113-128) -->
+<!-- MARKDOWN-AUTO-DOCS:END -->
 ```
 
 

@@ -36,6 +36,14 @@ jobs:
       image: ${{ matrix.docker_image }}
     steps:
     - uses: actions/checkout@v4
+    
+    - name: Markdown autodocs
+      uses: dineshsonachalam/markdown-autodocs@v1.0.7
+      with:
+        commit_message: Synchronizing Markdown files
+        branch: ${{ github.base_ref }} 
+        output_file_paths: '[./docs/writing-your-first-rclrs-node.md]'
+        categories: '[code-block]'
 
     - name: Search packages in this repository
       id: list_packages
