@@ -148,18 +148,26 @@ If you couldn't follow the explanation involving borrowing, closures etc. above,
 
 The node still doesn't republish the received messages. First, let's add a publisher to the node:
 
-```rust:examples/minimal_pub_sub/src/first_rclrs_node.rs [5-10]
+```
+<!-- MARKDOWN-AUTO-DOCS:START (CODE:src=../examples/minimal_pub_sub/src/first_rclrs_node.rs&lines=5-10) -->
+<!-- MARKDOWN-AUTO-DOCS:END -->
 ```
 
 Create a publisher and add it to the newly instantiated `RepublisherNode`:
 
-```rust:examples/minimal_pub_sub/src/first_rclrs_node.rs [23-29]
 ```
+<!-- MARKDOWN-AUTO-DOCS:START (CODE:src=../examples/minimal_pub_sub/src/first_rclrs_node.rs&lines=23-29) -->
+<!-- MARKDOWN-AUTO-DOCS:END -->
+```
+
 
 Then, let's add a `republish()` function to the `RepublisherNode` that publishes the latest message received, or does nothing if none was received:
 
-```rust:examples/minimal_pub_sub/src/first_rclrs_node.rs [32-37]
 ```
+<!-- MARKDOWN-AUTO-DOCS:START (CODE:src=../examples/minimal_pub_sub/src/first_rclrs_node.rs&lines=32-37) -->
+<!-- MARKDOWN-AUTO-DOCS:END -->
+```
+
 
 What's left to do is to call this function every second. `rclrs` doesn't yet have ROS timers, which run a function at a fixed interval, but it's easy enough to achieve with a thread, a loop, and the sleep function. Change your main function to spawn a separate thread:
 
@@ -188,7 +196,9 @@ But wait, this doesn't work – there is an error about the thread closure needi
 
 The solution is also the same as above: Shared ownership with `Arc`. Only this time, `Mutex` isn't needed since both the `rclcpp::spin()` and the `republish()` function only require a shared reference:
 
-```rust:examples/minimal_pub_sub/src/first_rclrs_node.rs [40-55]
+```
+<!-- MARKDOWN-AUTO-DOCS:START (CODE:src=../examples/minimal_pub_sub/src/first_rclrs_node.rs&lines=40-55) -->
+<!-- MARKDOWN-AUTO-DOCS:END -->
 ```
 
 
