@@ -81,6 +81,7 @@ jobs:
       id: build
       uses: ros-tooling/action-ros-ci@v0.3
       with:
+        branch: ${{ github.base_ref }} 
         package-name: ${{ steps.list_packages.outputs.package_list }}
         target-ros2-distro: ${{ matrix.ros_distribution }}
         vcs-repo-file-url: ros2_rust_${{ matrix.ros_distribution }}.repos
