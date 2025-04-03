@@ -35,6 +35,8 @@ jobs:
     container:
       image: ${{ matrix.docker_image }}
     steps:
+    - uses: actions/checkout@v4
+    
     - name: Markdown autodocs
       uses: dineshsonachalam/markdown-autodocs@v1.0.7
       with:
