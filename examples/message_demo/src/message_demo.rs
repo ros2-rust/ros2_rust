@@ -1,7 +1,9 @@
-use std::{convert::TryInto, env, sync::Arc};
+use std::convert::TryInto;
 
 use anyhow::{Error, Result};
 use rosidl_runtime_rs::{seq, BoundedSequence, Message, Sequence};
+
+use rclrs::*;
 
 fn check_default_values() {
     let msg = rclrs_example_msgs::msg::rmw::VariousTypes::default();
@@ -15,7 +17,7 @@ fn check_default_values() {
     assert_eq!(msg.float_seq_unbounded, seq![6.0]);
     assert_eq!(msg.string_member.to_string(), "Χαίρετε 你好");
     assert_eq!(msg.wstring_member.to_string(), "αντίο σου 再见");
-    assert_eq!(msg.bounded_string_member.to_string(), "äöü");
+    assert_eq!(msg.bounded_string_member.to_string(), "aou");
     assert_eq!(msg.bounded_wstring_member.to_string(), "äöü");
     assert_eq!(
         msg.string_array.clone().map(|s| s.to_string()),
@@ -138,38 +140,32 @@ fn demonstrate_sequences() {
 fn demonstrate_pubsub() -> Result<(), Error> {
     println!("================== Interoperability demo ==================");
     // Demonstrate interoperability between idiomatic and RMW-native message types
-    let context = rclrs::Context::new(env::args())?;
-    let node = rclrs::create_node(&context, "message_demo")?;
+    let mut executor = Context::default_from_env()?.create_basic_executor();
+    let node = executor.create_node("message_demo")?;
 
-    let idiomatic_publisher = node.create_publisher::<rclrs_example_msgs::msg::VariousTypes>(
-        "topic",
-        rclrs::QOS_PROFILE_DEFAULT,
-    )?;
-    let direct_publisher = node.create_publisher::<rclrs_example_msgs::msg::rmw::VariousTypes>(
-        "topic",
-        rclrs::QOS_PROFILE_DEFAULT,
-    )?;
+    let idiomatic_publisher =
+        node.create_publisher::<rclrs_example_msgs::msg::VariousTypes>("topic")?;
+    let direct_publisher =
+        node.create_publisher::<rclrs_example_msgs::msg::rmw::VariousTypes>("topic")?;
 
     let _idiomatic_subscription = node
         .create_subscription::<rclrs_example_msgs::msg::VariousTypes, _>(
             "topic",
-            rclrs::QOS_PROFILE_DEFAULT,
             move |_msg: rclrs_example_msgs::msg::VariousTypes| println!("Got idiomatic message!"),
         )?;
     let _direct_subscription = node
         .create_subscription::<rclrs_example_msgs::msg::rmw::VariousTypes, _>(
             "topic",
-            rclrs::QOS_PROFILE_DEFAULT,
             move |_msg: rclrs_example_msgs::msg::rmw::VariousTypes| {
                 println!("Got RMW-native message!")
             },
         )?;
     println!("Sending idiomatic message.");
     idiomatic_publisher.publish(rclrs_example_msgs::msg::VariousTypes::default())?;
-    rclrs::spin_once(Arc::clone(&node), None)?;
+    executor.spin(SpinOptions::spin_once()).first_error()?;
     println!("Sending RMW-native message.");
     direct_publisher.publish(rclrs_example_msgs::msg::rmw::VariousTypes::default())?;
-    rclrs::spin_once(Arc::clone(&node), None)?;
+    executor.spin(SpinOptions::spin_once()).first_error()?;
 
     Ok(())
 }

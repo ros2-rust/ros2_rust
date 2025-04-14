@@ -1,7 +1,7 @@
 use crate::{
     clock::{Clock, ClockSource, ClockType},
     vendor::rosgraph_msgs::msg::Clock as ClockMsg,
-    Node, NodeState, QoSProfile, ReadOnlyParameter, Subscription, QOS_PROFILE_CLOCK,
+    IntoPrimitiveOptions, Node, QoSProfile, ReadOnlyParameter, Subscription, QOS_PROFILE_CLOCK,
 };
 use std::sync::{Arc, Mutex, RwLock, Weak};
 
@@ -131,38 +131,51 @@ impl TimeSource {
             .unwrap()
             .upgrade()
             .unwrap()
-            .create_subscription::<ClockMsg, _>("/clock", self.clock_qos, move |msg: ClockMsg| {
-                let nanoseconds: i64 =
-                    (msg.clock.sec as i64 * 1_000_000_000) + msg.clock.nanosec as i64;
-                *last_received_time.lock().unwrap() = Some(nanoseconds);
-                if let Some(clock) = clock.lock().unwrap().as_mut() {
-                    Self::update_clock(clock, nanoseconds);
-                }
-            })
+            .create_subscription::<ClockMsg, _>(
+                "/clock".qos(self.clock_qos),
+                move |msg: ClockMsg| {
+                    let nanoseconds: i64 =
+                        (msg.clock.sec as i64 * 1_000_000_000) + msg.clock.nanosec as i64;
+                    *last_received_time.lock().unwrap() = Some(nanoseconds);
+                    if let Some(clock) = clock.lock().unwrap().as_mut() {
+                        Self::update_clock(clock, nanoseconds);
+                    }
+                },
+            )
             .unwrap()
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::{create_node, Context};
+    use crate::*;
 
     #[test]
     fn time_source_default_clock() {
-        let node = create_node(&Context::new([]).unwrap(), "test_node").unwrap();
+        let node = Context::default()
+            .create_basic_executor()
+            .create_node(&format!("time_source_test_node_{}", line!()))
+            .unwrap();
         // Default clock should be above 0 (use_sim_time is default false)
         assert!(node.get_clock().now().nsec > 0);
     }
 
     #[test]
     fn time_source_sim_time() {
-        let ctx = Context::new([
-            String::from("--ros-args"),
-            String::from("-p"),
-            String::from("use_sim_time:=true"),
-        ])
-        .unwrap();
-        let node = create_node(&ctx, "test_node").unwrap();
+        let executor = Context::new(
+            [
+                String::from("--ros-args"),
+                String::from("-p"),
+                String::from("use_sim_time:=true"),
+            ],
+            InitOptions::default(),
+        )
+        .unwrap()
+        .create_basic_executor();
+
+        let node = executor
+            .create_node(&format!("time_source_test_node_{}", line!()))
+            .unwrap();
         // Default sim time value should be 0 (no message received)
         assert_eq!(node.get_clock().now().nsec, 0);
     }

@@ -9,7 +9,7 @@ use rosidl_runtime_rs::Sequence;
 use super::ParameterMap;
 use crate::{
     parameter::{DeclaredValue, ParameterKind, ParameterStorage},
-    rmw_request_id_t, Node, RclrsError, Service,
+    rmw_request_id_t, IntoPrimitiveOptions, Node, QoSProfile, RclrsError, Service,
 };
 
 // The variables only exist to keep a strong reference to the services and are technically unused.
@@ -247,7 +247,7 @@ impl ParameterService {
         // destruction is made for the parameter map.
         let map = parameter_map.clone();
         let describe_parameters_service = node.create_service(
-            &(fqn.clone() + "/describe_parameters"),
+            (fqn.clone() + "/describe_parameters").qos(QoSProfile::parameter_services_default()),
             move |_req_id: &rmw_request_id_t, req: DescribeParameters_Request| {
                 let map = map.lock().unwrap();
                 describe_parameters(req, &map)
@@ -255,7 +255,7 @@ impl ParameterService {
         )?;
         let map = parameter_map.clone();
         let get_parameter_types_service = node.create_service(
-            &(fqn.clone() + "/get_parameter_types"),
+            (fqn.clone() + "/get_parameter_types").qos(QoSProfile::parameter_services_default()),
             move |_req_id: &rmw_request_id_t, req: GetParameterTypes_Request| {
                 let map = map.lock().unwrap();
                 get_parameter_types(req, &map)
@@ -263,7 +263,7 @@ impl ParameterService {
         )?;
         let map = parameter_map.clone();
         let get_parameters_service = node.create_service(
-            &(fqn.clone() + "/get_parameters"),
+            (fqn.clone() + "/get_parameters").qos(QoSProfile::parameter_services_default()),
             move |_req_id: &rmw_request_id_t, req: GetParameters_Request| {
                 let map = map.lock().unwrap();
                 get_parameters(req, &map)
@@ -271,7 +271,7 @@ impl ParameterService {
         )?;
         let map = parameter_map.clone();
         let list_parameters_service = node.create_service(
-            &(fqn.clone() + "/list_parameters"),
+            (fqn.clone() + "/list_parameters").qos(QoSProfile::parameter_services_default()),
             move |_req_id: &rmw_request_id_t, req: ListParameters_Request| {
                 let map = map.lock().unwrap();
                 list_parameters(req, &map)
@@ -279,14 +279,15 @@ impl ParameterService {
         )?;
         let map = parameter_map.clone();
         let set_parameters_service = node.create_service(
-            &(fqn.clone() + "/set_parameters"),
+            (fqn.clone() + "/set_parameters").qos(QoSProfile::parameter_services_default()),
             move |_req_id: &rmw_request_id_t, req: SetParameters_Request| {
                 let mut map = map.lock().unwrap();
                 set_parameters(req, &mut map)
             },
         )?;
         let set_parameters_atomically_service = node.create_service(
-            &(fqn.clone() + "/set_parameters_atomically"),
+            (fqn.clone() + "/set_parameters_atomically")
+                .qos(QoSProfile::parameter_services_default()),
             move |_req_id: &rmw_request_id_t, req: SetParametersAtomically_Request| {
                 let mut map = parameter_map.lock().unwrap();
                 set_parameters_atomically(req, &mut map)
@@ -312,11 +313,13 @@ mod tests {
             },
             srv::rmw::*,
         },
-        Context, MandatoryParameter, Node, NodeBuilder, ParameterRange, ParameterValue, RclrsError,
-        ReadOnlyParameter,
+        *,
     };
     use rosidl_runtime_rs::{seq, Sequence};
-    use std::sync::{Arc, RwLock};
+    use std::{
+        sync::{Arc, RwLock},
+        time::Duration,
+    };
 
     struct TestNode {
         node: Node,
@@ -326,9 +329,9 @@ mod tests {
         dynamic_param: MandatoryParameter<ParameterValue>,
     }
 
-    async fn try_until_timeout<F>(f: F) -> Result<(), ()>
+    async fn try_until_timeout<F>(mut f: F) -> Result<(), ()>
     where
-        F: FnOnce() -> bool + Copy,
+        F: FnMut() -> bool,
     {
         let mut retry_count = 0;
         while !f() {
@@ -341,10 +344,10 @@ mod tests {
         Ok(())
     }
 
-    fn construct_test_nodes(context: &Context, ns: &str) -> (TestNode, Node) {
-        let node = NodeBuilder::new(context, "node")
-            .namespace(ns)
-            .build()
+    fn construct_test_nodes(ns: &str) -> (Executor, TestNode, Node) {
+        let executor = Context::default().create_basic_executor();
+        let node = executor
+            .create_node(NodeOptions::new("node").namespace(ns))
             .unwrap();
         let range = ParameterRange {
             lower: Some(0),
@@ -375,12 +378,12 @@ mod tests {
             .mandatory()
             .unwrap();
 
-        let client = NodeBuilder::new(context, "client")
-            .namespace(ns)
-            .build()
+        let client = executor
+            .create_node(NodeOptions::new("client").namespace(ns))
             .unwrap();
 
         (
+            executor,
             TestNode {
                 node,
                 bool_param,
@@ -394,8 +397,7 @@ mod tests {
 
     #[test]
     fn test_parameter_services_names_and_types() -> Result<(), RclrsError> {
-        let context = Context::new([]).unwrap();
-        let (node, _client) = construct_test_nodes(&context, "names_types");
+        let (_, node, _client) = construct_test_nodes("names_types");
 
         std::thread::sleep(std::time::Duration::from_millis(100));
 
@@ -429,8 +431,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_list_parameters_service() -> Result<(), RclrsError> {
-        let context = Context::new([]).unwrap();
-        let (node, client) = construct_test_nodes(&context, "list");
+        let (mut executor, _test, client) = construct_test_nodes("list");
         let list_client = client.create_client::<ListParameters>("/list/node/list_parameters")?;
 
         try_until_timeout(|| list_client.service_is_ready().unwrap())
@@ -441,9 +442,13 @@ mod tests {
 
         let inner_done = done.clone();
         let rclrs_spin = tokio::task::spawn(async move {
-            try_until_timeout(|| {
-                crate::spin_once(node.node.clone(), Some(std::time::Duration::ZERO)).ok();
-                crate::spin_once(client.clone(), Some(std::time::Duration::ZERO)).ok();
+            try_until_timeout(move || {
+                executor
+                    .spin(SpinOptions::spin_once().timeout(Duration::ZERO))
+                    .timeout_ok()
+                    .first_error()
+                    .unwrap();
+
                 *inner_done.read().unwrap()
             })
             .await
@@ -542,7 +547,6 @@ mod tests {
                     move |response: ListParameters_Response| {
                         *call_done.write().unwrap() = true;
                         let names = response.result.names;
-                        dbg!(&names);
                         assert_eq!(names.len(), 2);
                         assert_eq!(names[0].to_string(), "bool");
                         assert_eq!(names[1].to_string(), "use_sim_time");
@@ -564,8 +568,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_set_parameters_service() -> Result<(), RclrsError> {
-        let context = Context::new([]).unwrap();
-        let (node, client) = construct_test_nodes(&context, "get_set");
+        let (mut executor, test, client) = construct_test_nodes("get_set");
         let get_client = client.create_client::<GetParameters>("/get_set/node/get_parameters")?;
         let set_client = client.create_client::<SetParameters>("/get_set/node/set_parameters")?;
         let set_atomically_client = client
@@ -581,17 +584,23 @@ mod tests {
 
         let done = Arc::new(RwLock::new(false));
 
-        let inner_node = node.node.clone();
         let inner_done = done.clone();
         let rclrs_spin = tokio::task::spawn(async move {
-            try_until_timeout(|| {
-                crate::spin_once(inner_node.clone(), Some(std::time::Duration::ZERO)).ok();
-                crate::spin_once(client.clone(), Some(std::time::Duration::ZERO)).ok();
+            try_until_timeout(move || {
+                executor
+                    .spin(SpinOptions::spin_once().timeout(Duration::ZERO))
+                    .timeout_ok()
+                    .first_error()
+                    .unwrap();
+
                 *inner_done.read().unwrap()
             })
             .await
             .unwrap();
         });
+
+        let _hold_node = test.node.clone();
+        let _hold_client = client.clone();
 
         let res = tokio::task::spawn(async move {
             // Get an existing parameter
@@ -711,7 +720,7 @@ mod tests {
             let client_finished = Arc::new(RwLock::new(false));
             let call_done = client_finished.clone();
             // Parameter is assigned a default of true at declaration time
-            assert!(node.bool_param.get());
+            assert!(test.bool_param.get());
             set_client
                 .async_send_request_with_callback(
                     &request,
@@ -721,14 +730,14 @@ mod tests {
                         // Setting a bool value set for a bool parameter
                         assert!(response.results[0].successful);
                         // Value was set to false, node parameter get should reflect this
-                        assert!(!node.bool_param.get());
+                        assert!(!test.bool_param.get());
                         // Setting a parameter to the wrong type
                         assert!(!response.results[1].successful);
                         // Setting a read only parameter
                         assert!(!response.results[2].successful);
                         // Setting a dynamic parameter to a new type
                         assert!(response.results[3].successful);
-                        assert_eq!(node.dynamic_param.get(), ParameterValue::Bool(true));
+                        assert_eq!(test.dynamic_param.get(), ParameterValue::Bool(true));
                         // Setting a value out of range
                         assert!(!response.results[4].successful);
                         // Setting an invalid type
@@ -743,7 +752,7 @@ mod tests {
                 .unwrap();
 
             // Set the node to use undeclared parameters and try to set one
-            node.node.use_undeclared_parameters();
+            test.node.use_undeclared_parameters();
             let request = SetParameters_Request {
                 parameters: seq![undeclared_bool],
             };
@@ -758,7 +767,7 @@ mod tests {
                         // Setting the undeclared parameter is now allowed
                         assert!(response.results[0].successful);
                         assert_eq!(
-                            node.node.use_undeclared_parameters().get("undeclared_bool"),
+                            test.node.use_undeclared_parameters().get("undeclared_bool"),
                             Some(ParameterValue::Bool(true))
                         );
                     },
@@ -797,8 +806,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_describe_get_types_parameters_service() -> Result<(), RclrsError> {
-        let context = Context::new([]).unwrap();
-        let (node, client) = construct_test_nodes(&context, "describe");
+        let (mut executor, _test, client) = construct_test_nodes("describe");
         let describe_client =
             client.create_client::<DescribeParameters>("/describe/node/describe_parameters")?;
         let get_types_client =
@@ -814,11 +822,14 @@ mod tests {
         let done = Arc::new(RwLock::new(false));
 
         let inner_done = done.clone();
-        let inner_node = node.node.clone();
         let rclrs_spin = tokio::task::spawn(async move {
-            try_until_timeout(|| {
-                crate::spin_once(inner_node.clone(), Some(std::time::Duration::ZERO)).ok();
-                crate::spin_once(client.clone(), Some(std::time::Duration::ZERO)).ok();
+            try_until_timeout(move || {
+                executor
+                    .spin(SpinOptions::spin_once().timeout(Duration::ZERO))
+                    .timeout_ok()
+                    .first_error()
+                    .unwrap();
+
                 *inner_done.read().unwrap()
             })
             .await

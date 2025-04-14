@@ -1,7 +1,7 @@
 # Contributing to `ros2_rust`
 Contributions to `ros2_rust` are very welcome!
 
-Work is coordinated in via GitHub issues, and there also exists a [Matrix chat](https://matrix.to/#/+rosorg-rust:matrix.org) for general discussion. It's a good idea to check in with the other contributors and seek early-stage feedback when developing a major feature.
+Work is coordinated in via GitHub issues, and there also exists a [Matrix chat](https://matrix.to/#/!AiYXdTWExqamTdatBl:matrix.org) for general discussion. It's a good idea to check in with the other contributors and seek early-stage feedback when developing a major feature.
 
 There are also occasional ROS 2 Rust WG meetings that are announced on the [ROS discourse forum](https://discourse.ros.org/).
 

@@ -9,7 +9,8 @@ use rosidl_runtime_rs::Message;
 use crate::{
     error::{RclReturnCode, ToResult},
     rcl_bindings::*,
-    MessageCow, NodeHandle, RclrsError, ENTITY_LIFECYCLE_MUTEX,
+    IntoPrimitiveOptions, MessageCow, Node, NodeHandle, QoSProfile, RclrsError,
+    ENTITY_LIFECYCLE_MUTEX,
 };
 
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
@@ -92,6 +93,10 @@ where
     pub(crate) handle: Arc<ServiceHandle>,
     /// The callback function that runs when a request was received.
     pub callback: Mutex<ServiceCallback<T::Request, T::Response>>,
+    /// Ensure the parent node remains alive as long as the subscription is held.
+    /// This implementation will change in the future.
+    #[allow(unused)]
+    node: Arc<Node>,
 }
 
 impl<T> ServiceState<T>
@@ -99,9 +104,9 @@ where
     T: rosidl_runtime_rs::Service,
 {
     /// Creates a new service.
-    pub(crate) fn new<F>(
-        node_handle: Arc<NodeHandle>,
-        topic: &str,
+    pub(crate) fn new<'a, F>(
+        node: &Arc<Node>,
+        options: impl Into<ServiceOptions<'a>>,
         callback: F,
     ) -> Result<Self, RclrsError>
     // This uses pub(crate) visibility to avoid instantiating this struct outside
@@ -110,20 +115,22 @@ where
         T: rosidl_runtime_rs::Service,
         F: Fn(&rmw_request_id_t, T::Request) -> T::Response + 'static + Send,
     {
+        let ServiceOptions { name, qos } = options.into();
         // SAFETY: Getting a zero-initialized value is always safe.
         let mut rcl_service = unsafe { rcl_get_zero_initialized_service() };
         let type_support = <T as rosidl_runtime_rs::Service>::get_type_support()
             as *const rosidl_service_type_support_t;
-        let topic_c_string = CString::new(topic).map_err(|err| RclrsError::StringContainsNul {
+        let topic_c_string = CString::new(name).map_err(|err| RclrsError::StringContainsNul {
             err,
-            s: topic.into(),
+            s: name.into(),
         })?;
 
         // SAFETY: No preconditions for this function.
-        let service_options = unsafe { rcl_service_get_default_options() };
+        let mut service_options = unsafe { rcl_service_get_default_options() };
+        service_options.qos = qos.into();
 
         {
-            let rcl_node = node_handle.rcl_node.lock().unwrap();
+            let rcl_node = node.handle.rcl_node.lock().unwrap();
             let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
             unsafe {
                 // SAFETY:
@@ -146,12 +153,13 @@ where
 
         let handle = Arc::new(ServiceHandle {
             rcl_service: Mutex::new(rcl_service),
-            node_handle,
+            node_handle: Arc::clone(&node.handle),
             in_use_by_wait_set: Arc::new(AtomicBool::new(false)),
         });
 
         Ok(Self {
             handle,
+            node: Arc::clone(node),
             callback: Mutex::new(Box::new(callback)),
         })
     }
@@ -197,6 +205,36 @@ where
         }
         .ok()?;
         Ok((T::Request::from_rmw_message(request_out), request_id_out))
+    }
+}
+
+/// `ServiceOptions are used by [`Node::create_service`][1] to initialize a
+/// [`Service`] provider.
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub struct ServiceOptions<'a> {
+    /// The name for the service
+    pub name: &'a str,
+    /// The quality of service profile for the service.
+    pub qos: QoSProfile,
+}
+
+impl<'a> ServiceOptions<'a> {
+    /// Initialize a new [`ServiceOptions`] with default settings.
+    pub fn new(name: &'a str) -> Self {
+        Self {
+            name,
+            qos: QoSProfile::services_default(),
+        }
+    }
+}
+
+impl<'a, T: IntoPrimitiveOptions<'a>> From<T> for ServiceOptions<'a> {
+    fn from(value: T) -> Self {
+        let primitive = value.into_primitive_options();
+        let mut options = Self::new(primitive.name);
+        primitive.apply_to(&mut options.qos);
+        options
     }
 }
 

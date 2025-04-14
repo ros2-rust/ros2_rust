@@ -10,7 +10,7 @@ use crate::{
     error::{RclReturnCode, ToResult},
     qos::QoSProfile,
     rcl_bindings::*,
-    NodeHandle, RclrsError, ENTITY_LIFECYCLE_MUTEX,
+    IntoPrimitiveOptions, Node, NodeHandle, RclrsError, ENTITY_LIFECYCLE_MUTEX,
 };
 
 mod callback;
@@ -96,6 +96,10 @@ where
     pub(crate) handle: Arc<SubscriptionHandle>,
     /// The callback function that runs when a message was received.
     pub callback: Mutex<AnySubscriptionCallback<T>>,
+    /// Ensure the parent node remains alive as long as the subscription is held.
+    /// This implementation will change in the future.
+    #[allow(unused)]
+    node: Arc<Node>,
     message: PhantomData<T>,
 }
 
@@ -104,10 +108,9 @@ where
     T: Message,
 {
     /// Creates a new subscription.
-    pub(crate) fn new<Args>(
-        node_handle: Arc<NodeHandle>,
-        topic: &str,
-        qos: QoSProfile,
+    pub(crate) fn new<'a, Args>(
+        node: &Node,
+        options: impl Into<SubscriptionOptions<'a>>,
         callback: impl SubscriptionCallback<T, Args>,
     ) -> Result<Self, RclrsError>
     // This uses pub(crate) visibility to avoid instantiating this struct outside
@@ -115,6 +118,7 @@ where
     where
         T: Message,
     {
+        let SubscriptionOptions { topic, qos } = options.into();
         // SAFETY: Getting a zero-initialized value is always safe.
         let mut rcl_subscription = unsafe { rcl_get_zero_initialized_subscription() };
         let type_support =
@@ -125,11 +129,11 @@ where
         })?;
 
         // SAFETY: No preconditions for this function.
-        let mut subscription_options = unsafe { rcl_subscription_get_default_options() };
-        subscription_options.qos = qos.into();
+        let mut rcl_subscription_options = unsafe { rcl_subscription_get_default_options() };
+        rcl_subscription_options.qos = qos.into();
 
         {
-            let rcl_node = node_handle.rcl_node.lock().unwrap();
+            let rcl_node = node.handle.rcl_node.lock().unwrap();
             let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
             unsafe {
                 // SAFETY:
@@ -143,7 +147,7 @@ where
                     &*rcl_node,
                     type_support,
                     topic_c_string.as_ptr(),
-                    &subscription_options,
+                    &rcl_subscription_options,
                 )
                 .ok()?;
             }
@@ -151,13 +155,14 @@ where
 
         let handle = Arc::new(SubscriptionHandle {
             rcl_subscription: Mutex::new(rcl_subscription),
-            node_handle,
+            node_handle: Arc::clone(&node.handle),
             in_use_by_wait_set: Arc::new(AtomicBool::new(false)),
         });
 
         Ok(Self {
             handle,
             callback: Mutex::new(callback.into_callback()),
+            node: Arc::clone(node),
             message: PhantomData,
         })
     }
@@ -274,6 +279,38 @@ where
     }
 }
 
+/// `SubscriptionOptions` are used by [`Node::create_subscription`][1] to initialize
+/// a [`Subscription`].
+///
+/// [1]: crate::Node::create_subscription
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub struct SubscriptionOptions<'a> {
+    /// The topic name for the subscription.
+    pub topic: &'a str,
+    /// The quality of service settings for the subscription.
+    pub qos: QoSProfile,
+}
+
+impl<'a> SubscriptionOptions<'a> {
+    /// Initialize a new [`SubscriptionOptions`] with default settings.
+    pub fn new(topic: &'a str) -> Self {
+        Self {
+            topic,
+            qos: QoSProfile::topics_default(),
+        }
+    }
+}
+
+impl<'a, T: IntoPrimitiveOptions<'a>> From<T> for SubscriptionOptions<'a> {
+    fn from(value: T) -> Self {
+        let primitive = value.into_primitive_options();
+        let mut options = Self::new(primitive.name);
+        primitive.apply_to(&mut options.qos);
+        options
+    }
+}
+
 impl<T> SubscriptionBase for SubscriptionState<T>
 where
     T: Message,
@@ -343,27 +380,23 @@ mod tests {
 
     #[test]
     fn test_subscriptions() -> Result<(), RclrsError> {
-        use crate::{TopicEndpointInfo, QOS_PROFILE_SYSTEM_DEFAULT};
+        use crate::TopicEndpointInfo;
 
         let namespace = "/test_subscriptions_graph";
         let graph = construct_test_graph(namespace)?;
 
-        let node_2_empty_subscription = graph.node2.create_subscription::<msg::Empty, _>(
-            "graph_test_topic_1",
-            QOS_PROFILE_SYSTEM_DEFAULT,
-            |_msg: msg::Empty| {},
-        )?;
+        let node_2_empty_subscription = graph
+            .node2
+            .create_subscription::<msg::Empty, _>("graph_test_topic_1", |_msg: msg::Empty| {})?;
         let topic1 = node_2_empty_subscription.topic_name();
         let node_2_basic_types_subscription =
             graph.node2.create_subscription::<msg::BasicTypes, _>(
                 "graph_test_topic_2",
-                QOS_PROFILE_SYSTEM_DEFAULT,
                 |_msg: msg::BasicTypes| {},
             )?;
         let topic2 = node_2_basic_types_subscription.topic_name();
         let node_1_defaults_subscription = graph.node1.create_subscription::<msg::Defaults, _>(
             "graph_test_topic_3",
-            QOS_PROFILE_SYSTEM_DEFAULT,
             |_msg: msg::Defaults| {},
         )?;
         let topic3 = node_1_defaults_subscription.topic_name();
@@ -407,5 +440,42 @@ mod tests {
             expected_subscriptions_info
         );
         Ok(())
+    }
+
+    #[test]
+    fn test_node_subscription_raii() {
+        use crate::*;
+        use std::sync::atomic::Ordering;
+
+        let mut executor = Context::default().create_basic_executor();
+
+        let triggered = Arc::new(AtomicBool::new(false));
+        let inner_triggered = Arc::clone(&triggered);
+        let callback = move |_: msg::Empty| {
+            inner_triggered.store(true, Ordering::Release);
+        };
+
+        let (_subscription, publisher) = {
+            let node = executor
+                .create_node(&format!("test_node_subscription_raii_{}", line!()))
+                .unwrap();
+
+            let qos = QoSProfile::default().keep_all().reliable();
+            let subscription = node
+                .create_subscription::<msg::Empty, _>("test_topic".qos(qos), callback)
+                .unwrap();
+            let publisher = node
+                .create_publisher::<msg::Empty>("test_topic".qos(qos))
+                .unwrap();
+
+            (subscription, publisher)
+        };
+
+        publisher.publish(msg::Empty::default()).unwrap();
+        let start_time = std::time::Instant::now();
+        while !triggered.load(Ordering::Acquire) {
+            assert!(executor.spin(SpinOptions::spin_once()).is_empty());
+            assert!(start_time.elapsed() < std::time::Duration::from_secs(10));
+        }
     }
 }

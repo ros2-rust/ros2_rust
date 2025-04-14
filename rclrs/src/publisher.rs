@@ -11,7 +11,7 @@ use crate::{
     error::{RclrsError, ToResult},
     qos::QoSProfile,
     rcl_bindings::*,
-    NodeHandle, ENTITY_LIFECYCLE_MUTEX,
+    IntoPrimitiveOptions, NodeHandle, ENTITY_LIFECYCLE_MUTEX,
 };
 
 mod loaned_message;
@@ -54,7 +54,7 @@ impl Drop for PublisherHandle {
 /// The underlying RMW will decide on the concrete delivery mechanism (network stack, shared
 /// memory, or intraprocess).
 ///
-/// Sending messages does not require calling [`spin`][2] on the publisher's node.
+/// Sending messages does not require the node's executor to [spin][1].
 ///
 /// [1]: crate::NodeState::create_publisher
 /// [2]: crate::spin
@@ -95,14 +95,14 @@ where
     /// Creates a new `Publisher`.
     ///
     /// Node and namespace changes are always applied _before_ topic remapping.
-    pub(crate) fn new(
+    pub(crate) fn new<'a>(
         node_handle: Arc<NodeHandle>,
-        topic: &str,
-        qos: QoSProfile,
+        options: impl Into<PublisherOptions<'a>>,
     ) -> Result<Self, RclrsError>
     where
         T: Message,
     {
+        let PublisherOptions { topic, qos } = options.into();
         // SAFETY: Getting a zero-initialized value is always safe.
         let mut rcl_publisher = unsafe { rcl_get_zero_initialized_publisher() };
         let type_support_ptr =
@@ -161,6 +161,20 @@ where
                 .to_string_lossy()
                 .into_owned()
         }
+    }
+
+    /// Returns the number of subscriptions of the publisher.
+    pub fn get_subscription_count(&self) -> Result<usize, RclrsError> {
+        let mut subscription_count = 0;
+        // SAFETY: No preconditions for the function called.
+        unsafe {
+            rcl_publisher_get_subscription_count(
+                &*self.handle.rcl_publisher.lock().unwrap(),
+                &mut subscription_count,
+            )
+            .ok()?
+        };
+        Ok(subscription_count)
     }
 
     /// Publishes a message.
@@ -246,6 +260,43 @@ where
             msg_ptr: msg_ptr as *mut T,
         })
     }
+
+    /// Returns true if message loans are possible, false otherwise.
+    pub fn can_loan_messages(&self) -> bool {
+        unsafe { rcl_publisher_can_loan_messages(&*self.handle.rcl_publisher.lock().unwrap()) }
+    }
+}
+
+/// `PublisherOptions` are used by [`Node::create_publisher`][1] to initialize
+/// a [`Publisher`].
+///
+/// [1]: crate::Node::create_publisher
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub struct PublisherOptions<'a> {
+    /// The topic name for the publisher.
+    pub topic: &'a str,
+    /// The quality of service settings for the publisher.
+    pub qos: QoSProfile,
+}
+
+impl<'a> PublisherOptions<'a> {
+    /// Initialize a new [`PublisherOptions`] with default settings.
+    pub fn new(topic: &'a str) -> Self {
+        Self {
+            topic,
+            qos: QoSProfile::topics_default(),
+        }
+    }
+}
+
+impl<'a, T: IntoPrimitiveOptions<'a>> From<T> for PublisherOptions<'a> {
+    fn from(value: T) -> Self {
+        let primitive = value.into_primitive_options();
+        let mut options = Self::new(primitive.name);
+        primitive.apply_to(&mut options.qos);
+        options
+    }
 }
 
 /// Convenience trait for [`PublisherState::publish`].
@@ -279,7 +330,7 @@ mod tests {
 
     #[test]
     fn test_publishers() -> Result<(), RclrsError> {
-        use crate::{TopicEndpointInfo, QOS_PROFILE_SYSTEM_DEFAULT};
+        use crate::TopicEndpointInfo;
         use test_msgs::msg;
 
         let namespace = "/test_publishers_graph";
@@ -287,16 +338,15 @@ mod tests {
 
         let node_1_empty_publisher = graph
             .node1
-            .create_publisher::<msg::Empty>("graph_test_topic_1", QOS_PROFILE_SYSTEM_DEFAULT)?;
+            .create_publisher::<msg::Empty>("graph_test_topic_1")?;
         let topic1 = node_1_empty_publisher.topic_name();
-        let node_1_basic_types_publisher = graph.node1.create_publisher::<msg::BasicTypes>(
-            "graph_test_topic_2",
-            QOS_PROFILE_SYSTEM_DEFAULT,
-        )?;
+        let node_1_basic_types_publisher = graph
+            .node1
+            .create_publisher::<msg::BasicTypes>("graph_test_topic_2")?;
         let topic2 = node_1_basic_types_publisher.topic_name();
         let node_2_default_publisher = graph
             .node2
-            .create_publisher::<msg::Defaults>("graph_test_topic_3", QOS_PROFILE_SYSTEM_DEFAULT)?;
+            .create_publisher::<msg::Defaults>("graph_test_topic_3")?;
         let topic3 = node_2_default_publisher.topic_name();
 
         std::thread::sleep(std::time::Duration::from_millis(100));
@@ -338,6 +388,23 @@ mod tests {
             graph.node2.get_publishers_info_by_topic(&topic1)?,
             expected_publishers_info
         );
+
+        // Test get_subscription_count()
+        assert_eq!(node_1_empty_publisher.get_subscription_count(), Ok(0));
+        assert_eq!(node_1_basic_types_publisher.get_subscription_count(), Ok(0));
+        assert_eq!(node_2_default_publisher.get_subscription_count(), Ok(0));
+        let _node_1_empty_subscriber = graph
+            .node1
+            .create_subscription("graph_test_topic_1", |_msg: msg::Empty| {});
+        let _node_1_basic_types_subscriber = graph
+            .node1
+            .create_subscription("graph_test_topic_2", |_msg: msg::BasicTypes| {});
+        let _node_2_default_subscriber = graph
+            .node2
+            .create_subscription("graph_test_topic_3", |_msg: msg::Defaults| {});
+        assert_eq!(node_1_empty_publisher.get_subscription_count(), Ok(1));
+        assert_eq!(node_1_basic_types_publisher.get_subscription_count(), Ok(1));
+        assert_eq!(node_2_default_publisher.get_subscription_count(), Ok(1));
 
         Ok(())
     }

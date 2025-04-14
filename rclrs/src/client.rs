@@ -11,7 +11,8 @@ use rosidl_runtime_rs::Message;
 use crate::{
     error::{RclReturnCode, ToResult},
     rcl_bindings::*,
-    MessageCow, NodeHandle, RclrsError, ENTITY_LIFECYCLE_MUTEX,
+    IntoPrimitiveOptions, MessageCow, Node, NodeHandle, QoSProfile, RclrsError,
+    ENTITY_LIFECYCLE_MUTEX,
 };
 
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
@@ -89,6 +90,10 @@ where
     pub(crate) handle: Arc<ClientHandle>,
     requests: Mutex<HashMap<RequestId, RequestValue<T::Response>>>,
     futures: Arc<Mutex<HashMap<RequestId, oneshot::Sender<T::Response>>>>,
+    /// Ensure the parent node remains alive as long as the subscription is held.
+    /// This implementation will change in the future.
+    #[allow(unused)]
+    node: Arc<Node>,
 }
 
 impl<T> ClientState<T>
@@ -96,26 +101,32 @@ where
     T: rosidl_runtime_rs::Service,
 {
     /// Creates a new client.
-    pub(crate) fn new(node_handle: Arc<NodeHandle>, topic: &str) -> Result<Self, RclrsError>
+    pub(crate) fn new<'a>(
+        node: &Arc<Node>,
+        options: impl Into<ClientOptions<'a>>,
+    ) -> Result<Self, RclrsError>
     // This uses pub(crate) visibility to avoid instantiating this struct outside
     // [`Node::create_client`], see the struct's documentation for the rationale
     where
         T: rosidl_runtime_rs::Service,
     {
+        let ClientOptions { service_name, qos } = options.into();
         // SAFETY: Getting a zero-initialized value is always safe.
         let mut rcl_client = unsafe { rcl_get_zero_initialized_client() };
         let type_support = <T as rosidl_runtime_rs::Service>::get_type_support()
             as *const rosidl_service_type_support_t;
-        let topic_c_string = CString::new(topic).map_err(|err| RclrsError::StringContainsNul {
-            err,
-            s: topic.into(),
-        })?;
+        let topic_c_string =
+            CString::new(service_name).map_err(|err| RclrsError::StringContainsNul {
+                err,
+                s: service_name.into(),
+            })?;
 
         // SAFETY: No preconditions for this function.
-        let client_options = unsafe { rcl_client_get_default_options() };
+        let mut client_options = unsafe { rcl_client_get_default_options() };
+        client_options.qos = qos.into();
 
         {
-            let rcl_node = node_handle.rcl_node.lock().unwrap();
+            let rcl_node = node.handle.rcl_node.lock().unwrap();
             let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
 
             // SAFETY:
@@ -139,7 +150,7 @@ where
 
         let handle = Arc::new(ClientHandle {
             rcl_client: Mutex::new(rcl_client),
-            node_handle,
+            node_handle: Arc::clone(&node.handle),
             in_use_by_wait_set: Arc::new(AtomicBool::new(false)),
         });
 
@@ -149,6 +160,7 @@ where
             futures: Arc::new(Mutex::new(
                 HashMap::<RequestId, oneshot::Sender<T::Response>>::new(),
             )),
+            node: Arc::clone(node),
         })
     }
 
@@ -285,6 +297,38 @@ where
         }
         .ok()?;
         Ok(is_ready)
+    }
+}
+
+/// `ClientOptions` are used by [`Node::create_client`][1] to initialize a
+/// [`Client`] for a service.
+///
+/// [1]: crate::Node::create_client
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub struct ClientOptions<'a> {
+    /// The name of the service that this client will send requests to
+    pub service_name: &'a str,
+    /// The quality of the service profile for this client
+    pub qos: QoSProfile,
+}
+
+impl<'a> ClientOptions<'a> {
+    /// Initialize a new [`ClientOptions`] with default settings.
+    pub fn new(service_name: &'a str) -> Self {
+        Self {
+            service_name,
+            qos: QoSProfile::services_default(),
+        }
+    }
+}
+
+impl<'a, T: IntoPrimitiveOptions<'a>> From<T> for ClientOptions<'a> {
+    fn from(value: T) -> Self {
+        let primitive = value.into_primitive_options();
+        let mut options = Self::new(primitive.name);
+        primitive.apply_to(&mut options.qos);
+        options
     }
 }
 

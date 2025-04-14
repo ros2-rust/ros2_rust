@@ -35,6 +35,7 @@ fn main() {
         }
     };
 
+    println!("cargo:rustc-check-cfg=cfg(ros_distro, values(\"humble\", \"jazzy\", \"rolling\"))");
     println!("cargo:rustc-cfg=ros_distro=\"{ros_distro}\"");
 
     let mut builder = bindgen::Builder::default()
@@ -56,7 +57,7 @@ fn main() {
         .default_enum_style(bindgen::EnumVariation::Rust {
             non_exhaustive: false,
         })
-        .parse_callbacks(Box::new(bindgen::CargoCallbacks));
+        .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()));
 
     // Invalidate the built crate whenever this script or the wrapper changes
     println!("cargo:rerun-if-changed=build.rs");
