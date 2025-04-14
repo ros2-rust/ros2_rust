@@ -79,7 +79,6 @@ pub type Node = Arc<NodeState>;
 /// This is public so that you can choose to put it inside a [`Weak`] if you
 /// want to be able to refer to a [`Node`] in a non-owning way. It is generally
 /// recommended to manage the [`NodeState`] inside of an [`Arc`], and [`Node`]
-/// recommended to manage the `NodeState` inside of an [`Arc`], and [`Node`]
 /// is provided as convenience alias for that.
 ///
 /// The public API of the [`Node`] type is implemented via `NodeState`.
