@@ -1,5 +1,5 @@
 use crate::{
-    rcl_bindings::rcl_context_is_valid, Context, ContextHandle, IntoNodeOptions, Node, RclrsError,
+    rcl_bindings::rcl_context_is_valid, Context, ContextHandle, IntoNodeOptions, Node, NodeState, RclrsError,
     WaitSet,
 };
 use std::{
@@ -10,7 +10,7 @@ use std::{
 /// Single-threaded executor implementation.
 pub struct Executor {
     context: Arc<ContextHandle>,
-    nodes_mtx: Mutex<Vec<Weak<Node>>>,
+    nodes_mtx: Mutex<Vec<Weak<NodeState>>>,
 }
 
 impl Executor {

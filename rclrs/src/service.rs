@@ -96,7 +96,7 @@ where
     /// Ensure the parent node remains alive as long as the subscription is held.
     /// This implementation will change in the future.
     #[allow(unused)]
-    node: Arc<Node>,
+    node: Node,
 }
 
 impl<T> ServiceState<T>
@@ -105,7 +105,7 @@ where
 {
     /// Creates a new service.
     pub(crate) fn new<'a, F>(
-        node: &Arc<Node>,
+        node: &Node,
         options: impl Into<ServiceOptions<'a>>,
         callback: F,
     ) -> Result<Self, RclrsError>

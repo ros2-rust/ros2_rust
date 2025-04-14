@@ -93,7 +93,7 @@ where
     /// Ensure the parent node remains alive as long as the subscription is held.
     /// This implementation will change in the future.
     #[allow(unused)]
-    node: Arc<Node>,
+    node: Node,
 }
 
 impl<T> ClientState<T>
@@ -102,7 +102,7 @@ where
 {
     /// Creates a new client.
     pub(crate) fn new<'a>(
-        node: &Arc<Node>,
+        node: &Node,
         options: impl Into<ClientOptions<'a>>,
     ) -> Result<Self, RclrsError>
     // This uses pub(crate) visibility to avoid instantiating this struct outside

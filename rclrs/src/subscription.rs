@@ -99,7 +99,7 @@ where
     /// Ensure the parent node remains alive as long as the subscription is held.
     /// This implementation will change in the future.
     #[allow(unused)]
-    node: Arc<Node>,
+    node: Node,
     message: PhantomData<T>,
 }
 

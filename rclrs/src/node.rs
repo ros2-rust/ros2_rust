@@ -19,10 +19,10 @@ use std::{
 use rosidl_runtime_rs::Message;
 
 use crate::{
-    rcl_bindings::*, Client, ClientBase, ClientOptions, Clock, ContextHandle, GuardCondition,
+    rcl_bindings::*, Client, ClientBase, ClientOptions, ClientState, Clock, ContextHandle, GuardCondition,
     LogParams, Logger, ParameterBuilder, ParameterInterface, ParameterVariant, Parameters,
-    Publisher, PublisherOptions, RclrsError, Service, ServiceBase, ServiceOptions, Subscription,
-    SubscriptionBase, SubscriptionCallback, SubscriptionOptions, TimeSource, ToLogParams,
+    Publisher, PublisherOptions, PublisherState, RclrsError, Service, ServiceBase, ServiceOptions, ServiceState, Subscription,
+    SubscriptionBase, SubscriptionCallback, SubscriptionOptions, SubscriptionState, TimeSource, ToLogParams,
     ENTITY_LIFECYCLE_MUTEX,
 };
 
@@ -594,7 +594,7 @@ impl NodeState {
     }
 }
 
-impl<'a> ToLogParams<'a> for &'a Node {
+impl<'a> ToLogParams<'a> for &'a NodeState {
     fn to_log_params(self) -> LogParams<'a> {
         self.logger().to_log_params()
     }

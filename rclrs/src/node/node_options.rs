@@ -5,7 +5,7 @@ use std::{
 };
 
 use crate::{
-    rcl_bindings::*, ClockType, Context, ContextHandle, Logger, Node, NodeHandle, NodeState,
+    rcl_bindings::*, ClockType, ContextHandle, Logger, Node, NodeHandle, NodeState,
     ParameterInterface, QoSProfile, RclrsError, TimeSource, ToResult, ENTITY_LIFECYCLE_MUTEX,
     QOS_PROFILE_CLOCK,
 };
@@ -286,7 +286,7 @@ impl<'a> NodeOptions<'a> {
     ///
     /// Only used internally. Downstream users should call
     /// [`Executor::create_node`].
-    pub(crate) fn build(self, context: &Arc<ContextHandle>) -> Result<Arc<Node>, RclrsError> {
+    pub(crate) fn build(self, context: &Arc<ContextHandle>) -> Result<Node, RclrsError> {
         let node_name = CString::new(self.name).map_err(|err| RclrsError::StringContainsNul {
             err,
             s: self.name.to_owned(),
