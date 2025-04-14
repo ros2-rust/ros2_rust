@@ -1,6 +1,6 @@
 use crate::{
-    rcl_bindings::rcl_context_is_valid, Context, ContextHandle, IntoNodeOptions, Node, NodeState, RclrsError,
-    WaitSet,
+    rcl_bindings::rcl_context_is_valid, Context, ContextHandle, IntoNodeOptions, Node, NodeState,
+    RclrsError, WaitSet,
 };
 use std::{
     sync::{Arc, Mutex, Weak},
