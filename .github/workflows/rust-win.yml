@@ -1,0 +1,63 @@
+name: Rust ROS 2 Windows build
+
+on:
+  #push:
+  #  branches: [ main ]
+  #pull_request:
+  #  branches: [ main ]
+  #schedule:
+  #  - cron: '22 2 * * 2'
+  push:
+    branches: [ win-ci]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: windows-latest
+    env:
+      LIBCLANG_PATH: C:\pixi_ws\.pixi\envs\default\Library\bin
+    steps:
+      - name: Install MSVC 2019
+        run: |
+          powershell -noexit irm https://aka.ms/vs/16/release/vs_buildtools.exe -OutFile vs_buildtools_2019.exe
+          .\vs_buildtools_2019.exe --quiet --wait --norestart --add Microsoft.Component.MSBuild --add Microsoft.Net.Component.4.6.1.TargetingPack --add Microsoft.Net.Component.4.8.SDK --add Microsoft.VisualStudio.Component.CoreBuildTools --add Microsoft.VisualStudio.Component.Roslyn.Compiler --add Microsoft.VisualStudio.Component.TextTemplating --add Microsoft.VisualStudio.Component.VC.CLI.Support --add Microsoft.VisualStudio.Component.VC.CoreBuildTools --add Microsoft.VisualStudio.Component.VC.CoreIde --add Microsoft.VisualStudio.Component.VC.Redist.14.Latest --add Microsoft.VisualStudio.Component.VC.Tools.x86.x64 --add Microsoft.VisualStudio.Component.Windows10SDK --add Microsoft.VisualStudio.Component.Windows10SDK.19041 --add Microsoft.VisualStudio.ComponentGroup.NativeDesktop.Core --add Microsoft.VisualStudio.Workload.MSBuildTools --add Microsoft.VisualStudio.Workload.VCTools
+      - name: Make new directory for pixi environment
+        run: mkdir C:\pixi_ws\
+      - name: Get pixi toml file
+        run: irm https://raw.githubusercontent.com/ros2/ros2/refs/heads/rolling/pixi.toml -OutFile C:\pixi_ws\pixi.toml
+      - name: Setup Pixi environment
+        uses: prefix-dev/setup-pixi@v0.8.1
+        with:
+          working-directory: C:\pixi_ws\
+      - name: Get prebuild ROS files
+        run: irm https://ci.ros2.org/view/packaging/job/packaging_windows/lastSuccessfulBuild/artifact/ws/ros2-package-windows-AMD64.zip 
+      - name: Unzip prebuild ROS files
+        run: Expand-Archive -Path ros2-package-windows-AMD64.zip -DestinationPath C:/pixi_ws\ros2_rolling
+      - name: Install Rust ROS prerequisites
+        run: pixi add libclang --manifest-path C:\pixi_ws\pixi.toml
+      - name: Rename libclang-13.dll to libclang.dll
+        run: |
+          $src = "C:\pixi_ws\.pixi\envs\default\Library\bin\libclang-13.dll"
+          $dst = "C:\pixi_ws\.pixi\envs\default\Library\bin\libclang.dll"
+          if (Test-Path $src) { Rename-Item -Path $src -NewName "libclang.dll" }
+      - name: Adding Colcon to pixi as PyPI
+        working-directory: C:\pixi_ws\
+        run: |
+          pixi add --pypi "colcon-ros-cargo@git+https://github.com/colcon/colcon-ros-cargo.git" --manifest-path C:\pixi_ws\pixi.toml
+          pixi add --pypi "colcon-cargo@git+https://github.com/colcon/colcon-cargo.git" --manifest-path C:\pixi_ws\pixi.toml
+      - name: Get ros2-Rust in a different workspace path
+        run: |
+          mkdir C:/workspace/src
+          git clone clone https://github.com/ros2-rust/ros2_rust.git C:/workspace/src/ros2_rust
+      - name: Import other rolling ROS rust repos
+        run: vcs import C:/workspace/src < C:/workspace/src/ros2_rust/ros2_rust_rolling.repos
+      - name: Build the rust package
+        run: |
+          call "C:\Program Files (x86)\Microsoft Visual Studio\2019\BuildTools\VC\Auxiliary\Build\vcvars64.bat"
+          call C:\pixi_ws\ros2_rolling\setup.bat
+          pixi run --manifest-path C:\pixi_ws\pixi.toml colcon build
+        working-directory: C:\workspace
+        
