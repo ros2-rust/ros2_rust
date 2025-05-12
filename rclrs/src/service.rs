@@ -1,68 +1,43 @@
 use std::{
     boxed::Box,
-    ffi::CString,
-    sync::{atomic::AtomicBool, Arc, Mutex, MutexGuard},
+    ffi::{CStr, CString},
+    sync::{Arc, Mutex, MutexGuard},
+    any::Any,
 };
 
-use rosidl_runtime_rs::Message;
+use rosidl_runtime_rs::{Message, Service as IdlService};
 
 use crate::{
-    error::{RclReturnCode, ToResult},
-    rcl_bindings::*,
-    IntoPrimitiveOptions, MessageCow, Node, NodeHandle, QoSProfile, RclrsError,
-    ENTITY_LIFECYCLE_MUTEX,
+    error::ToResult, rcl_bindings::*, WorkerCommands, IntoPrimitiveOptions, NodeHandle,
+    QoSProfile, RclPrimitive, RclPrimitiveHandle, RclPrimitiveKind, RclrsError, Waitable,
+    WaitableLifecycle, ENTITY_LIFECYCLE_MUTEX, MessageCow, Node, Worker, WorkScope,
 };
 
-// SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
-// they are running in. Therefore, this type can be safely sent to another thread.
-unsafe impl Send for rcl_service_t {}
+mod any_service_callback;
+pub use any_service_callback::*;
 
-/// Manage the lifecycle of an `rcl_service_t`, including managing its dependencies
-/// on `rcl_node_t` and `rcl_context_t` by ensuring that these dependencies are
-/// [dropped after][1] the `rcl_service_t`.
-///
-/// [1]: <https://doc.rust-lang.org/reference/destructors.html>
-pub struct ServiceHandle {
-    rcl_service: Mutex<rcl_service_t>,
-    node_handle: Arc<NodeHandle>,
-    pub(crate) in_use_by_wait_set: Arc<AtomicBool>,
-}
+mod node_service_callback;
+pub use node_service_callback::*;
 
-impl ServiceHandle {
-    pub(crate) fn lock(&self) -> MutexGuard<rcl_service_t> {
-        self.rcl_service.lock().unwrap()
-    }
-}
+mod into_async_service_callback;
+pub use into_async_service_callback::*;
 
-impl Drop for ServiceHandle {
-    fn drop(&mut self) {
-        let rcl_service = self.rcl_service.get_mut().unwrap();
-        let mut rcl_node = self.node_handle.rcl_node.lock().unwrap();
-        let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
-        // SAFETY: The entity lifecycle mutex is locked to protect against the risk of
-        // global variables in the rmw implementation being unsafely modified during cleanup.
-        unsafe {
-            rcl_service_fini(rcl_service, &mut *rcl_node);
-        }
-    }
-}
+mod into_node_service_callback;
+pub use into_node_service_callback::*;
 
-/// Trait to be implemented by concrete Service structs.
-///
-/// See [`Service<T>`] for an example
-pub trait ServiceBase: Send + Sync {
-    /// Internal function to get a reference to the `rcl` handle.
-    fn handle(&self) -> &ServiceHandle;
-    /// Tries to take a new request and run the callback with it.
-    fn execute(&self) -> Result<(), RclrsError>;
-}
+mod into_worker_service_callback;
+pub use into_worker_service_callback::*;
 
-type ServiceCallback<Request, Response> =
-    Box<dyn Fn(&rmw_request_id_t, Request) -> Response + 'static + Send>;
+mod service_info;
+pub use service_info::*;
+
+mod worker_service_callback;
+pub use worker_service_callback::*;
 
 /// Provide a service that can respond to requests sent by ROS service clients.
 ///
-/// Create a service using [`Node::create_service`][1].
+/// Create a service using [`Node::create_service`][1]
+/// or [`Node::create_async_service`][2].
 ///
 /// ROS only supports having one service provider for any given fully-qualified
 /// service name. "Fully-qualified" means the namespace is also taken into account
@@ -70,11 +45,19 @@ type ServiceCallback<Request, Response> =
 /// instance as the original. The underlying instance is tied to [`ServiceState`]
 /// which implements the [`Service`] API.
 ///
-/// Responding to requests requires the node's executor to [spin][2].
+/// Responding to requests requires the node's executor to [spin][3].
 ///
 /// [1]: crate::NodeState::create_service
-/// [2]: crate::spin
-pub type Service<T> = Arc<ServiceState<T>>;
+/// [2]: crate::NodeState::create_async_service
+/// [3]: crate::Executor::spin
+pub type Service<T> = Arc<ServiceState<T, Node>>;
+
+/// Provide a [`Service`] that runs on a [`Worker`].
+///
+/// Create a worker service using [`WorkerState::create_service`][1].
+///
+/// [1]: crate::WorkerState::create_service
+pub type WorkerService<T, Payload> = Arc<ServiceState<T, Worker<Payload>>>;
 
 /// The inner state of a [`Service`].
 ///
@@ -86,36 +69,43 @@ pub type Service<T> = Arc<ServiceState<T>>;
 /// The public API of the [`Service`] type is implemented via `ServiceState`.
 ///
 /// [1]: std::sync::Weak
-pub struct ServiceState<T>
+pub struct ServiceState<T, Scope>
 where
-    T: rosidl_runtime_rs::Service,
+    T: IdlService,
+    Scope: WorkScope,
 {
-    pub(crate) handle: Arc<ServiceHandle>,
-    /// The callback function that runs when a request was received.
-    pub callback: Mutex<ServiceCallback<T::Request, T::Response>>,
-    /// Ensure the parent node remains alive as long as the subscription is held.
-    /// This implementation will change in the future.
+    /// This handle is used to access the data that rcl holds for this service.
+    handle: Arc<ServiceHandle>,
+    /// This is the callback that will be executed each time a request arrives.
+    callback: Arc<Mutex<AnyServiceCallback<T, Scope::Payload>>>,
+    /// Holding onto this keeps the waiter for this service alive in the wait
+    /// set of the executor.
     #[allow(unused)]
-    node: Node,
+    lifecycle: WaitableLifecycle,
 }
 
-impl<T> ServiceState<T>
+impl<T, Scope> ServiceState<T, Scope>
 where
-    T: rosidl_runtime_rs::Service,
+    T: IdlService,
+    Scope: WorkScope + 'static,
 {
-    /// Creates a new service.
-    pub(crate) fn new<'a, F>(
-        node: &Node,
+    /// Returns the name of the service.
+    ///
+    /// This returns the service name after remapping, so it is not necessarily the
+    /// service name which was used when creating the service.
+    pub fn service_name(&self) -> String {
+        self.handle.service_name()
+    }
+
+    /// Used by [`Node`][crate::Node] to create a new service
+    pub(crate) fn create<'a>(
         options: impl Into<ServiceOptions<'a>>,
-        callback: F,
-    ) -> Result<Self, RclrsError>
-    // This uses pub(crate) visibility to avoid instantiating this struct outside
-    // [`Node::create_service`], see the struct's documentation for the rationale
-    where
-        T: rosidl_runtime_rs::Service,
-        F: Fn(&rmw_request_id_t, T::Request) -> T::Response + 'static + Send,
-    {
+        callback: AnyServiceCallback<T, Scope::Payload>,
+        node_handle: &Arc<NodeHandle>,
+        commands: &Arc<WorkerCommands>,
+    ) -> Result<Arc<Self>, RclrsError> {
         let ServiceOptions { name, qos } = options.into();
+        let callback = Arc::new(Mutex::new(callback));
         // SAFETY: Getting a zero-initialized value is always safe.
         let mut rcl_service = unsafe { rcl_get_zero_initialized_service() };
         let type_support = <T as rosidl_runtime_rs::Service>::get_type_support()
@@ -130,7 +120,7 @@ where
         service_options.qos = qos.into();
 
         {
-            let rcl_node = node.handle.rcl_node.lock().unwrap();
+            let rcl_node = node_handle.rcl_node.lock().unwrap();
             let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
             unsafe {
                 // SAFETY:
@@ -153,58 +143,69 @@ where
 
         let handle = Arc::new(ServiceHandle {
             rcl_service: Mutex::new(rcl_service),
-            node_handle: Arc::clone(&node.handle),
-            in_use_by_wait_set: Arc::new(AtomicBool::new(false)),
+            node_handle: Arc::clone(&node_handle),
         });
 
-        Ok(Self {
+        let (waitable, lifecycle) = Waitable::new(
+            Box::new(ServiceExecutable::<T, Scope> {
+                handle: Arc::clone(&handle),
+                callback: Arc::clone(&callback),
+                commands: Arc::clone(&commands),
+            }),
+            Some(Arc::clone(commands.get_guard_condition())),
+        );
+
+        let service = Arc::new(Self {
             handle,
-            node: Arc::clone(node),
-            callback: Mutex::new(Box::new(callback)),
-        })
+            callback,
+            lifecycle,
+        });
+        commands.add_to_wait_set(waitable);
+
+        Ok(service)
+    }
+}
+
+impl<T: IdlService> ServiceState<T, Node> {
+    /// Set the callback of this service, replacing the callback that was
+    /// previously set.
+    ///
+    /// This can be used even if the service previously used an async callback.
+    ///
+    /// This can only be called when the `Scope` of the [`ServiceState`] is [`Node`].
+    /// If the `Scope` is [`Worker<Payload>`] then use [`Self::set_worker_callback`] instead.
+    pub fn set_callback<Args>(&self, callback: impl IntoNodeServiceCallback<T, Args>) {
+        let callback = callback.into_node_service_callback();
+        // TODO(@mxgrey): Log any errors here when logging becomes available
+        *self.callback.lock().unwrap() = callback;
     }
 
-    /// Fetches a new request.
+    /// Set the callback of this service, replacing the callback that was
+    /// previously set.
     ///
-    /// When there is no new message, this will return a
-    /// [`ServiceTakeFailed`][1].
+    /// This can be used even if the service previously used a non-async callback.
     ///
-    /// [1]: crate::RclrsError
-    //
-    // ```text
-    // +---------------------+
-    // | rclrs::take_request |
-    // +----------+----------+
-    //            |
-    //            |
-    // +----------v----------+
-    // |  rcl_take_request   |
-    // +----------+----------+
-    //            |
-    //            |
-    // +----------v----------+
-    // |      rmw_take       |
-    // +---------------------+
-    // ```
-    pub fn take_request(&self) -> Result<(T::Request, rmw_request_id_t), RclrsError> {
-        let mut request_id_out = rmw_request_id_t {
-            writer_guid: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-            sequence_number: 0,
-        };
-        type RmwMsg<T> =
-            <<T as rosidl_runtime_rs::Service>::Request as rosidl_runtime_rs::Message>::RmwMsg;
-        let mut request_out = RmwMsg::<T>::default();
-        let handle = &*self.handle.lock();
-        unsafe {
-            // SAFETY: The three pointers are valid/initialized
-            rcl_take_request(
-                handle,
-                &mut request_id_out,
-                &mut request_out as *mut RmwMsg<T> as *mut _,
-            )
-        }
-        .ok()?;
-        Ok((T::Request::from_rmw_message(request_out), request_id_out))
+    /// This can only be called when the `Scope` of the [`ServiceState`] is [`Node`].
+    /// If the `Scope` is [`Worker<Payload>`] then use [`Self::set_worker_callback`] instead.
+    pub fn set_async_callback<Args>(&self, callback: impl IntoAsyncServiceCallback<T, Args>) {
+        let callback = callback.into_async_service_callback();
+        *self.callback.lock().unwrap() = callback;
+    }
+}
+
+impl<T: IdlService, Payload: 'static + Send + Sync> ServiceState<T, Worker<Payload>> {
+    /// Set the callback of this service, replacing the callback that was
+    /// previously set.
+    ///
+    /// This can only be called when the `Scope` of the [`ServiceState`] is [`Worker`].
+    /// If the `Scope` is [`Node`] then use [`Self::set_callback`] or
+    /// [`Self::set_async_callback`] instead.
+    pub fn set_worker_callback<Args>(
+        &self,
+        callback: impl IntoWorkerServiceCallback<T, Payload, Args>,
+    ) {
+        let callback = callback.into_worker_service_callback();
+        *self.callback.lock().unwrap() = callback;
     }
 }
 
@@ -238,39 +239,151 @@ impl<'a, T: IntoPrimitiveOptions<'a>> From<T> for ServiceOptions<'a> {
     }
 }
 
-impl<T> ServiceBase for ServiceState<T>
+struct ServiceExecutable<T: IdlService, Scope: WorkScope> {
+    handle: Arc<ServiceHandle>,
+    callback: Arc<Mutex<AnyServiceCallback<T, Scope::Payload>>>,
+    commands: Arc<WorkerCommands>,
+}
+
+impl<T, Scope> RclPrimitive for ServiceExecutable<T, Scope>
 where
-    T: rosidl_runtime_rs::Service,
+    T: IdlService,
+    Scope: WorkScope,
 {
-    fn handle(&self) -> &ServiceHandle {
-        &self.handle
+    unsafe fn execute(&mut self, payload: &mut dyn Any) -> Result<(), RclrsError> {
+        self.callback
+            .lock()
+            .unwrap()
+            .execute(&self.handle, payload, &self.commands)
     }
 
-    fn execute(&self) -> Result<(), RclrsError> {
-        let (req, mut req_id) = match self.take_request() {
-            Ok((req, req_id)) => (req, req_id),
-            Err(RclrsError::RclError {
-                code: RclReturnCode::ServiceTakeFailed,
-                ..
-            }) => {
-                // Spurious wakeup – this may happen even when a waitset indicated that this
-                // service was ready, so it shouldn't be an error.
-                return Ok(());
-            }
-            Err(e) => return Err(e),
-        };
-        let res = (*self.callback.lock().unwrap())(&req_id, req);
-        let rmw_message = <T::Response as Message>::into_rmw_message(res.into_cow());
-        let handle = &*self.handle.lock();
+    fn kind(&self) -> crate::RclPrimitiveKind {
+        RclPrimitiveKind::Service
+    }
+
+    fn handle(&self) -> RclPrimitiveHandle {
+        RclPrimitiveHandle::Service(self.handle.lock())
+    }
+}
+
+// SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
+// they are running in. Therefore, this type can be safely sent to another thread.
+unsafe impl Send for rcl_service_t {}
+
+/// Manage the lifecycle of an `rcl_service_t`, including managing its dependencies
+/// on `rcl_node_t` and `rcl_context_t` by ensuring that these dependencies are
+/// [dropped after][1] the `rcl_service_t`.
+///
+/// [1]: <https://doc.rust-lang.org/reference/destructors.html>
+pub struct ServiceHandle {
+    rcl_service: Mutex<rcl_service_t>,
+    node_handle: Arc<NodeHandle>,
+}
+
+impl ServiceHandle {
+    fn lock(&self) -> MutexGuard<rcl_service_t> {
+        self.rcl_service.lock().unwrap()
+    }
+
+    fn service_name(&self) -> String {
+        // SAFETY: The service handle is valid because its lifecycle is managed by an Arc.
+        // The unsafe variables get converted to safe types before being returned
+        unsafe {
+            let raw_service_pointer = rcl_service_get_service_name(&*self.lock());
+            CStr::from_ptr(raw_service_pointer)
+        }
+        .to_string_lossy()
+        .into_owned()
+    }
+
+    /// Fetches a new request.
+    ///
+    /// When there is no new message, this will return a
+    /// [`ServiceTakeFailed`][1].
+    ///
+    /// [1]: crate::RclrsError
+    //
+    // ```text
+    // +---------------------+
+    // | rclrs::take_request |
+    // +----------+----------+
+    //            |
+    //            |
+    // +----------v----------+
+    // |  rcl_take_request   |
+    // +----------+----------+
+    //            |
+    //            |
+    // +----------v----------+
+    // |      rmw_take       |
+    // +---------------------+
+    // ```
+    fn take_request<T: IdlService>(&self) -> Result<(T::Request, rmw_request_id_t), RclrsError> {
+        let mut request_id_out = RequestId::zero_initialized_rmw();
+        type RmwMsg<T> = <<T as IdlService>::Request as Message>::RmwMsg;
+        let mut request_out = RmwMsg::<T>::default();
+        let handle = &*self.lock();
+        unsafe {
+            // SAFETY: The three pointers are valid and initialized
+            rcl_take_request(
+                handle,
+                &mut request_id_out,
+                &mut request_out as *mut RmwMsg<T> as *mut _,
+            )
+        }
+        .ok()?;
+        Ok((T::Request::from_rmw_message(request_out), request_id_out))
+    }
+
+    /// Same as [`Self::take_request`] but includes additional info about the service
+    fn take_request_with_info<T: IdlService>(
+        &self,
+    ) -> Result<(T::Request, rmw_service_info_t), RclrsError> {
+        let mut service_info_out = ServiceInfo::zero_initialized_rmw();
+        type RmwMsg<T> = <<T as IdlService>::Request as Message>::RmwMsg;
+        let mut request_out = RmwMsg::<T>::default();
+        let handle = &*self.lock();
+        unsafe {
+            // SAFETY: The three pointers are valid and initialized
+            rcl_take_request_with_info(
+                handle,
+                &mut service_info_out,
+                &mut request_out as *mut RmwMsg<T> as *mut _,
+            )
+        }
+        .ok()?;
+        Ok((T::Request::from_rmw_message(request_out), service_info_out))
+    }
+
+    fn send_response<T: IdlService>(
+        self: &Arc<Self>,
+        request_id: &mut rmw_request_id_t,
+        response: T::Response,
+    ) -> Result<(), RclrsError> {
+        let rmw_message = <T::Response as Message>::into_rmw_message(response.into_cow());
+        let handle = &*self.lock();
         unsafe {
             // SAFETY: The response type is guaranteed to match the service type by the type system.
             rcl_send_response(
                 handle,
-                &mut req_id,
+                request_id,
                 rmw_message.as_ref() as *const <T::Response as Message>::RmwMsg as *mut _,
             )
         }
         .ok()
+    }
+}
+
+impl Drop for ServiceHandle {
+    fn drop(&mut self) {
+        let rcl_service = self.rcl_service.get_mut().unwrap();
+        let mut rcl_node = self.node_handle.rcl_node.lock().unwrap();
+        let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
+        // SAFETY: The entity lifecycle mutex is locked to protect against the risk of
+        // global variables in the rmw implementation being unsafely modified during cleanup.
+        unsafe {
+            rcl_service_fini(rcl_service, &mut *rcl_node);
+        }
     }
 }
 
@@ -299,14 +412,12 @@ mod tests {
             assert!(types.contains(&"test_msgs/srv/Empty".to_string()));
         };
 
-        let _node_1_empty_service =
-            graph
-                .node1
-                .create_service::<srv::Empty, _>("graph_test_topic_4", |_, _| {
-                    srv::Empty_Response {
-                        structure_needs_at_least_one_member: 0,
-                    }
-                })?;
+        let _node_1_empty_service = graph.node1.create_service::<srv::Empty, _>(
+            "graph_test_topic_4",
+            |_: srv::Empty_Request| srv::Empty_Response {
+                structure_needs_at_least_one_member: 0,
+            },
+        )?;
         let _node_2_empty_client = graph
             .node2
             .create_client::<srv::Empty>("graph_test_topic_4")?;

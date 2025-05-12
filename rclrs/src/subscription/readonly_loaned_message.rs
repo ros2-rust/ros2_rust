@@ -1,8 +1,8 @@
-use std::ops::Deref;
+use std::{ops::Deref, sync::Arc};
 
 use rosidl_runtime_rs::Message;
 
-use crate::{rcl_bindings::*, SubscriptionState, ToResult};
+use crate::{rcl_bindings::*, subscription::SubscriptionHandle, ToResult};
 
 /// A message that is owned by the middleware, loaned out for reading.
 ///
@@ -10,19 +10,19 @@ use crate::{rcl_bindings::*, SubscriptionState, ToResult};
 /// message, it's the same as `&T`, and otherwise it's the corresponding RMW-native
 /// message.
 ///
-/// This type is returned by [`SubscriptionState::take_loaned()`] and may be used in
-/// subscription callbacks.
+/// This type may be used in subscription callbacks to receive a message. The
+/// loan is returned by dropping the `ReadOnlyLoanedMessage`.
 ///
-/// The loan is returned by dropping the `ReadOnlyLoanedMessage`.
-pub struct ReadOnlyLoanedMessage<'a, T>
+/// [1]: crate::SubscriptionState::take_loaned
+pub struct ReadOnlyLoanedMessage<T>
 where
     T: Message,
 {
     pub(super) msg_ptr: *const T::RmwMsg,
-    pub(super) subscription: &'a SubscriptionState<T>,
+    pub(super) handle: Arc<SubscriptionHandle>,
 }
 
-impl<T> Deref for ReadOnlyLoanedMessage<'_, T>
+impl<T> Deref for ReadOnlyLoanedMessage<T>
 where
     T: Message,
 {
@@ -32,14 +32,14 @@ where
     }
 }
 
-impl<T> Drop for ReadOnlyLoanedMessage<'_, T>
+impl<T> Drop for ReadOnlyLoanedMessage<T>
 where
     T: Message,
 {
     fn drop(&mut self) {
         unsafe {
             rcl_return_loaned_message_from_subscription(
-                &*self.subscription.handle.lock(),
+                &*self.handle.lock(),
                 self.msg_ptr as *mut _,
             )
             .ok()
@@ -50,9 +50,9 @@ where
 
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
 // they are running in. Therefore, this type can be safely sent to another thread.
-unsafe impl<T> Send for ReadOnlyLoanedMessage<'_, T> where T: Message {}
+unsafe impl<T> Send for ReadOnlyLoanedMessage<T> where T: Message {}
 // SAFETY: This type has no interior mutability, in fact it has no mutability at all.
-unsafe impl<T> Sync for ReadOnlyLoanedMessage<'_, T> where T: Message {}
+unsafe impl<T> Sync for ReadOnlyLoanedMessage<T> where T: Message {}
 
 #[cfg(test)]
 mod tests {

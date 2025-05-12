@@ -1,36 +1,44 @@
-mod graph;
-pub use graph::*;
-
 mod node_options;
 pub use node_options::*;
 
 mod primitive_options;
 pub use primitive_options::*;
 
+mod graph;
+pub use graph::*;
+
+mod node_graph_task;
+use node_graph_task::*;
+
 use std::{
     cmp::PartialEq,
     ffi::CStr,
     fmt,
     os::raw::c_char,
-    sync::{atomic::AtomicBool, Arc, Mutex, Weak},
-    vec::Vec,
+    sync::{atomic::AtomicBool, Arc, Mutex},
+    time::Duration,
 };
+
+use futures::{
+    channel::mpsc::{unbounded, UnboundedSender},
+    StreamExt,
+};
+
+use async_std::future::timeout;
 
 use rosidl_runtime_rs::Message;
 
 use crate::{
-    rcl_bindings::*, Client, ClientBase, ClientOptions, ClientState, Clock, ContextHandle,
-    GuardCondition, LogParams, Logger, ParameterBuilder, ParameterInterface, ParameterVariant,
-    Parameters, Publisher, PublisherOptions, PublisherState, RclrsError, Service, ServiceBase,
-    ServiceOptions, ServiceState, Subscription, SubscriptionBase, SubscriptionCallback,
-    SubscriptionOptions, SubscriptionState, TimeSource, ToLogParams, ENTITY_LIFECYCLE_MUTEX,
+    rcl_bindings::*, Client, ClientOptions, ClientState, Clock, ContextHandle, ExecutorCommands,
+    LogParams, Logger, ParameterBuilder, ParameterInterface, ParameterVariant, Parameters, Promise,
+    Publisher, PublisherOptions, PublisherState, RclrsError, Service, IntoAsyncServiceCallback,
+    IntoNodeServiceCallback, ServiceOptions, ServiceState, Subscription, IntoAsyncSubscriptionCallback,
+    IntoNodeSubscriptionCallback, SubscriptionOptions, SubscriptionState, TimeSource, ToLogParams,
+    ENTITY_LIFECYCLE_MUTEX, IntoWorkerOptions, Worker, WorkerState,
 };
 
-// SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
-// they are running in. Therefore, this type can be safely sent to another thread.
-unsafe impl Send for rcl_node_t {}
-
-/// A processing unit that can communicate with other nodes.
+/// A processing unit that can communicate with other nodes. See the API of
+/// [`NodeState`] to find out what methods you can call on a [`Node`].
 ///
 /// Nodes are a core concept in ROS 2. Refer to the official ["Understanding ROS 2 nodes"][1]
 /// tutorial for an introduction.
@@ -40,7 +48,7 @@ unsafe impl Send for rcl_node_t {}
 /// to exist and be displayed by e.g. `ros2 topic` as long as any one of its primitives is not dropped.
 ///
 /// # Creating
-/// Use [`Executor::create_node`][7] to create a new node. Pass in [`NodeOptions`] to set all the different
+/// Use [`Executor::create_node`][5] to create a new node. Pass in [`NodeOptions`] to set all the different
 /// options for node creation, or just pass in a string for the node's name if the default options are okay.
 ///
 /// # Naming
@@ -63,34 +71,32 @@ unsafe impl Send for rcl_node_t {}
 ///
 /// ## Rules for valid names
 /// The rules for valid node names and node namespaces are explained in
-/// [`NodeOptions::new()`][5] and [`NodeOptions::namespace()`][6].
+/// [`NodeOptions::new()`][3] and [`NodeOptions::namespace()`][4].
 ///
 /// [1]: https://docs.ros.org/en/rolling/Tutorials/Understanding-ROS2-Nodes.html
 /// [2]: https://docs.ros.org/en/rolling/How-To-Guides/Node-arguments.html
-/// [3]: Node::namespace
-/// [4]: Node::name
-/// [5]: crate::NodeOptions::new
-/// [6]: crate::NodeOptions::namespace
-/// [7]: crate::Executor::create_node
+/// [3]: crate::NodeOptions::new
+/// [4]: crate::NodeOptions::namespace
+/// [5]: crate::Executor::create_node
 pub type Node = Arc<NodeState>;
 
 /// The inner state of a [`Node`].
 ///
-/// This is public so that you can choose to put it inside a [`Weak`] if you
+/// This is public so that you can choose to put it inside a [`Weak`][1] if you
 /// want to be able to refer to a [`Node`] in a non-owning way. It is generally
 /// recommended to manage the [`NodeState`] inside of an [`Arc`], and [`Node`]
 /// is provided as convenience alias for that.
 ///
 /// The public API of the [`Node`] type is implemented via `NodeState`.
+///
+/// [1]: std::sync::Weak
 pub struct NodeState {
-    pub(crate) clients_mtx: Mutex<Vec<Weak<dyn ClientBase>>>,
-    pub(crate) guard_conditions_mtx: Mutex<Vec<Weak<GuardCondition>>>,
-    pub(crate) services_mtx: Mutex<Vec<Weak<dyn ServiceBase>>>,
-    pub(crate) subscriptions_mtx: Mutex<Vec<Weak<dyn SubscriptionBase>>>,
     time_source: TimeSource,
     parameter: ParameterInterface,
     logger: Logger,
-    pub(crate) handle: Arc<NodeHandle>,
+    commands: Arc<ExecutorCommands>,
+    graph_change_action: UnboundedSender<NodeGraphAction>,
+    handle: Arc<NodeHandle>,
 }
 
 /// This struct manages the lifetime of an `rcl_node_t`, and accounts for its
@@ -229,13 +235,19 @@ impl NodeState {
         self.call_string_getter(rcl_node_get_fully_qualified_name)
     }
 
-    // Helper for name(), namespace(), fully_qualified_name()
-    fn call_string_getter(
-        &self,
-        getter: unsafe extern "C" fn(*const rcl_node_t) -> *const c_char,
-    ) -> String {
-        let rcl_node = self.handle.rcl_node.lock().unwrap();
-        unsafe { call_string_getter_with_rcl_node(&rcl_node, getter) }
+    /// Create a new [`Worker`] for this Node.
+    //
+    // TODO(@mxgrey): Write some usage examples.
+    pub fn create_worker<'a, Payload>(
+        self: &Arc<Self>,
+        options: impl IntoWorkerOptions<Payload>,
+    ) -> Worker<Payload>
+    where
+        Payload: 'static + Send + Sync,
+    {
+        let options = options.into_worker_options();
+        let commands = self.commands.create_worker_commands(Box::new(options.payload));
+        WorkerState::create(Arc::clone(self), commands)
     }
 
     /// Creates a [`Client`].
@@ -280,50 +292,11 @@ impl NodeState {
     where
         T: rosidl_runtime_rs::Service,
     {
-        let client = Arc::new(ClientState::<T>::new(self, options)?);
-        { self.clients_mtx.lock().unwrap() }.push(Arc::downgrade(&client) as Weak<dyn ClientBase>);
-        Ok(client)
+        ClientState::<T>::create(options, self)
     }
 
-    /// Creates a [`GuardCondition`][1] with no callback.
+    /// Creates a [`Publisher`].
     ///
-    /// A weak pointer to the `GuardCondition` is stored within this node.
-    /// When this node is added to a wait set (e.g. when its executor is [spinning][2]),
-    /// the guard condition can be used to interrupt the wait.
-    ///
-    /// [1]: crate::GuardCondition
-    /// [2]: crate::Executor::spin
-    pub fn create_guard_condition(&self) -> Arc<GuardCondition> {
-        let guard_condition = Arc::new(GuardCondition::new_with_context_handle(
-            Arc::clone(&self.handle.context_handle),
-            None,
-        ));
-        { self.guard_conditions_mtx.lock().unwrap() }
-            .push(Arc::downgrade(&guard_condition) as Weak<GuardCondition>);
-        guard_condition
-    }
-
-    /// Creates a [`GuardCondition`][1] with a callback.
-    ///
-    /// A weak pointer to the `GuardCondition` is stored within this node.
-    /// When this node is added to a wait set (e.g. when its executor is [spinning][2]),
-    /// the guard condition can be used to interrupt the wait.
-    ///
-    /// [1]: crate::GuardCondition
-    /// [2]: crate::Executor::spin
-    pub fn create_guard_condition_with_callback<F>(&mut self, callback: F) -> Arc<GuardCondition>
-    where
-        F: Fn() + Send + Sync + 'static,
-    {
-        let guard_condition = Arc::new(GuardCondition::new_with_context_handle(
-            Arc::clone(&self.handle.context_handle),
-            Some(Box::new(callback) as Box<dyn Fn() + Send + Sync>),
-        ));
-        { self.guard_conditions_mtx.lock().unwrap() }
-            .push(Arc::downgrade(&guard_condition) as Weak<GuardCondition>);
-        guard_condition
-    }
-
     /// Pass in only the topic name for the `options` argument to use all default publisher options:
     /// ```
     /// # use rclrs::*;
@@ -363,11 +336,23 @@ impl NodeState {
     where
         T: Message,
     {
-        let publisher = Arc::new(PublisherState::<T>::new(Arc::clone(&self.handle), options)?);
-        Ok(publisher)
+        PublisherState::<T>::create(options, Arc::clone(&self.handle))
     }
 
-    /// Creates a [`Service`][1].
+    /// Creates a [`Service`] with an ordinary callback.
+    ///
+    /// # Behavior
+    ///
+    /// Even though this takes in a blocking (non-async) function, the callback
+    /// may run in parallel with other callbacks. This callback may even run
+    /// multiple times simultaneously with different incoming requests.
+    ///
+    /// Any internal state that needs to be mutated will need to be wrapped in
+    /// [`Mutex`] to ensure it is synchronized across multiple simultaneous runs
+    /// of the callback. To share internal state outside of the callback you will
+    /// need to wrap it in [`Arc`] or `Arc<Mutex<S>>`.
+    ///
+    /// # Usage
     ///
     /// Pass in only the service name for the `options` argument to use all default service options:
     /// ```
@@ -376,7 +361,7 @@ impl NodeState {
     /// # let node = executor.create_node("my_node").unwrap();
     /// let service = node.create_service::<test_msgs::srv::Empty, _>(
     ///     "my_service",
-    ///     |_info, _request| {
+    ///     |_request: test_msgs::srv::Empty_Request| {
     ///         println!("Received request!");
     ///         test_msgs::srv::Empty_Response::default()
     ///     },
@@ -394,7 +379,7 @@ impl NodeState {
     ///     "my_service"
     ///     .keep_all()
     ///     .transient_local(),
-    ///     |_info, _request| {
+    ///     |_request: test_msgs::srv::Empty_Request| {
     ///         println!("Received request!");
     ///         test_msgs::srv::Empty_Response::default()
     ///     },
@@ -409,23 +394,76 @@ impl NodeState {
     ///
     /// [1]: crate::Service
     /// [2]: crate::QoSReliabilityPolicy::Reliable
-    pub fn create_service<'a, T, F>(
-        self: &Arc<Self>,
+    //
+    // TODO(@mxgrey): Add examples showing each supported signature
+    pub fn create_service<'a, T, Args>(
+        &self,
         options: impl Into<ServiceOptions<'a>>,
-        callback: F,
+        callback: impl IntoNodeServiceCallback<T, Args>,
     ) -> Result<Service<T>, RclrsError>
     where
         T: rosidl_runtime_rs::Service,
-        F: Fn(&rmw_request_id_t, T::Request) -> T::Response + 'static + Send,
     {
-        let service = Arc::new(ServiceState::<T>::new(self, options, callback)?);
-        { self.services_mtx.lock().unwrap() }
-            .push(Arc::downgrade(&service) as Weak<dyn ServiceBase>);
-        Ok(service)
+        ServiceState::<T, Node>::create(
+            options,
+            callback.into_node_service_callback(),
+            &self.handle,
+            self.commands.async_worker_commands(),
+        )
     }
 
-    /// Creates a [`Subscription`].
+    /// Creates a [`Service`] with an async callback.
     ///
+    /// # Behavior
+    ///
+    /// This callback may run in parallel with other callbacks. It may even run
+    /// multiple times simultaneously with different incoming requests. This
+    /// parallelism will depend on the executor that is being used. When the
+    /// callback uses `.await`, it will not block anything else from running.
+    ///
+    /// Any internal state that needs to be mutated will need to be wrapped in
+    /// [`Mutex`] to ensure it is synchronized across multiple runs of the
+    /// callback. To share internal state outside of the callback you will need
+    /// to wrap it in [`Arc`] (immutable) or `Arc<Mutex<S>>` (mutable).
+    ///
+    /// # Usage
+    ///
+    /// See [create_service][NodeState::create_service] for usage.
+    //
+    // TODO(@mxgrey): Add examples showing each supported signature
+    pub fn create_async_service<'a, T, Args>(
+        &self,
+        options: impl Into<ServiceOptions<'a>>,
+        callback: impl IntoAsyncServiceCallback<T, Args>,
+    ) -> Result<Service<T>, RclrsError>
+    where
+        T: rosidl_runtime_rs::Service,
+    {
+        ServiceState::<T, Node>::create(
+            options,
+            callback.into_async_service_callback(),
+            &self.handle,
+            self.commands.async_worker_commands(),
+        )
+    }
+
+    /// Creates a [`Subscription`] with an ordinary callback.
+    ///
+    /// # Behavior
+    ///
+    /// Even though this takes in a blocking (non-async) function, the callback
+    /// may run in parallel with other callbacks. This callback may even run
+    /// multiple times simultaneously with different incoming messages. This
+    /// parallelism will depend on the executor that is being used.
+    ///
+    /// Any internal state that needs to be mutated will need to be wrapped in
+    /// [`Mutex`] to ensure it is synchronized across multiple simultaneous runs
+    /// of the callback. To share internal state outside of the callback you will
+    /// need to wrap it in [`Arc`] or `Arc<Mutex<S>>`. In cases where you need to
+    /// manage a changing state for the subscription, consider using
+    /// [`WorkerState::create_subscription`] instead of this one.
+    ///
+    /// # Usage
     ///
     /// Pass in only the topic name for the `options` argument to use all default subscription options:
     /// ```
@@ -465,59 +503,71 @@ impl NodeState {
     /// );
     /// ```
     ///
+    //
+    // TODO(@mxgrey): Add examples showing each supported callback signatures
     pub fn create_subscription<'a, T, Args>(
-        self: &Arc<Self>,
+        &self,
         options: impl Into<SubscriptionOptions<'a>>,
-        callback: impl SubscriptionCallback<T, Args>,
+        callback: impl IntoNodeSubscriptionCallback<T, Args>,
     ) -> Result<Subscription<T>, RclrsError>
     where
         T: Message,
     {
-        let subscription = Arc::new(SubscriptionState::<T>::new(self, options, callback)?);
-        { self.subscriptions_mtx.lock() }
-            .unwrap()
-            .push(Arc::downgrade(&subscription) as Weak<dyn SubscriptionBase>);
-        Ok(subscription)
+        SubscriptionState::<T, Node>::create(
+            options,
+            callback.into_node_subscription_callback(),
+            &self.handle,
+            self.commands.async_worker_commands(),
+        )
     }
 
-    /// Returns the subscriptions that have not been dropped yet.
-    pub(crate) fn live_subscriptions(&self) -> Vec<Arc<dyn SubscriptionBase>> {
-        { self.subscriptions_mtx.lock().unwrap() }
-            .iter()
-            .filter_map(Weak::upgrade)
-            .collect()
-    }
-
-    pub(crate) fn live_clients(&self) -> Vec<Arc<dyn ClientBase>> {
-        { self.clients_mtx.lock().unwrap() }
-            .iter()
-            .filter_map(Weak::upgrade)
-            .collect()
-    }
-
-    pub(crate) fn live_guard_conditions(&self) -> Vec<Arc<GuardCondition>> {
-        { self.guard_conditions_mtx.lock().unwrap() }
-            .iter()
-            .filter_map(Weak::upgrade)
-            .collect()
-    }
-
-    pub(crate) fn live_services(&self) -> Vec<Arc<dyn ServiceBase>> {
-        { self.services_mtx.lock().unwrap() }
-            .iter()
-            .filter_map(Weak::upgrade)
-            .collect()
+    /// Creates a [`Subscription`] with an async callback.
+    ///
+    /// # Behavior
+    ///
+    /// This callback may run in parallel with other callbacks. It may even run
+    /// multiple times simultaneously with different incoming messages. This
+    /// parallelism will depend on the executor that is being used. When the
+    /// callback uses `.await`, it will not block anything else from running.
+    ///
+    /// Any internal state that needs to be mutated will need to be wrapped in
+    /// [`Mutex`] to ensure it is synchronized across multiple runs of the
+    /// callback. To share internal state outside of the callback you will need
+    /// to wrap it in [`Arc`] or `Arc<Mutex<S>>`. You could also consider storing
+    /// the shared state inside of a [`Worker`] and calling [`WorkerState::run`]
+    /// from inside this callback to interact with the state.
+    ///
+    /// # Usage
+    ///
+    /// See [create_subscription][NodeState::create_subscription] for usage.
+    //
+    // TODO(@mxgrey): Add examples showing each supported signature
+    pub fn create_async_subscription<'a, T, Args>(
+        &self,
+        options: impl Into<SubscriptionOptions<'a>>,
+        callback: impl IntoAsyncSubscriptionCallback<T, Args>,
+    ) -> Result<Subscription<T>, RclrsError>
+    where
+        T: Message,
+    {
+        SubscriptionState::<T, Node>::create(
+            options,
+            callback.into_async_subscription_callback(),
+            &self.handle,
+            self.commands.async_worker_commands(),
+        )
     }
 
     /// Returns the ROS domain ID that the node is using.
     ///
     /// The domain ID controls which nodes can send messages to each other, see the [ROS 2 concept article][1].
     /// It can be set through the `ROS_DOMAIN_ID` environment variable or by
-    /// passing custom [`NodeOptions`] into [`Context::new`][2] or [`Context::from_env`][3].
+    /// passing custom [`InitOptions`][2] into [`Context::new`][3] or [`Context::from_env`][4].
     ///
     /// [1]: https://docs.ros.org/en/rolling/Concepts/About-Domain-ID.html
-    /// [2]: crate::Context::new
-    /// [3]: crate::Context::from_env
+    /// [2]: crate::InitOptions
+    /// [3]: crate::Context::new
+    /// [4]: crate::Context::from_env
     ///
     /// # Example
     /// ```
@@ -587,9 +637,86 @@ impl NodeState {
         }
     }
 
+    /// Same as [`Self::notify_on_graph_change_with_period`] but uses a
+    /// recommended default period of 100ms.
+    pub fn notify_on_graph_change(
+        &self,
+        condition: impl FnMut() -> bool + Send + 'static,
+    ) -> Promise<()> {
+        self.notify_on_graph_change_with_period(Duration::from_millis(100), condition)
+    }
+
+    /// This function allows you to track when a specific graph change happens.
+    ///
+    /// Provide a function that will be called each time a graph change occurs.
+    /// You will be given a [`Promise`] that will be fulfilled when the condition
+    /// returns true. The condition will be checked under these conditions:
+    /// - once immediately as this function is run
+    /// - each time rcl notifies us that a graph change has happened
+    /// - each time the period elapses
+    ///
+    /// We specify a period because it is possible that race conditions at the
+    /// rcl layer could trigger a notification of a graph change before your
+    /// API calls will be able to observe it.
+    ///
+    ///
+    pub fn notify_on_graph_change_with_period(
+        &self,
+        period: Duration,
+        mut condition: impl FnMut() -> bool + Send + 'static,
+    ) -> Promise<()> {
+        let (listener, mut on_graph_change_receiver) = unbounded();
+        let promise = self.commands.query(async move {
+            loop {
+                match timeout(period, on_graph_change_receiver.next()).await {
+                    Ok(Some(_)) | Err(_) => {
+                        // Either we received a notification that there was a
+                        // graph change, or the timeout elapsed. Either way, we
+                        // want to check the condition and break out of the loop
+                        // if the condition is true.
+                        if condition() {
+                            return;
+                        }
+                    }
+                    Ok(None) => {
+                        // We've been notified that the graph change sender is
+                        // closed which means we will never receive another
+                        // graph change update. This only happens when a node
+                        // is being torn down, so go ahead and exit this loop.
+                        return;
+                    }
+                }
+            }
+        });
+
+        self.graph_change_action
+            .unbounded_send(NodeGraphAction::NewGraphListener(listener))
+            .ok();
+
+        promise
+    }
+
+    /// Get the [`ExecutorCommands`] used by this Node.
+    pub fn commands(&self) -> &Arc<ExecutorCommands> {
+        &self.commands
+    }
+
     /// Get the logger associated with this Node.
     pub fn logger(&self) -> &Logger {
         &self.logger
+    }
+
+    // Helper for name(), namespace(), fully_qualified_name()
+    fn call_string_getter(
+        &self,
+        getter: unsafe extern "C" fn(*const rcl_node_t) -> *const c_char,
+    ) -> String {
+        let rcl_node = self.handle.rcl_node.lock().unwrap();
+        unsafe { call_string_getter_with_rcl_node(&rcl_node, getter) }
+    }
+
+    pub(crate) fn handle(&self) -> &Arc<NodeHandle> {
+        &self.handle
     }
 }
 
@@ -616,14 +743,18 @@ pub(crate) unsafe fn call_string_getter_with_rcl_node(
     cstr.to_string_lossy().into_owned()
 }
 
+// SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
+// they are running in. Therefore, this type can be safely sent to another thread.
+unsafe impl Send for rcl_node_t {}
+
 #[cfg(test)]
 mod tests {
     use crate::{test_helpers::*, *};
 
     #[test]
     fn traits() {
-        assert_send::<Node>();
-        assert_sync::<Node>();
+        assert_send::<NodeState>();
+        assert_sync::<NodeState>();
     }
 
     #[test]

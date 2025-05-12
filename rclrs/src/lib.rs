@@ -21,7 +21,8 @@ mod subscription;
 mod time;
 mod time_source;
 mod vendor;
-mod wait;
+mod wait_set;
+mod worker;
 
 #[cfg(test)]
 mod test_helpers;
@@ -47,4 +48,5 @@ pub use service::*;
 pub use subscription::*;
 pub use time::*;
 use time_source::*;
-pub use wait::*;
+pub use wait_set::*;
+pub use worker::*;

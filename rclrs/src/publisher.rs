@@ -54,10 +54,10 @@ impl Drop for PublisherHandle {
 /// The underlying RMW will decide on the concrete delivery mechanism (network stack, shared
 /// memory, or intraprocess).
 ///
-/// Sending messages does not require the node's executor to [spin][1].
+/// Sending messages does not require the node's executor to [spin][2].
 ///
 /// [1]: crate::NodeState::create_publisher
-/// [2]: crate::spin
+/// [2]: crate::Executor::spin
 pub type Publisher<T> = Arc<PublisherState<T>>;
 
 /// The inner state of a [`Publisher`].
@@ -95,10 +95,10 @@ where
     /// Creates a new `Publisher`.
     ///
     /// Node and namespace changes are always applied _before_ topic remapping.
-    pub(crate) fn new<'a>(
-        node_handle: Arc<NodeHandle>,
+    pub(crate) fn create<'a>(
         options: impl Into<PublisherOptions<'a>>,
-    ) -> Result<Self, RclrsError>
+        node_handle: Arc<NodeHandle>,
+    ) -> Result<Arc<Self>, RclrsError>
     where
         T: Message,
     {
@@ -137,14 +137,14 @@ where
             }
         }
 
-        Ok(Self {
+        Ok(Arc::new(Self {
             type_support_ptr,
             message: PhantomData,
             handle: PublisherHandle {
                 rcl_publisher: Mutex::new(rcl_publisher),
                 node_handle,
             },
-        })
+        }))
     }
 
     /// Returns the topic name of the publisher.
@@ -267,10 +267,10 @@ where
     }
 }
 
-/// `PublisherOptions` are used by [`Node::create_publisher`][1] to initialize
+/// `PublisherOptions` are used by [`NodeState::create_publisher`][1] to initialize
 /// a [`Publisher`].
 ///
-/// [1]: crate::Node::create_publisher
+/// [1]: crate::NodeState::create_publisher
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub struct PublisherOptions<'a> {

@@ -6,7 +6,10 @@ use std::{
     vec::Vec,
 };
 
-use crate::{rcl_bindings::*, LoggingLifecycle, RclrsError, ToResult};
+use crate::{
+    rcl_bindings::*, Executor, ExecutorRuntime, LoggingLifecycle, RclrsError,
+    ToResult,
+};
 
 /// This is locked whenever initializing or dropping any middleware entity
 /// because we have found issues in RCL and some RMW implementations that
@@ -60,8 +63,17 @@ unsafe impl Send for rcl_context_t {}
 /// (as well as the terminal).  TODO: This behaviour should be configurable using an
 /// "auto logging initialise" flag as per rclcpp and rclpy.
 ///
+#[derive(Clone)]
 pub struct Context {
     pub(crate) handle: Arc<ContextHandle>,
+}
+
+impl std::fmt::Debug for Context {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Context")
+            .field("handle", &self.handle.rcl_context.lock())
+            .finish()
+    }
 }
 
 /// This struct manages the lifetime and access to the `rcl_context_t`. It will also
@@ -188,6 +200,14 @@ impl Context {
     /// for `options`.
     pub fn default_from_env() -> Result<Self, RclrsError> {
         Self::new(std::env::args(), InitOptions::default())
+    }
+
+    /// Create an [`Executor`] for this context.
+    pub fn create_executor<E>(&self, runtime: E) -> Executor
+    where
+        E: 'static + ExecutorRuntime + Send,
+    {
+        Executor::new(Arc::clone(&self.handle), runtime)
     }
 
     /// Returns the ROS domain ID that the context is using.

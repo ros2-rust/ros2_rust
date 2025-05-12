@@ -2,10 +2,15 @@ use anyhow::{Error, Result};
 use rclrs::*;
 
 fn handle_service(
-    _request_header: &rclrs::rmw_request_id_t,
     request: example_interfaces::srv::AddTwoInts_Request,
+    info: ServiceInfo,
 ) -> example_interfaces::srv::AddTwoInts_Response {
-    println!("request: {} + {}", request.a, request.b);
+    let timestamp = info
+        .received_timestamp
+        .map(|t| format!(" at [{t:?}]"))
+        .unwrap_or(String::new());
+
+    println!("request{timestamp}: {} + {}", request.a, request.b);
     example_interfaces::srv::AddTwoInts_Response {
         sum: request.a + request.b,
     }
