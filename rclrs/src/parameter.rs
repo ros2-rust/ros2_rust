@@ -84,7 +84,7 @@ enum DeclaredValue {
 }
 
 /// Builder used to declare a parameter. Obtain this by calling
-/// [`crate::Node::declare_parameter`].
+/// [`crate::NodeState::declare_parameter`].
 #[must_use]
 pub struct ParameterBuilder<'a, T: ParameterVariant> {
     name: Arc<str>,
@@ -789,7 +789,7 @@ impl ParameterInterface {
         }
     }
 
-    pub(crate) fn create_services(&self, node: &Arc<Node>) -> Result<(), RclrsError> {
+    pub(crate) fn create_services(&self, node: &Node) -> Result<(), RclrsError> {
         *self.services.lock().unwrap() =
             Some(ParameterService::new(node, self.parameter_map.clone())?);
         Ok(())

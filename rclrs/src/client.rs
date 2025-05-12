@@ -65,12 +65,25 @@ type RequestId = i64;
 
 /// Main class responsible for sending requests to a ROS service.
 ///
-/// The only available way to instantiate clients is via [`Node::create_client`][1], this is to
-/// ensure that [`Node`][2]s can track all the clients that have been created.
+/// Create a client using [`Node::create_client`][1].
 ///
-/// [1]: crate::Node::create_client
-/// [2]: crate::Node
-pub struct Client<T>
+/// Receiving responses requires the node's executor to [spin][2].
+///
+/// [1]: crate::NodeState::create_client
+/// [2]: crate::spin
+pub type Client<T> = Arc<ClientState<T>>;
+
+/// The inner state of a [`Client`].
+///
+/// This is public so that you can choose to create a [`Weak`][1] reference to it
+/// if you want to be able to refer to a [`Client`] in a non-owning way. It is
+/// generally recommended to manage the `ClientState` inside of an [`Arc`],
+/// and [`Client`] is provided as a convenience alias for that.
+///
+/// The public API of the [`Client`] type is implemented via `ClientState`.
+///
+/// [1]: std::sync::Weak
+pub struct ClientState<T>
 where
     T: rosidl_runtime_rs::Service,
 {
@@ -80,16 +93,16 @@ where
     /// Ensure the parent node remains alive as long as the subscription is held.
     /// This implementation will change in the future.
     #[allow(unused)]
-    node: Arc<Node>,
+    node: Node,
 }
 
-impl<T> Client<T>
+impl<T> ClientState<T>
 where
     T: rosidl_runtime_rs::Service,
 {
     /// Creates a new client.
     pub(crate) fn new<'a>(
-        node: &Arc<Node>,
+        node: &Node,
         options: impl Into<ClientOptions<'a>>,
     ) -> Result<Self, RclrsError>
     // This uses pub(crate) visibility to avoid instantiating this struct outside
@@ -319,7 +332,7 @@ impl<'a, T: IntoPrimitiveOptions<'a>> From<T> for ClientOptions<'a> {
     }
 }
 
-impl<T> ClientBase for Client<T>
+impl<T> ClientBase for ClientState<T>
 where
     T: rosidl_runtime_rs::Service,
 {

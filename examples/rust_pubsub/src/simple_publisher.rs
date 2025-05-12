@@ -1,9 +1,9 @@
 use rclrs::*;
-use std::{sync::Arc, thread, time::Duration};
+use std::{thread, time::Duration};
 use std_msgs::msg::String as StringMsg;
 
 struct SimplePublisher {
-    publisher: Arc<Publisher<StringMsg>>,
+    publisher: Publisher<StringMsg>,
 }
 
 impl SimplePublisher {
@@ -24,12 +24,11 @@ impl SimplePublisher {
 
 fn main() -> Result<(), RclrsError> {
     let mut executor = Context::default_from_env().unwrap().create_basic_executor();
-    let publisher = Arc::new(SimplePublisher::new(&executor).unwrap());
-    let publisher_other_thread = Arc::clone(&publisher);
+    let publisher = SimplePublisher::new(&executor).unwrap();
     let mut count: i32 = 0;
     thread::spawn(move || loop {
         thread::sleep(Duration::from_millis(1000));
-        count = publisher_other_thread.publish_data(count).unwrap();
+        count = publisher.publish_data(count).unwrap();
     });
     executor.spin(SpinOptions::default()).first_error()
 }

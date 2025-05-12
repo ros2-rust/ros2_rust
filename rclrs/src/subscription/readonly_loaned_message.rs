@@ -2,7 +2,7 @@ use std::ops::Deref;
 
 use rosidl_runtime_rs::Message;
 
-use crate::{rcl_bindings::*, Subscription, ToResult};
+use crate::{rcl_bindings::*, SubscriptionState, ToResult};
 
 /// A message that is owned by the middleware, loaned out for reading.
 ///
@@ -10,7 +10,7 @@ use crate::{rcl_bindings::*, Subscription, ToResult};
 /// message, it's the same as `&T`, and otherwise it's the corresponding RMW-native
 /// message.
 ///
-/// This type is returned by [`Subscription::take_loaned()`] and may be used in
+/// This type is returned by [`SubscriptionState::take_loaned()`] and may be used in
 /// subscription callbacks.
 ///
 /// The loan is returned by dropping the `ReadOnlyLoanedMessage`.
@@ -19,7 +19,7 @@ where
     T: Message,
 {
     pub(super) msg_ptr: *const T::RmwMsg,
-    pub(super) subscription: &'a Subscription<T>,
+    pub(super) subscription: &'a SubscriptionState<T>,
 }
 
 impl<T> Deref for ReadOnlyLoanedMessage<'_, T>

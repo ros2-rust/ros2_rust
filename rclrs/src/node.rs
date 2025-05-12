@@ -19,11 +19,11 @@ use std::{
 use rosidl_runtime_rs::Message;
 
 use crate::{
-    rcl_bindings::*, Client, ClientBase, ClientOptions, Clock, ContextHandle, GuardCondition,
-    LogParams, Logger, ParameterBuilder, ParameterInterface, ParameterVariant, Parameters,
-    Publisher, PublisherOptions, RclrsError, Service, ServiceBase, ServiceOptions, Subscription,
-    SubscriptionBase, SubscriptionCallback, SubscriptionOptions, TimeSource, ToLogParams,
-    ENTITY_LIFECYCLE_MUTEX,
+    rcl_bindings::*, Client, ClientBase, ClientOptions, ClientState, Clock, ContextHandle,
+    GuardCondition, LogParams, Logger, ParameterBuilder, ParameterInterface, ParameterVariant,
+    Parameters, Publisher, PublisherOptions, PublisherState, RclrsError, Service, ServiceBase,
+    ServiceOptions, ServiceState, Subscription, SubscriptionBase, SubscriptionCallback,
+    SubscriptionOptions, SubscriptionState, TimeSource, ToLogParams, ENTITY_LIFECYCLE_MUTEX,
 };
 
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
@@ -59,7 +59,7 @@ unsafe impl Send for rcl_node_t {}
 /// In that sense, the parameters to the node creation functions are only the _default_ namespace and
 /// name.
 /// See also the [official tutorial][1] on the command line arguments for ROS nodes, and the
-/// [`Node::namespace()`][3] and [`Node::name()`][4] functions for examples.
+/// [`NodeState::namespace()`] and [`NodeState::name()`] functions for examples.
 ///
 /// ## Rules for valid names
 /// The rules for valid node names and node namespaces are explained in
@@ -72,7 +72,17 @@ unsafe impl Send for rcl_node_t {}
 /// [5]: crate::NodeOptions::new
 /// [6]: crate::NodeOptions::namespace
 /// [7]: crate::Executor::create_node
-pub struct Node {
+pub type Node = Arc<NodeState>;
+
+/// The inner state of a [`Node`].
+///
+/// This is public so that you can choose to put it inside a [`Weak`] if you
+/// want to be able to refer to a [`Node`] in a non-owning way. It is generally
+/// recommended to manage the [`NodeState`] inside of an [`Arc`], and [`Node`]
+/// is provided as convenience alias for that.
+///
+/// The public API of the [`Node`] type is implemented via `NodeState`.
+pub struct NodeState {
     pub(crate) clients_mtx: Mutex<Vec<Weak<dyn ClientBase>>>,
     pub(crate) guard_conditions_mtx: Mutex<Vec<Weak<GuardCondition>>>,
     pub(crate) services_mtx: Mutex<Vec<Weak<dyn ServiceBase>>>,
@@ -128,15 +138,15 @@ impl Drop for NodeHandle {
     }
 }
 
-impl Eq for Node {}
+impl Eq for NodeState {}
 
-impl PartialEq for Node {
+impl PartialEq for NodeState {
     fn eq(&self, other: &Self) -> bool {
         Arc::ptr_eq(&self.handle, &other.handle)
     }
 }
 
-impl fmt::Debug for Node {
+impl fmt::Debug for NodeState {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         f.debug_struct("Node")
             .field("fully_qualified_name", &self.fully_qualified_name())
@@ -144,7 +154,7 @@ impl fmt::Debug for Node {
     }
 }
 
-impl Node {
+impl NodeState {
     /// Returns the clock associated with this node.
     pub fn get_clock(&self) -> Clock {
         self.time_source.get_clock()
@@ -202,7 +212,7 @@ impl Node {
     /// Returns the fully qualified name of the node.
     ///
     /// The fully qualified name of the node is the node namespace combined with the node name.
-    /// It is subject to the remappings shown in [`Node::name()`] and [`Node::namespace()`].
+    /// It is subject to the remappings shown in [`NodeState::name()`] and [`NodeState::namespace()`].
     ///
     /// # Example
     /// ```
@@ -266,11 +276,11 @@ impl Node {
     pub fn create_client<'a, T>(
         self: &Arc<Self>,
         options: impl Into<ClientOptions<'a>>,
-    ) -> Result<Arc<Client<T>>, RclrsError>
+    ) -> Result<Client<T>, RclrsError>
     where
         T: rosidl_runtime_rs::Service,
     {
-        let client = Arc::new(Client::<T>::new(self, options)?);
+        let client = Arc::new(ClientState::<T>::new(self, options)?);
         { self.clients_mtx.lock().unwrap() }.push(Arc::downgrade(&client) as Weak<dyn ClientBase>);
         Ok(client)
     }
@@ -349,11 +359,11 @@ impl Node {
     pub fn create_publisher<'a, T>(
         &self,
         options: impl Into<PublisherOptions<'a>>,
-    ) -> Result<Arc<Publisher<T>>, RclrsError>
+    ) -> Result<Publisher<T>, RclrsError>
     where
         T: Message,
     {
-        let publisher = Arc::new(Publisher::<T>::new(Arc::clone(&self.handle), options)?);
+        let publisher = Arc::new(PublisherState::<T>::new(Arc::clone(&self.handle), options)?);
         Ok(publisher)
     }
 
@@ -403,12 +413,12 @@ impl Node {
         self: &Arc<Self>,
         options: impl Into<ServiceOptions<'a>>,
         callback: F,
-    ) -> Result<Arc<Service<T>>, RclrsError>
+    ) -> Result<Service<T>, RclrsError>
     where
         T: rosidl_runtime_rs::Service,
         F: Fn(&rmw_request_id_t, T::Request) -> T::Response + 'static + Send,
     {
-        let service = Arc::new(Service::<T>::new(self, options, callback)?);
+        let service = Arc::new(ServiceState::<T>::new(self, options, callback)?);
         { self.services_mtx.lock().unwrap() }
             .push(Arc::downgrade(&service) as Weak<dyn ServiceBase>);
         Ok(service)
@@ -459,11 +469,11 @@ impl Node {
         self: &Arc<Self>,
         options: impl Into<SubscriptionOptions<'a>>,
         callback: impl SubscriptionCallback<T, Args>,
-    ) -> Result<Arc<Subscription<T>>, RclrsError>
+    ) -> Result<Subscription<T>, RclrsError>
     where
         T: Message,
     {
-        let subscription = Arc::new(Subscription::<T>::new(self, options, callback)?);
+        let subscription = Arc::new(SubscriptionState::<T>::new(self, options, callback)?);
         { self.subscriptions_mtx.lock() }
             .unwrap()
             .push(Arc::downgrade(&subscription) as Weak<dyn SubscriptionBase>);
@@ -583,7 +593,7 @@ impl Node {
     }
 }
 
-impl<'a> ToLogParams<'a> for &'a Node {
+impl<'a> ToLogParams<'a> for &'a NodeState {
     fn to_log_params(self) -> LogParams<'a> {
         self.logger().to_log_params()
     }

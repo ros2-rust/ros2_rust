@@ -8,8 +8,8 @@ use anyhow::{Error, Result};
 
 struct MinimalSubscriber {
     num_messages: AtomicU32,
-    node: Arc<Node>,
-    subscription: Mutex<Option<Arc<Subscription<std_msgs::msg::String>>>>,
+    node: Node,
+    subscription: Mutex<Option<Subscription<std_msgs::msg::String>>>,
 }
 
 impl MinimalSubscriber {
