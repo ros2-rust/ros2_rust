@@ -1,6 +1,5 @@
 use rclrs::*;
 use std::{
-    sync::{Arc, Mutex},
     thread,
     time::Duration,
 };
@@ -8,32 +7,25 @@ use std_msgs::msg::String as StringMsg;
 
 pub struct SimpleSubscriptionNode {
     #[allow(unused)]
-    subscriber: Subscription<StringMsg>,
-    data: Arc<Mutex<Option<StringMsg>>>,
+    subscriber: WorkerSubscription<StringMsg, Option<String>>,
+    worker: Worker<Option<String>>,
 }
 
 impl SimpleSubscriptionNode {
     fn new(executor: &Executor) -> Result<Self, RclrsError> {
         let node = executor.create_node("simple_subscription").unwrap();
-        let data: Arc<Mutex<Option<StringMsg>>> = Arc::new(Mutex::new(None));
-        let data_mut: Arc<Mutex<Option<StringMsg>>> = Arc::clone(&data);
-        let subscriber = node
+        let worker = node.create_worker(None);
+
+        let subscriber = worker
             .create_subscription::<StringMsg, _>(
                 "publish_hello",
-                move |msg: StringMsg| {
-                    *data_mut.lock().unwrap() = Some(msg);
+                move |data: &mut Option<String>, msg: StringMsg| {
+                    *data = Some(msg.data);
                 },
             )
             .unwrap();
-        Ok(Self { subscriber, data })
-    }
-    fn data_callback(&self) -> Result<(), RclrsError> {
-        if let Some(data) = self.data.lock().unwrap().as_ref() {
-            println!("{}", data.data);
-        } else {
-            println!("No message available yet.");
-        }
-        Ok(())
+
+        Ok(Self { subscriber, worker })
     }
 }
 fn main() -> Result<(), RclrsError> {
@@ -43,8 +35,15 @@ fn main() -> Result<(), RclrsError> {
     // TODO(@mxgrey): Replace this thread with a timer when the Timer feature
     // gets merged.
     thread::spawn(move || loop {
-        thread::sleep(Duration::from_millis(1000));
-        node.data_callback().unwrap()
+        thread::sleep(Duration::from_secs(1));
+        let _ = node.worker.run(|data: &mut Option<String>| {
+            if let Some(data) = data {
+                println!("{data}");
+            } else {
+                println!("No message available yet.");
+            }
+        });
     });
+
     executor.spin(SpinOptions::default()).first_error()
 }
