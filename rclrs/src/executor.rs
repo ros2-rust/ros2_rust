@@ -147,7 +147,6 @@ impl ExecutorCommands {
     /// Tell the [`Executor`] to halt its spinning.
     pub fn halt_spinning(&self) {
         self.halt_spinning.store(true, Ordering::Release);
-        // TODO(@mxgrey): Log errors here when logging becomes available
         self.executor_channel.wake_all_wait_sets();
     }
 
@@ -297,6 +296,7 @@ impl WorkerCommands {
 
     pub(crate) fn run_on_payload(&self, task: PayloadTask) {
         self.channel.send_payload_task(task);
+        let _ = self.wakeup_wait_set.trigger();
     }
 
     pub(crate) fn add_activity_listener(&self, listener: WeakActivityListener) {
