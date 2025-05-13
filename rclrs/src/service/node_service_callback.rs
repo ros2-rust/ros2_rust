@@ -3,7 +3,7 @@ use rosidl_runtime_rs::Service;
 use crate::{
     rcl_bindings::rmw_request_id_t,
     WorkerCommands, RclrsError, RequestId, ServiceHandle, ServiceInfo,
-    log_error, ToLogParams, RclrsErrorFilter,
+    log_error, RclrsErrorFilter,
 };
 
 use futures::future::BoxFuture;

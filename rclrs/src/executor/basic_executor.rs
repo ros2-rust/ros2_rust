@@ -17,7 +17,7 @@ use std::{
 
 use crate::{
     WeakActivityListener, ExecutorChannel, ExecutorRuntime, SpinConditions, WorkerChannel,
-    RclrsError, WaitSetRunner, WaitSetRunConditions, Waitable, log_warn, log_fatal, ToLogParams,
+    RclrsError, WaitSetRunner, WaitSetRunConditions, Waitable, log_warn, log_fatal,
     GuardCondition, ExecutorWorkerOptions, PayloadTask,
 };
 

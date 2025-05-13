@@ -2,14 +2,15 @@ use rosidl_runtime_rs::{Message, Service as IdlService};
 use std::{any::Any, sync::{Arc, Mutex, Weak}};
 use futures::channel::oneshot;
 use crate::{
-    WorkerCommands, ToLogParams, Promise, log_fatal,
+    WorkerCommands, Promise, log_fatal,
     IntoWorkerSubscriptionCallback, IntoWorkerServiceCallback,
     WorkerSubscription, SubscriptionState, WorkerService, ServiceState,
     SubscriptionOptions, ServiceOptions, RclrsError, Node,
 };
 
 /// A worker that carries a payload and synchronizes callbacks for subscriptions
-/// and services.
+/// and services. Workers share much in common with "callback groups" from rclcpp,
+/// with the addition of holding a data payload to share between the callbacks.
 ///
 /// The payload is any data type of your choosing. Each callback associated with
 /// this worker will receive a mutable borrow (`&mut Payload`) of the payload,
@@ -19,6 +20,8 @@ use crate::{
 ///
 /// You can also run ad hoc tasks on the worker to view or modify the payload
 /// from callbacks that are not associated with this worker.
+///
+/// The API for the worker is provided through [`WorkerState`].
 pub type Worker<Payload> = Arc<WorkerState<Payload>>;
 
 /// The inner state of a [`Worker`].
@@ -219,6 +222,8 @@ impl<Payload> WorkerOptions<Payload> {
 pub trait IntoWorkerOptions<Payload> {
     /// Convert an object into [`WorkerOptions`]. Users do not need to call this.
     fn into_worker_options(self) -> WorkerOptions<Payload>;
+    // TODO(@mxgrey): Check what happens when a user passes in an actual
+    // WorkerOptions... it might create a WorkerOptions<WorkerOptions<T>>.
 }
 
 impl<Payload> IntoWorkerOptions<Payload> for Payload {

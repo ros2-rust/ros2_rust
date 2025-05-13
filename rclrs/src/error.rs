@@ -46,7 +46,9 @@ pub enum RclrsError {
         expected: std::any::TypeId,
         /// The payload type given by the worker
         received: std::any::TypeId,
-    }
+    },
+    /// A mutex used internally has been [poisoned][std::sync::PoisonError].
+    PoisonedMutex,
 }
 
 impl RclrsError {
@@ -108,6 +110,12 @@ impl Display for RclrsError {
                     "Received invalid payload: expected {expected:?}, received {received:?}",
                 )
             }
+            RclrsError::PoisonedMutex => {
+                write!(
+                    f,
+                    "A mutex used internally has been poisoned"
+                )
+            }
         }
     }
 }
@@ -145,6 +153,7 @@ impl Error for RclrsError {
             RclrsError::NegativeDuration(_) => None,
             RclrsError::UnownedGuardCondition => None,
             RclrsError::InvalidPayload { .. } => None,
+            RclrsError::PoisonedMutex => None,
         }
     }
 }

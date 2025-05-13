@@ -236,8 +236,61 @@ impl NodeState {
     }
 
     /// Create a new [`Worker`] for this Node.
-    //
-    // TODO(@mxgrey): Write some usage examples.
+    ///
+    /// Workers carry a data "payload" that they can lend out to callbacks that
+    /// are created using the worker. This makes it easy to share data between
+    /// callbacks.
+    ///
+    /// In some cases the payload type can be inferred by Rust:
+    /// ```
+    /// # use rclrs::*;
+    /// let executor = Context::default().create_basic_executor();
+    /// let node = executor.create_node("my_node").unwrap();
+    ///
+    /// let worker = node.create_worker(String::new());
+    ///
+    /// let subscription = worker.create_subscription(
+    ///     "input_topic",
+    ///     move |data: &mut String, msg: example_interfaces::msg::String| {
+    ///         *data = msg.data;
+    ///     }
+    /// )?;
+    /// # Ok::<(), RclrsError>(())
+    /// ```
+    ///
+    /// If the compiler complains about not knowing the payload type, you can
+    /// specify it explicitly in two ways:
+    /// ```
+    /// # use rclrs::*;
+    /// # let executor = Context::default().create_basic_executor();
+    /// # let node = executor.create_node("my_node").unwrap();
+    /// let worker: Worker<String> = node.create_worker(String::new());
+    /// ```
+    ///
+    /// ```
+    /// # use rclrs::*;
+    /// # let executor = Context::default().create_basic_executor();
+    /// # let node = executor.create_node("my_node").unwrap();
+    /// let worker = node.create_worker::<String>(String::new());
+    /// ```
+    ///
+    /// The data given to the worker can be any custom data type:
+    /// ```
+    /// # use rclrs::*;
+    /// # let executor = Context::default().create_basic_executor();
+    /// # let node = executor.create_node("my_node").unwrap();
+    ///
+    /// #[derive(Default)]
+    /// struct MyNodeData {
+    ///     addition_client: Option<Client<example_interfaces::srv::AddTwoInts>>,
+    ///     result_publisher: Option<Publisher<example_interfaces::msg::Int64>>,
+    /// }
+    ///
+    /// let worker = node.create_worker(MyNodeData::default());
+    /// ```
+    ///
+    /// In the above example, `addition_client` and `result_publisher` can be
+    /// created later inside a subscription or service callback using the [`Node`].
     pub fn create_worker<'a, Payload>(
         self: &Arc<Self>,
         options: impl IntoWorkerOptions<Payload>,
@@ -345,14 +398,10 @@ impl NodeState {
     ///
     /// Even though this takes in a blocking (non-async) function, the callback
     /// may run in parallel with other callbacks. This callback may even run
-    /// multiple times simultaneously with different incoming requests.
+    /// multiple times simultaneously with different incoming requests. This
+    /// will depend on what kind of executor is running.
     ///
-    /// Any internal state that needs to be mutated will need to be wrapped in
-    /// [`Mutex`] to ensure it is synchronized across multiple simultaneous runs
-    /// of the callback. To share internal state outside of the callback you will
-    /// need to wrap it in [`Arc`] or `Arc<Mutex<S>>`.
-    ///
-    /// # Usage
+    /// # Service Options
     ///
     /// Pass in only the service name for the `options` argument to use all default service options:
     /// ```
@@ -394,8 +443,87 @@ impl NodeState {
     ///
     /// [1]: crate::Service
     /// [2]: crate::QoSReliabilityPolicy::Reliable
-    //
-    // TODO(@mxgrey): Add examples showing each supported signature
+    ///
+    /// # Service Callbacks
+    ///
+    /// Three callback signatures are supported:
+    /// - [`Fn`] ( `Request` ) -> `Response`
+    /// - [`Fn`] ( `Request`, [`RequestId`][3] ) -> `Response`
+    /// - [`Fn`] ( `Request`, [`ServiceInfo`][4] ) -> `Response`
+    ///
+    /// [3]: crate::RequestId
+    /// [4]: crate::ServiceInfo
+    ///
+    /// Any internal state captured into the callback that needs to be mutated
+    /// will need to be wrapped in [`Mutex`] to ensure it is synchronized across
+    /// multiple simultaneous runs of the callback. For example:
+    ///
+    /// ```
+    /// # use rclrs::*;
+    /// # let executor = Context::default().create_basic_executor();
+    /// # let node = executor.create_node("my_node").unwrap();
+    /// use std::sync::Mutex;
+    /// use example_interfaces::srv::*;
+    ///
+    /// let counter = Mutex::new(0usize);
+    /// let service = node.create_service::<Trigger, _>(
+    ///     "trigger_counter",
+    ///     move |_request: Trigger_Request| {
+    ///         let mut counter = counter.lock().unwrap();
+    ///         *counter += 1;
+    ///         println!("Triggered {} times", *counter);
+    ///         Trigger_Response {
+    ///             success: true,
+    ///             message: "no problems here".to_string(),
+    ///         }
+    ///     }
+    /// )?;
+    /// # Ok::<(), RclrsError>(())
+    /// ```
+    /// To share internal state outside of the callback you will need to wrap it
+    /// in [`Arc`] or `Arc<Mutex<S>>` and then clone the [`Arc`] before capturing
+    /// it in the closure:
+    ///
+    /// ```
+    /// # use rclrs::*;
+    /// # let executor = Context::default().create_basic_executor();
+    /// # let node = executor.create_node("my_node").unwrap();
+    /// use std::sync::{Arc, Mutex};
+    /// use example_interfaces::srv::*;
+    ///
+    /// let counter = Arc::new(Mutex::new(0usize));
+    ///
+    /// let counter_in_service = Arc::clone(&counter);
+    /// let service = node.create_service::<Trigger, _>(
+    ///     "trigger_counter",
+    ///     move |_request: Trigger_Request| {
+    ///         let mut counter = counter_in_service.lock().unwrap();
+    ///         *counter += 1;
+    ///         println!("Triggered {} times", *counter);
+    ///         Trigger_Response {
+    ///             success: true,
+    ///             message: "no problems here".to_string(),
+    ///         }
+    ///     }
+    /// )?;
+    ///
+    /// // TODO(@mxgrey): Replace this with a timer when timers become available
+    /// std::thread::spawn(move || {
+    ///     loop {
+    ///         std::thread::sleep(std::time::Duration::from_secs(1));
+    ///         println!("Last count of triggers: {}", counter.lock().unwrap());
+    ///     }
+    /// });
+    /// # Ok::<(), RclrsError>(())
+    /// ```
+    ///
+    /// In general, when you need to manage some state within a blocking service,
+    /// it may be a good idea to create a service using a [`WorkerState`] instead of
+    /// creating one directly from the node. The [`WorkerState`] can carry your state
+    /// as a payload so you don't have to worry about locking and sharing.
+    ///
+    /// The advantage of creating a service directly from the [`NodeState`] is you
+    /// can create async services using [`NodeState::create_async_service`].
     pub fn create_service<'a, T, Args>(
         &self,
         options: impl Into<ServiceOptions<'a>>,
@@ -421,16 +549,109 @@ impl NodeState {
     /// parallelism will depend on the executor that is being used. When the
     /// callback uses `.await`, it will not block anything else from running.
     ///
-    /// Any internal state that needs to be mutated will need to be wrapped in
+    /// # Service Options
+    ///
+    /// Pass in only the service name for the `options` argument to use all default service options:
+    /// ```
+    /// # use rclrs::*;
+    /// # let executor = Context::default().create_basic_executor();
+    /// # let node = executor.create_node("my_node").unwrap();
+    /// let service = node.create_service::<test_msgs::srv::Empty, _>(
+    ///     "my_service",
+    ///     |_request: test_msgs::srv::Empty_Request| {
+    ///         println!("Received request!");
+    ///         test_msgs::srv::Empty_Response::default()
+    ///     },
+    /// );
+    /// ```
+    ///
+    /// Take advantage of the [`IntoPrimitiveOptions`] API to easily build up the
+    /// service options:
+    ///
+    /// ```
+    /// # use rclrs::*;
+    /// # let executor = Context::default().create_basic_executor();
+    /// # let node = executor.create_node("my_node").unwrap();
+    /// let service = node.create_service::<test_msgs::srv::Empty, _>(
+    ///     "my_service"
+    ///     .keep_all()
+    ///     .transient_local(),
+    ///     |_request: test_msgs::srv::Empty_Request| {
+    ///         println!("Received request!");
+    ///         test_msgs::srv::Empty_Response::default()
+    ///     },
+    /// );
+    /// ```
+    ///
+    /// Any quality of service options that you explicitly specify will override
+    /// the default service options. Any that you do not explicitly specify will
+    /// remain the default service options. Note that services are generally
+    /// expected to use [reliable][2], so it's best not to change the reliability
+    /// setting unless you know what you are doing.
+    ///
+    /// [1]: crate::Service
+    /// [2]: crate::QoSReliabilityPolicy::Reliable
+    ///
+    /// # Async Service Callbacks
+    ///
+    /// Three callback signatures are supported:
+    /// - [`FnMut`] ( `Request` ) -> impl [`Future`][5]<Output=`Response`>
+    /// - [`FnMut`] ( `Request`, [`RequestId`][3] ) -> impl [`Future`][5]<Output=`Response`>
+    /// - [`FnMut`] ( `Request`, [`ServiceInfo`][4] ) -> impl [`Future`][5]<Output=`Response`>
+    ///
+    /// [3]: crate::RequestId
+    /// [4]: crate::ServiceInfo
+    /// [5]: std::future::Future
+    ///
+    /// In this case the closure can be [`FnMut`], allowing internal state to
+    /// be mutable, but it should be noted that the function is expected to
+    /// immediately return a [`Future`][5], so in many cases any internal state
+    /// that needs to be mutated will still need to be wrapped in [`Arc`] and
     /// [`Mutex`] to ensure it is synchronized across multiple runs of the
-    /// callback. To share internal state outside of the callback you will need
-    /// to wrap it in [`Arc`] (immutable) or `Arc<Mutex<S>>` (mutable).
+    /// callback.
     ///
-    /// # Usage
+    /// However unlike the blocking callbacks that can be provided to
+    /// [`NodeState::create_service`], callbacks for async services can take
+    /// advantage of `.await`. This allows you to capture [`Client`]s or
+    /// [`Worker`]s into the closure, run tasks on them, and await the outcome.
+    /// This allows one async service to share state data across multiple workers.
     ///
-    /// See [create_service][NodeState::create_service] for usage.
-    //
-    // TODO(@mxgrey): Add examples showing each supported signature
+    /// ```
+    /// # use rclrs::*;
+    /// # let executor = Context::default().create_basic_executor();
+    /// # let node = executor.create_node("my_node").unwrap();
+    /// use std::sync::Arc;
+    /// use example_interfaces::srv::*;
+    ///
+    /// let worker_a = node.create_worker(0_i64);
+    /// let worker_b = node.create_worker(0_i64);
+    ///
+    /// let service = node.create_async_service::<AddTwoInts, _>(
+    ///     "add",
+    ///     move |request: AddTwoInts_Request| {
+    ///         // Clone the workers so they can be captured into the async block
+    ///         let worker_a = Arc::clone(&worker_a);
+    ///         let worker_b = Arc::clone(&worker_b);
+    ///         async move {
+    ///             // Save the requested values into each worker
+    ///             let a = request.a;
+    ///             let _ = worker_a.run(move |last_a: &mut i64| {
+    ///                 *last_a = a;
+    ///             }).await;
+    ///
+    ///             let b = request.b;
+    ///             let _ = worker_b.run(move |last_b: &mut i64| {
+    ///                 *last_b = b;
+    ///             }).await;
+    ///
+    ///             // Awaiting above ensures that each number from the
+    ///             // request is saved in its respective worker before
+    ///             // we give back a response.
+    ///             AddTwoInts_Response { sum: a + b }
+    ///        }
+    ///     }
+    /// );
+    /// ```
     pub fn create_async_service<'a, T, Args>(
         &self,
         options: impl Into<ServiceOptions<'a>>,

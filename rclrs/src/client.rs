@@ -1,7 +1,7 @@
 use std::{
     any::Any,
     collections::HashMap,
-    ffi::CString,
+    ffi::{CStr, CString},
     sync::{Arc, Mutex, MutexGuard},
 };
 
@@ -10,7 +10,7 @@ use rosidl_runtime_rs::Message;
 use crate::{
     error::ToResult, rcl_bindings::*, IntoPrimitiveOptions, MessageCow, Node, Promise, QoSProfile,
     RclPrimitive, RclPrimitiveHandle, RclPrimitiveKind, RclReturnCode, RclrsError, ServiceInfo,
-    Waitable, WaitableLifecycle, ENTITY_LIFECYCLE_MUTEX,
+    Waitable, WaitableLifecycle, ENTITY_LIFECYCLE_MUTEX, log_fatal,
 };
 
 mod client_async_callback;
@@ -90,10 +90,9 @@ where
         }
         .ok()?;
 
-        // TODO(@mxgrey): Log errors here when logging becomes available.
         self.board
             .lock()
-            .unwrap()
+            .map_err(|_| RclrsError::PoisonedMutex)?
             .new_request(sequence_number, sender);
 
         Ok(promise)
@@ -105,8 +104,15 @@ where
     /// compiler warns you that you need to. You can use the [`Promise`] to know
     /// when the response is finished being processed, but otherwise you can
     /// safely discard it.
-    //
-    // TODO(@mxgrey): Add documentation to show what callback signatures are supported
+    ///
+    /// # Usage
+    ///
+    /// Three callback signatures are supported:
+    /// - [`FnOnce`] ( `Response` )
+    /// - [`FnOnce`] ( `Response`, [`RequestId`][1] )
+    /// - [`FnOnce`] ( `Response`, [`ServiceInfo`] )
+    ///
+    /// [1]: crate::RequestId
     pub fn call_then<'a, Req, Args>(
         &self,
         request: Req,
@@ -127,8 +133,101 @@ where
     /// compiler warns you that you need to. You can use the [`Promise`] to know
     /// when the response is finished being processed, but otherwise you can
     /// safely discard it.
-    //
-    // TODO(@mxgrey): Add documentation to show what callback signatures are supported
+    ///
+    /// # Usage
+    ///
+    /// Three callback signatures are supported:
+    /// - [`FnOnce`] ( `Response` ) -> impl [`Future`][1]<Output=()>
+    /// - [`FnOnce`] ( `Response`, [`RequestId`][2] ) -> impl [`Future`][1]<Output=()>
+    /// - [`FnOnce`] ( `Response`, [`ServiceInfo`] ) -> impl [`Future`][1]<Output=()>
+    ///
+    /// [1]: std::future::Future
+    /// [2]: crate::RequestId
+    ///
+    /// Since this method is to help implement async behaviors, the callback that
+    /// you pass to it must return a [`Future`][1]. There are two ways to create
+    /// a `Future` in Rust:
+    ///
+    /// ## 1. `async fn`
+    ///
+    /// Define an `async fn` whose arguments are compatible with one of the above
+    /// signatures and which returns a `()` (a.k.a. nothing).
+    /// ```
+    /// # use rclrs::*;
+    /// # let node = Context::default()
+    /// #   .create_basic_executor()
+    /// #   .create_node("test_node")?;
+    /// use test_msgs::srv::{Empty, Empty_Request, Empty_Response};
+    ///
+    /// async fn print_hello(_response: Empty_Response) {
+    ///     print!("Hello!");
+    /// }
+    ///
+    /// let client = node.create_client::<Empty>("my_service")?;
+    /// let request = Empty_Request::default();
+    /// let promise = client.call_then_async(&request, print_hello)?;
+    /// # Ok::<(), RclrsError>(())
+    /// ```
+    ///
+    /// ## 2. Function that returns an `async { ... }`
+    ///
+    /// You can pass in a callback that returns an `async` block. `async` blocks
+    /// have an important advantage over `async fn`: You can use `async move { ... }`
+    /// to capture data into the async block. This allows you to embed some state
+    /// data into your callback.
+    ///
+    /// You can do this with either a regular `fn` or with a closure.
+    ///
+    /// ### `fn`
+    ///
+    /// ```
+    /// # use rclrs::*;
+    /// # use std::future::Future;
+    /// # let node = Context::default()
+    /// #   .create_basic_executor()
+    /// #   .create_node("test_node")?;
+    /// use test_msgs::srv::{Empty, Empty_Request, Empty_Response};
+    ///
+    /// fn print_greeting(_response: Empty_Response) -> impl Future<Output=()> {
+    ///     let greeting = "Hello!";
+    ///     async move {
+    ///         print!("Hello!");
+    ///     }
+    /// }
+    ///
+    /// let client = node.create_client::<Empty>("my_service")?;
+    /// let request = Empty_Request::default();
+    /// let promise = client.call_then_async(
+    ///     &request,
+    ///     print_greeting)?;
+    /// # Ok::<(), RclrsError>(())
+    /// ```
+    ///
+    /// ### Closure
+    ///
+    /// A closure will allow you to capture data into the callback from the
+    /// surrounding context. While the syntax for this is more complicated, it
+    /// is also the most powerful option.
+    ///
+    /// ```
+    /// # use rclrs::*;
+    /// # let node = Context::default()
+    /// #   .create_basic_executor()
+    /// #   .create_node("test_node")?;
+    /// use test_msgs::srv::{Empty, Empty_Request, Empty_Response};
+    ///
+    /// let greeting = "Hello!";
+    /// let client = node.create_client::<Empty>("my_service")?;
+    /// let request = Empty_Request::default();
+    /// let promise = client.call_then_async(
+    ///     &request,
+    ///     move |response: Empty_Response| {
+    ///         async move {
+    ///             print!("{greeting}");
+    ///         }
+    ///     })?;
+    /// # Ok::<(), RclrsError>(())
+    /// ```
     pub fn call_then_async<'a, Req, Args>(
         &self,
         request: Req,
@@ -144,7 +243,10 @@ where
                     callback.run_client_async_callback(response, info).await;
                 }
                 Err(_) => {
-                    // TODO(@mxgrey): Log this error when logging becomes available
+                    log_fatal!(
+                        "rclrs.client.call_then_async",
+                        "Request promise has been dropped by the executor",
+                    );
                 }
             }
         });
@@ -178,9 +280,17 @@ where
     pub fn notify_on_service_ready(self: &Arc<Self>) -> Promise<()> {
         let client = Arc::clone(self);
         self.handle.node.notify_on_graph_change(
-            // TODO(@mxgrey): Log any errors here once logging is available
             move || client.service_is_ready().is_ok_and(|r| r),
         )
+    }
+
+    /// Get the name of the service that this client intends to call.
+    pub fn service_name(&self) -> String {
+        unsafe {
+            let char_ptr = rcl_client_get_service_name(&*self.handle.lock() as *const _);
+            debug_assert!(!char_ptr.is_null());
+            CStr::from_ptr(char_ptr).to_string_lossy().into_owned()
+        }
     }
 
     /// Creates a new client.
@@ -378,8 +488,10 @@ where
                         // This is okay, it means a spurious wakeup happened
                     }
                     err => {
-                        // TODO(@mxgrey): Log the error here once logging is available
-                        eprintln!("Error while taking a response for a client: {err}");
+                        log_fatal!(
+                            "rclrs.client.execute",
+                            "Error while taking a response for a client: {err}",
+                        );
                     }
                 }
             }
