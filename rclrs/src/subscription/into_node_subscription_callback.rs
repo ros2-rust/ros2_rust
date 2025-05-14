@@ -7,8 +7,14 @@ use crate::{
 use std::sync::Arc;
 
 /// A trait for regular callbacks of subscriptions.
-//
-// TODO(@mxgrey): Add a description of what callbacks signatures are supported
+///
+/// Subscription callbacks support six signatures:
+/// - [`Fn`] ( `Message` )
+/// - [`Fn`] ( `Message`, [`MessageInfo`][1] )
+/// - [`Fn`] ( [`Box`]<`Message`> )
+/// - [`Fn`] ( [`Box`]<`Message`>, [`MessageInfo`][1] )
+/// - [`Fn`] ( [`ReadOnlyLoanedMessage`][2]<`Message`> )
+/// - [`Fn`] ( [`ReadOnlyLoanedMessage`][2]<`Message`>, [`MessageInfo`][1] )
 pub trait IntoNodeSubscriptionCallback<T, Args>: Send + 'static
 where
     T: Message,

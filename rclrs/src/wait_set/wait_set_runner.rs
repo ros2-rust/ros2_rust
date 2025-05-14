@@ -11,7 +11,8 @@ use std::{
 
 use crate::{
     Context, Promise, RclrsError, WaitSet, Waitable, GuardCondition, ExecutorWorkerOptions,
-    PayloadTask, WeakActivityListener, ActivityListenerCallback, RclReturnCode,
+    PayloadTask, WeakActivityListener, ActivityListenerCallback, RclReturnCode, log_debug,
+    log_fatal,
 };
 
 /// This is a utility class that executors can use to easily run and manage
@@ -107,8 +108,14 @@ impl WaitSetRunner {
         let (sender, promise) = channel();
         std::thread::spawn(move || {
             let result = self.run_blocking(conditions);
-            // TODO(@mxgrey): Log any error here when logging becomes available
-            sender.send((self, result)).ok();
+            if let Err(_) = sender.send((self, result)) {
+                // This is a debug log because this is a normal thing to occur
+                // when an executor is winding down.
+                log_debug!(
+                    "rclrs.wait_set_runner.run",
+                    "Unable to return the wait set runner from an async run"
+                );
+            }
         });
 
         promise
@@ -134,8 +141,12 @@ impl WaitSetRunner {
                 new_waitables.push(new_waitable);
             }
             if !new_waitables.is_empty() {
-                // TODO(@mxgrey): Log any error here when logging becomes available
-                self.wait_set.add(new_waitables).ok();
+                if let Err(err) = self.wait_set.add(new_waitables) {
+                    log_fatal!(
+                        "rclrs.wait_set_runner.run_blocking",
+                        "Failed to add an item to the wait set: {err}",
+                    );
+                }
             }
 
             while let Ok(Some(task)) = self.task_receiver.try_next() {

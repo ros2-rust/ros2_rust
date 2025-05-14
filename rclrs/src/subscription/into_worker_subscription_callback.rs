@@ -3,8 +3,20 @@ use rosidl_runtime_rs::Message;
 use crate::{ReadOnlyLoanedMessage, MessageInfo, AnySubscriptionCallback, WorkerSubscriptionCallback};
 
 /// A trait for callbacks of subscriptions that run on a worker.
-//
-// TODO(@mxgrey): Add a description of what callbacks signatures are supported
+///
+/// Worker Subscription callbacks support twelve signatures:
+/// - [`FnMut`] ( `Message` )
+/// - [`FnMut`] ( `Message`, [`MessageInfo`][4] )
+/// - [`FnMut`] ( `&mut Payload`, `Message` )
+/// - [`FnMut`] ( `&mut Payload`, `Message`, [`MessageInfo`][4] )
+/// - [`FnMut`] ( [`Box`]<`Message`> )
+/// - [`FnMut`] ( [`Box`]<`Message`>, [`MessageInfo`][4] )
+/// - [`FnMut`] ( `&mut Payload`, [`Box`]<`Message`> )
+/// - [`FnMut`] ( `&mut Payload`, [`Box`]<`Message`>, [`MessageInfo`][4] )
+/// - [`FnMut`] ( [`ReadOnlyLoanedMessage`][5]<`Message`> )
+/// - [`FnMut`] ( [`ReadOnlyLoanedMessage`][5]<`Message`>, [`MessageInfo`][4] )
+/// - [`FnMut`] ( `&mut Payload`, [`ReadOnlyLoanedMessage`][5]<`Message`> )
+/// - [`FnMut`] ( `&mut Payload`, [`ReadOnlyLoanedMessage`][5]<`Message`>, [`MessageInfo`][4] )
 pub trait IntoWorkerSubscriptionCallback<T, Payload, Args>: Send + 'static
 where
     T: Message,
