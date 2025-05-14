@@ -46,7 +46,13 @@ impl ServiceInfo {
 #[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct RequestId {
     /// A globally unique identifier for the writer of the request.
+    #[cfg(ros_distro = "humble")]
+    pub writer_guid: [i8; 16usize],
+
+    /// A globally unique identifier for the writer of the request.
+    #[cfg(not(ros_distro = "humble"))]
     pub writer_guid: [u8; 16usize],
+
     /// A number assigned to the request which is unique for the writer who
     /// wrote the request.
     pub sequence_number: i64,
