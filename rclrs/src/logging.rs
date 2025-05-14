@@ -201,7 +201,7 @@ macro_rules! log {
 macro_rules! log_debug {
     ($to_log_params: expr, $($args:tt)*) => {{
         let log_params = $crate::ToLogParams::to_log_params($to_log_params);
-        $crate::log!(crate::ToLogParams::debug(log_params), $($args)*);
+        $crate::log!($crate::ToLogParams::debug(log_params), $($args)*);
     }}
 }
 
@@ -210,7 +210,7 @@ macro_rules! log_debug {
 macro_rules! log_info {
     ($to_log_params: expr, $($args:tt)*) => {{
         let log_params = $crate::ToLogParams::to_log_params($to_log_params);
-        $crate::log!(crate::ToLogParams::info(log_params), $($args)*);
+        $crate::log!($crate::ToLogParams::info(log_params), $($args)*);
     }}
 }
 
@@ -219,7 +219,7 @@ macro_rules! log_info {
 macro_rules! log_warn {
     ($to_log_params: expr, $($args:tt)*) => {{
         let log_params = $crate::ToLogParams::to_log_params($to_log_params);
-        $crate::log!(crate::ToLogParams::warn(log_params), $($args)*);
+        $crate::log!($crate::ToLogParams::warn(log_params), $($args)*);
     }}
 }
 
@@ -228,7 +228,7 @@ macro_rules! log_warn {
 macro_rules! log_error {
     ($to_log_params: expr, $($args:tt)*) => {{
         let log_params = $crate::ToLogParams::to_log_params($to_log_params);
-        $crate::log!(crate::ToLogParams::error(log_params), $($args)*);
+        $crate::log!($crate::ToLogParams::error(log_params), $($args)*);
     }}
 }
 
@@ -237,7 +237,7 @@ macro_rules! log_error {
 macro_rules! log_fatal {
     ($to_log_params: expr, $($args:tt)*) => {{
         let log_params = $crate::ToLogParams::to_log_params($to_log_params);
-        $crate::log!(crate::ToLogParams::fatal(log_params), $($args)*);
+        $crate::log!($crate::ToLogParams::fatal(log_params), $($args)*);
     }}
 }
 
