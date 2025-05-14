@@ -587,7 +587,7 @@ impl NodeState {
     /// ```
     /// # use rclrs::*;
     /// # let executor = Context::default().create_basic_executor();
-    /// # let node = executor.create_node("my_node").unwrap();
+    /// # let node = executor.create_node("my_node")?;
     /// use std::sync::Arc;
     /// use example_interfaces::srv::*;
     ///
@@ -618,7 +618,8 @@ impl NodeState {
     ///             AddTwoInts_Response { sum: a + b }
     ///        }
     ///     }
-    /// );
+    /// )?;
+    /// # Ok::<(), RclrsError>(())
     /// ```
     pub fn create_async_service<'a, T, Args>(
         &self,
@@ -760,6 +761,12 @@ impl NodeState {
     /// });
     /// # Ok::<(), RclrsError>(())
     /// ```
+    ///
+    /// You can change the subscription at any time by calling
+    /// [`SubscriptionState::set_callback`] or
+    /// [`SubscriptionState::set_async_callback`]. Even if the subscription is
+    /// initially created with a regular callback, it can be changed to an async
+    /// callback at any time.
     pub fn create_subscription<'a, T, Args>(
         &self,
         options: impl Into<SubscriptionOptions<'a>>,
@@ -862,6 +869,12 @@ impl NodeState {
     /// )?;
     /// # Ok::<(), RclrsError>(())
     /// ```
+    ///
+    /// You can change the subscription at any time by calling
+    /// [`SubscriptionState::set_callback`] or
+    /// [`SubscriptionState::set_async_callback`]. Even if the subscription is
+    /// initially created with an async callback, it can be changed to a regular
+    /// callback at any time.
     pub fn create_async_subscription<'a, T, Args>(
         &self,
         options: impl Into<SubscriptionOptions<'a>>,

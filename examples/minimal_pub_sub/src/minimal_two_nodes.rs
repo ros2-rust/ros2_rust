@@ -5,7 +5,7 @@ use anyhow::{Error, Result};
 
 struct MinimalSubscriberNode {
     #[allow(unused)]
-    subscription: WorkerSubscription<std_msgs::msg::String, SubscriptionData>,
+    subscription: WorkerSubscription<example_interfaces::msg::String, SubscriptionData>,
 }
 
 struct SubscriptionData {
@@ -26,7 +26,7 @@ impl MinimalSubscriberNode {
 
         let subscription = worker.create_subscription(
             topic,
-            |data: &mut SubscriptionData, msg: std_msgs::msg::String| {
+            |data: &mut SubscriptionData, msg: example_interfaces::msg::String| {
                 data.num_messages += 1;
                 println!("[{}] I heard: '{}'", data.node.name(), msg.data);
                 println!(
@@ -50,12 +50,12 @@ fn main() -> Result<(), Error> {
     let _subscriber_node_two =
         MinimalSubscriberNode::new(&executor, "minimal_subscriber_two", "topic")?;
 
-    let publisher = publisher_node.create_publisher::<std_msgs::msg::String>("topic")?;
+    let publisher = publisher_node.create_publisher::<example_interfaces::msg::String>("topic")?;
 
     // TODO(@mxgrey): Replace this with a timer once we have the Timer feature
     // merged in.
     std::thread::spawn(move || -> Result<(), rclrs::RclrsError> {
-        let mut message = std_msgs::msg::String::default();
+        let mut message = example_interfaces::msg::String::default();
         let mut publish_count: u32 = 1;
         loop {
             message.data = format!("Hello, world! {}", publish_count);

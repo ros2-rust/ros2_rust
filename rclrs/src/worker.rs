@@ -89,7 +89,8 @@ impl<Payload: 'static + Send + Sync> WorkerState<Payload> {
         (receiver, notice_receiver)
     }
 
-    /// Listen to activity that happens with this worker's primitives.
+    /// Listen to activity that happens with this worker's primitives. The
+    /// listening will continue until the [`ActivityListener`] is dropped.
     pub fn listen<F>(&self, mut f: F) -> ActivityListener<Payload>
     where
         F: FnMut(&mut Payload) + 'static + Send + Sync,
@@ -109,8 +110,9 @@ impl<Payload: 'static + Send + Sync> WorkerState<Payload> {
         listener
     }
 
-    /// This will be triggered each time the worker has some activity until it
-    /// returns [`Some<Out>`] or until the [`Promise`] is droped.
+    /// The callback that you provide will be triggered each time the worker has
+    /// some activity until it returns [`Some<Out>`] or until the [`Promise`] is
+    /// dropped.
     ///
     /// As long as the [`Promise`] is alive and the callback returns [`None`],
     /// the listener will keep running.
@@ -151,6 +153,85 @@ impl<Payload: 'static + Send + Sync> WorkerState<Payload> {
     }
 
     /// Creates a [`WorkerSubscription`].
+    ///
+    /// Unlike subscriptions created from a [`Node`], the callbacks for these
+    /// subscriptions can have an additional argument to get a mutable borrow of
+    /// the [`Worker`]'s payload. This allows the subscription callback to operate
+    /// on state data that gets shared with other callbacks.
+    ///
+    /// # Behavior
+    ///
+    /// While the callback of this subscription is running, no other callbacks
+    /// associated with the [`Worker`] will be able to run. This is necessary to
+    /// guarantee that the mutable borrow of the payload is safe.
+    ///
+    /// Since the callback of this subscription may block other callbacks from
+    /// being able to run, it is strongly recommended to ensure that the
+    /// callback returns quickly. If the callback needs to trigger long-running
+    /// behavior then you can consider using `std::thread::spawn`, or for async
+    /// behaviors you can capture an [`ExecutorCommands`][1] in your callback
+    /// and use [`ExecutorCommands::run`][2] to issue a task for the executor
+    /// to run in its async task pool.
+    ///
+    /// [1]: crate::ExecutorCommands
+    /// [2]: crate::ExecutorCommands::run
+    ///
+    /// # Subscription Options
+    ///
+    /// See [`NodeState::create_subscription`][3] for examples of setting the
+    /// subscription options.
+    ///
+    /// [3]: crate::NodeState::create_subscription
+    ///
+    /// # Worker Subscription Callbacks
+    ///
+    /// Worker Subscription callbacks support twelve signatures:
+    /// - [`FnMut`] ( `Message` )
+    /// - [`FnMut`] ( `Message`, [`MessageInfo`][4] )
+    /// - [`FnMut`] ( `&mut Payload`, `Message` )
+    /// - [`FnMut`] ( `&mut Payload`, `Message`, [`MessageInfo`][4] )
+    /// - [`FnMut`] ( [`Box`]<`Message`> )
+    /// - [`FnMut`] ( [`Box`]<`Message`>, [`MessageInfo`][4] )
+    /// - [`FnMut`] ( `&mut Payload`, [`Box`]<`Message`> )
+    /// - [`FnMut`] ( `&mut Payload`, [`Box`]<`Message`>, [`MessageInfo`][4] )
+    /// - [`FnMut`] ( [`ReadOnlyLoanedMessage`][5]<`Message`> )
+    /// - [`FnMut`] ( [`ReadOnlyLoanedMessage`][5]<`Message`>, [`MessageInfo`][4] )
+    /// - [`FnMut`] ( `&mut Payload`, [`ReadOnlyLoanedMessage`][5]<`Message`> )
+    /// - [`FnMut`] ( `&mut Payload`, [`ReadOnlyLoanedMessage`][5]<`Message`>, [`MessageInfo`][4] )
+    ///
+    /// [4]: crate::MessageInfo
+    /// [5]: crate::ReadOnlyLoanedMessage
+    ///
+    /// Note that these signatures all use [`FnMut`] which means, unlike node
+    /// subscriptions, the callback can have mutable internal state without
+    /// needing to use [`Mutex`]. This is possible because the [`Worker`]
+    /// ensures the callback cannot run multiple times simultaneously.
+    ///
+    /// Additionally your callback can get mutable access to the worker's
+    /// payload by setting the first argument of the callback to `&mut Payload`.
+    ///
+    /// ```
+    /// # use rclrs::*;
+    /// # let executor = Context::default().create_basic_executor();
+    /// # let node = executor.create_node("my_node").unwrap();
+    /// // The worker's payload is data that we want to share with other callbacks.
+    /// let worker = node.create_worker::<Option<String>>(None);
+    ///
+    /// // This variable will be the mutable internal state of the subscription
+    /// // callback.
+    /// let mut count = 0_usize;
+    ///
+    /// let subscription = worker.create_subscription::<example_interfaces::msg::String, _>(
+    ///     "topic",
+    ///     move |data: &mut Option<String>, msg: example_interfaces::msg::String| {
+    ///         count += 1;
+    ///         println!("#{count} | I heard: '{}'", msg.data);
+    ///
+    ///         *data = Some(msg.data);
+    ///     },
+    /// )?;
+    /// # Ok::<(), RclrsError>(())
+    /// ```
     pub fn create_subscription<'a, T, Args>(
         &self,
         options: impl Into<SubscriptionOptions<'a>>,
@@ -168,6 +249,94 @@ impl<Payload: 'static + Send + Sync> WorkerState<Payload> {
     }
 
     /// Creates a [`WorkerService`].
+    ///
+    /// Unlike services created from a [`Node`], the callbacks for these services
+    /// can have an additional argument to get a mutable borrow of the [`Worker`]'s
+    /// payload. This allows the service callback to operate on state data that
+    /// gets shared with other callbacks.
+    ///
+    /// # Behavior
+    ///
+    /// While the callback of this service is running, no other callbacks
+    /// associated with the [`Worker`] will be able to run. This is necessary to
+    /// guarantee that the mutable borrow of the payload is safe.
+    ///
+    /// Since the callback of this service may block other callbacks from being
+    /// able to run, it is strongly recommended to ensure that the callback
+    /// returns quickly. If the callback needs to trigger some long-running
+    /// behavior before returning, then you should probably create the service
+    /// using [`NodeState::create_async_service`][1] since the service callback
+    /// of a worker is required to return the response of the service as its
+    /// output value.
+    ///
+    /// To access the payload of a worker from an async service, see examples in
+    /// the documentation of [`NodeState::create_async_service`][1].
+    ///
+    /// [1]: crate::NodeState::create_async_service
+    ///
+    /// # Service Options
+    ///
+    /// See the documentation of [`NodeState::create_service`][2] for examples
+    /// of setting the service options.
+    ///
+    /// [2]: crate::NodeState::create_service
+    ///
+    /// # Worker Service Callbacks
+    ///
+    /// Worker service callbacks support six signatures:
+    /// - [`FnMut`] ( `Request` ) -> `Response`
+    /// - [`FnMut`] ( `Request`, [`RequestId`][3] ) -> `Response`
+    /// - [`FnMut`] ( `Request`, [`ServiceInfo`][4] ) -> `Response`
+    /// - [`FnMut`] ( `&mut Payload`, `Request` ) -> `Response`
+    /// - [`FnMut`] ( `&mut Payload`, `Request`,  [`RequestId`][3] ) -> `Response`
+    /// - [`FnMut`] ( `&mut Payload`, `Request`, [`ServiceInfo`][4] ) -> `Response`
+    ///
+    /// [3]: crate::RequestId
+    /// [4]: crate::ServiceInfo
+    ///
+    /// Note that these signatures all use [`FnMut`] which means, unlike node
+    /// services, the callback can have mutable internal state without needing
+    /// to use [`Mutex`]. This is possible because the [`Worker`] ensures the
+    /// callback cannot run multiple times simultaneously.
+    ///
+    /// Additionally your callback can get mutable access to the worker's
+    /// payload by setting the first argument of the callback to `&mut Payload`.
+    ///
+    /// ```
+    /// # use rclrs::*;
+    /// # let executor = Context::default().create_basic_executor();
+    /// # let node = executor.create_node("my_node").unwrap();
+    /// use example_interfaces::srv::*;
+    ///
+    /// /// Store the operands of the service request for later reference
+    /// #[derive(Default)]
+    /// struct Operands {
+    ///     a: i64,
+    ///     b: i64,
+    /// }
+    ///
+    /// // The worker's payload is data that we want to share with other callbacks.
+    /// let worker = node.create_worker::<Operands>(Operands::default());
+    ///
+    /// // This variable will be the mutable internal state of the service
+    /// // callback.
+    /// let mut count = 0_usize;
+    ///
+    /// let service = worker.create_service::<AddTwoInts, _>(
+    ///     "add",
+    ///     move |payload: &mut Operands, request: AddTwoInts_Request| {
+    ///         count += 1;
+    ///         let AddTwoInts_Request { a, b } = request;
+    ///         let sum = a + b;
+    ///         println!("#{count} | {a} + {b} = {sum}");
+    ///
+    ///         *payload = Operands { a, b };
+    ///
+    ///         AddTwoInts_Response { sum }
+    ///     }
+    /// )?;
+    /// # Ok::<(), RclrsError>(())
+    /// ```
     pub fn create_service<'a, T, Args>(
         &self,
         options: impl Into<ServiceOptions<'a>>,
@@ -227,10 +396,15 @@ impl<T> From<T> for WorkerOptions<T> {
 /// `ActivityListener` is used to watch the activity of the primitives of a [`Worker`].
 ///
 /// Each listener will be triggered each time a primitive is active on the `Worker`.
-/// Listeners will not be triggered when something other than a primitive modifies
-/// the payload, which can happen through [interior mutability][1] or by one of
-/// the other listeners, so this is not a sure-fire way to track changes in the
-/// payload.
+/// Listener callbacks will not be triggered when something other than a primitive
+/// modifies the payload, which can happen through [interior mutability][1] or by
+/// one of the other listeners, so this is not a sure-fire way to track changes in
+/// the payload.
+///
+/// Note that the listener callback will be triggered if any primitive has run
+/// since the payload *may* have been modified. We do not track changes on the
+/// payload, so it is possible that its data was not changed by the primitive at
+/// all, but the listener will still be triggered.
 ///
 /// [1]: https://doc.rust-lang.org/book/ch15-05-interior-mutability.html
 pub struct ActivityListener<Payload> {

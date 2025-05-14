@@ -7,8 +7,11 @@ use crate::{RequestId, ServiceInfo};
 /// A trait to deduce async callbacks of service clients.
 ///
 /// Users of rclrs never need to use this trait directly.
-//
-// TODO(@mxgrey): Add a description of what callback signatures are supported
+///
+/// Three callback signatures are supported:
+/// - [`FnOnce`] ( `Response` ) -> impl [`Future`]<Output=()>
+/// - [`FnOnce`] ( `Response`, [`RequestId`] ) -> impl [`Future`]<Output=()>
+/// - [`FnOnce`] ( `Response`, [`ServiceInfo`] ) -> impl [`Future`]<Output=()>
 pub trait ClientAsyncCallback<T, Args>: Send + 'static
 where
     T: Service,

@@ -5,8 +5,11 @@ use crate::{RequestId, ServiceInfo};
 /// A trait to deduce regular callbacks of service clients.
 ///
 /// Users of rclrs never need to use this trait directly.
-//
-// TODO(@mxgrey): Add a description of what callback signatures are supported
+///
+/// Three callback signatures are supported:
+/// - [`FnOnce`] ( `Response` )
+/// - [`FnOnce`] ( `Response`, [`RequestId`] )
+/// - [`FnOnce`] ( `Response`, [`ServiceInfo`] )
 pub trait ClientCallback<T, Args>: Send + 'static
 where
     T: Service,

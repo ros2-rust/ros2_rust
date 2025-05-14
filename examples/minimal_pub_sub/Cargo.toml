@@ -27,15 +27,9 @@ path = "src/zero_copy_publisher.rs"
 
 [dependencies]
 anyhow = {version = "1", features = ["backtrace"]}
-
-[dependencies.rclrs]
-version = "0.4"
-
-[dependencies.rosidl_runtime_rs]
-version = "0.4"
-
-[dependencies.std_msgs]
-version = "*"
+rclrs = "0.4"
+rosidl_runtime_rs = "0.4"
+example_interfaces = "*"
 
 [package.metadata.ros]
 install_to_share = ["launch"]

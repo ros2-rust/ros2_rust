@@ -17,7 +17,7 @@ use std::{
 
 use crate::{
     WeakActivityListener, ExecutorChannel, ExecutorRuntime, SpinConditions, WorkerChannel,
-    RclrsError, WaitSetRunner, WaitSetRunConditions, Waitable, log_warn, log_fatal,
+    RclrsError, WaitSetRunner, WaitSetRunConditions, Waitable, log_warn, log_debug, log_fatal,
     GuardCondition, ExecutorWorkerOptions, PayloadTask,
 };
 
@@ -37,7 +37,7 @@ static FAILED_TO_SEND_WORKER: &'static str =
 /// a different executor.
 //
 // TODO(@mxgrey): Implement a multi-threaded executor using tokio in a downstream
-// crate and refer to it in this documentation.
+// crate or under a feature gate and refer to it in this documentation.
 pub struct BasicExecutorRuntime {
     ready_queue: Receiver<Arc<Task>>,
     task_sender: TaskSender,
@@ -220,8 +220,6 @@ impl BasicExecutorRuntime {
             let all_guard_conditions = self.all_guard_conditions.clone();
             self.task_sender.add_async_task(Box::pin(async move {
                 if let Err(err) = promise.await {
-                    // TODO(@mxgrey): We should change this to a log when logging
-                    // becomes available.
                     log_warn!(
                         "rclrs.executor.basic_executor",
                         "Sender for SpinOptions::until_promise_resolved was \
@@ -311,8 +309,14 @@ struct BasicWorkerChannel {
 
 impl WorkerChannel for BasicWorkerChannel {
     fn add_to_waitset(&self, new_entity: Waitable) {
-        // TODO(@mxgrey): Log errors here once logging becomes available.
-        self.waitable_sender.unbounded_send(new_entity).ok();
+        if let Err(err) = self.waitable_sender.unbounded_send(new_entity) {
+            // This is a debug log because it is normal for this to happen while
+            // an executor is winding down.
+            log_debug!(
+                "rclrs.basic_executor.add_to_waitset",
+                "Failed to add an item to the waitset: {err}",
+            );
+        }
     }
 
     fn add_async_task(&self, f: BoxFuture<'static, ()>) {
@@ -320,7 +324,14 @@ impl WorkerChannel for BasicWorkerChannel {
     }
 
     fn send_payload_task(&self, f: PayloadTask) {
-        self.payload_task_sender.unbounded_send(f).ok();
+        if let Err(err) = self.payload_task_sender.unbounded_send(f) {
+            // This is a debug log because it is normal for this to happen while
+            // an executor is winding down.
+            log_debug!(
+                "rclrs.BasicWorkerChannel",
+                "Failed to send a payload task: {err}",
+            );
+        }
     }
 
     fn add_activity_listener(&self, listener: WeakActivityListener) {
@@ -340,8 +351,14 @@ impl TaskSender {
             task_sender: self.task_sender.clone(),
         });
 
-        // TODO(@mxgrey): Consider logging errors here once logging is available.
-        self.task_sender.send(task).ok();
+        if let Err(_) = self.task_sender.send(task) {
+            // This is a debug log because it is normal for this to happen while
+            // an executor is winding down.
+            log_debug!(
+                "rclrs.TaskSender.add_async_task",
+                "Failed to send a task. This indicates the Worker has shut down.",
+            );
+        }
     }
 }
 

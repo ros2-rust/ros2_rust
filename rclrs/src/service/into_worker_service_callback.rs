@@ -8,8 +8,14 @@ use crate::{
 /// A trait used to deduce callbacks for services that run on a worker.
 ///
 /// Users of rclrs never need to use this trait directly.
-//
-// TODO(@mxgrey): Add a description of what callback signatures are supported
+///
+/// Worker service callbacks support six signatures:
+/// - [`FnMut`] ( `Request` ) -> `Response`
+/// - [`FnMut`] ( `Request`, [`RequestId`] ) -> `Response`
+/// - [`FnMut`] ( `Request`, [`ServiceInfo`] ) -> `Response`
+/// - [`FnMut`] ( `&mut Payload`, `Request` ) -> `Response`
+/// - [`FnMut`] ( `&mut Payload`, `Request`,  [`RequestId`] ) -> `Response`
+/// - [`FnMut`] ( `&mut Payload`, `Request`, [`ServiceInfo`] ) -> `Response`
 pub trait IntoWorkerServiceCallback<T, Payload, Args>: Send + 'static
 where
     T: Service,

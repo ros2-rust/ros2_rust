@@ -7,8 +7,11 @@ use std::sync::Arc;
 /// A trait to deduce regular callbacks of services.
 ///
 /// Users of rclrs never need to use this trait directly.
-//
-// TODO(@mxgrey): Add a description of what callbacks signatures are supported
+///
+/// Three callback signatures are supported:
+/// - [`Fn`] ( `Request` ) -> `Response`
+/// - [`Fn`] ( `Request`, [`RequestId`] ) -> `Response`
+/// - [`Fn`] ( `Request`, [`ServiceInfo`] ) -> `Response`
 pub trait IntoNodeServiceCallback<T, Args>: Send + 'static
 where
     T: Service,

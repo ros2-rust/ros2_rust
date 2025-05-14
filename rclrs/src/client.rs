@@ -105,7 +105,7 @@ where
     /// when the response is finished being processed, but otherwise you can
     /// safely discard it.
     ///
-    /// # Usage
+    /// # Client Callbacks
     ///
     /// Three callback signatures are supported:
     /// - [`FnOnce`] ( `Response` )
@@ -113,6 +113,11 @@ where
     /// - [`FnOnce`] ( `Response`, [`ServiceInfo`] )
     ///
     /// [1]: crate::RequestId
+    ///
+    /// Note that all of these are [`FnOnce`] which grants the greatest amount
+    /// of freedom for what kind of operations you can perform within the
+    /// callback. Just remember that this also means the callbacks are strictly
+    /// one-time-use.
     pub fn call_then<'a, Req, Args>(
         &self,
         request: Req,
@@ -134,7 +139,7 @@ where
     /// when the response is finished being processed, but otherwise you can
     /// safely discard it.
     ///
-    /// # Usage
+    /// # Async Client Callbacks
     ///
     /// Three callback signatures are supported:
     /// - [`FnOnce`] ( `Response` ) -> impl [`Future`][1]<Output=()>

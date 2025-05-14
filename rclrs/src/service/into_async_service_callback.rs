@@ -6,7 +6,10 @@ use std::future::Future;
 
 /// A trait for async callbacks of services.
 ///
-// TODO(@mxgrey): Add a description of what callbacks signatures are supported
+/// Three callback signatures are supported:
+/// - [`FnMut`] ( `Request` ) -> impl [`Future`]<Output=`Response`>
+/// - [`FnMut`] ( `Request`, [`RequestId`] ) -> impl [`Future`]<Output=`Response`>
+/// - [`FnMut`] ( `Request`, [`ServiceInfo`] ) -> impl [`Future`]<Output=`Response`>
 pub trait IntoAsyncServiceCallback<T, Args>: Send + 'static
 where
     T: Service,
