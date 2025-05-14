@@ -401,6 +401,12 @@ impl NodeState {
     /// multiple times simultaneously with different incoming requests. This
     /// will depend on what kind of executor is running.
     ///
+    /// If you want to ensure that calls to this service can only run
+    /// one-at-a-time then consider creating a [`Worker`] and using that to
+    /// [create a service][worker-service].
+    ///
+    /// [worker-service]: WorkerState::create_service
+    ///
     /// # Service Options
     ///
     /// Pass in only the service name for the `options` argument to use all default service options:
@@ -480,9 +486,9 @@ impl NodeState {
     /// )?;
     /// # Ok::<(), RclrsError>(())
     /// ```
-    /// To share internal state outside of the callback you will need to wrap it
-    /// in [`Arc`] or `Arc<Mutex<S>>` and then clone the [`Arc`] before capturing
-    /// it in the closure:
+    /// To share the internal state outside of the callback you will need to
+    /// wrap it in [`Arc`] or `Arc<Mutex<S>>` and then clone the [`Arc`] before
+    /// capturing it in the closure:
     ///
     /// ```
     /// # use rclrs::*;
@@ -551,46 +557,8 @@ impl NodeState {
     ///
     /// # Service Options
     ///
-    /// Pass in only the service name for the `options` argument to use all default service options:
-    /// ```
-    /// # use rclrs::*;
-    /// # let executor = Context::default().create_basic_executor();
-    /// # let node = executor.create_node("my_node").unwrap();
-    /// let service = node.create_service::<test_msgs::srv::Empty, _>(
-    ///     "my_service",
-    ///     |_request: test_msgs::srv::Empty_Request| {
-    ///         println!("Received request!");
-    ///         test_msgs::srv::Empty_Response::default()
-    ///     },
-    /// );
-    /// ```
-    ///
-    /// Take advantage of the [`IntoPrimitiveOptions`] API to easily build up the
-    /// service options:
-    ///
-    /// ```
-    /// # use rclrs::*;
-    /// # let executor = Context::default().create_basic_executor();
-    /// # let node = executor.create_node("my_node").unwrap();
-    /// let service = node.create_service::<test_msgs::srv::Empty, _>(
-    ///     "my_service"
-    ///     .keep_all()
-    ///     .transient_local(),
-    ///     |_request: test_msgs::srv::Empty_Request| {
-    ///         println!("Received request!");
-    ///         test_msgs::srv::Empty_Response::default()
-    ///     },
-    /// );
-    /// ```
-    ///
-    /// Any quality of service options that you explicitly specify will override
-    /// the default service options. Any that you do not explicitly specify will
-    /// remain the default service options. Note that services are generally
-    /// expected to use [reliable][2], so it's best not to change the reliability
-    /// setting unless you know what you are doing.
-    ///
-    /// [1]: crate::Service
-    /// [2]: crate::QoSReliabilityPolicy::Reliable
+    /// See [`create_service`][NodeState::create_service] for examples of setting
+    /// the service options.
     ///
     /// # Async Service Callbacks
     ///
@@ -608,7 +576,7 @@ impl NodeState {
     /// immediately return a [`Future`][5], so in many cases any internal state
     /// that needs to be mutated will still need to be wrapped in [`Arc`] and
     /// [`Mutex`] to ensure it is synchronized across multiple runs of the
-    /// callback.
+    /// `Future` that the callback produces.
     ///
     /// However unlike the blocking callbacks that can be provided to
     /// [`NodeState::create_service`], callbacks for async services can take
@@ -684,7 +652,7 @@ impl NodeState {
     /// manage a changing state for the subscription, consider using
     /// [`WorkerState::create_subscription`] instead of this one.
     ///
-    /// # Usage
+    /// # Subscription Options
     ///
     /// Pass in only the topic name for the `options` argument to use all default subscription options:
     /// ```
@@ -724,8 +692,74 @@ impl NodeState {
     /// );
     /// ```
     ///
-    //
-    // TODO(@mxgrey): Add examples showing each supported callback signatures
+    /// # Subscription Callbacks
+    ///
+    /// Subscription callbacks support six signatures:
+    /// - [`Fn`] ( `Message` )
+    /// - [`Fn`] ( `Message`, [`MessageInfo`][1] )
+    /// - [`Fn`] ( [`Box`]<`Message`> )
+    /// - [`Fn`] ( [`Box`]<`Message`>, [`MessageInfo`][1] )
+    /// - [`Fn`] ( [`ReadOnlyLoanedMessage`][2]<`Message`> )
+    /// - [`Fn`] ( [`ReadOnlyLoanedMessage`][2]<`Message`>, [`MessageInfo`][1] )
+    ///
+    /// [1]: crate::MessageInfo
+    /// [2]: crate::ReadOnlyLoanedMessage
+    ///
+    /// All function signatures use [`Fn`] since the callback may be run
+    /// multiple times simultaneously across different threads depending on the
+    /// executor runtime that is being used. Because of this, any internal state
+    /// captured into the callback that needs to be mutated will need to be
+    /// wrapped in [`Mutex`] to ensure it is synchronized across multiple
+    /// simultaneous runs of the callback. For example:
+    ///
+    /// ```
+    /// # use rclrs::*;
+    /// # let executor = Context::default().create_basic_executor();
+    /// # let node = executor.create_node("my_node").unwrap();
+    /// use std::sync::Mutex;
+    ///
+    /// let num_messages = Mutex::new(0usize);
+    /// let subscription = node.create_subscription(
+    ///     "topic",
+    ///     move |msg: example_interfaces::msg::String| {
+    ///         let mut num = num_messages.lock().unwrap();
+    ///         *num += 1;
+    ///         println!("#{} | I heard: '{}'", *num, msg.data);
+    ///     },
+    /// )?;
+    /// # Ok::<(), RclrsError>(())
+    /// ```
+    ///
+    /// To share the internal state outside of the callback you will need to
+    /// wrap it in [`Arc`] (or `Arc<Mutex<S>>` for mutability) and then clone
+    /// the [`Arc`] before capturing it in the closure:
+    ///
+    /// ```
+    /// # use rclrs::*;
+    /// # let executor = Context::default().create_basic_executor();
+    /// # let node = executor.create_node("my_node").unwrap();
+    /// use std::sync::{Arc, Mutex};
+    ///
+    /// let data = Arc::new(Mutex::new(String::new()));
+    ///
+    /// let data_in_subscription = Arc::clone(&data);
+    /// let subscription = node.create_subscription(
+    ///     "topic",
+    ///     move |msg: example_interfaces::msg::String| {
+    ///         let mut data = data_in_subscription.lock().unwrap();
+    ///         *data = msg.data;
+    ///     },
+    /// )?;
+    ///
+    /// // TODO(@mxgrey): Replace this with a timer when timers become available
+    /// std::thread::spawn(move || {
+    ///     loop {
+    ///         std::thread::sleep(std::time::Duration::from_secs(1));
+    ///         println!("Last message received: {}", data.lock().unwrap());
+    ///     }
+    /// });
+    /// # Ok::<(), RclrsError>(())
+    /// ```
     pub fn create_subscription<'a, T, Args>(
         &self,
         options: impl Into<SubscriptionOptions<'a>>,
@@ -748,21 +782,86 @@ impl NodeState {
     ///
     /// This callback may run in parallel with other callbacks. It may even run
     /// multiple times simultaneously with different incoming messages. This
-    /// parallelism will depend on the executor that is being used. When the
-    /// callback uses `.await`, it will not block anything else from running.
+    /// parallelism will depend on the executor that is being used.
     ///
-    /// Any internal state that needs to be mutated will need to be wrapped in
-    /// [`Mutex`] to ensure it is synchronized across multiple runs of the
-    /// callback. To share internal state outside of the callback you will need
-    /// to wrap it in [`Arc`] or `Arc<Mutex<S>>`. You could also consider storing
-    /// the shared state inside of a [`Worker`] and calling [`WorkerState::run`]
-    /// from inside this callback to interact with the state.
+    /// The key advantage of an async subscription is that the callback can use
+    /// `.await`, and other callbacks will be able to run concurrently without
+    /// being blocked by this callback. You can also pass in an `async fn` as
+    /// the callback, but in most cases you will probably need to use a closure
+    /// that returns an `async { ... }` block so that you can capture some state
+    /// into the closure.
     ///
-    /// # Usage
+    /// If you don't need async language features for your callback, then
+    /// consider using [`NodeState::create_subscription`] or
+    /// [`WorkerState::create_subscription`].
     ///
-    /// See [create_subscription][NodeState::create_subscription] for usage.
-    //
-    // TODO(@mxgrey): Add examples showing each supported signature
+    /// # Subscription Options
+    ///
+    /// See [`create_subscription`][NodeState::create_subscription] for examples
+    /// of setting the subscription options.
+    ///
+    /// # Async Subscription Callbacks
+    ///
+    /// Async subscription callbacks support six signatures:
+    /// - [`FnMut`] ( `Message` ) -> impl [`Future`][1]<Output=()>
+    /// - [`FnMut`] ( `Message`, [`MessageInfo`][2] ) -> impl [`Future`][1]<Output=()>
+    /// - [`FnMut`] ( [`Box`]<`Message`> ) -> impl [`Future`][1]<Output=()>
+    /// - [`FnMut`] ( [`Box`]<`Message`>, [`MessageInfo`][2] ) -> impl [`Future`][1]<Output=()>
+    /// - [`FnMut`] ( [`ReadOnlyLoanedMessage`][3]<`Message`> ) -> impl [`Future`][1]<Output=()>
+    /// - [`FnMut`] ( [`ReadOnlyLoanedMessage`][3]<`Message`>, [`MessageInfo`][2] ) -> impl [`Future`][1]<Output=()>
+    ///
+    /// [1]: std::future::Future
+    /// [2]: crate::MessageInfo
+    /// [3]: crate::ReadOnlyLoanedMessage
+    ///
+    /// In this case the closure can be [`FnMut`], allowing internal state to be
+    /// mutable, but it should be noted that the function is expected to
+    /// immediately return a [`Future`][1], so in many cases any internal state
+    /// that needs to be mutable will still need to be wrapped in [`Arc`] and
+    /// [`Mutex`] to ensure it is synchronized across mutliple runs of the
+    /// `Future` that the callback produces.
+    ///
+    /// However unlike the blocking callbacks that can be provided to
+    /// [`NodeState::create_subscription`], callbacks for async subscriptions
+    /// can take advantage of `.await`. This allows you to capture [`Client`]s
+    /// or [`Worker`]s into the closure, run tasks on them, and await the
+    /// outcome. This allows one async subscription to share state data across
+    /// multiple workers.
+    ///
+    /// ```
+    /// # use rclrs::*;
+    /// # let executor = Context::default().create_basic_executor();
+    /// # let node = executor.create_node("my_node").unwrap();
+    /// use std::sync::Arc;
+    ///
+    /// let count_worker = node.create_worker(0_usize);
+    /// let data_worker = node.create_worker(String::new());
+    ///
+    /// let service = node.create_async_subscription::<example_interfaces::msg::String, _>(
+    ///     "topic",
+    ///     move |msg: example_interfaces::msg::String| {
+    ///         // Clone the workers so they can be captured into the async block
+    ///         let count_worker = Arc::clone(&count_worker);
+    ///         let data_worker = Arc::clone(&data_worker);
+    ///         async move {
+    ///             // Update the message count
+    ///             let current_count = count_worker.run(move |count: &mut usize| {
+    ///                 *count += 1;
+    ///                 *count
+    ///             }).await.unwrap();
+    ///
+    ///             // Change the data in the data_worker and get back the data
+    ///             // that was previously put in there.
+    ///             let previous = data_worker.run(move |data: &mut String| {
+    ///                 std::mem::replace(data, msg.data)
+    ///             }).await.unwrap();
+    ///
+    ///             println!("Current count is {current_count}, data was previously {previous}");
+    ///        }
+    ///     }
+    /// )?;
+    /// # Ok::<(), RclrsError>(())
+    /// ```
     pub fn create_async_subscription<'a, T, Args>(
         &self,
         options: impl Into<SubscriptionOptions<'a>>,
