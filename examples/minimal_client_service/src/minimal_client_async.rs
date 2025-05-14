@@ -1,6 +1,6 @@
 use anyhow::{Error, Result};
-use rclrs::*;
 use example_interfaces::srv::*;
+use rclrs::*;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
@@ -18,15 +18,14 @@ async fn main() -> Result<(), Error> {
 
     let request = AddTwoInts_Request { a: 41, b: 1 };
 
-    let promise = client.call_then(
-        &request,
-        move |response: AddTwoInts_Response| {
+    let promise = client
+        .call_then(&request, move |response: AddTwoInts_Response| {
             println!(
                 "Result of {} + {} is: {}",
                 request.a, request.b, response.sum,
             );
-        }
-    ).unwrap();
+        })
+        .unwrap();
 
     println!("Waiting for response");
     executor

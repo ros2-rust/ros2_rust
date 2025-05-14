@@ -17,8 +17,6 @@ fn main() -> Result<(), Error> {
     )?;
 
     println!("Waiting for messages...");
-    executor
-        .spin(SpinOptions::default())
-        .first_error()?;
+    executor.spin(SpinOptions::default()).first_error()?;
     Ok(())
 }

@@ -12,25 +12,16 @@ fn main() -> Result<(), RclrsError> {
 
             // You can apply modifiers such as .once() to node.logger()
             // to dictate how the logging behaves.
-            log!(
-                node.logger().once(),
-                "First message: {data}",
-            );
+            log!(node.logger().once(), "First message: {data}",);
 
-            log!(
-                node.logger().skip_first(),
-                "Subsequent message: {data}",
-            );
+            log!(node.logger().skip_first(), "Subsequent message: {data}",);
 
             // You can chain multiple modifiers together.
             log_warn!(
-                node
-                .logger()
-                .skip_first()
-                .throttle(Duration::from_secs(5)),
+                node.logger().skip_first().throttle(Duration::from_secs(5)),
                 "Throttled message: {data}",
             );
-        }
+        },
     )?;
 
     // Any &str can be used as the logger name and have

@@ -1,11 +1,8 @@
 use anyhow::{Error, Result};
-use rclrs::*;
 use example_interfaces::srv::*;
+use rclrs::*;
 
-fn handle_service(
-    request: AddTwoInts_Request,
-    info: ServiceInfo,
-) -> AddTwoInts_Response {
+fn handle_service(request: AddTwoInts_Request, info: ServiceInfo) -> AddTwoInts_Response {
     let timestamp = info
         .received_timestamp
         .map(|t| format!(" at [{t:?}]"))
@@ -22,12 +19,9 @@ fn main() -> Result<(), Error> {
 
     let node = executor.create_node("minimal_service")?;
 
-    let _server = node
-        .create_service::<AddTwoInts, _>("add_two_ints", handle_service)?;
+    let _server = node.create_service::<AddTwoInts, _>("add_two_ints", handle_service)?;
 
     println!("Starting server");
-    executor
-        .spin(SpinOptions::default())
-        .first_error()?;
+    executor.spin(SpinOptions::default()).first_error()?;
     Ok(())
 }

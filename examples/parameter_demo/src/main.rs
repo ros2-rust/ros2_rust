@@ -10,12 +10,10 @@ fn main() -> Result<(), RclrsError> {
         .default("Hello".into())
         .mandatory()?;
 
-    let _subscription = node.create_subscription(
-        "greet",
-        move |msg: example_interfaces::msg::String| {
+    let _subscription =
+        node.create_subscription("greet", move |msg: example_interfaces::msg::String| {
             println!("{}, {}", greeting.get(), msg.data);
-        }
-    )?;
+        })?;
 
     println!(
         "Ready to provide a greeting. \

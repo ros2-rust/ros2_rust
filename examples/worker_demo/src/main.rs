@@ -12,7 +12,7 @@ fn main() -> Result<(), RclrsError> {
         "input_topic",
         move |data: &mut String, msg: example_interfaces::msg::String| {
             *data = msg.data;
-        }
+        },
     )?;
 
     // // Use this timer-based implementation when timers are available instead
@@ -28,19 +28,14 @@ fn main() -> Result<(), RclrsError> {
     //     }
     // )?;
 
-    std::thread::spawn(move || {
-        loop {
-            std::thread::sleep(std::time::Duration::from_secs(1));
-            let publisher = Arc::clone(&publisher);
-            let _ = worker.run(move |data: &mut String| {
-                let msg = example_interfaces::msg::String {
-                    data: data.clone()
-                };
-                publisher.publish(msg).unwrap();
-            });
-        }
+    std::thread::spawn(move || loop {
+        std::thread::sleep(std::time::Duration::from_secs(1));
+        let publisher = Arc::clone(&publisher);
+        let _ = worker.run(move |data: &mut String| {
+            let msg = example_interfaces::msg::String { data: data.clone() };
+            publisher.publish(msg).unwrap();
+        });
     });
-
 
     println!(
         "Beginning repeater... \n >> \
