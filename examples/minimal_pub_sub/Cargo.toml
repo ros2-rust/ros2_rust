@@ -27,15 +27,12 @@ path = "src/zero_copy_publisher.rs"
 
 [dependencies]
 anyhow = {version = "1", features = ["backtrace"]}
+rclrs = "0.4"
+rosidl_runtime_rs = "0.4"
+std_msgs = "*"
 
-[dependencies.rclrs]
-version = "0.4"
-
-[dependencies.rosidl_runtime_rs]
-version = "0.4"
-
-[dependencies.std_msgs]
-version = "*"
+# This specific version is compatible with Rust 1.75
+backtrace = "=0.3.74"
 
 [package.metadata.ros]
 install_to_share = ["launch"]
