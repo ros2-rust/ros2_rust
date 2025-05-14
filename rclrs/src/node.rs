@@ -34,7 +34,7 @@ use crate::{
     Publisher, PublisherOptions, PublisherState, RclrsError, Service, IntoAsyncServiceCallback,
     IntoNodeServiceCallback, ServiceOptions, ServiceState, Subscription, IntoAsyncSubscriptionCallback,
     IntoNodeSubscriptionCallback, SubscriptionOptions, SubscriptionState, TimeSource, ToLogParams,
-    ENTITY_LIFECYCLE_MUTEX, IntoWorkerOptions, Worker, WorkerState,
+    ENTITY_LIFECYCLE_MUTEX, Worker, WorkerOptions, WorkerState,
 };
 
 /// A processing unit that can communicate with other nodes. See the API of
@@ -293,12 +293,12 @@ impl NodeState {
     /// created later inside a subscription or service callback using the [`Node`].
     pub fn create_worker<'a, Payload>(
         self: &Arc<Self>,
-        options: impl IntoWorkerOptions<Payload>,
+        options: impl Into<WorkerOptions<Payload>>,
     ) -> Worker<Payload>
     where
         Payload: 'static + Send + Sync,
     {
-        let options = options.into_worker_options();
+        let options = options.into();
         let commands = self.commands.create_worker_commands(Box::new(options.payload));
         WorkerState::create(Arc::clone(self), commands)
     }

@@ -218,17 +218,9 @@ impl<Payload> WorkerOptions<Payload> {
     }
 }
 
-/// Implicitly convert something into [`WorkerOptions`].
-pub trait IntoWorkerOptions<Payload> {
-    /// Convert an object into [`WorkerOptions`]. Users do not need to call this.
-    fn into_worker_options(self) -> WorkerOptions<Payload>;
-    // TODO(@mxgrey): Check what happens when a user passes in an actual
-    // WorkerOptions... it might create a WorkerOptions<WorkerOptions<T>>.
-}
-
-impl<Payload> IntoWorkerOptions<Payload> for Payload {
-    fn into_worker_options(self) -> WorkerOptions<Payload> {
-        WorkerOptions::new(self)
+impl<T> From<T> for WorkerOptions<T> {
+    fn from(value: T) -> Self {
+        WorkerOptions::new(value)
     }
 }
 

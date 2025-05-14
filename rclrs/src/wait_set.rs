@@ -1,26 +1,9 @@
-// Copyright 2020 DCS Corporation, All Rights Reserved.
-
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-
-//     http://www.apache.org/licenses/LICENSE-2.0
-
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
-// DISTRIBUTION A. Approved for public release; distribution unlimited.
-// OPSEC #4584.
-
 use std::{collections::HashMap, sync::Arc, time::Duration, vec::Vec};
 
 use crate::{
     error::{to_rclrs_result, RclReturnCode, RclrsError, ToResult},
     rcl_bindings::*,
-    Context, ContextHandle,
+    Context, ContextHandle, log_error,
 };
 
 mod guard_condition;
@@ -170,8 +153,10 @@ impl WaitSet {
         // the rcl entities.
         self.rcl_clear();
         if let Err(err) = self.register_rcl_primitives() {
-            // TODO(@mxgrey): Log this error when logging is available
-            eprintln!("Error while registering rcl primitives: {err}");
+            log_error!(
+                "rclrs.WaitSet.wait",
+                "Error while registering rcl primitives: {err}",
+            );
         }
 
         Ok(())

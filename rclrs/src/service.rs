@@ -176,7 +176,6 @@ impl<T: IdlService> ServiceState<T, Node> {
     /// If the `Scope` is [`Worker<Payload>`] then use [`Self::set_worker_callback`] instead.
     pub fn set_callback<Args>(&self, callback: impl IntoNodeServiceCallback<T, Args>) {
         let callback = callback.into_node_service_callback();
-        // TODO(@mxgrey): Log any errors here when logging becomes available
         *self.callback.lock().unwrap() = callback;
     }
 
