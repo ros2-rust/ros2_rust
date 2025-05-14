@@ -1,0 +1,9 @@
+[package]
+name = "advanced_logging"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+rclrs = "*"
+std_msgs = "*"
+anyhow = { version = "1", features = ["backtrace"] }
