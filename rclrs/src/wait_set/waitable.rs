@@ -14,7 +14,7 @@ use crate::{
 /// used anymore.
 #[must_use = "If you do not give the Waiter to a WaitSet then it will never be useful"]
 pub struct Waitable {
-    pub(super) primitive: Box<dyn RclPrimitive + Send + Sync>,
+    pub(super) primitive: Box<dyn RclPrimitive>,
     in_use: Arc<AtomicBool>,
     index_in_wait_set: Option<usize>,
 }
