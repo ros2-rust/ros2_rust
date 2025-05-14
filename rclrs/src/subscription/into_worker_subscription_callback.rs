@@ -6,17 +6,17 @@ use crate::{ReadOnlyLoanedMessage, MessageInfo, AnySubscriptionCallback, WorkerS
 ///
 /// Worker Subscription callbacks support twelve signatures:
 /// - [`FnMut`] ( `Message` )
-/// - [`FnMut`] ( `Message`, [`MessageInfo`][4] )
+/// - [`FnMut`] ( `Message`, [`MessageInfo`] )
 /// - [`FnMut`] ( `&mut Payload`, `Message` )
-/// - [`FnMut`] ( `&mut Payload`, `Message`, [`MessageInfo`][4] )
+/// - [`FnMut`] ( `&mut Payload`, `Message`, [`MessageInfo`] )
 /// - [`FnMut`] ( [`Box`]<`Message`> )
-/// - [`FnMut`] ( [`Box`]<`Message`>, [`MessageInfo`][4] )
+/// - [`FnMut`] ( [`Box`]<`Message`>, [`MessageInfo`] )
 /// - [`FnMut`] ( `&mut Payload`, [`Box`]<`Message`> )
-/// - [`FnMut`] ( `&mut Payload`, [`Box`]<`Message`>, [`MessageInfo`][4] )
-/// - [`FnMut`] ( [`ReadOnlyLoanedMessage`][5]<`Message`> )
-/// - [`FnMut`] ( [`ReadOnlyLoanedMessage`][5]<`Message`>, [`MessageInfo`][4] )
-/// - [`FnMut`] ( `&mut Payload`, [`ReadOnlyLoanedMessage`][5]<`Message`> )
-/// - [`FnMut`] ( `&mut Payload`, [`ReadOnlyLoanedMessage`][5]<`Message`>, [`MessageInfo`][4] )
+/// - [`FnMut`] ( `&mut Payload`, [`Box`]<`Message`>, [`MessageInfo`] )
+/// - [`FnMut`] ( [`ReadOnlyLoanedMessage`]<`Message`> )
+/// - [`FnMut`] ( [`ReadOnlyLoanedMessage`]<`Message`>, [`MessageInfo`] )
+/// - [`FnMut`] ( `&mut Payload`, [`ReadOnlyLoanedMessage`]<`Message`> )
+/// - [`FnMut`] ( `&mut Payload`, [`ReadOnlyLoanedMessage`]<`Message`>, [`MessageInfo`] )
 pub trait IntoWorkerSubscriptionCallback<T, Payload, Args>: Send + 'static
 where
     T: Message,

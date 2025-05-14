@@ -10,11 +10,11 @@ use std::sync::Arc;
 ///
 /// Subscription callbacks support six signatures:
 /// - [`Fn`] ( `Message` )
-/// - [`Fn`] ( `Message`, [`MessageInfo`][1] )
+/// - [`Fn`] ( `Message`, [`MessageInfo`] )
 /// - [`Fn`] ( [`Box`]<`Message`> )
-/// - [`Fn`] ( [`Box`]<`Message`>, [`MessageInfo`][1] )
-/// - [`Fn`] ( [`ReadOnlyLoanedMessage`][2]<`Message`> )
-/// - [`Fn`] ( [`ReadOnlyLoanedMessage`][2]<`Message`>, [`MessageInfo`][1] )
+/// - [`Fn`] ( [`Box`]<`Message`>, [`MessageInfo`] )
+/// - [`Fn`] ( [`ReadOnlyLoanedMessage`]<`Message`> )
+/// - [`Fn`] ( [`ReadOnlyLoanedMessage`]<`Message`>, [`MessageInfo`] )
 pub trait IntoNodeSubscriptionCallback<T, Args>: Send + 'static
 where
     T: Message,

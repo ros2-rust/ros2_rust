@@ -10,12 +10,12 @@ use std::future::Future;
 /// A trait for async callbacks of subscriptions.
 ///
 /// Async subscription callbacks support six signatures:
-/// - [`FnMut`] ( `Message` ) -> impl [`Future`][1]<Output=()>
-/// - [`FnMut`] ( `Message`, [`MessageInfo`][2] ) -> impl [`Future`][1]<Output=()>
-/// - [`FnMut`] ( [`Box`]<`Message`> ) -> impl [`Future`][1]<Output=()>
-/// - [`FnMut`] ( [`Box`]<`Message`>, [`MessageInfo`][2] ) -> impl [`Future`][1]<Output=()>
-/// - [`FnMut`] ( [`ReadOnlyLoanedMessage`][3]<`Message`> ) -> impl [`Future`][1]<Output=()>
-/// - [`FnMut`] ( [`ReadOnlyLoanedMessage`][3]<`Message`>, [`MessageInfo`][2] ) -> impl [`Future`][1]<Output=()>
+/// - [`FnMut`] ( `Message` ) -> impl [`Future`]<Output=()>
+/// - [`FnMut`] ( `Message`, [`MessageInfo`] ) -> impl [`Future`]<Output=()>
+/// - [`FnMut`] ( [`Box`]<`Message`> ) -> impl [`Future`]<Output=()>
+/// - [`FnMut`] ( [`Box`]<`Message`>, [`MessageInfo`] ) -> impl [`Future`]<Output=()>
+/// - [`FnMut`] ( [`ReadOnlyLoanedMessage`]<`Message`> ) -> impl [`Future`]<Output=()>
+/// - [`FnMut`] ( [`ReadOnlyLoanedMessage`]<`Message`>, [`MessageInfo`] ) -> impl [`Future`]<Output=()>
 pub trait IntoAsyncSubscriptionCallback<T, Args>: Send + 'static
 where
     T: Message,

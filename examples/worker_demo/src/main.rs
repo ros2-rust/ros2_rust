@@ -10,7 +10,7 @@ fn main() -> Result<(), RclrsError> {
 
     let _subscription = worker.create_subscription(
         "input_topic",
-        move |data: &mut String, msg: std_msgs::msg::String| {
+        move |data: &mut String, msg: example_interfaces::msg::String| {
             *data = msg.data;
         }
     )?;
@@ -20,7 +20,7 @@ fn main() -> Result<(), RclrsError> {
     // let _timer = worker.create_timer_repeating(
     //     Duration::from_secs(1),
     //     move |data: &mut String| {
-    //         let msg = std_msgs::msg::String {
+    //         let msg = example_interfaces::msg::String {
     //             data: data.clone()
     //         };
 
@@ -33,7 +33,7 @@ fn main() -> Result<(), RclrsError> {
             std::thread::sleep(std::time::Duration::from_secs(1));
             let publisher = Arc::clone(&publisher);
             let _ = worker.run(move |data: &mut String| {
-                let msg = std_msgs::msg::String {
+                let msg = example_interfaces::msg::String {
                     data: data.clone()
                 };
                 publisher.publish(msg).unwrap();

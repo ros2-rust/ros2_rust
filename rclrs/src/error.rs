@@ -4,7 +4,7 @@ use std::{
     fmt::{self, Display},
 };
 
-use crate::rcl_bindings::*;
+use crate::{rcl_bindings::*, DeclarationError};
 
 /// The main error type.
 #[derive(Debug, PartialEq, Eq)]
@@ -47,6 +47,8 @@ pub enum RclrsError {
         /// The payload type given by the worker
         received: std::any::TypeId,
     },
+    /// An error happened while declaring a parameter.
+    ParameterDeclarationError(crate::DeclarationError),
     /// A mutex used internally has been [poisoned][std::sync::PoisonError].
     PoisonedMutex,
 }
@@ -110,6 +112,12 @@ impl Display for RclrsError {
                     "Received invalid payload: expected {expected:?}, received {received:?}",
                 )
             }
+            RclrsError::ParameterDeclarationError(err) => {
+                write!(
+                    f,
+                    "An error occurred while declaring a parameter: {err}",
+                )
+            }
             RclrsError::PoisonedMutex => {
                 write!(
                     f,
@@ -153,6 +161,7 @@ impl Error for RclrsError {
             RclrsError::NegativeDuration(_) => None,
             RclrsError::UnownedGuardCondition => None,
             RclrsError::InvalidPayload { .. } => None,
+            RclrsError::ParameterDeclarationError(_) => None,
             RclrsError::PoisonedMutex => None,
         }
     }
@@ -253,6 +262,12 @@ pub enum RclReturnCode {
     LifecycleStateRegistered = 3000,
     /// `rcl_lifecycle` state not registered
     LifecycleStateNotRegistered = 3001,
+}
+
+impl From<DeclarationError> for RclrsError {
+    fn from(value: DeclarationError) -> Self {
+        RclrsError::ParameterDeclarationError(value)
+    }
 }
 
 impl TryFrom<i32> for RclReturnCode {

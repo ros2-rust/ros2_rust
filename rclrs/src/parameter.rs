@@ -639,7 +639,7 @@ impl std::fmt::Display for ParameterValueError {
 impl std::error::Error for ParameterValueError {}
 
 /// Error that can be generated when doing operations on parameters.
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum DeclarationError {
     /// Parameter was already declared and a new declaration was attempted.
     AlreadyDeclared,

@@ -1,9 +1,122 @@
 #![warn(missing_docs)]
 //! Rust client library for ROS 2.
 //!
-//! For getting started, see the [README][1].
+//! Since this library depends on the ROS ecosystem, see the [README][1] for
+//! setup instructions.
 //!
 //! [1]: https://github.com/ros2-rust/ros2_rust/blob/main/README.md
+//!
+//! This client library is made to be familiar for ROS users who are used to
+//! the conventional client libraries `rcl`, `rclcpp`, and `rclpy`, while taking
+//! full advantage of the unique strengths of the Rust programming language.
+//!
+//! The library provides structs that will be familiar to ROS users:
+//! - [`Context`]
+//! - [`Executor`]
+//! - [`Node`]
+//! - [`Subscription`]
+//! - [`Publisher`]
+//! - [`Service`]
+//! - [`Client`]
+//!
+//! It also provides some unique utilities to help leverage Rust language features,
+//! such as `async` programming:
+//! - [`Worker`]
+//! - [`ExecutorCommands`]
+//!
+//! # Basic Usage
+//!
+//! To build a typical ROS application, create a [`Context`], followed by an
+//! [`Executor`], and then a [`Node`]. Create whatever primitives you need, and
+//! then tell the [`Executor`] to spin:
+//!
+//! ```no_run
+//! use rclrs::*;
+//!
+//! let context = Context::default_from_env()?;
+//! let mut executor = context.create_basic_executor();
+//! let node = executor.create_node("example_node")?;
+//!
+//! let subscription = node.create_subscription(
+//!     "topic_name",
+//!     |msg: example_interfaces::msg::String| {
+//!         println!("Received message: {}", msg.data);
+//!     }
+//! )?;
+//!
+//! executor.spin(SpinOptions::default()).first_error()?;
+//! # Ok::<(), RclrsError>(())
+//! ```
+//!
+//! If your callback needs to interact with some state data, consider using a
+//! [`Worker`], especially if that state data needs to be shared with other
+//! callbacks:
+//!
+//! ```no_run
+//! # use rclrs::*;
+//! #
+//! # let context = Context::default_from_env()?;
+//! # let mut executor = context.create_basic_executor();
+//! # let node = executor.create_node("example_node")?;
+//! #
+//! // This worker will manage the data for us.
+//! // The worker's data is called its payload.
+//! let worker = node.create_worker::<Option<String>>(None);
+//!
+//! // We use the worker to create a subscription.
+//! // This subscription's callback can borrow the worker's
+//! // payload with its first function argument.
+//! let subscription = worker.create_subscription(
+//!     "topic_name",
+//!     |data: &mut Option<String>, msg: example_interfaces::msg::String| {
+//!         // Print out the previous message, if one exists.
+//!         if let Some(previous) = data {
+//!             println!("Previous message: {}", *previous)
+//!         }
+//!
+//!         // Save the latest message, to be printed out the
+//!         // next time this callback is triggered.
+//!         *data = Some(msg.data);
+//!     }
+//! )?;
+//!
+//! # executor.spin(SpinOptions::default()).first_error()?;
+//! # Ok::<(), RclrsError>(())
+//! ```
+//!
+//! # Parameters
+//!
+//! `rclrs` provides an ergonomic way to declare and use node parameters. A
+//! parameter can be declared as [mandatory][crate::MandatoryParameter],
+//! [optional][crate::OptionalParameter], or [read-only][crate::ReadOnlyParameter].
+//! The API of each reflects their respective constraints.
+//! - Mandatory and read-only parameters always have a value that you can [get][MandatoryParameter::get]
+//! - Optional parameters will return an [`Option`] when you [get][OptionalParameter::get] from them.
+//! - Read-only parameters do not allow you to modify them after they have been declared.
+//!
+//! The following is a simple example of using a mandatory parameter:
+//! ```no_run
+//! use rclrs::*;
+//! use std::sync::Arc;
+//!
+//! let mut executor = Context::default_from_env()?.create_basic_executor();
+//! let node = executor.create_node("parameter_demo")?;
+//!
+//! let greeting: MandatoryParameter<Arc<str>> = node
+//!     .declare_parameter("greeting")
+//!     .default("Hello".into())
+//!     .mandatory()?;
+//!
+//! let _subscription = node.create_subscription(
+//!     "greet",
+//!     move |msg: example_interfaces::msg::String| {
+//!         println!("{}, {}", greeting.get(), msg.data);
+//!     }
+//! )?;
+//!
+//! executor.spin(SpinOptions::default()).first_error()?;
+//! # Ok::<(), RclrsError>(())
+//! ```
 
 mod arguments;
 mod client;
