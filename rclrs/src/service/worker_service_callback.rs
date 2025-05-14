@@ -1,8 +1,6 @@
 use rosidl_runtime_rs::Service;
 
-use crate::{
-    RclrsError, RclrsErrorFilter, RequestId, ServiceHandle, ServiceInfo,
-};
+use crate::{RclrsError, RclrsErrorFilter, RequestId, ServiceHandle, ServiceInfo};
 
 use std::{any::Any, sync::Arc};
 
@@ -39,7 +37,7 @@ where
             return Err(RclrsError::InvalidPayload {
                 expected: std::any::TypeId::of::<Payload>(),
                 received: (*any_payload).type_id(),
-            })
+            });
         };
 
         let mut evaluate = || {

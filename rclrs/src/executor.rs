@@ -1,7 +1,10 @@
 mod basic_executor;
 pub use self::basic_executor::*;
 
-use crate::{WeakActivityListener, Context, ContextHandle, GuardCondition, IntoNodeOptions, Node, RclrsError, Waitable};
+use crate::{
+    Context, ContextHandle, GuardCondition, IntoNodeOptions, Node, RclrsError, Waitable,
+    WeakActivityListener,
+};
 pub use futures::channel::oneshot::Receiver as Promise;
 use futures::{
     channel::oneshot,
@@ -92,7 +95,9 @@ impl Executor {
     {
         let executor_channel = runtime.channel();
         let async_worker_commands = ExecutorCommands::impl_create_worker_commands(
-            &Context { handle: Arc::clone(&context) },
+            &Context {
+                handle: Arc::clone(&context),
+            },
             &*executor_channel,
             Box::new(()),
         );
@@ -168,16 +173,18 @@ impl ExecutorCommands {
         F::Output: Send,
     {
         let (mut sender, receiver) = oneshot::channel();
-        self.async_worker_commands.channel.add_async_task(Box::pin(async move {
-            let cancellation = sender.cancellation();
-            let output = match select(cancellation, std::pin::pin!(f)).await {
-                // The task was cancelled
-                Either::Left(_) => return,
-                // The task completed
-                Either::Right((output, _)) => output,
-            };
-            sender.send(output).ok();
-        }));
+        self.async_worker_commands
+            .channel
+            .add_async_task(Box::pin(async move {
+                let cancellation = sender.cancellation();
+                let output = match select(cancellation, std::pin::pin!(f)).await {
+                    // The task was cancelled
+                    Either::Left(_) => return,
+                    // The task completed
+                    Either::Right((output, _)) => output,
+                };
+                sender.send(output).ok();
+            }));
 
         receiver
     }
@@ -203,9 +210,11 @@ impl ExecutorCommands {
         F::Output: Send,
     {
         let (sender, receiver) = oneshot::channel();
-        self.async_worker_commands.channel.add_async_task(Box::pin(async move {
-            sender.send(f.await).ok();
-        }));
+        self.async_worker_commands
+            .channel
+            .add_async_task(Box::pin(async move {
+                sender.send(f.await).ok();
+            }));
         receiver
     }
 
@@ -244,7 +253,10 @@ impl ExecutorCommands {
         &self.async_worker_commands
     }
 
-    pub(crate) fn create_worker_commands(&self, payload: Box<dyn Any + Send>) -> Arc<WorkerCommands> {
+    pub(crate) fn create_worker_commands(
+        &self,
+        payload: Box<dyn Any + Send>,
+    ) -> Arc<WorkerCommands> {
         Self::impl_create_worker_commands(&self.context, &*self.executor_channel, payload)
     }
 
@@ -344,10 +356,7 @@ pub struct ExecutorWorkerOptions {
 pub trait ExecutorChannel: Send + Sync {
     /// Create a new channel specific to a worker whose payload must be
     /// initialized with the given function.
-    fn create_worker(
-        &self,
-        options: ExecutorWorkerOptions,
-    ) -> Arc<dyn WorkerChannel>;
+    fn create_worker(&self, options: ExecutorWorkerOptions) -> Arc<dyn WorkerChannel>;
 
     /// Wake all the wait sets that are being managed by this executor. This is
     /// used to make sure they respond to [`ExecutorCommands::halt_spinning`].
@@ -477,4 +486,3 @@ impl CreateBasicExecutor for Context {
         self.create_executor(runtime)
     }
 }
-

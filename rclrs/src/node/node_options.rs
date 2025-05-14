@@ -476,4 +476,3 @@ impl Drop for rcl_node_options_t {
         }
     }
 }
-

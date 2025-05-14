@@ -1,11 +1,13 @@
-use rosidl_runtime_rs::{Message, Service as IdlService};
-use std::{any::Any, sync::{Arc, Mutex, Weak}};
-use futures::channel::oneshot;
 use crate::{
-    WorkerCommands, Promise, log_fatal,
-    IntoWorkerSubscriptionCallback, IntoWorkerServiceCallback,
-    WorkerSubscription, SubscriptionState, WorkerService, ServiceState,
-    SubscriptionOptions, ServiceOptions, RclrsError, Node,
+    log_fatal, IntoWorkerServiceCallback, IntoWorkerSubscriptionCallback, Node, Promise,
+    RclrsError, ServiceOptions, ServiceState, SubscriptionOptions, SubscriptionState,
+    WorkerCommands, WorkerService, WorkerSubscription,
+};
+use futures::channel::oneshot;
+use rosidl_runtime_rs::{Message, Service as IdlService};
+use std::{
+    any::Any,
+    sync::{Arc, Mutex, Weak},
 };
 
 /// A worker that carries a payload and synchronizes callbacks for subscriptions
@@ -54,7 +56,11 @@ impl<Payload: 'static + Send + Sync> WorkerState<Payload> {
         let (sender, receiver) = oneshot::channel();
         self.commands.run_on_payload(Box::new(move |any_payload| {
             let Some(payload) = any_payload.downcast_mut::<Payload>() else {
-                log_fatal!("rclrs.worker", "{}", Self::conversion_failure_message(any_payload));
+                log_fatal!(
+                    "rclrs.worker",
+                    "{}",
+                    Self::conversion_failure_message(any_payload)
+                );
                 return;
             };
 
@@ -78,7 +84,11 @@ impl<Payload: 'static + Send + Sync> WorkerState<Payload> {
         let (sender, receiver) = oneshot::channel();
         self.commands.run_on_payload(Box::new(move |any_payload| {
             let Some(payload) = any_payload.downcast_mut::<Payload>() else {
-                log_fatal!("rclrs.worker", "{}", Self::conversion_failure_message(any_payload));
+                log_fatal!(
+                    "rclrs.worker",
+                    "{}",
+                    Self::conversion_failure_message(any_payload)
+                );
                 return;
             };
 
@@ -98,7 +108,11 @@ impl<Payload: 'static + Send + Sync> WorkerState<Payload> {
     {
         let f = Box::new(move |any_payload: &mut dyn Any| {
             let Some(payload) = any_payload.downcast_mut::<Payload>() else {
-                log_fatal!("rclrs.worker", "{}", Self::conversion_failure_message(any_payload));
+                log_fatal!(
+                    "rclrs.worker",
+                    "{}",
+                    Self::conversion_failure_message(any_payload)
+                );
                 return;
             };
 
@@ -106,7 +120,8 @@ impl<Payload: 'static + Send + Sync> WorkerState<Payload> {
         });
 
         let listener = ActivityListener::new(ActivityListenerCallback::Listen(f));
-        self.commands.add_activity_listener(Arc::downgrade(&listener.callback));
+        self.commands
+            .add_activity_listener(Arc::downgrade(&listener.callback));
         listener
     }
 
@@ -147,7 +162,8 @@ impl<Payload: 'static + Send + Sync> WorkerState<Payload> {
             }
         });
 
-        self.commands.add_activity_listener(Arc::downgrade(&listener.callback));
+        self.commands
+            .add_activity_listener(Arc::downgrade(&listener.callback));
 
         receiver
     }
@@ -356,11 +372,12 @@ impl<Payload: 'static + Send + Sync> WorkerState<Payload> {
     /// Used by [`Node`][crate::Node] to create a `WorkerState`. Users should
     /// call [`Node::create_worker`][crate::NodeState::create_worker] instead of
     /// this.
-    pub(crate) fn create(
-        node: Node,
-        commands: Arc<WorkerCommands>,
-    ) -> Arc<Self> {
-        Arc::new(Self { node, commands, _ignore: Default::default() })
+    pub(crate) fn create(node: Node, commands: Arc<WorkerCommands>) -> Arc<Self> {
+        Arc::new(Self {
+            node,
+            commands,
+            _ignore: Default::default(),
+        })
     }
 
     fn conversion_failure_message(any_payload: &mut dyn Any) -> String {
@@ -447,7 +464,10 @@ impl<Payload: 'static + Send + Sync> ActivityListener<Payload> {
 
     fn new(callback: ActivityListenerCallback) -> Self {
         let callback = Arc::new(Mutex::new(Some(callback)));
-        Self { callback, _ignore: Default::default() }
+        Self {
+            callback,
+            _ignore: Default::default(),
+        }
     }
 }
 
@@ -481,11 +501,11 @@ impl<Payload: 'static + Send + Sync> WorkScope for Worker<Payload> {
 #[cfg(test)]
 mod tests {
     use crate::*;
+    use std::time::Duration;
     use test_msgs::{
         msg::Empty as EmptyMsg,
         srv::{Empty as EmptySrv, Empty_Request, Empty_Response},
     };
-    use std::time::Duration;
 
     #[derive(Default, Clone, Copy, Debug)]
     struct TestPayload {
@@ -502,7 +522,7 @@ mod tests {
             "test_worker_topic",
             |payload: &mut TestPayload, _msg: EmptyMsg| {
                 payload.subscription_count += 1;
-            }
+            },
         );
 
         let _count_srv = worker.create_service::<EmptySrv, _>(
@@ -510,7 +530,7 @@ mod tests {
             |payload: &mut TestPayload, _req: Empty_Request| {
                 payload.service_count += 1;
                 Empty_Response::default()
-            }
+            },
         );
 
         let promise = worker.listen_until(move |payload| {
@@ -524,16 +544,19 @@ mod tests {
         let publisher = node.create_publisher("test_worker_topic").unwrap();
         publisher.publish(EmptyMsg::default()).unwrap();
 
-        let client = node.create_client::<EmptySrv>("test_worker_service").unwrap();
+        let client = node
+            .create_client::<EmptySrv>("test_worker_service")
+            .unwrap();
         let _: Promise<Empty_Response> = client.call(Empty_Request::default()).unwrap();
 
         let (mut promise, notice) = executor.commands().create_notice(promise);
 
-        executor.spin(
-            SpinOptions::new()
-            .until_promise_resolved(notice)
-            .timeout(Duration::from_millis(500))
-        )
+        executor
+            .spin(
+                SpinOptions::new()
+                    .until_promise_resolved(notice)
+                    .timeout(Duration::from_millis(500)),
+            )
             .first_error()
             .unwrap();
 

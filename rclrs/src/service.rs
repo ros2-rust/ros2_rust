@@ -1,16 +1,16 @@
 use std::{
+    any::Any,
     boxed::Box,
     ffi::{CStr, CString},
     sync::{Arc, Mutex, MutexGuard},
-    any::Any,
 };
 
 use rosidl_runtime_rs::{Message, Service as IdlService};
 
 use crate::{
-    error::ToResult, rcl_bindings::*, WorkerCommands, IntoPrimitiveOptions, NodeHandle,
+    error::ToResult, rcl_bindings::*, IntoPrimitiveOptions, MessageCow, Node, NodeHandle,
     QoSProfile, RclPrimitive, RclPrimitiveHandle, RclPrimitiveKind, RclrsError, Waitable,
-    WaitableLifecycle, ENTITY_LIFECYCLE_MUTEX, MessageCow, Node, Worker, WorkScope,
+    WaitableLifecycle, WorkScope, Worker, WorkerCommands, ENTITY_LIFECYCLE_MUTEX,
 };
 
 mod any_service_callback;

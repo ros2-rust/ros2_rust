@@ -2,8 +2,9 @@ use std::{collections::HashMap, sync::Arc, time::Duration, vec::Vec};
 
 use crate::{
     error::{to_rclrs_result, RclReturnCode, RclrsError, ToResult},
+    log_error,
     rcl_bindings::*,
-    Context, ContextHandle, log_error,
+    Context, ContextHandle,
 };
 
 mod guard_condition;

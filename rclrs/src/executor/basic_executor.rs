@@ -1,8 +1,11 @@
 use futures::{
-    channel::{mpsc::{UnboundedSender, UnboundedReceiver, unbounded}, oneshot},
-    future::{BoxFuture, select, select_all, Either},
-    task::{waker_ref, ArcWake},
+    channel::{
+        mpsc::{unbounded, UnboundedReceiver, UnboundedSender},
+        oneshot,
+    },
+    future::{select, select_all, BoxFuture, Either},
     stream::StreamFuture,
+    task::{waker_ref, ArcWake},
     StreamExt,
 };
 use std::{
@@ -16,9 +19,9 @@ use std::{
 };
 
 use crate::{
-    WeakActivityListener, ExecutorChannel, ExecutorRuntime, SpinConditions, WorkerChannel,
-    RclrsError, WaitSetRunner, WaitSetRunConditions, Waitable, log_warn, log_debug, log_fatal,
-    GuardCondition, ExecutorWorkerOptions, PayloadTask,
+    log_debug, log_fatal, log_warn, ExecutorChannel, ExecutorRuntime, ExecutorWorkerOptions,
+    GuardCondition, PayloadTask, RclrsError, SpinConditions, WaitSetRunConditions, WaitSetRunner,
+    Waitable, WeakActivityListener, WorkerChannel,
 };
 
 static FAILED_TO_SEND_WORKER: &'static str =
@@ -73,7 +76,11 @@ impl AllGuardConditions {
 
     fn push(&self, guard_condition: Weak<GuardCondition>) {
         let mut inner = self.inner.lock().unwrap();
-        if inner.iter().find(|other| guard_condition.ptr_eq(other)).is_some() {
+        if inner
+            .iter()
+            .find(|other| guard_condition.ptr_eq(other))
+            .is_some()
+        {
             // This guard condition is already known
             return;
         }
@@ -115,11 +122,7 @@ impl ExecutorRuntime for BasicExecutorRuntime {
         // Use this to terminate the spinning once the wait set is finished.
         let workers_finished_clone = Arc::clone(&workers_finished);
         self.task_sender.add_async_task(Box::pin(async move {
-            let workers = manage_workers(
-                new_workers,
-                all_guard_conditions,
-                conditions,
-            ).await;
+            let workers = manage_workers(new_workers, all_guard_conditions, conditions).await;
 
             if let Err(err) = worker_result_sender.send(workers) {
                 log_fatal!(
@@ -271,10 +274,7 @@ struct BasicExecutorChannel {
 }
 
 impl ExecutorChannel for BasicExecutorChannel {
-    fn create_worker(
-        &self,
-        options: ExecutorWorkerOptions,
-    ) -> Arc<dyn WorkerChannel> {
+    fn create_worker(&self, options: ExecutorWorkerOptions) -> Arc<dyn WorkerChannel> {
         let runner = WaitSetRunner::new(options);
         let waitable_sender = runner.waitable_sender();
         let payload_task_sender = runner.payload_task_sender();
@@ -387,16 +387,19 @@ async fn manage_workers(
     mut new_workers: StreamFuture<UnboundedReceiver<WaitSetRunner>>,
     all_guard_conditions: AllGuardConditions,
     conditions: WaitSetRunConditions,
-) -> (Vec<WaitSetRunner>, StreamFuture<UnboundedReceiver<WaitSetRunner>>, Vec<RclrsError>) {
-    let mut active_runners: Vec<oneshot::Receiver<(WaitSetRunner, Result<(), RclrsError>)>> = Vec::new();
+) -> (
+    Vec<WaitSetRunner>,
+    StreamFuture<UnboundedReceiver<WaitSetRunner>>,
+    Vec<RclrsError>,
+) {
+    let mut active_runners: Vec<oneshot::Receiver<(WaitSetRunner, Result<(), RclrsError>)>> =
+        Vec::new();
     let mut finished_runners: Vec<WaitSetRunner> = Vec::new();
     let mut errors: Vec<RclrsError> = Vec::new();
 
-    let add_runner = |
-        new_runner: Option<WaitSetRunner>,
-        active_runners: &mut Vec<_>,
-        finished_runners: &mut Vec<_>,
-    | {
+    let add_runner = |new_runner: Option<WaitSetRunner>,
+                      active_runners: &mut Vec<_>,
+                      finished_runners: &mut Vec<_>| {
         if let Some(runner) = new_runner {
             all_guard_conditions.push(Arc::downgrade(runner.guard_condition()));
             if conditions.halt_spinning.load(Ordering::Acquire) {
@@ -413,16 +416,10 @@ async fn manage_workers(
     add_runner(initial_worker, &mut active_runners, &mut finished_runners);
 
     while !active_runners.is_empty() {
-        let next_event = select(
-            select_all(active_runners),
-            new_workers,
-        );
+        let next_event = select(select_all(active_runners), new_workers);
 
         match next_event.await {
-            Either::Left((
-                (finished_worker, _, remaining_workers),
-                new_worker_stream,
-            )) => {
+            Either::Left(((finished_worker, _, remaining_workers), new_worker_stream)) => {
                 match finished_worker {
                     Ok((runner, result)) => {
                         finished_runners.push(runner);
@@ -443,16 +440,13 @@ async fn manage_workers(
                 active_runners = remaining_workers;
                 new_workers = new_worker_stream;
             }
-            Either::Right((
-                (new_worker, new_worker_receiver),
-                remaining_workers,
-            )) => {
+            Either::Right(((new_worker, new_worker_receiver), remaining_workers)) => {
                 active_runners = remaining_workers.into_inner();
                 add_runner(new_worker, &mut active_runners, &mut finished_runners);
                 new_workers = new_worker_receiver.into_future();
             }
         }
-    };
+    }
 
     (finished_runners, new_workers, errors)
 }

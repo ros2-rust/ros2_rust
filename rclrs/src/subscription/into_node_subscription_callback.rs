@@ -1,7 +1,7 @@
 use rosidl_runtime_rs::Message;
 
 use crate::{
-    ReadOnlyLoanedMessage, AnySubscriptionCallback, MessageInfo, NodeSubscriptionCallback,
+    AnySubscriptionCallback, MessageInfo, NodeSubscriptionCallback, ReadOnlyLoanedMessage,
 };
 
 use std::sync::Arc;
@@ -138,9 +138,7 @@ mod tests {
         let cb = |_msg: TestMessage| {};
         assert!(matches!(
             cb.into_node_subscription_callback(),
-            AnySubscriptionCallback::Node(
-                NodeSubscriptionCallback::<TestMessage>::Regular(_)
-            ),
+            AnySubscriptionCallback::Node(NodeSubscriptionCallback::<TestMessage>::Regular(_)),
         ));
         let cb = |_msg: TestMessage, _info: MessageInfo| {};
         assert!(matches!(
@@ -152,9 +150,7 @@ mod tests {
         let cb = |_msg: Box<TestMessage>| {};
         assert!(matches!(
             cb.into_node_subscription_callback(),
-            AnySubscriptionCallback::Node(
-                NodeSubscriptionCallback::<TestMessage>::Boxed(_)
-            ),
+            AnySubscriptionCallback::Node(NodeSubscriptionCallback::<TestMessage>::Boxed(_)),
         ));
         let cb = |_msg: Box<TestMessage>, _info: MessageInfo| {};
         assert!(matches!(
@@ -166,9 +162,7 @@ mod tests {
         let cb = |_msg: ReadOnlyLoanedMessage<TestMessage>| {};
         assert!(matches!(
             cb.into_node_subscription_callback(),
-            AnySubscriptionCallback::Node(
-                NodeSubscriptionCallback::<TestMessage>::Loaned(_)
-            ),
+            AnySubscriptionCallback::Node(NodeSubscriptionCallback::<TestMessage>::Loaned(_)),
         ));
         let cb = |_msg: ReadOnlyLoanedMessage<TestMessage>, _info: MessageInfo| {};
         assert!(matches!(
@@ -180,9 +174,7 @@ mod tests {
 
         assert!(matches!(
             test_regular.into_node_subscription_callback(),
-            AnySubscriptionCallback::Node(
-                NodeSubscriptionCallback::<TestMessage>::Regular(_)
-            ),
+            AnySubscriptionCallback::Node(NodeSubscriptionCallback::<TestMessage>::Regular(_)),
         ));
         assert!(matches!(
             test_regular_with_info.into_node_subscription_callback(),
@@ -192,9 +184,7 @@ mod tests {
         ));
         assert!(matches!(
             test_boxed.into_node_subscription_callback(),
-            AnySubscriptionCallback::Node(
-                NodeSubscriptionCallback::<TestMessage>::Boxed(_)
-            ),
+            AnySubscriptionCallback::Node(NodeSubscriptionCallback::<TestMessage>::Boxed(_)),
         ));
         assert!(matches!(
             test_boxed_with_info.into_node_subscription_callback(),
@@ -204,9 +194,7 @@ mod tests {
         ));
         assert!(matches!(
             test_loaned.into_node_subscription_callback(),
-            AnySubscriptionCallback::Node(
-                NodeSubscriptionCallback::<TestMessage>::Loaned(_)
-            ),
+            AnySubscriptionCallback::Node(NodeSubscriptionCallback::<TestMessage>::Loaned(_)),
         ));
         assert!(matches!(
             test_loaned_with_info.into_node_subscription_callback(),

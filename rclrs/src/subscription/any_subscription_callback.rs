@@ -1,8 +1,8 @@
 use rosidl_runtime_rs::Message;
 
 use crate::{
-    subscription::SubscriptionHandle, WorkerCommands, RclrsError,
-    NodeSubscriptionCallback, WorkerSubscriptionCallback,
+    subscription::SubscriptionHandle, NodeSubscriptionCallback, RclrsError, WorkerCommands,
+    WorkerSubscriptionCallback,
 };
 
 use std::{any::Any, sync::Arc};
@@ -42,7 +42,9 @@ impl<T: Message> From<NodeSubscriptionCallback<T>> for AnySubscriptionCallback<T
     }
 }
 
-impl<T: Message, Payload> From<WorkerSubscriptionCallback<T, Payload>> for AnySubscriptionCallback<T, Payload> {
+impl<T: Message, Payload> From<WorkerSubscriptionCallback<T, Payload>>
+    for AnySubscriptionCallback<T, Payload>
+{
     fn from(value: WorkerSubscriptionCallback<T, Payload>) -> Self {
         AnySubscriptionCallback::Worker(value)
     }

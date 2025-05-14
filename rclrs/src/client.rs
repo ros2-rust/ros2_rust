@@ -8,9 +8,9 @@ use std::{
 use rosidl_runtime_rs::Message;
 
 use crate::{
-    error::ToResult, rcl_bindings::*, IntoPrimitiveOptions, MessageCow, Node, Promise, QoSProfile,
-    RclPrimitive, RclPrimitiveHandle, RclPrimitiveKind, RclReturnCode, RclrsError, ServiceInfo,
-    Waitable, WaitableLifecycle, ENTITY_LIFECYCLE_MUTEX, log_fatal,
+    error::ToResult, log_fatal, rcl_bindings::*, IntoPrimitiveOptions, MessageCow, Node, Promise,
+    QoSProfile, RclPrimitive, RclPrimitiveHandle, RclPrimitiveKind, RclReturnCode, RclrsError,
+    ServiceInfo, Waitable, WaitableLifecycle, ENTITY_LIFECYCLE_MUTEX,
 };
 
 mod client_async_callback;
@@ -284,9 +284,9 @@ where
     /// `until_promise_resolved` in [`SpinOptions`][crate::SpinOptions].
     pub fn notify_on_service_ready(self: &Arc<Self>) -> Promise<()> {
         let client = Arc::clone(self);
-        self.handle.node.notify_on_graph_change(
-            move || client.service_is_ready().is_ok_and(|r| r),
-        )
+        self.handle
+            .node
+            .notify_on_graph_change(move || client.service_is_ready().is_ok_and(|r| r))
     }
 
     /// Get the name of the service that this client intends to call.
@@ -598,4 +598,3 @@ mod tests {
         Ok(())
     }
 }
-

@@ -5,14 +5,16 @@ use futures::channel::{
 
 use std::{
     any::Any,
-    sync::{atomic::{AtomicBool, Ordering}, Arc, Mutex},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Mutex,
+    },
     time::{Duration, Instant},
 };
 
 use crate::{
-    Context, Promise, RclrsError, WaitSet, Waitable, GuardCondition, ExecutorWorkerOptions,
-    PayloadTask, WeakActivityListener, ActivityListenerCallback, RclReturnCode, log_debug,
-    log_fatal,
+    log_debug, log_fatal, ActivityListenerCallback, Context, ExecutorWorkerOptions, GuardCondition,
+    PayloadTask, Promise, RclReturnCode, RclrsError, WaitSet, Waitable, WeakActivityListener,
 };
 
 /// This is a utility class that executors can use to easily run and manage
@@ -52,9 +54,7 @@ pub struct WaitSetRunConditions {
 
 impl WaitSetRunner {
     /// Create a new WaitSetRunner.
-    pub fn new(
-        worker_options: ExecutorWorkerOptions,
-    ) -> Self {
+    pub fn new(worker_options: ExecutorWorkerOptions) -> Self {
         let (waitable_sender, waitable_receiver) = unbounded();
         let (task_sender, task_receiver) = unbounded();
         Self {
@@ -104,7 +104,10 @@ impl WaitSetRunner {
     /// will be triggered after the user-provided promise is resolved.
     ///
     /// [1]: crate::SpinOptions::until_promise_resolved
-    pub fn run(mut self, conditions: WaitSetRunConditions) -> Promise<(Self, Result<(), RclrsError>)> {
+    pub fn run(
+        mut self,
+        conditions: WaitSetRunConditions,
+    ) -> Promise<(Self, Result<(), RclrsError>)> {
         let (sender, promise) = channel();
         std::thread::spawn(move || {
             let result = self.run_blocking(conditions);
@@ -186,9 +189,7 @@ impl WaitSetRunner {
                 // SAFETY: The user of WaitSetRunner is responsible for ensuring
                 // the runner has the same payload type as the executables that
                 // are given to it.
-                unsafe {
-                    executable.execute(&mut *self.payload)
-                }
+                unsafe { executable.execute(&mut *self.payload) }
             })?;
 
             if at_least_one {
@@ -199,8 +200,11 @@ impl WaitSetRunner {
                 // listener while we have the vector locked, which would cause a
                 // deadlock.
                 listeners.extend(
-                    self.activity_listeners.lock().unwrap().drain(..)
-                        .filter_map(|x| x.upgrade())
+                    self.activity_listeners
+                        .lock()
+                        .unwrap()
+                        .drain(..)
+                        .filter_map(|x| x.upgrade()),
                 );
 
                 for arc_listener in &listeners {
@@ -226,10 +230,10 @@ impl WaitSetRunner {
                     }
                 }
 
-                self.activity_listeners.lock().unwrap().extend(
-                    listeners.drain(..)
-                        .map(|x| Arc::downgrade(&x))
-                );
+                self.activity_listeners
+                    .lock()
+                    .unwrap()
+                    .extend(listeners.drain(..).map(|x| Arc::downgrade(&x)));
             }
 
             if let Some(stop_time) = conditions.stop_time {

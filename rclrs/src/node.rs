@@ -30,11 +30,11 @@ use rosidl_runtime_rs::Message;
 
 use crate::{
     rcl_bindings::*, Client, ClientOptions, ClientState, Clock, ContextHandle, ExecutorCommands,
-    LogParams, Logger, ParameterBuilder, ParameterInterface, ParameterVariant, Parameters, Promise,
-    Publisher, PublisherOptions, PublisherState, RclrsError, Service, IntoAsyncServiceCallback,
-    IntoNodeServiceCallback, ServiceOptions, ServiceState, Subscription, IntoAsyncSubscriptionCallback,
-    IntoNodeSubscriptionCallback, SubscriptionOptions, SubscriptionState, TimeSource, ToLogParams,
-    ENTITY_LIFECYCLE_MUTEX, Worker, WorkerOptions, WorkerState,
+    IntoAsyncServiceCallback, IntoAsyncSubscriptionCallback, IntoNodeServiceCallback,
+    IntoNodeSubscriptionCallback, LogParams, Logger, ParameterBuilder, ParameterInterface,
+    ParameterVariant, Parameters, Promise, Publisher, PublisherOptions, PublisherState, RclrsError,
+    Service, ServiceOptions, ServiceState, Subscription, SubscriptionOptions, SubscriptionState,
+    TimeSource, ToLogParams, Worker, WorkerOptions, WorkerState, ENTITY_LIFECYCLE_MUTEX,
 };
 
 /// A processing unit that can communicate with other nodes. See the API of
@@ -299,7 +299,9 @@ impl NodeState {
         Payload: 'static + Send + Sync,
     {
         let options = options.into();
-        let commands = self.commands.create_worker_commands(Box::new(options.payload));
+        let commands = self
+            .commands
+            .create_worker_commands(Box::new(options.payload));
         WorkerState::create(Arc::clone(self), commands)
     }
 

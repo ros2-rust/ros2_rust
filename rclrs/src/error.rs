@@ -113,16 +113,10 @@ impl Display for RclrsError {
                 )
             }
             RclrsError::ParameterDeclarationError(err) => {
-                write!(
-                    f,
-                    "An error occurred while declaring a parameter: {err}",
-                )
+                write!(f, "An error occurred while declaring a parameter: {err}",)
             }
             RclrsError::PoisonedMutex => {
-                write!(
-                    f,
-                    "A mutex used internally has been poisoned"
-                )
+                write!(f, "A mutex used internally has been poisoned")
             }
         }
     }

@@ -1,7 +1,7 @@
 use rosidl_runtime_rs::Message;
 
 use super::{MessageInfo, SubscriptionHandle};
-use crate::{WorkerCommands, RclrsError, ReadOnlyLoanedMessage, RclrsErrorFilter};
+use crate::{RclrsError, RclrsErrorFilter, ReadOnlyLoanedMessage, WorkerCommands};
 
 use futures::future::BoxFuture;
 

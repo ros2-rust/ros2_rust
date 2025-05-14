@@ -1,14 +1,11 @@
 use rosidl_runtime_rs::Message;
 
 use crate::{
-    subscription::SubscriptionHandle, RclrsError,
-    ReadOnlyLoanedMessage, MessageInfo, RclrsErrorFilter,
+    subscription::SubscriptionHandle, MessageInfo, RclrsError, RclrsErrorFilter,
+    ReadOnlyLoanedMessage,
 };
 
-use std::{
-    any::Any,
-    sync::Arc,
-};
+use std::{any::Any, sync::Arc};
 
 /// An enum capturing the various possible function signatures for subscription
 /// callbacks that can be used by a [`Worker`][crate::Worker].

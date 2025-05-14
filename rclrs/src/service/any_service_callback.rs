@@ -1,6 +1,8 @@
 use rosidl_runtime_rs::Service;
 
-use crate::{WorkerCommands, RclrsError, ServiceHandle, NodeServiceCallback, WorkerServiceCallback};
+use crate::{
+    NodeServiceCallback, RclrsError, ServiceHandle, WorkerCommands, WorkerServiceCallback,
+};
 
 use std::{any::Any, sync::Arc};
 
@@ -40,7 +42,9 @@ impl<T: Service> From<NodeServiceCallback<T>> for AnyServiceCallback<T, ()> {
     }
 }
 
-impl<T: Service, Payload: 'static + Send> From<WorkerServiceCallback<T, Payload>> for AnyServiceCallback<T, Payload> {
+impl<T: Service, Payload: 'static + Send> From<WorkerServiceCallback<T, Payload>>
+    for AnyServiceCallback<T, Payload>
+{
     fn from(value: WorkerServiceCallback<T, Payload>) -> Self {
         AnyServiceCallback::Worker(value)
     }

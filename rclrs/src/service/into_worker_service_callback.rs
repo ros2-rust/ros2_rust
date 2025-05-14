@@ -1,9 +1,6 @@
 use rosidl_runtime_rs::Service;
 
-use crate::{
-    AnyServiceCallback, WorkerServiceCallback, RequestId, ServiceInfo,
-    Worker,
-};
+use crate::{AnyServiceCallback, RequestId, ServiceInfo, Worker, WorkerServiceCallback};
 
 /// A trait used to deduce callbacks for services that run on a worker.
 ///
@@ -57,9 +54,7 @@ where
     Func: FnMut(T::Request, RequestId) -> T::Response + Send + 'static,
 {
     fn into_worker_service_callback(mut self) -> AnyServiceCallback<T, Payload> {
-        let f = Box::new(move |_: &mut Payload, request, request_id| {
-            self(request, request_id)
-        });
+        let f = Box::new(move |_: &mut Payload, request, request_id| self(request, request_id));
         WorkerServiceCallback::WithId(f).into()
     }
 }
@@ -82,9 +77,7 @@ where
     Func: FnMut(T::Request, ServiceInfo) -> T::Response + Send + 'static,
 {
     fn into_worker_service_callback(mut self) -> AnyServiceCallback<T, Payload> {
-        let f = Box::new(move |_: &mut Payload, request, info| {
-            self(request, info)
-        });
+        let f = Box::new(move |_: &mut Payload, request, info| self(request, info));
         WorkerServiceCallback::WithInfo(f).into()
     }
 }

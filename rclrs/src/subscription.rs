@@ -7,9 +7,9 @@ use std::{
 use rosidl_runtime_rs::{Message, RmwMessage};
 
 use crate::{
-    error::ToResult, qos::QoSProfile, rcl_bindings::*, WorkerCommands, IntoPrimitiveOptions,
-    Node, NodeHandle, RclPrimitive, RclPrimitiveHandle, RclPrimitiveKind, RclrsError, Waitable,
-    WaitableLifecycle, Worker, WorkScope, ENTITY_LIFECYCLE_MUTEX,
+    error::ToResult, qos::QoSProfile, rcl_bindings::*, IntoPrimitiveOptions, Node, NodeHandle,
+    RclPrimitive, RclPrimitiveHandle, RclPrimitiveKind, RclrsError, Waitable, WaitableLifecycle,
+    WorkScope, Worker, WorkerCommands, ENTITY_LIFECYCLE_MUTEX,
 };
 
 mod any_subscription_callback;
@@ -185,10 +185,7 @@ impl<T: Message> SubscriptionState<T, Node> {
     ///
     /// This can only be called when the `Scope` of the [`SubscriptionState`] is [`Node`].
     /// If the `Scope` is [`Worker<Payload>`] then use [`Self::set_worker_callback`] instead.
-    pub fn set_callback<Args>(
-        &self,
-        callback: impl IntoNodeSubscriptionCallback<T, Args>,
-    ) {
+    pub fn set_callback<Args>(&self, callback: impl IntoNodeSubscriptionCallback<T, Args>) {
         let callback = callback.into_node_subscription_callback();
         *self.callback.lock().unwrap() = callback;
     }
@@ -200,10 +197,7 @@ impl<T: Message> SubscriptionState<T, Node> {
     ///
     /// This can only be called when the `Scope` of the [`SubscriptionState`] is [`Node`].
     /// If the `Scope` is [`Worker<Payload>`] then use [`Self::set_worker_callback`] instead.
-    pub fn set_async_callback<Args>(
-        &self,
-        callback: impl IntoAsyncSubscriptionCallback<T, Args>,
-    ) {
+    pub fn set_async_callback<Args>(&self, callback: impl IntoAsyncSubscriptionCallback<T, Args>) {
         let callback = callback.into_async_subscription_callback();
         *self.callback.lock().unwrap() = callback;
     }
@@ -527,4 +521,3 @@ mod tests {
         }
     }
 }
-

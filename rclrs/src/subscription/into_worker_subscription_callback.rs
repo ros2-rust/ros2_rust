@@ -1,6 +1,8 @@
 use rosidl_runtime_rs::Message;
 
-use crate::{ReadOnlyLoanedMessage, MessageInfo, AnySubscriptionCallback, WorkerSubscriptionCallback};
+use crate::{
+    AnySubscriptionCallback, MessageInfo, ReadOnlyLoanedMessage, WorkerSubscriptionCallback,
+};
 
 /// A trait for callbacks of subscriptions that run on a worker.
 ///
@@ -63,7 +65,8 @@ where
     }
 }
 
-impl<T, Payload, Func> IntoWorkerSubscriptionCallback<T, Payload, (Payload, T, MessageInfo)> for Func
+impl<T, Payload, Func> IntoWorkerSubscriptionCallback<T, Payload, (Payload, T, MessageInfo)>
+    for Func
 where
     T: Message,
     Payload: 'static,
@@ -109,7 +112,8 @@ where
     }
 }
 
-impl<T, Payload, Func> IntoWorkerSubscriptionCallback<T, Payload, (Payload, Box<T>, MessageInfo)> for Func
+impl<T, Payload, Func> IntoWorkerSubscriptionCallback<T, Payload, (Payload, Box<T>, MessageInfo)>
+    for Func
 where
     T: Message,
     Payload: 'static,
@@ -120,7 +124,8 @@ where
     }
 }
 
-impl<T, Payload, Func> IntoWorkerSubscriptionCallback<T, Payload, (ReadOnlyLoanedMessage<T>,)> for Func
+impl<T, Payload, Func> IntoWorkerSubscriptionCallback<T, Payload, (ReadOnlyLoanedMessage<T>,)>
+    for Func
 where
     T: Message,
     Payload: 'static,
@@ -132,7 +137,8 @@ where
     }
 }
 
-impl<T, Payload, Func> IntoWorkerSubscriptionCallback<T, Payload, (Payload, ReadOnlyLoanedMessage<T>)> for Func
+impl<T, Payload, Func>
+    IntoWorkerSubscriptionCallback<T, Payload, (Payload, ReadOnlyLoanedMessage<T>)> for Func
 where
     T: Message,
     Payload: 'static,
@@ -143,7 +149,8 @@ where
     }
 }
 
-impl<T, Payload, Func> IntoWorkerSubscriptionCallback<T, Payload, (ReadOnlyLoanedMessage<T>, MessageInfo)> for Func
+impl<T, Payload, Func>
+    IntoWorkerSubscriptionCallback<T, Payload, (ReadOnlyLoanedMessage<T>, MessageInfo)> for Func
 where
     T: Message,
     Payload: 'static,
@@ -155,7 +162,9 @@ where
     }
 }
 
-impl<T, Payload, Func> IntoWorkerSubscriptionCallback<T, Payload, (Payload, ReadOnlyLoanedMessage<T>, MessageInfo)> for Func
+impl<T, Payload, Func>
+    IntoWorkerSubscriptionCallback<T, Payload, (Payload, ReadOnlyLoanedMessage<T>, MessageInfo)>
+    for Func
 where
     T: Message,
     Payload: 'static,

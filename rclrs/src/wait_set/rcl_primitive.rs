@@ -1,7 +1,4 @@
-use std::{
-    any::Any,
-    sync::MutexGuard,
-};
+use std::{any::Any, sync::MutexGuard};
 
 use crate::{rcl_bindings::*, InnerGuardConditionHandle, RclrsError};
 
