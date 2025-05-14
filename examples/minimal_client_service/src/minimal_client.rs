@@ -1,6 +1,6 @@
 use anyhow::{Error, Result};
-use rclrs::*;
 use example_interfaces::srv::*;
+use rclrs::*;
 
 fn main() -> Result<(), Error> {
     let mut executor = Context::default_from_env()?.create_basic_executor();
@@ -16,8 +16,7 @@ fn main() -> Result<(), Error> {
         let request = AddTwoInts_Request { a: 41, b: 1 };
 
         println!("Waiting for response");
-        let response: AddTwoInts_Response =
-            client.call(&request).unwrap().await.unwrap();
+        let response: AddTwoInts_Response = client.call(&request).unwrap().await.unwrap();
 
         println!(
             "Result of {} + {} is: {}",

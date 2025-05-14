@@ -1,8 +1,5 @@
 use rclrs::*;
-use std::{
-    thread,
-    time::Duration,
-};
+use std::{thread, time::Duration};
 use std_msgs::msg::String as StringMsg;
 
 pub struct SimpleSubscriptionNode {

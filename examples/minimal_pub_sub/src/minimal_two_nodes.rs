@@ -17,12 +17,10 @@ impl MinimalSubscriberNode {
     pub fn new(executor: &Executor, name: &str, topic: &str) -> Result<Self, RclrsError> {
         let node = executor.create_node(name)?;
 
-        let worker = node.create_worker::<SubscriptionData>(
-            SubscriptionData {
-                node: Arc::clone(&node),
-                num_messages: 0,
-            }
-        );
+        let worker = node.create_worker::<SubscriptionData>(SubscriptionData {
+            node: Arc::clone(&node),
+            num_messages: 0,
+        });
 
         let subscription = worker.create_subscription(
             topic,
@@ -34,7 +32,7 @@ impl MinimalSubscriberNode {
                     data.node.name(),
                     data.num_messages,
                 );
-            }
+            },
         )?;
 
         Ok(MinimalSubscriberNode { subscription })
@@ -66,9 +64,6 @@ fn main() -> Result<(), Error> {
         }
     });
 
-    executor
-        .spin(rclrs::SpinOptions::default())
-        .first_error()?;
+    executor.spin(rclrs::SpinOptions::default()).first_error()?;
     Ok(())
 }
-
