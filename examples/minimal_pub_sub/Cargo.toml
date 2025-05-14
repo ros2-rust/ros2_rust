@@ -31,5 +31,8 @@ rclrs = "0.4"
 rosidl_runtime_rs = "0.4"
 example_interfaces = "*"
 
+# This specific version is compatible with Rust 1.75
+backtrace = "=0.3.74"
+
 [package.metadata.ros]
 install_to_share = ["launch"]

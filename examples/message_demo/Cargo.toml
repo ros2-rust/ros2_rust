@@ -10,16 +10,10 @@ path = "src/message_demo.rs"
 
 [dependencies]
 anyhow = {version = "1", features = ["backtrace"]}
+rclrs = "0.4"
+rosidl_runtime_rs = "0.4"
+rclrs_example_msgs = { version = "0.4", features = ["serde"] }
+serde_json = "1.0"
 
-[dependencies.rclrs]
-version = "0.4"
-
-[dependencies.rosidl_runtime_rs]
-version = "0.4"
-
-[dependencies.rclrs_example_msgs]
-version = "0.4"
-features = ["serde"]
-
-[dependencies.serde_json]
-version = "1.0"
+# This specific version is compatible with Rust 1.75
+backtrace = "=0.3.74"
