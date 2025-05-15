@@ -10,17 +10,13 @@ fn main() -> Result<(), RclrsError> {
     let node = executor.create_node("timer_demo")?;
     let worker = node.create_worker::<usize>(0);
     let timer_period = Duration::from_secs(1);
-    let _timer = worker.create_timer_repeating(
-        timer_period,
-        move |count: &mut usize| {
-            *count += 1;
-            println!(
-                "Drinking 🧉 for the {}th time every {:?}.",
-                *count,
-                timer_period,
-            );
-        }
-    )?;
+    let _timer = worker.create_timer_repeating(timer_period, move |count: &mut usize| {
+        *count += 1;
+        println!(
+            "Drinking 🧉 for the {}th time every {:?}.",
+            *count, timer_period,
+        );
+    })?;
 
     executor.spin(SpinOptions::default()).first_error()
 }
