@@ -15,16 +15,12 @@ fn main() -> Result<(), RclrsError> {
         },
     )?;
 
-    let _timer = worker.create_timer_repeating(
-        Duration::from_secs(1),
-        move |data: &mut String| {
-            let msg = example_interfaces::msg::String {
-                data: data.clone()
-            };
+    let _timer =
+        worker.create_timer_repeating(Duration::from_secs(1), move |data: &mut String| {
+            let msg = example_interfaces::msg::String { data: data.clone() };
 
             publisher.publish(msg).ok();
-        }
-    )?;
+        })?;
 
     println!(
         "Beginning repeater... \n >> \
