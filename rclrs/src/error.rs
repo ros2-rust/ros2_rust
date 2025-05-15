@@ -4,7 +4,7 @@ use std::{
     fmt::{self, Display},
 };
 
-use crate::rcl_bindings::*;
+use crate::{rcl_bindings::*, DeclarationError};
 
 /// The main error type.
 #[derive(Debug, PartialEq, Eq)]
@@ -32,6 +32,25 @@ pub enum RclrsError {
     },
     /// It was attempted to add a waitable to a wait set twice.
     AlreadyAddedToWaitSet,
+    /// A negative duration was obtained from rcl which should have been positive.
+    ///
+    /// The value represents nanoseconds.
+    NegativeDuration(i64),
+    /// The guard condition that you tried to trigger is not owned by the
+    /// [`GuardCondition`][crate::GuardCondition] instance.
+    UnownedGuardCondition,
+    /// The payload given to a primitive that belongs to a worker was the wrong
+    /// type.
+    InvalidPayload {
+        /// The payload type expected by the primitive
+        expected: std::any::TypeId,
+        /// The payload type given by the worker
+        received: std::any::TypeId,
+    },
+    /// An error happened while declaring a parameter.
+    ParameterDeclarationError(crate::DeclarationError),
+    /// A mutex used internally has been [poisoned][std::sync::PoisonError].
+    PoisonedMutex,
 }
 
 impl RclrsError {
@@ -75,6 +94,30 @@ impl Display for RclrsError {
                     "Could not add entity to wait set because it was already added to a wait set"
                 )
             }
+            RclrsError::NegativeDuration(duration) => {
+                write!(
+                    f,
+                    "A duration was negative when it should not have been: {duration:?}"
+                )
+            }
+            RclrsError::UnownedGuardCondition => {
+                write!(
+                    f,
+                    "Could not trigger guard condition because it is not owned by rclrs"
+                )
+            }
+            RclrsError::InvalidPayload { expected, received } => {
+                write!(
+                    f,
+                    "Received invalid payload: expected {expected:?}, received {received:?}",
+                )
+            }
+            RclrsError::ParameterDeclarationError(err) => {
+                write!(f, "An error occurred while declaring a parameter: {err}",)
+            }
+            RclrsError::PoisonedMutex => {
+                write!(f, "A mutex used internally has been poisoned")
+            }
         }
     }
 }
@@ -106,7 +149,14 @@ impl Error for RclrsError {
             RclrsError::RclError { msg, .. } => msg.as_ref().map(|e| e as &dyn Error),
             RclrsError::UnknownRclError { msg, .. } => msg.as_ref().map(|e| e as &dyn Error),
             RclrsError::StringContainsNul { err, .. } => Some(err).map(|e| e as &dyn Error),
+            // TODO(@mxgrey): We should provide source information for these other types.
+            // It should be easy to do this using the thiserror crate.
             RclrsError::AlreadyAddedToWaitSet => None,
+            RclrsError::NegativeDuration(_) => None,
+            RclrsError::UnownedGuardCondition => None,
+            RclrsError::InvalidPayload { .. } => None,
+            RclrsError::ParameterDeclarationError(_) => None,
+            RclrsError::PoisonedMutex => None,
         }
     }
 }
@@ -206,6 +256,12 @@ pub enum RclReturnCode {
     LifecycleStateRegistered = 3000,
     /// `rcl_lifecycle` state not registered
     LifecycleStateNotRegistered = 3001,
+}
+
+impl From<DeclarationError> for RclrsError {
+    fn from(value: DeclarationError) -> Self {
+        RclrsError::ParameterDeclarationError(value)
+    }
 }
 
 impl TryFrom<i32> for RclReturnCode {
