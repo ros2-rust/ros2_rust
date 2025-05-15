@@ -20,7 +20,7 @@ use crate::{
 /// then you can choose to simply pass in `&node` instead of `node.logger()`.
 ///
 /// [1]: crate::log
-/// [2]: crate::Node::logger
+/// [2]: crate::NodeState::logger
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Logger {
     name: Arc<str>,

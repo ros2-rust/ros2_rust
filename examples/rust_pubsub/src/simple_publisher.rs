@@ -2,11 +2,11 @@ use rclrs::*;
 use std::{thread, time::Duration};
 use std_msgs::msg::String as StringMsg;
 
-struct SimplePublisher {
+struct SimplePublisherNode {
     publisher: Publisher<StringMsg>,
 }
 
-impl SimplePublisher {
+impl SimplePublisherNode {
     fn new(executor: &Executor) -> Result<Self, RclrsError> {
         let node = executor.create_node("simple_publisher").unwrap();
         let publisher = node.create_publisher("publish_hello").unwrap();
@@ -24,11 +24,14 @@ impl SimplePublisher {
 
 fn main() -> Result<(), RclrsError> {
     let mut executor = Context::default_from_env().unwrap().create_basic_executor();
-    let publisher = SimplePublisher::new(&executor).unwrap();
+    let node = SimplePublisherNode::new(&executor).unwrap();
     let mut count: i32 = 0;
+
+    // TODO(@mxgrey): Replace this with a timer once the Timer feature
+    // is merged.
     thread::spawn(move || loop {
         thread::sleep(Duration::from_millis(1000));
-        count = publisher.publish_data(count).unwrap();
+        count = node.publish_data(count).unwrap();
     });
     executor.spin(SpinOptions::default()).first_error()
 }

@@ -4,8 +4,12 @@ use std::{
     sync::{atomic::AtomicBool, Arc, Mutex},
 };
 
+use futures::channel::mpsc::unbounded;
+
 use crate::{
-    rcl_bindings::*, ClockType, ContextHandle, Logger, Node, NodeHandle, NodeState,
+    node::node_graph_task::{node_graph_task, NodeGraphAction},
+    rcl_bindings::*,
+    ClockType, ExecutorCommands, GuardCondition, Logger, Node, NodeHandle, NodeState,
     ParameterInterface, QoSProfile, RclrsError, TimeSource, ToResult, ENTITY_LIFECYCLE_MUTEX,
     QOS_PROFILE_CLOCK,
 };
@@ -286,7 +290,7 @@ impl<'a> NodeOptions<'a> {
     ///
     /// Only used internally. Downstream users should call
     /// [`Executor::create_node`].
-    pub(crate) fn build(self, context: &Arc<ContextHandle>) -> Result<Node, RclrsError> {
+    pub(crate) fn build(self, commands: &Arc<ExecutorCommands>) -> Result<Node, RclrsError> {
         let node_name = CString::new(self.name).map_err(|err| RclrsError::StringContainsNul {
             err,
             s: self.name.to_owned(),
@@ -297,12 +301,12 @@ impl<'a> NodeOptions<'a> {
                 s: self.namespace.to_owned(),
             })?;
         let rcl_node_options = self.create_rcl_node_options()?;
-        let rcl_context = &mut *context.rcl_context.lock().unwrap();
+        let rcl_context = &mut *commands.context().handle.rcl_context.lock().unwrap();
 
         let handle = Arc::new(NodeHandle {
             // SAFETY: Getting a zero-initialized value is always safe.
             rcl_node: Mutex::new(unsafe { rcl_get_zero_initialized_node() }),
-            context_handle: Arc::clone(context),
+            context_handle: Arc::clone(&commands.context().handle),
             initialized: AtomicBool::new(false),
         });
 
@@ -356,16 +360,43 @@ impl<'a> NodeOptions<'a> {
             }
         };
 
+        // --- Set up guard condition for graph change events ---
+        let (graph_change_action, graph_change_receiver) = unbounded();
+        let graph_change_execute_sender = graph_change_action.clone();
+
+        let rcl_graph_change_guard_condition = unsafe {
+            // SAFETY: The node is valid because we just instantiated it.
+            rcl_node_get_graph_guard_condition(&*handle.rcl_node.lock().unwrap())
+        };
+        let (graph_change_guard_condition, graph_change_waitable) = unsafe {
+            // SAFETY: The guard condition is owned by the rcl_node and will
+            // remain valid for as long as the rcl_node is alive, so we set the
+            // owner to be the Arc for the NodeHandle.
+            GuardCondition::from_rcl(
+                &commands.context().handle,
+                rcl_graph_change_guard_condition,
+                Box::new(Arc::clone(&handle)),
+                Some(Box::new(move || {
+                    graph_change_execute_sender
+                        .unbounded_send(NodeGraphAction::GraphChange)
+                        .ok();
+                })),
+            )
+        };
+        commands.add_to_wait_set(graph_change_waitable);
+        let _ = commands.run(node_graph_task(
+            graph_change_receiver,
+            graph_change_guard_condition,
+        ));
+
         let node = Arc::new(NodeState {
-            clients_mtx: Mutex::default(),
-            guard_conditions_mtx: Mutex::default(),
-            services_mtx: Mutex::default(),
-            subscriptions_mtx: Mutex::default(),
             time_source: TimeSource::builder(self.clock_type)
                 .clock_qos(self.clock_qos)
                 .build(),
             parameter,
             logger: Logger::new(logger_name)?,
+            graph_change_action,
+            commands: Arc::clone(&commands),
             handle,
         });
         node.time_source.attach_node(&node);

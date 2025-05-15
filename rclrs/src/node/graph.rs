@@ -489,8 +489,8 @@ mod tests {
         let node = executor.create_node(node_name).unwrap();
 
         let check_rosout = |topics: HashMap<String, Vec<String>>| {
-            // rosout shows up in humble, even if the graph is empty
-            #[cfg(ros_distro = "humble")]
+            // rosout shows up in humble and iron, even if the graph is empty
+            #[cfg(any(ros_distro = "humble"))]
             {
                 assert_eq!(topics.len(), 1);
                 assert_eq!(
