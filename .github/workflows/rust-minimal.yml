@@ -37,6 +37,13 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
+    - uses: technology-studio-forks/markdown-embed-code@main
+      with:
+        markdown: "docs/writing-your-first-rclrs-node.md"
+        token: ${{ secrets.GITHUB_TOKEN }}
+        message: "synchronizing Markdown files"
+        silent: true
+
     - name: Search packages in this repository
       id: list_packages
       run: |
