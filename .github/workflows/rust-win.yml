@@ -31,11 +31,11 @@ jobs:
       - name: Setup Pixi environment
         uses: prefix-dev/setup-pixi@v0.8.1
         with:
-          working-directory: C:\pixi_ws\
-      - name: Get prebuild ROS files
-        run: irm https://ci.ros2.org/view/packaging/job/packaging_windows/lastSuccessfulBuild/artifact/ws/ros2-package-windows-AMD64.zip 
-      - name: Unzip prebuild ROS files
-        run: Expand-Archive -Path ros2-package-windows-AMD64.zip -DestinationPath C:/pixi_ws\ros2_rolling
+          manifest-path: C:/pixi_ws/pixi.toml
+      - name: Get prebuild ROS files and unzip
+        run: |
+          irm https://ci.ros2.org/view/packaging/job/packaging_windows/lastSuccessfulBuild/artifact/ws/ros2-package-windows-AMD64.zip -Outfile ros2-package-windows-AMD64.zip
+          Expand-Archive -Path ros2-package-windows-AMD64.zip -DestinationPath C:/pixi_ws\ros2_rolling
       - name: Install Rust ROS prerequisites
         run: pixi add libclang --manifest-path C:\pixi_ws\pixi.toml
       - name: Rename libclang-13.dll to libclang.dll
@@ -51,9 +51,9 @@ jobs:
       - name: Get ros2-Rust in a different workspace path
         run: |
           mkdir C:/workspace/src
-          git clone clone https://github.com/ros2-rust/ros2_rust.git C:/workspace/src/ros2_rust
+          git clone  https://github.com/ros2-rust/ros2_rust.git C:/workspace/src/ros2_rust
       - name: Import other rolling ROS rust repos
-        run: vcs import C:/workspace/src < C:/workspace/src/ros2_rust/ros2_rust_rolling.repos
+        run: vcs import C:/workspace/src --input C:/workspace/src/ros2_rust/ros2_rust_rolling.repos
       - name: Build the rust package
         run: |
           call "C:\Program Files (x86)\Microsoft Visual Studio\2019\BuildTools\VC\Auxiliary\Build\vcvars64.bat"
