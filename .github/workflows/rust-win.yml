@@ -35,7 +35,7 @@ jobs:
       - name: Get prebuild ROS files and unzip
         run: |
           irm https://ci.ros2.org/view/packaging/job/packaging_windows/lastSuccessfulBuild/artifact/ws/ros2-package-windows-AMD64.zip -Outfile ros2-package-windows-AMD64.zip
-          Expand-Archive -Path ros2-package-windows-AMD64.zip -DestinationPath C:/pixi_ws\ros2_rolling
+          Expand-Archive -Path ros2-package-windows-AMD64.zip -DestinationPath C:/pixi_ws/
       - name: Install Rust ROS prerequisites
         run: pixi add libclang --manifest-path C:\pixi_ws\pixi.toml
       - name: Rename libclang-13.dll to libclang.dll
@@ -53,11 +53,23 @@ jobs:
           mkdir C:/workspace/src
           git clone  https://github.com/ros2-rust/ros2_rust.git C:/workspace/src/ros2_rust
       - name: Import other rolling ROS rust repos
-        run: vcs import C:/workspace/src --input C:/workspace/src/ros2_rust/ros2_rust_rolling.repos
+        run: pixi run --manifest-path C:\pixi_ws\pixi.toml vcs import C:/workspace/src --input C:/workspace/src/ros2_rust/ros2_rust_rolling.repos
       - name: Build the rust package
         run: |
-          call "C:\Program Files (x86)\Microsoft Visual Studio\2019\BuildTools\VC\Auxiliary\Build\vcvars64.bat"
-          call C:\pixi_ws\ros2_rolling\setup.bat
+          set FOUND_VCVARS=
+          for %%V in (Enterprise Professional Community BuildTools) do (
+            if exist "C:\Program Files (x86)\Microsoft Visual Studio\2019\%%V\VC\Auxiliary\Build\vcvars64.bat" (
+              call "C:\Program Files (x86)\Microsoft Visual Studio\2019\%%V\VC\Auxiliary\Build\vcvars64.bat"
+              set FOUND_VCVARS=1
+              goto :aftervcvars
+            )
+          )
+          :aftervcvars
+          if not defined FOUND_VCVARS (
+            echo Could not find vcvars64.bat for VS2019!
+            exit /b 1
+          )
+          call C:\pixi_ws\ros2-windows\setup.bat
           pixi run --manifest-path C:\pixi_ws\pixi.toml colcon build
         working-directory: C:\workspace
-        
+        shell: cmd
