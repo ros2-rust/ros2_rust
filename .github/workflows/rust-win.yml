@@ -20,6 +20,7 @@ jobs:
     env:
       LIBCLANG_PATH: C:\pixi_ws\.pixi\envs\default\Library\bin
     steps:
+      - uses: ilammy/msvc-dev-cmd@v1.4.1
       - name: Install MSVC 2019
         run: |
           powershell -noexit irm https://aka.ms/vs/16/release/vs_buildtools.exe -OutFile vs_buildtools_2019.exe
@@ -56,19 +57,6 @@ jobs:
         run: pixi run --manifest-path C:\pixi_ws\pixi.toml vcs import C:/workspace/src --input C:/workspace/src/ros2_rust/ros2_rust_rolling.repos
       - name: Build the rust package
         run: |
-          set FOUND_VCVARS=
-          for %%V in (Enterprise Professional Community BuildTools) do (
-            if exist "C:\Program Files (x86)\Microsoft Visual Studio\2019\%%V\VC\Auxiliary\Build\vcvars64.bat" (
-              call "C:\Program Files (x86)\Microsoft Visual Studio\2019\%%V\VC\Auxiliary\Build\vcvars64.bat"
-              set FOUND_VCVARS=1
-              goto :aftervcvars
-            )
-          )
-          :aftervcvars
-          if not defined FOUND_VCVARS (
-            echo Could not find vcvars64.bat for VS2019!
-            exit /b 1
-          )
           call C:\pixi_ws\ros2-windows\setup.bat
           pixi run --manifest-path C:\pixi_ws\pixi.toml colcon build
         working-directory: C:\workspace
