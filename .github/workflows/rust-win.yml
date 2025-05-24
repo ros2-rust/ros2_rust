@@ -19,6 +19,8 @@ jobs:
     runs-on: windows-latest
     env:
       LIBCLANG_PATH: C:\pixi_ws\.pixi\envs\default\Library\bin
+      RUST_BACKTRACE: 1
+      RUST_LOG: debug
     steps:
       - uses: ilammy/msvc-dev-cmd@v1.4.1
       - name: Install MSVC 2019
