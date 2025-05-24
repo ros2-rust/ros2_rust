@@ -53,12 +53,13 @@ jobs:
           pixi add --pypi "colcon-cargo@git+https://github.com/colcon/colcon-cargo.git" --manifest-path C:\pixi_ws\pixi.toml
       - name: Import other rolling ROS rust repos
         run: pixi run --manifest-path C:\pixi_ws\pixi.toml vcs import C:/workspace/src --input C:/workspace/src/ros2_rust/ros2_rust_rolling.repos
+      - name: update rust version
+        run: pixi add --manifest-path C:\pixi_ws\pixi.toml rust # necessary  for examples_rclrs_message_demo error and incompatibility with backtrace v0.3.75 with rustc 1.75. (TODO update in ROS2 pixi.toml) 
       - name: Build the rust package
-        env:
-          BINDGEN_EXTRA_CLANG_ARGS: -D_Check_return_= # to handle the clang error with the windows specific bindgen error
+        #env:
+        #  BINDGEN_EXTRA_CLANG_ARGS: -D_Check_return_= # to handle the clang error with the windows specific bindgen error
         run: |
-          pixi update --manifest-path C:\pixi_ws\pixi.toml rust
           call C:\pixi_ws\ros2-windows\setup.bat
-          pixi run --manifest-path C:\pixi_ws\pixi.toml colcon build
+          pixi run --manifest-path C:\pixi_ws\pixi.toml colcon build 
         working-directory: C:/workspace
         shell: cmd
