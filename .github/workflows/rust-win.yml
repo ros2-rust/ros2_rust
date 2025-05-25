@@ -2,8 +2,14 @@ name: Rust ROS 2 Windows build
 
 on:
   push:
-    branches: [ win-ci]
-  workflow_dispatch:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    # Run the CI at 02:22 UTC every Tuesday
+    # We pick an arbitrary time outside of most of the world's work hours
+    # to minimize the likelihood of running alongside a heavy workload.
+    - cron: '22 2 * * 2'
 
 env:
   CARGO_TERM_COLOR: always
