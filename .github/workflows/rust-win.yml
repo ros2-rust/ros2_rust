@@ -42,12 +42,10 @@ jobs:
           Expand-Archive -Path ros2-package-windows-AMD64.zip -DestinationPath C:/pixi_ws/
 
       - name: Install ros2_rust prerequisites 
-        # Prerequisits and fixes for windows build ros2_rust:
-        #     * examples_rclrs_message_demo error and incompatibility with backtrace v0.3.75 with rustc 1.75. (TODO update in ROS2 pixi.toml) 
+        # prerequisites and fixes for windows build ros2_rust:
         #     * Libclang has to be added (from the ros2_rust instructions) and the dll has to be renamed
         #     * colcon-ros-cargo and colcon-cargo have to be added as PyPI packages
         run: |
-          pixi add --manifest-path C:\pixi_ws\pixi.toml rust 
           pixi add libclang --manifest-path C:\pixi_ws\pixi.toml
           $src = "C:\pixi_ws\.pixi\envs\default\Library\bin\libclang-13.dll"
           $dst = "C:\pixi_ws\.pixi\envs\default\Library\bin\libclang.dll"
