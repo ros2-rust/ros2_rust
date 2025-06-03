@@ -1,0 +1,88 @@
+name: Rust ROS 2 Windows build
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    # Run the CI at 02:22 UTC every Tuesday
+    # We pick an arbitrary time outside of most of the world's work hours
+    # to minimize the likelihood of running alongside a heavy workload.
+    - cron: '22 2 * * 2'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ilammy/msvc-dev-cmd@v1.4.1
+
+      - name: Make new directories and copy ros2_rust repo
+        run: |
+          mkdir C:\workspace\src
+          mkdir C:\pixi_ws
+          xcopy /E /I /Y D:\a\ros2_rust\ros2_rust C:\workspace\src\ros2_rust
+
+      - name: Get pixi toml file
+        run: irm https://raw.githubusercontent.com/ros2/ros2/refs/heads/rolling/pixi.toml -OutFile C:\pixi_ws\pixi.toml
+
+      - name: Setup Pixi environment woth ROS2 toml file
+        uses: prefix-dev/setup-pixi@v0.8.1
+        with:
+          manifest-path: C:/pixi_ws/pixi.toml
+
+      - name: Get prebuild ROS files and unzip
+        run: |
+          irm https://ci.ros2.org/view/packaging/job/packaging_windows/lastSuccessfulBuild/artifact/ws/ros2-package-windows-AMD64.zip -Outfile ros2-package-windows-AMD64.zip
+          Expand-Archive -Path ros2-package-windows-AMD64.zip -DestinationPath C:/pixi_ws/
+
+      - name: Install ros2_rust prerequisites 
+        # prerequisites and fixes for windows build ros2_rust:
+        #     * Libclang has to be added (from the ros2_rust instructions) and the dll has to be renamed
+        #     * colcon-ros-cargo and colcon-cargo have to be added as PyPI packages
+        run: |
+          pixi add libclang --manifest-path C:\pixi_ws\pixi.toml
+          $src = "C:\pixi_ws\.pixi\envs\default\Library\bin\libclang-13.dll"
+          $dst = "C:\pixi_ws\.pixi\envs\default\Library\bin\libclang.dll"
+          if (Test-Path $src) { Rename-Item -Path $src -NewName "libclang.dll" }
+          pixi add --pypi "colcon-ros-cargo@git+https://github.com/colcon/colcon-ros-cargo.git" --manifest-path C:\pixi_ws\pixi.toml
+          pixi add --pypi "colcon-cargo@git+https://github.com/colcon/colcon-cargo.git" --manifest-path C:\pixi_ws\pixi.toml
+
+      - name: Build the rust package
+        env:
+          LIBCLANG_PATH: C:\pixi_ws\.pixi\envs\default\Library\bin # See https://github.com/ros2-rust/ros2_rust?tab=readme-ov-file#sounds-great-how-can-i-try-this-out
+          BINDGEN_EXTRA_CLANG_ARGS: -D_Check_return_= # to handle the clang error with the windows specific bindgen error
+        run: |
+          call C:\pixi_ws\ros2-windows\setup.bat
+          pixi run --manifest-path C:\pixi_ws\pixi.toml vcs import C:/workspace/src --input C:/workspace/src/ros2_rust/ros2_rust_rolling.repos
+          pixi run --manifest-path C:\pixi_ws\pixi.toml colcon build 
+        working-directory: C:/workspace
+        shell: cmd
+
+      - name: Run cargo test on Rust packages
+        run: |
+          call C:\pixi_ws\ros2-windows\setup.bat
+          cd C:\workspace
+          for /f "tokens=1,2,3" %%A in ('pixi run --manifest-path C:\pixi_ws\pixi.toml colcon list') do (
+            if "%%C"=="(ament_cargo)" (
+              if /I not "%%A"=="examples_rclrs_minimal_pub_sub" if /I not "%%A"=="examples_rclrs_minimal_client_service" if /I not "%%A"=="rust_pubsub" (
+                cd %%B
+                echo Running cargo test in %%B
+                if /I "%%~nxB"=="rclrs" (
+                  cargo test -F default,dyn_msg
+                ) else if /I "%%~nxB"=="rosidl_runtime_rs" (
+                  cargo test -F default
+                ) else (
+                  cargo test --all-features
+                )
+                cd ..
+              )
+            )
+          )
+        shell: cmd
+        working-directory: C:\workspace
