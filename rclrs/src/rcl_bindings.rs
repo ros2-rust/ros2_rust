@@ -91,6 +91,10 @@ cfg_if::cfg_if! {
 
         #[repr(C)]
         #[derive(Debug)]
+        pub struct rcl_timer_t;
+
+        #[repr(C)]
+        #[derive(Debug)]
         pub struct rcutils_string_array_t;
 
         #[repr(C)]

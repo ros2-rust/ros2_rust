@@ -7,9 +7,9 @@ fn main() -> Result<(), Error> {
 
     let node = executor.create_node("minimal_publisher")?;
 
-    let publisher = node.create_publisher::<std_msgs::msg::String>("topic")?;
+    let publisher = node.create_publisher::<example_interfaces::msg::String>("topic")?;
 
-    let mut message = std_msgs::msg::String::default();
+    let mut message = example_interfaces::msg::String::default();
 
     let mut publish_count: u32 = 1;
 
