@@ -19,8 +19,9 @@
   <depend>builtin_interfaces</depend>
   <depend>rcl_interfaces</depend>
   <depend>rosgraph_msgs</depend>
-  
+
   <test_depend>test_msgs</test_depend>
+  <test_depend>example_interfaces</test_depend>
 
   <export>
     <build_type>ament_cargo</build_type>
