@@ -1,13 +1,13 @@
 use anyhow::{Error, Result};
 use rclrs::*;
-use std::{env, sync::Arc, thread};
+use std::{sync::Arc, thread};
 
 type Fibonacci = example_interfaces::action::Fibonacci;
 type GoalHandleFibonacci = rclrs::ServerGoalHandle<Fibonacci>;
 
 fn handle_goal(
-    _uuid: &rclrs::GoalUUID,
-    goal: Arc<example_interfaces::action::rmw::Fibonacci_Goal>,
+    _uuid: rclrs::GoalUuid,
+    goal: example_interfaces::action::Fibonacci_Goal,
 ) -> rclrs::GoalResponse {
     println!("Received goal request with order {}", goal.order);
     if goal.order > 9000 {
@@ -24,11 +24,11 @@ fn handle_cancel(_goal_handle: Arc<GoalHandleFibonacci>) -> rclrs::CancelRespons
 
 fn execute(goal_handle: Arc<GoalHandleFibonacci>) {
     println!("Executing goal");
-    let feedback = example_interfaces::action::Fibonacci_Feedback {
+    let mut feedback = example_interfaces::action::Fibonacci_Feedback {
         sequence: [0, 1].to_vec(),
     };
 
-    for i in 1..goal_handle.goal_request.order {
+    for i in 1..goal_handle.goal().order {
         if goal_handle.is_canceling() {
             let result = example_interfaces::action::Fibonacci_Result {
                 sequence: Vec::new(),
@@ -50,9 +50,8 @@ fn execute(goal_handle: Arc<GoalHandleFibonacci>) {
     }
 
     let result = example_interfaces::action::Fibonacci_Result {
-        sequence: Vec::new(),
+        sequence: feedback.sequence,
     };
-    result.sequence = feedback.sequence.clone();
     goal_handle.succeed(&result);
     println!("Goal succeeded");
 }
@@ -68,7 +67,7 @@ fn main() -> Result<(), Error> {
 
     let node = executor.create_node("minimal_action_server")?;
 
-    let _action_server = node.create_action_server::<example_interfaces::action::Fibonacci>(
+    let _action_server = node.create_action_server::<example_interfaces::action::Fibonacci, _, _, _>(
         "fibonacci",
         handle_goal,
         handle_cancel,

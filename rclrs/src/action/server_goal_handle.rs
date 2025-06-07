@@ -208,10 +208,10 @@ where
     /// This may only be called when the goal is executing.
     ///
     /// Returns an error if the goal is in any state other than executing.
-    pub fn publish_feedback(&self, feedback: Arc<ActionT::Feedback>) -> Result<(), RclrsError> {
+    pub fn publish_feedback(&self, feedback: &ActionT::Feedback) -> Result<(), RclrsError> {
         // If the action server no longer exists, simply drop the message.
         if let Some(action_server) = self.action_server.upgrade() {
-            action_server.publish_feedback(&self.uuid, &*feedback)?;
+            action_server.publish_feedback(&self.uuid, feedback)?;
         }
         Ok(())
     }
