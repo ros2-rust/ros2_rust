@@ -1,0 +1,87 @@
+name: Docs
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+env:
+  CARGO_TERM_COLOR: always
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    container: rostooling/setup-ros-docker:ubuntu-jammy-ros-rolling-ros-base-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      # ROS 2 WS part
+      - name: Search packages in this repository
+        id: list_packages
+        run: |
+          {
+            echo 'package_list<<EOF'
+            colcon list --names-only
+            echo EOF
+          } >> "$GITHUB_OUTPUT"
+      - name: Setup ROS environment
+        uses: ros-tooling/setup-ros@v0.7
+        with:
+          required-ros-distributions: rolling
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - name: Install colcon-cargo and colcon-ros-cargo
+        run: |
+          sudo pip3 install git+https://github.com/colcon/colcon-cargo.git
+          sudo pip3 install git+https://github.com/colcon/colcon-ros-cargo.git
+      - name: Build ROS 2 WS
+        id: build_ros_ws
+        uses: ros-tooling/action-ros-ci@v0.3
+        with:
+          package-name: ${{ steps.list_packages.outputs.package_list }}
+          target-ros2-distro: rolling
+          vcs-repo-file-url: ros2_rust_rolling.repos
+          skip-tests: true
+      # DOC part
+      - name: Setup pages
+        id: pages
+        uses: actions/configure-pages@v5
+      - name: Build docs
+        id: build_doc
+        run: |
+          cd ${{ steps.build_ros_ws.outputs.ros-workspace-directory-name }}
+          . install/setup.sh
+          cd $(colcon list | awk '$1 == "rclrs" { print $2 }')
+          cargo doc --no-deps
+          {
+            echo 'rclrs_path<<EOF'
+            pwd
+            echo EOF
+          } >> "$GITHUB_OUTPUT"
+      - name: Add redirect
+        working-directory: ${{ steps.build_doc.outputs.rclrs_path }}
+        run: |
+          pwd
+          ls
+          echo '<meta http-equiv="refresh" content="0;url=rclrs/index.html">' > target/doc/index.html
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ${{ steps.build_doc.outputs.rclrs_path }}/target/doc
+  deploy:
+    name: Deploy
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

@@ -3,6 +3,7 @@ ROS 2 for Rust
 
 [![Minimal Version Status](https://github.com/ros2-rust/ros2_rust/actions/workflows/rust-minimal.yml/badge.svg?branch=main)](https://github.com/ros2-rust/ros2_rust/actions/workflows/rust-minimal.yml)
 [![Stable CI Status](https://github.com/ros2-rust/ros2_rust/actions/workflows/rust-stable.yml/badge.svg?branch=main)](https://github.com/ros2-rust/ros2_rust/actions/workflows/rust-stable.yml)
+[![Doc CI Status](https://github.com/ros2-rust/ros2_rust/actions/workflows/docs.yml/badge.svg?branch=main)](https://ros2-rust.github.io/ros2_rust/rclrs/index.html)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
 Introduction
@@ -71,5 +72,6 @@ ros2 launch examples_rclrs_minimal_pub_sub minimal_pub_sub.launch.xml
 ```
 
 Further documentation articles:
+- [API documentation generated from `main` branch](https://ros2-rust.github.io/ros2_rust/rclrs/index.html)
 - [Tutorial on writing your first node with `rclrs`](docs/writing-your-first-rclrs-node.md)
 - [Contributor's guide](docs/CONTRIBUTING.md)
