@@ -66,8 +66,8 @@ pub(crate) enum ReadyMode {
 }
 
 pub type GoalCallback<ActionT> = dyn Fn(GoalUuid, <ActionT as rosidl_runtime_rs::Action>::Goal) -> GoalResponse + 'static + Send + Sync;
-pub type CancelCallback<ActionT> = dyn Fn(ServerGoalHandle<ActionT>) -> CancelResponse + 'static + Send + Sync;
-pub type AcceptedCallback<ActionT> = dyn Fn(ServerGoalHandle<ActionT>) + 'static + Send + Sync;
+pub type CancelCallback<ActionT> = dyn Fn(Arc<ServerGoalHandle<ActionT>>) -> CancelResponse + 'static + Send + Sync;
+pub type AcceptedCallback<ActionT> = dyn Fn(Arc<ServerGoalHandle<ActionT>>) + 'static + Send + Sync;
 
 pub struct ActionServer<ActionT>
 where
@@ -95,8 +95,8 @@ where
         clock: Clock,
         topic: &str,
         goal_callback: impl Fn(GoalUuid, T::Goal) -> GoalResponse + 'static + Send + Sync,
-        cancel_callback: impl Fn(ServerGoalHandle<T>) -> CancelResponse + 'static + Send + Sync,
-        accepted_callback: impl Fn(ServerGoalHandle<T>) + 'static + Send + Sync,
+        cancel_callback: impl Fn(Arc<ServerGoalHandle<T>>) -> CancelResponse + 'static + Send + Sync,
+        accepted_callback: impl Fn(Arc<ServerGoalHandle<T>>) + 'static + Send + Sync,
     ) -> Result<Self, RclrsError>
     where
         T: rosidl_runtime_rs::Action + rosidl_runtime_rs::ActionImpl,
