@@ -1,4 +1,4 @@
-use crate::{action::ActionServer, rcl_bindings::*, GoalUuid, RclrsError, ToResult};
+use crate::{action::ActionServerState, rcl_bindings::*, GoalUuid, RclrsError, ToResult};
 use std::sync::{Arc, Mutex, Weak};
 
 // Values defined by `action_msgs/msg/GoalStatus`
@@ -25,7 +25,7 @@ where
     ActionT: rosidl_runtime_rs::Action + rosidl_runtime_rs::ActionImpl,
 {
     rcl_handle: Mutex<*mut rcl_action_goal_handle_t>,
-    action_server: Weak<ActionServer<ActionT>>,
+    action_server: Weak<ActionServerState<ActionT>>,
     goal_request: Arc<ActionT::Goal>,
     uuid: GoalUuid,
 }
@@ -44,7 +44,7 @@ where
 {
     pub(crate) fn new(
         rcl_handle: *mut rcl_action_goal_handle_t,
-        action_server: Weak<ActionServer<ActionT>>,
+        action_server: Weak<ActionServerState<ActionT>>,
         goal_request: Arc<ActionT::Goal>,
         uuid: GoalUuid,
     ) -> Self {

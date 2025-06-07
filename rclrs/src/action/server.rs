@@ -3,7 +3,7 @@ use crate::{
     error::{RclReturnCode, ToResult},
     rcl_bindings::*,
     wait::WaitableNumEntities,
-    Clock, DropGuard, Node, RclrsError, ENTITY_LIFECYCLE_MUTEX,
+    Clock, DropGuard, Node, NodeHandle, RclrsError, ENTITY_LIFECYCLE_MUTEX,
 };
 use rosidl_runtime_rs::{Action, ActionImpl, Message, Service};
 use std::{
@@ -23,7 +23,7 @@ unsafe impl Send for rcl_action_server_t {}
 /// [1]: <https://doc.rust-lang.org/reference/destructors.html>
 pub struct ActionServerHandle {
     rcl_action_server: Mutex<rcl_action_server_t>,
-    node: Node,
+    node_handle: Arc<NodeHandle>,
     pub(crate) in_use_by_wait_set: Arc<AtomicBool>,
 }
 
@@ -36,7 +36,7 @@ impl ActionServerHandle {
 impl Drop for ActionServerHandle {
     fn drop(&mut self) {
         let rcl_action_server = self.rcl_action_server.get_mut().unwrap();
-        let mut rcl_node = self.node.handle.rcl_node.lock().unwrap();
+        let mut rcl_node = self.node_handle.rcl_node.lock().unwrap();
         let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
         // SAFETY: The entity lifecycle mutex is locked to protect against the risk of
         // global variables in the rmw implementation being unsafely modified during cleanup.
@@ -69,7 +69,33 @@ pub type GoalCallback<ActionT> = dyn Fn(GoalUuid, <ActionT as rosidl_runtime_rs:
 pub type CancelCallback<ActionT> = dyn Fn(Arc<ServerGoalHandle<ActionT>>) -> CancelResponse + 'static + Send + Sync;
 pub type AcceptedCallback<ActionT> = dyn Fn(Arc<ServerGoalHandle<ActionT>>) + 'static + Send + Sync;
 
-pub struct ActionServer<ActionT>
+/// An action server that can respond to requests sent by ROS action clients.
+///
+/// Create an action server using [`Node::create_action_server`][1].
+///
+/// ROS only supports having one server for any given fully-qualified
+/// action name. "Fully-qualified" means the namespace is also taken into account
+/// for uniqueness. A clone of an `ActionServer` will refer to the same server
+/// instance as the original. The underlying instance is tied to [`ActionServerState`]
+/// which implements the [`ActionServer`] API.
+///
+/// Responding to requests requires the node's executor to [spin][2].
+///
+/// [1]: crate::NodeState::create_action_server
+/// [2]: crate::spin
+pub type ActionServer<ActionT> = Arc<ActionServerState<ActionT>>;
+
+/// The inner state of an [`ActionServer`].
+///
+/// This is public so that you can choose to create a [`Weak`][1] reference to it
+/// if you want to be able to refer to a [`ActionServer`] in a non-owning way. It is
+/// generally recommended to manage the `ActionServerState` inside of an [`Arc`],
+/// and [`ActionServer`] is provided as a convenience alias for that.
+///
+/// The public API of the [`ActionServer`] type is implemented via `ActionServerState`.
+///
+/// [1]: std::sync::Weak
+pub struct ActionServerState<ActionT>
 where
     ActionT: rosidl_runtime_rs::Action + rosidl_runtime_rs::ActionImpl,
 {
@@ -83,16 +109,19 @@ where
     goal_handles: Mutex<HashMap<GoalUuid, Arc<ServerGoalHandle<ActionT>>>>,
     goal_results: Mutex<HashMap<GoalUuid, <<ActionT::GetResultService as Service>::Response as Message>::RmwMsg>>,
     result_requests: Mutex<HashMap<GoalUuid, Vec<rmw_request_id_t>>>,
+    /// Ensure the parent node remains alive as long as the subscription is held.
+    /// This implementation will change in the future.
+    #[allow(unused)]
+    node: Node,
 }
 
-impl<T> ActionServer<T>
+impl<T> ActionServerState<T>
 where
     T: rosidl_runtime_rs::Action + rosidl_runtime_rs::ActionImpl,
 {
     /// Creates a new action server.
     pub(crate) fn new(
         node: &Node,
-        clock: Clock,
         topic: &str,
         goal_callback: impl Fn(GoalUuid, T::Goal) -> GoalResponse + 'static + Send + Sync,
         cancel_callback: impl Fn(Arc<ServerGoalHandle<T>>) -> CancelResponse + 'static + Send + Sync,
@@ -114,13 +143,14 @@ where
 
         {
             let mut rcl_node = node.handle.rcl_node.lock().unwrap();
+            let clock = node.get_clock();
             let rcl_clock = clock.rcl_clock();
             let mut rcl_clock = rcl_clock.lock().unwrap();
             let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
 
             // SAFETY:
             // * The rcl_action_server is zero-initialized as mandated by this function.
-            // * The rcl_node is kept alive by the Node because it is a dependency of the action server.
+            // * The rcl_node is kept alive by the NodeHandle because it is a dependency of the action server.
             // * The topic name and the options are copied by this function, so they can be dropped
             //   afterwards.
             // * The entity lifecycle mutex is locked to protect against the risk of global
@@ -140,7 +170,7 @@ where
 
         let handle = Arc::new(ActionServerHandle {
             rcl_action_server: Mutex::new(rcl_action_server),
-            node: node.clone(),
+            node_handle: Arc::clone(&node.handle),
             in_use_by_wait_set: Arc::new(AtomicBool::new(false)),
         });
 
@@ -166,6 +196,7 @@ where
             goal_handles: Mutex::new(HashMap::new()),
             goal_results: Mutex::new(HashMap::new()),
             result_requests: Mutex::new(HashMap::new()),
+            node: node.clone(),
         })
     }
 
@@ -684,7 +715,7 @@ where
     }
 }
 
-impl<T> ActionServerBase for ActionServer<T>
+impl<T> ActionServerBase for ActionServerState<T>
 where
     T: rosidl_runtime_rs::Action + rosidl_runtime_rs::ActionImpl,
 {

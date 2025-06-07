@@ -19,13 +19,13 @@ use std::{
 use rosidl_runtime_rs::Message;
 
 use crate::{
-    rcl_bindings::*, ActionClient, ActionClientBase, ActionServer, ActionServerBase,
-    CancelResponse, Client, ClientBase, ClientOptions, ClientState, Clock, ContextHandle,
-    GoalResponse, GoalUuid, GuardCondition, LogParams, Logger, ParameterBuilder,
-    ParameterInterface, ParameterVariant, Parameters, Publisher, PublisherOptions, PublisherState,
-    RclrsError, ServerGoalHandle, Service, ServiceBase, ServiceOptions, ServiceState, Subscription,
-    SubscriptionBase, SubscriptionCallback, SubscriptionOptions, SubscriptionState, TimeSource,
-    ToLogParams, ENTITY_LIFECYCLE_MUTEX,
+    rcl_bindings::*, ActionClient, ActionClientBase, ActionClientState, ActionServer,
+    ActionServerBase, ActionServerState, CancelResponse, Client, ClientBase, ClientOptions,
+    ClientState, Clock, ContextHandle, GoalResponse, GoalUuid, GuardCondition, LogParams, Logger,
+    ParameterBuilder, ParameterInterface, ParameterVariant, Parameters, Publisher,
+    PublisherOptions, PublisherState, RclrsError, ServerGoalHandle, Service, ServiceBase,
+    ServiceOptions, ServiceState, Subscription, SubscriptionBase, SubscriptionCallback,
+    SubscriptionOptions, SubscriptionState, TimeSource, ToLogParams, ENTITY_LIFECYCLE_MUTEX,
 };
 
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
@@ -299,11 +299,11 @@ impl NodeState {
     pub fn create_action_client<T>(
         self: &Arc<Self>,
         topic: &str,
-    ) -> Result<Arc<ActionClient<T>>, RclrsError>
+    ) -> Result<ActionClient<T>, RclrsError>
     where
         T: rosidl_runtime_rs::Action,
     {
-        let action_client = Arc::new(ActionClient::<T>::new(self, topic)?);
+        let action_client = Arc::new(ActionClientState::<T>::new(self, topic)?);
         self.action_clients_mtx
             .lock()
             .unwrap()
@@ -321,16 +321,15 @@ impl NodeState {
         handle_goal: GoalCallback,
         handle_cancel: CancelCallback,
         handle_accepted: AcceptedCallback,
-    ) -> Result<Arc<ActionServer<ActionT>>, RclrsError>
+    ) -> Result<ActionServer<ActionT>, RclrsError>
     where
         ActionT: rosidl_runtime_rs::Action + rosidl_runtime_rs::ActionImpl,
         GoalCallback: Fn(GoalUuid, <ActionT as rosidl_runtime_rs::Action>::Goal) -> GoalResponse + 'static + Send + Sync,
         CancelCallback: Fn(Arc<ServerGoalHandle<ActionT>>) -> CancelResponse + 'static + Send + Sync,
         AcceptedCallback: Fn(Arc<ServerGoalHandle<ActionT>>) + 'static + Send + Sync,
     {
-        let action_server = Arc::new(ActionServer::<ActionT>::new(
+        let action_server = Arc::new(ActionServerState::<ActionT>::new(
             self,
-            self.get_clock(),
             topic,
             handle_goal,
             handle_cancel,
