@@ -361,6 +361,8 @@ impl<'a> NodeOptions<'a> {
             guard_conditions_mtx: Mutex::default(),
             services_mtx: Mutex::default(),
             subscriptions_mtx: Mutex::default(),
+            action_clients_mtx: Mutex::default(),
+            action_servers_mtx: Mutex::default(),
             time_source: TimeSource::builder(self.clock_type)
                 .clock_qos(self.clock_qos)
                 .build(),
