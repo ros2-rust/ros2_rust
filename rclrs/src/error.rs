@@ -201,6 +201,26 @@ pub enum RclReturnCode {
     EventInvalid = 2000,
     /// Failed to take an event from the event handle
     EventTakeFailed = 2001,
+    // ====== 2XXX: action-specific errors ======
+    /// Action name does not pass validation
+    // TODO(nwn): Consult with upstream about this reused error code.
+    // ActionNameInvalid = 2000,
+    /// Action goal accepted
+    ActionGoalAccepted = 2100,
+    /// Action goal rejected
+    ActionGoalRejected = 2101,
+    /// Action client is invalid
+    ActionClientInvalid = 2102,
+    /// Action client failed to take response
+    ActionClientTakeFailed = 2103,
+    /// Action server is invalid
+    ActionServerInvalid = 2200,
+    /// Action server failed to take request
+    ActionServerTakeFailed = 2201,
+    /// Action goal handle invalid
+    ActionGoalHandleInvalid = 2300,
+    /// Action invalid event
+    ActionGoalEventInvalid = 2301,
     // ====== 30XX: lifecycle-specific errors ======
     /// `rcl_lifecycle` state registered
     LifecycleStateRegistered = 3000,
@@ -249,6 +269,15 @@ impl TryFrom<i32> for RclReturnCode {
             x if x == Self::InvalidLogLevelRule as i32 => Self::InvalidLogLevelRule,
             x if x == Self::EventInvalid as i32 => Self::EventInvalid,
             x if x == Self::EventTakeFailed as i32 => Self::EventTakeFailed,
+            // x if x == Self::ActionNameInvalid as i32 => Self::ActionNameInvalid,
+            x if x == Self::ActionGoalAccepted as i32 => Self::ActionGoalAccepted,
+            x if x == Self::ActionGoalRejected as i32 => Self::ActionGoalRejected,
+            x if x == Self::ActionClientInvalid as i32 => Self::ActionClientInvalid,
+            x if x == Self::ActionClientTakeFailed as i32 => Self::ActionClientTakeFailed,
+            x if x == Self::ActionServerInvalid as i32 => Self::ActionServerInvalid,
+            x if x == Self::ActionServerTakeFailed as i32 => Self::ActionServerTakeFailed,
+            x if x == Self::ActionGoalHandleInvalid as i32 => Self::ActionGoalHandleInvalid,
+            x if x == Self::ActionGoalEventInvalid as i32 => Self::ActionGoalEventInvalid,
             x if x == Self::LifecycleStateRegistered as i32 => Self::LifecycleStateRegistered,
             x if x == Self::LifecycleStateNotRegistered as i32 => Self::LifecycleStateNotRegistered,
             other => {
@@ -330,6 +359,15 @@ impl Display for RclReturnCode {
             Self::EventTakeFailed => {
                 "Failed to take an event from the event handle (RCL_RET_EVENT_TAKE_FAILED)."
             }
+            // Self::ActionNameInvalid => "Action name does not pass validation (RCL_RET_ACTION_NAME_INVALID).",
+            Self::ActionGoalAccepted => "Action goal accepted (RCL_RET_ACTION_GOAL_ACCEPTED).",
+            Self::ActionGoalRejected => "Action goal rejected (RCL_RET_ACTION_GOAL_REJECTED).",
+            Self::ActionClientInvalid => "Action client is invalid (RCL_RET_ACTION_CLIENT_INVALID).",
+            Self::ActionClientTakeFailed => "Action client failed to take response (RCL_RET_ACTION_CLIENT_TAKE_FAILED).",
+            Self::ActionServerInvalid => "Action server is invalid (RCL_RET_ACTION_SERVER_INVALID).",
+            Self::ActionServerTakeFailed => "Action server failed to take request (RCL_RET_ACTION_SERVER_TAKE_FAILED).",
+            Self::ActionGoalHandleInvalid => "Action goal handle invalid (RCL_RET_ACTION_GOAL_HANDLE_INVALID).",
+            Self::ActionGoalEventInvalid => "Action invalid event (RCL_RET_ACTION_GOAL_EVENT_INVALID).",
             Self::LifecycleStateRegistered => {
                 "`rcl_lifecycle` state registered (RCL_RET_LIFECYCLE_STATE_REGISTERED)."
             }

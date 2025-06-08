@@ -76,6 +76,14 @@ impl Executor {
             for ready_service in ready_entities.services {
                 ready_service.execute()?;
             }
+
+            for (ready_action_client, mode) in ready_entities.action_clients {
+                ready_action_client.execute(mode)?;
+            }
+
+            for (ready_action_server, mode) in ready_entities.action_servers {
+                ready_action_server.execute(mode)?;
+            }
         }
 
         // Clear out any nodes that have been dropped.
