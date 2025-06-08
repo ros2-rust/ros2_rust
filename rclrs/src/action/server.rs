@@ -3,10 +3,11 @@ use crate::{
     error::{RclReturnCode, ToResult},
     rcl_bindings::*,
     wait::WaitableNumEntities,
-    Clock, DropGuard, Node, NodeHandle, RclrsError, ENTITY_LIFECYCLE_MUTEX,
+    Clock, DropGuard, Node, NodeHandle, QoSProfile, RclrsError, ENTITY_LIFECYCLE_MUTEX,
 };
 use rosidl_runtime_rs::{Action, ActionImpl, Message, Service};
 use std::{
+    borrow::Borrow,
     collections::HashMap,
     ffi::CString,
     sync::{atomic::AtomicBool, Arc, Mutex, MutexGuard},
@@ -120,9 +121,9 @@ where
     T: rosidl_runtime_rs::Action + rosidl_runtime_rs::ActionImpl,
 {
     /// Creates a new action server.
-    pub(crate) fn new(
+    pub(crate) fn new<'a>(
         node: &Node,
-        topic: &str,
+        options: impl Into<ActionServerOptions<'a>>,
         goal_callback: impl Fn(GoalUuid, T::Goal) -> GoalResponse + 'static + Send + Sync,
         cancel_callback: impl Fn(Arc<ServerGoalHandle<T>>) -> CancelResponse + 'static + Send + Sync,
         accepted_callback: impl Fn(Arc<ServerGoalHandle<T>>) + 'static + Send + Sync,
@@ -130,13 +131,15 @@ where
     where
         T: rosidl_runtime_rs::Action + rosidl_runtime_rs::ActionImpl,
     {
+        let options = options.into();
         // SAFETY: Getting a zero-initialized value is always safe.
         let mut rcl_action_server = unsafe { rcl_action_get_zero_initialized_server() };
         let type_support = T::get_type_support() as *const rosidl_action_type_support_t;
-        let topic_c_string = CString::new(topic).map_err(|err| RclrsError::StringContainsNul {
-            err,
-            s: topic.into(),
-        })?;
+        let action_name_c_string =
+            CString::new(options.action_name).map_err(|err| RclrsError::StringContainsNul {
+                err,
+                s: options.action_name.into(),
+            })?;
 
         // SAFETY: No preconditions for this function.
         let action_server_options = unsafe { rcl_action_server_get_default_options() };
@@ -151,7 +154,7 @@ where
             // SAFETY:
             // * The rcl_action_server is zero-initialized as mandated by this function.
             // * The rcl_node is kept alive by the NodeHandle because it is a dependency of the action server.
-            // * The topic name and the options are copied by this function, so they can be dropped
+            // * The action name and the options are copied by this function, so they can be dropped
             //   afterwards.
             // * The entity lifecycle mutex is locked to protect against the risk of global
             //   variables in the rmw implementation being unsafely modified during initialization.
@@ -161,7 +164,7 @@ where
                     &mut *rcl_node,
                     &mut *rcl_clock,
                     type_support,
-                    topic_c_string.as_ptr(),
+                    action_name_c_string.as_ptr(),
                     &action_server_options,
                 )
                 .ok()?;
@@ -734,5 +737,47 @@ where
             ReadyMode::ResultRequest => self.execute_result_request(),
             ReadyMode::GoalExpired => self.execute_goal_expired(),
         }
+    }
+}
+
+/// `ActionServerOptions` are used by [`Node::create_action_server`][1] to initialize an
+/// [`ActionServer`].
+///
+/// [1]: crate::Node::create_action_server
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub struct ActionServerOptions<'a> {
+    /// The name of the action implemented by this server
+    pub action_name: &'a str,
+    /// The quality of service profile for the goal service
+    pub goal_service_qos: QoSProfile,
+    /// The quality of service profile for the result service
+    pub result_service_qos: QoSProfile,
+    /// The quality of service profile for the cancel service
+    pub cancel_service_qos: QoSProfile,
+    /// The quality of service profile for the feedback topic
+    pub feedback_topic_qos: QoSProfile,
+    /// The quality of service profile for the status topic
+    pub status_topic_qos: QoSProfile,
+    // TODO(nwn): result_timeout
+}
+
+impl<'a> ActionServerOptions<'a> {
+    /// Initialize a new [`ActionServerOptions`] with default settings.
+    pub fn new(action_name: &'a str) -> Self {
+        Self {
+            action_name,
+            goal_service_qos: QoSProfile::services_default(),
+            result_service_qos: QoSProfile::services_default(),
+            cancel_service_qos: QoSProfile::services_default(),
+            feedback_topic_qos: QoSProfile::topics_default(),
+            status_topic_qos: QoSProfile::action_status_default(),
+        }
+    }
+}
+
+impl<'a, T: Borrow<str> + ?Sized + 'a> From<&'a T> for ActionServerOptions<'a> {
+    fn from(value: &'a T) -> Self {
+        Self::new(value.borrow())
     }
 }

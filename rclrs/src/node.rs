@@ -19,13 +19,14 @@ use std::{
 use rosidl_runtime_rs::Message;
 
 use crate::{
-    rcl_bindings::*, ActionClient, ActionClientBase, ActionClientState, ActionServer,
-    ActionServerBase, ActionServerState, CancelResponse, Client, ClientBase, ClientOptions,
-    ClientState, Clock, ContextHandle, GoalResponse, GoalUuid, GuardCondition, LogParams, Logger,
-    ParameterBuilder, ParameterInterface, ParameterVariant, Parameters, Publisher,
-    PublisherOptions, PublisherState, RclrsError, ServerGoalHandle, Service, ServiceBase,
-    ServiceOptions, ServiceState, Subscription, SubscriptionBase, SubscriptionCallback,
-    SubscriptionOptions, SubscriptionState, TimeSource, ToLogParams, ENTITY_LIFECYCLE_MUTEX,
+    rcl_bindings::*, ActionClient, ActionClientBase, ActionClientOptions, ActionClientState,
+    ActionServer, ActionServerBase, ActionServerOptions, ActionServerState, CancelResponse, Client,
+    ClientBase, ClientOptions, ClientState, Clock, ContextHandle, GoalResponse, GoalUuid,
+    GuardCondition, LogParams, Logger, ParameterBuilder, ParameterInterface, ParameterVariant,
+    Parameters, Publisher, PublisherOptions, PublisherState, RclrsError, ServerGoalHandle, Service,
+    ServiceBase, ServiceOptions, ServiceState, Subscription, SubscriptionBase,
+    SubscriptionCallback, SubscriptionOptions, SubscriptionState, TimeSource, ToLogParams,
+    ENTITY_LIFECYCLE_MUTEX,
 };
 
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
@@ -296,14 +297,14 @@ impl NodeState {
     ///
     /// [1]: crate::ActionClient
     // TODO: make action client's lifetime depend on node's lifetime
-    pub fn create_action_client<T>(
+    pub fn create_action_client<'a, T>(
         self: &Arc<Self>,
-        topic: &str,
+        options: impl Into<ActionClientOptions<'a>>,
     ) -> Result<ActionClient<T>, RclrsError>
     where
         T: rosidl_runtime_rs::Action,
     {
-        let action_client = Arc::new(ActionClientState::<T>::new(self, topic)?);
+        let action_client = Arc::new(ActionClientState::<T>::new(self, options)?);
         self.action_clients_mtx
             .lock()
             .unwrap()
@@ -315,9 +316,9 @@ impl NodeState {
     ///
     /// [1]: crate::ActionServer
     // TODO: make action server's lifetime depend on node's lifetime
-    pub fn create_action_server<ActionT, GoalCallback, CancelCallback, AcceptedCallback>(
+    pub fn create_action_server<'a, ActionT, GoalCallback, CancelCallback, AcceptedCallback>(
         self: &Arc<Self>,
-        topic: &str,
+        options: impl Into<ActionServerOptions<'a>>,
         handle_goal: GoalCallback,
         handle_cancel: CancelCallback,
         handle_accepted: AcceptedCallback,
@@ -330,7 +331,7 @@ impl NodeState {
     {
         let action_server = Arc::new(ActionServerState::<ActionT>::new(
             self,
-            topic,
+            options,
             handle_goal,
             handle_cancel,
             handle_accepted,

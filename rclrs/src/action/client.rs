@@ -1,8 +1,9 @@
 use crate::{
-    error::ToResult, rcl_bindings::*, wait::WaitableNumEntities, Node, NodeHandle, RclrsError,
-    ENTITY_LIFECYCLE_MUTEX,
+    error::ToResult, rcl_bindings::*, wait::WaitableNumEntities, Node, NodeHandle, QoSProfile,
+    RclrsError, ENTITY_LIFECYCLE_MUTEX,
 };
 use std::{
+    borrow::Borrow,
     ffi::CString,
     marker::PhantomData,
     sync::{atomic::AtomicBool, Arc, Mutex, MutexGuard},
@@ -101,17 +102,22 @@ where
     T: rosidl_runtime_rs::Action,
 {
     /// Creates a new action client.
-    pub(crate) fn new(node: &Node, topic: &str) -> Result<Self, RclrsError>
+    pub(crate) fn new<'a>(
+        node: &Node,
+        options: impl Into<ActionClientOptions<'a>>,
+    ) -> Result<Self, RclrsError>
     where
         T: rosidl_runtime_rs::Action,
     {
+        let options = options.into();
         // SAFETY: Getting a zero-initialized value is always safe.
         let mut rcl_action_client = unsafe { rcl_action_get_zero_initialized_client() };
         let type_support = T::get_type_support() as *const rosidl_action_type_support_t;
-        let topic_c_string = CString::new(topic).map_err(|err| RclrsError::StringContainsNul {
-            err,
-            s: topic.into(),
-        })?;
+        let action_name_c_string =
+            CString::new(options.action_name).map_err(|err| RclrsError::StringContainsNul {
+                err,
+                s: options.action_name.into(),
+            })?;
 
         // SAFETY: No preconditions for this function.
         let action_client_options = unsafe { rcl_action_client_get_default_options() };
@@ -123,7 +129,7 @@ where
             // SAFETY:
             // * The rcl_action_client was zero-initialized as expected by this function.
             // * The rcl_node is kept alive by the NodeHandle because it is a dependency of the action client.
-            // * The topic name and the options are copied by this function, so they can be dropped
+            // * The action name and the options are copied by this function, so they can be dropped
             //   afterwards.
             // * The entity lifecycle mutex is locked to protect against the risk of global
             //   variables in the rmw implementation being unsafely modified during initialization.
@@ -132,7 +138,7 @@ where
                     &mut rcl_action_client,
                     &mut *rcl_node,
                     type_support,
-                    topic_c_string.as_ptr(),
+                    action_name_c_string.as_ptr(),
                     &action_client_options,
                 )
                 .ok()?;
@@ -207,5 +213,46 @@ where
             ReadyMode::CancelResponse => self.execute_cancel_response(),
             ReadyMode::ResultResponse => self.execute_result_response(),
         }
+    }
+}
+
+/// `ActionClientOptions` are used by [`Node::create_action_client`][1] to initialize an
+/// [`ActionClient`].
+///
+/// [1]: crate::Node::create_action_client
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub struct ActionClientOptions<'a> {
+    /// The name of the action that this client will send requests to
+    pub action_name: &'a str,
+    /// The quality of service profile for the goal service
+    pub goal_service_qos: QoSProfile,
+    /// The quality of service profile for the result service
+    pub result_service_qos: QoSProfile,
+    /// The quality of service profile for the cancel service
+    pub cancel_service_qos: QoSProfile,
+    /// The quality of service profile for the feedback topic
+    pub feedback_topic_qos: QoSProfile,
+    /// The quality of service profile for the status topic
+    pub status_topic_qos: QoSProfile,
+}
+
+impl<'a> ActionClientOptions<'a> {
+    /// Initialize a new [`ActionClientOptions`] with default settings.
+    pub fn new(action_name: &'a str) -> Self {
+        Self {
+            action_name,
+            goal_service_qos: QoSProfile::services_default(),
+            result_service_qos: QoSProfile::services_default(),
+            cancel_service_qos: QoSProfile::services_default(),
+            feedback_topic_qos: QoSProfile::topics_default(),
+            status_topic_qos: QoSProfile::action_status_default(),
+        }
+    }
+}
+
+impl<'a, T: Borrow<str> + ?Sized + 'a> From<&'a T> for ActionClientOptions<'a> {
+    fn from(value: &'a T) -> Self {
+        Self::new(value.borrow())
     }
 }
