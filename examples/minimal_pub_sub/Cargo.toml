@@ -29,7 +29,7 @@ path = "src/zero_copy_publisher.rs"
 anyhow = {version = "1", features = ["backtrace"]}
 rclrs = "0.4"
 rosidl_runtime_rs = "0.4"
-std_msgs = "*"
+example_interfaces = "*"
 
 # This specific version is compatible with Rust 1.75
 backtrace = "=0.3.74"

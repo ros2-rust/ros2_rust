@@ -7,7 +7,7 @@ fn main() -> Result<(), Error> {
 
     let node = executor.create_node("minimal_publisher")?;
 
-    let publisher = node.create_publisher::<std_msgs::msg::rmw::UInt32>("topic")?;
+    let publisher = node.create_publisher::<example_interfaces::msg::rmw::UInt32>("topic")?;
 
     let mut publish_count: u32 = 1;
 

@@ -66,21 +66,26 @@ impl Clock {
     }
 
     fn make(kind: ClockType) -> Self {
-        let mut rcl_clock;
+        let rcl_clock;
         unsafe {
             // SAFETY: Getting a default value is always safe.
-            rcl_clock = Self::init_generic_clock();
+            let allocator = rcutils_get_default_allocator();
+            rcl_clock = Arc::new(Mutex::new(rcl_clock_t {
+                type_: rcl_clock_type_t::RCL_CLOCK_UNINITIALIZED,
+                jump_callbacks: std::ptr::null_mut(),
+                num_jump_callbacks: 0,
+                get_now: None,
+                data: std::ptr::null_mut::<std::os::raw::c_void>(),
+                allocator,
+            }));
             let mut allocator = rcutils_get_default_allocator();
             // Function will return Err(_) only if there isn't enough memory to allocate a clock
             // object.
-            rcl_clock_init(kind.into(), &mut rcl_clock, &mut allocator)
+            rcl_clock_init(kind.into(), &mut *rcl_clock.lock().unwrap(), &mut allocator)
                 .ok()
                 .unwrap();
         }
-        Self {
-            kind,
-            rcl_clock: Arc::new(Mutex::new(rcl_clock)),
-        }
+        Self { kind, rcl_clock }
     }
 
     /// Returns the clock's `ClockType`.
@@ -99,22 +104,6 @@ impl Clock {
         Time {
             nsec: time_point,
             clock: Arc::downgrade(&self.rcl_clock),
-        }
-    }
-
-    /// Helper function to privately initialize a default clock, with the same behavior as
-    /// `rcl_init_generic_clock`. By defining a private function instead of implementing
-    /// `Default`,  we avoid exposing a public API to create an invalid clock.
-    // SAFETY: Getting a default value is always safe.
-    unsafe fn init_generic_clock() -> rcl_clock_t {
-        let allocator = rcutils_get_default_allocator();
-        rcl_clock_t {
-            type_: rcl_clock_type_t::RCL_CLOCK_UNINITIALIZED,
-            jump_callbacks: std::ptr::null_mut::<rcl_jump_callback_info_t>(),
-            num_jump_callbacks: 0,
-            get_now: None,
-            data: std::ptr::null_mut::<std::os::raw::c_void>(),
-            allocator,
         }
     }
 }

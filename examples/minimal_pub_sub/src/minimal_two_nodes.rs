@@ -1,47 +1,41 @@
 use rclrs::*;
-use std::sync::{
-    atomic::{AtomicU32, Ordering},
-    Arc, Mutex,
-};
+use std::sync::Arc;
 
 use anyhow::{Error, Result};
 
-struct MinimalSubscriber {
-    num_messages: AtomicU32,
-    node: Node,
-    subscription: Mutex<Option<Subscription<std_msgs::msg::String>>>,
+struct MinimalSubscriberNode {
+    #[allow(unused)]
+    subscription: WorkerSubscription<example_interfaces::msg::String, SubscriptionData>,
 }
 
-impl MinimalSubscriber {
-    pub fn new(executor: &Executor, name: &str, topic: &str) -> Result<Arc<Self>, RclrsError> {
+struct SubscriptionData {
+    node: Node,
+    num_messages: usize,
+}
+
+impl MinimalSubscriberNode {
+    pub fn new(executor: &Executor, name: &str, topic: &str) -> Result<Self, RclrsError> {
         let node = executor.create_node(name)?;
-        let minimal_subscriber = Arc::new(MinimalSubscriber {
-            num_messages: 0.into(),
-            node,
-            subscription: None.into(),
+
+        let worker = node.create_worker::<SubscriptionData>(SubscriptionData {
+            node: Arc::clone(&node),
+            num_messages: 0,
         });
 
-        let minimal_subscriber_aux = Arc::clone(&minimal_subscriber);
-        let subscription = minimal_subscriber
-            .node
-            .create_subscription::<std_msgs::msg::String, _>(
-                topic,
-                move |msg: std_msgs::msg::String| {
-                    minimal_subscriber_aux.callback(msg);
-                },
-            )?;
-        *minimal_subscriber.subscription.lock().unwrap() = Some(subscription);
-        Ok(minimal_subscriber)
-    }
+        let subscription = worker.create_subscription(
+            topic,
+            |data: &mut SubscriptionData, msg: example_interfaces::msg::String| {
+                data.num_messages += 1;
+                println!("[{}] I heard: '{}'", data.node.name(), msg.data);
+                println!(
+                    "[{}] (Got {} messages so far)",
+                    data.node.name(),
+                    data.num_messages,
+                );
+            },
+        )?;
 
-    fn callback(&self, msg: std_msgs::msg::String) {
-        self.num_messages.fetch_add(1, Ordering::SeqCst);
-        println!("[{}] I heard: '{}'", self.node.name(), msg.data);
-        println!(
-            "[{}] (Got {} messages so far)",
-            self.node.name(),
-            self.num_messages.load(Ordering::SeqCst)
-        );
+        Ok(MinimalSubscriberNode { subscription })
     }
 }
 
@@ -50,14 +44,16 @@ fn main() -> Result<(), Error> {
     let publisher_node = executor.create_node("minimal_publisher")?;
 
     let _subscriber_node_one =
-        MinimalSubscriber::new(&executor, "minimal_subscriber_one", "topic")?;
+        MinimalSubscriberNode::new(&executor, "minimal_subscriber_one", "topic")?;
     let _subscriber_node_two =
-        MinimalSubscriber::new(&executor, "minimal_subscriber_two", "topic")?;
+        MinimalSubscriberNode::new(&executor, "minimal_subscriber_two", "topic")?;
 
-    let publisher = publisher_node.create_publisher::<std_msgs::msg::String>("topic")?;
+    let publisher = publisher_node.create_publisher::<example_interfaces::msg::String>("topic")?;
 
-    std::thread::spawn(move || -> Result<(), RclrsError> {
-        let mut message = std_msgs::msg::String::default();
+    // TODO(@mxgrey): Replace this with a timer once we have the Timer feature
+    // merged in.
+    std::thread::spawn(move || -> Result<(), rclrs::RclrsError> {
+        let mut message = example_interfaces::msg::String::default();
         let mut publish_count: u32 = 1;
         loop {
             message.data = format!("Hello, world! {}", publish_count);
@@ -68,8 +64,6 @@ fn main() -> Result<(), Error> {
         }
     });
 
-    executor
-        .spin(SpinOptions::default())
-        .first_error()
-        .map_err(|err| err.into())
+    executor.spin(rclrs::SpinOptions::default()).first_error()?;
+    Ok(())
 }
