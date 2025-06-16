@@ -26,7 +26,7 @@ jobs:
         run: |
           mkdir C:\workspace\src
           mkdir C:\pixi_ws
-          xcopy /E /I /Y D:\a\ros2_rust\ros2_rust C:\workspace\src\ros2_rust
+          xcopy /E /I /Y $env:GITHUB_WORKSPACE C:\workspace\src\ros2_rust
 
       - name: Get pixi toml file
         run: irm https://raw.githubusercontent.com/ros2/ros2/refs/heads/rolling/pixi.toml -OutFile C:\pixi_ws\pixi.toml
