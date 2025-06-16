@@ -21,6 +21,7 @@ jobs:
         ros_distribution:
           - humble
           - jazzy
+          - kilted
           - rolling
         include:
           # Humble Hawksbill (May 2022 - May 2027)
