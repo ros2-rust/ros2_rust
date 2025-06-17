@@ -1,10 +1,10 @@
-use std::ffi::CString;
-use std::os::raw::c_char;
-use std::os::raw::c_void;
-use std::ptr::null_mut;
+use std::{
+    ffi::CString,
+    os::raw::{c_char, c_void},
+    ptr::null_mut,
+};
 
-use crate::error::*;
-use crate::rcl_bindings::*;
+use crate::{error::*, rcl_bindings::*};
 
 /// Extract non-ROS arguments from program's input arguments.
 ///
@@ -149,7 +149,7 @@ mod tests {
         .map(|x| x.to_string());
 
         let non_ros_args: Vec<String> = extract_non_ros_args(input_args).unwrap();
-        let expected = vec!["non-ros1", "non-ros2", "non-ros3"];
+        let expected = ["non-ros1", "non-ros2", "non-ros3"];
 
         if non_ros_args.len() != expected.len() {
             return Err(format!(

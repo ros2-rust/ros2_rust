@@ -2,14 +2,8 @@ use std::ffi::CStr;
 use std::num::NonZeroUsize;
 
 use super::TypeErasedSequence;
-#[cfg(any(ros_distro = "foxy", ros_distro = "galactic"))]
 use crate::rcl_bindings::rosidl_typesupport_introspection_c__MessageMember as rosidl_message_member_t;
-#[cfg(all(not(ros_distro = "foxy"), not(ros_distro = "galactic")))]
-use crate::rcl_bindings::rosidl_typesupport_introspection_c__MessageMember_s as rosidl_message_member_t;
-#[cfg(any(ros_distro = "foxy", ros_distro = "galactic"))]
 use crate::rcl_bindings::rosidl_typesupport_introspection_c__MessageMembers as rosidl_message_members_t;
-#[cfg(all(not(ros_distro = "foxy"), not(ros_distro = "galactic")))]
-use crate::rcl_bindings::rosidl_typesupport_introspection_c__MessageMembers_s as rosidl_message_members_t;
 use crate::rcl_bindings::*;
 
 /// Possible base types for fields in a message.
@@ -119,8 +113,6 @@ impl BaseType {
         string_upper_bound: Option<NonZeroUsize>,
         inner: *const rosidl_message_type_support_t,
     ) -> Self {
-        #[cfg(all(not(ros_distro = "foxy"), not(ros_distro = "galactic")))]
-        use rosidl_typesupport_introspection_c_field_types::*;
         match u32::from(type_id) {
             x if x == rosidl_typesupport_introspection_c__ROS_TYPE_FLOAT as u32 => Self::Float,
             x if x == rosidl_typesupport_introspection_c__ROS_TYPE_DOUBLE as u32 => Self::Double,

@@ -1,12 +1,12 @@
 [package]
 name = "rclrs"
-version = "0.3.1"
+version = "0.4.1"
 # This project is not military-sponsored, Jacob's employment contract just requires him to use this email address
 authors = ["Esteve Fernandez <esteve@apache.org>", "Nikolai Morin <nnmmgit@gmail.com>", "Jacob Hassold <jacob.a.hassold.civ@army.mil>"]
 edition = "2021"
 license = "Apache-2.0"
 description = "A ROS 2 client library for developing robotics applications in Rust"
-rust-version = "1.63"
+rust-version = "1.75"
 
 [lib]
 path = "src/lib.rs"
@@ -14,22 +14,51 @@ path = "src/lib.rs"
 # Please keep the list of dependencies alphabetically sorted,
 # and also state why each dependency is needed.
 [dependencies]
-# Needed for dynamically finding type support libraries 
+# Needed for dynamically finding type support libraries
 ament_rs = { version = "0.2", optional = true }
+
+# Needed for uploading documentation to docs.rs
+cfg-if = "1.0.0"
+
 # Needed for clients
 futures = "0.3"
+
+# Needed for the runtime-agnostic timeout feature
+async-std = "1.13"
+
 # Needed for dynamic messages
-libloading = { version = "0.7", optional = true }
+libloading = { version = "0.8", optional = true }
+
 # Needed for the Message trait, among others
-rosidl_runtime_rs = "0.3"
+rosidl_runtime_rs = "0.4"
+
+# Needed for serliazation and deserialization of vendored messages
+serde = { version = "1", optional = true, features = ["derive"] }
+serde-big-array = { version = "0.5.1", optional = true }
 
 [dev-dependencies]
 # Needed for e.g. writing yaml files in tests
 tempfile = "3.3.0"
+# Needed for publisher and subscriber tests
+test_msgs = {version = "*"}
+# Used in doctests
+example_interfaces = { version = "*" }
+# Needed for parameter service tests
+tokio = { version = "1", features = ["rt", "time", "macros"] }
 
 [build-dependencies]
 # Needed for FFI
-bindgen = "0.59.1"
+bindgen = "0.70"
+# Needed for uploading documentation to docs.rs
+cfg-if = "1.0.0"
 
 [features]
+default = []
 dyn_msg = ["ament_rs", "libloading"]
+serde = ["dep:serde", "dep:serde-big-array", "rosidl_runtime_rs/serde"]
+# This feature is solely for the purpose of being able to generate documetation without a ROS installation
+# The only intended usage of this feature is for docs.rs builders to work, and is not intended to be used by end users
+generate_docs = ["rosidl_runtime_rs/generate_docs"]
+
+[package.metadata.docs.rs]
+features = ["generate_docs"]

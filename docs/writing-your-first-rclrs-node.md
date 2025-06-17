@@ -47,14 +47,14 @@ use std::sync::Arc;
 use std_msgs::msg::String as StringMsg;
 
 struct RepublisherNode {
-    node: rclrs::Node,
+    node: Arc<rclrs::Node>,
     _subscription: Arc<rclrs::Subscription<StringMsg>>,
     data: Option<StringMsg>,
 }
 
 impl RepublisherNode {
     fn new(context: &rclrs::Context) -> Result<Self, rclrs::RclrsError> {
-        let mut node = rclrs::Node::new(context, "republisher")?;
+        let node = rclrs::Node::new(context, "republisher")?;
         let data = None;
         let _subscription = node.create_subscription(
             "in_topic",
@@ -76,7 +76,7 @@ Next, add a main function to launch it:
 fn main() -> Result<(), rclrs::RclrsError> {
     let context = rclrs::Context::new(std::env::args())?;
     let republisher = RepublisherNode::new(&context)?;
-    rclrs::spin(&republisher.node)
+    rclrs::spin(republisher.node)
 }
 ```
 
@@ -114,14 +114,14 @@ use std::sync::{Arc, Mutex};  // (1)
 use std_msgs::msg::String as StringMsg;
 
 struct RepublisherNode {
-    node: rclrs::Node,
+    node: Arc<rclrs::Node>,
     _subscription: Arc<rclrs::Subscription<StringMsg>>,
     data: Arc<Mutex<Option<StringMsg>>>,  // (2)
 }
 
 impl RepublisherNode {
     fn new(context: &rclrs::Context) -> Result<Self, rclrs::RclrsError> {
-        let mut node = rclrs::Node::new(context, "republisher")?;
+        let node = rclrs::Node::new(context, "republisher")?;
         let data = Arc::new(Mutex::new(None));  // (3)
         let data_cb = Arc::clone(&data);
         let _subscription = {
@@ -154,7 +154,7 @@ The node still doesn't republish the received messages. First, let's add a publi
 
 ```rust
 // Add this new field to the RepublisherNode struct, after the subscription:
-publisher: rclrs::Publisher<StringMsg>,
+publisher: Arc<rclrs::Publisher<StringMsg>>,
 
 // Change the end of RepublisherNode::new() to this:
 let publisher = node.create_publisher("out_topic", rclrs::QOS_PROFILE_DEFAULT)?;
@@ -190,7 +190,7 @@ fn main() -> Result<(), rclrs::RclrsError> {
             republisher.republish()?;
         }
     });
-    rclrs::spin(&republisher.node)
+    rclrs::spin(republisher.node)
 }
 ```
 
@@ -212,7 +212,7 @@ fn main() -> Result<(), rclrs::RclrsError> {
             republisher_other_thread.republish()?;
         }
     });
-    rclrs::spin(&republisher.node)
+    rclrs::spin(Arc::clone(&republisher.node))
 }
 ```
 

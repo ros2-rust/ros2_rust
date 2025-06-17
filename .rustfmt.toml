@@ -1,0 +1,3 @@
+# This requires the nightly release of Rust, so when formating the repo, use
+# $ cargo +nightly fmt
+imports_granularity = "Crate"

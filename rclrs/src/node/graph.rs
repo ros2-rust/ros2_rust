@@ -1,9 +1,9 @@
-use std::collections::HashMap;
-use std::ffi::{CStr, CString};
-use std::slice;
+use std::{
+    collections::HashMap,
+    ffi::{CStr, CString},
+};
 
-use crate::rcl_bindings::*;
-use crate::{Node, RclrsError, ToResult};
+use crate::{rcl_bindings::*, NodeState, RclrsError, ToResult};
 
 impl Drop for rmw_names_and_types_t {
     fn drop(&mut self) {
@@ -57,7 +57,7 @@ pub struct TopicEndpointInfo {
     pub topic_type: String,
 }
 
-impl Node {
+impl NodeState {
     /// Returns a list of topic names and types for publishers associated with a node.
     pub fn get_publisher_names_and_types_by_node(
         &self,
@@ -137,8 +137,9 @@ impl Node {
 
         // SAFETY: rcl_names_and_types is zero-initialized as expected by this call
         unsafe {
+            let rcl_node = self.handle.rcl_node.lock().unwrap();
             rcl_get_topic_names_and_types(
-                &*self.rcl_node_mtx.lock().unwrap(),
+                &*rcl_node,
                 &mut rcutils_get_default_allocator(),
                 false,
                 &mut rcl_names_and_types,
@@ -166,8 +167,9 @@ impl Node {
 
         // SAFETY: node_names and node_namespaces are zero-initialized as expected by this call.
         unsafe {
+            let rcl_node = self.handle.rcl_node.lock().unwrap();
             rcl_get_node_names(
-                &*self.rcl_node_mtx.lock().unwrap(),
+                &*rcl_node,
                 rcutils_get_default_allocator(),
                 &mut rcl_names,
                 &mut rcl_namespaces,
@@ -179,8 +181,8 @@ impl Node {
         // namespaces are populated with valid data
         let (names_slice, namespaces_slice) = unsafe {
             (
-                slice::from_raw_parts(rcl_names.data, rcl_names.size),
-                slice::from_raw_parts(rcl_namespaces.data, rcl_namespaces.size),
+                rcl_from_raw_parts(rcl_names.data, rcl_names.size),
+                rcl_from_raw_parts(rcl_namespaces.data, rcl_namespaces.size),
             )
         };
 
@@ -213,8 +215,9 @@ impl Node {
 
         // SAFETY: The node_names, namespaces, and enclaves are zero-initialized as expected by this call.
         unsafe {
+            let rcl_node = self.handle.rcl_node.lock().unwrap();
             rcl_get_node_names_with_enclaves(
-                &*self.rcl_node_mtx.lock().unwrap(),
+                &*rcl_node,
                 rcutils_get_default_allocator(),
                 &mut rcl_names,
                 &mut rcl_namespaces,
@@ -226,9 +229,9 @@ impl Node {
         // SAFETY: The previous function successfully returned, so the arrays are valid
         let (names_slice, namespaces_slice, enclaves_slice) = unsafe {
             (
-                slice::from_raw_parts(rcl_names.data, rcl_names.size),
-                slice::from_raw_parts(rcl_namespaces.data, rcl_namespaces.size),
-                slice::from_raw_parts(rcl_enclaves.data, rcl_enclaves.size),
+                rcl_from_raw_parts(rcl_names.data, rcl_names.size),
+                rcl_from_raw_parts(rcl_namespaces.data, rcl_namespaces.size),
+                rcl_from_raw_parts(rcl_enclaves.data, rcl_enclaves.size),
             )
         };
 
@@ -262,12 +265,8 @@ impl Node {
 
         // SAFETY: The topic_name string was correctly allocated previously
         unsafe {
-            rcl_count_publishers(
-                &*self.rcl_node_mtx.lock().unwrap(),
-                topic_name.as_ptr(),
-                &mut count,
-            )
-            .ok()?
+            let rcl_node = self.handle.rcl_node.lock().unwrap();
+            rcl_count_publishers(&*rcl_node, topic_name.as_ptr(), &mut count).ok()?
         };
         Ok(count)
     }
@@ -282,12 +281,8 @@ impl Node {
 
         // SAFETY: The topic_name string was correctly allocated previously
         unsafe {
-            rcl_count_subscribers(
-                &*self.rcl_node_mtx.lock().unwrap(),
-                topic_name.as_ptr(),
-                &mut count,
-            )
-            .ok()?
+            let rcl_node = self.handle.rcl_node.lock().unwrap();
+            rcl_count_subscribers(&*rcl_node, topic_name.as_ptr(), &mut count).ok()?
         };
         Ok(count)
     }
@@ -336,8 +331,9 @@ impl Node {
 
         // SAFETY: node_name and node_namespace have been zero-initialized.
         unsafe {
+            let rcl_node = self.handle.rcl_node.lock().unwrap();
             getter(
-                &*self.rcl_node_mtx.lock().unwrap(),
+                &*rcl_node,
                 &mut rcutils_get_default_allocator(),
                 node_name.as_ptr(),
                 node_namespace.as_ptr(),
@@ -371,8 +367,9 @@ impl Node {
 
         // SAFETY: topic has been zero-initialized
         unsafe {
+            let rcl_node = self.handle.rcl_node.lock().unwrap();
             getter(
-                &*self.rcl_node_mtx.lock().unwrap(),
+                &*rcl_node,
                 &mut rcutils_get_default_allocator(),
                 topic.as_ptr(),
                 false,
@@ -381,10 +378,9 @@ impl Node {
             .ok()?;
         }
 
-        // SAFETY: The previous call returned successfully, so the slice is valid
-        let topic_endpoint_infos_slice = unsafe {
-            slice::from_raw_parts(rcl_publishers_info.info_array, rcl_publishers_info.size)
-        };
+        // SAFETY: The previous call returned successfully, so the data is valid
+        let topic_endpoint_infos_slice =
+            unsafe { rcl_from_raw_parts(rcl_publishers_info.info_array, rcl_publishers_info.size) };
 
         // SAFETY: Because the rcl call returned successfully, each element of the slice points
         // to a valid topic_endpoint_info object, which contains valid C strings
@@ -424,7 +420,7 @@ fn convert_names_and_types(
 
     // SAFETY: Safe if the rcl_names_and_types arg has been initialized by the caller
     let name_slice = unsafe {
-        slice::from_raw_parts(
+        rcl_from_raw_parts(
             rcl_names_and_types.names.data,
             rcl_names_and_types.names.size,
         )
@@ -440,7 +436,7 @@ fn convert_names_and_types(
         // SAFETY: Safe as long as rcl_names_and_types was populated by the caller
         let types: Vec<String> = unsafe {
             let p = rcl_names_and_types.types.add(idx);
-            slice::from_raw_parts((*p).data, (*p).size)
+            rcl_from_raw_parts((*p).data, (*p).size)
                 .iter()
                 .map(|s| {
                     let cstr = CStr::from_ptr(*s);
@@ -457,22 +453,63 @@ fn convert_names_and_types(
 
 #[cfg(test)]
 mod tests {
-
     use super::*;
-    use crate::Context;
+    use crate::*;
 
     #[test]
     fn test_graph_empty() {
-        let context = Context::new([]).unwrap();
-        let node_name = "test_publisher_names_and_types";
-        let node = Node::new(&context, node_name).unwrap();
+        // cargo test by default will run all test functions in parallel using
+        // as many threads as the underlying system allows. However, the test
+        // expectations of test_graph_empty will fail if its detects any other middleware
+        // activity while it's running.
+        //
+        // If we ensure that the Context of test_graph_empty is given a different domain ID
+        // from the rest of the tests, then we can ensure that it will not observe any other
+        // middleware activity, and its expectations can pass (as long as the user is not
+        // running any other ROS executables on their system).
+        //
+        // By default we will assign 99 to the domain ID of test_graph_empty's Context.
+        // However, if the ROS_DOMAIN_ID environment variable was set to 99 by the user,
+        // then the rest of the tests will be using that value. So here we are detecting
+        // that situation and setting the domain ID of test_graph_empty's Context to 98
+        // in that situation.
+        //
+        // 99 and 98 are just chosen as arbitrary valid domain ID values. There is
+        // otherwise nothing special about either value.
+        let domain_id: usize = std::env::var("ROS_DOMAIN_ID")
+            .ok()
+            .and_then(|value| value.parse().ok())
+            .map(|value: usize| if value != 99 { 99 } else { 98 })
+            .unwrap_or(99);
 
-        // Test that the graph has no publishers
+        let executor = Context::new([], InitOptions::new().with_domain_id(Some(domain_id)))
+            .unwrap()
+            .create_basic_executor();
+        let node_name = "test_publisher_names_and_types";
+        let node = executor.create_node(node_name).unwrap();
+
+        let check_rosout = |topics: HashMap<String, Vec<String>>| {
+            // rosout shows up in humble and iron, even if the graph is empty
+            #[cfg(any(ros_distro = "humble"))]
+            {
+                assert_eq!(topics.len(), 1);
+                assert_eq!(
+                    topics.get("/rosout").unwrap().first().unwrap(),
+                    "rcl_interfaces/msg/Log"
+                );
+            }
+
+            // rosout does not automatically show up in jazzy when the graph is empty
+            #[cfg(any(ros_distro = "jazzy", ros_distro = "rolling"))]
+            {
+                assert_eq!(topics.len(), 0);
+            }
+        };
+
         let names_and_topics = node
             .get_publisher_names_and_types_by_node(node_name, "")
             .unwrap();
-
-        assert_eq!(names_and_topics.len(), 0);
+        check_rosout(names_and_topics);
 
         let num_publishers = node.count_publishers("/test").unwrap();
 
@@ -497,16 +534,16 @@ mod tests {
 
         assert!(subscription_infos.is_empty());
 
-        // Test that the graph has no services
+        // Test that the graph only has 6 services (parameter services)
         let names_and_topics = node
             .get_service_names_and_types_by_node(node_name, "")
             .unwrap();
 
-        assert_eq!(names_and_topics.len(), 0);
+        assert_eq!(names_and_topics.len(), 6);
 
         let names_and_topics = node.get_service_names_and_types().unwrap();
 
-        assert_eq!(names_and_topics.len(), 0);
+        assert_eq!(names_and_topics.len(), 6);
 
         // Test that the graph has no clients
         let names_and_topics = node
@@ -515,17 +552,15 @@ mod tests {
 
         assert_eq!(names_and_topics.len(), 0);
 
-        // Test that the graph has no topics
         let names_and_topics = node.get_topic_names_and_types().unwrap();
-
-        assert_eq!(names_and_topics.len(), 0);
+        check_rosout(names_and_topics);
     }
 
     #[test]
     fn test_node_names() {
-        let context = Context::new([]).unwrap();
+        let executor = Context::default().create_basic_executor();
         let node_name = "test_node_names";
-        let node = Node::new(&context, node_name).unwrap();
+        let node = executor.create_node(node_name).unwrap();
 
         let names_and_namespaces = node.get_node_names().unwrap();
 
@@ -539,9 +574,9 @@ mod tests {
 
     #[test]
     fn test_node_names_with_enclaves() {
-        let context = Context::new([]).unwrap();
+        let executor = Context::default().create_basic_executor();
         let node_name = "test_node_names_with_enclaves";
-        let node = Node::new(&context, node_name).unwrap();
+        let node = executor.create_node(node_name).unwrap();
 
         let names_and_namespaces = node.get_node_names_with_enclaves().unwrap();
 

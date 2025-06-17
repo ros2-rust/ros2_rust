@@ -1,6 +1,6 @@
 [package]
 name = "examples_rclrs_minimal_client_service"
-version = "0.3.1"
+version = "0.4.1"
 authors = ["Esteve Fernandez <esteve@apache.org>"]
 edition = "2021"
 
@@ -19,12 +19,9 @@ path = "src/minimal_service.rs"
 [dependencies]
 anyhow = {version = "1", features = ["backtrace"]}
 tokio = { version = "1", features = ["macros", "rt", "rt-multi-thread", "time"] }
+rclrs = "0.4"
+rosidl_runtime_rs = "0.4"
+example_interfaces = "*"
 
-[dependencies.rclrs]
-version = "0.3"
-
-[dependencies.rosidl_runtime_rs]
-version = "0.3"
-
-[dependencies.example_interfaces]
-version = "*"
+# This specific version is compatible with Rust 1.75
+backtrace = "=0.3.74"

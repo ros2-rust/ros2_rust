@@ -1,15 +1,18 @@
-use std::borrow::Cow;
-use std::ffi::CStr;
-use std::ffi::CString;
-use std::marker::PhantomData;
-use std::sync::{Arc, Mutex};
+use std::{
+    borrow::Cow,
+    ffi::{CStr, CString},
+    marker::PhantomData,
+    sync::{Arc, Mutex},
+};
 
 use rosidl_runtime_rs::{Message, RmwMessage};
 
-use crate::error::{RclrsError, ToResult};
-use crate::qos::QoSProfile;
-use crate::rcl_bindings::*;
-use crate::Node;
+use crate::{
+    error::{RclrsError, ToResult},
+    qos::QoSProfile,
+    rcl_bindings::*,
+    IntoPrimitiveOptions, NodeHandle, ENTITY_LIFECYCLE_MUTEX,
+};
 
 mod loaned_message;
 pub use loaned_message::*;
@@ -18,61 +21,88 @@ pub use loaned_message::*;
 // they are running in. Therefore, this type can be safely sent to another thread.
 unsafe impl Send for rcl_publisher_t {}
 
-/// Struct for sending messages of type `T`.
+/// Manage the lifecycle of an `rcl_publisher_t`, including managing its dependencies
+/// on `rcl_node_t` and `rcl_context_t` by ensuring that these dependencies are
+/// [dropped after][1] the `rcl_publisher_t`.
 ///
-/// Multiple publishers can be created for the same topic, in different nodes or the same node.
-///
-/// The underlying RMW will decide on the concrete delivery mechanism (network stack, shared
-/// memory, or intraprocess).
-///
-/// Sending messages does not require calling [`spin`][1] on the publisher's node.
-///
-/// [1]: crate::spin
-pub struct Publisher<T>
-where
-    T: Message,
-{
-    rcl_publisher_mtx: Mutex<rcl_publisher_t>,
-    rcl_node_mtx: Arc<Mutex<rcl_node_t>>,
-    // The data pointed to by type_support_ptr has static lifetime;
-    // it is global data in the type support library.
-    type_support_ptr: *const rosidl_message_type_support_t,
-    message: PhantomData<T>,
+/// [1]: <https://doc.rust-lang.org/reference/destructors.html>
+struct PublisherHandle {
+    rcl_publisher: Mutex<rcl_publisher_t>,
+    node_handle: Arc<NodeHandle>,
 }
 
-impl<T> Drop for Publisher<T>
-where
-    T: Message,
-{
+impl Drop for PublisherHandle {
     fn drop(&mut self) {
+        let mut rcl_node = self.node_handle.rcl_node.lock().unwrap();
+        let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
+        // SAFETY: The entity lifecycle mutex is locked to protect against the risk of
+        // global variables in the rmw implementation being unsafely modified during cleanup.
         unsafe {
-            // SAFETY: No preconditions for this function (besides the arguments being valid).
-            rcl_publisher_fini(
-                self.rcl_publisher_mtx.get_mut().unwrap(),
-                &mut *self.rcl_node_mtx.lock().unwrap(),
-            );
+            rcl_publisher_fini(self.rcl_publisher.get_mut().unwrap(), &mut *rcl_node);
         }
     }
 }
 
+/// Struct for sending messages of type `T`.
+///
+/// Create a publisher using [`Node::create_publisher`][1].
+///
+/// Multiple publishers can be created for the same topic, in different nodes or the same node.
+/// A clone of a `Publisher` will refer to the same publisher instance as the original.
+/// The underlying instance is tied to [`PublisherState`] which implements the [`Publisher`] API.
+///
+/// The underlying RMW will decide on the concrete delivery mechanism (network stack, shared
+/// memory, or intraprocess).
+///
+/// Sending messages does not require the node's executor to [spin][2].
+///
+/// [1]: crate::NodeState::create_publisher
+/// [2]: crate::Executor::spin
+pub type Publisher<T> = Arc<PublisherState<T>>;
+
+/// The inner state of a [`Publisher`].
+///
+/// This is public so that you can choose to create a [`Weak`][1] reference to it
+/// if you want to be able to refer to a [`Publisher`] in a non-owning way. It is
+/// generally recommended to manage the `PublisherState` inside of an [`Arc`],
+/// and [`Publisher`] is provided as a convenience alias for that.
+///
+/// The public API of the [`Publisher`] type is implemented via `PublisherState`.
+///
+/// [1]: std::sync::Weak
+pub struct PublisherState<T>
+where
+    T: Message,
+{
+    // The data pointed to by type_support_ptr has static lifetime;
+    // it is global data in the type support library.
+    type_support_ptr: *const rosidl_message_type_support_t,
+    message: PhantomData<T>,
+    handle: PublisherHandle,
+}
+
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
 // they are running in. Therefore, this type can be safely sent to another thread.
-unsafe impl<T> Send for Publisher<T> where T: Message {}
+unsafe impl<T> Send for PublisherState<T> where T: Message {}
 // SAFETY: The type_support_ptr prevents the default Sync impl.
 // rosidl_message_type_support_t is a read-only type without interior mutability.
-unsafe impl<T> Sync for Publisher<T> where T: Message {}
+unsafe impl<T> Sync for PublisherState<T> where T: Message {}
 
-impl<T> Publisher<T>
+impl<T> PublisherState<T>
 where
     T: Message,
 {
     /// Creates a new `Publisher`.
     ///
     /// Node and namespace changes are always applied _before_ topic remapping.
-    pub fn new(node: &Node, topic: &str, qos: QoSProfile) -> Result<Self, RclrsError>
+    pub(crate) fn create<'a>(
+        options: impl Into<PublisherOptions<'a>>,
+        node_handle: Arc<NodeHandle>,
+    ) -> Result<Arc<Self>, RclrsError>
     where
         T: Message,
     {
+        let PublisherOptions { topic, qos } = options.into();
         // SAFETY: Getting a zero-initialized value is always safe.
         let mut rcl_publisher = unsafe { rcl_get_zero_initialized_publisher() };
         let type_support_ptr =
@@ -81,33 +111,40 @@ where
             err,
             s: topic.into(),
         })?;
-        let rcl_node = &mut *node.rcl_node_mtx.lock().unwrap();
 
         // SAFETY: No preconditions for this function.
         let mut publisher_options = unsafe { rcl_publisher_get_default_options() };
         publisher_options.qos = qos.into();
-        unsafe {
-            // SAFETY: The rcl_publisher is zero-initialized as expected by this function.
-            // The rcl_node is kept alive because it is co-owned by the subscription.
-            // The topic name and the options are copied by this function, so they can be dropped
-            // afterwards.
-            // TODO: type support?
-            rcl_publisher_init(
-                &mut rcl_publisher,
-                rcl_node,
-                type_support_ptr,
-                topic_c_string.as_ptr(),
-                &publisher_options,
-            )
-            .ok()?;
+
+        {
+            let rcl_node = node_handle.rcl_node.lock().unwrap();
+            let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
+            unsafe {
+                // SAFETY:
+                // * The rcl_publisher is zero-initialized as mandated by this function.
+                // * The rcl_node is kept alive by the NodeHandle because it is a dependency of the publisher.
+                // * The topic name and the options are copied by this function, so they can be dropped afterwards.
+                // * The entity lifecycle mutex is locked to protect against the risk of global
+                //   variables in the rmw implementation being unsafely modified during cleanup.
+                rcl_publisher_init(
+                    &mut rcl_publisher,
+                    &*rcl_node,
+                    type_support_ptr,
+                    topic_c_string.as_ptr(),
+                    &publisher_options,
+                )
+                .ok()?;
+            }
         }
 
-        Ok(Self {
-            rcl_publisher_mtx: Mutex::new(rcl_publisher),
-            rcl_node_mtx: Arc::clone(&node.rcl_node_mtx),
+        Ok(Arc::new(Self {
             type_support_ptr,
             message: PhantomData,
-        })
+            handle: PublisherHandle {
+                rcl_publisher: Mutex::new(rcl_publisher),
+                node_handle,
+            },
+        }))
     }
 
     /// Returns the topic name of the publisher.
@@ -119,11 +156,25 @@ where
         // The unsafe variables created get converted to safe types before being returned
         unsafe {
             let raw_topic_pointer =
-                rcl_publisher_get_topic_name(&*self.rcl_publisher_mtx.lock().unwrap());
+                rcl_publisher_get_topic_name(&*self.handle.rcl_publisher.lock().unwrap());
             CStr::from_ptr(raw_topic_pointer)
                 .to_string_lossy()
                 .into_owned()
         }
+    }
+
+    /// Returns the number of subscriptions of the publisher.
+    pub fn get_subscription_count(&self) -> Result<usize, RclrsError> {
+        let mut subscription_count = 0;
+        // SAFETY: No preconditions for the function called.
+        unsafe {
+            rcl_publisher_get_subscription_count(
+                &*self.handle.rcl_publisher.lock().unwrap(),
+                &mut subscription_count,
+            )
+            .ok()?
+        };
+        Ok(subscription_count)
     }
 
     /// Publishes a message.
@@ -144,7 +195,7 @@ where
     /// [1]: https://github.com/ros2/ros2/issues/255
     pub fn publish<'a, M: MessageCow<'a, T>>(&self, message: M) -> Result<(), RclrsError> {
         let rmw_message = T::into_rmw_message(message.into_cow());
-        let rcl_publisher = &mut *self.rcl_publisher_mtx.lock().unwrap();
+        let rcl_publisher = &mut *self.handle.rcl_publisher.lock().unwrap();
         unsafe {
             // SAFETY: The message type is guaranteed to match the publisher type by the type system.
             // The message does not need to be valid beyond the duration of this function call.
@@ -159,7 +210,7 @@ where
     }
 }
 
-impl<T> Publisher<T>
+impl<T> PublisherState<T>
 where
     T: RmwMessage,
 {
@@ -198,7 +249,7 @@ where
         unsafe {
             // SAFETY: msg_ptr contains a null ptr as expected by this function.
             rcl_borrow_loaned_message(
-                &*self.rcl_publisher_mtx.lock().unwrap(),
+                &*self.handle.rcl_publisher.lock().unwrap(),
                 self.type_support_ptr,
                 &mut msg_ptr,
             )
@@ -209,9 +260,46 @@ where
             msg_ptr: msg_ptr as *mut T,
         })
     }
+
+    /// Returns true if message loans are possible, false otherwise.
+    pub fn can_loan_messages(&self) -> bool {
+        unsafe { rcl_publisher_can_loan_messages(&*self.handle.rcl_publisher.lock().unwrap()) }
+    }
 }
 
-/// Convenience trait for [`Publisher::publish`].
+/// `PublisherOptions` are used by [`NodeState::create_publisher`][1] to initialize
+/// a [`Publisher`].
+///
+/// [1]: crate::NodeState::create_publisher
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub struct PublisherOptions<'a> {
+    /// The topic name for the publisher.
+    pub topic: &'a str,
+    /// The quality of service settings for the publisher.
+    pub qos: QoSProfile,
+}
+
+impl<'a> PublisherOptions<'a> {
+    /// Initialize a new [`PublisherOptions`] with default settings.
+    pub fn new(topic: &'a str) -> Self {
+        Self {
+            topic,
+            qos: QoSProfile::topics_default(),
+        }
+    }
+}
+
+impl<'a, T: IntoPrimitiveOptions<'a>> From<T> for PublisherOptions<'a> {
+    fn from(value: T) -> Self {
+        let primitive = value.into_primitive_options();
+        let mut options = Self::new(primitive.name);
+        primitive.apply_to(&mut options.qos);
+        options
+    }
+}
+
+/// Convenience trait for [`PublisherState::publish`].
 pub trait MessageCow<'a, T: Message> {
     /// Wrap the owned or borrowed message in a `Cow`.
     fn into_cow(self) -> Cow<'a, T>;
@@ -226,5 +314,98 @@ impl<'a, T: Message> MessageCow<'a, T> for T {
 impl<'a, T: Message> MessageCow<'a, T> for &'a T {
     fn into_cow(self) -> Cow<'a, T> {
         Cow::Borrowed(self)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_helpers::*;
+
+    #[test]
+    fn traits() {
+        assert_send::<Publisher<test_msgs::msg::BoundedSequences>>();
+        assert_sync::<Publisher<test_msgs::msg::BoundedSequences>>();
+    }
+
+    #[test]
+    fn test_publishers() -> Result<(), RclrsError> {
+        use crate::TopicEndpointInfo;
+        use test_msgs::msg;
+
+        let namespace = "/test_publishers_graph";
+        let graph = construct_test_graph(namespace)?;
+
+        let node_1_empty_publisher = graph
+            .node1
+            .create_publisher::<msg::Empty>("graph_test_topic_1")?;
+        let topic1 = node_1_empty_publisher.topic_name();
+        let node_1_basic_types_publisher = graph
+            .node1
+            .create_publisher::<msg::BasicTypes>("graph_test_topic_2")?;
+        let topic2 = node_1_basic_types_publisher.topic_name();
+        let node_2_default_publisher = graph
+            .node2
+            .create_publisher::<msg::Defaults>("graph_test_topic_3")?;
+        let topic3 = node_2_default_publisher.topic_name();
+
+        std::thread::sleep(std::time::Duration::from_millis(100));
+
+        // Test count_publishers()
+        assert_eq!(graph.node1.count_publishers(&topic1)?, 1);
+        assert_eq!(graph.node1.count_publishers(&topic2)?, 1);
+        assert_eq!(graph.node1.count_publishers(&topic3)?, 1);
+
+        // Test get_publisher_names_and_types_by_node()
+        let node_1_publisher_names_and_types = graph
+            .node1
+            .get_publisher_names_and_types_by_node(&graph.node1.name(), namespace)?;
+
+        let types = node_1_publisher_names_and_types.get(&topic1).unwrap();
+        assert!(types.contains(&"test_msgs/msg/Empty".to_string()));
+
+        let types = node_1_publisher_names_and_types.get(&topic2).unwrap();
+        assert!(types.contains(&"test_msgs/msg/BasicTypes".to_string()));
+
+        let node_2_publisher_names_and_types = graph
+            .node1
+            .get_publisher_names_and_types_by_node(&graph.node2.name(), namespace)?;
+
+        let types = node_2_publisher_names_and_types.get(&topic3).unwrap();
+        assert!(types.contains(&"test_msgs/msg/Defaults".to_string()));
+
+        // Test get_publishers_info_by_topic()
+        let expected_publishers_info = vec![TopicEndpointInfo {
+            node_name: String::from("graph_test_node_1"),
+            node_namespace: String::from(namespace),
+            topic_type: String::from("test_msgs/msg/Empty"),
+        }];
+        assert_eq!(
+            graph.node1.get_publishers_info_by_topic(&topic1)?,
+            expected_publishers_info
+        );
+        assert_eq!(
+            graph.node2.get_publishers_info_by_topic(&topic1)?,
+            expected_publishers_info
+        );
+
+        // Test get_subscription_count()
+        assert_eq!(node_1_empty_publisher.get_subscription_count(), Ok(0));
+        assert_eq!(node_1_basic_types_publisher.get_subscription_count(), Ok(0));
+        assert_eq!(node_2_default_publisher.get_subscription_count(), Ok(0));
+        let _node_1_empty_subscriber = graph
+            .node1
+            .create_subscription("graph_test_topic_1", |_msg: msg::Empty| {});
+        let _node_1_basic_types_subscriber = graph
+            .node1
+            .create_subscription("graph_test_topic_2", |_msg: msg::BasicTypes| {});
+        let _node_2_default_subscriber = graph
+            .node2
+            .create_subscription("graph_test_topic_3", |_msg: msg::Defaults| {});
+        assert_eq!(node_1_empty_publisher.get_subscription_count(), Ok(1));
+        assert_eq!(node_1_basic_types_publisher.get_subscription_count(), Ok(1));
+        assert_eq!(node_2_default_publisher.get_subscription_count(), Ok(1));
+
+        Ok(())
     }
 }

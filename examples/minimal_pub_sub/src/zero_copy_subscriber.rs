@@ -1,23 +1,22 @@
-use std::env;
-
 use anyhow::{Error, Result};
+use rclrs::*;
 
 fn main() -> Result<(), Error> {
-    let context = rclrs::Context::new(env::args())?;
+    let mut executor = Context::default_from_env()?.create_basic_executor();
 
-    let mut node = rclrs::create_node(&context, "minimal_subscriber")?;
+    let node = executor.create_node("minimal_subscriber")?;
 
-    let mut num_messages: usize = 0;
-
-    let _subscription = node.create_subscription::<std_msgs::msg::UInt32, _>(
+    let worker = node.create_worker::<usize>(0);
+    let _subscription = worker.create_subscription::<example_interfaces::msg::UInt32, _>(
         "topic",
-        rclrs::QOS_PROFILE_DEFAULT,
-        move |msg: rclrs::ReadOnlyLoanedMessage<'_, std_msgs::msg::UInt32>| {
-            num_messages += 1;
+        move |num_messages: &mut usize,
+              msg: ReadOnlyLoanedMessage<example_interfaces::msg::UInt32>| {
+            *num_messages += 1;
             println!("I heard: '{}'", msg.data);
-            println!("(Got {} messages so far)", num_messages);
+            println!("(Got {} messages so far)", *num_messages);
         },
     )?;
 
-    rclrs::spin(&node).map_err(|err| err.into())
+    executor.spin(SpinOptions::default()).first_error()?;
+    Ok(())
 }

@@ -5,7 +5,7 @@ pub mod rmw {
     #[link(name = "rcl_interfaces__rosidl_typesupport_c")]
     extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__msg__FloatingPointRange(
-        ) -> *const std::os::raw::c_void;
+        ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "rcl_interfaces__rosidl_generator_c")]
@@ -83,7 +83,7 @@ pub mod rmw {
         Self: Sized,
     {
         const TYPE_NAME: &'static str = "rcl_interfaces/msg/FloatingPointRange";
-        fn get_type_support() -> *const std::os::raw::c_void {
+        fn get_type_support() -> *const std::ffi::c_void {
             // SAFETY: No preconditions for this function.
             unsafe {
                 rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__msg__FloatingPointRange()
@@ -94,7 +94,7 @@ pub mod rmw {
     #[link(name = "rcl_interfaces__rosidl_typesupport_c")]
     extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__msg__IntegerRange(
-        ) -> *const std::os::raw::c_void;
+        ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "rcl_interfaces__rosidl_generator_c")]
@@ -170,7 +170,7 @@ pub mod rmw {
         Self: Sized,
     {
         const TYPE_NAME: &'static str = "rcl_interfaces/msg/IntegerRange";
-        fn get_type_support() -> *const std::os::raw::c_void {
+        fn get_type_support() -> *const std::ffi::c_void {
             // SAFETY: No preconditions for this function.
             unsafe {
                 rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__msg__IntegerRange()
@@ -181,7 +181,7 @@ pub mod rmw {
     #[link(name = "rcl_interfaces__rosidl_typesupport_c")]
     extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__msg__ListParametersResult(
-        ) -> *const std::os::raw::c_void;
+        ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "rcl_interfaces__rosidl_generator_c")]
@@ -260,7 +260,7 @@ pub mod rmw {
         Self: Sized,
     {
         const TYPE_NAME: &'static str = "rcl_interfaces/msg/ListParametersResult";
-        fn get_type_support() -> *const std::os::raw::c_void {
+        fn get_type_support() -> *const std::ffi::c_void {
             // SAFETY: No preconditions for this function.
             unsafe {
                 rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__msg__ListParametersResult()
@@ -271,7 +271,7 @@ pub mod rmw {
     #[link(name = "rcl_interfaces__rosidl_typesupport_c")]
     extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__msg__Log(
-        ) -> *const std::os::raw::c_void;
+        ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "rcl_interfaces__rosidl_generator_c")]
@@ -364,7 +364,7 @@ pub mod rmw {
         Self: Sized,
     {
         const TYPE_NAME: &'static str = "rcl_interfaces/msg/Log";
-        fn get_type_support() -> *const std::os::raw::c_void {
+        fn get_type_support() -> *const std::ffi::c_void {
             // SAFETY: No preconditions for this function.
             unsafe {
                 rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__msg__Log()
@@ -375,7 +375,7 @@ pub mod rmw {
     #[link(name = "rcl_interfaces__rosidl_typesupport_c")]
     extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__msg__ParameterDescriptor(
-        ) -> *const std::os::raw::c_void;
+        ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "rcl_interfaces__rosidl_generator_c")]
@@ -404,6 +404,7 @@ pub mod rmw {
         pub description: rosidl_runtime_rs::String,
         pub additional_constraints: rosidl_runtime_rs::String,
         pub read_only: bool,
+        pub dynamic_typing: bool,
         pub floating_point_range: rosidl_runtime_rs::BoundedSequence<
             crate::vendor::rcl_interfaces::msg::rmw::FloatingPointRange,
             1,
@@ -463,7 +464,7 @@ pub mod rmw {
         Self: Sized,
     {
         const TYPE_NAME: &'static str = "rcl_interfaces/msg/ParameterDescriptor";
-        fn get_type_support() -> *const std::os::raw::c_void {
+        fn get_type_support() -> *const std::ffi::c_void {
             // SAFETY: No preconditions for this function.
             unsafe {
                 rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__msg__ParameterDescriptor()
@@ -474,7 +475,7 @@ pub mod rmw {
     #[link(name = "rcl_interfaces__rosidl_typesupport_c")]
     extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__msg__ParameterEventDescriptors(
-        ) -> *const std::os::raw::c_void;
+        ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "rcl_interfaces__rosidl_generator_c")]
@@ -565,7 +566,7 @@ pub mod rmw {
         Self: Sized,
     {
         const TYPE_NAME: &'static str = "rcl_interfaces/msg/ParameterEventDescriptors";
-        fn get_type_support() -> *const std::os::raw::c_void {
+        fn get_type_support() -> *const std::ffi::c_void {
             // SAFETY: No preconditions for this function.
             unsafe {
                 rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__msg__ParameterEventDescriptors()
@@ -576,7 +577,7 @@ pub mod rmw {
     #[link(name = "rcl_interfaces__rosidl_typesupport_c")]
     extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__msg__ParameterEvent(
-        ) -> *const std::os::raw::c_void;
+        ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "rcl_interfaces__rosidl_generator_c")]
@@ -659,7 +660,7 @@ pub mod rmw {
         Self: Sized,
     {
         const TYPE_NAME: &'static str = "rcl_interfaces/msg/ParameterEvent";
-        fn get_type_support() -> *const std::os::raw::c_void {
+        fn get_type_support() -> *const std::ffi::c_void {
             // SAFETY: No preconditions for this function.
             unsafe {
                 rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__msg__ParameterEvent()
@@ -670,7 +671,7 @@ pub mod rmw {
     #[link(name = "rcl_interfaces__rosidl_typesupport_c")]
     extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__msg__Parameter(
-        ) -> *const std::os::raw::c_void;
+        ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "rcl_interfaces__rosidl_generator_c")]
@@ -745,7 +746,7 @@ pub mod rmw {
         Self: Sized,
     {
         const TYPE_NAME: &'static str = "rcl_interfaces/msg/Parameter";
-        fn get_type_support() -> *const std::os::raw::c_void {
+        fn get_type_support() -> *const std::ffi::c_void {
             // SAFETY: No preconditions for this function.
             unsafe {
                 rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__msg__Parameter()
@@ -756,7 +757,7 @@ pub mod rmw {
     #[link(name = "rcl_interfaces__rosidl_typesupport_c")]
     extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__msg__ParameterType(
-        ) -> *const std::os::raw::c_void;
+        ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "rcl_interfaces__rosidl_generator_c")]
@@ -844,7 +845,7 @@ pub mod rmw {
         Self: Sized,
     {
         const TYPE_NAME: &'static str = "rcl_interfaces/msg/ParameterType";
-        fn get_type_support() -> *const std::os::raw::c_void {
+        fn get_type_support() -> *const std::ffi::c_void {
             // SAFETY: No preconditions for this function.
             unsafe {
                 rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__msg__ParameterType()
@@ -855,7 +856,7 @@ pub mod rmw {
     #[link(name = "rcl_interfaces__rosidl_typesupport_c")]
     extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__msg__ParameterValue(
-        ) -> *const std::os::raw::c_void;
+        ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "rcl_interfaces__rosidl_generator_c")]
@@ -940,7 +941,7 @@ pub mod rmw {
         Self: Sized,
     {
         const TYPE_NAME: &'static str = "rcl_interfaces/msg/ParameterValue";
-        fn get_type_support() -> *const std::os::raw::c_void {
+        fn get_type_support() -> *const std::ffi::c_void {
             // SAFETY: No preconditions for this function.
             unsafe {
                 rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__msg__ParameterValue()
@@ -951,7 +952,7 @@ pub mod rmw {
     #[link(name = "rcl_interfaces__rosidl_typesupport_c")]
     extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__msg__SetParametersResult(
-        ) -> *const std::os::raw::c_void;
+        ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "rcl_interfaces__rosidl_generator_c")]
@@ -1028,7 +1029,7 @@ pub mod rmw {
         Self: Sized,
     {
         const TYPE_NAME: &'static str = "rcl_interfaces/msg/SetParametersResult";
-        fn get_type_support() -> *const std::os::raw::c_void {
+        fn get_type_support() -> *const std::ffi::c_void {
             // SAFETY: No preconditions for this function.
             unsafe {
                 rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__msg__SetParametersResult()
@@ -1269,6 +1270,7 @@ pub struct ParameterDescriptor {
     pub description: std::string::String,
     pub additional_constraints: std::string::String,
     pub read_only: bool,
+    pub dynamic_typing: bool,
     pub floating_point_range: rosidl_runtime_rs::BoundedSequence<
         crate::vendor::rcl_interfaces::msg::rmw::FloatingPointRange,
         1,
@@ -1298,6 +1300,7 @@ impl rosidl_runtime_rs::Message for ParameterDescriptor {
                 description: msg.description.as_str().into(),
                 additional_constraints: msg.additional_constraints.as_str().into(),
                 read_only: msg.read_only,
+                dynamic_typing: msg.dynamic_typing,
                 floating_point_range: msg.floating_point_range,
                 integer_range: msg.integer_range,
             }),
@@ -1307,6 +1310,7 @@ impl rosidl_runtime_rs::Message for ParameterDescriptor {
                 description: msg.description.as_str().into(),
                 additional_constraints: msg.additional_constraints.as_str().into(),
                 read_only: msg.read_only,
+                dynamic_typing: msg.dynamic_typing,
                 floating_point_range: msg.floating_point_range.clone(),
                 integer_range: msg.integer_range.clone(),
             }),
@@ -1320,6 +1324,7 @@ impl rosidl_runtime_rs::Message for ParameterDescriptor {
             description: msg.description.to_string(),
             additional_constraints: msg.additional_constraints.to_string(),
             read_only: msg.read_only,
+            dynamic_typing: msg.dynamic_typing,
             floating_point_range: msg.floating_point_range,
             integer_range: msg.integer_range,
         }

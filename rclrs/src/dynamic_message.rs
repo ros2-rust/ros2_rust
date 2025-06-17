@@ -5,18 +5,19 @@
 //!
 //! The central type of this module is [`DynamicMessage`].
 
-use std::fmt::{self, Display};
-use std::ops::Deref;
-use std::path::PathBuf;
-use std::sync::Arc;
+
+use std::{
+    fmt::{self, Display},
+    ops::Deref,
+    path::PathBuf,
+    sync::Arc,
+};
 
 use rosidl_runtime_rs::RmwMessage;
 
-#[cfg(any(ros_distro = "foxy", ros_distro = "galactic"))]
-use crate::rcl_bindings::rosidl_typesupport_introspection_c__MessageMembers as rosidl_message_members_t;
-#[cfg(all(not(ros_distro = "foxy"), not(ros_distro = "galactic")))]
-use crate::rcl_bindings::rosidl_typesupport_introspection_c__MessageMembers_s as rosidl_message_members_t;
-use crate::rcl_bindings::*;
+use crate::rcl_bindings::{
+    rosidl_typesupport_introspection_c__MessageMembers_s as rosidl_message_members_t, *,
+};
 
 mod dynamic_publisher;
 mod dynamic_subscription;
@@ -102,7 +103,7 @@ fn get_type_support_library(
     let ament = ament_rs::Ament::new().map_err(|_| RequiredPrefixNotSourced {
         package: package_name.to_owned(),
     })?;
-    let prefix = PathBuf::from(ament.find_package(&package_name).ok_or(
+    let prefix = PathBuf::from(ament.find_package(package_name).ok_or(
         RequiredPrefixNotSourced {
             package: package_name.to_owned(),
         },
@@ -490,11 +491,10 @@ impl DynamicMessage {
 mod tests {
     use super::*;
 
-    fn assert_send<T: Send>() {}
-    fn assert_sync<T: Sync>() {}
-
     #[test]
-    fn all_types_are_sync_and_send() {
+    fn traits() {
+        use crate::test_helpers::*;
+
         assert_send::<DynamicMessageMetadata>();
         assert_sync::<DynamicMessageMetadata>();
         assert_send::<DynamicMessage>();

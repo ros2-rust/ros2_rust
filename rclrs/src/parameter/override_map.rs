@@ -1,9 +1,6 @@
-use std::collections::BTreeMap;
-use std::ffi::CStr;
-use std::os::raw::c_char;
+use std::{collections::BTreeMap, ffi::CStr, os::raw::c_char};
 
-use crate::rcl_bindings::*;
-use crate::{ParameterValue, RclrsError, ToResult};
+use crate::{rcl_bindings::*, ParameterValue, RclrsError, ToResult};
 
 // Internal helper struct, iterator for rcl_params_t
 struct RclParamsIter<'a> {
@@ -52,9 +49,8 @@ impl RclParamsIter<'_> {
             }
         } else {
             let node_name_ptrs =
-                std::slice::from_raw_parts((*rcl_params).node_names, (*rcl_params).num_nodes);
-            let rcl_node_params =
-                std::slice::from_raw_parts((*rcl_params).params, (*rcl_params).num_nodes);
+                rcl_from_raw_parts((*rcl_params).node_names, (*rcl_params).num_nodes);
+            let rcl_node_params = rcl_from_raw_parts((*rcl_params).params, (*rcl_params).num_nodes);
             Self {
                 node_name_ptrs,
                 rcl_node_params,
@@ -86,11 +82,9 @@ impl<'a> RclNodeParamsIter<'a> {
     // sizes or dangling pointers.
     pub unsafe fn new(rcl_node_params: &'a rcl_node_params_t) -> Self {
         let param_name_ptrs =
-            std::slice::from_raw_parts(rcl_node_params.parameter_names, rcl_node_params.num_params);
-        let rcl_variants = std::slice::from_raw_parts(
-            rcl_node_params.parameter_values,
-            rcl_node_params.num_params,
-        );
+            rcl_from_raw_parts(rcl_node_params.parameter_names, rcl_node_params.num_params);
+        let rcl_variants =
+            rcl_from_raw_parts(rcl_node_params.parameter_values, rcl_node_params.num_params);
         Self {
             param_name_ptrs,
             rcl_variants,
@@ -138,9 +132,7 @@ pub(crate) unsafe fn resolve_parameter_overrides(
 
 #[cfg(test)]
 mod tests {
-    use std::error::Error;
-    use std::ffi::CString;
-    use std::io::Write;
+    use std::{error::Error, ffi::CString, io::Write};
 
     use tempfile::NamedTempFile;
 

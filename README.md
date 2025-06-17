@@ -1,15 +1,20 @@
 ROS 2 for Rust
 ==============
 
-| Target | Status |
-|----------|--------|
-| **Ubuntu 20.04** | [![Build Status](https://github.com/ros2-rust/ros2_rust/actions/workflows/rust.yml/badge.svg?branch=main)](https://github.com/ros2-rust/ros2_rust/actions/workflows/rust.yml?branch=main) |
+[![Minimal Version Status](https://github.com/ros2-rust/ros2_rust/actions/workflows/rust-minimal.yml/badge.svg?branch=main)](https://github.com/ros2-rust/ros2_rust/actions/workflows/rust-minimal.yml)
+[![Stable CI Status](https://github.com/ros2-rust/ros2_rust/actions/workflows/rust-stable.yml/badge.svg?branch=main)](https://github.com/ros2-rust/ros2_rust/actions/workflows/rust-stable.yml)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
 Introduction
 ------------
 
 This is a set of projects (the `rclrs` client library, code generator, examples and more) that
 enables developers to write ROS 2 applications in Rust.
+
+Installation
+------------
+
+Follow the [instructions in the documentation directory](docs/building.md).
 
 Features and limitations
 ------------------------
@@ -33,18 +38,17 @@ Here are the steps for building the `ros2_rust` examples in a vanilla Ubuntu Foc
 <!--- These steps should be kept in sync with docs/Building.md --->
 ```shell
 # Install Rust, e.g. as described in https://rustup.rs/
-# Install ROS 2 as described in https://docs.ros.org/en/foxy/Installation.html
+# Install ROS 2 as described in https://docs.ros.org/en/humble/Installation.html
 # Assuming you installed the minimal version of ROS 2, you need these additional packages:
 sudo apt install -y git libclang-dev python3-pip python3-vcstool # libclang-dev is required by bindgen
 # Install these plugins for cargo and colcon:
-cargo install --debug cargo-ament-build  # --debug is faster to install
 pip install git+https://github.com/colcon/colcon-cargo.git
 pip install git+https://github.com/colcon/colcon-ros-cargo.git
 
 mkdir -p workspace/src && cd workspace
 git clone https://github.com/ros2-rust/ros2_rust.git src/ros2_rust
-vcs import src < src/ros2_rust/ros2_rust_foxy.repos
-. /opt/ros/foxy/setup.sh
+vcs import src < src/ros2_rust/ros2_rust_humble.repos
+. /opt/ros/humble/setup.sh
 colcon build
 ```
 

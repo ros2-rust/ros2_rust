@@ -1,0 +1,16 @@
+[package]
+name = "rust_pubsub"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name="simple_publisher"
+path="src/simple_publisher.rs"
+
+[[bin]]
+name="simple_subscriber"
+path="src/simple_subscriber.rs"
+
+[dependencies]
+rclrs = "*"
+std_msgs = "*"

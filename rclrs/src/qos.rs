@@ -166,7 +166,7 @@ pub struct QoSProfile {
     /// The time within which the RMW publisher must show that it is alive.
     ///
     /// If this is `Infinite`, liveliness is not enforced.
-    pub liveliness_lease_duration: QoSDuration,
+    pub liveliness_lease: QoSDuration,
     /// If true, any ROS specific namespacing conventions will be circumvented.
     ///
     /// In the case of DDS and topics, for example, this means the typical
@@ -177,6 +177,13 @@ pub struct QoSProfile {
     ///
     /// [1]: http://design.ros2.org/articles/topic_and_service_names.html#ros-specific-namespace-prefix
     pub avoid_ros_namespace_conventions: bool,
+}
+
+/// Sets the `QoSProfile` to the RCL default.
+impl Default for QoSProfile {
+    fn default() -> Self {
+        QOS_PROFILE_DEFAULT
+    }
 }
 
 impl From<QoSProfile> for rmw_qos_profile_t {
@@ -193,9 +200,100 @@ impl From<QoSProfile> for rmw_qos_profile_t {
             deadline: qos.deadline.into(),
             lifespan: qos.lifespan.into(),
             liveliness: qos.liveliness.into(),
-            liveliness_lease_duration: qos.liveliness_lease_duration.into(),
+            liveliness_lease_duration: qos.liveliness_lease.into(),
             avoid_ros_namespace_conventions: qos.avoid_ros_namespace_conventions,
         }
+    }
+}
+
+impl QoSProfile {
+    /// Sets the QoS profile history to [QoSHistoryPolicy::KeepLast] with the specified depth.
+    pub fn keep_last(mut self, depth: u32) -> Self {
+        self.history = QoSHistoryPolicy::KeepLast { depth };
+        self
+    }
+
+    /// Sets the QoS profile history to [QoSHistoryPolicy::KeepAll].
+    pub fn keep_all(mut self) -> Self {
+        self.history = QoSHistoryPolicy::KeepAll;
+        self
+    }
+
+    /// Sets the QoS profile reliability to [QoSReliabilityPolicy::Reliable].
+    pub fn reliable(mut self) -> Self {
+        self.reliability = QoSReliabilityPolicy::Reliable;
+        self
+    }
+
+    /// Sets the QoS profile reliability to [QoSReliabilityPolicy::BestEffort].
+    pub fn best_effort(mut self) -> Self {
+        self.reliability = QoSReliabilityPolicy::BestEffort;
+        self
+    }
+
+    /// Sets the QoS profile durability to [QoSDurabilityPolicy::Volatile].
+    pub fn volatile(mut self) -> Self {
+        self.durability = QoSDurabilityPolicy::Volatile;
+        self
+    }
+
+    /// Sets the QoS profile durability to [QoSDurabilityPolicy::TransientLocal].
+    pub fn transient_local(mut self) -> Self {
+        self.durability = QoSDurabilityPolicy::TransientLocal;
+        self
+    }
+
+    /// Sets the QoS profile deadline to the specified `Duration`.
+    pub fn deadline_duration(mut self, deadline: Duration) -> Self {
+        self.deadline = QoSDuration::Custom(deadline);
+        self
+    }
+
+    /// Sets the QoS profile liveliness lease duration to the specified `Duration`.
+    pub fn liveliness_lease_duration(mut self, lease_duration: Duration) -> Self {
+        self.liveliness_lease = QoSDuration::Custom(lease_duration);
+        self
+    }
+
+    /// Sets the QoS profile lifespan to the specified `Duration`.
+    pub fn lifespan_duration(mut self, lifespan: Duration) -> Self {
+        self.lifespan = QoSDuration::Custom(lifespan);
+        self
+    }
+
+    /// Get the default QoS profile for ordinary topics.
+    pub fn topics_default() -> Self {
+        QOS_PROFILE_DEFAULT
+    }
+
+    /// Get the default QoS profile for topics that transmit sensor data.
+    pub fn sensor_data_default() -> Self {
+        QOS_PROFILE_SENSOR_DATA
+    }
+
+    /// Get the default QoS profile for services.
+    pub fn services_default() -> Self {
+        QOS_PROFILE_SERVICES_DEFAULT
+    }
+
+    /// Get the default QoS profile for parameter services.
+    pub fn parameter_services_default() -> Self {
+        QOS_PROFILE_PARAMETERS
+    }
+
+    /// Get the default QoS profile for parameter event topics.
+    pub fn parameter_events_default() -> Self {
+        QOS_PROFILE_PARAMETER_EVENTS
+    }
+
+    /// Get the system-defined default quality of service profile. Topics and
+    /// services created with this default do not use the recommended ROS
+    /// defaults; they will instead use the default as defined by the underlying
+    /// RMW implementation (rmw_fastrtps, rmw_connextdds, etc). These defaults
+    /// may not always be appropriate for every use-case, and may be different
+    /// depending on which RMW implementation you are using, so use caution!
+    pub fn system_default() -> Self {
+        QOS_PROFILE_SYSTEM_DEFAULT
     }
 }
 
@@ -292,7 +390,22 @@ pub const QOS_PROFILE_SENSOR_DATA: QoSProfile = QoSProfile {
     deadline: QoSDuration::SystemDefault,
     lifespan: QoSDuration::SystemDefault,
     liveliness: QoSLivelinessPolicy::SystemDefault,
-    liveliness_lease_duration: QoSDuration::SystemDefault,
+    liveliness_lease: QoSDuration::SystemDefault,
+    avoid_ros_namespace_conventions: false,
+};
+
+/// Equivalent to `ClockQos` from the [`rclcpp` package][1].
+/// Same as sensor data but with a history depth of 1
+///
+/// [1]: https://github.com/ros2/rclcpp/blob/rolling/rclcpp/include/rclcpp/qos.hpp
+pub const QOS_PROFILE_CLOCK: QoSProfile = QoSProfile {
+    history: QoSHistoryPolicy::KeepLast { depth: 1 },
+    reliability: QoSReliabilityPolicy::BestEffort,
+    durability: QoSDurabilityPolicy::Volatile,
+    deadline: QoSDuration::SystemDefault,
+    lifespan: QoSDuration::SystemDefault,
+    liveliness: QoSLivelinessPolicy::SystemDefault,
+    liveliness_lease: QoSDuration::SystemDefault,
     avoid_ros_namespace_conventions: false,
 };
 
@@ -306,7 +419,7 @@ pub const QOS_PROFILE_PARAMETERS: QoSProfile = QoSProfile {
     deadline: QoSDuration::SystemDefault,
     lifespan: QoSDuration::SystemDefault,
     liveliness: QoSLivelinessPolicy::SystemDefault,
-    liveliness_lease_duration: QoSDuration::SystemDefault,
+    liveliness_lease: QoSDuration::SystemDefault,
     avoid_ros_namespace_conventions: false,
 };
 
@@ -320,7 +433,7 @@ pub const QOS_PROFILE_DEFAULT: QoSProfile = QoSProfile {
     deadline: QoSDuration::SystemDefault,
     lifespan: QoSDuration::SystemDefault,
     liveliness: QoSLivelinessPolicy::SystemDefault,
-    liveliness_lease_duration: QoSDuration::SystemDefault,
+    liveliness_lease: QoSDuration::SystemDefault,
     avoid_ros_namespace_conventions: false,
 };
 
@@ -334,7 +447,7 @@ pub const QOS_PROFILE_SERVICES_DEFAULT: QoSProfile = QoSProfile {
     deadline: QoSDuration::SystemDefault,
     lifespan: QoSDuration::SystemDefault,
     liveliness: QoSLivelinessPolicy::SystemDefault,
-    liveliness_lease_duration: QoSDuration::SystemDefault,
+    liveliness_lease: QoSDuration::SystemDefault,
     avoid_ros_namespace_conventions: false,
 };
 
@@ -348,7 +461,7 @@ pub const QOS_PROFILE_PARAMETER_EVENTS: QoSProfile = QoSProfile {
     deadline: QoSDuration::SystemDefault,
     lifespan: QoSDuration::SystemDefault,
     liveliness: QoSLivelinessPolicy::SystemDefault,
-    liveliness_lease_duration: QoSDuration::SystemDefault,
+    liveliness_lease: QoSDuration::SystemDefault,
     avoid_ros_namespace_conventions: false,
 };
 
@@ -362,6 +475,6 @@ pub const QOS_PROFILE_SYSTEM_DEFAULT: QoSProfile = QoSProfile {
     deadline: QoSDuration::SystemDefault,
     lifespan: QoSDuration::SystemDefault,
     liveliness: QoSLivelinessPolicy::SystemDefault,
-    liveliness_lease_duration: QoSDuration::SystemDefault,
+    liveliness_lease: QoSDuration::SystemDefault,
     avoid_ros_namespace_conventions: false,
 };
