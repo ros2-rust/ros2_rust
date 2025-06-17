@@ -86,7 +86,7 @@ jobs:
 
     - name: Build and test
       id: build
-      uses: ros-tooling/action-ros-ci@v0.3
+      uses: ros-tooling/action-ros-ci@v0.4
       with:
         package-name: ${{ steps.list_packages.outputs.package_list }}
         target-ros2-distro: ${{ matrix.ros_distribution }}
