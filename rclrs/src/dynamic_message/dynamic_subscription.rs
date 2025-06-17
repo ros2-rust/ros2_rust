@@ -9,14 +9,23 @@ use super::{
 };
 use crate::rcl_bindings::*;
 use crate::{
-    Node, QoSProfile, RclReturnCode, RclrsError, SubscriptionBase, SubscriptionHandle, ToResult,
+    Node, QoSProfile, RclReturnCode, RclrsError, ToResult, NodeHandle, WorkerCommands, WaitableLifecycle, SubscriptionHandle,
 };
 
 /// Struct for receiving messages whose type is only known at runtime.
 pub struct DynamicSubscription {
-    pub(crate) handle: Arc<SubscriptionHandle>,
-    /// The callback function that runs when a message was received.
+    /// This handle is used to access the data that rcl holds for this subscription.
+    handle: Arc<SubscriptionHandle>,
+    /// This allows us to replace the callback in the subscription task.
+    ///
+    /// Holding onto this sender will keep the subscription task alive. Once
+    /// this sender is dropped, the subscription task will end itself.
+    // callback: Arc<Mutex<AnySubscriptionCallback<T, Scope::Payload>>>,
     pub callback: Mutex<Box<dyn FnMut(DynamicMessage) + 'static + Send>>,
+    /// Holding onto this keeps the waiter for this subscription alive in the
+    /// wait set of the executor.
+    #[allow(unused)]
+    lifecycle: WaitableLifecycle,
     metadata: DynamicMessageMetadata,
     // This is the regular type support library, not the introspection one.
     #[allow(dead_code)]
@@ -27,16 +36,18 @@ impl DynamicSubscription {
     /// Creates a new dynamic subscription.
     ///
     /// This is not a public function, by the same rationale as `Subscription::new()`.
-    pub(crate) fn new<F>(
-        node: &Node,
+    pub(crate) fn create_dynamic<F>(
         topic: &str,
         topic_type: &str,
         qos: QoSProfile,
         callback: F,
-    ) -> Result<Self, RclrsError>
+        node_handle: &Arc<NodeHandle>,
+        commands: &Arc<WorkerCommands>,
+    ) -> Result<Arc<Self>, RclrsError>
     where
         F: FnMut(DynamicMessage) + 'static + Send,
     {
+        // TODO(luca) a lot of duplication with nomral, refactor
         // This loads the introspection type support library.
         let metadata = DynamicMessageMetadata::new(topic_type)?;
         // However, we also need the regular type support library –
@@ -62,38 +73,62 @@ impl DynamicSubscription {
         let rcl_node = &mut *node.rcl_node_mtx.lock().unwrap();
 
         // SAFETY: No preconditions for this function.
-        let mut subscription_options = unsafe { rcl_subscription_get_default_options() };
-        subscription_options.qos = qos.into();
+        let mut rcl_subscription_options = unsafe { rcl_subscription_get_default_options() };
+        rcl_subscription_options.qos = qos.into();
         // SAFETY: Getting a zero-initialized value is always safe.
         let mut rcl_subscription = unsafe { rcl_get_zero_initialized_subscription() };
-        unsafe {
-            // SAFETY: The rcl_subscription is zero-initialized as expected by this function.
-            // The rcl_node is kept alive because it is co-owned by the subscription.
-            // The topic name and the options are copied by this function, so they can be dropped
-            // afterwards.
-            // TODO: type support?
-            rcl_subscription_init(
-                &mut rcl_subscription,
-                rcl_node,
-                type_support_ptr,
-                topic_c_string.as_ptr(),
-                &subscription_options,
-            )
-            .ok()?;
+        {
+            let rcl_node = node_handle.rcl_node.lock().unwrap();
+            let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
+            unsafe {
+                // SAFETY:
+                // * The rcl_subscription is zero-initialized as mandated by this function.
+                // * The rcl_node is kept alive by the NodeHandle because it is a dependency of the subscription.
+                // * The topic name and the options are copied by this function, so they can be dropped afterwards.
+                // * The entity lifecycle mutex is locked to protect against the risk of global
+                //   variables in the rmw implementation being unsafely modified during cleanup.
+                rcl_subscription_init(
+                    &mut rcl_subscription,
+                    &*rcl_node,
+                    type_support_ptr,
+                    topic_c_string.as_ptr(),
+                    &rcl_subscription_options,
+                )
+                .ok()?;
+            }
         }
 
         let handle = Arc::new(SubscriptionHandle {
-            rcl_subscription_mtx: Mutex::new(rcl_subscription),
-            rcl_node_mtx: node.rcl_node_mtx.clone(),
-            in_use_by_wait_set: Arc::new(AtomicBool::new(false)),
+            rcl_subscription: Mutex::new(rcl_subscription),
+            node_handle: Arc::clone(node_handle),
         });
 
+        let (waitable, lifecycle) = Waitable::new(
+            Box::new(SubscriptionExecutable {
+                handle: Arc::clone(&handle),
+                callback: Arc::clone(&callback),
+                commands: Arc::clone(commands),
+            }),
+            Some(Arc::clone(commands.get_guard_condition())),
+        );
+        commands.add_to_wait_set(waitable);
+
+        Ok(Arc::new(Self {
+            handle,
+            callback,
+            lifecycle,
+            metadata,
+            type_support_library,
+        }))
+
+        /*
         Ok(Self {
             handle,
             callback: Mutex::new(Box::new(callback)),
             metadata,
             type_support_library,
         })
+        */
     }
 
     /// Returns the topic name of the subscription.
@@ -155,29 +190,6 @@ impl DynamicSubscription {
             .ok()?
         };
         Ok(dynamic_message)
-    }
-}
-
-impl SubscriptionBase for DynamicSubscription {
-    fn handle(&self) -> &SubscriptionHandle {
-        &self.handle
-    }
-
-    fn execute(&self) -> Result<(), RclrsError> {
-        let msg = match self.take() {
-            Ok(msg) => msg,
-            Err(RclrsError::RclError {
-                code: RclReturnCode::SubscriptionTakeFailed,
-                ..
-            }) => {
-                // Spurious wakeup – this may happen even when a waitset indicated that this
-                // subscription was ready, so it shouldn't be an error.
-                return Ok(());
-            }
-            Err(e) => return Err(e),
-        };
-        (*self.callback.lock().unwrap())(msg);
-        Ok(())
     }
 }
 

@@ -12,6 +12,8 @@ use crate::{
     WorkScope, Worker, WorkerCommands, ENTITY_LIFECYCLE_MUTEX,
 };
 
+use crate::dynamic_message::DynamicMessage;
+
 mod any_subscription_callback;
 pub use any_subscription_callback::*;
 
@@ -33,43 +35,6 @@ pub use message_info::*;
 mod readonly_loaned_message;
 pub use readonly_loaned_message::*;
 
-/*
-// SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
-// they are running in. Therefore, this type can be safely sent to another thread.
-unsafe impl Send for rcl_subscription_t {}
-
-/// Internal struct used by subscriptions.
-pub struct SubscriptionHandle {
-    pub(crate) rcl_subscription_mtx: Mutex<rcl_subscription_t>,
-    pub(crate) rcl_node_mtx: Arc<Mutex<rcl_node_t>>,
-    pub(crate) in_use_by_wait_set: Arc<AtomicBool>,
-}
-
-impl SubscriptionHandle {
-    pub(crate) fn lock(&self) -> MutexGuard<rcl_subscription_t> {
-        self.rcl_subscription_mtx.lock().unwrap()
-    }
-}
-
-impl Drop for SubscriptionHandle {
-    fn drop(&mut self) {
-        let rcl_subscription = self.rcl_subscription_mtx.get_mut().unwrap();
-        let rcl_node = &mut *self.rcl_node_mtx.lock().unwrap();
-        // SAFETY: No preconditions for this function (besides the arguments being valid).
-        unsafe {
-            rcl_subscription_fini(rcl_subscription, rcl_node);
-        }
-    }
-}
-
-/// Trait to be implemented by concrete [`Subscription`]s.
-pub trait SubscriptionBase: Send + Sync {
-    /// Internal function to get a reference to the `rcl` handle.
-    fn handle(&self) -> &SubscriptionHandle;
-    /// Tries to take a new message and run the callback with it.
-    fn execute(&self) -> Result<(), RclrsError>;
-}
-*/
 mod worker_subscription_callback;
 pub use worker_subscription_callback::*;
 
@@ -288,6 +253,41 @@ impl<'a, T: IntoPrimitiveOptions<'a>> From<T> for SubscriptionOptions<'a> {
     }
 }
 
+/// `SubscriptionOptions` are used by [`Node::create_subscription`][1] to initialize
+/// a [`Subscription`].
+///
+/// [1]: crate::NodeState::create_subscription
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub struct DynamicSubscriptionOptions<'a> {
+    /// The topic name for the subscription.
+    pub topic: &'a str,
+    /// The topic type for the subscription.
+    pub topic_type: &'a str,
+    /// The quality of service settings for the subscription.
+    pub qos: QoSProfile,
+}
+
+impl<'a> DynamicSubscriptionOptions<'a> {
+    /// Initialize a new [`SubscriptionOptions`] with default settings.
+    pub fn new(topic: &'a str, topic_type: &'a str) -> Self {
+        Self {
+            topic,
+            topic_type,
+            qos: QoSProfile::topics_default(),
+        }
+    }
+}
+
+impl<'a, T: IntoPrimitiveOptions<'a>> From<T> for DynamicSubscriptionOptions<'a> {
+    fn from(value: T) -> Self {
+        let primitive = value.into_primitive_options();
+        let mut options = Self::new(primitive.name);
+        primitive.apply_to(&mut options.qos);
+        options
+    }
+}
+
 struct SubscriptionExecutable<T: Message, Payload> {
     handle: Arc<SubscriptionHandle>,
     callback: Arc<Mutex<AnySubscriptionCallback<T, Payload>>>,
@@ -323,7 +323,7 @@ unsafe impl Send for rcl_subscription_t {}
 /// [dropped after][1] the `rcl_subscription_t`.
 ///
 /// [1]: <https://doc.rust-lang.org/reference/destructors.html>
-struct SubscriptionHandle {
+pub(crate) struct SubscriptionHandle {
     rcl_subscription: Mutex<rcl_subscription_t>,
     node_handle: Arc<NodeHandle>,
 }

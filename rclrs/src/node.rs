@@ -12,6 +12,7 @@ pub use self::builder::*;
 pub use self::graph::*;
 =======
 */
+use crate::QoSProfile;
 #[cfg(feature = "dyn_msg")]
 use crate::dynamic_message::{DynamicMessage, DynamicSubscription};
 
@@ -794,6 +795,27 @@ impl NodeState {
             &self.handle,
             self.commands.async_worker_commands(),
         )
+    }
+
+    // TODO(luca) introduce subscription options and perhaps an into callback
+    #[cfg(feature = "dyn_msg")]
+    pub fn create_dynamic_subscription<F>(
+        &self,
+        // options: impl Into<DynamicSubscriptionOptions<'a>>,
+        topic: &str,
+        topic_type: &str,
+        qos: QoSProfile,
+        callback: F,
+    ) -> Result<Arc<DynamicSubscription>, RclrsError>
+    where
+        F: FnMut(DynamicMessage) + 'static + Send,
+    {
+        let subscription = Arc::new(DynamicSubscription::new(
+            self, topic, topic_type, qos, callback,
+        )?);
+        self.subscriptions
+            .push(Arc::downgrade(&subscription) as Weak<dyn SubscriptionBase>);
+        Ok(subscription)
     }
 
     /// Creates a [`DynamicSubscription`][1].
