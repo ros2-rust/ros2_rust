@@ -1,4 +1,4 @@
-name: Rust ROS 2 Windows build
+name: Rust Windows
 
 on:
   push:
