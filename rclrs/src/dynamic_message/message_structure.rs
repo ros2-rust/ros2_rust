@@ -114,6 +114,10 @@ impl BaseType {
         string_upper_bound: Option<NonZeroUsize>,
         inner: *const rosidl_message_type_support_t,
     ) -> Self {
+<<<<<<< HEAD
+=======
+        use rosidl_typesupport_introspection_c_field_types::*;
+>>>>>>> 4e1c0be (Clear warnings)
         match u32::from(type_id) {
             x if x == rosidl_typesupport_introspection_c__ROS_TYPE_FLOAT as u32 => Self::Float,
             x if x == rosidl_typesupport_introspection_c__ROS_TYPE_DOUBLE as u32 => Self::Double,
