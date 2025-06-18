@@ -5,7 +5,6 @@ use super::TypeErasedSequence;
 use crate::rcl_bindings::rosidl_typesupport_introspection_c__MessageMember as rosidl_message_member_t;
 use crate::rcl_bindings::rosidl_typesupport_introspection_c__MessageMembers as rosidl_message_members_t;
 use crate::rcl_bindings::*;
-use crate::rcl_bindings::rosidl_typesupport_introspection_c_field_types::*;
 
 /// Possible base types for fields in a message.
 // The field variants are self-explaining, no need to add redundant documentation.
@@ -114,10 +113,7 @@ impl BaseType {
         string_upper_bound: Option<NonZeroUsize>,
         inner: *const rosidl_message_type_support_t,
     ) -> Self {
-<<<<<<< HEAD
-=======
         use rosidl_typesupport_introspection_c_field_types::*;
->>>>>>> 4e1c0be (Clear warnings)
         match u32::from(type_id) {
             x if x == rosidl_typesupport_introspection_c__ROS_TYPE_FLOAT as u32 => Self::Float,
             x if x == rosidl_typesupport_introspection_c__ROS_TYPE_DOUBLE as u32 => Self::Double,
@@ -1070,3 +1066,74 @@ mod tests {
         }
     }
 }
+
+#[test]
+fn dynamic_message_has_defaults() {
+    let dyn_msg = DynamicMessage::new("test_msgs/msg/Defaults").unwrap();
+    assert_eq!(
+        dyn_msg.get("bool_value"),
+        Some(Value::Simple(SimpleValue::Boolean(&true)))
+    );
+    assert_eq!(
+        dyn_msg.get("byte_value"),
+        Some(Value::Simple(SimpleValue::Octet(&50u8)))
+    );
+    assert_eq!(
+        dyn_msg.get("char_value"),
+        Some(Value::Simple(SimpleValue::Uint8(&100u8)))
+    );
+    assert_eq!(
+        dyn_msg.get("float32_value"),
+        Some(Value::Simple(SimpleValue::Float(&1.125f32)))
+    );
+    assert_eq!(
+        dyn_msg.get("float64_value"),
+        Some(Value::Simple(SimpleValue::Double(&1.125f64)))
+    );
+    assert_eq!(
+        dyn_msg.get("int8_value"),
+        Some(Value::Simple(SimpleValue::Int8(&-50i8)))
+    );
+    assert_eq!(
+        dyn_msg.get("uint8_value"),
+        Some(Value::Simple(SimpleValue::Uint8(&200u8)))
+    );
+    assert_eq!(
+        dyn_msg.get("int16_value"),
+        Some(Value::Simple(SimpleValue::Int16(&-1000i16)))
+    );
+    assert_eq!(
+        dyn_msg.get("uint16_value"),
+        Some(Value::Simple(SimpleValue::Uint16(&2000u16)))
+    );
+    assert_eq!(
+        dyn_msg.get("int32_value"),
+        Some(Value::Simple(SimpleValue::Int32(&-30000i32)))
+    );
+    assert_eq!(
+        dyn_msg.get("uint32_value"),
+        Some(Value::Simple(SimpleValue::Uint32(&60000u32)))
+    );
+    assert_eq!(
+        dyn_msg.get("int64_value"),
+        Some(Value::Simple(SimpleValue::Int64(&-40000000i64)))
+    );
+    assert_eq!(
+        dyn_msg.get("uint64_value"),
+        Some(Value::Simple(SimpleValue::Uint64(&50000000u64)))
+    );
+
+    let _dyn_msg = DynamicMessage::new("test_msgs/msg/Arrays").unwrap();
+    let _dyn_msg = DynamicMessage::new("test_msgs/msg/UnboundedSequences").unwrap();
+    let _dyn_msg = DynamicMessage::new("test_msgs/msg/BoundedSequences").unwrap();
+}
+
+// #[test]
+// fn test_mut_value_same_as_value() {
+
+// }
+
+// #[test]
+// fn test_setting_value() {
+
+// }
