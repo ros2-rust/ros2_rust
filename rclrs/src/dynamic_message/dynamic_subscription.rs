@@ -21,8 +21,8 @@ pub struct DynamicSubscription {
     ///
     /// Holding onto this sender will keep the subscription task alive. Once
     /// this sender is dropped, the subscription task will end itself.
-    // callback: Arc<Mutex<AnySubscriptionCallback<T, Scope::Payload>>>,
-    pub callback: Mutex<Box<dyn FnMut(DynamicMessage) + 'static + Send>>,
+    pub callback: Arc<Mutex<AnySubscriptionCallback<T, Scope::Payload>>>,
+    // pub callback: Mutex<Box<dyn FnMut(DynamicMessage) + 'static + Send>>,
     /// Holding onto this keeps the waiter for this subscription alive in the
     /// wait set of the executor.
     #[allow(unused)]
@@ -102,6 +102,8 @@ impl DynamicSubscription {
             rcl_subscription: Mutex::new(rcl_subscription),
             node_handle: Arc::clone(node_handle),
         });
+
+        let callback = Arc::new(Mutex::new(callback));
 
         let (waitable, lifecycle) = Waitable::new(
             Box::new(SubscriptionExecutable {

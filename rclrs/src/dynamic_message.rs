@@ -7,6 +7,7 @@
 
 use std::{
     fmt::{self, Display},
+    ops::Deref,
     path::PathBuf,
     sync::Arc,
 };

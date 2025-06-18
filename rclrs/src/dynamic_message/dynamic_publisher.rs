@@ -9,7 +9,7 @@ use super::{
 use crate::error::{RclrsError, ToResult};
 use crate::qos::QoSProfile;
 use crate::rcl_bindings::*;
-use crate::Node;
+use crate::NodeHandle;
 
 /// Struct for sending messages of type `T`.
 ///
@@ -23,7 +23,7 @@ use crate::Node;
 /// [1]: crate::spin
 pub struct DynamicPublisher {
     rcl_publisher_mtx: Mutex<rcl_publisher_t>,
-    rcl_node_mtx: Arc<Mutex<rcl_node_t>>,
+    node_handle: Arc<NodeHandle>,
     metadata: DynamicMessageMetadata,
     // This is the regular type support library, not the introspection one.
     #[allow(dead_code)]
@@ -32,11 +32,12 @@ pub struct DynamicPublisher {
 
 impl Drop for DynamicPublisher {
     fn drop(&mut self) {
+        let mut rcl_node = self.node_handle.rcl_node.lock().unwrap();
         unsafe {
             // SAFETY: No preconditions for this function (besides the arguments being valid).
             rcl_publisher_fini(
                 self.rcl_publisher_mtx.get_mut().unwrap(),
-                &mut *self.rcl_node_mtx.lock().unwrap(),
+                &mut *rcl_node,
             );
         }
     }
@@ -54,7 +55,7 @@ impl DynamicPublisher {
     ///
     /// Node and namespace changes are always applied _before_ topic remapping.
     pub fn new(
-        node: &Node,
+        node_handle: &Arc<NodeHandle>,
         topic: &str,
         topic_type: &str,
         qos: QoSProfile,
@@ -83,7 +84,7 @@ impl DynamicPublisher {
             err,
             s: topic.into(),
         })?;
-        let rcl_node = &mut *node.rcl_node_mtx.lock().unwrap();
+        let rcl_node = node_handle.rcl_node.lock().unwrap();
 
         // SAFETY: No preconditions for this function.
         let mut publisher_options = unsafe { rcl_publisher_get_default_options() };
@@ -96,7 +97,7 @@ impl DynamicPublisher {
             // TODO: type support?
             rcl_publisher_init(
                 &mut rcl_publisher,
-                rcl_node,
+                &*rcl_node,
                 type_support_ptr,
                 topic_c_string.as_ptr(),
                 &publisher_options,
@@ -106,7 +107,7 @@ impl DynamicPublisher {
 
         Ok(Self {
             rcl_publisher_mtx: Mutex::new(rcl_publisher),
-            rcl_node_mtx: Arc::clone(&node.rcl_node_mtx),
+            node_handle: node_handle.clone(),
             metadata,
             type_support_library,
         })

@@ -12,6 +12,7 @@ use crate::{
     WorkScope, Worker, WorkerCommands, ENTITY_LIFECYCLE_MUTEX,
 };
 
+#[cfg(feature = "dyn_msg")]
 use crate::dynamic_message::DynamicMessage;
 
 mod any_subscription_callback;
@@ -279,6 +280,7 @@ impl<'a> DynamicSubscriptionOptions<'a> {
     }
 }
 
+/*
 impl<'a, T: IntoPrimitiveOptions<'a>> From<T> for DynamicSubscriptionOptions<'a> {
     fn from(value: T) -> Self {
         let primitive = value.into_primitive_options();
@@ -287,6 +289,7 @@ impl<'a, T: IntoPrimitiveOptions<'a>> From<T> for DynamicSubscriptionOptions<'a>
         options
     }
 }
+*/
 
 struct SubscriptionExecutable<T: Message, Payload> {
     handle: Arc<SubscriptionHandle>,
@@ -360,6 +363,13 @@ impl SubscriptionHandle {
         let message_info = Self::take_inner::<T>(self, &mut rmw_message)?;
         Ok((T::from_rmw_message(rmw_message), message_info))
     }
+
+    /*
+    #[cfg(feature = "dyn_msg")]
+    fn take_dynamic(&self) -> Result<(DynamicMessage, MessageInfo), RclrsError> {
+
+    }
+    */
 
     /// This is a version of take() that returns a boxed message.
     ///
