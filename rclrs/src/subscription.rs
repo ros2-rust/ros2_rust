@@ -329,7 +329,7 @@ pub(crate) struct SubscriptionHandle {
 }
 
 impl SubscriptionHandle {
-    fn lock(&self) -> MutexGuard<rcl_subscription_t> {
+    pub(crate) fn lock(&self) -> MutexGuard<rcl_subscription_t> {
         self.rcl_subscription.lock().unwrap()
     }
 

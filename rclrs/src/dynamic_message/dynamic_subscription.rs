@@ -9,6 +9,7 @@ use super::{
 };
 use crate::rcl_bindings::*;
 use crate::{
+    ENTITY_LIFECYCLE_MUTEX, Waitable,
     Node, QoSProfile, RclReturnCode, RclrsError, ToResult, NodeHandle, WorkerCommands, WaitableLifecycle, SubscriptionHandle,
 };
 
@@ -36,7 +37,7 @@ impl DynamicSubscription {
     /// Creates a new dynamic subscription.
     ///
     /// This is not a public function, by the same rationale as `Subscription::new()`.
-    pub(crate) fn create_dynamic<F>(
+    pub(crate) fn new<F>(
         topic: &str,
         topic_type: &str,
         qos: QoSProfile,
@@ -70,7 +71,6 @@ impl DynamicSubscription {
             err,
             s: topic.into(),
         })?;
-        let rcl_node = &mut *node.rcl_node_mtx.lock().unwrap();
 
         // SAFETY: No preconditions for this function.
         let mut rcl_subscription_options = unsafe { rcl_subscription_get_default_options() };

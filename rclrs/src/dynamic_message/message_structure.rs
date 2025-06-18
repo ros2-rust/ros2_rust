@@ -5,6 +5,7 @@ use super::TypeErasedSequence;
 use crate::rcl_bindings::rosidl_typesupport_introspection_c__MessageMember as rosidl_message_member_t;
 use crate::rcl_bindings::rosidl_typesupport_introspection_c__MessageMembers as rosidl_message_members_t;
 use crate::rcl_bindings::*;
+use crate::rcl_bindings::rosidl_typesupport_introspection_c_field_types::*;
 
 /// Possible base types for fields in a message.
 // The field variants are self-explaining, no need to add redundant documentation.

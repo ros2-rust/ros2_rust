@@ -810,11 +810,10 @@ impl NodeState {
     where
         F: FnMut(DynamicMessage) + 'static + Send,
     {
-        let subscription = Arc::new(DynamicSubscription::new(
-            self, topic, topic_type, qos, callback,
-        )?);
-        self.subscriptions
-            .push(Arc::downgrade(&subscription) as Weak<dyn SubscriptionBase>);
+        let subscription = DynamicSubscription::new(
+            topic, topic_type, qos, callback, &self.handle, self.commands.async_worker_commands(),
+        )?;
+        // TODO(luca)  similar API to above?
         Ok(subscription)
     }
 
