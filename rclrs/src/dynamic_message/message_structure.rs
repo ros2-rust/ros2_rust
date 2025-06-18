@@ -1068,21 +1068,5 @@ mod tests {
                 );
             }
         }
-
-        // Explicitly drop to avoid clippy warnings
-        drop(arrays_structure);
-        drop(builtins_structure);
-        drop(duration_structure);
-        drop(empty_structure);
-        drop(time_structure);
-        drop(basic_types_structure);
-        drop(bounded_sequences_structure);
-        drop(constants_structure);
-        drop(multi_nested_structure);
-        drop(nested_structure);
-        drop(defaults_structure);
-        drop(strings_structure);
-        drop(wstrings_structure);
-        drop(unbounded_sequences_structure);
     }
 }

@@ -474,7 +474,7 @@ impl DynamicMessage {
                 unsafe { std::slice::from_raw_parts_mut(dest_ptr, std::mem::size_of::<T>()) };
             // This creates a shallow copy, with ownership of the "deep" (or inner) parts moving
             // into the destination.
-            dest_slice.copy_from_slice(&*self.storage);
+            dest_slice.copy_from_slice(&self.storage);
             // Don't run the fini function on the src data anymore, because the inner parts would be
             // double-freed by dst and src.
             self.needs_fini = false;
