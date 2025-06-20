@@ -1,4 +1,3 @@
-use std::ffi::CStr;
 use std::ffi::CString;
 use std::sync::{Arc, Mutex};
 
@@ -9,7 +8,7 @@ use super::{
 use crate::error::{RclrsError, ToResult};
 use crate::qos::QoSProfile;
 use crate::rcl_bindings::*;
-use crate::NodeHandle;
+use crate::{ENTITY_LIFECYCLE_MUTEX, PublisherHandle, NodeHandle};
 
 /// Struct for sending messages of type `T`.
 ///
@@ -22,22 +21,11 @@ use crate::NodeHandle;
 ///
 /// [1]: crate::spin
 pub struct DynamicPublisher {
-    rcl_publisher_mtx: Mutex<rcl_publisher_t>,
-    node_handle: Arc<NodeHandle>,
+    handle: PublisherHandle,
     metadata: DynamicMessageMetadata,
     // This is the regular type support library, not the introspection one.
     #[allow(dead_code)]
     type_support_library: Arc<libloading::Library>,
-}
-
-impl Drop for DynamicPublisher {
-    fn drop(&mut self) {
-        let mut rcl_node = self.node_handle.rcl_node.lock().unwrap();
-        unsafe {
-            // SAFETY: No preconditions for this function (besides the arguments being valid).
-            rcl_publisher_fini(self.rcl_publisher_mtx.get_mut().unwrap(), &mut *rcl_node);
-        }
-    }
 }
 
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
@@ -52,7 +40,7 @@ impl DynamicPublisher {
     ///
     /// Node and namespace changes are always applied _before_ topic remapping.
     pub(crate) fn new(
-        node_handle: &Arc<NodeHandle>,
+        node_handle: Arc<NodeHandle>,
         topic: &str,
         topic_type: MessageTypeName,
         qos: QoSProfile,
@@ -81,30 +69,36 @@ impl DynamicPublisher {
             err,
             s: topic.into(),
         })?;
-        let rcl_node = node_handle.rcl_node.lock().unwrap();
 
         // SAFETY: No preconditions for this function.
         let mut publisher_options = unsafe { rcl_publisher_get_default_options() };
         publisher_options.qos = qos.into();
-        unsafe {
-            // SAFETY: The rcl_publisher is zero-initialized as expected by this function.
-            // The rcl_node is kept alive because it is co-owned by the subscription.
-            // The topic name and the options are copied by this function, so they can be dropped
-            // afterwards.
-            // TODO: type support?
-            rcl_publisher_init(
-                &mut rcl_publisher,
-                &*rcl_node,
-                type_support_ptr,
-                topic_c_string.as_ptr(),
-                &publisher_options,
-            )
-            .ok()?;
+
+        {
+            let rcl_node = node_handle.rcl_node.lock().unwrap();
+            let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
+            unsafe {
+                // SAFETY: The rcl_publisher is zero-initialized as expected by this function.
+                // The rcl_node is kept alive because it is co-owned by the subscription.
+                // The topic name and the options are copied by this function, so they can be dropped
+                // afterwards.
+                // TODO: type support?
+                rcl_publisher_init(
+                    &mut rcl_publisher,
+                    &*rcl_node,
+                    type_support_ptr,
+                    topic_c_string.as_ptr(),
+                    &publisher_options,
+                )
+                .ok()?;
+            }
         }
 
         Ok(Self {
-            rcl_publisher_mtx: Mutex::new(rcl_publisher),
-            node_handle: node_handle.clone(),
+            handle: PublisherHandle {
+                rcl_publisher: Mutex::new(rcl_publisher),
+                node_handle,
+            },
             metadata,
             type_support_library,
         })
@@ -115,15 +109,12 @@ impl DynamicPublisher {
     /// This returns the topic name after remapping, so it is not necessarily the
     /// topic name which was used when creating the publisher.
     pub fn topic_name(&self) -> String {
-        // SAFETY: No preconditions for the functions called.
-        // The unsafe variables created get converted to safe types before being returned
-        unsafe {
-            let raw_topic_pointer =
-                rcl_publisher_get_topic_name(&*self.rcl_publisher_mtx.lock().unwrap());
-            CStr::from_ptr(raw_topic_pointer)
-                .to_string_lossy()
-                .into_owned()
-        }
+        self.handle.topic_name()
+    }
+
+    /// Returns the number of subscriptions of the publisher.
+    pub fn get_subscription_count(&self) -> Result<usize, RclrsError> {
+        self.handle.get_subscription_count()
     }
 
     /// Publishes a message.
@@ -135,7 +126,7 @@ impl DynamicPublisher {
         if message.metadata.message_type != self.metadata.message_type {
             return Err(DynamicMessageError::MessageTypeMismatch.into());
         }
-        let rcl_publisher = &mut *self.rcl_publisher_mtx.lock().unwrap();
+        let rcl_publisher = &mut *self.handle.rcl_publisher.lock().unwrap();
         unsafe {
             // SAFETY: The message type is guaranteed to match the publisher type by the type system.
             // The message does not need to be valid beyond the duration of this function call.
