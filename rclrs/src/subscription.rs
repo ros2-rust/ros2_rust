@@ -327,8 +327,8 @@ unsafe impl Send for rcl_subscription_t {}
 ///
 /// [1]: <https://doc.rust-lang.org/reference/destructors.html>
 pub(crate) struct SubscriptionHandle {
-    rcl_subscription: Mutex<rcl_subscription_t>,
-    node_handle: Arc<NodeHandle>,
+    pub(crate) rcl_subscription: Mutex<rcl_subscription_t>,
+    pub(crate) node_handle: Arc<NodeHandle>,
 }
 
 impl SubscriptionHandle {

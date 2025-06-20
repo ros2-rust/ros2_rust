@@ -1,7 +1,11 @@
+use std::any::Any;
 use std::boxed::Box;
 use std::ffi::{CStr, CString};
+use std::ops::{Deref, DerefMut};
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
+
+use futures::future::BoxFuture;
 
 use super::{
     get_type_support_handle, get_type_support_library, DynamicMessage, DynamicMessageMetadata,
@@ -9,44 +13,176 @@ use super::{
 };
 use crate::rcl_bindings::*;
 use crate::{
-    ENTITY_LIFECYCLE_MUTEX, Waitable,
+    ENTITY_LIFECYCLE_MUTEX, Waitable, RclPrimitive, MessageInfo, RclPrimitiveKind, RclPrimitiveHandle, WorkScope,
     Node, QoSProfile, RclReturnCode, RclrsError, ToResult, NodeHandle, WorkerCommands, WaitableLifecycle, SubscriptionHandle,
 };
 
+struct DynamicSubscriptionExecutable<Payload> {
+    handle: Arc<SubscriptionHandle>,
+    callback: Arc<Mutex<DynamicSubscriptionCallback<Payload>>>,
+    commands: Arc<WorkerCommands>,
+    metadata: Arc<DynamicMessageMetadata>,
+}
+
+// TODO(luca) consider making these enums if we want different callback types
+// TODO(luca) make fields private
+pub struct NodeDynamicSubscriptionCallback(pub Box<dyn FnMut(DynamicMessage, MessageInfo) -> BoxFuture<'static, ()> + Send>);
+pub struct WorkerDynamicSubscriptionCallback<Payload>(pub Box<dyn FnMut(&mut Payload, DynamicMessage, MessageInfo) + Send>);
+
+impl Deref for NodeDynamicSubscriptionCallback {
+    type Target = Box<dyn FnMut(DynamicMessage, MessageInfo)-> BoxFuture<'static, ()> + Send>;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for NodeDynamicSubscriptionCallback {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl<Payload> Deref for WorkerDynamicSubscriptionCallback<Payload> {
+    type Target = Box<dyn FnMut(&mut Payload, DynamicMessage, MessageInfo) + Send>;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<Payload> DerefMut for WorkerDynamicSubscriptionCallback<Payload> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+//pub trait NodeDynamicSubscriptionCallback = FnMut(DynamicMessage, MessageInfo) -> BoxFuture<'static, ()> + Send;
+//pub trait WorkerDynamicSubscriptionCallback<Payload> = FnMut(&mut Payload, DynamicMessage, MessageInfo) + Send;
+
+pub enum  DynamicSubscriptionCallback<Payload> {
+    /// A callback with the message and the message info as arguments.
+    Node(NodeDynamicSubscriptionCallback),
+    /// A callback with the payload, message, and the message info as arguments.
+    Worker(WorkerDynamicSubscriptionCallback<Payload>),
+}
+
+impl From<NodeDynamicSubscriptionCallback> for DynamicSubscriptionCallback<()> {
+    fn from(value: NodeDynamicSubscriptionCallback) -> Self {
+        DynamicSubscriptionCallback::Node(value)
+    }
+}
+
+impl<Payload> From<WorkerDynamicSubscriptionCallback<Payload>> for DynamicSubscriptionCallback<Payload> {
+    fn from(value: WorkerDynamicSubscriptionCallback<Payload>) -> Self {
+        DynamicSubscriptionCallback::Worker(value)
+    }
+}
+
+impl<Payload: 'static> DynamicSubscriptionCallback<Payload> {
+    pub(super) fn execute(
+        &mut self,
+        executable: &DynamicSubscriptionExecutable<Payload>,
+        any_payload: &mut dyn Any,
+        commands: &WorkerCommands,
+    ) -> Result<(), RclrsError> {
+        let Some(payload) = any_payload.downcast_mut::<Payload>() else {
+            return Err(RclrsError::InvalidPayload {
+                expected: std::any::TypeId::of::<Payload>(),
+                received: (*any_payload).type_id(),
+            });
+        };
+        match self {
+            Self::Node(cb) => {
+                let (msg, msg_info) = executable.take()?;
+                commands.run_async(cb(msg, msg_info));
+            }
+            Self::Worker(cb) => {
+                let (msg, msg_info) = executable.take()?;
+                cb(payload, msg, msg_info);
+            }
+        }
+        Ok(())
+    }
+}
+
+impl<Payload> DynamicSubscriptionExecutable<Payload> {
+    pub fn take(&self) -> Result<(DynamicMessage, MessageInfo), RclrsError> {
+        let mut dynamic_message = self.metadata.create()?;
+        let rmw_message = dynamic_message.storage.as_mut_ptr();
+        let mut message_info = unsafe { rmw_get_zero_initialized_message_info() };
+        let rcl_subscription = &mut *self.handle.lock();
+        unsafe {
+            // SAFETY: The first two pointers are valid/initialized, and do not need to be valid
+            // beyond the function call.
+            // The latter two pointers are explicitly allowed to be NULL.
+            rcl_take(
+                rcl_subscription,
+                rmw_message as *mut _,
+                &mut message_info,
+                std::ptr::null_mut(),
+            )
+            .ok()?
+        };
+        Ok((dynamic_message, MessageInfo::from_rmw_message_info(&message_info)))
+    }
+}
+
+impl<Payload: 'static> RclPrimitive for DynamicSubscriptionExecutable<Payload>
+{
+    unsafe fn execute(&mut self, payload: &mut dyn Any) -> Result<(), RclrsError> {
+        self.callback
+            .lock()
+            .unwrap()
+            .execute(&self, payload, &self.commands)
+    }
+
+    fn kind(&self) -> RclPrimitiveKind {
+        RclPrimitiveKind::Subscription
+    }
+
+    fn handle(&self) -> RclPrimitiveHandle {
+        RclPrimitiveHandle::Subscription(self.handle.lock())
+    }
+}
+
 /// Struct for receiving messages whose type is only known at runtime.
-pub struct DynamicSubscription {
+pub struct DynamicSubscription<Scope>
+where
+    Scope: WorkScope,
+{
     /// This handle is used to access the data that rcl holds for this subscription.
     handle: Arc<SubscriptionHandle>,
     /// This allows us to replace the callback in the subscription task.
     ///
     /// Holding onto this sender will keep the subscription task alive. Once
     /// this sender is dropped, the subscription task will end itself.
-    pub callback: Arc<Mutex<AnySubscriptionCallback<T, Scope::Payload>>>,
-    // pub callback: Mutex<Box<dyn FnMut(DynamicMessage) + 'static + Send>>,
+    // pub callback: Arc<Mutex<AnySubscriptionCallback<T, Scope::Payload>>>,
+    // pub callback: Arc<Mutex<Box<dyn FnMut(DynamicMessage) + 'static + Send>>>,
+    callback: Arc<Mutex<DynamicSubscriptionCallback<Scope::Payload>>>,
     /// Holding onto this keeps the waiter for this subscription alive in the
     /// wait set of the executor.
     #[allow(unused)]
     lifecycle: WaitableLifecycle,
-    metadata: DynamicMessageMetadata,
+    metadata: Arc<DynamicMessageMetadata>,
     // This is the regular type support library, not the introspection one.
     #[allow(dead_code)]
     type_support_library: Arc<libloading::Library>,
 }
 
-impl DynamicSubscription {
+impl<Scope> DynamicSubscription<Scope>
+where
+    Scope: WorkScope
+{
     /// Creates a new dynamic subscription.
     ///
     /// This is not a public function, by the same rationale as `Subscription::new()`.
-    pub(crate) fn new<F>(
+    pub(crate) fn new(
         topic: &str,
         topic_type: &str,
         qos: QoSProfile,
-        callback: F,
+        callback: impl Into<DynamicSubscriptionCallback<Scope::Payload>>,
         node_handle: &Arc<NodeHandle>,
         commands: &Arc<WorkerCommands>,
     ) -> Result<Arc<Self>, RclrsError>
-    where
-        F: FnMut(DynamicMessage) + 'static + Send,
     {
         // TODO(luca) a lot of duplication with nomral, refactor
         // This loads the introspection type support library.
@@ -103,13 +239,15 @@ impl DynamicSubscription {
             node_handle: Arc::clone(node_handle),
         });
 
-        let callback = Arc::new(Mutex::new(callback));
+        let callback = Arc::new(Mutex::new(callback.into()));
+        let metadata = Arc::new(metadata);
 
         let (waitable, lifecycle) = Waitable::new(
-            Box::new(SubscriptionExecutable {
+            Box::new(DynamicSubscriptionExecutable {
                 handle: Arc::clone(&handle),
                 callback: Arc::clone(&callback),
                 commands: Arc::clone(commands),
+                metadata: Arc::clone(&metadata),
             }),
             Some(Arc::clone(commands.get_guard_condition())),
         );

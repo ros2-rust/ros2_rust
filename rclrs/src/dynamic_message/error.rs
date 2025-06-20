@@ -1,6 +1,7 @@
 use std::{error::Error, fmt};
 
 /// An error related to creating a dynamic message based on the name of the message's type.
+// TODO(luca) we need PartialEq (and maybe Eq?) for testing
 #[derive(Debug)]
 pub enum DynamicMessageError {
     /// The type support library was not found because no matching prefix was sourced.

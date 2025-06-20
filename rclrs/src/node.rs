@@ -18,6 +18,7 @@ use crate::dynamic_message::{DynamicMessage, DynamicSubscription};
 
 pub use graph::*;
 
+use futures::future::BoxFuture;
 mod node_graph_task;
 use node_graph_task::*;
 
@@ -43,8 +44,8 @@ use rosidl_runtime_rs::Message;
 use crate::{
     rcl_bindings::*, Client, ClientOptions, ClientState, Clock, ContextHandle, ExecutorCommands,
     IntoAsyncServiceCallback, IntoAsyncSubscriptionCallback, IntoNodeServiceCallback,
-    IntoNodeSubscriptionCallback, LogParams, Logger, ParameterBuilder, ParameterInterface,
-    ParameterVariant, Parameters, Promise, Publisher, PublisherOptions, PublisherState, RclrsError,
+    IntoNodeSubscriptionCallback, LogParams, Logger, ParameterBuilder, ParameterInterface, dynamic_message::NodeDynamicSubscriptionCallback,
+    ParameterVariant, Parameters, Promise, Publisher, PublisherOptions, PublisherState, RclrsError, MessageInfo,
     Service, ServiceOptions, ServiceState, Subscription, SubscriptionOptions, SubscriptionState,
     TimeSource, ToLogParams, Worker, WorkerOptions, WorkerState, ENTITY_LIFECYCLE_MUTEX,
 };
@@ -806,12 +807,12 @@ impl NodeState {
         topic_type: &str,
         qos: QoSProfile,
         callback: F,
-    ) -> Result<Arc<DynamicSubscription>, RclrsError>
+    ) -> Result<Arc<DynamicSubscription<Node>>, RclrsError>
     where
-        F: FnMut(DynamicMessage) + 'static + Send,
+        F: FnMut(DynamicMessage, MessageInfo) -> BoxFuture<'static, ()> + Send + 'static,
     {
         let subscription = DynamicSubscription::new(
-            topic, topic_type, qos, callback, &self.handle, self.commands.async_worker_commands(),
+            topic, topic_type, qos, NodeDynamicSubscriptionCallback(Box::new(callback)), &self.handle, self.commands.async_worker_commands(),
         )?;
         // TODO(luca)  similar API to above?
         Ok(subscription)
