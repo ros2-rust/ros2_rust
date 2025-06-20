@@ -12,9 +12,9 @@ use super::{
 };
 use crate::rcl_bindings::*;
 use crate::{
-    MessageInfo, NodeHandle, QoSProfile, RclPrimitive, RclPrimitiveHandle, RclPrimitiveKind,
+    MessageInfo, NodeHandle, RclPrimitive, RclPrimitiveHandle, RclPrimitiveKind,
     RclrsError, SubscriptionHandle, ToResult, Waitable, WaitableLifecycle, WorkScope,
-    WorkerCommands, ENTITY_LIFECYCLE_MUTEX,
+    WorkerCommands, ENTITY_LIFECYCLE_MUTEX, SubscriptionOptions,
 };
 
 struct DynamicSubscriptionExecutable<Payload> {
@@ -181,10 +181,9 @@ where
     /// Creates a new dynamic subscription.
     ///
     /// This is not a public function, by the same rationale as `Subscription::new()`.
-    pub(crate) fn new(
-        topic: &str,
+    pub(crate) fn new<'a>(
         topic_type: MessageTypeName,
-        qos: QoSProfile,
+        options: impl Into<SubscriptionOptions<'a>>,
         callback: impl Into<DynamicSubscriptionCallback<Scope::Payload>>,
         node_handle: &Arc<NodeHandle>,
         commands: &Arc<WorkerCommands>,
@@ -192,6 +191,7 @@ where
         // TODO(luca) a lot of duplication with nomral, refactor
         // This loads the introspection type support library.
         let metadata = DynamicMessageMetadata::new(topic_type)?;
+        let SubscriptionOptions { topic, qos } = options.into();
         // However, we also need the regular type support library –
         // the rosidl_typesupport_c one.
         let message_type = &metadata.message_type;

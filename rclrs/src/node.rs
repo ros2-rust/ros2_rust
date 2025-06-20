@@ -7,7 +7,6 @@ pub use primitive_options::*;
 mod graph;
 #[cfg(feature = "dyn_msg")]
 use crate::dynamic_message::{DynamicMessage, DynamicSubscription};
-use crate::QoSProfile;
 
 pub use graph::*;
 
@@ -793,23 +792,19 @@ impl NodeState {
         )
     }
 
-    // TODO(luca) introduce subscription options and perhaps an into callback
     #[cfg(feature = "dyn_msg")]
-    pub fn create_dynamic_subscription<F>(
+    pub fn create_dynamic_subscription<'a, F>(
         &self,
-        // options: impl Into<DynamicSubscriptionOptions<'a>>,
-        topic: &str,
         topic_type: MessageTypeName,
-        qos: QoSProfile,
+        options: impl Into<SubscriptionOptions<'a>>,
         callback: F,
     ) -> Result<Arc<DynamicSubscription<Node>>, RclrsError>
     where
         F: FnMut(DynamicMessage, MessageInfo) -> BoxFuture<'static, ()> + Send + 'static,
     {
         let subscription = DynamicSubscription::new(
-            topic,
             topic_type,
-            qos,
+            options,
             NodeDynamicSubscriptionCallback(Box::new(callback)),
             &self.handle,
             self.commands.async_worker_commands(),
@@ -817,32 +812,6 @@ impl NodeState {
         // TODO(luca)  similar API to above?
         Ok(subscription)
     }
-
-    /// Creates a [`DynamicSubscription`][1].
-    ///
-    /// [1]: crate::dynamic_message::DynamicSubscription
-    // TODO: make subscription's lifetime depend on node's lifetime
-    // TODO(luca) convert to subscription options
-    /*
-    #[cfg(feature = "dyn_msg")]
-    pub fn create_dynamic_subscription<F>(
-        &mut self,
-        topic: &str,
-        topic_type: &str,
-        qos: QoSProfile,
-        callback: F,
-    ) -> Result<Arc<DynamicSubscription>, RclrsError>
-    where
-        F: FnMut(DynamicMessage) + 'static + Send,
-    {
-        let subscription = Arc::new(DynamicSubscription::new(
-            self, topic, topic_type, qos, callback,
-        )?);
-        self.subscriptions
-            .push(Arc::downgrade(&subscription) as Weak<dyn SubscriptionBase>);
-        Ok(subscription)
-    }
-    */
 
     /// Creates a [`Subscription`] with an async callback.
     ///
