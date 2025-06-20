@@ -12,9 +12,9 @@ pub use self::builder::*;
 pub use self::graph::*;
 =======
 */
-use crate::QoSProfile;
 #[cfg(feature = "dyn_msg")]
 use crate::dynamic_message::{DynamicMessage, DynamicSubscription};
+use crate::QoSProfile;
 
 pub use graph::*;
 
@@ -42,12 +42,15 @@ use async_std::future::timeout;
 use rosidl_runtime_rs::Message;
 
 use crate::{
-    rcl_bindings::*, Client, ClientOptions, ClientState, Clock, ContextHandle, ExecutorCommands,
+    dynamic_message::{MessageTypeName, NodeDynamicSubscriptionCallback},
+    rcl_bindings::*,
+    Client, ClientOptions, ClientState, Clock, ContextHandle, ExecutorCommands,
     IntoAsyncServiceCallback, IntoAsyncSubscriptionCallback, IntoNodeServiceCallback,
-    IntoNodeSubscriptionCallback, LogParams, Logger, ParameterBuilder, ParameterInterface, dynamic_message::{NodeDynamicSubscriptionCallback, MessageTypeName},
-    ParameterVariant, Parameters, Promise, Publisher, PublisherOptions, PublisherState, RclrsError, MessageInfo,
-    Service, ServiceOptions, ServiceState, Subscription, SubscriptionOptions, SubscriptionState,
-    TimeSource, ToLogParams, Worker, WorkerOptions, WorkerState, ENTITY_LIFECYCLE_MUTEX,
+    IntoNodeSubscriptionCallback, LogParams, Logger, MessageInfo, ParameterBuilder,
+    ParameterInterface, ParameterVariant, Parameters, Promise, Publisher, PublisherOptions,
+    PublisherState, RclrsError, Service, ServiceOptions, ServiceState, Subscription,
+    SubscriptionOptions, SubscriptionState, TimeSource, ToLogParams, Worker, WorkerOptions,
+    WorkerState, ENTITY_LIFECYCLE_MUTEX,
 };
 
 /// A processing unit that can communicate with other nodes. See the API of
@@ -812,7 +815,12 @@ impl NodeState {
         F: FnMut(DynamicMessage, MessageInfo) -> BoxFuture<'static, ()> + Send + 'static,
     {
         let subscription = DynamicSubscription::new(
-            topic, topic_type, qos, NodeDynamicSubscriptionCallback(Box::new(callback)), &self.handle, self.commands.async_worker_commands(),
+            topic,
+            topic_type,
+            qos,
+            NodeDynamicSubscriptionCallback(Box::new(callback)),
+            &self.handle,
+            self.commands.async_worker_commands(),
         )?;
         // TODO(luca)  similar API to above?
         Ok(subscription)

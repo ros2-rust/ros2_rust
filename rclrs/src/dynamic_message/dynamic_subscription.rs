@@ -13,8 +13,9 @@ use super::{
 };
 use crate::rcl_bindings::*;
 use crate::{
-    ENTITY_LIFECYCLE_MUTEX, Waitable, RclPrimitive, MessageInfo, RclPrimitiveKind, RclPrimitiveHandle, WorkScope,
-    Node, QoSProfile, RclReturnCode, RclrsError, ToResult, NodeHandle, WorkerCommands, WaitableLifecycle, SubscriptionHandle,
+    MessageInfo, Node, NodeHandle, QoSProfile, RclPrimitive, RclPrimitiveHandle, RclPrimitiveKind,
+    RclReturnCode, RclrsError, SubscriptionHandle, ToResult, Waitable, WaitableLifecycle,
+    WorkScope, WorkerCommands, ENTITY_LIFECYCLE_MUTEX,
 };
 
 struct DynamicSubscriptionExecutable<Payload> {
@@ -26,11 +27,15 @@ struct DynamicSubscriptionExecutable<Payload> {
 
 // TODO(luca) consider making these enums if we want different callback types
 // TODO(luca) make fields private
-pub struct NodeDynamicSubscriptionCallback(pub Box<dyn FnMut(DynamicMessage, MessageInfo) -> BoxFuture<'static, ()> + Send>);
-pub struct WorkerDynamicSubscriptionCallback<Payload>(pub Box<dyn FnMut(&mut Payload, DynamicMessage, MessageInfo) + Send>);
+pub struct NodeDynamicSubscriptionCallback(
+    pub Box<dyn FnMut(DynamicMessage, MessageInfo) -> BoxFuture<'static, ()> + Send>,
+);
+pub struct WorkerDynamicSubscriptionCallback<Payload>(
+    pub Box<dyn FnMut(&mut Payload, DynamicMessage, MessageInfo) + Send>,
+);
 
 impl Deref for NodeDynamicSubscriptionCallback {
-    type Target = Box<dyn FnMut(DynamicMessage, MessageInfo)-> BoxFuture<'static, ()> + Send>;
+    type Target = Box<dyn FnMut(DynamicMessage, MessageInfo) -> BoxFuture<'static, ()> + Send>;
     fn deref(&self) -> &Self::Target {
         &self.0
     }
@@ -58,7 +63,7 @@ impl<Payload> DerefMut for WorkerDynamicSubscriptionCallback<Payload> {
 //pub trait NodeDynamicSubscriptionCallback = FnMut(DynamicMessage, MessageInfo) -> BoxFuture<'static, ()> + Send;
 //pub trait WorkerDynamicSubscriptionCallback<Payload> = FnMut(&mut Payload, DynamicMessage, MessageInfo) + Send;
 
-pub enum  DynamicSubscriptionCallback<Payload> {
+pub enum DynamicSubscriptionCallback<Payload> {
     /// A callback with the message and the message info as arguments.
     Node(NodeDynamicSubscriptionCallback),
     /// A callback with the payload, message, and the message info as arguments.
@@ -71,7 +76,9 @@ impl From<NodeDynamicSubscriptionCallback> for DynamicSubscriptionCallback<()> {
     }
 }
 
-impl<Payload> From<WorkerDynamicSubscriptionCallback<Payload>> for DynamicSubscriptionCallback<Payload> {
+impl<Payload> From<WorkerDynamicSubscriptionCallback<Payload>>
+    for DynamicSubscriptionCallback<Payload>
+{
     fn from(value: WorkerDynamicSubscriptionCallback<Payload>) -> Self {
         DynamicSubscriptionCallback::Worker(value)
     }
@@ -122,12 +129,14 @@ impl<Payload> DynamicSubscriptionExecutable<Payload> {
             )
             .ok()?
         };
-        Ok((dynamic_message, MessageInfo::from_rmw_message_info(&message_info)))
+        Ok((
+            dynamic_message,
+            MessageInfo::from_rmw_message_info(&message_info),
+        ))
     }
 }
 
-impl<Payload: 'static> RclPrimitive for DynamicSubscriptionExecutable<Payload>
-{
+impl<Payload: 'static> RclPrimitive for DynamicSubscriptionExecutable<Payload> {
     unsafe fn execute(&mut self, payload: &mut dyn Any) -> Result<(), RclrsError> {
         self.callback
             .lock()
@@ -168,7 +177,7 @@ where
 
 impl<Scope> DynamicSubscription<Scope>
 where
-    Scope: WorkScope
+    Scope: WorkScope,
 {
     /// Creates a new dynamic subscription.
     ///
@@ -180,8 +189,7 @@ where
         callback: impl Into<DynamicSubscriptionCallback<Scope::Payload>>,
         node_handle: &Arc<NodeHandle>,
         commands: &Arc<WorkerCommands>,
-    ) -> Result<Arc<Self>, RclrsError>
-    {
+    ) -> Result<Arc<Self>, RclrsError> {
         // TODO(luca) a lot of duplication with nomral, refactor
         // This loads the introspection type support library.
         let metadata = DynamicMessageMetadata::new(topic_type)?;

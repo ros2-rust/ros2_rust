@@ -325,37 +325,50 @@ mod tests {
 
     #[test]
     fn message_structure_is_accurate() {
-        let arrays_metadata = DynamicMessageMetadata::new("test_msgs/msg/Arrays".try_into().unwrap()).unwrap();
+        let arrays_metadata =
+            DynamicMessageMetadata::new("test_msgs/msg/Arrays".try_into().unwrap()).unwrap();
         let arrays_structure = Box::new(arrays_metadata.structure().clone());
-        let builtins_metadata = DynamicMessageMetadata::new("test_msgs/msg/Builtins".try_into().unwrap()).unwrap();
+        let builtins_metadata =
+            DynamicMessageMetadata::new("test_msgs/msg/Builtins".try_into().unwrap()).unwrap();
         let builtins_structure = Box::new(builtins_metadata.structure().clone());
         let duration_metadata =
-            DynamicMessageMetadata::new("builtin_interfaces/msg/Duration".try_into().unwrap()).unwrap();
+            DynamicMessageMetadata::new("builtin_interfaces/msg/Duration".try_into().unwrap())
+                .unwrap();
         let duration_structure = Box::new(duration_metadata.structure().clone());
-        let empty_metadata = DynamicMessageMetadata::new("test_msgs/msg/Empty".try_into().unwrap()).unwrap();
+        let empty_metadata =
+            DynamicMessageMetadata::new("test_msgs/msg/Empty".try_into().unwrap()).unwrap();
         let empty_structure = Box::new(empty_metadata.structure().clone());
-        let time_metadata = DynamicMessageMetadata::new("builtin_interfaces/msg/Time".try_into().unwrap()).unwrap();
+        let time_metadata =
+            DynamicMessageMetadata::new("builtin_interfaces/msg/Time".try_into().unwrap()).unwrap();
         let time_structure = Box::new(time_metadata.structure().clone());
-        let basic_types_metadata = DynamicMessageMetadata::new("test_msgs/msg/BasicTypes".try_into().unwrap()).unwrap();
+        let basic_types_metadata =
+            DynamicMessageMetadata::new("test_msgs/msg/BasicTypes".try_into().unwrap()).unwrap();
         let basic_types_structure = Box::new(basic_types_metadata.structure().clone());
         let bounded_sequences_metadata =
-            DynamicMessageMetadata::new("test_msgs/msg/BoundedSequences".try_into().unwrap()).unwrap();
+            DynamicMessageMetadata::new("test_msgs/msg/BoundedSequences".try_into().unwrap())
+                .unwrap();
         let bounded_sequences_structure = Box::new(bounded_sequences_metadata.structure().clone());
-        let constants_metadata = DynamicMessageMetadata::new("test_msgs/msg/Constants".try_into().unwrap()).unwrap();
+        let constants_metadata =
+            DynamicMessageMetadata::new("test_msgs/msg/Constants".try_into().unwrap()).unwrap();
         let constants_structure = Box::new(constants_metadata.structure().clone());
         let multi_nested_metadata =
             DynamicMessageMetadata::new("test_msgs/msg/MultiNested".try_into().unwrap()).unwrap();
         let multi_nested_structure = Box::new(multi_nested_metadata.structure().clone());
-        let nested_metadata = DynamicMessageMetadata::new("test_msgs/msg/Nested".try_into().unwrap()).unwrap();
+        let nested_metadata =
+            DynamicMessageMetadata::new("test_msgs/msg/Nested".try_into().unwrap()).unwrap();
         let nested_structure = Box::new(nested_metadata.structure().clone());
-        let defaults_metadata = DynamicMessageMetadata::new("test_msgs/msg/Defaults".try_into().unwrap()).unwrap();
+        let defaults_metadata =
+            DynamicMessageMetadata::new("test_msgs/msg/Defaults".try_into().unwrap()).unwrap();
         let defaults_structure = Box::new(defaults_metadata.structure().clone());
-        let strings_metadata = DynamicMessageMetadata::new("test_msgs/msg/Strings".try_into().unwrap()).unwrap();
+        let strings_metadata =
+            DynamicMessageMetadata::new("test_msgs/msg/Strings".try_into().unwrap()).unwrap();
         let strings_structure = Box::new(strings_metadata.structure().clone());
-        let wstrings_metadata = DynamicMessageMetadata::new("test_msgs/msg/WStrings".try_into().unwrap()).unwrap();
+        let wstrings_metadata =
+            DynamicMessageMetadata::new("test_msgs/msg/WStrings".try_into().unwrap()).unwrap();
         let wstrings_structure = Box::new(wstrings_metadata.structure().clone());
         let unbounded_sequences_metadata =
-            DynamicMessageMetadata::new("test_msgs/msg/UnboundedSequences".try_into().unwrap()).unwrap();
+            DynamicMessageMetadata::new("test_msgs/msg/UnboundedSequences".try_into().unwrap())
+                .unwrap();
         let unbounded_sequences_structure =
             Box::new(unbounded_sequences_metadata.structure().clone());
 
@@ -1123,11 +1136,12 @@ mod tests {
         );
 
         let _dyn_msg = DynamicMessage::new("test_msgs/msg/Arrays".try_into().unwrap()).unwrap();
-        let _dyn_msg = DynamicMessage::new("test_msgs/msg/UnboundedSequences".try_into().unwrap()).unwrap();
-        let _dyn_msg = DynamicMessage::new("test_msgs/msg/BoundedSequences".try_into().unwrap()).unwrap();
+        let _dyn_msg =
+            DynamicMessage::new("test_msgs/msg/UnboundedSequences".try_into().unwrap()).unwrap();
+        let _dyn_msg =
+            DynamicMessage::new("test_msgs/msg/BoundedSequences".try_into().unwrap()).unwrap();
     }
 }
-
 
 // #[test]
 // fn test_mut_value_same_as_value() {

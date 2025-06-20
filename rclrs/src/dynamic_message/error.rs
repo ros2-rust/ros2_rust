@@ -62,4 +62,4 @@ impl PartialEq for DynamicMessageError {
     }
 }
 
-impl Eq for DynamicMessageError { }
+impl Eq for DynamicMessageError {}

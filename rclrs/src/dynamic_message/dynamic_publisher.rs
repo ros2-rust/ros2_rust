@@ -35,10 +35,7 @@ impl Drop for DynamicPublisher {
         let mut rcl_node = self.node_handle.rcl_node.lock().unwrap();
         unsafe {
             // SAFETY: No preconditions for this function (besides the arguments being valid).
-            rcl_publisher_fini(
-                self.rcl_publisher_mtx.get_mut().unwrap(),
-                &mut *rcl_node,
-            );
+            rcl_publisher_fini(self.rcl_publisher_mtx.get_mut().unwrap(), &mut *rcl_node);
         }
     }
 }
