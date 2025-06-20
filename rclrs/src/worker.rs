@@ -1,6 +1,11 @@
+#[cfg(feature = "dyn_msg")]
+use crate::dynamic_message::{
+    DynamicMessage, DynamicSubscriptionState, MessageTypeName, WorkerDynamicSubscription,
+    WorkerDynamicSubscriptionCallback,
+};
 use crate::{
-    log_fatal, IntoWorkerServiceCallback, IntoWorkerSubscriptionCallback, Node, Promise,
-    RclrsError, ServiceOptions, ServiceState, SubscriptionOptions, SubscriptionState,
+    log_fatal, IntoWorkerServiceCallback, IntoWorkerSubscriptionCallback, MessageInfo, Node,
+    Promise, RclrsError, ServiceOptions, ServiceState, SubscriptionOptions, SubscriptionState,
     WorkerCommands, WorkerService, WorkerSubscription,
 };
 use futures::channel::oneshot;
@@ -259,6 +264,25 @@ impl<Payload: 'static + Send + Sync> WorkerState<Payload> {
         SubscriptionState::<T, Worker<Payload>>::create(
             options,
             callback.into_worker_subscription_callback(),
+            self.node.handle(),
+            &self.commands,
+        )
+    }
+
+    #[cfg(feature = "dyn_msg")]
+    pub fn create_dynamic_subscription<'a, F>(
+        &self,
+        topic_type: MessageTypeName,
+        options: impl Into<SubscriptionOptions<'a>>,
+        callback: F,
+    ) -> Result<WorkerDynamicSubscription<Payload>, RclrsError>
+    where
+        F: FnMut(&mut Payload, DynamicMessage, MessageInfo) + Send + 'static,
+    {
+        DynamicSubscriptionState::<Worker<Payload>>::create(
+            topic_type,
+            options,
+            WorkerDynamicSubscriptionCallback(Box::new(callback)),
             self.node.handle(),
             &self.commands,
         )

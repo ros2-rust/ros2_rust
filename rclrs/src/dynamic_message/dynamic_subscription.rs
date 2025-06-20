@@ -14,10 +14,12 @@ use crate::rcl_bindings::*;
 use crate::{
     MessageInfo, Node, NodeHandle, RclPrimitive, RclPrimitiveHandle, RclPrimitiveKind, RclrsError,
     SubscriptionHandle, SubscriptionOptions, ToResult, Waitable, WaitableLifecycle, WorkScope,
-    WorkerCommands, ENTITY_LIFECYCLE_MUTEX,
+    Worker, WorkerCommands, ENTITY_LIFECYCLE_MUTEX,
 };
 
 pub type DynamicSubscription = Arc<DynamicSubscriptionState<Node>>;
+
+pub type WorkerDynamicSubscription<Payload> = Arc<DynamicSubscriptionState<Worker<Payload>>>;
 
 struct DynamicSubscriptionExecutable<Payload> {
     handle: Arc<SubscriptionHandle>,

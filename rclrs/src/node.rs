@@ -812,14 +812,13 @@ impl NodeState {
     where
         F: FnMut(DynamicMessage, MessageInfo) -> BoxFuture<'static, ()> + Send + 'static,
     {
-        let subscription = DynamicSubscriptionState::<Node>::create(
+        DynamicSubscriptionState::<Node>::create(
             topic_type,
             options,
             NodeDynamicSubscriptionCallback(Box::new(callback)),
             &self.handle,
             self.commands.async_worker_commands(),
-        )?;
-        Ok(subscription)
+        )
     }
 
     /// Creates a [`Subscription`] with an async callback.
