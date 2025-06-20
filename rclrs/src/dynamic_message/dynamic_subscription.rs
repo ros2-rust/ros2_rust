@@ -12,9 +12,9 @@ use super::{
 };
 use crate::rcl_bindings::*;
 use crate::{
-    MessageInfo, NodeHandle, RclPrimitive, RclPrimitiveHandle, RclPrimitiveKind,
-    RclrsError, SubscriptionHandle, ToResult, Waitable, WaitableLifecycle, WorkScope,
-    WorkerCommands, ENTITY_LIFECYCLE_MUTEX, SubscriptionOptions,
+    MessageInfo, NodeHandle, RclPrimitive, RclPrimitiveHandle, RclPrimitiveKind, RclrsError,
+    SubscriptionHandle, SubscriptionOptions, ToResult, Waitable, WaitableLifecycle, WorkScope,
+    WorkerCommands, ENTITY_LIFECYCLE_MUTEX,
 };
 
 struct DynamicSubscriptionExecutable<Payload> {

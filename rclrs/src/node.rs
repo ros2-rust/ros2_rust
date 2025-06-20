@@ -6,7 +6,7 @@ pub use primitive_options::*;
 
 mod graph;
 #[cfg(feature = "dyn_msg")]
-use crate::dynamic_message::{DynamicMessage, DynamicSubscription};
+use crate::dynamic_message::{DynamicMessage, DynamicPublisher, DynamicSubscription};
 
 pub use graph::*;
 
@@ -399,6 +399,15 @@ impl NodeState {
         T: Message,
     {
         PublisherState::<T>::create(options, Arc::clone(&self.handle))
+    }
+
+    #[cfg(feature = "dyn_msg")]
+    pub fn create_dynamic_publisher<'a>(
+        &self,
+        topic_type: MessageTypeName,
+        options: impl Into<PublisherOptions<'a>>,
+    ) -> Result<DynamicPublisher, RclrsError> {
+        DynamicPublisher::new(topic_type, options, Arc::clone(&self.handle))
     }
 
     /// Creates a [`Service`] with an ordinary callback.

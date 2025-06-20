@@ -6,9 +6,8 @@ use super::{
     DynamicMessageMetadata, MessageTypeName,
 };
 use crate::error::{RclrsError, ToResult};
-use crate::qos::QoSProfile;
 use crate::rcl_bindings::*;
-use crate::{ENTITY_LIFECYCLE_MUTEX, PublisherHandle, NodeHandle};
+use crate::{NodeHandle, PublisherHandle, PublisherOptions, ENTITY_LIFECYCLE_MUTEX};
 
 /// Struct for sending messages of type `T`.
 ///
@@ -28,25 +27,18 @@ pub struct DynamicPublisher {
     type_support_library: Arc<libloading::Library>,
 }
 
-// SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
-// they are running in. Therefore, this type can be safely sent to another thread.
-// unsafe impl Send for DynamicPublisher {}
-// SAFETY: The type_support_ptr prevents the default Sync impl.
-// rosidl_message_type_support_t is a read-only type without interior mutability.
-// unsafe impl Sync for DynamicPublisher {}
-
 impl DynamicPublisher {
     /// Creates a new `DynamicPublisher`.
     ///
     /// Node and namespace changes are always applied _before_ topic remapping.
-    pub(crate) fn new(
-        node_handle: Arc<NodeHandle>,
-        topic: &str,
+    pub(crate) fn new<'a>(
         topic_type: MessageTypeName,
-        qos: QoSProfile,
+        options: impl Into<PublisherOptions<'a>>,
+        node_handle: Arc<NodeHandle>,
     ) -> Result<Self, RclrsError> {
         // This loads the introspection type support library.
         let metadata = DynamicMessageMetadata::new(topic_type)?;
+        let PublisherOptions { topic, qos } = options.into();
         // However, we also need the regular type support library –
         // the rosidl_typesupport_c one.
         let message_type = &metadata.message_type;
