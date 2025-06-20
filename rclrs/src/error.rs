@@ -9,7 +9,7 @@ use crate::dynamic_message::DynamicMessageError;
 use crate::{rcl_bindings::*, DeclarationError};
 
 /// The main error type.
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum RclrsError {
     /// An error originating in the `rcl` layer.
     RclError {

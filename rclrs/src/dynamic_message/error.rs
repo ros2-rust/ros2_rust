@@ -51,3 +51,15 @@ impl Error for DynamicMessageError {
         }
     }
 }
+
+impl PartialEq for DynamicMessageError {
+    fn eq(&self, other: &Self) -> bool {
+        if std::mem::discriminant(self) != std::mem::discriminant(other) {
+            return false;
+        }
+        // TODO(luca) this is not very efficient, revisit
+        return self.to_string() == other.to_string();
+    }
+}
+
+impl Eq for DynamicMessageError { }
