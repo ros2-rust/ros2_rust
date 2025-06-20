@@ -51,7 +51,7 @@ impl DynamicPublisher {
     /// Creates a new `DynamicPublisher`.
     ///
     /// Node and namespace changes are always applied _before_ topic remapping.
-    pub fn new(
+    pub(crate) fn new(
         node_handle: &Arc<NodeHandle>,
         topic: &str,
         topic_type: MessageTypeName,

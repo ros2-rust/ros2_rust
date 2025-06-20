@@ -5,13 +5,6 @@ mod primitive_options;
 pub use primitive_options::*;
 
 mod graph;
-/*
-<<<<<<< HEAD
-
-pub use self::builder::*;
-pub use self::graph::*;
-=======
-*/
 #[cfg(feature = "dyn_msg")]
 use crate::dynamic_message::{DynamicMessage, DynamicSubscription};
 use crate::QoSProfile;
@@ -27,9 +20,8 @@ use std::{
     ffi::CStr,
     fmt,
     os::raw::c_char,
-    sync::{atomic::AtomicBool, Arc, Mutex, Weak},
+    sync::{atomic::AtomicBool, Arc, Mutex},
     time::Duration,
-    vec::Vec,
 };
 
 use futures::{

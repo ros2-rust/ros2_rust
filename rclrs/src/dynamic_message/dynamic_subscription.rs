@@ -2,7 +2,6 @@ use std::any::Any;
 use std::boxed::Box;
 use std::ffi::{CStr, CString};
 use std::ops::{Deref, DerefMut};
-use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
 
 use futures::future::BoxFuture;
@@ -13,9 +12,9 @@ use super::{
 };
 use crate::rcl_bindings::*;
 use crate::{
-    MessageInfo, Node, NodeHandle, QoSProfile, RclPrimitive, RclPrimitiveHandle, RclPrimitiveKind,
-    RclReturnCode, RclrsError, SubscriptionHandle, ToResult, Waitable, WaitableLifecycle,
-    WorkScope, WorkerCommands, ENTITY_LIFECYCLE_MUTEX,
+    MessageInfo, NodeHandle, QoSProfile, RclPrimitive, RclPrimitiveHandle, RclPrimitiveKind,
+    RclrsError, SubscriptionHandle, ToResult, Waitable, WaitableLifecycle, WorkScope,
+    WorkerCommands, ENTITY_LIFECYCLE_MUTEX,
 };
 
 struct DynamicSubscriptionExecutable<Payload> {
@@ -85,7 +84,7 @@ impl<Payload> From<WorkerDynamicSubscriptionCallback<Payload>>
 }
 
 impl<Payload: 'static> DynamicSubscriptionCallback<Payload> {
-    pub(super) fn execute(
+    fn execute(
         &mut self,
         executable: &DynamicSubscriptionExecutable<Payload>,
         any_payload: &mut dyn Any,
@@ -266,15 +265,6 @@ where
             metadata,
             type_support_library,
         }))
-
-        /*
-        Ok(Self {
-            handle,
-            callback: Mutex::new(Box::new(callback)),
-            metadata,
-            type_support_library,
-        })
-        */
     }
 
     /// Returns the topic name of the subscription.

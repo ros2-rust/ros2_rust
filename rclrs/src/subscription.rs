@@ -12,9 +12,6 @@ use crate::{
     WorkScope, Worker, WorkerCommands, ENTITY_LIFECYCLE_MUTEX,
 };
 
-#[cfg(feature = "dyn_msg")]
-use crate::dynamic_message::DynamicMessage;
-
 mod any_subscription_callback;
 pub use any_subscription_callback::*;
 
