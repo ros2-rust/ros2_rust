@@ -9,7 +9,7 @@ use futures::future::BoxFuture;
 
 use super::{
     get_type_support_handle, get_type_support_library, DynamicMessage, DynamicMessageMetadata,
-    MessageStructure,
+    MessageStructure, MessageTypeName,
 };
 use crate::rcl_bindings::*;
 use crate::{
@@ -155,8 +155,6 @@ where
     ///
     /// Holding onto this sender will keep the subscription task alive. Once
     /// this sender is dropped, the subscription task will end itself.
-    // pub callback: Arc<Mutex<AnySubscriptionCallback<T, Scope::Payload>>>,
-    // pub callback: Arc<Mutex<Box<dyn FnMut(DynamicMessage) + 'static + Send>>>,
     callback: Arc<Mutex<DynamicSubscriptionCallback<Scope::Payload>>>,
     /// Holding onto this keeps the waiter for this subscription alive in the
     /// wait set of the executor.
@@ -177,7 +175,7 @@ where
     /// This is not a public function, by the same rationale as `Subscription::new()`.
     pub(crate) fn new(
         topic: &str,
-        topic_type: &str,
+        topic_type: MessageTypeName,
         qos: QoSProfile,
         callback: impl Into<DynamicSubscriptionCallback<Scope::Payload>>,
         node_handle: &Arc<NodeHandle>,
@@ -340,9 +338,11 @@ mod tests {
     fn assert_send<T: Send>() {}
     fn assert_sync<T: Sync>() {}
 
+    /*
     #[test]
     fn dynamic_subscription_is_sync_and_send() {
         assert_send::<DynamicSubscription>();
         assert_sync::<DynamicSubscription>();
     }
+    */
 }

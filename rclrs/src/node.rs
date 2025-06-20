@@ -44,7 +44,7 @@ use rosidl_runtime_rs::Message;
 use crate::{
     rcl_bindings::*, Client, ClientOptions, ClientState, Clock, ContextHandle, ExecutorCommands,
     IntoAsyncServiceCallback, IntoAsyncSubscriptionCallback, IntoNodeServiceCallback,
-    IntoNodeSubscriptionCallback, LogParams, Logger, ParameterBuilder, ParameterInterface, dynamic_message::NodeDynamicSubscriptionCallback,
+    IntoNodeSubscriptionCallback, LogParams, Logger, ParameterBuilder, ParameterInterface, dynamic_message::{NodeDynamicSubscriptionCallback, MessageTypeName},
     ParameterVariant, Parameters, Promise, Publisher, PublisherOptions, PublisherState, RclrsError, MessageInfo,
     Service, ServiceOptions, ServiceState, Subscription, SubscriptionOptions, SubscriptionState,
     TimeSource, ToLogParams, Worker, WorkerOptions, WorkerState, ENTITY_LIFECYCLE_MUTEX,
@@ -804,7 +804,7 @@ impl NodeState {
         &self,
         // options: impl Into<DynamicSubscriptionOptions<'a>>,
         topic: &str,
-        topic_type: &str,
+        topic_type: MessageTypeName,
         qos: QoSProfile,
         callback: F,
     ) -> Result<Arc<DynamicSubscription<Node>>, RclrsError>

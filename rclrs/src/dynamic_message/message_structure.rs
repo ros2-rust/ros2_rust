@@ -325,37 +325,37 @@ mod tests {
 
     #[test]
     fn message_structure_is_accurate() {
-        let arrays_metadata = DynamicMessageMetadata::new("test_msgs/msg/Arrays").unwrap();
+        let arrays_metadata = DynamicMessageMetadata::new("test_msgs/msg/Arrays".try_into().unwrap()).unwrap();
         let arrays_structure = Box::new(arrays_metadata.structure().clone());
-        let builtins_metadata = DynamicMessageMetadata::new("test_msgs/msg/Builtins").unwrap();
+        let builtins_metadata = DynamicMessageMetadata::new("test_msgs/msg/Builtins".try_into().unwrap()).unwrap();
         let builtins_structure = Box::new(builtins_metadata.structure().clone());
         let duration_metadata =
-            DynamicMessageMetadata::new("builtin_interfaces/msg/Duration").unwrap();
+            DynamicMessageMetadata::new("builtin_interfaces/msg/Duration".try_into().unwrap()).unwrap();
         let duration_structure = Box::new(duration_metadata.structure().clone());
-        let empty_metadata = DynamicMessageMetadata::new("test_msgs/msg/Empty").unwrap();
+        let empty_metadata = DynamicMessageMetadata::new("test_msgs/msg/Empty".try_into().unwrap()).unwrap();
         let empty_structure = Box::new(empty_metadata.structure().clone());
-        let time_metadata = DynamicMessageMetadata::new("builtin_interfaces/msg/Time").unwrap();
+        let time_metadata = DynamicMessageMetadata::new("builtin_interfaces/msg/Time".try_into().unwrap()).unwrap();
         let time_structure = Box::new(time_metadata.structure().clone());
-        let basic_types_metadata = DynamicMessageMetadata::new("test_msgs/msg/BasicTypes").unwrap();
+        let basic_types_metadata = DynamicMessageMetadata::new("test_msgs/msg/BasicTypes".try_into().unwrap()).unwrap();
         let basic_types_structure = Box::new(basic_types_metadata.structure().clone());
         let bounded_sequences_metadata =
-            DynamicMessageMetadata::new("test_msgs/msg/BoundedSequences").unwrap();
+            DynamicMessageMetadata::new("test_msgs/msg/BoundedSequences".try_into().unwrap()).unwrap();
         let bounded_sequences_structure = Box::new(bounded_sequences_metadata.structure().clone());
-        let constants_metadata = DynamicMessageMetadata::new("test_msgs/msg/Constants").unwrap();
+        let constants_metadata = DynamicMessageMetadata::new("test_msgs/msg/Constants".try_into().unwrap()).unwrap();
         let constants_structure = Box::new(constants_metadata.structure().clone());
         let multi_nested_metadata =
-            DynamicMessageMetadata::new("test_msgs/msg/MultiNested").unwrap();
+            DynamicMessageMetadata::new("test_msgs/msg/MultiNested".try_into().unwrap()).unwrap();
         let multi_nested_structure = Box::new(multi_nested_metadata.structure().clone());
-        let nested_metadata = DynamicMessageMetadata::new("test_msgs/msg/Nested").unwrap();
+        let nested_metadata = DynamicMessageMetadata::new("test_msgs/msg/Nested".try_into().unwrap()).unwrap();
         let nested_structure = Box::new(nested_metadata.structure().clone());
-        let defaults_metadata = DynamicMessageMetadata::new("test_msgs/msg/Defaults").unwrap();
+        let defaults_metadata = DynamicMessageMetadata::new("test_msgs/msg/Defaults".try_into().unwrap()).unwrap();
         let defaults_structure = Box::new(defaults_metadata.structure().clone());
-        let strings_metadata = DynamicMessageMetadata::new("test_msgs/msg/Strings").unwrap();
+        let strings_metadata = DynamicMessageMetadata::new("test_msgs/msg/Strings".try_into().unwrap()).unwrap();
         let strings_structure = Box::new(strings_metadata.structure().clone());
-        let wstrings_metadata = DynamicMessageMetadata::new("test_msgs/msg/WStrings").unwrap();
+        let wstrings_metadata = DynamicMessageMetadata::new("test_msgs/msg/WStrings".try_into().unwrap()).unwrap();
         let wstrings_structure = Box::new(wstrings_metadata.structure().clone());
         let unbounded_sequences_metadata =
-            DynamicMessageMetadata::new("test_msgs/msg/UnboundedSequences").unwrap();
+            DynamicMessageMetadata::new("test_msgs/msg/UnboundedSequences".try_into().unwrap()).unwrap();
         let unbounded_sequences_structure =
             Box::new(unbounded_sequences_metadata.structure().clone());
 
@@ -1065,68 +1065,69 @@ mod tests {
             }
         }
     }
+
+    #[test]
+    fn dynamic_message_has_defaults() {
+        let dyn_msg = DynamicMessage::new("test_msgs/msg/Defaults".try_into().unwrap()).unwrap();
+        assert_eq!(
+            dyn_msg.get("bool_value"),
+            Some(Value::Simple(SimpleValue::Boolean(&true)))
+        );
+        assert_eq!(
+            dyn_msg.get("byte_value"),
+            Some(Value::Simple(SimpleValue::Octet(&50u8)))
+        );
+        assert_eq!(
+            dyn_msg.get("char_value"),
+            Some(Value::Simple(SimpleValue::Uint8(&100u8)))
+        );
+        assert_eq!(
+            dyn_msg.get("float32_value"),
+            Some(Value::Simple(SimpleValue::Float(&1.125f32)))
+        );
+        assert_eq!(
+            dyn_msg.get("float64_value"),
+            Some(Value::Simple(SimpleValue::Double(&1.125f64)))
+        );
+        assert_eq!(
+            dyn_msg.get("int8_value"),
+            Some(Value::Simple(SimpleValue::Int8(&-50i8)))
+        );
+        assert_eq!(
+            dyn_msg.get("uint8_value"),
+            Some(Value::Simple(SimpleValue::Uint8(&200u8)))
+        );
+        assert_eq!(
+            dyn_msg.get("int16_value"),
+            Some(Value::Simple(SimpleValue::Int16(&-1000i16)))
+        );
+        assert_eq!(
+            dyn_msg.get("uint16_value"),
+            Some(Value::Simple(SimpleValue::Uint16(&2000u16)))
+        );
+        assert_eq!(
+            dyn_msg.get("int32_value"),
+            Some(Value::Simple(SimpleValue::Int32(&-30000i32)))
+        );
+        assert_eq!(
+            dyn_msg.get("uint32_value"),
+            Some(Value::Simple(SimpleValue::Uint32(&60000u32)))
+        );
+        assert_eq!(
+            dyn_msg.get("int64_value"),
+            Some(Value::Simple(SimpleValue::Int64(&-40000000i64)))
+        );
+        assert_eq!(
+            dyn_msg.get("uint64_value"),
+            Some(Value::Simple(SimpleValue::Uint64(&50000000u64)))
+        );
+
+        let _dyn_msg = DynamicMessage::new("test_msgs/msg/Arrays".try_into().unwrap()).unwrap();
+        let _dyn_msg = DynamicMessage::new("test_msgs/msg/UnboundedSequences".try_into().unwrap()).unwrap();
+        let _dyn_msg = DynamicMessage::new("test_msgs/msg/BoundedSequences".try_into().unwrap()).unwrap();
+    }
 }
 
-#[test]
-fn dynamic_message_has_defaults() {
-    let dyn_msg = DynamicMessage::new("test_msgs/msg/Defaults").unwrap();
-    assert_eq!(
-        dyn_msg.get("bool_value"),
-        Some(Value::Simple(SimpleValue::Boolean(&true)))
-    );
-    assert_eq!(
-        dyn_msg.get("byte_value"),
-        Some(Value::Simple(SimpleValue::Octet(&50u8)))
-    );
-    assert_eq!(
-        dyn_msg.get("char_value"),
-        Some(Value::Simple(SimpleValue::Uint8(&100u8)))
-    );
-    assert_eq!(
-        dyn_msg.get("float32_value"),
-        Some(Value::Simple(SimpleValue::Float(&1.125f32)))
-    );
-    assert_eq!(
-        dyn_msg.get("float64_value"),
-        Some(Value::Simple(SimpleValue::Double(&1.125f64)))
-    );
-    assert_eq!(
-        dyn_msg.get("int8_value"),
-        Some(Value::Simple(SimpleValue::Int8(&-50i8)))
-    );
-    assert_eq!(
-        dyn_msg.get("uint8_value"),
-        Some(Value::Simple(SimpleValue::Uint8(&200u8)))
-    );
-    assert_eq!(
-        dyn_msg.get("int16_value"),
-        Some(Value::Simple(SimpleValue::Int16(&-1000i16)))
-    );
-    assert_eq!(
-        dyn_msg.get("uint16_value"),
-        Some(Value::Simple(SimpleValue::Uint16(&2000u16)))
-    );
-    assert_eq!(
-        dyn_msg.get("int32_value"),
-        Some(Value::Simple(SimpleValue::Int32(&-30000i32)))
-    );
-    assert_eq!(
-        dyn_msg.get("uint32_value"),
-        Some(Value::Simple(SimpleValue::Uint32(&60000u32)))
-    );
-    assert_eq!(
-        dyn_msg.get("int64_value"),
-        Some(Value::Simple(SimpleValue::Int64(&-40000000i64)))
-    );
-    assert_eq!(
-        dyn_msg.get("uint64_value"),
-        Some(Value::Simple(SimpleValue::Uint64(&50000000u64)))
-    );
-
-    let _dyn_msg = DynamicMessage::new("test_msgs/msg/Arrays").unwrap();
-    let _dyn_msg = DynamicMessage::new("test_msgs/msg/UnboundedSequences").unwrap();
-    let _dyn_msg = DynamicMessage::new("test_msgs/msg/BoundedSequences").unwrap();
-}
 
 // #[test]
 // fn test_mut_value_same_as_value() {

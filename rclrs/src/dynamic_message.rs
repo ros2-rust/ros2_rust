@@ -50,7 +50,7 @@ struct DynamicMessagePackage {
 
 /// A parsed/validated message type name of the form `<package_name>/msg/<type_name>`.
 #[derive(Clone, Debug, PartialEq, Eq)]
-struct MessageTypeName {
+pub struct MessageTypeName {
     /// The package name, which acts as a namespace.
     pub package_name: String,
     /// The name of the message type in the package.
@@ -279,13 +279,9 @@ impl DynamicMessageMetadata {
     /// Loads the metadata for the given message type.
     ///
     /// See [`DynamicMessage::new()`] for the expected format of the `full_message_type`.
-    pub fn new(full_message_type: &str) -> Result<Self, DynamicMessageError> {
-        let MessageTypeName {
-            package_name,
-            type_name,
-        } = full_message_type.try_into()?;
-        let pkg = DynamicMessagePackage::new(package_name)?;
-        pkg.message_metadata(type_name)
+    pub fn new(message_type: MessageTypeName) -> Result<Self, DynamicMessageError> {
+        let pkg = DynamicMessagePackage::new(&message_type.package_name)?;
+        pkg.message_metadata(&message_type.type_name)
     }
 
     /// Instantiates a new message.
@@ -363,8 +359,8 @@ impl DynamicMessage {
     /// `std_msgs/msg/String`.
     ///
     /// The message instance will contain the default values of the message type.
-    pub fn new(full_message_type: &str) -> Result<Self, DynamicMessageError> {
-        DynamicMessageMetadata::new(full_message_type)?.create()
+    pub fn new(message_type: MessageTypeName) -> Result<Self, DynamicMessageError> {
+        DynamicMessageMetadata::new(message_type)?.create()
     }
 
     /// See [`DynamicMessageView::get()`][1].
@@ -436,7 +432,8 @@ impl DynamicMessage {
     where
         T: RmwMessage,
     {
-        let mut dyn_msg = Self::new(<T as RmwMessage>::TYPE_NAME)?;
+        let message_type = MessageTypeName::try_from(<T as RmwMessage>::TYPE_NAME)?;
+        let mut dyn_msg = Self::new(message_type)?;
         let align = std::mem::align_of::<T>();
         assert_eq!(dyn_msg.storage.as_ptr().align_offset(align), 0);
         {
@@ -503,24 +500,26 @@ mod tests {
     #[test]
     fn invalid_message_type_name() {
         assert!(matches!(
-            DynamicMessageMetadata::new("x"),
+            MessageTypeName::try_from("x"),
             Err(DynamicMessageError::InvalidMessageTypeSyntax { .. })
         ));
         assert!(matches!(
-            DynamicMessageMetadata::new("x/y"),
+            MessageTypeName::try_from("x/y"),
             Err(DynamicMessageError::InvalidMessageTypeSyntax { .. })
         ));
         assert!(matches!(
-            DynamicMessageMetadata::new("x//y"),
+            MessageTypeName::try_from("x//y"),
             Err(DynamicMessageError::InvalidMessageTypeSyntax { .. })
         ));
         assert!(matches!(
-            DynamicMessageMetadata::new("x/msg/y"),
+            MessageTypeName::try_from("x/msg/y/z"),
+            Err(DynamicMessageError::InvalidMessageTypeSyntax { .. })
+        ));
+        // This is valid, but not found in the prefix
+        let message_type = MessageTypeName::try_from("x/msg/y").unwrap();
+        assert!(matches!(
+            DynamicMessage::new(message_type),
             Err(DynamicMessageError::RequiredPrefixNotSourced { .. })
-        ));
-        assert!(matches!(
-            DynamicMessageMetadata::new("x/msg/y/z"),
-            Err(DynamicMessageError::InvalidMessageTypeSyntax { .. })
         ));
     }
 }

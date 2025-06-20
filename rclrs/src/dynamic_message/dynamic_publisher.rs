@@ -4,7 +4,7 @@ use std::sync::{Arc, Mutex};
 
 use super::{
     get_type_support_handle, get_type_support_library, DynamicMessage, DynamicMessageError,
-    DynamicMessageMetadata,
+    DynamicMessageMetadata, MessageTypeName,
 };
 use crate::error::{RclrsError, ToResult};
 use crate::qos::QoSProfile;
@@ -57,7 +57,7 @@ impl DynamicPublisher {
     pub fn new(
         node_handle: &Arc<NodeHandle>,
         topic: &str,
-        topic_type: &str,
+        topic_type: MessageTypeName,
         qos: QoSProfile,
     ) -> Result<Self, RclrsError> {
         // This loads the introspection type support library.
