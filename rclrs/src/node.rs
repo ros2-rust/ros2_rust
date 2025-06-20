@@ -6,7 +6,10 @@ pub use primitive_options::*;
 
 mod graph;
 #[cfg(feature = "dyn_msg")]
-use crate::dynamic_message::{DynamicMessage, DynamicPublisher, DynamicSubscription};
+use crate::dynamic_message::{
+    DynamicMessage, DynamicPublisher, DynamicPublisherState, DynamicSubscription,
+    DynamicSubscriptionState, MessageTypeName, NodeDynamicSubscriptionCallback,
+};
 
 pub use graph::*;
 
@@ -33,9 +36,7 @@ use async_std::future::timeout;
 use rosidl_runtime_rs::Message;
 
 use crate::{
-    dynamic_message::{MessageTypeName, NodeDynamicSubscriptionCallback},
-    rcl_bindings::*,
-    Client, ClientOptions, ClientState, Clock, ContextHandle, ExecutorCommands,
+    rcl_bindings::*, Client, ClientOptions, ClientState, Clock, ContextHandle, ExecutorCommands,
     IntoAsyncServiceCallback, IntoAsyncSubscriptionCallback, IntoNodeServiceCallback,
     IntoNodeSubscriptionCallback, LogParams, Logger, MessageInfo, ParameterBuilder,
     ParameterInterface, ParameterVariant, Parameters, Promise, Publisher, PublisherOptions,
@@ -407,7 +408,7 @@ impl NodeState {
         topic_type: MessageTypeName,
         options: impl Into<PublisherOptions<'a>>,
     ) -> Result<DynamicPublisher, RclrsError> {
-        DynamicPublisher::new(topic_type, options, Arc::clone(&self.handle))
+        DynamicPublisherState::create(topic_type, options, Arc::clone(&self.handle))
     }
 
     /// Creates a [`Service`] with an ordinary callback.
@@ -807,18 +808,17 @@ impl NodeState {
         topic_type: MessageTypeName,
         options: impl Into<SubscriptionOptions<'a>>,
         callback: F,
-    ) -> Result<Arc<DynamicSubscription<Node>>, RclrsError>
+    ) -> Result<DynamicSubscription, RclrsError>
     where
         F: FnMut(DynamicMessage, MessageInfo) -> BoxFuture<'static, ()> + Send + 'static,
     {
-        let subscription = DynamicSubscription::new(
+        let subscription = DynamicSubscriptionState::<Node>::create(
             topic_type,
             options,
             NodeDynamicSubscriptionCallback(Box::new(callback)),
             &self.handle,
             self.commands.async_worker_commands(),
         )?;
-        // TODO(luca)  similar API to above?
         Ok(subscription)
     }
 

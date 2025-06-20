@@ -9,6 +9,8 @@ use crate::error::{RclrsError, ToResult};
 use crate::rcl_bindings::*;
 use crate::{NodeHandle, PublisherHandle, PublisherOptions, ENTITY_LIFECYCLE_MUTEX};
 
+pub type DynamicPublisher = Arc<DynamicPublisherState>;
+
 /// Struct for sending messages of type `T`.
 ///
 /// Multiple publishers can be created for the same topic, in different nodes or the same node.
@@ -19,7 +21,7 @@ use crate::{NodeHandle, PublisherHandle, PublisherOptions, ENTITY_LIFECYCLE_MUTE
 /// Sending messages does not require calling [`spin`][1] on the publisher's node.
 ///
 /// [1]: crate::spin
-pub struct DynamicPublisher {
+pub struct DynamicPublisherState {
     handle: PublisherHandle,
     metadata: DynamicMessageMetadata,
     // This is the regular type support library, not the introspection one.
@@ -27,15 +29,15 @@ pub struct DynamicPublisher {
     type_support_library: Arc<libloading::Library>,
 }
 
-impl DynamicPublisher {
-    /// Creates a new `DynamicPublisher`.
+impl DynamicPublisherState {
+    /// Creates a new `DynamicPublisherState`.
     ///
     /// Node and namespace changes are always applied _before_ topic remapping.
-    pub(crate) fn new<'a>(
+    pub(crate) fn create<'a>(
         topic_type: MessageTypeName,
         options: impl Into<PublisherOptions<'a>>,
         node_handle: Arc<NodeHandle>,
-    ) -> Result<Self, RclrsError> {
+    ) -> Result<Arc<Self>, RclrsError> {
         // This loads the introspection type support library.
         let metadata = DynamicMessageMetadata::new(topic_type)?;
         let PublisherOptions { topic, qos } = options.into();
@@ -86,14 +88,14 @@ impl DynamicPublisher {
             }
         }
 
-        Ok(Self {
+        Ok(Arc::new(Self {
             handle: PublisherHandle {
                 rcl_publisher: Mutex::new(rcl_publisher),
                 node_handle,
             },
             metadata,
             type_support_library,
-        })
+        }))
     }
 
     /// Returns the topic name of the publisher.

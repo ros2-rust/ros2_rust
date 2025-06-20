@@ -12,10 +12,12 @@ use super::{
 };
 use crate::rcl_bindings::*;
 use crate::{
-    MessageInfo, NodeHandle, RclPrimitive, RclPrimitiveHandle, RclPrimitiveKind, RclrsError,
+    MessageInfo, Node, NodeHandle, RclPrimitive, RclPrimitiveHandle, RclPrimitiveKind, RclrsError,
     SubscriptionHandle, SubscriptionOptions, ToResult, Waitable, WaitableLifecycle, WorkScope,
     WorkerCommands, ENTITY_LIFECYCLE_MUTEX,
 };
+
+pub type DynamicSubscription = Arc<DynamicSubscriptionState<Node>>;
 
 struct DynamicSubscriptionExecutable<Payload> {
     handle: Arc<SubscriptionHandle>,
@@ -153,7 +155,7 @@ impl<Payload: 'static> RclPrimitive for DynamicSubscriptionExecutable<Payload> {
 }
 
 /// Struct for receiving messages whose type is only known at runtime.
-pub struct DynamicSubscription<Scope>
+pub struct DynamicSubscriptionState<Scope>
 where
     Scope: WorkScope,
 {
@@ -174,14 +176,14 @@ where
     type_support_library: Arc<libloading::Library>,
 }
 
-impl<Scope> DynamicSubscription<Scope>
+impl<Scope> DynamicSubscriptionState<Scope>
 where
     Scope: WorkScope,
 {
     /// Creates a new dynamic subscription.
     ///
     /// This is not a public function, by the same rationale as `Subscription::new()`.
-    pub(crate) fn new<'a>(
+    pub(crate) fn create<'a>(
         topic_type: MessageTypeName,
         options: impl Into<SubscriptionOptions<'a>>,
         callback: impl Into<DynamicSubscriptionCallback<Scope::Payload>>,
@@ -336,11 +338,9 @@ mod tests {
     fn assert_send<T: Send>() {}
     fn assert_sync<T: Sync>() {}
 
-    /*
     #[test]
     fn dynamic_subscription_is_sync_and_send() {
         assert_send::<DynamicSubscription>();
         assert_sync::<DynamicSubscription>();
     }
-    */
 }
