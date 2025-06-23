@@ -383,20 +383,24 @@ mod tests {
         let namespace = "/test_dynamic_subscriptions_graph";
         let graph = construct_test_graph(namespace)?;
 
-        let node_2_empty_subscription = graph
-            .node2
-            .create_dynamic_subscription::<_>("test_msgs/msg/Empty".try_into().unwrap(), "graph_test_topic_1", |_, _| {})?;
+        let node_2_empty_subscription = graph.node2.create_dynamic_subscription::<_>(
+            "test_msgs/msg/Empty".try_into().unwrap(),
+            "graph_test_topic_1",
+            |_, _| {},
+        )?;
         let topic1 = node_2_empty_subscription.topic_name();
-        /*
         let node_2_basic_types_subscription =
-            graph.node2.create_subscription::<msg::BasicTypes, _>(
+            graph.node2.create_dynamic_subscription::<_>(
+                "test_msgs/msg/BasicTypes".try_into().unwrap(),
                 "graph_test_topic_2",
-                |_msg: msg::BasicTypes| {},
+                |_, _| {},
             )?;
         let topic2 = node_2_basic_types_subscription.topic_name();
-        let node_1_defaults_subscription = graph.node1.create_subscription::<msg::Defaults, _>(
+
+        let node_1_defaults_subscription = graph.node1.create_dynamic_subscription::<_>(
+            "test_msgs/msg/Defaults".try_into().unwrap(),
             "graph_test_topic_3",
-            |_msg: msg::Defaults| {},
+            |_, _| {},
         )?;
         let topic3 = node_1_defaults_subscription.topic_name();
 
@@ -438,7 +442,6 @@ mod tests {
             graph.node2.get_subscriptions_info_by_topic(&topic1)?,
             expected_subscriptions_info
         );
-        */
         Ok(())
     }
 }
