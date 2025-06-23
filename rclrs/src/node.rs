@@ -8,7 +8,8 @@ mod graph;
 #[cfg(feature = "dyn_msg")]
 use crate::dynamic_message::{
     DynamicMessage, DynamicPublisher, DynamicPublisherState, DynamicSubscription,
-    DynamicSubscriptionState, MessageTypeName, NodeDynamicSubscriptionCallback,
+    DynamicSubscriptionState, MessageTypeName, NodeAsyncDynamicSubscriptionCallback,
+    NodeDynamicSubscriptionCallback,
 };
 
 pub use graph::*;
@@ -810,12 +811,31 @@ impl NodeState {
         callback: F,
     ) -> Result<DynamicSubscription, RclrsError>
     where
-        F: FnMut(DynamicMessage, MessageInfo) -> BoxFuture<'static, ()> + Send + 'static,
+        F: Fn(DynamicMessage, MessageInfo) + Send + Sync + 'static,
     {
         DynamicSubscriptionState::<Node>::create(
             topic_type,
             options,
             NodeDynamicSubscriptionCallback(Box::new(callback)),
+            &self.handle,
+            self.commands.async_worker_commands(),
+        )
+    }
+
+    #[cfg(feature = "dyn_msg")]
+    pub fn create_async_dynamic_subscription<'a, F>(
+        &self,
+        topic_type: MessageTypeName,
+        options: impl Into<SubscriptionOptions<'a>>,
+        callback: F,
+    ) -> Result<DynamicSubscription, RclrsError>
+    where
+        F: FnMut(DynamicMessage, MessageInfo) -> BoxFuture<'static, ()> + Send + Sync + 'static,
+    {
+        DynamicSubscriptionState::<Node>::create(
+            topic_type,
+            options,
+            NodeAsyncDynamicSubscriptionCallback(Box::new(callback)),
             &self.handle,
             self.commands.async_worker_commands(),
         )

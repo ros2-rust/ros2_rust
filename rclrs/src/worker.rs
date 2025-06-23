@@ -277,7 +277,7 @@ impl<Payload: 'static + Send + Sync> WorkerState<Payload> {
         callback: F,
     ) -> Result<WorkerDynamicSubscription<Payload>, RclrsError>
     where
-        F: FnMut(&mut Payload, DynamicMessage, MessageInfo) + Send + 'static,
+        F: FnMut(&mut Payload, DynamicMessage, MessageInfo) + Send + Sync + 'static,
     {
         DynamicSubscriptionState::<Worker<Payload>>::create(
             topic_type,

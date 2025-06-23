@@ -31,14 +31,25 @@ struct DynamicSubscriptionExecutable<Payload> {
 // TODO(luca) consider making these enums if we want different callback types
 // TODO(luca) make fields private
 pub struct NodeDynamicSubscriptionCallback(
-    pub Box<dyn FnMut(DynamicMessage, MessageInfo) -> BoxFuture<'static, ()> + Send>,
+    pub Box<dyn Fn(DynamicMessage, MessageInfo) + Send + Sync>,
+);
+pub struct NodeAsyncDynamicSubscriptionCallback(
+    pub Box<dyn FnMut(DynamicMessage, MessageInfo) -> BoxFuture<'static, ()> + Send + Sync>,
 );
 pub struct WorkerDynamicSubscriptionCallback<Payload>(
-    pub Box<dyn FnMut(&mut Payload, DynamicMessage, MessageInfo) + Send>,
+    pub Box<dyn FnMut(&mut Payload, DynamicMessage, MessageInfo) + Send + Sync>,
 );
 
 impl Deref for NodeDynamicSubscriptionCallback {
-    type Target = Box<dyn FnMut(DynamicMessage, MessageInfo) -> BoxFuture<'static, ()> + Send>;
+    type Target = Box<dyn Fn(DynamicMessage, MessageInfo) + 'static + Send + Sync>;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl Deref for NodeAsyncDynamicSubscriptionCallback {
+    type Target =
+        Box<dyn FnMut(DynamicMessage, MessageInfo) -> BoxFuture<'static, ()> + Send + Sync>;
     fn deref(&self) -> &Self::Target {
         &self.0
     }
@@ -50,8 +61,14 @@ impl DerefMut for NodeDynamicSubscriptionCallback {
     }
 }
 
+impl DerefMut for NodeAsyncDynamicSubscriptionCallback {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
 impl<Payload> Deref for WorkerDynamicSubscriptionCallback<Payload> {
-    type Target = Box<dyn FnMut(&mut Payload, DynamicMessage, MessageInfo) + Send>;
+    type Target = Box<dyn FnMut(&mut Payload, DynamicMessage, MessageInfo) + Send + Sync>;
     fn deref(&self) -> &Self::Target {
         &self.0
     }
@@ -63,18 +80,29 @@ impl<Payload> DerefMut for WorkerDynamicSubscriptionCallback<Payload> {
     }
 }
 
-//pub trait NodeDynamicSubscriptionCallback = FnMut(DynamicMessage, MessageInfo) -> BoxFuture<'static, ()> + Send;
-//pub trait WorkerDynamicSubscriptionCallback<Payload> = FnMut(&mut Payload, DynamicMessage, MessageInfo) + Send;
-
 pub enum DynamicSubscriptionCallback<Payload> {
     /// A callback with the message and the message info as arguments.
-    Node(NodeDynamicSubscriptionCallback),
+    Node(NodeAsyncDynamicSubscriptionCallback),
     /// A callback with the payload, message, and the message info as arguments.
     Worker(WorkerDynamicSubscriptionCallback<Payload>),
 }
 
 impl From<NodeDynamicSubscriptionCallback> for DynamicSubscriptionCallback<()> {
     fn from(value: NodeDynamicSubscriptionCallback) -> Self {
+        let func = Arc::new(value);
+        DynamicSubscriptionCallback::Node(NodeAsyncDynamicSubscriptionCallback(Box::new(
+            move |message, info| {
+                let f = Arc::clone(&func);
+                Box::pin(async move {
+                    f(message, info);
+                })
+            },
+        )))
+    }
+}
+
+impl From<NodeAsyncDynamicSubscriptionCallback> for DynamicSubscriptionCallback<()> {
+    fn from(value: NodeAsyncDynamicSubscriptionCallback) -> Self {
         DynamicSubscriptionCallback::Node(value)
     }
 }
@@ -336,6 +364,8 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_helpers::*;
+    use test_msgs::msg;
 
     fn assert_send<T: Send>() {}
     fn assert_sync<T: Sync>() {}
@@ -344,5 +374,71 @@ mod tests {
     fn dynamic_subscription_is_sync_and_send() {
         assert_send::<DynamicSubscription>();
         assert_sync::<DynamicSubscription>();
+    }
+
+    #[test]
+    fn test_dynamic_subscriptions() -> Result<(), RclrsError> {
+        use crate::TopicEndpointInfo;
+
+        let namespace = "/test_dynamic_subscriptions_graph";
+        let graph = construct_test_graph(namespace)?;
+
+        let node_2_empty_subscription = graph
+            .node2
+            .create_dynamic_subscription::<_>("test_msgs/msg/Empty".try_into().unwrap(), "graph_test_topic_1", |_, _| {})?;
+        let topic1 = node_2_empty_subscription.topic_name();
+        /*
+        let node_2_basic_types_subscription =
+            graph.node2.create_subscription::<msg::BasicTypes, _>(
+                "graph_test_topic_2",
+                |_msg: msg::BasicTypes| {},
+            )?;
+        let topic2 = node_2_basic_types_subscription.topic_name();
+        let node_1_defaults_subscription = graph.node1.create_subscription::<msg::Defaults, _>(
+            "graph_test_topic_3",
+            |_msg: msg::Defaults| {},
+        )?;
+        let topic3 = node_1_defaults_subscription.topic_name();
+
+        std::thread::sleep(std::time::Duration::from_millis(100));
+
+        // Test count_subscriptions()
+        assert_eq!(graph.node2.count_subscriptions(&topic1)?, 1);
+        assert_eq!(graph.node2.count_subscriptions(&topic2)?, 1);
+
+        // Test get_subscription_names_and_types_by_node()
+        let node_1_subscription_names_and_types = graph
+            .node1
+            .get_subscription_names_and_types_by_node(&graph.node1.name(), namespace)?;
+
+        let types = node_1_subscription_names_and_types.get(&topic3).unwrap();
+        assert!(types.contains(&"test_msgs/msg/Defaults".to_string()));
+
+        let node_2_subscription_names_and_types = graph
+            .node2
+            .get_subscription_names_and_types_by_node(&graph.node2.name(), namespace)?;
+
+        let types = node_2_subscription_names_and_types.get(&topic1).unwrap();
+        assert!(types.contains(&"test_msgs/msg/Empty".to_string()));
+
+        let types = node_2_subscription_names_and_types.get(&topic2).unwrap();
+        assert!(types.contains(&"test_msgs/msg/BasicTypes".to_string()));
+
+        // Test get_subscriptions_info_by_topic()
+        let expected_subscriptions_info = vec![TopicEndpointInfo {
+            node_name: String::from("graph_test_node_2"),
+            node_namespace: String::from(namespace),
+            topic_type: String::from("test_msgs/msg/Empty"),
+        }];
+        assert_eq!(
+            graph.node1.get_subscriptions_info_by_topic(&topic1)?,
+            expected_subscriptions_info
+        );
+        assert_eq!(
+            graph.node2.get_subscriptions_info_by_topic(&topic1)?,
+            expected_subscriptions_info
+        );
+        */
+        Ok(())
     }
 }
