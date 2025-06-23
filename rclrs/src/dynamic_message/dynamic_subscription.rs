@@ -365,7 +365,6 @@ where
 mod tests {
     use super::*;
     use crate::test_helpers::*;
-    use test_msgs::msg;
 
     fn assert_send<T: Send>() {}
     fn assert_sync<T: Sync>() {}
@@ -389,12 +388,11 @@ mod tests {
             |_, _| {},
         )?;
         let topic1 = node_2_empty_subscription.topic_name();
-        let node_2_basic_types_subscription =
-            graph.node2.create_dynamic_subscription::<_>(
-                "test_msgs/msg/BasicTypes".try_into().unwrap(),
-                "graph_test_topic_2",
-                |_, _| {},
-            )?;
+        let node_2_basic_types_subscription = graph.node2.create_dynamic_subscription::<_>(
+            "test_msgs/msg/BasicTypes".try_into().unwrap(),
+            "graph_test_topic_2",
+            |_, _| {},
+        )?;
         let topic2 = node_2_basic_types_subscription.topic_name();
 
         let node_1_defaults_subscription = graph.node1.create_dynamic_subscription::<_>(
