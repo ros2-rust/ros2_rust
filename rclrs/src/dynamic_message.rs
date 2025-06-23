@@ -70,9 +70,7 @@ pub struct DynamicMessageMetadata {
     introspection_type_support_library: Arc<libloading::Library>,
     type_support_ptr: *const rosidl_message_type_support_t,
     structure: MessageStructure,
-    // The message content can be moved out into another message,
-    // in which case the drop impl is not responsible for calling fini anymore
-    fini_function: Option<unsafe extern "C" fn(*mut std::os::raw::c_void)>,
+    fini_function: unsafe extern "C" fn(*mut std::os::raw::c_void),
 }
 
 /// A message whose type is not known at compile-time.
@@ -87,6 +85,9 @@ pub struct DynamicMessage {
     // This is aligned to the maximum possible alignment of a message (8)
     // by the use of a special allocation function.
     storage: Box<[u8]>,
+    // This type allows moving the message contents out into another message,
+    // in which case the drop impl is not responsible for calling fini anymore
+    needs_fini: bool,
 }
 
 // ========================= impl for DynamicMessagePackage =========================
@@ -200,6 +201,8 @@ impl DynamicMessagePackage {
             unsafe { &*(type_support.data as *const rosidl_message_members_t) };
         // SAFETY: The message members coming from a type support library will always be valid.
         let structure = unsafe { MessageStructure::from_rosidl_message_members(message_members) };
+        // The fini function will always exist.
+        let fini_function = message_members.fini_function.unwrap();
         let metadata = DynamicMessageMetadata {
             message_type,
             introspection_type_support_library: Arc::clone(
@@ -207,7 +210,7 @@ impl DynamicMessagePackage {
             ),
             type_support_ptr,
             structure,
-            fini_function: message_members.fini_function,
+            fini_function,
         };
         Ok(metadata)
     }
@@ -311,6 +314,7 @@ impl DynamicMessageMetadata {
         let dyn_msg = DynamicMessage {
             metadata: self.clone(),
             storage,
+            needs_fini: true,
         };
         Ok(dyn_msg)
     }
@@ -332,9 +336,9 @@ impl Deref for DynamicMessage {
 
 impl Drop for DynamicMessage {
     fn drop(&mut self) {
-        if let Some(fini_function) = self.metadata.fini_function {
+        if self.needs_fini {
             // SAFETY: The fini_function expects to be passed a pointer to the message
-            unsafe { (fini_function)(self.storage.as_mut_ptr() as _) }
+            unsafe { (self.metadata.fini_function)(self.storage.as_mut_ptr() as _) }
         }
     }
 }
@@ -471,7 +475,7 @@ impl DynamicMessage {
             dest_slice.copy_from_slice(&self.storage);
             // Don't run the fini function on the src data anymore, because the inner parts would be
             // double-freed by dst and src.
-            self.metadata.fini_function = None;
+            self.needs_fini = false;
             Ok(dest)
         } else {
             Err(self)
