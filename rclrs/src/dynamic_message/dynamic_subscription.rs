@@ -1,6 +1,6 @@
 use std::any::Any;
 use std::boxed::Box;
-use std::ffi::{CStr, CString};
+use std::ffi::CString;
 use std::ops::{Deref, DerefMut};
 use std::sync::{Arc, Mutex};
 
@@ -102,7 +102,7 @@ impl<Payload> DerefMut for WorkerDynamicSubscriptionCallback<Payload> {
     }
 }
 
-pub enum DynamicSubscriptionCallback<Payload> {
+pub(crate) enum DynamicSubscriptionCallback<Payload> {
     /// A callback with the message and the message info as arguments.
     Node(NodeAsyncDynamicSubscriptionCallback),
     /// A callback with the payload, message, and the message info as arguments.
