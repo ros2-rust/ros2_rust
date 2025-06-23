@@ -1142,13 +1142,3 @@ mod tests {
             DynamicMessage::new("test_msgs/msg/BoundedSequences".try_into().unwrap()).unwrap();
     }
 }
-
-// #[test]
-// fn test_mut_value_same_as_value() {
-
-// }
-
-// #[test]
-// fn test_setting_value() {
-
-// }
