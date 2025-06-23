@@ -816,7 +816,7 @@ impl NodeState {
         DynamicSubscriptionState::<Node>::create(
             topic_type,
             options,
-            NodeDynamicSubscriptionCallback(Box::new(callback)),
+            NodeDynamicSubscriptionCallback::new(callback),
             &self.handle,
             self.commands.async_worker_commands(),
         )
@@ -835,7 +835,7 @@ impl NodeState {
         DynamicSubscriptionState::<Node>::create(
             topic_type,
             options,
-            NodeAsyncDynamicSubscriptionCallback(Box::new(callback)),
+            NodeAsyncDynamicSubscriptionCallback::new(callback),
             &self.handle,
             self.commands.async_worker_commands(),
         )

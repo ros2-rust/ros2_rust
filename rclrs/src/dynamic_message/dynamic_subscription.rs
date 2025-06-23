@@ -28,17 +28,39 @@ struct DynamicSubscriptionExecutable<Payload> {
     metadata: Arc<DynamicMessageMetadata>,
 }
 
-// TODO(luca) consider making these enums if we want different callback types
-// TODO(luca) make fields private
-pub struct NodeDynamicSubscriptionCallback(
-    pub Box<dyn Fn(DynamicMessage, MessageInfo) + Send + Sync>,
+pub(crate) struct NodeDynamicSubscriptionCallback(
+    Box<dyn Fn(DynamicMessage, MessageInfo) + Send + Sync>,
 );
-pub struct NodeAsyncDynamicSubscriptionCallback(
-    pub Box<dyn FnMut(DynamicMessage, MessageInfo) -> BoxFuture<'static, ()> + Send + Sync>,
+
+impl NodeDynamicSubscriptionCallback {
+    pub(crate) fn new(f: impl Fn(DynamicMessage, MessageInfo) + Send + Sync + 'static) -> Self {
+        NodeDynamicSubscriptionCallback(Box::new(f))
+    }
+}
+
+pub(crate) struct NodeAsyncDynamicSubscriptionCallback(
+    Box<dyn FnMut(DynamicMessage, MessageInfo) -> BoxFuture<'static, ()> + Send + Sync>,
 );
-pub struct WorkerDynamicSubscriptionCallback<Payload>(
-    pub Box<dyn FnMut(&mut Payload, DynamicMessage, MessageInfo) + Send + Sync>,
+
+impl NodeAsyncDynamicSubscriptionCallback {
+    pub(crate) fn new(
+        f: impl FnMut(DynamicMessage, MessageInfo) -> BoxFuture<'static, ()> + Send + Sync + 'static,
+    ) -> Self {
+        NodeAsyncDynamicSubscriptionCallback(Box::new(f))
+    }
+}
+
+pub(crate) struct WorkerDynamicSubscriptionCallback<Payload>(
+    Box<dyn FnMut(&mut Payload, DynamicMessage, MessageInfo) + Send + Sync>,
 );
+
+impl<Payload> WorkerDynamicSubscriptionCallback<Payload> {
+    pub(crate) fn new(
+        f: impl FnMut(&mut Payload, DynamicMessage, MessageInfo) + Send + Sync + 'static,
+    ) -> Self {
+        WorkerDynamicSubscriptionCallback(Box::new(f))
+    }
+}
 
 impl Deref for NodeDynamicSubscriptionCallback {
     type Target = Box<dyn Fn(DynamicMessage, MessageInfo) + 'static + Send + Sync>;
@@ -304,60 +326,12 @@ where
     /// This returns the topic name after remapping, so it is not necessarily the
     /// topic name which was used when creating the subscription.
     pub fn topic_name(&self) -> String {
-        // SAFETY: No preconditions for the function used
-        // The unsafe variables get converted to safe types before being returned
-        unsafe {
-            let raw_topic_pointer = rcl_subscription_get_topic_name(&*self.handle.lock());
-            CStr::from_ptr(raw_topic_pointer)
-                .to_string_lossy()
-                .into_owned()
-        }
+        self.handle.topic_name()
     }
 
     /// Returns a description of the message structure.
     pub fn structure(&self) -> &MessageStructure {
         &self.metadata.structure
-    }
-
-    /// Fetches a new message.
-    ///
-    /// When there is no new message, this will return a
-    /// [`SubscriptionTakeFailed`][1].
-    ///
-    /// [1]: crate::RclrsError
-    //
-    // ```text
-    // +-------------+
-    // | rclrs::take |
-    // +------+------+
-    //        |
-    //        |
-    // +------v------+
-    // |  rcl_take   |
-    // +------+------+
-    //        |
-    //        |
-    // +------v------+
-    // |  rmw_take   |
-    // +-------------+
-    // ```
-    pub fn take(&self) -> Result<DynamicMessage, RclrsError> {
-        let mut dynamic_message = self.metadata.create()?;
-        let rmw_message = dynamic_message.storage.as_mut_ptr();
-        let rcl_subscription = &mut *self.handle.lock();
-        unsafe {
-            // SAFETY: The first two pointers are valid/initialized, and do not need to be valid
-            // beyond the function call.
-            // The latter two pointers are explicitly allowed to be NULL.
-            rcl_take(
-                rcl_subscription,
-                rmw_message as *mut _,
-                std::ptr::null_mut(),
-                std::ptr::null_mut(),
-            )
-            .ok()?
-        };
-        Ok(dynamic_message)
     }
 }
 

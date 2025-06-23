@@ -282,7 +282,7 @@ impl<Payload: 'static + Send + Sync> WorkerState<Payload> {
         DynamicSubscriptionState::<Worker<Payload>>::create(
             topic_type,
             options,
-            WorkerDynamicSubscriptionCallback(Box::new(callback)),
+            WorkerDynamicSubscriptionCallback::new(callback),
             self.node.handle(),
             &self.commands,
         )

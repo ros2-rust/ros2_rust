@@ -100,14 +100,7 @@ where
     /// This returns the topic name after remapping, so it is not necessarily the
     /// topic name which was used when creating the subscription.
     pub fn topic_name(&self) -> String {
-        // SAFETY: The subscription handle is valid because its lifecycle is managed by an Arc.
-        // The unsafe variables get converted to safe types before being returned
-        unsafe {
-            let raw_topic_pointer = rcl_subscription_get_topic_name(&*self.handle.lock());
-            CStr::from_ptr(raw_topic_pointer)
-        }
-        .to_string_lossy()
-        .into_owned()
+        self.handle.topic_name()
     }
 
     /// Used by [`Node`][crate::Node] to create a new subscription.
@@ -331,6 +324,17 @@ pub(crate) struct SubscriptionHandle {
 impl SubscriptionHandle {
     pub(crate) fn lock(&self) -> MutexGuard<rcl_subscription_t> {
         self.rcl_subscription.lock().unwrap()
+    }
+
+    pub(crate) fn topic_name(&self) -> String {
+        // SAFETY: The subscription handle is valid because its lifecycle is managed by an Arc.
+        // The unsafe variables get converted to safe types before being returned
+        unsafe {
+            let raw_topic_pointer = rcl_subscription_get_topic_name(&*self.lock());
+            CStr::from_ptr(raw_topic_pointer)
+        }
+        .to_string_lossy()
+        .into_owned()
     }
 
     /// Fetches a new message.
