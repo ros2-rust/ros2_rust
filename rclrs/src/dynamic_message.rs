@@ -522,4 +522,43 @@ mod tests {
             Err(DynamicMessageError::RequiredPrefixNotSourced { .. })
         ));
     }
+
+    #[test]
+    fn message_getters_setters() {
+        let message_type = MessageTypeName {
+            package_name: "test_msgs".to_owned(),
+            type_name: "BasicTypes".to_owned(),
+        };
+        let mut message = DynamicMessage::new(message_type).unwrap();
+
+        {
+            // Access non existing values
+            assert!(message.get("invalid_value").is_none());
+        }
+
+        {
+            // Get then set a sample value
+            let value = message.get_mut("int32_value").unwrap();
+            let ValueMut::Simple(value) = value else {
+                panic!("Unexpected value type, expected Simple value");
+            };
+            let SimpleValueMut::Int32(value) = value else {
+                panic!("Unexpected value type, expected Int32");
+            };
+            assert_eq!(*value, 0);
+            *value = 42;
+        }
+
+        {
+            // Read previously set value
+            let value = message.get("int32_value").unwrap();
+            let Value::Simple(value) = value else {
+                panic!("Unexpected value type, expected Simple value");
+            };
+            let SimpleValue::Int32(value) = value else {
+                panic!("Unexpected value type, expected Int32");
+            };
+            assert_eq!(*value, 42);
+        }
+    }
 }
