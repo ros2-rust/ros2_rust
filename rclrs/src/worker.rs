@@ -535,6 +535,7 @@ mod tests {
     struct TestPayload {
         subscription_count: usize,
         service_count: usize,
+        dynamic_subscription_count: usize,
     }
 
     #[test]
@@ -549,6 +550,14 @@ mod tests {
             },
         );
 
+        let _count_dynamic_sub = worker.create_dynamic_subscription(
+            "test_msgs/msg/Empty".try_into().unwrap(),
+            "test_worker_topic",
+            |payload: &mut TestPayload, _, _| {
+                payload.dynamic_subscription_count += 1;
+            },
+        );
+
         let _count_srv = worker.create_service::<EmptySrv, _>(
             "test_worker_service",
             |payload: &mut TestPayload, _req: Empty_Request| {
@@ -558,7 +567,10 @@ mod tests {
         );
 
         let promise = worker.listen_until(move |payload| {
-            if payload.service_count > 0 && payload.subscription_count > 0 {
+            if payload.service_count > 0
+                && payload.subscription_count > 0
+                && payload.dynamic_subscription_count > 0
+            {
                 Some(*payload)
             } else {
                 None
