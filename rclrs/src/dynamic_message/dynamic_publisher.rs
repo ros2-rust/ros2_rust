@@ -9,6 +9,12 @@ use crate::error::{RclrsError, ToResult};
 use crate::rcl_bindings::*;
 use crate::{NodeHandle, PublisherHandle, PublisherOptions, ENTITY_LIFECYCLE_MUTEX};
 
+/// Struct for sending dynamic messages.
+///
+/// Create a dynamic publisher using [`Node::create_dynamic_publisher`][1].
+/// Refer to [`crate::Publisher`] for details of the behavior.
+///
+/// [1]: crate::NodeState::create_dynamic_publisher
 pub type DynamicPublisher = Arc<DynamicPublisherState>;
 
 /// Struct for sending messages of type `T`.
@@ -158,17 +164,17 @@ mod tests {
         let graph = construct_test_graph(namespace)?;
 
         let node_1_empty_publisher = graph.node1.create_dynamic_publisher(
-            "test_msgs/msg/Empty".try_into().unwrap(),
+            "test_msgs/msg/Empty".try_into()?,
             "graph_test_topic_1",
         )?;
         let topic1 = node_1_empty_publisher.topic_name();
         let node_1_basic_types_publisher = graph.node1.create_dynamic_publisher(
-            "test_msgs/msg/BasicTypes".try_into().unwrap(),
+            "test_msgs/msg/BasicTypes".try_into()?,
             "graph_test_topic_2",
         )?;
         let topic2 = node_1_basic_types_publisher.topic_name();
         let node_2_default_publisher = graph.node2.create_dynamic_publisher(
-            "test_msgs/msg/Defaults".try_into().unwrap(),
+            "test_msgs/msg/Defaults".try_into()?,
             "graph_test_topic_3",
         )?;
         let topic3 = node_2_default_publisher.topic_name();

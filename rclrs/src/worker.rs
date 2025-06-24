@@ -269,6 +269,45 @@ impl<Payload: 'static + Send + Sync> WorkerState<Payload> {
         )
     }
 
+    /// Creates a [`WorkerDynamicSubscription`], whose message type is only know at runtime.
+    ///
+    /// Refer to ['Worker::create_subscription`] for the API and behavior except two key
+    /// differences:
+    ///
+    ///   - The message type is determined at runtime through the `topic_type` function parameter.
+    ///   - Only one type of callback is supported (returning both [`crate::DynamicMessage`] and
+    ///   [`crate::MessageInfo`]).
+    ///
+    /// ```
+    /// # use rclrs::*;
+    /// # let executor = Context::default().create_basic_executor();
+    /// # let node = executor.create_node("my_node").unwrap();
+    /// // The worker's payload is data that we want to share with other callbacks.
+    /// let worker = node.create_worker::<Option<String>>(None);
+    ///
+    /// // This variable will be the mutable internal state of the subscription
+    /// // callback.
+    /// let mut count = 0_usize;
+    ///
+    /// let subscription = worker.create_dynamic_subscription(
+    ///     "example_interfaces/msg/String".try_into()?,
+    ///     "topic",
+    ///     move |data: &mut Option<String>, msg: DynamicMessage, _msg_info: MessageInfo| {
+    ///         count += 1;
+    ///         let value = msg.get("data").unwrap();
+    ///         let Value::Simple(value) = value else {
+    ///             panic!("Unexpected value type, expected Simple value");
+    ///         };
+    ///         let SimpleValue::String(value) = value else {
+    ///             panic!("Unexpected value type, expected String");
+    ///         };
+    ///         println!("#{count} | I heard: '{}'", value);
+    ///
+    ///         *data = Some(value.to_string());
+    ///     },
+    /// )?;
+    /// # Ok::<(), RclrsError>(())
+    /// ```
     #[cfg(feature = "dyn_msg")]
     pub fn create_dynamic_subscription<'a, F>(
         &self,
@@ -535,6 +574,7 @@ mod tests {
     struct TestPayload {
         subscription_count: usize,
         service_count: usize,
+        #[cfg(feature = "dyn_msg")]
         dynamic_subscription_count: usize,
     }
 
@@ -550,6 +590,7 @@ mod tests {
             },
         );
 
+        #[cfg(feature = "dyn_msg")]
         let _count_dynamic_sub = worker.create_dynamic_subscription(
             "test_msgs/msg/Empty".try_into().unwrap(),
             "test_worker_topic",
@@ -569,8 +610,14 @@ mod tests {
         let promise = worker.listen_until(move |payload| {
             if payload.service_count > 0
                 && payload.subscription_count > 0
-                && payload.dynamic_subscription_count > 0
             {
+                #[cfg(feature = "dyn_msg")]
+                if payload.dynamic_subscription_count > 0 {
+                    Some(*payload)
+                } else {
+                    None
+                }
+                #[cfg(not(feature = "dyn_msg"))]
                 Some(*payload)
             } else {
                 None

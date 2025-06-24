@@ -17,8 +17,30 @@ use crate::{
     Worker, WorkerCommands, ENTITY_LIFECYCLE_MUTEX,
 };
 
+/// Struct for receiving messages whose type is not know at compile time.
+///
+/// Create a dynamic subscription using [`NodeState::create_dynamic_subscription()`][1]
+/// or [`NodeState::create_async_dynamic_subscription`][2].
+///
+/// There can be multiple subscriptions for the same topic, in different nodes or the same node.
+/// A clone of a `Subscription` will refer to the same subscription instance as the original.
+/// The underlying instance is tied to [`DynamicSubscriptionState`] which implements the [`DynamicSubscription`] API.
+///
+/// Receiving messages requires the node's executor to [spin][3].
+///
+/// When a subscription is created, it may take some time to get "matched" with a corresponding
+/// publisher.
+///
+/// [1]: crate::NodeState::create_subscription
+/// [2]: crate::NodeState::create_async_subscription
+/// [3]: crate::Executor::spin
 pub type DynamicSubscription = Arc<DynamicSubscriptionState<Node>>;
 
+/// A [`DynamicSubscription`] that runs on a [`Worker`].
+///
+/// Create a worker dynamic subscription using [`WorkerState::create_dynamic_subscription`][1].
+///
+/// [1]: crate::WorkerState::create_dynamic_subscription
 pub type WorkerDynamicSubscription<Payload> = Arc<DynamicSubscriptionState<Worker<Payload>>>;
 
 struct DynamicSubscriptionExecutable<Payload> {
@@ -165,7 +187,7 @@ impl<Payload: 'static> DynamicSubscriptionCallback<Payload> {
 }
 
 impl<Payload> DynamicSubscriptionExecutable<Payload> {
-    pub fn take(&self) -> Result<(DynamicMessage, MessageInfo), RclrsError> {
+    fn take(&self) -> Result<(DynamicMessage, MessageInfo), RclrsError> {
         let mut dynamic_message = self.metadata.create()?;
         let rmw_message = dynamic_message.storage.as_mut_ptr();
         let mut message_info = unsafe { rmw_get_zero_initialized_message_info() };
@@ -357,20 +379,20 @@ mod tests {
         let graph = construct_test_graph(namespace)?;
 
         let node_2_empty_subscription = graph.node2.create_dynamic_subscription::<_>(
-            "test_msgs/msg/Empty".try_into().unwrap(),
+            "test_msgs/msg/Empty".try_into()?,
             "graph_test_topic_1",
             |_, _| {},
         )?;
         let topic1 = node_2_empty_subscription.topic_name();
         let node_2_basic_types_subscription = graph.node2.create_dynamic_subscription::<_>(
-            "test_msgs/msg/BasicTypes".try_into().unwrap(),
+            "test_msgs/msg/BasicTypes".try_into()?,
             "graph_test_topic_2",
             |_, _| {},
         )?;
         let topic2 = node_2_basic_types_subscription.topic_name();
 
         let node_1_defaults_subscription = graph.node1.create_dynamic_subscription::<_>(
-            "test_msgs/msg/Defaults".try_into().unwrap(),
+            "test_msgs/msg/Defaults".try_into()?,
             "graph_test_topic_3",
             |_, _| {},
         )?;

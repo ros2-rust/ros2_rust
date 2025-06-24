@@ -403,6 +403,22 @@ impl NodeState {
         PublisherState::<T>::create(options, Arc::clone(&self.handle))
     }
 
+    /// Creates a [`DynamicPublisher`], a publisher whose type is only known at runtime.
+    ///
+    /// Refer to [`Node::create_publisher`] for the API, the only key difference is that the
+    /// publisher's message type is passed as a [`crate::MessageTypeName`] parameter.
+    ///
+    /// Pass in only the topic name for the `options` argument to use all default publisher options:
+    /// ```
+    /// # use rclrs::*;
+    /// # let executor = Context::default().create_basic_executor();
+    /// # let node = executor.create_node("my_node").unwrap();
+    /// let publisher = node.create_dynamic_publisher(
+    ///     "test_msgs/msg/Empty".try_into().unwrap(),
+    ///     "my_topic"
+    ///     .keep_last(100)
+    /// )
+    /// .unwrap();
     #[cfg(feature = "dyn_msg")]
     pub fn create_dynamic_publisher<'a>(
         &self,
@@ -803,6 +819,42 @@ impl NodeState {
         )
     }
 
+    /// Creates a [`DynamicSubscription`] with an ordinary callback.
+    ///
+    /// For the behavior and API refer to [`Node::create_subscription`], except two key
+    /// differences:
+    ///
+    ///   - The message type is determined at runtime through the `topic_type` function parameter.
+    ///   - Only one type of callback is supported (returning both [`crate::DynamicMessage`] and
+    ///   [`crate::MessageInfo`]).
+    ///
+    /// # Message type passing
+    ///
+    /// The message type can be passed as a [`crate::MessageTypeName`] struct. The struct also implements `TryFrom<&str>`
+    /// ```
+    /// # use rclrs::*;
+    /// # let executor = Context::default().create_basic_executor();
+    /// # let node = executor.create_node("my_node").unwrap();
+    /// let subscription = node.create_dynamic_subscription(
+    ///     MessageTypeName {
+    ///         package_name: "test_msgs".to_owned(),
+    ///         type_name: "Empty".to_owned(),
+    ///     },
+    ///     "my_topic"
+    ///     .transient_local(),
+    ///     |_msg: DynamicMessage, _info: MessageInfo| {
+    ///         println!("Received message!");
+    ///     },
+    /// );
+    ///
+    /// let subscription = node.create_dynamic_subscription(
+    ///     "test_msgs/msg/Empty".try_into().unwrap(),
+    ///     "my_topic",
+    ///     |_msg: DynamicMessage, _info: MessageInfo| {
+    ///         println!("Received message!");
+    ///     },
+    /// );
+    /// ```
     #[cfg(feature = "dyn_msg")]
     pub fn create_dynamic_subscription<'a, F>(
         &self,
@@ -822,6 +874,60 @@ impl NodeState {
         )
     }
 
+    /// Creates a [`DynamicSubscription`] with an async callback.
+    ///
+    /// For the behavior and API refer to [`Node::create_async_subscription`], except two key
+    /// differences:
+    ///
+    ///   - The message type is determined at runtime through the `topic_type` function parameter.
+    ///   - Only one type of callback is supported (returning both [`crate::DynamicMessage`] and
+    ///   [`crate::MessageInfo`].
+    ///
+    /// # Message type passing
+    ///
+    /// The message type can be passed as a [`crate::MessageTypeName`] struct. The struct also implements `TryFrom<&str>`
+    /// ```
+    /// # use rclrs::*;
+    /// # let executor = Context::default().create_basic_executor();
+    /// # let node = executor.create_node("my_node").unwrap();
+    /// use std::sync::Arc;
+    ///
+    /// let count_worker = node.create_worker(0_usize);
+    /// let data_worker = node.create_worker(String::new());
+    ///
+    /// let service = node.create_async_dynamic_subscription(
+    ///     "example_interfaces/msg/String".try_into()?,
+    ///     "topic",
+    ///     move |msg: DynamicMessage, _info: MessageInfo| {
+    ///         // Clone the workers so they can be captured into the async block
+    ///         let count_worker = Arc::clone(&count_worker);
+    ///         let data_worker = Arc::clone(&data_worker);
+    ///         Box::pin(async move {
+    ///             // Update the message count
+    ///             let current_count = count_worker.run(move |count: &mut usize| {
+    ///                 *count += 1;
+    ///                 *count
+    ///             }).await.unwrap();
+    ///
+    ///             // Change the data in the data_worker and get back the data
+    ///             // that was previously put in there.
+    ///             let previous = data_worker.run(move |data: &mut String| {
+    ///                 let value = msg.get("data").unwrap();
+    ///                 let Value::Simple(value) = value else {
+    ///                     panic!("Unexpected value type, expected Simple value");
+    ///                 };
+    ///                 let SimpleValue::String(value) = value else {
+    ///                     panic!("Unexpected value type, expected String");
+    ///                 };
+    ///                 std::mem::replace(data, value.to_string())
+    ///             }).await.unwrap();
+    ///
+    ///             println!("Current count is {current_count}, data was previously {previous}");
+    ///        })
+    ///     }
+    /// )?;
+    /// # Ok::<(), RclrsError>(())
+    /// ```
     #[cfg(feature = "dyn_msg")]
     pub fn create_async_dynamic_subscription<'a, F>(
         &self,
