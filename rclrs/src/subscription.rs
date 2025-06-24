@@ -270,17 +270,6 @@ impl<'a> DynamicSubscriptionOptions<'a> {
     }
 }
 
-/*
-impl<'a, T: IntoPrimitiveOptions<'a>> From<T> for DynamicSubscriptionOptions<'a> {
-    fn from(value: T) -> Self {
-        let primitive = value.into_primitive_options();
-        let mut options = Self::new(primitive.name);
-        primitive.apply_to(&mut options.qos);
-        options
-    }
-}
-*/
-
 struct SubscriptionExecutable<T: Message, Payload> {
     handle: Arc<SubscriptionHandle>,
     callback: Arc<Mutex<AnySubscriptionCallback<T, Payload>>>,
@@ -364,13 +353,6 @@ impl SubscriptionHandle {
         let message_info = Self::take_inner::<T>(self, &mut rmw_message)?;
         Ok((T::from_rmw_message(rmw_message), message_info))
     }
-
-    /*
-    #[cfg(feature = "dyn_msg")]
-    fn take_dynamic(&self) -> Result<(DynamicMessage, MessageInfo), RclrsError> {
-
-    }
-    */
 
     /// This is a version of take() that returns a boxed message.
     ///

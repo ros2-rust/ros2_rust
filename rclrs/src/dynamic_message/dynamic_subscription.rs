@@ -14,7 +14,7 @@ use crate::rcl_bindings::*;
 use crate::{
     MessageInfo, Node, NodeHandle, RclPrimitive, RclPrimitiveHandle, RclPrimitiveKind, RclrsError,
     SubscriptionHandle, SubscriptionOptions, ToResult, Waitable, WaitableLifecycle, WorkScope,
-    Worker, WorkerCommands, ENTITY_LIFECYCLE_MUTEX,
+    Worker, WorkerCommands, ENTITY_LIFECYCLE_MUTEX, RclrsErrorFilter,
 };
 
 /// Struct for receiving messages whose type is not know at compile time.
@@ -172,17 +172,20 @@ impl<Payload: 'static> DynamicSubscriptionCallback<Payload> {
                 received: (*any_payload).type_id(),
             });
         };
-        match self {
-            Self::Node(cb) => {
-                let (msg, msg_info) = executable.take()?;
-                commands.run_async(cb(msg, msg_info));
+        let mut evaluate = || {
+            match self {
+                Self::Node(cb) => {
+                    let (msg, msg_info) = executable.take()?;
+                    commands.run_async(cb(msg, msg_info));
+                }
+                Self::Worker(cb) => {
+                    let (msg, msg_info) = executable.take()?;
+                    cb(payload, msg, msg_info);
+                }
             }
-            Self::Worker(cb) => {
-                let (msg, msg_info) = executable.take()?;
-                cb(payload, msg, msg_info);
-            }
-        }
-        Ok(())
+            Ok(())
+        };
+        evaluate().take_failed_ok()
     }
 }
 
