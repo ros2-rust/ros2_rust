@@ -608,9 +608,7 @@ mod tests {
         );
 
         let promise = worker.listen_until(move |payload| {
-            if payload.service_count > 0
-                && payload.subscription_count > 0
-            {
+            if payload.service_count > 0 && payload.subscription_count > 0 {
                 #[cfg(feature = "dyn_msg")]
                 if payload.dynamic_subscription_count > 0 {
                     Some(*payload)

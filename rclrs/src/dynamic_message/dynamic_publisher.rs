@@ -163,20 +163,18 @@ mod tests {
         let namespace = "/test_dynamic_publishers_graph";
         let graph = construct_test_graph(namespace)?;
 
-        let node_1_empty_publisher = graph.node1.create_dynamic_publisher(
-            "test_msgs/msg/Empty".try_into()?,
-            "graph_test_topic_1",
-        )?;
+        let node_1_empty_publisher = graph
+            .node1
+            .create_dynamic_publisher("test_msgs/msg/Empty".try_into()?, "graph_test_topic_1")?;
         let topic1 = node_1_empty_publisher.topic_name();
         let node_1_basic_types_publisher = graph.node1.create_dynamic_publisher(
             "test_msgs/msg/BasicTypes".try_into()?,
             "graph_test_topic_2",
         )?;
         let topic2 = node_1_basic_types_publisher.topic_name();
-        let node_2_default_publisher = graph.node2.create_dynamic_publisher(
-            "test_msgs/msg/Defaults".try_into()?,
-            "graph_test_topic_3",
-        )?;
+        let node_2_default_publisher = graph
+            .node2
+            .create_dynamic_publisher("test_msgs/msg/Defaults".try_into()?, "graph_test_topic_3")?;
         let topic3 = node_2_default_publisher.topic_name();
 
         std::thread::sleep(std::time::Duration::from_millis(100));

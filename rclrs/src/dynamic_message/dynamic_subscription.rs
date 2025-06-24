@@ -13,8 +13,8 @@ use super::{
 use crate::rcl_bindings::*;
 use crate::{
     MessageInfo, Node, NodeHandle, RclPrimitive, RclPrimitiveHandle, RclPrimitiveKind, RclrsError,
-    SubscriptionHandle, SubscriptionOptions, ToResult, Waitable, WaitableLifecycle, WorkScope,
-    Worker, WorkerCommands, ENTITY_LIFECYCLE_MUTEX, RclrsErrorFilter,
+    RclrsErrorFilter, SubscriptionHandle, SubscriptionOptions, ToResult, Waitable,
+    WaitableLifecycle, WorkScope, Worker, WorkerCommands, ENTITY_LIFECYCLE_MUTEX,
 };
 
 /// Struct for receiving messages whose type is not know at compile time.
