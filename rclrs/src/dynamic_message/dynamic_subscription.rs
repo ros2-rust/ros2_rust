@@ -242,6 +242,8 @@ where
     ///
     /// Holding onto this sender will keep the subscription task alive. Once
     /// this sender is dropped, the subscription task will end itself.
+    // TODO(luca) Expose an API to update the callback at runtime
+    #[allow(unused)]
     callback: Arc<Mutex<DynamicSubscriptionCallback<Scope::Payload>>>,
     /// Holding onto this keeps the waiter for this subscription alive in the
     /// wait set of the executor.
@@ -267,7 +269,6 @@ where
         node_handle: &Arc<NodeHandle>,
         commands: &Arc<WorkerCommands>,
     ) -> Result<Arc<Self>, RclrsError> {
-        // TODO(luca) a lot of duplication with nomral, refactor
         // This loads the introspection type support library.
         let metadata = DynamicMessageMetadata::new(topic_type)?;
         let SubscriptionOptions { topic, qos } = options.into();

@@ -1,11 +1,14 @@
 #[cfg(feature = "dyn_msg")]
-use crate::dynamic_message::{
-    DynamicMessage, DynamicSubscriptionState, MessageTypeName, WorkerDynamicSubscription,
-    WorkerDynamicSubscriptionCallback,
+use crate::{
+    dynamic_message::{
+        DynamicMessage, DynamicSubscriptionState, MessageTypeName, WorkerDynamicSubscription,
+        WorkerDynamicSubscriptionCallback,
+    },
+    MessageInfo,
 };
 use crate::{
-    log_fatal, IntoWorkerServiceCallback, IntoWorkerSubscriptionCallback, MessageInfo, Node,
-    Promise, RclrsError, ServiceOptions, ServiceState, SubscriptionOptions, SubscriptionState,
+    log_fatal, IntoWorkerServiceCallback, IntoWorkerSubscriptionCallback, Node, Promise,
+    RclrsError, ServiceOptions, ServiceState, SubscriptionOptions, SubscriptionState,
     WorkerCommands, WorkerService, WorkerSubscription,
 };
 use futures::channel::oneshot;

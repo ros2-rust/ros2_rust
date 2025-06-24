@@ -6,15 +6,19 @@ pub use primitive_options::*;
 
 mod graph;
 #[cfg(feature = "dyn_msg")]
-use crate::dynamic_message::{
-    DynamicMessage, DynamicPublisher, DynamicPublisherState, DynamicSubscription,
-    DynamicSubscriptionState, MessageTypeName, NodeAsyncDynamicSubscriptionCallback,
-    NodeDynamicSubscriptionCallback,
+use crate::{
+    dynamic_message::{
+        DynamicMessage, DynamicPublisher, DynamicPublisherState, DynamicSubscription,
+        DynamicSubscriptionState, MessageTypeName, NodeAsyncDynamicSubscriptionCallback,
+        NodeDynamicSubscriptionCallback,
+    },
+    MessageInfo,
 };
+#[cfg(feature = "dyn_msg")]
+use futures::future::BoxFuture;
 
 pub use graph::*;
 
-use futures::future::BoxFuture;
 mod node_graph_task;
 use node_graph_task::*;
 
@@ -39,11 +43,10 @@ use rosidl_runtime_rs::Message;
 use crate::{
     rcl_bindings::*, Client, ClientOptions, ClientState, Clock, ContextHandle, ExecutorCommands,
     IntoAsyncServiceCallback, IntoAsyncSubscriptionCallback, IntoNodeServiceCallback,
-    IntoNodeSubscriptionCallback, LogParams, Logger, MessageInfo, ParameterBuilder,
-    ParameterInterface, ParameterVariant, Parameters, Promise, Publisher, PublisherOptions,
-    PublisherState, RclrsError, Service, ServiceOptions, ServiceState, Subscription,
-    SubscriptionOptions, SubscriptionState, TimeSource, ToLogParams, Worker, WorkerOptions,
-    WorkerState, ENTITY_LIFECYCLE_MUTEX,
+    IntoNodeSubscriptionCallback, LogParams, Logger, ParameterBuilder, ParameterInterface,
+    ParameterVariant, Parameters, Promise, Publisher, PublisherOptions, PublisherState, RclrsError,
+    Service, ServiceOptions, ServiceState, Subscription, SubscriptionOptions, SubscriptionState,
+    TimeSource, ToLogParams, Worker, WorkerOptions, WorkerState, ENTITY_LIFECYCLE_MUTEX,
 };
 
 /// A processing unit that can communicate with other nodes. See the API of
