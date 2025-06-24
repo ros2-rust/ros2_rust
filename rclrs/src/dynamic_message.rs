@@ -359,6 +359,10 @@ impl DynamicMessage {
     /// `std_msgs/msg/String`.
     ///
     /// The message instance will contain the default values of the message type.
+    ///
+    /// This method might not be the most efficient because of the library loading. If you need to
+    /// instantiate multiple messages of the same type consider using
+    /// [`crate::dynamic_message::DynamicMessageMetadata::create`]
     pub fn new(message_type: MessageTypeName) -> Result<Self, DynamicMessageError> {
         DynamicMessageMetadata::new(message_type)?.create()
     }
