@@ -244,32 +244,6 @@ impl<'a, T: IntoPrimitiveOptions<'a>> From<T> for SubscriptionOptions<'a> {
     }
 }
 
-/// `SubscriptionOptions` are used by [`Node::create_subscription`][1] to initialize
-/// a [`Subscription`].
-///
-/// [1]: crate::NodeState::create_subscription
-#[derive(Debug, Clone)]
-#[non_exhaustive]
-pub struct DynamicSubscriptionOptions<'a> {
-    /// The topic name for the subscription.
-    pub topic: &'a str,
-    /// The topic type for the subscription.
-    pub topic_type: &'a str,
-    /// The quality of service settings for the subscription.
-    pub qos: QoSProfile,
-}
-
-impl<'a> DynamicSubscriptionOptions<'a> {
-    /// Initialize a new [`SubscriptionOptions`] with default settings.
-    pub fn new(topic: &'a str, topic_type: &'a str) -> Self {
-        Self {
-            topic,
-            topic_type,
-            qos: QoSProfile::topics_default(),
-        }
-    }
-}
-
 struct SubscriptionExecutable<T: Message, Payload> {
     handle: Arc<SubscriptionHandle>,
     callback: Arc<Mutex<AnySubscriptionCallback<T, Payload>>>,

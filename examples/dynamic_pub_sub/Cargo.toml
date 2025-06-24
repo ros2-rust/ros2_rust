@@ -6,5 +6,6 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-rclrs = { version = "0.3", features = ["dyn_msg"] }
+# TODO(luca) change this to a version once dynamic message support is released on crates.io
+rclrs = { path = "../../rclrs", features = ["dyn_msg"] }
 anyhow = {version = "1", features = ["backtrace"]}

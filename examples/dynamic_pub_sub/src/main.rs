@@ -1,22 +1,23 @@
 use anyhow::{Error, Result};
-use std::env;
+use rclrs::*;
 
 fn main() -> Result<(), Error> {
-    let context = rclrs::Context::new(env::args())?;
+    let context = Context::default_from_env()?;
+    let mut executor = context.create_basic_executor();
 
-    let mut node = rclrs::create_node(&context, "dynamic_subscriber")?;
+    let node = executor.create_node("dynamic_subscriber")?;
 
-    let mut num_messages: usize = 0;
-
-    let _subscription = node.create_dynamic_subscription(
+    let worker = node.create_worker::<usize>(0);
+    let _subscription = worker.create_dynamic_subscription(
+        "rclrs_example_msgs/msg/VariousTypes".try_into()?,
         "topic",
-        "rclrs_example_msgs/msg/VariousTypes",
-        rclrs::QOS_PROFILE_DEFAULT,
-        move |msg| {
-            num_messages += 1;
-            println!("I heard: '{:#?}'", msg.structure());
+        move |num_messages: &mut usize, msg, _msg_info| {
+            *num_messages += 1;
+            println!("#{} | I heard: '{:#?}'", *num_messages, msg.structure());
         },
     )?;
 
-    rclrs::spin(&node).map_err(|err| err.into())
+    println!("Waiting for messages...");
+    executor.spin(SpinOptions::default()).first_error()?;
+    Ok(())
 }

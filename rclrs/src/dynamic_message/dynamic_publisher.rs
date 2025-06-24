@@ -17,16 +17,9 @@ use crate::{NodeHandle, PublisherHandle, PublisherOptions, ENTITY_LIFECYCLE_MUTE
 /// [1]: crate::NodeState::create_dynamic_publisher
 pub type DynamicPublisher = Arc<DynamicPublisherState>;
 
-/// Struct for sending messages of type `T`.
+/// The inner state of a dynamic publisher.
 ///
-/// Multiple publishers can be created for the same topic, in different nodes or the same node.
-///
-/// The underlying RMW will decide on the concrete delivery mechanism (network stack, shared
-/// memory, or intraprocess).
-///
-/// Sending messages does not require calling [`spin`][1] on the publisher's node.
-///
-/// [1]: crate::spin
+/// Refer to [`crate::PublisherState`] for details of the behavior.
 pub struct DynamicPublisherState {
     handle: PublisherHandle,
     metadata: DynamicMessageMetadata,

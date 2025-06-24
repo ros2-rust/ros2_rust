@@ -408,10 +408,12 @@ impl NodeState {
 
     /// Creates a [`DynamicPublisher`], a publisher whose type is only known at runtime.
     ///
-    /// Refer to [`Node::create_publisher`] for the API, the only key difference is that the
+    /// Refer to [`Node::create_publisher`][1] for the API, the only key difference is that the
     /// publisher's message type is passed as a [`crate::MessageTypeName`] parameter.
     ///
     /// Pass in only the topic name for the `options` argument to use all default publisher options:
+    ///
+    /// [1]: crate::NodeState::create_publisher
     /// ```
     /// # use rclrs::*;
     /// # let executor = Context::default().create_basic_executor();
@@ -824,7 +826,7 @@ impl NodeState {
 
     /// Creates a [`DynamicSubscription`] with an ordinary callback.
     ///
-    /// For the behavior and API refer to [`Node::create_subscription`], except two key
+    /// For the behavior and API refer to [`Node::create_subscription`][1], except two key
     /// differences:
     ///
     ///   - The message type is determined at runtime through the `topic_type` function parameter.
@@ -834,6 +836,8 @@ impl NodeState {
     /// # Message type passing
     ///
     /// The message type can be passed as a [`crate::MessageTypeName`] struct. The struct also implements `TryFrom<&str>`
+    ///
+    /// [1]: crate::NodeState::create_publisher
     /// ```
     /// # use rclrs::*;
     /// # let executor = Context::default().create_basic_executor();
@@ -879,7 +883,7 @@ impl NodeState {
 
     /// Creates a [`DynamicSubscription`] with an async callback.
     ///
-    /// For the behavior and API refer to [`Node::create_async_subscription`], except two key
+    /// For the behavior and API refer to [`Node::create_async_subscription`][1], except two key
     /// differences:
     ///
     ///   - The message type is determined at runtime through the `topic_type` function parameter.
@@ -889,6 +893,8 @@ impl NodeState {
     /// # Message type passing
     ///
     /// The message type can be passed as a [`crate::MessageTypeName`] struct. The struct also implements `TryFrom<&str>`
+    ///
+    /// [1]: crate::NodeState::create_async_subscription
     /// ```
     /// # use rclrs::*;
     /// # let executor = Context::default().create_basic_executor();
