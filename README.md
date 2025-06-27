@@ -3,6 +3,7 @@ ROS 2 for Rust
 
 [![Minimal Version Status](https://github.com/ros2-rust/ros2_rust/actions/workflows/rust-minimal.yml/badge.svg?branch=main)](https://github.com/ros2-rust/ros2_rust/actions/workflows/rust-minimal.yml)
 [![Stable CI Status](https://github.com/ros2-rust/ros2_rust/actions/workflows/rust-stable.yml/badge.svg?branch=main)](https://github.com/ros2-rust/ros2_rust/actions/workflows/rust-stable.yml)
+[![Win CI Status](https://github.com/ros2-rust/ros2_rust/actions/workflows/rust-win.yml/badge.svg?branch=main)](https://github.com/ros2-rust/ros2_rust/actions/workflows/rust-win.yml)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
 Introduction
