@@ -252,7 +252,7 @@ impl<Scope: WorkScope> TimerState<Scope> {
             {
                 // SAFETY: We lock the lifecycle mutex since rcl_timer_init is not
                 // thread-safe.
-                rcl_timer_init(
+                rcl_timer_init2(
                     &mut *rcl_timer.lock().unwrap(),
                     &mut *rcl_clock,
                     &mut *rcl_context,
