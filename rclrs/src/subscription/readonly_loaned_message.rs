@@ -12,8 +12,6 @@ use crate::{rcl_bindings::*, subscription::SubscriptionHandle, ToResult};
 ///
 /// This type may be used in subscription callbacks to receive a message. The
 /// loan is returned by dropping the `ReadOnlyLoanedMessage`.
-///
-/// [1]: crate::SubscriptionState::take_loaned
 pub struct ReadOnlyLoanedMessage<T>
 where
     T: Message,
