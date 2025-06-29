@@ -373,9 +373,74 @@ impl<Payload: 'static + Send + Sync> WorkerState<Payload> {
 
     /// Create a [`WorkerTimer`] with a repeating callback.
     ///
+    /// Unlike timers created from a [`Node`], the callbacks for these timers
+    /// can have an additional argument to get a mutable borrow of the [`Worker`]'s
+    /// payload. This allows the timer callback to operate on state data that gets
+    /// shared with other callbacks.
+    ///
     /// See also:
     /// * [`Self::create_timer_oneshot`]
     /// * [`Self::create_timer_inert`]
+    ///
+    /// # Behavior
+    ///
+    /// While the callback of this timer is running, no other callbacks associated
+    /// with the [`Worker`] will be able to run. This is necessary to guarantee
+    /// that the mutable borrow of the payload is safe.
+    ///
+    /// Since the callback of this timer may block other callbacks from being
+    /// able to run, it is strongly recommended to ensure that the callback
+    /// returns quickly. If the callback needs to trigger long-running behavior
+    /// then you can condier using [`std::thread::spawn`], or for async behaviors
+    /// you can capture an [`ExecutorCommands`][1] in your callback and use
+    /// [`ExecutorCommands::run`][2] to issue a task for the executor to run in
+    /// its async task pool.
+    ///
+    /// # Timer Options
+    ///
+    /// See [`NodeState::create_timer_repeating`][3] for examples of setting the
+    /// timer options.
+    ///
+    /// # Worker Timer Repeating Callbacks
+    ///
+    /// Worker Timer repeating callbacks support four signatures:
+    /// - <code>[FnMut] ()</code>
+    /// - <code>[FnMut] ( &mut Payload )</code>
+    /// - <code>[FnMut] ( &mut Payload, [Time][4] )</code>
+    /// - <code>[FnMut] ( &mut Payload, &[WorkerTimer]&lt;Payload&gt; )</code>
+    ///
+    /// You can choose to access the payload of the worker. You can additionally
+    /// choose to receive the current time when the callback is being triggered.
+    ///
+    /// Or instead of the current time, you can get a borrow of the [`WorkerTimer`]
+    /// itself, that way if you need to access it from inside the callback, you
+    /// do not need to worry about capturing a [`Weak`] and then locking it. This
+    /// is useful if you need to change the callback of the timer from inside the
+    /// callback of the timer.
+    ///
+    /// For an [`FnOnce`] callback instead of [`FnMut`], use [`Self::create_timer_oneshot`].
+    ///
+    /// ```
+    /// # use rclrs::*;
+    /// # let executor = Context::default().create_basic_executor();
+    /// # let node = executor.create_node("my_node").unwrap();
+    /// use std::time::Duration;
+    ///
+    /// let worker = node.create_worker::<usize>(0);
+    /// let timer = worker.create_timer_repeating(
+    ///     Duration::from_secs(1),
+    ///     |count: &mut usize, time: Time| {
+    ///         *count += 1;
+    ///         println!("Drinking my {}th 🧉 at {:?}.", *count, time);
+    ///     },
+    /// )?;
+    /// # Ok::<(), RclrsError>(())
+    /// ```
+    ///
+    /// [1]: crate::ExecutorCommands
+    /// [2]: crate::ExecutorCommands::run
+    /// [3]: crate::NodeState::create_timer_repeating
+    /// [4]: crate::Time
     pub fn create_timer_repeating<'a, Args>(
         &self,
         options: impl IntoTimerOptions<'a>,
@@ -386,12 +451,73 @@ impl<Payload: 'static + Send + Sync> WorkerState<Payload> {
 
     /// Create a [`WorkerTimer`] whose callback will be triggered once after the
     /// period of the timer has elapsed. After that you will need to use
-    /// [`WorkerTimer::set_worker_oneshot`] or [`WorkerTimer::set_worker_repeating`]
+    /// [`TimerState::set_worker_oneshot`] or [`TimerState::set_worker_repeating`]
     /// or else nothing will happen the following times that the `Timer` elapses.
     ///
     /// See also:
     /// * [`Self::create_timer_repeating`]
-    /// * [`Self::create_time_inert`]
+    /// * [`Self::create_timer_inert`]
+    ///
+    /// # Behavior
+    ///
+    /// While the callback of this timer is running, no other callbacks associated
+    /// with the [`Worker`] will be able to run. This is necessary to guarantee
+    /// that the mutable borrow of the payload is safe.
+    ///
+    /// Since the callback of this timer may block other callbacks from being
+    /// able to run, it is strongly recommended to ensure that the callback
+    /// returns quickly. If the callback needs to trigger long-running behavior
+    /// then you can condier using `std::thread::spawn`, or for async behaviors
+    /// you can capture an [`ExecutorCommands`][1] in your callback and use
+    /// [`ExecutorCommands::run`][2] to issue a task for the executor to run in
+    /// its async task pool.
+    ///
+    /// # Timer Options
+    ///
+    /// See [`NodeSate::create_timer_repeating`][3] for examples of setting the
+    /// timer options.
+    ///
+    /// # Worker Timer Oneshot Callbacks
+    ///
+    /// Worker Timer oneshot callbacks support four signatures:
+    /// - <code>[FnOnce] ()</code>
+    /// - <code>[FnOnce] ( &mut Payload )</code>
+    /// - <code>[FnOnce] ( &mut Payload, [Time][4] )</code>
+    /// - <code>[FnOnce] ( &mut Payload, &[WorkerTimer]&lt;Payload&gt; )</code>
+    ///
+    /// You can choose to access the payload of the worker. You can additionally
+    /// choose to receive the current time when the callback is being triggered.
+    ///
+    /// Or instead of the current time, you can get a borrow of the [`WorkerTimer`]
+    /// itself, that way if you need to access it from inside the callback, you
+    /// do not need to worry about capturing a [`Weak`] and then locking it. This
+    /// is useful if you need to change the callback of the timer from inside the
+    /// callback of the timer, which may be needed often for oneshot callbacks.
+    ///
+    /// The callback will only be triggered once. After that, this will effectively
+    /// be an [inert][5] timer.
+    ///
+    /// ```
+    /// # use rclrs::*;
+    /// # let executor = Context::default().create_basic_executor();
+    /// # let node = executor.create_node("my_node").unwrap();
+    /// # let worker = node.create_worker::<()>(());
+    /// use std::time::Duration;
+    ///
+    /// let timer = worker.create_timer_oneshot(
+    ///     Duration::from_secs(1),
+    ///     || {
+    ///         println!("This will only fire once");
+    ///     }
+    /// )?;
+    /// # Ok::<(), RclrsError>(())
+    /// ```
+    ///
+    /// [1]: crate::ExecutorCommands
+    /// [2]: crate::ExecutorCommands::run
+    /// [3]: crate::NodeState::create_timer_repeating
+    /// [4]: crate::Time
+    /// [5]: Self::create_timer_inert
     pub fn create_timer_oneshot<'a, Args>(
         &self,
         options: impl IntoTimerOptions<'a>,
@@ -401,8 +527,8 @@ impl<Payload: 'static + Send + Sync> WorkerState<Payload> {
     }
 
     /// Create a [`WorkerTimer`] without a callback. Nothing will happen when this
-    /// `WorkerTimer` elapses until you use [`WorkerTimer::set_worker_repeating`]
-    /// or [`WorkerTimer::set_worker_oneshot`].
+    /// `WorkerTimer` elapses until you use [`TimerState::set_worker_repeating`]
+    /// or [`TimerState::set_worker_oneshot`].
     ///
     /// See also:
     /// * [`Self::create_timer_repeating`]

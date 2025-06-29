@@ -900,6 +900,110 @@ impl NodeState {
     /// See also:
     /// * [`Self::create_timer_oneshot`]
     /// * [`Self::create_timer_inert`]
+    ///
+    /// # Behavior
+    ///
+    /// While the callback of this timer is running, no other callbacks associated
+    /// with this node will be able to run. This is in contrast to callbacks given
+    /// to [`Self::create_subscription`] which can run multiple times in parallel.
+    ///
+    /// Since the callback of this timer may block other callbacks from being able
+    /// to run, it is strongly recommended to ensure that the callback returns
+    /// quickly. If the callback needs to trigger long-running behavior then you
+    /// can consider using [`std::thread::spawn`], or for async behaviors you can
+    /// capture an [`ExecutorCommands`] in your callback and use [`ExecutorCommands::run`]
+    /// to issue a task for the executor to run in its async task pool.
+    ///
+    /// Since these callbacks are blocking, you may use [`FnMut`] here instead of
+    /// being limited to [`Fn`].
+    ///
+    /// # Timer Options
+    ///
+    /// You can choose both
+    /// 1. a timer period (duration) which determines how often the callback is triggered
+    /// 2. a clock to measure the passage of time
+    ///
+    /// Both of these choices are expressed by [`TimerOptions`][1].
+    ///
+    /// By default the steady clock time will be used, but you could choose
+    /// node time instead if you want the timer to automatically use simulated
+    /// time when running as part of a simulation:
+    /// ```
+    /// # use rclrs::*;
+    /// # let executor = Context::default().create_basic_executor();
+    /// # let node = executor.create_node("my_node").unwrap();
+    /// use std::time::Duration;
+    ///
+    /// let timer = node.create_timer_repeating(
+    ///     TimerOptions::new(Duration::from_secs(1))
+    ///     .node_time(),
+    ///     || {
+    ///         println!("Triggering once each simulated second");
+    ///     },
+    /// )?;
+    /// # Ok::<(), RclrsError>(())
+    /// ```
+    ///
+    /// If there is a specific manually-driven clock you want to use, you can
+    /// also select that:
+    /// ```
+    /// # use rclrs::*;
+    /// # let executor = Context::default().create_basic_executor();
+    /// # let node = executor.create_node("my_node").unwrap();
+    /// use std::time::Duration;
+    ///
+    /// let (my_clock, my_source) = Clock::with_source();
+    ///
+    /// let timer = node.create_timer_repeating(
+    ///     TimerOptions::new(Duration::from_secs(1))
+    ///     .clock(&my_clock),
+    ///     || {
+    ///         println!("Triggering once each simulated second");
+    ///     },
+    /// )?;
+    ///
+    /// my_source.set_ros_time_override(1_500_000_000);
+    /// # Ok::<(), RclrsError>(())
+    /// ```
+    ///
+    /// If you are okay with the default choice of clock (steady clock) then you
+    /// can choose to simply pass a duration in as the options:
+    /// ```
+    /// # use rclrs::*;
+    /// # let executor = Context::default().create_basic_executor();
+    /// # let node = executor.create_node("my_node").unwrap();
+    /// use std::time::Duration;
+    ///
+    /// let timer = node.create_timer_repeating(
+    ///     Duration::from_secs(1),
+    ///     || {
+    ///         println!("Triggering per steady clock second");
+    ///     },
+    /// )?;
+    /// # Ok::<(), RclrsError>(())
+    /// ```
+    ///
+    /// # Node Timer Repeating Callbacks
+    ///
+    /// Node Timer repeating callbacks support three signatures:
+    /// - <code>[FnMut] ()</code>
+    /// - <code>[FnMut] ([Time][2])</code>
+    /// - <code>[FnMut] (&[Timer])</code>
+    ///
+    /// You can choose to receive the current time when the callback is being
+    /// triggered.
+    ///
+    /// Or instead of the current time, you can get a borrow of the [`Timer`]
+    /// itself, that way if you need to access it from inside the callback, you
+    /// do not need to worry about capturing a [`Weak`][3] and then locking it.
+    /// This is useful if you need to change the callback of the timer from inside
+    /// the callback of the timer.
+    ///
+    /// For an [`FnOnce`] instead of [`FnMut`], use [`Self::create_timer_oneshot`].
+    ///
+    /// [1]: crate::TimerOptions
+    /// [2]: crate::Time
+    /// [3]: std::sync::Weak
     pub fn create_timer_repeating<'a, Args>(
         &self,
         options: impl IntoTimerOptions<'a>,
@@ -910,12 +1014,51 @@ impl NodeState {
 
     /// Create a [`Timer`] whose callback will be triggered once after the period
     /// of the timer has elapsed. After that you will need to use
-    /// [`Timer::set_repeating`] or [`Timer::set_oneshot`] or else nothing will happen
-    /// the following times that the `Timer` elapses.
+    /// [`TimerState::set_repeating`] or [`TimerState::set_oneshot`] or else
+    /// nothing will happen the following times that the `Timer` elapses.
     ///
     /// See also:
     /// * [`Self::create_timer_repeating`]
-    /// * [`Self::create_time_inert`]
+    /// * [`Self::create_timer_inert`]
+    ///
+    /// # Behavior
+    ///
+    /// While the callback of this timer is running, no other callbacks associated
+    /// with this node will be able to run. This is in contrast to callbacks given
+    /// to [`Self::create_subscription`] which can run multiple times in parallel.
+    ///
+    /// Since the callback of this timer may block other callbacks from being able
+    /// to run, it is strongly recommended to ensure that the callback returns
+    /// quickly. If the callback needs to trigger long-running behavior then you
+    /// can consider using [`std::thread::spawn`], or for async behaviors you can
+    /// capture an [`ExecutorCommands`] in your callback and use [`ExecutorCommands::run`]
+    /// to issue a task for the executor to run in its async task pool.
+    ///
+    /// Since these callbacks will only be triggered once, you may use [`FnOnce`] here.
+    ///
+    /// # Timer Options
+    ///
+    /// See [`NodeSate::create_timer_repeating`][3] for examples of setting the
+    /// timer options.
+    ///
+    /// # Node Timer Oneshot Callbacks
+    ///
+    /// Node Timer repeating callbacks support three signatures:
+    /// - <code>[FnMut] ()</code>
+    /// - <code>[FnMut] ([Time][2])</code>
+    /// - <code>[FnMut] (&[Timer])</code>
+    ///
+    /// You can choose to receive the current time when the callback is being
+    /// triggered.
+    ///
+    /// Or instead of the current time, you can get a borrow of the [`Timer`]
+    /// itself, that way if you need to access it from inside the callback, you
+    /// do not need to worry about capturing a [`Weak`][3] and then locking it.
+    /// This is useful if you need to change the callback of the timer from inside
+    /// the callback of the timer.
+    ///
+    /// [2]: crate::Time
+    /// [3]: std::sync::Weak
     pub fn create_timer_oneshot<'a, Args>(
         &self,
         options: impl IntoTimerOptions<'a>,
@@ -925,7 +1068,8 @@ impl NodeState {
     }
 
     /// Create a [`Timer`] without a callback. Nothing will happen when this
-    /// `Timer` elapses until you use [`Timer::set_callback`] or a related method.
+    /// `Timer` elapses until you use [`TimerState::set_repeating`] or
+    /// [`TimerState::set_oneshot`].
     ///
     /// See also:
     /// * [`Self::create_timer_repeating`]

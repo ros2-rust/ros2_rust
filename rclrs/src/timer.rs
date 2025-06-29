@@ -28,24 +28,34 @@ pub use into_worker_timer_callback::*;
 /// The executor needs to be [spinning][1] for a timer's callback to be triggered.
 ///
 /// Timers can be created by a [`Node`] using one of these methods:
-/// - [`NodeState::create_timer_repeating`]
-/// - [`NodeState::create_timer_oneshot`]
-/// - [`NodeState::create_timer_inert`]
+/// - [`NodeState::create_timer_repeating`][2]
+/// - [`NodeState::create_timer_oneshot`][3]
+/// - [`NodeState::create_timer_inert`][4]
 ///
 /// Timers can also be created by a [`Worker`], in which case they can access the worker's payload:
-/// - [`Worker::create_timer_repeating`]
-/// - [`Worker::create_timer_oneshot`]
-/// - [`Worker::create_timer_inert`]
+/// - [`WorkerState::create_timer_repeating`][5]
+/// - [`WorkerState::create_timer_oneshot`][6]
+/// - [`WorkerState::create_timer_inert`][7]
 ///
 /// The API of timers is given by [`TimerState`].
 ///
 /// [1]: crate::Executor::spin
+/// [2]: crate::NodeState::create_timer_repeating
+/// [3]: crate::NodeState::create_timer_oneshot
+/// [4]: crate::NodeState::create_timer_inert
+/// [5]: crate::WorkerState::create_timer_repeating
+/// [6]: crate::WorkerState::create_timer_oneshot
+/// [7]: crate::WorkerState::create_timer_inert
 pub type Timer = Arc<TimerState<Node>>;
 
 /// A [`Timer`] that runs on a [`Worker`].
 ///
-/// Create a worker timer using [`Worker::create_timer_repeating`],
-/// [`Worker::create_timer_oneshot`], or [`Worker::create_timer_inert`].
+/// Create a worker timer using [`create_timer_repeating`][1],
+/// [`create_timer_oneshot`][2], or [`create_timer_inert`][3].
+///
+/// [1]: crate::WorkerState::create_timer_repeating
+/// [2]: crate::WorkerState::create_timer_oneshot
+/// [3]: crate::WorkerState::create_timer_inert
 pub type WorkerTimer<Payload> = Arc<TimerState<Worker<Payload>>>;
 
 /// The inner state of a [`Timer`].
