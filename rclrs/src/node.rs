@@ -29,12 +29,14 @@ use async_std::future::timeout;
 use rosidl_runtime_rs::Message;
 
 use crate::{
-    rcl_bindings::*, Client, ClientOptions, ClientState, Clock, ContextHandle, ExecutorCommands,
-    IntoAsyncServiceCallback, IntoAsyncSubscriptionCallback, IntoNodeServiceCallback,
-    IntoNodeSubscriptionCallback, LogParams, Logger, ParameterBuilder, ParameterInterface,
-    ParameterVariant, Parameters, Promise, Publisher, PublisherOptions, PublisherState, RclrsError,
-    Service, ServiceOptions, ServiceState, Subscription, SubscriptionOptions, SubscriptionState,
-    TimeSource, ToLogParams, Worker, WorkerOptions, WorkerState, ENTITY_LIFECYCLE_MUTEX,
+    rcl_bindings::*, AnyTimerCallback, Client, ClientOptions, ClientState, Clock, ContextHandle,
+    ExecutorCommands, IntoAsyncServiceCallback, IntoAsyncSubscriptionCallback,
+    IntoNodeServiceCallback, IntoNodeSubscriptionCallback, IntoNodeTimerOneshotCallback,
+    IntoNodeTimerRepeatingCallback, IntoTimerOptions, LogParams, Logger, ParameterBuilder,
+    ParameterInterface, ParameterVariant, Parameters, Promise, Publisher, PublisherOptions,
+    PublisherState, RclrsError, Service, ServiceOptions, ServiceState, Subscription,
+    SubscriptionOptions, SubscriptionState, TimeSource, Timer, TimerState, ToLogParams, Worker,
+    WorkerOptions, WorkerState, ENTITY_LIFECYCLE_MUTEX,
 };
 
 /// A processing unit that can communicate with other nodes. See the API of
@@ -890,6 +892,70 @@ impl NodeState {
             callback.into_async_subscription_callback(),
             &self.handle,
             self.commands.async_worker_commands(),
+        )
+    }
+
+    /// Create a [`Timer`] with a repeating callback.
+    ///
+    /// See also:
+    /// * [`Self::create_timer_oneshot`]
+    /// * [`Self::create_timer_inert`]
+    pub fn create_timer_repeating<'a, Args>(
+        &self,
+        options: impl IntoTimerOptions<'a>,
+        callback: impl IntoNodeTimerRepeatingCallback<Args>,
+    ) -> Result<Timer, RclrsError> {
+        self.create_timer(options, callback.into_node_timer_repeating_callback())
+    }
+
+    /// Create a [`Timer`] whose callback will be triggered once after the period
+    /// of the timer has elapsed. After that you will need to use
+    /// [`Timer::set_repeating`] or [`Timer::set_oneshot`] or else nothing will happen
+    /// the following times that the `Timer` elapses.
+    ///
+    /// See also:
+    /// * [`Self::create_timer_repeating`]
+    /// * [`Self::create_time_inert`]
+    pub fn create_timer_oneshot<'a, Args>(
+        &self,
+        options: impl IntoTimerOptions<'a>,
+        callback: impl IntoNodeTimerOneshotCallback<Args>,
+    ) -> Result<Timer, RclrsError> {
+        self.create_timer(options, callback.into_node_timer_oneshot_callback())
+    }
+
+    /// Create a [`Timer`] without a callback. Nothing will happen when this
+    /// `Timer` elapses until you use [`Timer::set_callback`] or a related method.
+    ///
+    /// See also:
+    /// * [`Self::create_timer_repeating`]
+    /// * [`Self::create_timer_oneshot`]
+    pub fn create_timer_inert<'a>(
+        &self,
+        options: impl IntoTimerOptions<'a>,
+    ) -> Result<Timer, RclrsError> {
+        self.create_timer(options, AnyTimerCallback::Inert)
+    }
+
+    /// Used internally to create a [`Timer`].
+    ///
+    /// Downstream users should instead use:
+    /// * [`Self::create_timer_repeating`]
+    /// * [`Self::create_timer_oneshot`]
+    /// * [`Self::create_timer_inert`]
+    fn create_timer<'a>(
+        &self,
+        options: impl IntoTimerOptions<'a>,
+        callback: AnyTimerCallback<Node>,
+    ) -> Result<Timer, RclrsError> {
+        let options = options.into_timer_options();
+        let clock = options.clock.as_clock(self);
+        TimerState::create(
+            options.period,
+            clock,
+            callback,
+            self.commands.async_worker_commands(),
+            &self.handle.context_handle,
         )
     }
 

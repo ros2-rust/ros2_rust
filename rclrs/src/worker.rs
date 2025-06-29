@@ -1,7 +1,9 @@
 use crate::{
-    log_fatal, IntoWorkerServiceCallback, IntoWorkerSubscriptionCallback, Node, Promise,
-    RclrsError, ServiceOptions, ServiceState, SubscriptionOptions, SubscriptionState,
-    WorkerCommands, WorkerService, WorkerSubscription,
+    log_fatal, AnyTimerCallback, IntoTimerOptions, IntoWorkerServiceCallback,
+    IntoWorkerSubscriptionCallback, IntoWorkerTimerOneshotCallback,
+    IntoWorkerTimerRepeatingCallback, Node, Promise, RclrsError, ServiceOptions, ServiceState,
+    SubscriptionOptions, SubscriptionState, TimerState, WorkerCommands, WorkerService,
+    WorkerSubscription, WorkerTimer,
 };
 use futures::channel::oneshot;
 use rosidl_runtime_rs::{Message, Service as IdlService};
@@ -366,6 +368,65 @@ impl<Payload: 'static + Send + Sync> WorkerState<Payload> {
             callback.into_worker_service_callback(),
             self.node.handle(),
             &self.commands,
+        )
+    }
+
+    /// Create a [`WorkerTimer`] with a repeating callback.
+    ///
+    /// See also:
+    /// * [`Self::create_timer_oneshot`]
+    /// * [`Self::create_timer_inert`]
+    pub fn create_timer_repeating<'a, Args>(
+        &self,
+        options: impl IntoTimerOptions<'a>,
+        callback: impl IntoWorkerTimerRepeatingCallback<Worker<Payload>, Args>,
+    ) -> Result<WorkerTimer<Payload>, RclrsError> {
+        self.create_timer(options, callback.into_worker_timer_repeating_callback())
+    }
+
+    /// Create a [`WorkerTimer`] whose callback will be triggered once after the
+    /// period of the timer has elapsed. After that you will need to use
+    /// [`WorkerTimer::set_worker_oneshot`] or [`WorkerTimer::set_worker_repeating`]
+    /// or else nothing will happen the following times that the `Timer` elapses.
+    ///
+    /// See also:
+    /// * [`Self::create_timer_repeating`]
+    /// * [`Self::create_time_inert`]
+    pub fn create_timer_oneshot<'a, Args>(
+        &self,
+        options: impl IntoTimerOptions<'a>,
+        callback: impl IntoWorkerTimerOneshotCallback<Worker<Payload>, Args>,
+    ) -> Result<WorkerTimer<Payload>, RclrsError> {
+        self.create_timer(options, callback.into_worker_timer_oneshot_callback())
+    }
+
+    /// Create a [`WorkerTimer`] without a callback. Nothing will happen when this
+    /// `WorkerTimer` elapses until you use [`WorkerTimer::set_worker_repeating`]
+    /// or [`WorkerTimer::set_worker_oneshot`].
+    ///
+    /// See also:
+    /// * [`Self::create_timer_repeating`]
+    /// * [`Self::create_timer_oneshot`]
+    pub fn create_timer_inert<'a>(
+        &self,
+        options: impl IntoTimerOptions<'a>,
+    ) -> Result<WorkerTimer<Payload>, RclrsError> {
+        self.create_timer(options, AnyTimerCallback::Inert)
+    }
+
+    fn create_timer<'a>(
+        &self,
+        options: impl IntoTimerOptions<'a>,
+        callback: AnyTimerCallback<Worker<Payload>>,
+    ) -> Result<WorkerTimer<Payload>, RclrsError> {
+        let options = options.into_timer_options();
+        let clock = options.clock.as_clock(&*self.node);
+        TimerState::create(
+            options.period,
+            clock,
+            callback,
+            &self.commands,
+            &self.node.handle().context_handle,
         )
     }
 
