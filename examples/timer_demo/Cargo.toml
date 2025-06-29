@@ -1,5 +1,5 @@
 [package]
-name = "timer_demo"
+name = "examples_timer_demo"
 version = "0.1.0"
 edition = "2021"
 
