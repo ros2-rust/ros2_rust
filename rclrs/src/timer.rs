@@ -227,16 +227,41 @@ impl<Scope: WorkScope> TimerState<Scope> {
             let allocator = rcutils_get_default_allocator();
 
             let _lifecycle = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
-            // SAFETY: We lock the lifecycle mutex since rcl_timer_init is not
-            // thread-safe.
-            rcl_timer_init(
-                &mut *rcl_timer.lock().unwrap(),
-                &mut *rcl_clock,
-                &mut *rcl_context,
-                period,
-                rcl_timer_callback,
-                allocator,
-            )
+
+            // The API for initializing timers changed with the kilted releaase.
+            #[cfg(any(ros_distro = "humble", ros_distro = "jazzy"))]
+            {
+                // SAFETY: We lock the lifecycle mutex since rcl_timer_init is not
+                // thread-safe.
+                rcl_timer_init(
+                    &mut *rcl_timer.lock().unwrap(),
+                    &mut *rcl_clock,
+                    &mut *rcl_context,
+                    period,
+                    rcl_timer_callback,
+                    allocator,
+                )
+            }
+
+            // The API for initializing timers changed with the kilted releaase.
+            // This new API allows you to opt out of automatically starting the
+            // timer as soon as it is created. We could consider exposing this
+            // capability to the user, but for now we are just telling it to
+            // immediately start the timer.
+            #[cfg(not(any(ros_distro = "humble", ros_distro = "jazzy")))]
+            {
+                // SAFETY: We lock the lifecycle mutex since rcl_timer_init is not
+                // thread-safe.
+                rcl_timer_init(
+                    &mut *rcl_timer.lock().unwrap(),
+                    &mut *rcl_clock,
+                    &mut *rcl_context,
+                    period,
+                    rcl_timer_callback,
+                    allocator,
+                    true,
+                )
+            }
         }
         .ok()?;
 
