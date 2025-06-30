@@ -36,11 +36,6 @@ jobs:
         with:
           manifest-path: C:/pixi_ws/pixi.toml
 
-      - name: Get prebuild ROS files and unzip
-        run: |
-          irm https://ci.ros2.org/view/packaging/job/packaging_windows/lastSuccessfulBuild/artifact/ws/ros2-package-windows-AMD64.zip -Outfile ros2-package-windows-AMD64.zip
-          Expand-Archive -Path ros2-package-windows-AMD64.zip -DestinationPath C:/pixi_ws/
-
       - name: Install ros2_rust prerequisites 
         # prerequisites and fixes for windows build ros2_rust:
         #     * Libclang has to be added (from the ros2_rust instructions) and the dll has to be renamed
@@ -52,7 +47,12 @@ jobs:
           if (Test-Path $src) { Rename-Item -Path $src -NewName "libclang.dll" }
           pixi add --pypi "colcon-ros-cargo@git+https://github.com/colcon/colcon-ros-cargo.git" --manifest-path C:\pixi_ws\pixi.toml
           pixi add --pypi "colcon-cargo@git+https://github.com/colcon/colcon-cargo.git" --manifest-path C:\pixi_ws\pixi.toml
-          pixi upgrade --pypi colcon-core --manifest-path C:\pixi_ws\pixi.toml
+          pixi upgrade colcon-core --manifest-path C:\pixi_ws\pixi.toml
+
+      - name: Get prebuild ROS files and unzip
+        run: |
+          irm https://ci.ros2.org/view/packaging/job/packaging_windows/lastSuccessfulBuild/artifact/ws/ros2-package-windows-AMD64.zip -Outfile ros2-package-windows-AMD64.zip
+          Expand-Archive -Path ros2-package-windows-AMD64.zip -DestinationPath C:/pixi_ws/
 
       - name: Build the rust package
         env:
