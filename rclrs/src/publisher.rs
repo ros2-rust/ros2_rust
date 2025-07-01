@@ -26,9 +26,9 @@ unsafe impl Send for rcl_publisher_t {}
 /// [dropped after][1] the `rcl_publisher_t`.
 ///
 /// [1]: <https://doc.rust-lang.org/reference/destructors.html>
-struct PublisherHandle {
-    rcl_publisher: Mutex<rcl_publisher_t>,
-    node_handle: Arc<NodeHandle>,
+pub(crate) struct PublisherHandle {
+    pub(crate) rcl_publisher: Mutex<rcl_publisher_t>,
+    pub(crate) node_handle: Arc<NodeHandle>,
 }
 
 impl Drop for PublisherHandle {
@@ -40,6 +40,35 @@ impl Drop for PublisherHandle {
         unsafe {
             rcl_publisher_fini(self.rcl_publisher.get_mut().unwrap(), &mut *rcl_node);
         }
+    }
+}
+
+// Functions shared between normal and dynamic publishers
+impl PublisherHandle {
+    pub(crate) fn topic_name(&self) -> String {
+        // SAFETY: No preconditions for the functions called.
+        // The unsafe variables created get converted to safe types before being returned
+        unsafe {
+            let raw_topic_pointer =
+                rcl_publisher_get_topic_name(&*self.rcl_publisher.lock().unwrap());
+            CStr::from_ptr(raw_topic_pointer)
+                .to_string_lossy()
+                .into_owned()
+        }
+    }
+
+    /// Returns the number of subscriptions of the publisher.
+    pub(crate) fn get_subscription_count(&self) -> Result<usize, RclrsError> {
+        let mut subscription_count = 0;
+        // SAFETY: No preconditions for the function called.
+        unsafe {
+            rcl_publisher_get_subscription_count(
+                &*self.rcl_publisher.lock().unwrap(),
+                &mut subscription_count,
+            )
+            .ok()?
+        };
+        Ok(subscription_count)
     }
 }
 
@@ -152,29 +181,12 @@ where
     /// This returns the topic name after remapping, so it is not necessarily the
     /// topic name which was used when creating the publisher.
     pub fn topic_name(&self) -> String {
-        // SAFETY: No preconditions for the functions called.
-        // The unsafe variables created get converted to safe types before being returned
-        unsafe {
-            let raw_topic_pointer =
-                rcl_publisher_get_topic_name(&*self.handle.rcl_publisher.lock().unwrap());
-            CStr::from_ptr(raw_topic_pointer)
-                .to_string_lossy()
-                .into_owned()
-        }
+        self.handle.topic_name()
     }
 
     /// Returns the number of subscriptions of the publisher.
     pub fn get_subscription_count(&self) -> Result<usize, RclrsError> {
-        let mut subscription_count = 0;
-        // SAFETY: No preconditions for the function called.
-        unsafe {
-            rcl_publisher_get_subscription_count(
-                &*self.handle.rcl_publisher.lock().unwrap(),
-                &mut subscription_count,
-            )
-            .ok()?
-        };
-        Ok(subscription_count)
+        self.handle.get_subscription_count()
     }
 
     /// Publishes a message.

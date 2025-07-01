@@ -1,6 +1,7 @@
 use std::{error::Error, fmt};
 
 /// An error related to creating a dynamic message based on the name of the message's type.
+// TODO(luca) we need PartialEq (and maybe Eq?) for testing
 #[derive(Debug)]
 pub enum DynamicMessageError {
     /// The type support library was not found because no matching prefix was sourced.
@@ -50,3 +51,15 @@ impl Error for DynamicMessageError {
         }
     }
 }
+
+impl PartialEq for DynamicMessageError {
+    fn eq(&self, other: &Self) -> bool {
+        if std::mem::discriminant(self) != std::mem::discriminant(other) {
+            return false;
+        }
+        // TODO(luca) this is not very efficient, revisit
+        return self.to_string() == other.to_string();
+    }
+}
+
+impl Eq for DynamicMessageError {}
