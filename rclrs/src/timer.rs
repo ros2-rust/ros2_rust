@@ -536,7 +536,7 @@ impl Drop for TimerHandle {
 
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
 // they are running in. Therefore, this type can be safely sent to another thread.
-impl Send for rcl_timer_t {}
+unsafe impl Send for rcl_timer_t {}
 
 #[cfg(test)]
 mod tests {
