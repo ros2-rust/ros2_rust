@@ -86,7 +86,13 @@ impl<Scope: WorkScope> TimerState<Scope> {
     pub fn get_timer_period(&self) -> Result<Duration, RclrsError> {
         let mut timer_period_ns = 0;
         unsafe {
+            // SAFETY: The unwrap is safe here since we never use the rcl_timer
+            // in a way that could panic while the mutex is locked.
             let rcl_timer = self.handle.rcl_timer.lock().unwrap();
+
+            // SAFETY: The rcl_timer is kept valid by the TimerState. This C
+            // function call is thread-safe and only requires a valid rcl_timer
+            // to be passed in.
             rcl_timer_get_period(&*rcl_timer, &mut timer_period_ns)
         }
         .ok()?;
@@ -94,10 +100,22 @@ impl<Scope: WorkScope> TimerState<Scope> {
         rcl_duration(timer_period_ns)
     }
 
-    /// Cancels the timer, stopping the execution of the callback
+    /// Cancels the timer, stopping the execution of the callback.
+    ///
+    /// [`TimerState::is_ready`] will always return false while the timer is in
+    /// a cancelled state. [`TimerState::reset`] can be used to revert the timer
+    /// out of the cancelled state.
     pub fn cancel(&self) -> Result<(), RclrsError> {
-        let mut rcl_timer = self.handle.rcl_timer.lock().unwrap();
-        let cancel_result = unsafe { rcl_timer_cancel(&mut *rcl_timer) }.ok()?;
+        let cancel_result = unsafe {
+            // SAFETY: The unwrap is safe here since we never use the rcl_timer
+            // in a way that could panic while the mutex is locked.
+            let mut rcl_timer = self.handle.rcl_timer.lock().unwrap();
+
+            // SAFETY: The rcl_timer is kept valid by the TimerState. This C
+            // function call is thread-safe and only requires a valid rcl_timer
+            // to be passed in.
+            rcl_timer_cancel(&mut *rcl_timer)
+        }.ok()?;
         Ok(cancel_result)
     }
 
@@ -105,7 +123,13 @@ impl<Scope: WorkScope> TimerState<Scope> {
     pub fn is_canceled(&self) -> Result<bool, RclrsError> {
         let mut is_canceled = false;
         unsafe {
+            // SAFETY: The unwrap is safe here since we never use the rcl_timer
+            // in a way that could panic while the mutex is locked.
             let rcl_timer = self.handle.rcl_timer.lock().unwrap();
+
+            // SAFETY: The rcl_timer is kept valid by the TimerState. This C
+            // function call is thread-safe and only requires a valid rcl_timer
+            // to be passed in.
             rcl_timer_is_canceled(&*rcl_timer, &mut is_canceled)
         }
         .ok()?;
@@ -128,7 +152,13 @@ impl<Scope: WorkScope> TimerState<Scope> {
     pub fn time_since_last_call(&self) -> Result<Duration, RclrsError> {
         let mut time_value_ns: i64 = 0;
         unsafe {
+            // SAFETY: The unwrap is safe here since we never use the rcl_timer
+            // in a way that could panic while the mutex is locked.
             let rcl_timer = self.handle.rcl_timer.lock().unwrap();
+
+            // SAFETY: The rcl_timer is kept valid by the TimerState. This C
+            // function call is thread-safe and only requires a valid rcl_timer
+            // to be passed in.
             rcl_timer_get_time_since_last_call(&*rcl_timer, &mut time_value_ns)
         }
         .ok()?;
@@ -140,7 +170,13 @@ impl<Scope: WorkScope> TimerState<Scope> {
     pub fn time_until_next_call(&self) -> Result<Duration, RclrsError> {
         let mut time_value_ns: i64 = 0;
         unsafe {
+            // SAFETY: The unwrap is safe here since we never use the rcl_timer
+            // in a way that could panic while the mutex is locked.
             let rcl_timer = self.handle.rcl_timer.lock().unwrap();
+
+            // SAFETY: The rcl_timer is kept valid by the TimerState. This C
+            // function call is thread-safe and only requires a valid rcl_timer
+            // to be passed in.
             rcl_timer_get_time_until_next_call(&*rcl_timer, &mut time_value_ns)
         }
         .ok()?;
@@ -149,9 +185,20 @@ impl<Scope: WorkScope> TimerState<Scope> {
     }
 
     /// Resets the timer.
+    ///
+    /// For all timers it will reset the last call time to now. For cancelled
+    /// timers it will revert the timer to no longer being cancelled.
     pub fn reset(&self) -> Result<(), RclrsError> {
+        // SAFETY: The unwrap is safe here since we never use the rcl_timer
+        // in a way that could panic while the mutex is locked.
         let mut rcl_timer = self.handle.rcl_timer.lock().unwrap();
-        unsafe { rcl_timer_reset(&mut *rcl_timer) }.ok()
+
+        unsafe {
+            // SAFETY: The rcl_timer is kept valid by the TimerState. This C
+            // function call is thread-safe and only requires a valid rcl_timer
+            // to be passed in.
+            rcl_timer_reset(&mut *rcl_timer)
+        }.ok()
     }
 
     /// Checks if the timer is ready (not canceled)
@@ -215,8 +262,10 @@ impl<Scope: WorkScope> TimerState<Scope> {
         let rcl_timer_callback: rcl_timer_callback_t = None;
 
         let rcl_timer = Arc::new(Mutex::new(
-            // SAFETY: Zero-initializing a timer is always safe
-            unsafe { rcl_get_zero_initialized_timer() },
+            unsafe {
+                // SAFETY: Zero-initializing a timer is always safe
+                rcl_get_zero_initialized_timer()
+            },
         ));
 
         unsafe {
@@ -340,8 +389,16 @@ impl<Scope: WorkScope> TimerState<Scope> {
     /// in the [`Timer`] struct. This means there are no side-effects to this
     /// except to keep track of when the timer has been called.
     fn rcl_call(&self) -> Result<(), RclrsError> {
+        // SAFETY: The unwrap is safe here since we never use the rcl_timer
+        // in a way that could panic while the mutex is locked.
         let mut rcl_timer = self.handle.rcl_timer.lock().unwrap();
-        unsafe { rcl_timer_call(&mut *rcl_timer) }.ok()
+
+        unsafe {
+            // SAFETY: The rcl_timer is kept valid by the TimerState. This C
+            // function call is thread-safe and only requires a valid rcl_timer
+            // to be passed in.
+            rcl_timer_call(&mut *rcl_timer)
+        }.ok()
     }
 
     /// Used by [`Timer::execute`] to restore the state of the callback if and
@@ -469,15 +526,17 @@ pub(crate) struct TimerHandle {
 impl Drop for TimerHandle {
     fn drop(&mut self) {
         let _lifecycle = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
-        // SAFETY: The lifecycle mutex is locked and the clock for the timer
-        // must still be valid because TimerHandle keeps it alive.
-        unsafe { rcl_timer_fini(&mut *self.rcl_timer.lock().unwrap()) };
+        unsafe {
+            // SAFETY: The lifecycle mutex is locked and the clock for the timer
+            // must still be valid because TimerHandle keeps it alive.
+            rcl_timer_fini(&mut *self.rcl_timer.lock().unwrap())
+        };
     }
 }
 
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
 // they are running in. Therefore, this type can be safely sent to another thread.
-unsafe impl Send for rcl_timer_t {}
+impl Send for rcl_timer_t {}
 
 #[cfg(test)]
 mod tests {
@@ -759,8 +818,8 @@ mod tests {
             handle: Arc::clone(&timer.handle),
         };
 
-        // SAFETY: Node timers expect a payload of ()
         unsafe {
+            // SAFETY: Node timers expect a payload of ()
             executable.execute(&mut ()).unwrap();
         }
         assert!(!executed.load(Ordering::Acquire));
@@ -790,8 +849,8 @@ mod tests {
 
         thread::sleep(Duration::from_millis(2));
 
-        // SAFETY: Node timers expect a payload of ()
         unsafe {
+            // SAFETY: Node timers expect a payload of ()
             executable.execute(&mut ()).unwrap();
         }
         assert!(executed.load(Ordering::Acquire));
