@@ -3,6 +3,10 @@ name = "examples_timer_demo"
 version = "0.1.0"
 edition = "2021"
 
+[[bin]]
+name = "timer_demo"
+path = "src/main.rs"
+
 [dependencies]
 rclrs = "0.4"
 example_interfaces = "*"
