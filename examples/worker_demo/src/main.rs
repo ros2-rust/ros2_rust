@@ -1,5 +1,5 @@
 use rclrs::*;
-use std::sync::Arc;
+use std::time::Duration;
 
 fn main() -> Result<(), RclrsError> {
     let mut executor = Context::default_from_env()?.create_basic_executor();
@@ -15,27 +15,12 @@ fn main() -> Result<(), RclrsError> {
         },
     )?;
 
-    // // Use this timer-based implementation when timers are available instead
-    // // of using std::thread::spawn.
-    // let _timer = worker.create_timer_repeating(
-    //     Duration::from_secs(1),
-    //     move |data: &mut String| {
-    //         let msg = example_interfaces::msg::String {
-    //             data: data.clone()
-    //         };
-
-    //         publisher.publish(msg).ok();
-    //     }
-    // )?;
-
-    std::thread::spawn(move || loop {
-        std::thread::sleep(std::time::Duration::from_secs(1));
-        let publisher = Arc::clone(&publisher);
-        let _ = worker.run(move |data: &mut String| {
+    let _timer =
+        worker.create_timer_repeating(Duration::from_secs(1), move |data: &mut String| {
             let msg = example_interfaces::msg::String { data: data.clone() };
-            publisher.publish(msg).unwrap();
-        });
-    });
+
+            publisher.publish(msg).ok();
+        })?;
 
     println!(
         "Beginning repeater... \n >> \
