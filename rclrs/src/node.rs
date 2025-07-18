@@ -349,6 +349,57 @@ impl NodeState {
     {
         ClientState::<T>::create(options, self)
     }
+    /// Creates an [`ActionClient`][1].
+    ///
+    /// [1]: crate::ActionClient
+    // TODO: make action client's lifetime depend on node's lifetime
+    pub fn create_action_client<'a, T>(
+        self: &Arc<Self>,
+        options: impl Into<ActionClientOptions<'a>>,
+    ) -> Result<ActionClient<T>, RclrsError>
+    where
+        T: rosidl_runtime_rs::Action,
+    {
+        let action_client = Arc::new(ActionClientState::<T>::new(self, options)?);
+        self.action_clients_mtx
+            .lock()
+            .unwrap()
+            .push(Arc::downgrade(&action_client) as Weak<dyn ActionClientBase>);
+        Ok(action_client)
+    }
+
+    /// Creates an [`ActionServer`][1].
+    ///
+    /// [1]: crate::ActionServer
+    // TODO: make action server's lifetime depend on node's lifetime
+    pub fn create_action_server<'a, ActionT, GoalCallback, CancelCallback, AcceptedCallback>(
+        self: &Arc<Self>,
+        options: impl Into<ActionServerOptions<'a>>,
+        handle_goal: GoalCallback,
+        handle_cancel: CancelCallback,
+        handle_accepted: AcceptedCallback,
+    ) -> Result<ActionServer<ActionT>, RclrsError>
+    where
+        ActionT: rosidl_runtime_rs::Action + rosidl_runtime_rs::ActionImpl,
+        GoalCallback: Fn(GoalUuid, <ActionT as rosidl_runtime_rs::Action>::Goal) -> GoalResponse + 'static + Send + Sync,
+        CancelCallback: Fn(Arc<ServerGoalHandle<ActionT>>) -> CancelResponse + 'static + Send + Sync,
+        AcceptedCallback: Fn(Arc<ServerGoalHandle<ActionT>>) + 'static + Send + Sync,
+    {
+        let action_server = Arc::new(ActionServerState::<ActionT>::new(
+            self,
+            options,
+            handle_goal,
+            handle_cancel,
+            handle_accepted,
+        )?);
+        self.action_servers_mtx
+            .lock()
+            .unwrap()
+            .push(Arc::downgrade(&action_server) as Weak<dyn ActionServerBase>);
+        Ok(action_server)
+    }
+
+
 
     /// Creates a [`Publisher`].
     ///
