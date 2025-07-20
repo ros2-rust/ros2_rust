@@ -1,5 +1,6 @@
 use crate::{action::ActionServerState, rcl_bindings::*, GoalUuid, RclrsError, ToResult};
 use std::sync::{Arc, Mutex, Weak};
+use rosidl_runtime_rs::Action;
 
 // Values defined by `action_msgs/msg/GoalStatus`
 #[repr(i8)]
@@ -20,13 +21,13 @@ enum GoalStatus {
 ///
 /// This type will only be created by an [`ActionServer`] when a goal is accepted and will be
 /// passed to the user in the associated `handle_accepted` callback.
-pub struct ServerGoalHandle<ActionT>
+pub struct ServerGoalHandle<A>
 where
-    ActionT: rosidl_runtime_rs::Action + rosidl_runtime_rs::ActionImpl,
+    A: Action,
 {
     rcl_handle: Mutex<*mut rcl_action_goal_handle_t>,
-    action_server: Weak<ActionServerState<ActionT>>,
-    goal_request: Arc<ActionT::Goal>,
+    action_server: Weak<ActionServerState<A>>,
+    goal_request: Arc<A::Goal>,
     uuid: GoalUuid,
 }
 

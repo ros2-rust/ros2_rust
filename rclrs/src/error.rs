@@ -4,7 +4,7 @@ use std::{
     fmt::{self, Display},
 };
 
-use crate::{rcl_bindings::*, DeclarationError};
+use crate::{rcl_bindings::*, DeclarationError, ReadyKind};
 
 /// The main error type.
 #[derive(Debug, PartialEq, Eq)]
@@ -51,6 +51,14 @@ pub enum RclrsError {
     ParameterDeclarationError(crate::DeclarationError),
     /// A mutex used internally has been [poisoned][std::sync::PoisonError].
     PoisonedMutex,
+    /// An [`crate::RclPrimitive`] received ready information that is not
+    /// compatible with its type.
+    InvalidReadyInformation {
+        /// The expected format of the ready information (default-initialized)
+        expected: ReadyKind,
+        /// The ready information that was received.
+        received: ReadyKind,
+    }
 }
 
 impl RclrsError {
@@ -118,6 +126,15 @@ impl Display for RclrsError {
             RclrsError::PoisonedMutex => {
                 write!(f, "A mutex used internally has been poisoned")
             }
+            RclrsError::InvalidReadyInformation { expected, received } => {
+                write!(
+                    f,
+                    "Invalid ready information was provided. This suggests an error \
+                    in how the wait set is being used.\
+                    \n - Expected information: {expected:?}\
+                    \n - Actual: {received:?}",
+                )
+            }
         }
     }
 }
@@ -157,6 +174,7 @@ impl Error for RclrsError {
             RclrsError::InvalidPayload { .. } => None,
             RclrsError::ParameterDeclarationError(_) => None,
             RclrsError::PoisonedMutex => None,
+            RclrsError::InvalidReadyInformation { .. } => None,
         }
     }
 }

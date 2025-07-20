@@ -36,6 +36,9 @@ rosidl_runtime_rs = "0.4"
 serde = { version = "1", optional = true, features = ["derive"] }
 serde-big-array = { version = "0.5.1", optional = true }
 
+# Needed to watch for the cancel signal for actions
+tokio = { version = "1", features = ["sync"] }
+
 [dev-dependencies]
 # Needed for e.g. writing yaml files in tests
 tempfile = "3.3.0"

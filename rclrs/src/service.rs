@@ -9,8 +9,8 @@ use rosidl_runtime_rs::{Message, Service as IdlService};
 
 use crate::{
     error::ToResult, rcl_bindings::*, IntoPrimitiveOptions, MessageCow, Node, NodeHandle,
-    QoSProfile, RclPrimitive, RclPrimitiveHandle, RclPrimitiveKind, RclrsError, Waitable,
-    WaitableLifecycle, WorkScope, Worker, WorkerCommands, ENTITY_LIFECYCLE_MUTEX,
+    QoSProfile, RclPrimitive, RclPrimitiveHandle, RclPrimitiveKind, RclrsError, ReadyKind,
+    Waitable, WaitableLifecycle, WorkScope, Worker, WorkerCommands, ENTITY_LIFECYCLE_MUTEX,
 };
 
 mod any_service_callback;
@@ -249,7 +249,8 @@ where
     T: IdlService,
     Scope: WorkScope,
 {
-    unsafe fn execute(&mut self, payload: &mut dyn Any) -> Result<(), RclrsError> {
+    unsafe fn execute(&mut self, ready: ReadyKind, payload: &mut dyn Any) -> Result<(), RclrsError> {
+        ready.is_basic()?;
         self.callback
             .lock()
             .unwrap()

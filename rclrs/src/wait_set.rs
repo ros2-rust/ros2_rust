@@ -102,7 +102,7 @@ impl WaitSet {
     pub fn wait(
         &mut self,
         timeout: Option<Duration>,
-        mut f: impl FnMut(&mut dyn RclPrimitive) -> Result<(), RclrsError>,
+        mut f: impl FnMut(&mut dyn RclPrimitive, ReadyKind) -> Result<(), RclrsError>,
     ) -> Result<(), RclrsError> {
         let timeout_ns = match timeout.map(|d| d.as_nanos()) {
             None => -1,

@@ -136,6 +136,7 @@ struct GuardConditionHandle {
 /// condition variables are owned at the rclrs layer while others were obtained
 /// from rcl and either have static lifetimes or lifetimes that depend on
 /// something else.
+#[derive(Debug)]
 pub enum InnerGuardConditionHandle {
     /// This variant means the guard condition was created and owned by rclrs.
     /// Its memory is managed by us.

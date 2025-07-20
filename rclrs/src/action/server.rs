@@ -2,7 +2,6 @@ use crate::{
     action::{CancelResponse, GoalResponse, GoalUuid, ServerGoalHandle},
     error::{RclReturnCode, ToResult},
     rcl_bindings::*,
-    wait::WaitableNumEntities,
     Clock, DropGuard, Node, NodeHandle, QoSProfile, RclrsError, ENTITY_LIFECYCLE_MUTEX,
 };
 use rosidl_runtime_rs::{Action, ActionImpl, Message, Service};
@@ -22,14 +21,13 @@ unsafe impl Send for rcl_action_server_t {}
 /// [dropped after][1] the `rcl_action_server_t`.
 ///
 /// [1]: <https://doc.rust-lang.org/reference/destructors.html>
-pub struct ActionServerHandle {
+pub(crate) struct ActionServerHandle {
     rcl_action_server: Mutex<rcl_action_server_t>,
     node_handle: Arc<NodeHandle>,
-    pub(crate) in_use_by_wait_set: Arc<AtomicBool>,
 }
 
 impl ActionServerHandle {
-    pub(crate) fn lock(&self) -> MutexGuard<rcl_action_server_t> {
+    fn lock(&self) -> MutexGuard<rcl_action_server_t> {
         self.rcl_action_server.lock().unwrap()
     }
 }
@@ -47,18 +45,6 @@ impl Drop for ActionServerHandle {
     }
 }
 
-/// Trait to be implemented by concrete ActionServer structs.
-///
-/// See [`ActionServer<T>`] for an example
-pub trait ActionServerBase: Send + Sync {
-    /// Internal function to get a reference to the `rcl` handle.
-    fn handle(&self) -> &ActionServerHandle;
-    /// Returns the number of underlying entities for the action server.
-    fn num_entities(&self) -> &WaitableNumEntities;
-    /// Tries to run the callback for the given readiness mode.
-    fn execute(self: Arc<Self>, mode: ReadyMode) -> Result<(), RclrsError>;
-}
-
 pub(crate) enum ReadyMode {
     GoalRequest,
     CancelRequest,
@@ -66,9 +52,9 @@ pub(crate) enum ReadyMode {
     GoalExpired,
 }
 
-pub type GoalCallback<ActionT> = dyn Fn(GoalUuid, <ActionT as rosidl_runtime_rs::Action>::Goal) -> GoalResponse + 'static + Send + Sync;
-pub type CancelCallback<ActionT> = dyn Fn(Arc<ServerGoalHandle<ActionT>>) -> CancelResponse + 'static + Send + Sync;
-pub type AcceptedCallback<ActionT> = dyn Fn(Arc<ServerGoalHandle<ActionT>>) + 'static + Send + Sync;
+pub type GoalCallback<A> = dyn Fn(GoalUuid, <A as Action>::Goal) -> GoalResponse + 'static + Send + Sync;
+pub type CancelCallback<A> = dyn Fn(Arc<ServerGoalHandle<A>>) -> CancelResponse + 'static + Send + Sync;
+pub type AcceptedCallback<A> = dyn Fn(Arc<ServerGoalHandle<A>>) + 'static + Send + Sync;
 
 /// An action server that can respond to requests sent by ROS action clients.
 ///
@@ -96,19 +82,16 @@ pub type ActionServer<ActionT> = Arc<ActionServerState<ActionT>>;
 /// The public API of the [`ActionServer`] type is implemented via `ActionServerState`.
 ///
 /// [1]: std::sync::Weak
-pub struct ActionServerState<ActionT>
+pub struct ActionServerState<A>
 where
-    ActionT: rosidl_runtime_rs::Action + rosidl_runtime_rs::ActionImpl,
+    A: ActionImpl,
 {
     pub(crate) handle: Arc<ActionServerHandle>,
-    num_entities: WaitableNumEntities,
-    goal_callback: Box<GoalCallback<ActionT>>,
-    cancel_callback: Box<CancelCallback<ActionT>>,
-    accepted_callback: Box<AcceptedCallback<ActionT>>,
+
     // TODO(nwn): Audit these three mutexes to ensure there's no deadlocks or broken invariants. We
     // may want to join them behind a shared mutex, at least for the `goal_results` and `result_requests`.
-    goal_handles: Mutex<HashMap<GoalUuid, Arc<ServerGoalHandle<ActionT>>>>,
-    goal_results: Mutex<HashMap<GoalUuid, <<ActionT::GetResultService as Service>::Response as Message>::RmwMsg>>,
+    goal_handles: Mutex<HashMap<GoalUuid, Arc<ServerGoalHandle<A>>>>,
+    goal_results: Mutex<HashMap<GoalUuid, <<A::GetResultService as Service>::Response as Message>::RmwMsg>>,
     result_requests: Mutex<HashMap<GoalUuid, Vec<rmw_request_id_t>>>,
     /// Ensure the parent node remains alive as long as the subscription is held.
     /// This implementation will change in the future.
@@ -118,19 +101,16 @@ where
 
 impl<T> ActionServerState<T>
 where
-    T: rosidl_runtime_rs::Action + rosidl_runtime_rs::ActionImpl,
+    T: ActionImpl,
 {
     /// Creates a new action server.
-    pub(crate) fn new<'a>(
+    pub(crate) fn create<'a>(
         node: &Node,
         options: impl Into<ActionServerOptions<'a>>,
         goal_callback: impl Fn(GoalUuid, T::Goal) -> GoalResponse + 'static + Send + Sync,
         cancel_callback: impl Fn(Arc<ServerGoalHandle<T>>) -> CancelResponse + 'static + Send + Sync,
         accepted_callback: impl Fn(Arc<ServerGoalHandle<T>>) + 'static + Send + Sync,
-    ) -> Result<Self, RclrsError>
-    where
-        T: rosidl_runtime_rs::Action + rosidl_runtime_rs::ActionImpl,
-    {
+    ) -> Result<Self, RclrsError> {
         let options = options.into();
         // SAFETY: Getting a zero-initialized value is always safe.
         let mut rcl_action_server = unsafe { rcl_action_get_zero_initialized_server() };
@@ -145,9 +125,9 @@ where
         let action_server_options = unsafe { rcl_action_server_get_default_options() };
 
         {
-            let mut rcl_node = node.handle.rcl_node.lock().unwrap();
+            let mut rcl_node = node.handle().rcl_node.lock().unwrap();
             let clock = node.get_clock();
-            let rcl_clock = clock.rcl_clock();
+            let rcl_clock = clock.get_rcl_clock();
             let mut rcl_clock = rcl_clock.lock().unwrap();
             let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
 
@@ -173,8 +153,7 @@ where
 
         let handle = Arc::new(ActionServerHandle {
             rcl_action_server: Mutex::new(rcl_action_server),
-            node_handle: Arc::clone(&node.handle),
-            in_use_by_wait_set: Arc::new(AtomicBool::new(false)),
+            node_handle: Arc::clone(&node.handle()),
         });
 
         let mut num_entities = WaitableNumEntities::default();
@@ -715,28 +694,6 @@ where
         self.goal_results.lock().unwrap().insert(*goal_id, result);
 
         Ok(())
-    }
-}
-
-impl<T> ActionServerBase for ActionServerState<T>
-where
-    T: rosidl_runtime_rs::Action + rosidl_runtime_rs::ActionImpl,
-{
-    fn handle(&self) -> &ActionServerHandle {
-        &self.handle
-    }
-
-    fn num_entities(&self) -> &WaitableNumEntities {
-        &self.num_entities
-    }
-
-    fn execute(self: Arc<Self>, mode: ReadyMode) -> Result<(), RclrsError> {
-        match mode {
-            ReadyMode::GoalRequest => self.execute_goal_request(),
-            ReadyMode::CancelRequest => self.execute_cancel_request(),
-            ReadyMode::ResultRequest => self.execute_result_request(),
-            ReadyMode::GoalExpired => self.execute_goal_expired(),
-        }
     }
 }
 

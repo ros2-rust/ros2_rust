@@ -1,12 +1,13 @@
 pub(crate) mod client;
 pub(crate) mod server;
 mod server_goal_handle;
+mod server_goal_state;
 
 use crate::rcl_bindings::RCL_ACTION_UUID_SIZE;
 use std::fmt;
 
-pub use client::{ActionClient, ActionClientBase, ActionClientOptions, ActionClientState};
-pub use server::{ActionServer, ActionServerBase, ActionServerOptions, ActionServerState};
+pub use client::*;
+pub use server::*;
 pub use server_goal_handle::ServerGoalHandle;
 
 /// A unique identifier for a goal request.

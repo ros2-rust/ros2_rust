@@ -8,8 +8,8 @@ use rosidl_runtime_rs::{Message, RmwMessage};
 
 use crate::{
     error::ToResult, qos::QoSProfile, rcl_bindings::*, IntoPrimitiveOptions, Node, NodeHandle,
-    RclPrimitive, RclPrimitiveHandle, RclPrimitiveKind, RclrsError, Waitable, WaitableLifecycle,
-    WorkScope, Worker, WorkerCommands, ENTITY_LIFECYCLE_MUTEX,
+    RclPrimitive, RclPrimitiveHandle, RclPrimitiveKind, RclrsError, ReadyKind, Waitable,
+    WaitableLifecycle, WorkScope, Worker, WorkerCommands, ENTITY_LIFECYCLE_MUTEX,
 };
 
 mod any_subscription_callback;
@@ -261,7 +261,8 @@ impl<T, Payload: 'static> RclPrimitive for SubscriptionExecutable<T, Payload>
 where
     T: Message,
 {
-    unsafe fn execute(&mut self, payload: &mut dyn Any) -> Result<(), RclrsError> {
+    unsafe fn execute(&mut self, ready: ReadyKind, payload: &mut dyn Any) -> Result<(), RclrsError> {
+        ready.is_basic()?;
         self.callback
             .lock()
             .unwrap()

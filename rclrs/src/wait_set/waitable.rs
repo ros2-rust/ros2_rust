@@ -4,15 +4,18 @@ use std::sync::{
 };
 
 use crate::{
-    error::ToResult, rcl_bindings::*, GuardCondition, RclPrimitive, RclPrimitiveHandle,
-    RclPrimitiveKind, RclrsError,
+    error::ToResult, log_error, rcl_bindings::*, ActionServerReady, GuardCondition,
+    RclPrimitive, RclPrimitiveHandle, RclPrimitiveKind, RclrsError, ReadyKind,
 };
+
+/// How many services are added to a wait set by an action server.
+const SERVICES_PER_ACTION_SERVER: usize = 3;
 
 /// This struct manages the presence of an rcl primitive inside the wait set.
 /// It will keep track of where the primitive is within the wait set as well as
 /// automatically remove the primitive from the wait set once it isn't being
 /// used anymore.
-#[must_use = "If you do not give the Waiter to a WaitSet then it will never be useful"]
+#[must_use = "If you do not give the Waitable to a WaitSet then it will never be useful"]
 pub struct Waitable {
     pub(super) primitive: Box<dyn RclPrimitive>,
     in_use: Arc<AtomicBool>,
@@ -26,7 +29,7 @@ impl Waitable {
         guard_condition: Option<Arc<GuardCondition>>,
     ) -> (Self, WaitableLifecycle) {
         let in_use = Arc::new(AtomicBool::new(true));
-        let waiter = Self {
+        let waitable = Self {
             primitive,
             in_use: Arc::clone(&in_use),
             index_in_wait_set: None,
@@ -36,7 +39,7 @@ impl Waitable {
             in_use,
             guard_condition,
         };
-        (waiter, lifecycle)
+        (waitable, lifecycle)
     }
 
     pub(super) fn in_wait_set(&self) -> bool {
@@ -47,24 +50,49 @@ impl Waitable {
         self.in_use.load(Ordering::Relaxed)
     }
 
-    pub(super) fn is_ready(&self, wait_set: &rcl_wait_set_t) -> bool {
-        self.index_in_wait_set.is_some_and(|index| {
-            let ptr_is_null = unsafe {
+    pub(super) fn is_ready(&self, wait_set: &rcl_wait_set_t) -> Option<ReadyKind> {
+        self.index_in_wait_set.and_then(|index| {
+            unsafe {
                 // SAFETY: Each field in the wait set is an array of points.
                 // The dereferencing that we do is equivalent to obtaining the
                 // element of the array at the index-th position.
                 match self.primitive.kind() {
-                    RclPrimitiveKind::Subscription => wait_set.subscriptions.add(index).is_null(),
+                    RclPrimitiveKind::Subscription => {
+                        ReadyKind::for_ptr(wait_set.subscriptions.add(index))
+                    },
                     RclPrimitiveKind::GuardCondition => {
-                        wait_set.guard_conditions.add(index).is_null()
+                        ReadyKind::for_ptr(wait_set.guard_conditions.add(index))
                     }
-                    RclPrimitiveKind::Service => wait_set.services.add(index).is_null(),
-                    RclPrimitiveKind::Client => wait_set.clients.add(index).is_null(),
-                    RclPrimitiveKind::Timer => wait_set.timers.add(index).is_null(),
-                    RclPrimitiveKind::Event => wait_set.events.add(index).is_null(),
+                    RclPrimitiveKind::Service => {
+                        ReadyKind::for_ptr(wait_set.services.add(index))
+                    }
+                    RclPrimitiveKind::Client => {
+                        ReadyKind::for_ptr(wait_set.clients.add(index))
+                    }
+                    RclPrimitiveKind::Timer => {
+                        ReadyKind::for_ptr(wait_set.timers.add(index))
+                    }
+                    RclPrimitiveKind::Event => {
+                        ReadyKind::for_ptr(wait_set.events.add(index))
+                    }
+                    RclPrimitiveKind::ActionServer => {
+                        match self.primitive.handle() {
+                            RclPrimitiveHandle::ActionServer(handle) => {
+                                ActionServerReady::check(wait_set, handle)
+                            }
+                            handle => {
+                                log_error!(
+                                    "waitable.is_ready",
+                                    "Invalid handle for ActionServer type: {handle:?}. \
+                                    This indicates a bug in the implementation of rclrs. \
+                                    Please report this to the rclrs maintainers.",
+                                );
+                                None
+                            }
+                        }
+                    }
                 }
-            };
-            !ptr_is_null
+            }
         })
     }
 
@@ -94,6 +122,9 @@ impl Waitable {
                 }
                 RclPrimitiveHandle::Event(handle) => {
                     rcl_wait_set_add_event(wait_set, &*handle, &mut index)
+                }
+                RclPrimitiveHandle::ActionServer(handle) => {
+                    rcl_action_wait_set_add_action_server(wait_set, &*handle, &mut index)
                 }
             }
         }
@@ -153,6 +184,7 @@ impl WaitableCount {
             RclPrimitiveKind::Client => self.clients += count,
             RclPrimitiveKind::Service => self.services += count,
             RclPrimitiveKind::Event => self.events += count,
+            RclPrimitiveKind::ActionServer => self.services += SERVICES_PER_ACTION_SERVER*count,
         }
     }
 
