@@ -1,49 +1,16 @@
 use crate::{
-    action::{CancelResponse, GoalResponse, GoalUuid, ServerGoalHandle},
+    action::{CancelResponse, GoalResponse, GoalUuid, ActionServerGoalHandle},
     error::{RclReturnCode, ToResult},
     rcl_bindings::*,
-    Clock, DropGuard, Node, NodeHandle, QoSProfile, RclrsError, ENTITY_LIFECYCLE_MUTEX,
+    DropGuard, Node, NodeHandle, QoSProfile, RclrsError, ENTITY_LIFECYCLE_MUTEX,
 };
 use rosidl_runtime_rs::{Action, ActionImpl, Message, Service};
 use std::{
     borrow::Borrow,
     collections::HashMap,
     ffi::CString,
-    sync::{atomic::AtomicBool, Arc, Mutex, MutexGuard},
+    sync::{Arc, Mutex, MutexGuard, Weak},
 };
-
-// SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
-// they are running in. Therefore, this type can be safely sent to another thread.
-unsafe impl Send for rcl_action_server_t {}
-
-/// Manage the lifecycle of an `rcl_action_server_t`, including managing its dependencies
-/// on `rcl_node_t` and `rcl_context_t` by ensuring that these dependencies are
-/// [dropped after][1] the `rcl_action_server_t`.
-///
-/// [1]: <https://doc.rust-lang.org/reference/destructors.html>
-pub(crate) struct ActionServerHandle {
-    rcl_action_server: Mutex<rcl_action_server_t>,
-    node_handle: Arc<NodeHandle>,
-}
-
-impl ActionServerHandle {
-    fn lock(&self) -> MutexGuard<rcl_action_server_t> {
-        self.rcl_action_server.lock().unwrap()
-    }
-}
-
-impl Drop for ActionServerHandle {
-    fn drop(&mut self) {
-        let rcl_action_server = self.rcl_action_server.get_mut().unwrap();
-        let mut rcl_node = self.node_handle.rcl_node.lock().unwrap();
-        let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
-        // SAFETY: The entity lifecycle mutex is locked to protect against the risk of
-        // global variables in the rmw implementation being unsafely modified during cleanup.
-        unsafe {
-            rcl_action_server_fini(rcl_action_server, &mut *rcl_node);
-        }
-    }
-}
 
 pub(crate) enum ReadyMode {
     GoalRequest,
@@ -51,10 +18,6 @@ pub(crate) enum ReadyMode {
     ResultRequest,
     GoalExpired,
 }
-
-pub type GoalCallback<A> = dyn Fn(GoalUuid, <A as Action>::Goal) -> GoalResponse + 'static + Send + Sync;
-pub type CancelCallback<A> = dyn Fn(Arc<ServerGoalHandle<A>>) -> CancelResponse + 'static + Send + Sync;
-pub type AcceptedCallback<A> = dyn Fn(Arc<ServerGoalHandle<A>>) + 'static + Send + Sync;
 
 /// An action server that can respond to requests sent by ROS action clients.
 ///
@@ -70,7 +33,7 @@ pub type AcceptedCallback<A> = dyn Fn(Arc<ServerGoalHandle<A>>) + 'static + Send
 ///
 /// [1]: crate::NodeState::create_action_server
 /// [2]: crate::spin
-pub type ActionServer<ActionT> = Arc<ActionServerState<ActionT>>;
+pub type ActionServer<A> = Arc<ActionServerState<A>>;
 
 /// The inner state of an [`ActionServer`].
 ///
@@ -82,21 +45,23 @@ pub type ActionServer<ActionT> = Arc<ActionServerState<ActionT>>;
 /// The public API of the [`ActionServer`] type is implemented via `ActionServerState`.
 ///
 /// [1]: std::sync::Weak
-pub struct ActionServerState<A>
-where
-    A: ActionImpl,
-{
+pub struct ActionServerState<A: ActionImpl> {
     pub(crate) handle: Arc<ActionServerHandle>,
 
-    // TODO(nwn): Audit these three mutexes to ensure there's no deadlocks or broken invariants. We
-    // may want to join them behind a shared mutex, at least for the `goal_results` and `result_requests`.
-    goal_handles: Mutex<HashMap<GoalUuid, Arc<ServerGoalHandle<A>>>>,
-    goal_results: Mutex<HashMap<GoalUuid, <<A::GetResultService as Service>::Response as Message>::RmwMsg>>,
-    result_requests: Mutex<HashMap<GoalUuid, Vec<rmw_request_id_t>>>,
+    board: Mutex<ActionServerGoalBoard<A>>,
+
     /// Ensure the parent node remains alive as long as the subscription is held.
-    /// This implementation will change in the future.
     #[allow(unused)]
     node: Node,
+}
+
+pub struct ActionServerGoalBoard<A: ActionImpl> {
+    /// These goals have a live handle held by the user. We refer to them with a
+    /// Weak to prevent a circular reference. When the user drops the live handle
+    /// it will automatically be moved into the dropped_goals map.
+    live_goals: HashMap<GoalUuid, Weak<LiveActionServerGoalHandle<A>>>,
+    /// These goals have been dropped by the user.
+    dropped_goals: HashMap<GoalUuid, DroppedActionServerGoalHandle<A>>,
 }
 
 impl<T> ActionServerState<T>
@@ -107,9 +72,6 @@ where
     pub(crate) fn create<'a>(
         node: &Node,
         options: impl Into<ActionServerOptions<'a>>,
-        goal_callback: impl Fn(GoalUuid, T::Goal) -> GoalResponse + 'static + Send + Sync,
-        cancel_callback: impl Fn(Arc<ServerGoalHandle<T>>) -> CancelResponse + 'static + Send + Sync,
-        accepted_callback: impl Fn(Arc<ServerGoalHandle<T>>) + 'static + Send + Sync,
     ) -> Result<Self, RclrsError> {
         let options = options.into();
         // SAFETY: Getting a zero-initialized value is always safe.
@@ -180,6 +142,10 @@ where
             result_requests: Mutex::new(HashMap::new()),
             node: node.clone(),
         })
+    }
+
+    pub fn node(&self) -> &Node {
+        &self.node
     }
 
     fn take_goal_request(&self) -> Result<(<<T::SendGoalService as Service>::Request as Message>::RmwMsg, rmw_request_id_t), RclrsError> {
@@ -284,7 +250,7 @@ where
                 // Other than rcl_get_error_string(), there's no indication what happened.
                 panic!("Failed to accept goal");
             } else {
-                Arc::new(ServerGoalHandle::<T>::new(
+                Arc::new(ActionServerGoalHandle::<T>::new(
                     goal_handle_ptr,
                     Arc::downgrade(&self),
                     todo!("Create an Arc holding the goal message"),
@@ -301,7 +267,7 @@ where
             .insert(uuid, Arc::clone(&goal_handle));
 
         if response == GoalResponse::AcceptAndExecute {
-            goal_handle.execute()?;
+            goal_handle.transition_to_execute()?;
         }
 
         self.publish_status()?;
@@ -595,60 +561,6 @@ where
         Ok(())
     }
 
-    // TODO(nwn): Replace `status` with a "properly typed" action_msgs::msg::GoalStatus enum.
-    pub(crate) fn terminate_goal(&self, goal_id: &GoalUuid, status: i8, result: <T::Result as Message>::RmwMsg) -> Result<(), RclrsError> {
-        let response_rmw = <T as ActionImpl>::create_result_response(status, result);
-
-        // Publish the result to anyone listening.
-        self.publish_result(goal_id, response_rmw);
-
-        // Publish the state change.
-        self.publish_status();
-
-        // Notify rcl that a goal has terminated and to therefore recalculate the expired goal timer.
-        unsafe {
-            // SAFETY: The action server is locked and valid. No other preconditions.
-            rcl_action_notify_goal_done(&*self.handle.lock())
-        }
-        .ok()?;
-
-        // Release ownership of the goal handle. It will persist until the user also drops it.
-        self.goal_handles.lock().unwrap().remove(&goal_id);
-
-        Ok(())
-    }
-
-    pub(crate) fn publish_status(&self) -> Result<(), RclrsError> {
-        let mut goal_statuses = DropGuard::new(
-            unsafe {
-                // SAFETY: No preconditions
-                rcl_action_get_zero_initialized_goal_status_array()
-            },
-            |mut goal_statuses| unsafe {
-                // SAFETY: The goal_status array is either zero-initialized and empty or populated by
-                // `rcl_action_get_goal_status_array`. In either case, it can be safely finalized.
-                rcl_action_goal_status_array_fini(&mut goal_statuses);
-            },
-        );
-
-        unsafe {
-            // SAFETY: The action server is locked through the handle and goal_statuses is
-            // zero-initialized.
-            rcl_action_get_goal_status_array(&*self.handle.lock(), &mut *goal_statuses)
-        }
-        .ok()?;
-
-        unsafe {
-            // SAFETY: The action server is locked through the handle and goal_statuses.msg is a
-            // valid `action_msgs__msg__GoalStatusArray` by construction.
-            rcl_action_publish_status(
-                &*self.handle.lock(),
-                &goal_statuses.msg as *const _ as *const std::ffi::c_void,
-            )
-        }
-        .ok()
-    }
-
     pub(crate) fn publish_feedback(&self, goal_id: &GoalUuid, feedback: &<T as rosidl_runtime_rs::Action>::Feedback) -> Result<(), RclrsError> {
         let feedback_rmw = <<T as rosidl_runtime_rs::Action>::Feedback as Message>::into_rmw_message(std::borrow::Cow::Borrowed(feedback));
         let mut feedback_msg = <T as rosidl_runtime_rs::ActionImpl>::create_feedback_message(&goal_id.0, feedback_rmw.into_owned());
@@ -664,36 +576,58 @@ where
         }
         .ok()
     }
+}
 
-    fn publish_result(&self, goal_id: &GoalUuid, mut result: <<<T as ActionImpl>::GetResultService as Service>::Response as Message>::RmwMsg) -> Result<(), RclrsError> {
-        let goal_exists = unsafe {
-            // SAFETY: No preconditions
-            let mut goal_info = rcl_action_get_zero_initialized_goal_info();
-            goal_info.goal_id.uuid = goal_id.0;
+// SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
+// they are running in. Therefore, this type can be safely sent to another thread.
+unsafe impl Send for rcl_action_server_t {}
 
-            // SAFETY: The action server is locked through the handle. The `goal_info`
-            // argument points to a rcl_action_goal_info_t with the desired UUID.
-            rcl_action_server_goal_exists(&*self.handle.lock(), &goal_info)
-        };
-        if !goal_exists {
-            panic!("Cannot publish result for unknown goal")
+/// Manage the lifecycle of an `rcl_action_server_t`, including managing its dependencies
+/// on `rcl_node_t` and `rcl_context_t` by ensuring that these dependencies are
+/// [dropped after][1] the `rcl_action_server_t`.
+///
+/// [1]: <https://doc.rust-lang.org/reference/destructors.html>
+pub(crate) struct ActionServerHandle {
+    rcl_action_server: Mutex<rcl_action_server_t>,
+    /// Ensure the node remains active while the action server is running
+    node_handle: Arc<NodeHandle>,
+}
+
+impl ActionServerHandle {
+    pub(super) fn lock(&self) -> MutexGuard<rcl_action_server_t> {
+        self.rcl_action_server.lock().unwrap()
+    }
+
+    pub(super) fn publish_status(&self) -> Result<(), RclrsError> {
+        let mut goal_statuses = DropGuard::new(
+            unsafe {
+                // SAFETY: No preconditions
+                rcl_action_get_zero_initialized_goal_status_array()
+            },
+            |mut goal_statuses| unsafe {
+                // SAFETY: The goal_status array is either zero-initialized and empty or populated by
+                // `rcl_action_get_goal_status_array`. In either case, it can be safely finalized.
+                rcl_action_goal_status_array_fini(&mut goal_statuses);
+            },
+        );
+
+        let rcl_handle = self.lock();
+        unsafe {
+            // SAFETY: The action server is locked through the handle and goal_statuses is
+            // zero-initialized.
+            rcl_action_get_goal_status_array(&*rcl_handle, &mut *goal_statuses)
         }
+        .ok()?;
 
-        // TODO(nwn): Fix synchronization problem between goal_results and result_requests.
-        // Currently, there is a gap between the request queue being drained and the result being
-        // stored for future requests. Any requests received during that gap would never receive a
-        // response. Fixing this means we'll need combined locking over these two hash maps.
-
-        // Respond to all queued requests.
-        if let Some(result_requests) = self.result_requests.lock().unwrap().remove(&goal_id) {
-            for mut result_request in result_requests {
-                self.send_result_response(result_request, &mut result)?;
-            }
+        unsafe {
+            // SAFETY: The action server is locked through the handle and goal_statuses.msg is a
+            // valid `action_msgs__msg__GoalStatusArray` by construction.
+            rcl_action_publish_status(
+                &*rcl_handle,
+                &goal_statuses.msg as *const _ as *const std::ffi::c_void,
+            )
         }
-
-        self.goal_results.lock().unwrap().insert(*goal_id, result);
-
-        Ok(())
+        .ok()
     }
 }
 

@@ -5,7 +5,7 @@ use std::{
 
 use crate::{
     rcl_bindings::*, ContextHandle, RclPrimitive, RclPrimitiveHandle, RclPrimitiveKind, RclrsError,
-    ToResult, Waitable, WaitableLifecycle,
+    ReadyKind, ToResult, Waitable, WaitableLifecycle,
 };
 
 /// A waitable entity used for waking up a wait set manually.
@@ -206,7 +206,8 @@ struct GuardConditionExecutable {
 }
 
 impl RclPrimitive for GuardConditionExecutable {
-    unsafe fn execute(&mut self, _: &mut dyn Any) -> Result<(), RclrsError> {
+    unsafe fn execute(&mut self, ready: ReadyKind, _: &mut dyn Any) -> Result<(), RclrsError> {
+        ready.is_basic()?;
         if let Some(callback) = &mut self.callback {
             callback();
         }

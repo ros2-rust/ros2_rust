@@ -1,14 +1,17 @@
-pub(crate) mod client;
-pub(crate) mod server;
-mod server_goal_handle;
-mod server_goal_state;
+use std::ops::Deref;
+
+pub(crate) mod action_client;
+pub(crate) mod action_server;
+mod action_server_goal_handle;
+mod action_server_goal_state;
 
 use crate::rcl_bindings::RCL_ACTION_UUID_SIZE;
 use std::fmt;
 
-pub use client::*;
-pub use server::*;
-pub use server_goal_handle::ServerGoalHandle;
+pub use action_client::*;
+pub use action_server::*;
+use action_server_goal_handle::{LiveActionServerGoalHandle, DroppedActionServerGoalHandle};
+use action_server_goal_state::*;
 
 /// A unique identifier for a goal request.
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -34,6 +37,14 @@ impl fmt::Display for GoalUuid {
                self.0[14],
                self.0[15],
                )
+    }
+}
+
+impl Deref for GoalUuid {
+    type Target = [u8; RCL_ACTION_UUID_SIZE];
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 
