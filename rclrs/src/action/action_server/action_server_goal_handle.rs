@@ -1,7 +1,7 @@
 use crate::{
     rcl_bindings::*,
     log_error,
-    GoalUuid, RclrsError, ToResult,
+    GoalUuid, ToResult,
 };
 use super::{GoalStatus};
 use std::sync::{Mutex, MutexGuard};

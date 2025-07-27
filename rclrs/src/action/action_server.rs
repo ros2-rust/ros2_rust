@@ -18,6 +18,9 @@ pub use accepted_goal::*;
 mod action_server_goal_handle;
 use action_server_goal_handle::*;
 
+mod cancellation_state;
+use cancellation_state::*;
+
 mod cancelling_goal;
 use cancelling_goal::*;
 
