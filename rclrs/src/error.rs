@@ -58,7 +58,19 @@ pub enum RclrsError {
         expected: ReadyKind,
         /// The ready information that was received.
         received: ReadyKind,
-    }
+    },
+    /// From rcl documentation for rcl_action_accept_new_goal:
+    ///
+    /// If a failure occurs, `NULL` is returned and an error message is set.
+    /// Possible reasons for failure:
+    ///   - action server is invalid
+    ///   - goal info is invalid
+    ///   - goal ID is already being tracked by the action server
+    ///   - memory allocation failure
+    ///
+    /// We have no way of diagnosing which of these errors caused the failure, so
+    /// all we can do is indicate that an error occurred with accepting the goal.
+    GoalAcceptanceError,
 }
 
 impl RclrsError {
@@ -135,6 +147,12 @@ impl Display for RclrsError {
                     \n - Actual: {received:?}",
                 )
             }
+            RclrsError::GoalAcceptanceError => {
+                write!(
+                    f,
+                    "An error occurred while trying to accept an action server goal",
+                )
+            }
         }
     }
 }
@@ -150,7 +168,7 @@ impl Display for RclrsError {
 /// [1]: std::error::Error
 /// [2]: crate::RclrsError
 #[derive(Debug, PartialEq, Eq)]
-pub struct RclErrorMsg(String);
+pub struct RclErrorMsg(pub(crate) String);
 
 impl Display for RclErrorMsg {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

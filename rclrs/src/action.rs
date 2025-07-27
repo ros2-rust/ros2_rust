@@ -3,15 +3,13 @@ use std::ops::Deref;
 pub(crate) mod action_client;
 pub(crate) mod action_server;
 mod action_server_goal_handle;
-mod action_server_goal_state;
 
 use crate::rcl_bindings::RCL_ACTION_UUID_SIZE;
 use std::fmt;
 
 pub use action_client::*;
 pub use action_server::*;
-use action_server_goal_handle::{LiveActionServerGoalHandle, DroppedActionServerGoalHandle};
-use action_server_goal_state::*;
+use action_server_goal_handle::*;
 
 /// A unique identifier for a goal request.
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -61,6 +59,7 @@ pub enum GoalResponse {
 
 /// The response returned by an [`ActionServer`]'s cancel callback when a goal is requested to be cancelled.
 #[derive(PartialEq, Eq)]
+#[repr(i8)]
 pub enum CancelResponse {
     /// The server will not try to cancel the goal.
     Reject = 1,

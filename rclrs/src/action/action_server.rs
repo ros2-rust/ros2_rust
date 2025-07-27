@@ -1,16 +1,34 @@
 use crate::{
-    action::{CancelResponse, GoalResponse, GoalUuid, ActionServerGoalHandle},
+    action::{CancelResponse, GoalResponse, GoalUuid},
     error::{RclReturnCode, ToResult},
     rcl_bindings::*,
     DropGuard, Node, NodeHandle, QoSProfile, RclrsError, ENTITY_LIFECYCLE_MUTEX,
 };
-use rosidl_runtime_rs::{Action, ActionImpl, Message, Service};
+use rosidl_runtime_rs::{ActionImpl, Message, Service};
 use std::{
     borrow::Borrow,
     collections::HashMap,
     ffi::CString,
     sync::{Arc, Mutex, MutexGuard, Weak},
 };
+
+mod accepted_goal;
+pub use accepted_goal::*;
+
+mod action_server_goal_handle;
+use action_server_goal_handle::*;
+
+mod cancelling_goal;
+use cancelling_goal::*;
+
+mod executing_goal;
+pub use executing_goal::*;
+
+mod live_action_server_goal;
+use live_action_server_goal::*;
+
+mod requested_goal;
+pub use requested_goal::*;
 
 pub(crate) enum ReadyMode {
     GoalRequest,
@@ -45,8 +63,8 @@ pub type ActionServer<A> = Arc<ActionServerState<A>>;
 /// The public API of the [`ActionServer`] type is implemented via `ActionServerState`.
 ///
 /// [1]: std::sync::Weak
-pub struct ActionServerState<A: ActionImpl> {
-    pub(crate) handle: Arc<ActionServerHandle>,
+struct ActionServerState<A: ActionImpl> {
+    handle: Arc<ActionServerHandle>,
 
     board: Mutex<ActionServerGoalBoard<A>>,
 
@@ -59,9 +77,7 @@ pub struct ActionServerGoalBoard<A: ActionImpl> {
     /// These goals have a live handle held by the user. We refer to them with a
     /// Weak to prevent a circular reference. When the user drops the live handle
     /// it will automatically be moved into the dropped_goals map.
-    live_goals: HashMap<GoalUuid, Weak<LiveActionServerGoalHandle<A>>>,
-    /// These goals have been dropped by the user.
-    dropped_goals: HashMap<GoalUuid, DroppedActionServerGoalHandle<A>>,
+    live_goals: HashMap<GoalUuid, Weak<LiveActionServerGoal<A>>>,
 }
 
 impl<T> ActionServerState<T>
@@ -561,21 +577,6 @@ where
         Ok(())
     }
 
-    pub(crate) fn publish_feedback(&self, goal_id: &GoalUuid, feedback: &<T as rosidl_runtime_rs::Action>::Feedback) -> Result<(), RclrsError> {
-        let feedback_rmw = <<T as rosidl_runtime_rs::Action>::Feedback as Message>::into_rmw_message(std::borrow::Cow::Borrowed(feedback));
-        let mut feedback_msg = <T as rosidl_runtime_rs::ActionImpl>::create_feedback_message(&goal_id.0, feedback_rmw.into_owned());
-        unsafe {
-            // SAFETY: The action server is locked through the handle, meaning that no other
-            // non-thread-safe functions can be called on it at the same time. The feedback_msg is
-            // exclusively owned here, ensuring that it won't be modified during the call.
-            // rcl_action_publish_feedback() guarantees that it won't modify `feedback_msg`.
-            rcl_action_publish_feedback(
-                &*self.handle.lock(),
-                &mut feedback_msg as *mut _ as *mut std::ffi::c_void,
-            )
-        }
-        .ok()
-    }
 }
 
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
@@ -591,6 +592,9 @@ pub(crate) struct ActionServerHandle {
     rcl_action_server: Mutex<rcl_action_server_t>,
     /// Ensure the node remains active while the action server is running
     node_handle: Arc<NodeHandle>,
+    /// Ensure the `impl_*` of the action server goals remain valid until they
+    /// have expired or until the rcl_action_server_t gets fini-ed.
+    pub(super) goals: Mutex<HashMap<GoalUuid, Arc<ActionServerGoalHandle>>>,
 }
 
 impl ActionServerHandle {
@@ -671,4 +675,26 @@ impl<'a, T: Borrow<str> + ?Sized + 'a> From<&'a T> for ActionServerOptions<'a> {
     fn from(value: &'a T) -> Self {
         Self::new(value.borrow())
     }
+}
+
+/// Values defined by `action_msgs/msg/GoalStatus`
+#[repr(i8)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+enum GoalStatus {
+    Unknown = 0,
+    Accepted = 1,
+    Executing = 2,
+    Cancelling = 3,
+    Succeeded = 4,
+    Cancelled = 5,
+    Aborted = 6,
+}
+
+/// Possible status values for terminal states
+#[repr(i8)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+enum TerminalStatus {
+    Succeeded = 4,
+    Cancelled = 5,
+    Aborted = 6,
 }
