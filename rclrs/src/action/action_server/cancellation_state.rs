@@ -8,7 +8,7 @@ use crate::{
         unique_identifier_msgs::msg::UUID,
     },
     log_error,
-    CancelResponse, GoalUuid, ToResult, Node,
+    CancelResponse, GoalUuid, ToResult, Node, RclrsErrorFilter,
 };
 use super::ActionServerHandle;
 use std::{
@@ -18,20 +18,20 @@ use std::{
     future::Future,
 };
 use futures::{future::{select, Either}, pin_mut};
-use rosidl_runtime_rs::Message;
+use rosidl_runtime_rs::{Action, Message};
 use tokio::sync::watch::{Sender, Receiver, channel as watch_channel};
 
-pub(super) struct CancellationState {
+pub(super) struct CancellationState<A: Action> {
     receiver: Receiver<bool>,
     sender: Sender<bool>,
 
     /// We put a mutex on the mode because when we respond to cancellation
     /// requests we need to ensure that we update the cancellation mode
     /// atomically
-    mode: Mutex<CancellationMode>,
+    mode: Mutex<CancellationMode<A>>,
 }
 
-impl CancellationState {
+impl<A: Action> CancellationState<A> {
     pub(super) fn until_cancel_requested<F: Future + Unpin>(&self, f: F) -> impl Future<Output = Result<F::Output, F>> {
         let mut watcher = self.receiver.clone();
         async move {
@@ -51,7 +51,7 @@ impl CancellationState {
 
     pub(super) fn request_cancellation(
         &self,
-        request: CancellationRequest,
+        request: CancellationRequest<A>,
         uuid: &GoalUuid,
     ) {
         let mut mode = self.mode.lock().unwrap();
@@ -121,7 +121,7 @@ impl CancellationState {
     }
 }
 
-impl Default for CancellationState {
+impl<A: Action> Default for CancellationState<A> {
     fn default() -> Self {
         let (sender, receiver) = watch_channel(false);
         Self {
@@ -132,9 +132,9 @@ impl Default for CancellationState {
     }
 }
 
-pub(super) enum CancellationMode {
+pub(super) enum CancellationMode<A: Action> {
     None,
-    CancelRequested(Vec<CancellationRequest>),
+    CancelRequested(Vec<CancellationRequest<A>>),
     Cancelling,
 }
 
@@ -142,15 +142,23 @@ pub(super) enum CancellationMode {
 /// can trigger multiple goal cancellations at once. This allows us to
 /// asynchronously receive the accept/reject results from all the different goals
 /// and then issue the reply once all are received.
-pub(super) struct CancellationRequest {
-    inner: Arc<Mutex<CancellationRequestInner>>,
+pub(super) struct CancellationRequest<A: Action> {
+    inner: Arc<Mutex<CancellationRequestInner<A>>>,
 }
 
-impl CancellationRequest {
+impl<A: Action> Clone for CancellationRequest<A> {
+    fn clone(&self) -> Self {
+        Self {
+            inner: Arc::clone(&self.inner)
+        }
+    }
+}
+
+impl<A: Action> CancellationRequest<A> {
     pub(super) fn new(
         id: rmw_request_id_t,
         waiting_for: Vec<GoalUuid>,
-        server: Arc<ActionServerHandle>,
+        server: Arc<ActionServerHandle<A>>,
         node: Node,
     ) -> Self {
         Self {
@@ -166,7 +174,7 @@ impl CancellationRequest {
         }
     }
 
-    fn accept(&self, uuid: GoalUuid) {
+    pub(super) fn accept(&self, uuid: GoalUuid) {
         let mut inner = self.inner.lock().unwrap();
         if !inner.received.insert(uuid) {
             return;
@@ -193,17 +201,17 @@ impl CancellationRequest {
 
 }
 
-struct CancellationRequestInner {
+struct CancellationRequestInner<A: Action> {
     id: rmw_request_id_t,
     waiting_for: Vec<GoalUuid>,
     received: HashSet<GoalUuid>,
     accepted: Vec<GoalInfo>,
     response_sent: bool,
-    server: Arc<ActionServerHandle>,
+    server: Arc<ActionServerHandle<A>>,
     node: Node,
 }
 
-impl CancellationRequestInner {
+impl<A: Action> CancellationRequestInner<A> {
     fn respond_if_ready(&mut self) {
         for expected in &self.waiting_for {
             if !self.received.contains(expected) {
@@ -239,8 +247,9 @@ impl CancellationRequestInner {
                 &mut self.id,
                 &mut response_rmw as *mut _ as *mut _,
             )
-            .ok()
-        };
+        }
+        .ok()
+        .timeout_ok();
 
         if let Err(err) = r {
             log_error!(
@@ -251,7 +260,7 @@ impl CancellationRequestInner {
     }
 }
 
-impl Drop for CancellationRequestInner {
+impl<A: Action> Drop for CancellationRequestInner<A> {
     fn drop(&mut self) {
         if !self.response_sent {
             // As a last resort, send the response if all possible responders

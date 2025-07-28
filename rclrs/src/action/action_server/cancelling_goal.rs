@@ -1,12 +1,12 @@
 use super::{LiveActionServerGoal, TerminatedGoal};
 use std::sync::Arc;
-use rosidl_runtime_rs::ActionImpl;
+use rosidl_runtime_rs::Action;
 
-pub struct CancellingGoal<A: ActionImpl> {
+pub struct CancellingGoal<A: Action> {
     live: Arc<LiveActionServerGoal<A>>,
 }
 
-impl<A: ActionImpl> CancellingGoal<A> {
+impl<A: Action> CancellingGoal<A> {
     /// Get the goal of this action.
     pub fn goal(&self) -> &Arc<A::Goal> {
         self.live.goal()

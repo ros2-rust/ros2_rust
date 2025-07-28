@@ -1,18 +1,18 @@
 use crate::{
     rcl_bindings::*,
     log_error,
-    GoalUuid, RclrsError, ToResult, ActionServerGoalBoard,
+    GoalUuid, RclrsError, RclrsErrorFilter, ToResult, ActionServerGoalBoard,
 };
 use super::{ActionServerGoalHandle, LiveActionServerGoal, AcceptedGoal, TerminatedGoal};
 use std::sync::Arc;
-use rosidl_runtime_rs::ActionImpl;
+use rosidl_runtime_rs::Action;
 
 #[derive(Debug, Clone)]
 pub struct GoalAcceptanceError;
 
 /// An action goal that has been requested but not accepted yet. If this is
 /// dropped without being accepted then the goal request will be rejected.
-pub struct RequestedGoal<A: ActionImpl> {
+pub struct RequestedGoal<A: Action> {
     board: Arc<ActionServerGoalBoard<A>>,
     goal_request: Arc<A::Goal>,
     uuid: GoalUuid,
@@ -20,7 +20,7 @@ pub struct RequestedGoal<A: ActionImpl> {
     accepted: bool,
 }
 
-impl<A: ActionImpl> RequestedGoal<A> {
+impl<A: Action> RequestedGoal<A> {
     /// Get the goal of this action.
     pub fn goal(&self) -> &Arc<A::Goal> {
         &self.goal_request
@@ -106,7 +106,7 @@ impl<A: ActionImpl> RequestedGoal<A> {
 
     fn send_goal_response(&mut self) -> Result<(), RclrsError> {
         let stamp = self.board.node().get_clock().now().to_sec_nanosec().unwrap_or((0, 0));
-        let mut response_rmw = <A as ActionImpl>::create_goal_response(self.accepted, stamp);
+        let mut response_rmw = <A as Action>::create_goal_response(self.accepted, stamp);
         unsafe {
             rcl_action_send_goal_response(
                 &*self.board.handle.lock(),
@@ -115,6 +115,7 @@ impl<A: ActionImpl> RequestedGoal<A> {
             )
         }
         .ok()
+        .timeout_ok()
     }
 
     pub(super) fn new(
@@ -133,7 +134,7 @@ impl<A: ActionImpl> RequestedGoal<A> {
     }
 }
 
-impl<A: ActionImpl> Drop for RequestedGoal<A> {
+impl<A: Action> Drop for RequestedGoal<A> {
     fn drop(&mut self) {
         if !self.accepted {
             // We should notify that the goal has been rejected.

@@ -1,16 +1,17 @@
 use crate::{
-    action::{CancelResponse, GoalResponse, GoalUuid},
-    error::{RclReturnCode, ToResult},
+    action::GoalUuid,
+    error::ToResult,
     rcl_bindings::*,
     DropGuard, Node, NodeHandle, QoSProfile, RclPrimitive, RclrsError,
     RclPrimitiveHandle, RclPrimitiveKind, ReadyKind, Waitable, WaitableLifecycle, ENTITY_LIFECYCLE_MUTEX,
 };
-use rosidl_runtime_rs::{ActionImpl, Message, Service};
+use rosidl_runtime_rs::{Action, Message, RmwGoalRequest, RmwResultRequest};
 use std::{
     any::Any,
     borrow::Borrow,
     collections::HashMap,
     ffi::CString,
+    panic::UnwindSafe,
     sync::{Arc, Mutex, MutexGuard, Weak},
 };
 use futures::future::BoxFuture;
@@ -108,7 +109,7 @@ pub type ActionServer<A> = Arc<ActionServerState<A>>;
 /// The public API of the [`ActionServer`] type is implemented via `ActionServerState`.
 ///
 /// [1]: std::sync::Weak
-struct ActionServerState<A: ActionImpl> {
+struct ActionServerState<A: Action> {
     board: Arc<ActionServerGoalBoard<A>>,
 
     /// Holding onto this keeps the waitable for this action server alive in the
@@ -117,12 +118,12 @@ struct ActionServerState<A: ActionImpl> {
     lifecycle: WaitableLifecycle,
 }
 
-impl<A: ActionImpl> ActionServerState<A> {
+impl<A: Action> ActionServerState<A> {
     /// Creates a new action server.
     pub(crate) fn create<'a>(
         node: &Node,
         options: impl Into<ActionServerOptions<'a>>,
-        receiver: GoalReceiver<A>,
+        dispatch: GoalDispatch<A>,
     ) -> Result<Self, RclrsError> {
         let options = options.into();
         // SAFETY: Getting a zero-initialized value is always safe.
@@ -170,7 +171,7 @@ impl<A: ActionImpl> ActionServerState<A> {
             goals: Default::default(),
         });
 
-        let board = Arc::new(ActionServerGoalBoard::new(receiver, handle, node));
+        let board = Arc::new(ActionServerGoalBoard::new(dispatch, handle, node));
 
         let async_commands = node.commands().async_worker_commands();
         let (waitable, lifecycle) = Waitable::new(
@@ -185,24 +186,24 @@ impl<A: ActionImpl> ActionServerState<A> {
     }
 }
 
-pub struct ActionServerGoalBoard<A: ActionImpl> {
+pub struct ActionServerGoalBoard<A: Action> {
     /// These goals have a live handle held by the user. We refer to them with a
     /// Weak to prevent a circular reference. When the user drops the live handle
     /// it will automatically be moved into the dropped_goals map.
     live_goals: Mutex<HashMap<GoalUuid, Weak<LiveActionServerGoal<A>>>>,
-    receiver: GoalReceiver<A>,
-    handle: Arc<ActionServerHandle>,
+    dispatch: Mutex<GoalDispatch<A>>,
+    handle: Arc<ActionServerHandle<A>>,
     node: Node,
 }
 
-impl<A: ActionImpl> ActionServerGoalBoard<A> {
+impl<A: Action> ActionServerGoalBoard<A> {
     fn new(
-        receiver: GoalReceiver<A>,
-        handle: Arc<ActionServerHandle>,
+        dispatch: GoalDispatch<A>,
+        handle: Arc<ActionServerHandle<A>>,
         node: &Node,
     ) -> Self {
         Self {
-            receiver,
+            dispatch: Mutex::new(dispatch),
             handle,
             node: Arc::clone(node),
             live_goals: Default::default(),
@@ -213,178 +214,60 @@ impl<A: ActionImpl> ActionServerGoalBoard<A> {
         &self.node
     }
 
-    fn send_goal_response(
-        &self,
-        mut request_id: rmw_request_id_t,
-        accepted: bool,
-    ) -> Result<(), RclrsError> {
-        let mut response_rmw = <A as ActionImpl>::create_goal_response(accepted, (0, 0));
-        let handle = &*self.handle.lock();
-        let result = unsafe {
-            // SAFETY: The action server handle is locked and so synchronized with other
-            // functions. The request_id and response message are uniquely owned, and so will
-            // not mutate during this function call.
-            // Also, when appropriate, `rcl_action_accept_new_goal()` has been called beforehand,
-            // as specified in the `rcl_action` docs.
-            rcl_action_send_goal_response(
-                handle,
-                &mut request_id,
-                &mut response_rmw as *mut _ as *mut _,
-            )
-        }
-        .ok();
-        match result {
-            Ok(()) => Ok(()),
-            Err(RclrsError::RclError {
-                code: RclReturnCode::Timeout,
-                ..
-            }) => {
-                // TODO(nwn): Log an error and continue.
-                // (See https://github.com/ros2/rclcpp/pull/2215 for reasoning.)
-                Ok(())
-            }
-            _ => result,
-        }
-    }
-
     fn execute_goal_request(self: &Arc<Self>) -> Result<(), RclrsError> {
-        let (request, request_id) = match self.handle.take_goal_request::<A>() {
+        let (request, goal_request_id) = match self.handle.take_goal_request() {
             Ok(res) => res,
-            Err(RclrsError::RclError {
-                code: RclReturnCode::ServiceTakeFailed,
-                ..
-            }) => {
-                // Spurious wakeup – this may happen even when a waitset indicated that this
-                // action was ready, so it shouldn't be an error.
-                return Ok(());
-            }
-            Err(err) => return Err(err),
-        };
+            Err(err) => {
+                if err.is_take_failed() {
+                    // Spurious wakeup – this may happen even when a waitset indicated that this
+                    // action was ready, so it shouldn't be an error.
+                    return Ok(());
+                }
 
-        let uuid = GoalUuid(*<A as ActionImpl>::get_goal_request_uuid(&request));
-
-
-        // Don't continue if the goal was rejected by the user.
-        if response == GoalResponse::Reject {
-            return self.send_goal_response(request_id, false);
-        }
-
-        let goal_handle = {
-            // SAFETY: No preconditions
-            let mut goal_info = unsafe { rcl_action_get_zero_initialized_goal_info() };
-            // Only populate the goal UUID; the timestamp will be set internally by
-            // rcl_action_accept_new_goal().
-            goal_info.goal_id.uuid = uuid.0;
-
-            let server_handle = &mut *self.handle.lock();
-            let goal_handle_ptr = unsafe {
-                // SAFETY: The action server handle is locked and so synchronized with other
-                // functions. The request_id and response message are uniquely owned, and so will
-                // not mutate during this function call. The returned goal handle pointer should be
-                // valid unless it is null.
-                rcl_action_accept_new_goal(server_handle, &goal_info)
-            };
-            if goal_handle_ptr.is_null() {
-                // Other than rcl_get_error_string(), there's no indication what happened.
-                panic!("Failed to accept goal");
-            } else {
-                Arc::new(ActionServerGoalHandle::<T>::new(
-                    goal_handle_ptr,
-                    Arc::downgrade(&self),
-                    todo!("Create an Arc holding the goal message"),
-                    uuid,
-                ))
+                return Err(err);
             }
         };
 
-        self.send_goal_response(request_id, true)?;
+        let (uuid, request) = <A as Action>::split_goal_request(request);
+        let requested_goal = RequestedGoal::new(
+            Arc::clone(self),
+            Arc::new(Message::from_rmw_message(request)),
+            GoalUuid(uuid),
+            goal_request_id,
+        );
 
-        self.goal_handles
-            .lock()
-            .unwrap()
-            .insert(uuid, Arc::clone(&goal_handle));
-
-        if response == GoalResponse::AcceptAndExecute {
-            goal_handle.transition_to_execute()?;
+        match &mut *self.dispatch.lock()? {
+            GoalDispatch::Callback(callback) => {
+                let f = callback(requested_goal);
+                let _ = self.node.commands().run(f);
+            }
+            GoalDispatch::Sender(sender) => {
+                // A send error means the user has dropped their receiver, so
+                // the requested goal will be dropped and then the goal will be
+                // automatically rejected, so we don't need to do anyting with
+                // SendErrors from here.
+                let _ = sender.send(requested_goal);
+            }
         }
-
-        self.publish_status()?;
-
-        // TODO: Call the user's goal_accepted callback.
-        todo!("Call self.accepted_callback(goal_handle)");
 
         Ok(())
     }
 
-    fn take_cancel_request(&self) -> Result<(action_msgs__srv__CancelGoal_Request, rmw_request_id_t), RclrsError> {
-        let mut request_id = rmw_request_id_t {
-            writer_guid: [0; 16],
-            sequence_number: 0,
-        };
-        // SAFETY: No preconditions
-        let mut request_rmw = unsafe { rcl_action_get_zero_initialized_cancel_request() };
-        let handle = &*self.handle.lock();
-        unsafe {
-            // SAFETY: The action server is locked by the handle. The request_id is a
-            // zero-initialized rmw_request_id_t, and the request_rmw is a zero-initialized
-            // action_msgs__srv__CancelGoal_Request.
-            rcl_action_take_cancel_request(
-                handle,
-                &mut request_id,
-                &mut request_rmw as *mut _ as *mut _,
-            )
-        }
-        .ok()?;
-
-        Ok((request_rmw, request_id))
-    }
-
-    fn send_cancel_response(
-        &self,
-        mut request_id: rmw_request_id_t,
-        response_rmw: &mut action_msgs__srv__CancelGoal_Response,
-    ) -> Result<(), RclrsError> {
-        let handle = &*self.handle.lock();
-        let result = unsafe {
-            // SAFETY: The action server handle is locked and so synchronized with other functions.
-            // The request_id and response are both uniquely owned or borrowed, and so neither will
-            // mutate during this function call.
-            rcl_action_send_cancel_response(
-                handle,
-                &mut request_id,
-                response_rmw as *mut _ as *mut _,
-            )
-        }
-        .ok();
-        match result {
-            Ok(()) => Ok(()),
-            Err(RclrsError::RclError {
-                code: RclReturnCode::Timeout,
-                ..
-            }) => {
-                // TODO(nwn): Log an error and continue.
-                // (See https://github.com/ros2/rclcpp/pull/2215 for reasoning.)
-                Ok(())
-            }
-            _ => result,
-        }
-    }
-
     fn execute_cancel_request(&self) -> Result<(), RclrsError> {
-        let (request, request_id) = match self.take_cancel_request() {
+        let (request, request_id) = match self.handle.take_cancel_request() {
             Ok(res) => res,
-            Err(RclrsError::RclError {
-                code: RclReturnCode::ServiceTakeFailed,
-                ..
-            }) => {
-                // Spurious wakeup – this may happen even when a waitset indicated that this
-                // action was ready, so it shouldn't be an error.
-                return Ok(());
+            Err(err) => {
+                if err.is_take_failed() {
+                    // Spurious wakeup – this may happen even when a waitset indicated that this
+                    // action was ready, so it shouldn't be an error.
+                    return Ok(());
+                }
+
+                return Err(err);
             }
-            Err(err) => return Err(err),
         };
 
-        let mut response_rmw = {
+        let response_rmw = {
             // SAFETY: No preconditions
             let mut response_rmw = unsafe { rcl_action_get_zero_initialized_cancel_response() };
             unsafe {
@@ -407,8 +290,7 @@ impl<A: ActionImpl> ActionServerGoalBoard<A> {
             })
         };
 
-        let num_candidates = response_rmw.msg.goals_canceling.size;
-        let mut num_accepted = 0;
+        let mut waiting_for = Vec::new();
         for idx in 0..response_rmw.msg.goals_canceling.size {
             let goal_info = unsafe {
                 // SAFETY: The array pointed to by response_rmw.msg.goals_canceling.data is
@@ -416,153 +298,68 @@ impl<A: ActionImpl> ActionServerGoalBoard<A> {
                 &*response_rmw.msg.goals_canceling.data.add(idx)
             };
             let goal_uuid = GoalUuid(goal_info.goal_id.uuid);
+            waiting_for.push(goal_uuid);
+        }
 
-            let response = {
-                if let Some(goal_handle) = self.goal_handles.lock().unwrap().get(&goal_uuid) {
-                    let response: CancelResponse = todo!("Call self.cancel_callback(goal_handle)");
-                    if response == CancelResponse::Accept {
-                        // Still reject the request if the goal is no longer cancellable.
-                        if goal_handle.cancel().is_ok() {
-                            CancelResponse::Accept
-                        } else {
-                            CancelResponse::Reject
-                        }
-                    } else {
-                        CancelResponse::Reject
+        let cancellation_request = CancellationRequest::new(
+            request_id,
+            waiting_for.clone(),
+            Arc::clone(&self.handle),
+            Arc::clone(&self.node),
+        );
+
+        let live_goals = self.live_goals.lock()?;
+        for goal in waiting_for {
+            if let Some(live_goal) = live_goals.get(&goal).and_then(|goal| goal.upgrade()) {
+                live_goal.request_cancellation(cancellation_request.clone());
+            } else {
+                if let Some(handle) = self.handle.goals.lock()?.get(&goal) {
+                    // If the goal is already cancelled then we will say that we
+                    // accept the cancellation request. There is no need to
+                    // check for the cancelling state since non-live goals must
+                    // be in a terminal state.
+                    if handle.is_cancelled() {
+                        cancellation_request.accept(goal);
                     }
-                } else {
-                    CancelResponse::Reject
                 }
-            };
-
-            if response == CancelResponse::Accept {
-                // Shift the accepted entry back to the first rejected slot, if necessary.
-                if num_accepted < idx {
-                    let goal_info_slot = unsafe {
-                        // SAFETY: The array pointed to by response_rmw.msg.goals_canceling.data is
-                        // guaranteed to contain at least response_rmw.msg.goals_canceling.size
-                        // members. Since `num_accepted` is strictly less than `idx`, it is a
-                        // distinct element of the array, so there is no mutable aliasing.
-                        &mut *response_rmw.msg.goals_canceling.data.add(num_accepted)
-                    };
-                }
-                num_accepted += 1;
             }
         }
-        response_rmw.msg.goals_canceling.size = num_accepted;
-
-        // If the user rejects all individual cancel requests, consider the entire request as
-        // having been rejected.
-        if num_accepted == 0 && num_candidates > 0 {
-            // TODO(nwn): Include action_msgs__srv__CancelGoal_Response__ERROR_REJECTED in the rcl
-            // bindings.
-            response_rmw.msg.return_code = 1;
-        }
-
-        // If any goal states changed, publish a status update.
-        if num_accepted > 0 {
-            self.publish_status()?;
-        }
-
-        self.send_cancel_response(request_id, &mut response_rmw.msg)?;
 
         Ok(())
     }
 
-    fn take_result_request(&self) -> Result<(<<T::GetResultService as Service>::Request as Message>::RmwMsg, rmw_request_id_t), RclrsError> {
-        let mut request_id = rmw_request_id_t {
-            writer_guid: [0; 16],
-            sequence_number: 0,
-        };
-        type RmwRequest<T> = <<<T as ActionImpl>::GetResultService as Service>::Request as Message>::RmwMsg;
-        let mut request_rmw = RmwRequest::<T>::default();
-        let handle = &*self.handle.lock();
-        unsafe {
-            // SAFETY: The action server is locked by the handle. The request_id is a
-            // zero-initialized rmw_request_id_t, and the request_rmw is a default-initialized
-            // GetResultService request message.
-            rcl_action_take_result_request(
-                handle,
-                &mut request_id,
-                &mut request_rmw as *mut RmwRequest<T> as *mut _,
-            )
-        }
-        .ok()?;
-
-        Ok((request_rmw, request_id))
-    }
-
-    fn send_result_response(
-        &self,
-        mut request_id: rmw_request_id_t,
-        response_rmw: &mut <<<T as ActionImpl>::GetResultService as rosidl_runtime_rs::Service>::Response as Message>::RmwMsg,
-    ) -> Result<(), RclrsError> {
-        let handle = &*self.handle.lock();
-        let result = unsafe {
-            // SAFETY: The action server handle is locked and so synchronized with other functions.
-            // The request_id and response are both uniquely owned or borrowed, and so neither will
-            // mutate during this function call.
-            rcl_action_send_result_response(
-                handle,
-                &mut request_id,
-                response_rmw as *mut _ as *mut _,
-            )
-        }
-        .ok();
-        match result {
-            Ok(()) => Ok(()),
-            Err(RclrsError::RclError {
-                code: RclReturnCode::Timeout,
-                ..
-            }) => {
-                // TODO(nwn): Log an error and continue.
-                // (See https://github.com/ros2/rclcpp/pull/2215 for reasoning.)
-                Ok(())
-            }
-            _ => result,
-        }
-    }
-
     fn execute_result_request(&self) -> Result<(), RclrsError> {
-        let (request, request_id) = match self.take_result_request() {
+        let (request, mut request_id) = match self.handle.take_result_request() {
             Ok(res) => res,
-            Err(RclrsError::RclError {
-                code: RclReturnCode::ServiceTakeFailed,
-                ..
-            }) => {
-                // Spurious wakeup – this may happen even when a waitset indicated that this
-                // action was ready, so it shouldn't be an error.
-                return Ok(());
-            }
-            Err(err) => return Err(err),
+            Err(err) => {
+                if err.is_take_failed() {
+                    return Ok(());
+                }
+                return Err(err);
+            },
         };
 
-        let uuid = GoalUuid(*<T as ActionImpl>::get_result_request_uuid(&request));
-
-        let goal_exists = unsafe {
-            // SAFETY: No preconditions
-            let mut goal_info = rcl_action_get_zero_initialized_goal_info();
-            goal_info.goal_id.uuid = uuid.0;
-
-            // SAFETY: The action server is locked through the handle. The `goal_info`
-            // argument points to a rcl_action_goal_info_t with the desired UUID.
-            rcl_action_server_goal_exists(&*self.handle.lock(), &goal_info)
-        };
-
-        if goal_exists {
-            if let Some(result) = self.goal_results.lock().unwrap().get_mut(&uuid) {
-                // Respond immediately if the goal already has a response.
-                self.send_result_response(request_id, result)?;
-            } else {
-                // Queue up the request for a response once the goal terminates.
-                self.result_requests.lock().unwrap().entry(uuid).or_insert(vec![]).push(request_id);
-            }
+        let uuid = GoalUuid(*<A as Action>::get_result_request_uuid(&request));
+        if let Some(goal) = self.handle.goals.lock()?.get(&uuid) {
+            goal.add_result_request(&self.handle, request_id)?;
         } else {
-            // TODO(nwn): Include action_msgs__msg__GoalStatus__STATUS_UNKNOWN in the rcl
-            // bindings.
-            let null_response = <T::Result as Message>::RmwMsg::default();
-            let mut response_rmw = <T as ActionImpl>::create_result_response(0, null_response);
-            self.send_result_response(request_id, &mut response_rmw)?;
+            // The goal either never existed or expired, so we give back an
+            // unknown response
+            let result_rmw = <<A::Result as Message>::RmwMsg as Default>::default();
+            let mut response_rmw = A::create_result_response(GoalStatus::Unknown as i8, result_rmw);
+
+            let server = self.handle.lock();
+            unsafe {
+                // SAFETY: The action server handle is kept valid by the mutex.
+                // The compiler ensures we have unique access to the result_request
+                // and result_response structures.
+                rcl_action_send_result_response(
+                    &*server,
+                    &mut request_id,
+                    &mut response_rmw as *mut _ as *mut _
+                )
+            }
+            .ok()?;
         }
 
         Ok(())
@@ -604,11 +401,11 @@ impl<A: ActionImpl> ActionServerGoalBoard<A> {
     }
 }
 
-struct ActionServerExecutable<A: ActionImpl> {
+struct ActionServerExecutable<A: Action> {
     board: Arc<ActionServerGoalBoard<A>>,
 }
 
-impl<A: ActionImpl> RclPrimitive for ActionServerExecutable<A> {
+impl<A: Action> RclPrimitive for ActionServerExecutable<A> {
     unsafe fn execute(
         &mut self,
         ready: ReadyKind,
@@ -649,20 +446,20 @@ impl<A: ActionImpl> RclPrimitive for ActionServerExecutable<A> {
 /// [dropped after][1] the `rcl_action_server_t`.
 ///
 /// [1]: <https://doc.rust-lang.org/reference/destructors.html>
-pub(crate) struct ActionServerHandle {
+pub(crate) struct ActionServerHandle<A: Action> {
     rcl_action_server: Mutex<rcl_action_server_t>,
     /// Ensure the node remains active while the action server is running
     node_handle: Arc<NodeHandle>,
     /// Ensure the `impl_*` of the action server goals remain valid until they
     /// have expired or until the rcl_action_server_t gets fini-ed.
-    pub(super) goals: Mutex<HashMap<GoalUuid, Arc<ActionServerGoalHandle>>>,
+    pub(super) goals: Mutex<HashMap<GoalUuid, Arc<ActionServerGoalHandle<A>>>>,
 }
 
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
 // they are running in. Therefore, this type can be safely sent to another thread.
 unsafe impl Send for rcl_action_server_t {}
 
-impl ActionServerHandle {
+impl<A: Action> ActionServerHandle<A> {
     pub(super) fn lock(&self) -> MutexGuard<rcl_action_server_t> {
         self.rcl_action_server.lock().unwrap()
     }
@@ -699,12 +496,12 @@ impl ActionServerHandle {
         .ok()
     }
 
-    fn take_goal_request<A: ActionImpl>(&self) -> Result<(ActionGoalRequestRmw<A>, rmw_request_id_t), RclrsError> {
+    fn take_goal_request(&self) -> Result<(RmwGoalRequest<A>, rmw_request_id_t), RclrsError> {
         let mut request_id = rmw_request_id_t {
             writer_guid: [0; 16],
             sequence_number: 0,
         };
-        let mut request_rmw = ActionGoalRequestRmw::<A>::default();
+        let mut request_rmw = RmwGoalRequest::<A>::default();
         let handle = self.lock();
         unsafe {
             // SAFETY: The action server is locked by the handle. The request_id is a
@@ -713,7 +510,53 @@ impl ActionServerHandle {
             rcl_action_take_goal_request(
                 &*handle,
                 &mut request_id,
-                &mut request_rmw as *mut ActionGoalRequestRmw<A> as *mut _,
+                &mut request_rmw as *mut RmwGoalRequest<A> as *mut _,
+            )
+        }
+        .ok()?;
+
+        Ok((request_rmw, request_id))
+    }
+
+    fn take_cancel_request(&self) -> Result<(action_msgs__srv__CancelGoal_Request, rmw_request_id_t), RclrsError> {
+        let mut request_id = rmw_request_id_t {
+            writer_guid: [0; 16],
+            sequence_number: 0,
+        };
+        // SAFETY: No preconditions
+        let mut request_rmw = unsafe { rcl_action_get_zero_initialized_cancel_request() };
+        let handle = self.lock();
+        unsafe {
+            // SAFETY: The action server is locked by the handle. The request_id is a
+            // zero-initialized rmw_request_id_t, and the request_rmw is a zero-initialized
+            // action_msgs__srv__CancelGoal_Request.
+            rcl_action_take_cancel_request(
+                &*handle,
+                &mut request_id,
+                &mut request_rmw as *mut _ as *mut _,
+            )
+        }
+        .ok()?;
+
+        Ok((request_rmw, request_id))
+    }
+
+    fn take_result_request(&self) -> Result<(RmwResultRequest<A>, rmw_request_id_t), RclrsError> {
+        let mut request_id = rmw_request_id_t {
+            writer_guid: [0; 16],
+            sequence_number: 0,
+        };
+
+        let mut request_rmw = RmwResultRequest::<A>::default();
+        let handle = self.lock();
+        unsafe {
+            // SAFETY: The action server is locked by the handle. The request_id is a
+            // zero-initialized rmw_request_id_t, and the request_rmw is a default-initialized
+            // GetResultService request message.
+            rcl_action_take_result_request(
+                &*handle,
+                &mut request_id,
+                &mut request_rmw as *mut RmwResultRequest<A> as *mut _,
             )
         }
         .ok()?;
@@ -722,11 +565,9 @@ impl ActionServerHandle {
     }
 }
 
-type ActionGoalRequestRmw<A> = <<<A as ActionImpl>::SendGoalService as Service>::Request as Message>::RmwMsg;
-
-enum GoalReceiver<A: ActionImpl> {
-    Callback(Box<dyn FnMut(RequestedGoal<A>) -> BoxFuture<'static, TerminatedGoal> + Send + Sync>),
-    Receiver(UnboundedSender<RequestedGoal<A>>),
+enum GoalDispatch<A: Action> {
+    Callback(Box<dyn FnMut(RequestedGoal<A>) -> BoxFuture<'static, TerminatedGoal> + Send + Sync + UnwindSafe>),
+    Sender(UnboundedSender<RequestedGoal<A>>),
 }
 
 /// Values defined by `action_msgs/msg/GoalStatus`

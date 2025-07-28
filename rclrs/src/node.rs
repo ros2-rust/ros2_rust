@@ -382,7 +382,7 @@ impl NodeState {
         handle_accepted: AcceptedCallback,
     ) -> Result<ActionServer<ActionT>, RclrsError>
     where
-        ActionT: rosidl_runtime_rs::Action + rosidl_runtime_rs::ActionImpl,
+        ActionT: rosidl_runtime_rs::Action + rosidl_runtime_rs::Action,
         GoalCallback: Fn(GoalUuid, <ActionT as rosidl_runtime_rs::Action>::Goal) -> GoalResponse + 'static + Send + Sync,
         CancelCallback: Fn(Arc<ServerGoalHandle<ActionT>>) -> CancelResponse + 'static + Send + Sync,
         AcceptedCallback: Fn(Arc<ServerGoalHandle<ActionT>>) + 'static + Send + Sync,

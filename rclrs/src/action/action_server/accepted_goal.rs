@@ -3,15 +3,15 @@ use std::{
     future::Future,
     sync::Arc
 };
-use rosidl_runtime_rs::ActionImpl;
+use rosidl_runtime_rs::Action;
 
 /// This manages a goal which has been accepted but has not begun executing yet.
 /// It is allowed to transition into the executing or cancelling state.
-pub struct AcceptedGoal<A: ActionImpl> {
+pub struct AcceptedGoal<A: Action> {
     live: Arc<LiveActionServerGoal<A>>,
 }
 
-impl<A: ActionImpl> AcceptedGoal<A> {
+impl<A: Action> AcceptedGoal<A> {
     /// Get the goal of this action.
     pub fn goal(&self) -> &Arc<A::Goal> {
         self.live.goal()
@@ -94,7 +94,7 @@ impl<A: ActionImpl> AcceptedGoal<A> {
     }
 }
 
-pub enum BeginAcceptedGoal<A: ActionImpl> {
+pub enum BeginAcceptedGoal<A: Action> {
     Execute(ExecutingGoal<A>),
     Cancel(CancellingGoal<A>),
 }

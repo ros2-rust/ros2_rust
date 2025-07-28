@@ -1,17 +1,18 @@
 use crate::{
     rcl_bindings::*,
     log_error,
-    GoalUuid, RclrsError, RclErrorMsg, RclReturnCode, ToResult,
+    RclrsError, ToResult,
 };
 use super::{
-    ActionServerGoalHandle, ActionServerHandle, CancellationState, GoalStatus, TerminalStatus,
+    ActionServerGoalHandle, ActionServerHandle, CancellationState,
+    CancellationRequest, GoalStatus, TerminalStatus,
 };
 use std::{
     borrow::Cow,
-    sync::{Arc, Mutex},
+    sync::Arc,
     ops::Deref,
 };
-use rosidl_runtime_rs::{Action, ActionImpl, Message, Service};
+use rosidl_runtime_rs::{Action, Message, Service};
 
 /// This struct is the bridge to the rcl_action API for action server goals that
 /// are still active. It can be used to perform transitions while keeping data in
@@ -20,25 +21,23 @@ use rosidl_runtime_rs::{Action, ActionImpl, Message, Service};
 /// When this is dropped, the goal will automatically be transitioned into the
 /// aborted status if the user did not transition the goal into a different
 /// terminal status before dropping it.
-pub(super) struct LiveActionServerGoal<A: ActionImpl> {
+pub(super) struct LiveActionServerGoal<A: Action> {
     goal_request: Arc<A::Goal>,
-    result_response: Mutex<ResponseState<A>>,
-    cancellation: Arc<CancellationState>,
-    handle: Arc<ActionServerGoalHandle>,
-    server: Arc<ActionServerHandle>,
+    cancellation: Arc<CancellationState<A>>,
+    handle: Arc<ActionServerGoalHandle<A>>,
+    server: Arc<ActionServerHandle<A>>,
 }
 
-impl<A: ActionImpl> LiveActionServerGoal<A> {
+impl<A: Action> LiveActionServerGoal<A> {
     pub(super) fn new(
-        handle: Arc<ActionServerGoalHandle>,
-        server: Arc<ActionServerHandle>,
+        handle: Arc<ActionServerGoalHandle<A>>,
+        server: Arc<ActionServerHandle<A>>,
         goal_request: Arc<A::Goal>,
     ) -> Self {
         Self {
             handle,
             server,
             goal_request,
-            result_response: Mutex::new(ResponseState::new()),
             cancellation: Default::default(),
         }
     }
@@ -53,8 +52,12 @@ impl<A: ActionImpl> LiveActionServerGoal<A> {
         self.cancellation.cancel_requested()
     }
 
-    pub(super) fn cancellation(&self) -> &Arc<CancellationState> {
+    pub(super) fn cancellation(&self) -> &Arc<CancellationState<A>> {
         &self.cancellation
+    }
+
+    pub(super) fn request_cancellation(&self, request: CancellationRequest<A>) {
+        self.cancellation.request_cancellation(request, self.goal_id());
     }
 
     /// Indicate that the goal is being cancelled.
@@ -169,7 +172,7 @@ impl<A: ActionImpl> LiveActionServerGoal<A> {
     /// Returns an error if the goal is in any state other than executing.
     pub(super) fn publish_feedback(&self, feedback: &A::Feedback) {
         let feedback_rmw = <<A as Action>::Feedback as Message>::into_rmw_message(Cow::Borrowed(feedback));
-        let mut feedback_msg = <A as ActionImpl>::create_feedback_message(&*self.goal_id(), feedback_rmw.into_owned());
+        let mut feedback_msg = <A as Action>::create_feedback_message(&*self.goal_id(), feedback_rmw.into_owned());
         let r = unsafe {
             // SAFETY: The action server is locked through the handle, meaning that no other
             // non-thread-safe functions can be called on it at the same time. The feedback_msg is
@@ -198,10 +201,8 @@ impl<A: ActionImpl> LiveActionServerGoal<A> {
         result: &A::Result,
     ) -> Result<(), RclrsError> {
         let result_rmw = <A::Result as Message>::into_rmw_message(Cow::Borrowed(result)).into_owned();
-        let response_rmw = <A as ActionImpl>::create_result_response(status as i8, result_rmw);
-
-        // Publish the result to anyone listening.
-        self.result_response.lock().unwrap().provide_result(&self.server, self.goal_id(), response_rmw);
+        let response_rmw = <A as Action>::create_result_response(status as i8, result_rmw);
+        self.handle.provide_result(self.server.as_ref(), response_rmw)?;
 
         // Publish the state change.
         self.server.publish_status();
@@ -224,15 +225,15 @@ impl<A: ActionImpl> LiveActionServerGoal<A> {
     }
 }
 
-impl<A: ActionImpl> Deref for LiveActionServerGoal<A> {
-    type Target = ActionServerGoalHandle;
+impl<A: Action> Deref for LiveActionServerGoal<A> {
+    type Target = ActionServerGoalHandle<A>;
 
     fn deref(&self) -> &Self::Target {
         self.handle.as_ref()
     }
 }
 
-impl<A: ActionImpl> Drop for LiveActionServerGoal<A> {
+impl<A: Action> Drop for LiveActionServerGoal<A> {
     fn drop(&mut self) {
         match self.get_status() {
             GoalStatus::Accepted => {
@@ -258,91 +259,4 @@ impl<A: ActionImpl> Drop for LiveActionServerGoal<A> {
     }
 }
 
-pub(super) type ActionResponseRmw<A> = <<<A as ActionImpl>::GetResultService as Service>::Response as Message>::RmwMsg;
-
-/// Manages the state of a goal's response.
-enum ResponseState<A: ActionImpl> {
-    /// The response has not arrived yet. There may be some clients waiting for
-    /// the response, and they'll be listed here.
-    Waiting(Vec<rmw_request_id_t>),
-    /// The response is available.
-    Available(ActionResponseRmw<A>),
-}
-
-impl<A: ActionImpl> ResponseState<A> {
-    fn new() -> Self {
-        Self::Waiting(Vec::new())
-    }
-
-    fn provide_result(
-        &mut self,
-        action_server_handle: &ActionServerHandle,
-        goal_id: &GoalUuid,
-        mut result: ActionResponseRmw<A>,
-    ) -> Result<(), RclrsError> {
-        let result_requests = match self {
-            Self::Waiting(waiting) => waiting,
-            Self::Available(previous) => {
-                log_error!(
-                    "action_server_goal_handle.provide_result",
-                    "Action goal {goal_id} was provided with multiple results, \
-                    which is not allowed by the action server state machine and \
-                    indicates a bug in rclrs. The new result will be discarded.\
-                    \nPrevious result: {previous:?}\
-                    \nNew result: {result:?}"
-                );
-                return Err(RclrsError::RclError {
-                    code: RclReturnCode::ActionGoalEventInvalid,
-                    msg: Some(RclErrorMsg("action goal response is already set".to_string())),
-                });
-            }
-        };
-
-        if !result_requests.is_empty() {
-            let action_server = action_server_handle.lock();
-
-            // Respond to all queued requests.
-            for mut result_request in result_requests {
-                Self::send_result(&*action_server, &mut result_request, &mut result)?;
-            }
-        }
-
-        *self = Self::Available(result);
-        Ok(())
-    }
-
-    fn add_result_request(
-        &mut self,
-        action_server_handle: &ActionServerHandle,
-        mut result_request: rmw_request_id_t,
-    ) -> Result<(), RclrsError> {
-        match self {
-            Self::Waiting(waiting) => {
-                waiting.push(result_request);
-            }
-            Self::Available(result) => {
-                let action_server = action_server_handle.lock();
-                Self::send_result(&*action_server, &mut result_request, result)?;
-            }
-        }
-        Ok(())
-    }
-
-    fn send_result(
-        action_server: &rcl_action_server_t,
-        result_request: &mut rmw_request_id_t,
-        result_response: &mut ActionResponseRmw<A>,
-    ) -> Result<(), RclrsError> {
-        unsafe {
-            // SAFETY: The action server handle is kept valid by the
-            // ActionServerHandle. The compiler ensures we have unique access
-            // to the result_request and result_response structures.
-            rcl_action_send_result_response(
-                action_server,
-                result_request,
-                result_response as *mut _ as *mut _,
-            )
-            .ok()
-        }
-    }
-}
+pub(super) type ActionResponseRmw<A> = <<<A as Action>::GetResultService as Service>::Response as Message>::RmwMsg;

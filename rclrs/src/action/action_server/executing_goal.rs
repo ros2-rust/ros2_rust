@@ -3,13 +3,13 @@ use std::{
     future::Future,
     sync::Arc,
 };
-use rosidl_runtime_rs::ActionImpl;
+use rosidl_runtime_rs::Action;
 
-pub struct ExecutingGoal<A: ActionImpl> {
+pub struct ExecutingGoal<A: Action> {
     live: Arc<LiveActionServerGoal<A>>,
 }
 
-impl<A: ActionImpl> ExecutingGoal<A> {
+impl<A: Action> ExecutingGoal<A> {
     /// Get the goal of this action.
     pub fn goal(&self) -> &Arc<A::Goal> {
         self.live.goal()

@@ -2,6 +2,7 @@ use std::{
     error::Error,
     ffi::{CStr, NulError},
     fmt::{self, Display},
+    sync::PoisonError,
 };
 
 use crate::{rcl_bindings::*, DeclarationError, ReadyKind};
@@ -193,6 +194,7 @@ impl Error for RclrsError {
             RclrsError::ParameterDeclarationError(_) => None,
             RclrsError::PoisonedMutex => None,
             RclrsError::InvalidReadyInformation { .. } => None,
+            RclrsError::GoalAcceptanceError => None,
         }
     }
 }
@@ -317,6 +319,12 @@ pub enum RclReturnCode {
 impl From<DeclarationError> for RclrsError {
     fn from(value: DeclarationError) -> Self {
         RclrsError::ParameterDeclarationError(value)
+    }
+}
+
+impl<T> From<PoisonError<T>> for RclrsError {
+    fn from(_: PoisonError<T>) -> Self {
+        RclrsError::PoisonedMutex
     }
 }
 
