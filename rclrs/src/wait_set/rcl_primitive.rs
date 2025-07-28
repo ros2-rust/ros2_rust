@@ -83,7 +83,7 @@ pub enum ReadyKind {
 
 impl ReadyKind {
     /// Convert a pointer's status into a basic ready indicator.
-    pub fn for_ptr<T>(ptr: *const T) -> Option<Self> {
+    pub fn from_ptr<T>(ptr: *const T) -> Option<Self> {
         if ptr.is_null() {
             None
         } else {
@@ -93,12 +93,22 @@ impl ReadyKind {
 
     /// This is used by the basic primitive types to validate that they are
     /// receiving ready information that matches their primitive type.
-    pub fn is_basic(&self) -> Result<(), RclrsError> {
+    pub fn for_basic(self) -> Result<(), RclrsError> {
         match self {
             Self::Basic => Ok(()),
             _ => Err(RclrsError::InvalidReadyInformation {
                 expected: Self::Basic,
-                received: *self,
+                received: self,
+            })
+        }
+    }
+
+    pub fn for_action_server(self) -> Result<ActionServerReady, RclrsError> {
+        match self {
+            Self::ActionServer(ready) => Ok(ready),
+            _ => Err(RclrsError::InvalidReadyInformation {
+                expected: Self::ActionServer(Default::default()),
+                received: self,
             })
         }
     }

@@ -58,22 +58,22 @@ impl Waitable {
                 // element of the array at the index-th position.
                 match self.primitive.kind() {
                     RclPrimitiveKind::Subscription => {
-                        ReadyKind::for_ptr(wait_set.subscriptions.add(index))
+                        ReadyKind::from_ptr(wait_set.subscriptions.add(index))
                     },
                     RclPrimitiveKind::GuardCondition => {
-                        ReadyKind::for_ptr(wait_set.guard_conditions.add(index))
+                        ReadyKind::from_ptr(wait_set.guard_conditions.add(index))
                     }
                     RclPrimitiveKind::Service => {
-                        ReadyKind::for_ptr(wait_set.services.add(index))
+                        ReadyKind::from_ptr(wait_set.services.add(index))
                     }
                     RclPrimitiveKind::Client => {
-                        ReadyKind::for_ptr(wait_set.clients.add(index))
+                        ReadyKind::from_ptr(wait_set.clients.add(index))
                     }
                     RclPrimitiveKind::Timer => {
-                        ReadyKind::for_ptr(wait_set.timers.add(index))
+                        ReadyKind::from_ptr(wait_set.timers.add(index))
                     }
                     RclPrimitiveKind::Event => {
-                        ReadyKind::for_ptr(wait_set.events.add(index))
+                        ReadyKind::from_ptr(wait_set.events.add(index))
                     }
                     RclPrimitiveKind::ActionServer => {
                         match self.primitive.handle() {

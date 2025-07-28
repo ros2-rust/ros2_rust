@@ -2,15 +2,19 @@ use crate::{
     action::{CancelResponse, GoalResponse, GoalUuid},
     error::{RclReturnCode, ToResult},
     rcl_bindings::*,
-    DropGuard, Node, NodeHandle, QoSProfile, RclrsError, ENTITY_LIFECYCLE_MUTEX,
+    DropGuard, Node, NodeHandle, QoSProfile, RclPrimitive, RclrsError,
+    RclPrimitiveHandle, RclPrimitiveKind, ReadyKind, Waitable, WaitableLifecycle, ENTITY_LIFECYCLE_MUTEX,
 };
 use rosidl_runtime_rs::{ActionImpl, Message, Service};
 use std::{
+    any::Any,
     borrow::Borrow,
     collections::HashMap,
     ffi::CString,
     sync::{Arc, Mutex, MutexGuard, Weak},
 };
+use futures::future::BoxFuture;
+use tokio::sync::mpsc::UnboundedSender;
 
 mod accepted_goal;
 pub use accepted_goal::*;
@@ -33,11 +37,49 @@ use live_action_server_goal::*;
 mod requested_goal;
 pub use requested_goal::*;
 
-pub(crate) enum ReadyMode {
-    GoalRequest,
-    CancelRequest,
-    ResultRequest,
-    GoalExpired,
+mod terminated_goal;
+pub use terminated_goal::*;
+
+/// `ActionServerOptions` are used by [`Node::create_action_server`][1] to initialize an
+/// [`ActionServer`].
+///
+/// [1]: crate::NodeState::create_action_server
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub struct ActionServerOptions<'a> {
+    /// The name of the action implemented by this server
+    pub action_name: &'a str,
+    /// The quality of service profile for the goal service
+    pub goal_service_qos: QoSProfile,
+    /// The quality of service profile for the result service
+    pub result_service_qos: QoSProfile,
+    /// The quality of service profile for the cancel service
+    pub cancel_service_qos: QoSProfile,
+    /// The quality of service profile for the feedback topic
+    pub feedback_topic_qos: QoSProfile,
+    /// The quality of service profile for the status topic
+    pub status_topic_qos: QoSProfile,
+    // TODO(nwn): result_timeout
+}
+
+impl<'a> ActionServerOptions<'a> {
+    /// Initialize a new [`ActionServerOptions`] with default settings.
+    pub fn new(action_name: &'a str) -> Self {
+        Self {
+            action_name,
+            goal_service_qos: QoSProfile::services_default(),
+            result_service_qos: QoSProfile::services_default(),
+            cancel_service_qos: QoSProfile::services_default(),
+            feedback_topic_qos: QoSProfile::topics_default(),
+            status_topic_qos: QoSProfile::action_status_default(),
+        }
+    }
+}
+
+impl<'a, T: Borrow<str> + ?Sized + 'a> From<&'a T> for ActionServerOptions<'a> {
+    fn from(value: &'a T) -> Self {
+        Self::new(value.borrow())
+    }
 }
 
 /// An action server that can respond to requests sent by ROS action clients.
@@ -67,35 +109,25 @@ pub type ActionServer<A> = Arc<ActionServerState<A>>;
 ///
 /// [1]: std::sync::Weak
 struct ActionServerState<A: ActionImpl> {
-    handle: Arc<ActionServerHandle>,
+    board: Arc<ActionServerGoalBoard<A>>,
 
-    board: Mutex<ActionServerGoalBoard<A>>,
-
-    /// Ensure the parent node remains alive as long as the subscription is held.
+    /// Holding onto this keeps the waitable for this action server alive in the
+    /// wait set of the executor.
     #[allow(unused)]
-    node: Node,
+    lifecycle: WaitableLifecycle,
 }
 
-pub struct ActionServerGoalBoard<A: ActionImpl> {
-    /// These goals have a live handle held by the user. We refer to them with a
-    /// Weak to prevent a circular reference. When the user drops the live handle
-    /// it will automatically be moved into the dropped_goals map.
-    live_goals: HashMap<GoalUuid, Weak<LiveActionServerGoal<A>>>,
-}
-
-impl<T> ActionServerState<T>
-where
-    T: ActionImpl,
-{
+impl<A: ActionImpl> ActionServerState<A> {
     /// Creates a new action server.
     pub(crate) fn create<'a>(
         node: &Node,
         options: impl Into<ActionServerOptions<'a>>,
+        receiver: GoalReceiver<A>,
     ) -> Result<Self, RclrsError> {
         let options = options.into();
         // SAFETY: Getting a zero-initialized value is always safe.
         let mut rcl_action_server = unsafe { rcl_action_get_zero_initialized_server() };
-        let type_support = T::get_type_support() as *const rosidl_action_type_support_t;
+        let type_support = A::get_type_support() as *const rosidl_action_type_support_t;
         let action_name_c_string =
             CString::new(options.action_name).map_err(|err| RclrsError::StringContainsNul {
                 err,
@@ -135,59 +167,50 @@ where
         let handle = Arc::new(ActionServerHandle {
             rcl_action_server: Mutex::new(rcl_action_server),
             node_handle: Arc::clone(&node.handle()),
+            goals: Default::default(),
         });
 
-        let mut num_entities = WaitableNumEntities::default();
-        unsafe {
-            rcl_action_server_wait_set_get_num_entities(
-                &*handle.lock(),
-                &mut num_entities.num_subscriptions,
-                &mut num_entities.num_guard_conditions,
-                &mut num_entities.num_timers,
-                &mut num_entities.num_clients,
-                &mut num_entities.num_services,
-            )
-            .ok()?;
-        }
+        let board = Arc::new(ActionServerGoalBoard::new(receiver, handle, node));
 
-        Ok(Self {
+        let async_commands = node.commands().async_worker_commands();
+        let (waitable, lifecycle) = Waitable::new(
+            Box::new(ActionServerExecutable {
+                board: Arc::clone(&board),
+            }),
+            Some(Arc::clone(async_commands.get_guard_condition())),
+        );
+        async_commands.add_to_wait_set(waitable);
+
+        Ok(Self { board, lifecycle })
+    }
+}
+
+pub struct ActionServerGoalBoard<A: ActionImpl> {
+    /// These goals have a live handle held by the user. We refer to them with a
+    /// Weak to prevent a circular reference. When the user drops the live handle
+    /// it will automatically be moved into the dropped_goals map.
+    live_goals: Mutex<HashMap<GoalUuid, Weak<LiveActionServerGoal<A>>>>,
+    receiver: GoalReceiver<A>,
+    handle: Arc<ActionServerHandle>,
+    node: Node,
+}
+
+impl<A: ActionImpl> ActionServerGoalBoard<A> {
+    fn new(
+        receiver: GoalReceiver<A>,
+        handle: Arc<ActionServerHandle>,
+        node: &Node,
+    ) -> Self {
+        Self {
+            receiver,
             handle,
-            num_entities,
-            goal_callback: Box::new(goal_callback),
-            cancel_callback: Box::new(cancel_callback),
-            accepted_callback: Box::new(accepted_callback),
-            goal_handles: Mutex::new(HashMap::new()),
-            goal_results: Mutex::new(HashMap::new()),
-            result_requests: Mutex::new(HashMap::new()),
-            node: node.clone(),
-        })
+            node: Arc::clone(node),
+            live_goals: Default::default(),
+        }
     }
 
     pub fn node(&self) -> &Node {
         &self.node
-    }
-
-    fn take_goal_request(&self) -> Result<(<<T::SendGoalService as Service>::Request as Message>::RmwMsg, rmw_request_id_t), RclrsError> {
-        let mut request_id = rmw_request_id_t {
-            writer_guid: [0; 16],
-            sequence_number: 0,
-        };
-        type RmwRequest<T> = <<<T as ActionImpl>::SendGoalService as Service>::Request as Message>::RmwMsg;
-        let mut request_rmw = RmwRequest::<T>::default();
-        let handle = &*self.handle.lock();
-        unsafe {
-            // SAFETY: The action server is locked by the handle. The request_id is a
-            // zero-initialized rmw_request_id_t, and the request_rmw is a default-initialized
-            // SendGoalService request message.
-            rcl_action_take_goal_request(
-                handle,
-                &mut request_id,
-                &mut request_rmw as *mut RmwRequest<T> as *mut _,
-            )
-        }
-        .ok()?;
-
-        Ok((request_rmw, request_id))
     }
 
     fn send_goal_response(
@@ -195,7 +218,7 @@ where
         mut request_id: rmw_request_id_t,
         accepted: bool,
     ) -> Result<(), RclrsError> {
-        let mut response_rmw = <T as ActionImpl>::create_goal_response(accepted, (0, 0));
+        let mut response_rmw = <A as ActionImpl>::create_goal_response(accepted, (0, 0));
         let handle = &*self.handle.lock();
         let result = unsafe {
             // SAFETY: The action server handle is locked and so synchronized with other
@@ -224,8 +247,8 @@ where
         }
     }
 
-    fn execute_goal_request(self: Arc<Self>) -> Result<(), RclrsError> {
-        let (request, request_id) = match self.take_goal_request() {
+    fn execute_goal_request(self: &Arc<Self>) -> Result<(), RclrsError> {
+        let (request, request_id) = match self.handle.take_goal_request::<A>() {
             Ok(res) => res,
             Err(RclrsError::RclError {
                 code: RclReturnCode::ServiceTakeFailed,
@@ -238,12 +261,8 @@ where
             Err(err) => return Err(err),
         };
 
-        let uuid = GoalUuid(*<T as ActionImpl>::get_goal_request_uuid(&request));
+        let uuid = GoalUuid(*<A as ActionImpl>::get_goal_request_uuid(&request));
 
-        let response: GoalResponse = {
-            todo!("Optionally convert request to an idiomatic type for the user's callback.");
-            todo!("Call self.goal_callback(uuid, request)");
-        };
 
         // Don't continue if the goal was rejected by the user.
         if response == GoalResponse::Reject {
@@ -569,22 +588,61 @@ where
             if num_expired > 0 {
                 // Clean up the expired goal.
                 let uuid = GoalUuid(expired_goal.goal_id.uuid);
-                self.goal_results.lock().unwrap().remove(&uuid);
-                self.result_requests.lock().unwrap().remove(&uuid);
-                self.goal_handles.lock().unwrap().remove(&uuid);
+                self.live_goals.lock().unwrap().remove(&uuid);
+                self.handle.goals.lock().unwrap().remove(&uuid);
             } else {
                 break;
             }
         }
 
+        // Clear any lingering dropped goals from the board to avoid leaks
+        self.live_goals.lock().unwrap().retain(
+            |_, weak| weak.upgrade().is_some()
+        );
+
+        Ok(())
+    }
+}
+
+struct ActionServerExecutable<A: ActionImpl> {
+    board: Arc<ActionServerGoalBoard<A>>,
+}
+
+impl<A: ActionImpl> RclPrimitive for ActionServerExecutable<A> {
+    unsafe fn execute(
+        &mut self,
+        ready: ReadyKind,
+        _payload: &mut dyn Any,
+    ) -> Result<(), RclrsError> {
+        let ready = ready.for_action_server()?;
+
+        if ready.goal_request {
+            self.board.execute_goal_request()?;
+        }
+
+        if ready.cancel_request {
+            self.board.execute_cancel_request()?;
+        }
+
+        if ready.result_request {
+            self.board.execute_result_request()?;
+        }
+
+        if ready.goal_expired {
+            self.board.execute_goal_expired()?;
+        }
+
         Ok(())
     }
 
-}
+    fn kind(&self) -> crate::RclPrimitiveKind {
+        RclPrimitiveKind::ActionServer
+    }
 
-// SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
-// they are running in. Therefore, this type can be safely sent to another thread.
-unsafe impl Send for rcl_action_server_t {}
+    fn handle(&self) -> RclPrimitiveHandle {
+        RclPrimitiveHandle::ActionServer(self.board.handle.lock())
+    }
+}
 
 /// Manage the lifecycle of an `rcl_action_server_t`, including managing its dependencies
 /// on `rcl_node_t` and `rcl_context_t` by ensuring that these dependencies are
@@ -599,6 +657,10 @@ pub(crate) struct ActionServerHandle {
     /// have expired or until the rcl_action_server_t gets fini-ed.
     pub(super) goals: Mutex<HashMap<GoalUuid, Arc<ActionServerGoalHandle>>>,
 }
+
+// SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
+// they are running in. Therefore, this type can be safely sent to another thread.
+unsafe impl Send for rcl_action_server_t {}
 
 impl ActionServerHandle {
     pub(super) fn lock(&self) -> MutexGuard<rcl_action_server_t> {
@@ -636,48 +698,35 @@ impl ActionServerHandle {
         }
         .ok()
     }
-}
 
-/// `ActionServerOptions` are used by [`Node::create_action_server`][1] to initialize an
-/// [`ActionServer`].
-///
-/// [1]: crate::Node::create_action_server
-#[derive(Debug, Clone)]
-#[non_exhaustive]
-pub struct ActionServerOptions<'a> {
-    /// The name of the action implemented by this server
-    pub action_name: &'a str,
-    /// The quality of service profile for the goal service
-    pub goal_service_qos: QoSProfile,
-    /// The quality of service profile for the result service
-    pub result_service_qos: QoSProfile,
-    /// The quality of service profile for the cancel service
-    pub cancel_service_qos: QoSProfile,
-    /// The quality of service profile for the feedback topic
-    pub feedback_topic_qos: QoSProfile,
-    /// The quality of service profile for the status topic
-    pub status_topic_qos: QoSProfile,
-    // TODO(nwn): result_timeout
-}
-
-impl<'a> ActionServerOptions<'a> {
-    /// Initialize a new [`ActionServerOptions`] with default settings.
-    pub fn new(action_name: &'a str) -> Self {
-        Self {
-            action_name,
-            goal_service_qos: QoSProfile::services_default(),
-            result_service_qos: QoSProfile::services_default(),
-            cancel_service_qos: QoSProfile::services_default(),
-            feedback_topic_qos: QoSProfile::topics_default(),
-            status_topic_qos: QoSProfile::action_status_default(),
+    fn take_goal_request<A: ActionImpl>(&self) -> Result<(ActionGoalRequestRmw<A>, rmw_request_id_t), RclrsError> {
+        let mut request_id = rmw_request_id_t {
+            writer_guid: [0; 16],
+            sequence_number: 0,
+        };
+        let mut request_rmw = ActionGoalRequestRmw::<A>::default();
+        let handle = self.lock();
+        unsafe {
+            // SAFETY: The action server is locked by the handle. The request_id is a
+            // zero-initialized rmw_request_id_t, and the request_rmw is a default-initialized
+            // SendGoalService request message.
+            rcl_action_take_goal_request(
+                &*handle,
+                &mut request_id,
+                &mut request_rmw as *mut ActionGoalRequestRmw<A> as *mut _,
+            )
         }
+        .ok()?;
+
+        Ok((request_rmw, request_id))
     }
 }
 
-impl<'a, T: Borrow<str> + ?Sized + 'a> From<&'a T> for ActionServerOptions<'a> {
-    fn from(value: &'a T) -> Self {
-        Self::new(value.borrow())
-    }
+type ActionGoalRequestRmw<A> = <<<A as ActionImpl>::SendGoalService as Service>::Request as Message>::RmwMsg;
+
+enum GoalReceiver<A: ActionImpl> {
+    Callback(Box<dyn FnMut(RequestedGoal<A>) -> BoxFuture<'static, TerminatedGoal> + Send + Sync>),
+    Receiver(UnboundedSender<RequestedGoal<A>>),
 }
 
 /// Values defined by `action_msgs/msg/GoalStatus`

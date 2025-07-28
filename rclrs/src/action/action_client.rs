@@ -1,5 +1,5 @@
 use crate::{
-    error::ToResult, rcl_bindings::*, wait::WaitableNumEntities, Node, NodeHandle, QoSProfile,
+    error::ToResult, rcl_bindings::*, Node, NodeHandle, QoSProfile,
     RclrsError, ENTITY_LIFECYCLE_MUTEX,
 };
 use std::{

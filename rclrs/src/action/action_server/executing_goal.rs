@@ -1,4 +1,4 @@
-use super::{CancellingGoal, LiveActionServerGoal};
+use super::{CancellingGoal, LiveActionServerGoal, TerminatedGoal};
 use std::{
     future::Future,
     sync::Arc,
@@ -10,12 +10,18 @@ pub struct ExecutingGoal<A: ActionImpl> {
 }
 
 impl<A: ActionImpl> ExecutingGoal<A> {
+    /// Get the goal of this action.
+    pub fn goal(&self) -> &Arc<A::Goal> {
+        self.live.goal()
+    }
+
     /// Transition the goal into the succeeded state.
     ///
     /// "Succeeded" is a terminal state, so the state of the goal can no longer
     /// be changed after this. Publish all relevant feedback before calling this.
-    pub fn succeeded_with(self, result: &A::Result) {
+    pub fn succeeded_with(self, result: &A::Result) -> TerminatedGoal {
         self.live.transition_to_succeed(result);
+        TerminatedGoal { uuid: *self.live.goal_id() }
     }
 
     /// Process a [`Future`] until it is finished or until a cancellation request
@@ -47,6 +53,7 @@ impl<A: ActionImpl> ExecutingGoal<A> {
     ///
     /// For the goal to reach the cancelled state, you must follow this up with
     /// [`CancellingGoal::cancelled_with`].
+    #[must_use]
     pub fn begin_cancelling(self) -> CancellingGoal<A> {
         CancellingGoal::new(self.live)
     }
@@ -61,8 +68,9 @@ impl<A: ActionImpl> ExecutingGoal<A> {
     ///
     /// "Aborted" is a terminal state, so the state of the goal can no longer
     /// be changed after this. Publish all relevant feedback before calling this.
-    pub fn aborted_with(self, result: &A::Result) {
+    pub fn aborted_with(self, result: &A::Result) -> TerminatedGoal {
         self.live.transition_to_aborted(result);
+        TerminatedGoal { uuid: *self.live.goal_id() }
     }
 
     /// Publish feedback for action clients to read.

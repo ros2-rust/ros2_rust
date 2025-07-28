@@ -1,5 +1,8 @@
 use super::{CancellingGoal, ExecutingGoal, LiveActionServerGoal};
-use std::sync::Arc;
+use std::{
+    future::Future,
+    sync::Arc
+};
 use rosidl_runtime_rs::ActionImpl;
 
 /// This manages a goal which has been accepted but has not begun executing yet.
@@ -9,6 +12,11 @@ pub struct AcceptedGoal<A: ActionImpl> {
 }
 
 impl<A: ActionImpl> AcceptedGoal<A> {
+    /// Get the goal of this action.
+    pub fn goal(&self) -> &Arc<A::Goal> {
+        self.live.goal()
+    }
+
     /// Transition the goal into the executing state. This will allow you to
     /// start sending feedback and transition to other states such as cancelling,
     /// succeedded, and aborted.
@@ -16,6 +24,7 @@ impl<A: ActionImpl> AcceptedGoal<A> {
     /// You can use this even if an action client has requested a cancellation,
     /// but the cancellation request will be ignored until you handle it with
     /// [`ExecutingGoal`].
+    #[must_use]
     pub fn execute(self) -> ExecutingGoal<A> {
         ExecutingGoal::new(self.live)
     }
@@ -49,6 +58,7 @@ impl<A: ActionImpl> AcceptedGoal<A> {
     ///
     /// For the goal to reach the cancelled state, you must follow this up with
     /// [`CancellingGoal::cancelled_with`].
+    #[must_use]
     pub fn begin_cancelling(self) -> CancellingGoal<A> {
         CancellingGoal::new(self.live)
     }
@@ -65,6 +75,7 @@ impl<A: ActionImpl> AcceptedGoal<A> {
     /// transition the goal into the cancelling state and provide you with a
     /// [`CancellingGoal`]. Otherwise the goal will transition into the executing
     /// state and you will receive an [`ExecutingGoal`].
+    #[must_use]
     pub fn begin(self) -> BeginAcceptedGoal<A> {
         if self.live.cancel_requested() {
             BeginAcceptedGoal::Execute(self.execute())

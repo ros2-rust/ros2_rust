@@ -207,7 +207,7 @@ struct GuardConditionExecutable {
 
 impl RclPrimitive for GuardConditionExecutable {
     unsafe fn execute(&mut self, ready: ReadyKind, _: &mut dyn Any) -> Result<(), RclrsError> {
-        ready.is_basic()?;
+        ready.for_basic()?;
         if let Some(callback) = &mut self.callback {
             callback();
         }

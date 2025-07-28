@@ -416,7 +416,7 @@ where
     T: rosidl_runtime_rs::Service,
 {
     unsafe fn execute(&mut self, ready: ReadyKind, _: &mut dyn Any) -> Result<(), RclrsError> {
-        ready.is_basic()?;
+        ready.for_basic()?;
         self.board.lock().unwrap().execute(&self.handle)
     }
 

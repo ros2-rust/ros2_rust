@@ -44,8 +44,8 @@ impl<A: ActionImpl> LiveActionServerGoal<A> {
     }
 
     /// Get the user-provided message describing the goal.
-    pub(super) fn goal(&self) -> Arc<A::Goal> {
-        Arc::clone(&self.goal_request)
+    pub(super) fn goal(&self) -> &Arc<A::Goal> {
+        &self.goal_request
     }
 
     /// Has a cancellation been requested for this goal.
