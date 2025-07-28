@@ -48,6 +48,8 @@ pub enum RclPrimitiveKind {
     Event,
     /// Action Server
     ActionServer,
+    /// Action Client
+    ActionClient,
 }
 
 /// Used by the wait set to obtain the handle of a primitive.
@@ -67,6 +69,8 @@ pub enum RclPrimitiveHandle<'a> {
     Event(MutexGuard<'a, rcl_event_t>),
     /// Handle for an action server
     ActionServer(MutexGuard<'a, rcl_action_server_t>),
+    /// Handle for an action client
+    ActionClient(MutexGuard<'a, rcl_action_client_t>),
 }
 
 /// Describe the way in which a waitable is ready.
@@ -79,6 +83,10 @@ pub enum ReadyKind {
     /// multiple primitives. Any combination of those primitives might be ready,
     /// and we need to know which to execute specifically.
     ActionServer(ActionServerReady),
+    /// This type of readiness is specific to action clients, which consist of
+    /// multiple primitives. Any combination of those primitives might be ready,
+    /// and we need to know which to execute specifically.
+    ActionClient(ActionClientReady),
 }
 
 impl ReadyKind {
@@ -103,11 +111,23 @@ impl ReadyKind {
         }
     }
 
+    /// This is used by action servers to get their readiness information.
     pub fn for_action_server(self) -> Result<ActionServerReady, RclrsError> {
         match self {
             Self::ActionServer(ready) => Ok(ready),
             _ => Err(RclrsError::InvalidReadyInformation {
                 expected: Self::ActionServer(Default::default()),
+                received: self,
+            })
+        }
+    }
+
+    /// This is used by action clients to get their readiness information.
+    pub fn for_action_client(self) -> Result<ActionClientReady, RclrsError> {
+        match self {
+            Self::ActionClient(ready) => Ok(ready),
+            _ => Err(RclrsError::InvalidReadyInformation {
+                expected: Self::ActionClient(Default::default()),
                 received: self,
             })
         }
@@ -155,25 +175,25 @@ impl ActionServerReady {
         action_server: MutexGuard<rcl_action_server_t>,
     ) -> Option<ReadyKind> {
         let mut ready = ActionServerReady::default();
-        let r;
-        unsafe {
+        let r = unsafe {
             // SAFETY: We give a safety warning to ensure that the wait set is
             // not being used elsewhere. The action server handle is guarded by
             // the mutex. With those two requirements met, we do not need to
             // worry about this function not being thread-safe.
-            r = rcl_action_server_wait_set_get_entities_ready(
+            rcl_action_server_wait_set_get_entities_ready(
                 wait_set,
                 &*action_server,
                 &mut ready.goal_request,
                 &mut ready.cancel_request,
                 &mut ready.result_request,
                 &mut ready.goal_expired,
-            );
-        }
+            )
+        };
+
         if let Err(err) = r.ok() {
             log_error!(
                 "ActionServerReady.check",
-                "Error while checking action server: {err}",
+                "Error while checking readiness for action server: {err}",
             );
         }
 
@@ -191,5 +211,84 @@ impl ActionServerReady {
         || self.cancel_request
         || self.result_request
         || self.goal_expired
+    }
+}
+
+/// This is the ready information for an action client.
+///
+/// Action clients contain multiple service clients bundled together, as well as
+/// some subscribers. When a wait set wakes up it is possible for any number of
+/// those services or subscriptions to be ready for processing. This struct
+/// conveys which of an action client's messages are ready.
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub struct ActionClientReady {
+    /// True if there is a feedback message ready to take, false otherwise.
+    pub feedback: bool,
+    /// True if there is a status message ready to take, false otherwise.
+    pub status: bool,
+    /// True if there is a goal response message ready to take, false otherwise.
+    pub goal_response: bool,
+    /// True if there is a cancel response message ready to take, false otherwise.
+    pub cancel_response: bool,
+    /// True if there is a result response message ready to take, false otherwise.
+    pub result_response: bool,
+}
+
+impl ActionClientReady {
+    pub(crate) unsafe fn check(
+        wait_set: &rcl_wait_set_t,
+        action_client: MutexGuard<rcl_action_client_t>,
+    ) -> Option<ReadyKind> {
+        let mut ready = ActionClientReady::default();
+        let r = unsafe {
+            // SAFETY: We give a safety warning to ensure that the wait set is
+            // not being used elsewhere. The action client handle is guarded by
+            // the mutex. With those two requirements met, we do not need to
+            // worry about this function not being thread-safe.
+            rcl_action_client_wait_set_get_entities_ready(
+                wait_set,
+                &*action_client,
+                &mut ready.feedback,
+                &mut ready.status,
+                &mut ready.goal_response,
+                &mut ready.cancel_response,
+                &mut ready.result_response,
+            )
+        };
+
+        if let Err(err) = r.ok() {
+            log_error!(
+                "ActionClientReady.check",
+                "Error while checking readiness for action client: {err}",
+            );
+        }
+
+        if ready.any_ready() {
+            Some(ReadyKind::ActionClient(ready))
+        } else {
+            None
+        }
+    }
+
+    /// Check whether any of the primitives of the action client are ready. When
+    /// this is false, we can skip producing a [`ReadyKind`] entirely.
+    pub fn any_ready(&self) -> bool {
+        self.feedback
+        || self.status
+        || self.goal_response
+        || self.cancel_response
+        || self.result_response
+    }
+}
+
+impl Default for ActionClientReady {
+    fn default() -> Self {
+        Self {
+            feedback: false,
+            status: false,
+            goal_response: false,
+            cancel_response: false,
+            result_response: false,
+        }
     }
 }

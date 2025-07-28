@@ -8,10 +8,48 @@ use std::{
     marker::PhantomData,
     sync::{atomic::AtomicBool, Arc, Mutex, MutexGuard},
 };
+use rosidl_runtime_rs::Action;
 
-// SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
-// they are running in. Therefore, this type can be safely sent to another thread.
-unsafe impl Send for rcl_action_client_t {}
+/// `ActionClientOptions` are used by [`Node::create_action_client`][1] to initialize an
+/// [`ActionClient`].
+///
+/// [1]: crate::Node::create_action_client
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub struct ActionClientOptions<'a> {
+    /// The name of the action that this client will send requests to
+    pub action_name: &'a str,
+    /// The quality of service profile for the goal service
+    pub goal_service_qos: QoSProfile,
+    /// The quality of service profile for the result service
+    pub result_service_qos: QoSProfile,
+    /// The quality of service profile for the cancel service
+    pub cancel_service_qos: QoSProfile,
+    /// The quality of service profile for the feedback topic
+    pub feedback_topic_qos: QoSProfile,
+    /// The quality of service profile for the status topic
+    pub status_topic_qos: QoSProfile,
+}
+
+impl<'a> ActionClientOptions<'a> {
+    /// Initialize a new [`ActionClientOptions`] with default settings.
+    pub fn new(action_name: &'a str) -> Self {
+        Self {
+            action_name,
+            goal_service_qos: QoSProfile::services_default(),
+            result_service_qos: QoSProfile::services_default(),
+            cancel_service_qos: QoSProfile::services_default(),
+            feedback_topic_qos: QoSProfile::topics_default(),
+            status_topic_qos: QoSProfile::action_status_default(),
+        }
+    }
+}
+
+impl<'a, T: Borrow<str> + ?Sized + 'a> From<&'a T> for ActionClientOptions<'a> {
+    fn from(value: &'a T) -> Self {
+        Self::new(value.borrow())
+    }
+}
 
 /// Manage the lifecycle of an `rcl_action_client_t`, including managing its dependencies
 /// on `rcl_node_t` and `rcl_context_t` by ensuring that these dependencies are
@@ -90,7 +128,6 @@ where
 {
     _marker: PhantomData<fn() -> ActionT>,
     pub(crate) handle: Arc<ActionClientHandle>,
-    num_entities: WaitableNumEntities,
     /// Ensure the parent node remains alive as long as the subscription is held.
     /// This implementation will change in the future.
     #[allow(unused)]
@@ -147,7 +184,7 @@ where
 
         let handle = Arc::new(ActionClientHandle {
             rcl_action_client: Mutex::new(rcl_action_client),
-            node_handle: Arc::clone(&node.handle),
+            node_handle: Arc::clone(&node.handle()),
             in_use_by_wait_set: Arc::new(AtomicBool::new(false)),
         });
 
@@ -167,7 +204,6 @@ where
         Ok(Self {
             _marker: Default::default(),
             handle,
-            num_entities,
             node: Arc::clone(node),
         })
     }
@@ -193,66 +229,16 @@ where
     }
 }
 
-impl<T> ActionClientBase for ActionClientState<T>
-where
-    T: rosidl_runtime_rs::Action,
-{
-    fn handle(&self) -> &ActionClientHandle {
-        &self.handle
-    }
-
-    fn num_entities(&self) -> &WaitableNumEntities {
-        &self.num_entities
-    }
-
-    fn execute(&self, mode: ReadyMode) -> Result<(), RclrsError> {
-        match mode {
-            ReadyMode::Feedback => self.execute_feedback(),
-            ReadyMode::Status => self.execute_status(),
-            ReadyMode::GoalResponse => self.execute_goal_response(),
-            ReadyMode::CancelResponse => self.execute_cancel_response(),
-            ReadyMode::ResultResponse => self.execute_result_response(),
-        }
-    }
+struct ActionClientGoalBoard<A: Action> {
+    _ignore: std::marker::PhantomData<fn(A)>,
 }
 
-/// `ActionClientOptions` are used by [`Node::create_action_client`][1] to initialize an
-/// [`ActionClient`].
-///
-/// [1]: crate::Node::create_action_client
-#[derive(Debug, Clone)]
-#[non_exhaustive]
-pub struct ActionClientOptions<'a> {
-    /// The name of the action that this client will send requests to
-    pub action_name: &'a str,
-    /// The quality of service profile for the goal service
-    pub goal_service_qos: QoSProfile,
-    /// The quality of service profile for the result service
-    pub result_service_qos: QoSProfile,
-    /// The quality of service profile for the cancel service
-    pub cancel_service_qos: QoSProfile,
-    /// The quality of service profile for the feedback topic
-    pub feedback_topic_qos: QoSProfile,
-    /// The quality of service profile for the status topic
-    pub status_topic_qos: QoSProfile,
+struct ActionClientExecutable<A: Action> {
+    board: Arc<ActionClientGoalBoard<A>>,
 }
 
-impl<'a> ActionClientOptions<'a> {
-    /// Initialize a new [`ActionClientOptions`] with default settings.
-    pub fn new(action_name: &'a str) -> Self {
-        Self {
-            action_name,
-            goal_service_qos: QoSProfile::services_default(),
-            result_service_qos: QoSProfile::services_default(),
-            cancel_service_qos: QoSProfile::services_default(),
-            feedback_topic_qos: QoSProfile::topics_default(),
-            status_topic_qos: QoSProfile::action_status_default(),
-        }
-    }
-}
 
-impl<'a, T: Borrow<str> + ?Sized + 'a> From<&'a T> for ActionClientOptions<'a> {
-    fn from(value: &'a T) -> Self {
-        Self::new(value.borrow())
-    }
-}
+
+// SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
+// they are running in. Therefore, this type can be safely sent to another thread.
+unsafe impl Send for rcl_action_client_t {}
