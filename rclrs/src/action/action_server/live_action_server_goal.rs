@@ -258,5 +258,3 @@ impl<A: Action> Drop for LiveActionServerGoal<A> {
         }
     }
 }
-
-pub(super) type ActionResponseRmw<A> = <<<A as Action>::GetResultService as Service>::Response as Message>::RmwMsg;

@@ -14,6 +14,7 @@ use std::{
     cmp::PartialEq,
     ffi::CStr,
     fmt,
+    future::Future,
     os::raw::c_char,
     sync::{atomic::AtomicBool, Arc, Mutex},
     time::Duration,
@@ -26,17 +27,17 @@ use futures::{
 
 use async_std::future::timeout;
 
-use rosidl_runtime_rs::Message;
+use rosidl_runtime_rs::{Message, Action};
 
 use crate::{
-    rcl_bindings::*, ActionClient, ActionClientOptions, ActionClientState,
+    rcl_bindings::*, ActionClient, ActionClientOptions, ActionClientState, ActionGoalReceiver,
     ActionServer, ActionServerOptions, ActionServerState, Client, ClientOptions,
     ClientState, Clock, ContextHandle, ExecutorCommands, IntoAsyncServiceCallback,
     IntoAsyncSubscriptionCallback, IntoNodeServiceCallback, IntoNodeSubscriptionCallback,
     LogParams, Logger, ParameterBuilder, ParameterInterface, ParameterVariant, Parameters,
-    Promise, Publisher, PublisherOptions, PublisherState, RclrsError, Service,
+    Promise, Publisher, PublisherOptions, PublisherState, RclrsError, RequestedGoal, Service,
     ServiceOptions, ServiceState, Subscription, SubscriptionOptions, SubscriptionState,
-    TimeSource, ToLogParams, Worker, WorkerOptions, WorkerState, ENTITY_LIFECYCLE_MUTEX,
+    TerminatedGoal, TimeSource, ToLogParams, Worker, WorkerOptions, WorkerState, ENTITY_LIFECYCLE_MUTEX,
 };
 
 /// A processing unit that can communicate with other nodes. See the API of
@@ -355,53 +356,36 @@ impl NodeState {
     ///
     /// [1]: crate::ActionClient
     // TODO: make action client's lifetime depend on node's lifetime
-    pub fn create_action_client<'a, T>(
+    pub fn create_action_client<'a, A: Action>(
         self: &Arc<Self>,
         options: impl Into<ActionClientOptions<'a>>,
-    ) -> Result<ActionClient<T>, RclrsError>
-    where
-        T: rosidl_runtime_rs::Action,
-    {
-        let action_client = Arc::new(ActionClientState::<T>::new(self, options)?);
-        self.action_clients_mtx
-            .lock()
-            .unwrap()
-            .push(Arc::downgrade(&action_client) as Weak<dyn ActionClientBase>);
-        Ok(action_client)
+    ) -> Result<ActionClient<A>, RclrsError> {
+        todo!();
     }
 
-    /// Creates an [`ActionServer`][1].
-    ///
-    /// [1]: crate::ActionServer
-    // TODO: make action server's lifetime depend on node's lifetime
-    pub fn create_action_server<'a, ActionT, GoalCallback, CancelCallback, AcceptedCallback>(
+    /// Creates an [`ActionServer`].
+    //
+    // TODO(@mxgrey): Add extensive documentation and usage examples
+    pub fn create_action_server<'a, A: Action, Task>(
         self: &Arc<Self>,
         options: impl Into<ActionServerOptions<'a>>,
-        handle_goal: GoalCallback,
-        handle_cancel: CancelCallback,
-        handle_accepted: AcceptedCallback,
-    ) -> Result<ActionServer<ActionT>, RclrsError>
+        callback: impl FnMut(RequestedGoal<A>) -> Task + Send + Sync + 'static,
+    ) -> Result<ActionServer<A>, RclrsError>
     where
-        ActionT: rosidl_runtime_rs::Action + rosidl_runtime_rs::Action,
-        GoalCallback: Fn(GoalUuid, <ActionT as rosidl_runtime_rs::Action>::Goal) -> GoalResponse + 'static + Send + Sync,
-        CancelCallback: Fn(Arc<ServerGoalHandle<ActionT>>) -> CancelResponse + 'static + Send + Sync,
-        AcceptedCallback: Fn(Arc<ServerGoalHandle<ActionT>>) + 'static + Send + Sync,
+        Task: Future<Output = TerminatedGoal> + Send + Sync + 'static,
     {
-        let action_server = Arc::new(ActionServerState::<ActionT>::new(
-            self,
-            options,
-            handle_goal,
-            handle_cancel,
-            handle_accepted,
-        )?);
-        self.action_servers_mtx
-            .lock()
-            .unwrap()
-            .push(Arc::downgrade(&action_server) as Weak<dyn ActionServerBase>);
-        Ok(action_server)
+        ActionServerState::create(self, options, callback)
     }
 
-
+    /// Creates an [`ActionGoalReceiver`].
+    //
+    // TODO(@mxgrey): Add extensive documentation and usage examples
+    pub fn create_goal_receiver<'a, A: Action>(
+        self: &Arc<Self>,
+        options: impl Into<ActionServerOptions<'a>>,
+    ) -> Result<ActionGoalReceiver<A>, RclrsError> {
+        ActionGoalReceiver::new(self, options)
+    }
 
     /// Creates a [`Publisher`].
     ///

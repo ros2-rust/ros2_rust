@@ -2,7 +2,7 @@ use crate::{
     action::GoalUuid,
     error::ToResult,
     rcl_bindings::*,
-    DropGuard, Node, NodeHandle, QoSProfile, RclPrimitive, RclrsError,
+    ActionGoalReceiver, DropGuard, Node, NodeHandle, QoSProfile, RclPrimitive, RclrsError,
     RclPrimitiveHandle, RclPrimitiveKind, ReadyKind, Waitable, WaitableLifecycle, ENTITY_LIFECYCLE_MUTEX,
 };
 use rosidl_runtime_rs::{Action, Message, RmwGoalRequest, RmwResultRequest};
@@ -11,11 +11,11 @@ use std::{
     borrow::Borrow,
     collections::HashMap,
     ffi::CString,
-    panic::UnwindSafe,
+    future::Future,
     sync::{Arc, Mutex, MutexGuard, Weak},
 };
 use futures::future::BoxFuture;
-use tokio::sync::mpsc::UnboundedSender;
+use tokio::sync::mpsc::{UnboundedSender, UnboundedReceiver};
 
 mod accepted_goal;
 pub use accepted_goal::*;
@@ -85,7 +85,7 @@ impl<'a, T: Borrow<str> + ?Sized + 'a> From<&'a T> for ActionServerOptions<'a> {
 
 /// An action server that can respond to requests sent by ROS action clients.
 ///
-/// Create an action server using [`Node::create_action_server`][1].
+/// Create an action server using [`NodeState::create_action_server`][1].
 ///
 /// ROS only supports having one server for any given fully-qualified
 /// action name. "Fully-qualified" means the namespace is also taken into account
@@ -95,8 +95,11 @@ impl<'a, T: Borrow<str> + ?Sized + 'a> From<&'a T> for ActionServerOptions<'a> {
 ///
 /// Responding to requests requires the node's executor to [spin][2].
 ///
+/// You may also consider using [`ActionGoalReceiver`] to implement your action
+/// server. It provides different ergonomics which may be useful in some situations.
+///
 /// [1]: crate::NodeState::create_action_server
-/// [2]: crate::spin
+/// [2]: crate::Executor::spin
 pub type ActionServer<A> = Arc<ActionServerState<A>>;
 
 /// The inner state of an [`ActionServer`].
@@ -109,7 +112,7 @@ pub type ActionServer<A> = Arc<ActionServerState<A>>;
 /// The public API of the [`ActionServer`] type is implemented via `ActionServerState`.
 ///
 /// [1]: std::sync::Weak
-struct ActionServerState<A: Action> {
+pub struct ActionServerState<A: Action> {
     board: Arc<ActionServerGoalBoard<A>>,
 
     /// Holding onto this keeps the waitable for this action server alive in the
@@ -119,8 +122,69 @@ struct ActionServerState<A: Action> {
 }
 
 impl<A: Action> ActionServerState<A> {
+    /// Change the callback for this action server.
+    pub fn set_callback<Task>(
+        &self,
+        mut callback: impl FnMut(RequestedGoal<A>) -> Task + Send + Sync + 'static,
+    )
+    where
+        Task: Future<Output = TerminatedGoal> + Send + Sync + 'static,
+    {
+        let callback = Box::new(move |requested_goal| -> BoxFuture<'static, TerminatedGoal> {
+            Box::pin(callback(requested_goal))
+        });
+
+        let mut dispatch = match self.board.dispatch.lock() {
+            Ok(dispatch) => dispatch,
+            Err(poison) => poison.into_inner(),
+        };
+
+        *dispatch = GoalDispatch::Callback(callback);
+        self.board.dispatch.clear_poison();
+    }
+
+    /// Change this action server into an action goal receiver, which may be more
+    /// ergonomic for some implementations of an action server.
+    ///
+    /// Note that you'll need to obtain a uniquely owned instance of the
+    /// [`ActionServerState`] to do this conversion. If you have an [`ActionServer`]
+    /// (which is managed by an [`Arc`]) then you will need to use [`Arc::into_inner`]
+    /// to obtain the unique [`ActionServerState`].
+    ///
+    /// It is unusual to switch from an action server to an action goal receiver,
+    /// so consider carefully whether this is what you really want to do. Usually
+    /// an action goal receiver is created by [`NodeState::create_action_goal_receiver`]
+    /// when the action server is being initialized.
+    #[must_use]
+    pub fn into_goal_receiver(self) -> ActionGoalReceiver<A> {
+        ActionGoalReceiver::from_server(self)
+    }
+
+    pub(crate) fn create<'a, Task>(
+        node: &Node,
+        options: impl Into<ActionServerOptions<'a>>,
+        mut callback: impl FnMut(RequestedGoal<A>) -> Task + Send + Sync + 'static,
+    ) -> Result<ActionServer<A>, RclrsError>
+    where
+        Task: Future<Output = TerminatedGoal> + Send + Sync + 'static,
+    {
+        let callback = Box::new(move |requested_goal| -> BoxFuture<'static, TerminatedGoal> {
+            Box::pin(callback(requested_goal))
+        });
+
+        Ok(Arc::new(Self::new(node, options, GoalDispatch::Callback(callback))?))
+    }
+
+    pub(super) fn new_for_receiver<'a>(
+        node: &Node,
+        options: impl Into<ActionServerOptions<'a>>,
+        sender: UnboundedSender<RequestedGoal<A>>,
+    ) -> Result<Self, RclrsError> {
+        Self::new(node, options, GoalDispatch::Sender(sender))
+    }
+
     /// Creates a new action server.
-    pub(crate) fn create<'a>(
+    fn new<'a>(
         node: &Node,
         options: impl Into<ActionServerOptions<'a>>,
         dispatch: GoalDispatch<A>,
@@ -183,6 +247,49 @@ impl<A: Action> ActionServerState<A> {
         async_commands.add_to_wait_set(waitable);
 
         Ok(Self { board, lifecycle })
+    }
+
+    pub(super) fn set_goal_sender(&self, sender: UnboundedSender<RequestedGoal<A>>) {
+        let mut dispatch = match self.board.dispatch.lock() {
+            Ok(dispatch) => dispatch,
+            Err(poison) => poison.into_inner(),
+        };
+
+        *dispatch = GoalDispatch::Sender(sender);
+        self.board.dispatch.clear_poison();
+    }
+
+    /// Used internally to change a receiver into an action server without the
+    /// risk of dropping buffered any goal requests or receiving goals out of
+    /// their original order.
+    pub(super) fn drain_receiver_into_callback<Task>(
+        &self,
+        mut receiver: UnboundedReceiver<RequestedGoal<A>>,
+        mut callback: impl FnMut(RequestedGoal<A>) -> Task + Send + Sync + 'static,
+    )
+    where
+        Task: Future<Output = TerminatedGoal> + Send + Sync + 'static,
+    {
+        let mut callback = Box::new(move |requested_goal| -> BoxFuture<'static, TerminatedGoal> {
+            Box::pin(callback(requested_goal))
+        });
+
+        let mut dispatch = match self.board.dispatch.lock() {
+            Ok(dispatch) => dispatch,
+            Err(poison) => poison.into_inner(),
+        };
+
+        // The dispatch sender is blocked by the mutex, so once we finish draining
+        // the current values in the receiver, there will never be any more values.
+        // By the time we unlock the dispatch mutex, the sender will be dropped,
+        // replaced by the callback.
+        while let Ok(requested_goal) = receiver.try_recv() {
+            let f = (*callback)(requested_goal);
+            let _ = self.board.node.commands().run(f);
+        }
+
+        *dispatch = GoalDispatch::Callback(callback);
+        self.board.dispatch.clear_poison();
     }
 }
 
@@ -566,7 +673,7 @@ impl<A: Action> ActionServerHandle<A> {
 }
 
 enum GoalDispatch<A: Action> {
-    Callback(Box<dyn FnMut(RequestedGoal<A>) -> BoxFuture<'static, TerminatedGoal> + Send + Sync + UnwindSafe>),
+    Callback(Box<dyn FnMut(RequestedGoal<A>) -> BoxFuture<'static, TerminatedGoal> + Send + Sync>),
     Sender(UnboundedSender<RequestedGoal<A>>),
 }
 

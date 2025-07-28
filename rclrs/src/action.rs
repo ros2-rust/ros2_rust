@@ -1,15 +1,17 @@
 use std::ops::Deref;
 
 pub(crate) mod action_client;
+pub use action_client::*;
+
+pub(crate) mod action_goal_receiver;
+pub use action_goal_receiver::*;
+
 pub(crate) mod action_server;
-mod action_server_goal_handle;
+pub use action_server::*;
 
 use crate::rcl_bindings::RCL_ACTION_UUID_SIZE;
 use std::fmt;
 
-pub use action_client::*;
-pub use action_server::*;
-use action_server_goal_handle::*;
 
 /// A unique identifier for a goal request.
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
