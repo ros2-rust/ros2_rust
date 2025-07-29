@@ -34,7 +34,8 @@ use crate::{
     IntoNodeSubscriptionCallback, LogParams, Logger, ParameterBuilder, ParameterInterface,
     ParameterVariant, Parameters, Promise, Publisher, PublisherOptions, PublisherState, RclrsError,
     Service, ServiceOptions, ServiceState, Subscription, SubscriptionOptions, SubscriptionState,
-    TimeSource, ToLogParams, Worker, WorkerOptions, WorkerState, ENTITY_LIFECYCLE_MUTEX,
+    TakerSubscription, TimeSource, ToLogParams, Worker, WorkerOptions, WorkerState,
+    ENTITY_LIFECYCLE_MUTEX,
 };
 
 /// A processing unit that can communicate with other nodes. See the API of
@@ -783,6 +784,85 @@ impl NodeState {
             &self.handle,
             self.commands.async_worker_commands(),
         )
+    }
+
+    /// Creates a [`TakerSubscription`].
+    ///
+    /// # Behavior
+    ///
+    /// This subscription uses no callback and calling [`spin`][1] on the
+    /// node's executor will have no effect, nor is it required to receive
+    /// messages.
+    ///
+    /// In order to receive messages, use [`take`][2] or one of its variants.
+    ///
+    /// ```no_run
+    /// # use rclrs::*;
+    /// # let executor = Context::default().create_basic_executor();
+    /// # let node = executor.create_node("my_node").unwrap();
+    /// use example_interfaces::msg::String as StringMsg;
+    ///
+    /// let subscription =
+    ///     node.create_taker_subscription::<StringMsg>("topic".keep_last(1))?;
+    ///
+    /// loop {
+    ///     if let Some(msg) = subscription.take()? {
+    ///         println!("{}", msg.data);
+    ///     }
+    ///     std::thread::sleep(std::time::Duration::from_millis(100));
+    /// }
+    /// # Ok::<(), RclrsError>(())
+    /// ```
+    ///
+    /// [TakerSubscription]s can also be used in a [`WaitSet`][3] to wait for
+    /// messages from one or more subscriptions.
+    ///
+    /// ```no_run
+    /// # use rclrs::*;
+    /// # let context = Context::default();
+    /// # let executor = context.create_basic_executor();
+    /// # let node = executor.create_node("my_node").unwrap();
+    /// use std::sync::Arc;
+    /// use example_interfaces::msg::String as StringMsg;
+    ///
+    /// let subscription =
+    ///     Arc::new(node.create_taker_subscription::<StringMsg>("topic")?);
+    ///
+    /// // `_lifecycle` must be named to avoid being dropped, which would cause
+    /// // the waitable to be dropped from the WaitSet.
+    /// let (waitable, _lifecycle) =
+    ///     Waitable::new(Box::new(Arc::clone(&subscription)), None);
+    ///
+    /// let mut waitset = WaitSet::new(&context)?;
+    /// waitset.add([waitable])?;
+    ///
+    /// loop {
+    ///     waitset.wait(None, |_| Ok(()))?;
+    ///
+    ///     if let Some(msg) = subscription.take()? {
+    ///         println!("{}", msg.data);
+    ///     }
+    /// }
+    /// # Ok::<(), RclrsError>(())
+    /// ```
+    ///
+    /// # Subscription Options
+    ///
+    /// See [`create_subscription`][4] for examples
+    /// of setting the subscription options.
+    ///
+    /// [1]: crate::Executor::spin
+    /// [2]: crate::TakerSubscription::take
+    /// [3]: crate::WaitSet
+    /// [4]: crate::NodeState::create_subscription
+    pub fn create_taker_subscription<'a, T>(
+        &self,
+        options: impl Into<SubscriptionOptions<'a>>,
+    ) -> Result<TakerSubscription<T>, RclrsError>
+    where
+        T: Message,
+    {
+        TakerSubscription::create(options, &self.handle)
     }
 
     /// Creates a [`Subscription`] with an async callback.
