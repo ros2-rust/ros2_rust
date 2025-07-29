@@ -1,14 +1,11 @@
 use crate::{
     rcl_bindings::*,
     log_error,
-    GoalUuid, RclrsError, RclrsErrorFilter, ToResult, ActionServerGoalBoard,
+    GoalUuid, RclrsError, RclrsErrorFilter, ToResult,
 };
-use super::{ActionServerGoalHandle, LiveActionServerGoal, AcceptedGoal, TerminatedGoal};
+use super::{ActionServerGoalBoard, ActionServerGoalHandle, LiveActionServerGoal, AcceptedGoal, TerminatedGoal};
 use std::sync::Arc;
 use rosidl_runtime_rs::Action;
-
-#[derive(Debug, Clone)]
-pub struct GoalAcceptanceError;
 
 /// An action goal that has been requested but not accepted yet. If this is
 /// dropped without being accepted then the goal request will be rejected.
@@ -78,7 +75,7 @@ impl<A: Action> RequestedGoal<A> {
         self.board.handle.goals.lock().unwrap().insert(*handle.goal_id(), Arc::clone(&handle));
 
         self.accepted = true;
-        self.send_goal_response();
+        self.send_goal_response()?;
 
         let live = Arc::new(LiveActionServerGoal::new(
             handle,

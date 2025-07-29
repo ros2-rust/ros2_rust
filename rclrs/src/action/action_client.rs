@@ -81,18 +81,6 @@ impl Drop for ActionClientHandle {
     }
 }
 
-/// Trait to be implemented by concrete ActionClient structs.
-///
-/// See [`ActionClient<T>`] for an example
-pub trait ActionClientBase: Send + Sync {
-    /// Internal function to get a reference to the `rcl` handle.
-    fn handle(&self) -> &ActionClientHandle;
-    /// Returns the number of underlying entities for the action client.
-    fn num_entities(&self) -> &WaitableNumEntities;
-    /// Tries to run the callback for the given readiness mode.
-    fn execute(&self, mode: ReadyMode) -> Result<(), RclrsError>;
-}
-
 pub(crate) enum ReadyMode {
     Feedback,
     Status,
@@ -160,7 +148,7 @@ where
         let action_client_options = unsafe { rcl_action_client_get_default_options() };
 
         {
-            let mut rcl_node = node.handle.rcl_node.lock().unwrap();
+            let mut rcl_node = node.handle().rcl_node.lock().unwrap();
             let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
 
             // SAFETY:
@@ -187,19 +175,6 @@ where
             node_handle: Arc::clone(&node.handle()),
             in_use_by_wait_set: Arc::new(AtomicBool::new(false)),
         });
-
-        let mut num_entities = WaitableNumEntities::default();
-        unsafe {
-            rcl_action_client_wait_set_get_num_entities(
-                &*handle.lock(),
-                &mut num_entities.num_subscriptions,
-                &mut num_entities.num_guard_conditions,
-                &mut num_entities.num_timers,
-                &mut num_entities.num_clients,
-                &mut num_entities.num_services,
-            )
-            .ok()?;
-        }
 
         Ok(Self {
             _marker: Default::default(),

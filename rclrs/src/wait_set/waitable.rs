@@ -221,19 +221,86 @@ impl WaitableCount {
         Self::default()
     }
 
-    pub(super) fn add(&mut self, kind: RclPrimitiveKind, count: usize) {
+    pub(super) fn add_group(
+        &mut self,
+        kind: &RclPrimitiveKind,
+        waitables: &Vec<Waitable>,
+    ) {
         match kind {
-            RclPrimitiveKind::Subscription => self.subscriptions += count,
-            RclPrimitiveKind::GuardCondition => self.guard_conditions += count,
-            RclPrimitiveKind::Timer => self.timers += count,
-            RclPrimitiveKind::Client => self.clients += count,
-            RclPrimitiveKind::Service => self.services += count,
-            RclPrimitiveKind::Event => self.events += count,
+            RclPrimitiveKind::Subscription => self.subscriptions += waitables.len(),
+            RclPrimitiveKind::GuardCondition => self.guard_conditions += waitables.len(),
+            RclPrimitiveKind::Timer => self.timers += waitables.len(),
+            RclPrimitiveKind::Client => self.clients += waitables.len(),
+            RclPrimitiveKind::Service => self.services += waitables.len(),
+            RclPrimitiveKind::Event => self.events += waitables.len(),
             RclPrimitiveKind::ActionServer => {
-                Use rcl_action_server_wait_set_get_num_entities
+                for waitable in waitables {
+                    self.add_single(&*waitable.primitive);
+                }
             }
             RclPrimitiveKind::ActionClient => {
-                Use rcl_action_client_wait_set_get_num_entities
+                for waitable in waitables {
+                    self.add_single(&*waitable.primitive);
+                }
+            }
+        }
+    }
+
+    fn add_single(&mut self, primitive: &dyn RclPrimitive) {
+        match primitive.handle() {
+            RclPrimitiveHandle::Subscription(_) => self.subscriptions += 1,
+            RclPrimitiveHandle::GuardCondition(_) => self.guard_conditions += 1,
+            RclPrimitiveHandle::Timer(_) => self.timers += 1,
+            RclPrimitiveHandle::Client(_) => self.clients += 1,
+            RclPrimitiveHandle::Service(_) => self.services += 1,
+            RclPrimitiveHandle::Event(_) => self.events += 1,
+            RclPrimitiveHandle::ActionServer(handle) => {
+                let mut count = WaitableCount::new();
+                let r = unsafe {
+                    // SAFETY: The handle is kept safe by the mutex guard, and
+                    // there are no other preconditions.
+                    rcl_action_server_wait_set_get_num_entities(
+                        &*handle,
+                        &mut count.subscriptions,
+                        &mut count.guard_conditions,
+                        &mut count.timers,
+                        &mut count.clients,
+                        &mut count.services,
+                    )
+                };
+                if let Err(err) = r.ok() {
+                    log_error!(
+                        "waitable_count.add_single",
+                        "Error occurred while counting primitives for an action server. \
+                        This should not happen, please report it to the rclrs maintainers: {err}",
+                    );
+                }
+
+                *self += count;
+            }
+            RclPrimitiveHandle::ActionClient(handle) => {
+                let mut count = WaitableCount::new();
+                let r = unsafe {
+                    // SAFETY: The handle is kept safe by the mutex guard, and
+                    // there are no other preconditions.
+                    rcl_action_client_wait_set_get_num_entities(
+                        &*handle,
+                        &mut count.subscriptions,
+                        &mut count.guard_conditions,
+                        &mut count.timers,
+                        &mut count.clients,
+                        &mut count.services,
+                    )
+                };
+                if let Err(err) = r.ok() {
+                    log_error!(
+                        "waitable_count.add_single",
+                        "Error occurred while counting primitives for an action client. \
+                        This should not happen, please report it to the rclrs maintainers: {err}",
+                    );
+                }
+
+                *self += count;
             }
         }
     }
@@ -279,5 +346,26 @@ impl WaitableCount {
             )
         }
         .ok()
+    }
+}
+
+impl std::ops::Add for WaitableCount {
+    type Output = Self;
+    fn add(self, rhs: Self) -> Self::Output {
+        Self {
+            subscriptions: self.subscriptions + rhs.subscriptions,
+            guard_conditions: self.guard_conditions + rhs.guard_conditions,
+            timers: self.timers + rhs.timers,
+            clients: self.clients + rhs.clients,
+            services: self.services + rhs.services,
+            events: self.events + rhs.events,
+        }
+    }
+}
+
+impl std::ops::AddAssign for WaitableCount {
+    fn add_assign(&mut self, rhs: Self) {
+        let count = *self + rhs;
+        *self = count;
     }
 }

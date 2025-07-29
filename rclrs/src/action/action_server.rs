@@ -293,7 +293,7 @@ impl<A: Action> ActionServerState<A> {
     }
 }
 
-pub struct ActionServerGoalBoard<A: Action> {
+struct ActionServerGoalBoard<A: Action> {
     /// These goals have a live handle held by the user. We refer to them with a
     /// Weak to prevent a circular reference. When the user drops the live handle
     /// it will automatically be moved into the dropped_goals map.
