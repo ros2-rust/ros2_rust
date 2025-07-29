@@ -80,7 +80,9 @@ impl<A: Action> CancellationState<A> {
 
                 // Revert to not having any cancellation mode
                 *mode = CancellationMode::None;
-                self.sender.send(false);
+                // We do not need to worry about errors from sending this state
+                // since it is okay for the receiver to be dropped.
+                let _ = self.sender.send(false);
             }
             CancellationMode::None => {
                 // Do nothing
@@ -104,15 +106,18 @@ impl<A: Action> CancellationState<A> {
                 // Progress to cancelling mode
                 *mode = CancellationMode::Cancelling;
                 // Just in case this signal was never sent, make sure we have
-                // a true value in the cancel requested channel.
-                self.sender.send(true);
+                // a true value in the cancel requested channel. We can ignore
+                // errors from this because it is okay for the receiver to be
+                // dropped.
+                let _ = self.sender.send(true);
             }
             CancellationMode::None => {
                 // Skip straight to cancellation mode since the user has accepted
                 // a cancellation even though it wasn't requested externally.
                 *mode = CancellationMode::Cancelling;
-                // Make sure the cancellation is signalled.
-                self.sender.send(true);
+                // Make sure the cancellation is signalled. We can ignore errors
+                // from this because it is okay for the receiver to be dropped.
+                let _ = self.sender.send(true);
             }
             CancellationMode::Cancelling => {
                 // Do nothing

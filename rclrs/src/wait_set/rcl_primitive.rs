@@ -147,7 +147,7 @@ pub struct ActionServerReady {
     pub cancel_request: bool,
     /// True if there is a result request message ready to take, false otherwise.
     pub result_request: bool,
-    //// True if a goal has expired, false otherwise.
+    /// True if a goal has expired, false otherwise.
     pub goal_expired: bool,
 }
 

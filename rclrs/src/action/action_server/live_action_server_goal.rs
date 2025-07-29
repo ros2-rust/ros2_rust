@@ -12,7 +12,7 @@ use std::{
     sync::Arc,
     ops::Deref,
 };
-use rosidl_runtime_rs::{Action, Message, Service};
+use rosidl_runtime_rs::{Action, Message};
 
 /// This struct is the bridge to the rcl_action API for action server goals that
 /// are still active. It can be used to perform transitions while keeping data in
@@ -205,7 +205,7 @@ impl<A: Action> LiveActionServerGoal<A> {
         self.handle.provide_result(self.server.as_ref(), response_rmw)?;
 
         // Publish the state change.
-        self.server.publish_status();
+        self.server.publish_status()?;
 
         // Notify rcl that a goal has terminated and to therefore recalculate the expired goal timer.
         unsafe {

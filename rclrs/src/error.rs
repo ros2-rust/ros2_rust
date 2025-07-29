@@ -71,6 +71,8 @@ pub enum RclrsError {
     ///
     /// We have no way of diagnosing which of these errors caused the failure, so
     /// all we can do is indicate that an error occurred with accepting the goal.
+    /// However, the implementation of rclrs automatically protects from all of
+    /// these errors except memory allocation failure.
     GoalAcceptanceError,
 }
 

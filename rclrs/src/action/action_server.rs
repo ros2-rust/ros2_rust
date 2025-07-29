@@ -2,7 +2,7 @@ use crate::{
     action::GoalUuid,
     error::ToResult,
     rcl_bindings::*,
-    ActionGoalReceiver, DropGuard, Node, NodeHandle, QoSProfile, RclPrimitive, RclrsError,
+    ActionGoalReceiver, DropGuard, GoalStatus, Node, NodeHandle, QoSProfile, RclPrimitive, RclrsError,
     RclPrimitiveHandle, RclPrimitiveKind, ReadyKind, Waitable, WaitableLifecycle, ENTITY_LIFECYCLE_MUTEX,
 };
 use rosidl_runtime_rs::{Action, Message, RmwGoalRequest, RmwResultRequest};
@@ -555,11 +555,12 @@ impl<A: Action> RclPrimitive for ActionServerExecutable<A> {
 /// [1]: <https://doc.rust-lang.org/reference/destructors.html>
 pub(crate) struct ActionServerHandle<A: Action> {
     rcl_action_server: Mutex<rcl_action_server_t>,
-    /// Ensure the node remains active while the action server is running
+    /// Ensure the node remains active while the action server is running.
+    #[allow(unused)]
     node_handle: Arc<NodeHandle>,
     /// Ensure the `impl_*` of the action server goals remain valid until they
     /// have expired or until the rcl_action_server_t gets fini-ed.
-    pub(super) goals: Mutex<HashMap<GoalUuid, Arc<ActionServerGoalHandle<A>>>>,
+    goals: Mutex<HashMap<GoalUuid, Arc<ActionServerGoalHandle<A>>>>,
 }
 
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
@@ -609,8 +610,8 @@ impl<A: Action> ActionServerHandle<A> {
             sequence_number: 0,
         };
         let mut request_rmw = RmwGoalRequest::<A>::default();
-        let handle = self.lock();
         unsafe {
+            let handle = self.lock();
             // SAFETY: The action server is locked by the handle. The request_id is a
             // zero-initialized rmw_request_id_t, and the request_rmw is a default-initialized
             // SendGoalService request message.
@@ -632,8 +633,8 @@ impl<A: Action> ActionServerHandle<A> {
         };
         // SAFETY: No preconditions
         let mut request_rmw = unsafe { rcl_action_get_zero_initialized_cancel_request() };
-        let handle = self.lock();
         unsafe {
+            let handle = self.lock();
             // SAFETY: The action server is locked by the handle. The request_id is a
             // zero-initialized rmw_request_id_t, and the request_rmw is a zero-initialized
             // action_msgs__srv__CancelGoal_Request.
@@ -655,8 +656,8 @@ impl<A: Action> ActionServerHandle<A> {
         };
 
         let mut request_rmw = RmwResultRequest::<A>::default();
-        let handle = self.lock();
         unsafe {
+            let handle = self.lock();
             // SAFETY: The action server is locked by the handle. The request_id is a
             // zero-initialized rmw_request_id_t, and the request_rmw is a default-initialized
             // GetResultService request message.
@@ -675,19 +676,6 @@ impl<A: Action> ActionServerHandle<A> {
 enum GoalDispatch<A: Action> {
     Callback(Box<dyn FnMut(RequestedGoal<A>) -> BoxFuture<'static, TerminatedGoal> + Send + Sync>),
     Sender(UnboundedSender<RequestedGoal<A>>),
-}
-
-/// Values defined by `action_msgs/msg/GoalStatus`
-#[repr(i8)]
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
-enum GoalStatus {
-    Unknown = 0,
-    Accepted = 1,
-    Executing = 2,
-    Cancelling = 3,
-    Succeeded = 4,
-    Cancelled = 5,
-    Aborted = 6,
 }
 
 /// Possible status values for terminal states

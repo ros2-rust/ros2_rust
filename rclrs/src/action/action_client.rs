@@ -1,14 +1,27 @@
 use crate::{
-    error::ToResult, rcl_bindings::*, Node, NodeHandle, QoSProfile,
+    rcl_bindings::*,
+    GoalStatus, GoalUuid, ToResult, Node, NodeHandle, QoSProfile,
     RclrsError, ENTITY_LIFECYCLE_MUTEX,
 };
 use std::{
     borrow::Borrow,
+    collections::HashMap,
     ffi::CString,
     marker::PhantomData,
     sync::{atomic::AtomicBool, Arc, Mutex, MutexGuard},
 };
-use rosidl_runtime_rs::Action;
+use tokio::sync::{
+    watch::Sender as WatchSender,
+    mpsc::UnboundedSender,
+    oneshot::Sender,
+};
+use rosidl_runtime_rs::{Action, Message, RmwFeedbackMessage};
+
+mod feedback_client;
+pub use feedback_client::*;
+
+mod goal_client;
+pub use goal_client::*;
 
 /// `ActionClientOptions` are used by [`Node::create_action_client`][1] to initialize an
 /// [`ActionClient`].
@@ -51,45 +64,6 @@ impl<'a, T: Borrow<str> + ?Sized + 'a> From<&'a T> for ActionClientOptions<'a> {
     }
 }
 
-/// Manage the lifecycle of an `rcl_action_client_t`, including managing its dependencies
-/// on `rcl_node_t` and `rcl_context_t` by ensuring that these dependencies are
-/// [dropped after][1] the `rcl_action_client_t`.
-///
-/// [1]: <https://doc.rust-lang.org/reference/destructors.html>
-pub struct ActionClientHandle {
-    rcl_action_client: Mutex<rcl_action_client_t>,
-    node_handle: Arc<NodeHandle>,
-    pub(crate) in_use_by_wait_set: Arc<AtomicBool>,
-}
-
-impl ActionClientHandle {
-    pub(crate) fn lock(&self) -> MutexGuard<rcl_action_client_t> {
-        self.rcl_action_client.lock().unwrap()
-    }
-}
-
-impl Drop for ActionClientHandle {
-    fn drop(&mut self) {
-        let rcl_action_client = self.rcl_action_client.get_mut().unwrap();
-        let mut rcl_node = self.node_handle.rcl_node.lock().unwrap();
-        let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
-        // SAFETY: The entity lifecycle mutex is locked to protect against the risk of
-        // global variables in the rmw implementation being unsafely modified during cleanup.
-        unsafe {
-            rcl_action_client_fini(rcl_action_client, &mut *rcl_node);
-        }
-    }
-}
-
-pub(crate) enum ReadyMode {
-    Feedback,
-    Status,
-    GoalResponse,
-    CancelResponse,
-    ResultResponse,
-}
-
-///
 /// Main class responsible for sending goals to a ROS action server.
 ///
 /// Create a client using [`Node::create_action_client`][1].
@@ -98,7 +72,7 @@ pub(crate) enum ReadyMode {
 ///
 /// [1]: crate::NodeState::create_action_client
 /// [2]: crate::spin
-pub type ActionClient<ActionT> = Arc<ActionClientState<ActionT>>;
+pub type ActionClient<A> = Arc<ActionClientState<A>>;
 
 /// The inner state of an [`ActionClient`].
 ///
@@ -110,34 +84,23 @@ pub type ActionClient<ActionT> = Arc<ActionClientState<ActionT>>;
 /// The public API of the [`ActionClient`] type is implemented via `ActionClientState`.
 ///
 /// [1]: std::sync::Weak
-pub struct ActionClientState<ActionT>
-where
-    ActionT: rosidl_runtime_rs::Action,
-{
-    _marker: PhantomData<fn() -> ActionT>,
-    pub(crate) handle: Arc<ActionClientHandle>,
-    /// Ensure the parent node remains alive as long as the subscription is held.
-    /// This implementation will change in the future.
-    #[allow(unused)]
-    node: Node,
+pub struct ActionClientState<A: Action> {
+    board: Arc<ActionClientGoalBoard<A>>,
 }
 
-impl<T> ActionClientState<T>
-where
-    T: rosidl_runtime_rs::Action,
-{
+impl<A: Action> ActionClientState<A> {
     /// Creates a new action client.
     pub(crate) fn new<'a>(
         node: &Node,
         options: impl Into<ActionClientOptions<'a>>,
     ) -> Result<Self, RclrsError>
     where
-        T: rosidl_runtime_rs::Action,
+        A: rosidl_runtime_rs::Action,
     {
         let options = options.into();
         // SAFETY: Getting a zero-initialized value is always safe.
         let mut rcl_action_client = unsafe { rcl_action_get_zero_initialized_client() };
-        let type_support = T::get_type_support() as *const rosidl_action_type_support_t;
+        let type_support = A::get_type_support() as *const rosidl_action_type_support_t;
         let action_name_c_string =
             CString::new(options.action_name).map_err(|err| RclrsError::StringContainsNul {
                 err,
@@ -173,18 +136,45 @@ where
         let handle = Arc::new(ActionClientHandle {
             rcl_action_client: Mutex::new(rcl_action_client),
             node_handle: Arc::clone(&node.handle()),
-            in_use_by_wait_set: Arc::new(AtomicBool::new(false)),
         });
 
-        Ok(Self {
-            _marker: Default::default(),
+        let board = Arc::new(ActionClientGoalBoard {
             handle,
             node: Arc::clone(node),
-        })
-    }
+            result_clients: Default::default(),
+        });
 
+        Ok(Self { board })
+    }
+}
+
+struct ActionClientGoalBoard<A: Action> {
+    feedback_senders: Mutex<HashMap<GoalUuid, Vec<UnboundedSender<A::Feedback>>>>,
+    result_clients: Mutex<HashMap<rmw_request_id_t, Sender<A::Result>>>,
+    handle: Arc<ActionClientHandle>,
+    /// Ensure the parent node remains alive as long as the subscription is held.
+    /// This implementation will change in the future.
+    #[allow(unused)]
+    node: Node,
+}
+
+impl<A: Action> ActionClientGoalBoard<A> {
     fn execute_feedback(&self) -> Result<(), RclrsError> {
-        todo!()
+        let feedback_rmw = self.handle.take_feedback::<A>()?;
+        let (goal_uuid, feedback) = A::split_feedback_message(feedback_rmw);
+        let feedback: A::Feedback = Message::from_rmw_message(feedback);
+        if let Some(senders) = self.feedback_senders.lock().unwrap().get(&GoalUuid(goal_uuid)) {
+            // Avoid making any unnecessary clones
+            for sender in senders.iter().take(senders.len() - 1) {
+                sender.send(feedback.clone());
+            }
+
+            if let Some(last_sender) = senders.last() {
+                last_sender.send(feedback);
+            }
+        }
+
+        Ok(())
     }
 
     fn execute_status(&self) -> Result<(), RclrsError> {
@@ -204,15 +194,82 @@ where
     }
 }
 
-struct ActionClientGoalBoard<A: Action> {
-    _ignore: std::marker::PhantomData<fn(A)>,
+/// Once all of the constituent clients for the goal are dropped, this will
+/// remove the [`GoalClientSender`][super::GoalClientSender] from the goal
+/// board.
+struct GoalClientLifecycle<A: Action> {
+    kind: GoalClientKind,
+    board: Arc<ActionClientGoalBoard<A>>,
+}
+
+enum GoalClientKind {
+    Feedback(GoalUuid),
+    Status(GoalUuid),
+    Result(rmw_request_id_t),
+    Cancellation,
+}
+
+impl<A: Action> Drop for GoalClientLifecycle<A> {
+    fn drop(&mut self) {
+        match self.kind {
+            GoalClientKind::Feedback(goal_uuid) => {
+                let mut all_feedback_senders = self.board.feedback_senders.lock().unwrap();
+
+                let mut empty = false;
+                if let Some(senders) = all_feedback_senders.get_mut(&goal_uuid) {
+                    senders.retain(|sender| !sender.is_closed());
+                    empty = senders.is_empty();
+                }
+                if empty {
+                    all_feedback_senders.remove(&goal_uuid);
+                }
+            }
+        }
+    }
 }
 
 struct ActionClientExecutable<A: Action> {
     board: Arc<ActionClientGoalBoard<A>>,
 }
 
+/// Manage the lifecycle of an `rcl_action_client_t`, including managing its dependencies
+/// on `rcl_node_t` and `rcl_context_t` by ensuring that these dependencies are
+/// [dropped after][1] the `rcl_action_client_t`.
+///
+/// [1]: <https://doc.rust-lang.org/reference/destructors.html>
+pub struct ActionClientHandle {
+    rcl_action_client: Mutex<rcl_action_client_t>,
+    node_handle: Arc<NodeHandle>,
+}
 
+impl ActionClientHandle {
+    fn lock(&self) -> MutexGuard<rcl_action_client_t> {
+        self.rcl_action_client.lock().unwrap()
+    }
+
+    fn take_feedback<A: Action>(&self) -> Result<RmwFeedbackMessage<A>, RclrsError> {
+        let mut feedback_rmw = RmwFeedbackMessage::<A>::default();
+        unsafe {
+            let handle = self.lock();
+            rcl_action_take_feedback(&*handle, &mut feedback_rmw as *mut _ as *mut _)
+        }
+        .ok()?;
+        Ok(feedback_rmw)
+    }
+}
+
+impl Drop for ActionClientHandle {
+    fn drop(&mut self) {
+        let rcl_action_client = self.rcl_action_client.get_mut().unwrap();
+        let mut rcl_node = self.node_handle.rcl_node.lock().unwrap();
+        let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
+        // SAFETY: The entity lifecycle mutex is locked to protect against the risk of
+        // global variables in the rmw implementation being unsafely modified during cleanup.
+        unsafe {
+            rcl_action_client_fini(rcl_action_client, &mut *rcl_node);
+        }
+    }
+}
 
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
 // they are running in. Therefore, this type can be safely sent to another thread.

@@ -2,12 +2,21 @@ use super::{LiveActionServerGoal, TerminatedGoal};
 use std::sync::Arc;
 use rosidl_runtime_rs::Action;
 
+/// This represents a goal that is in the Cancelling state. This struct is held
+/// by an action server implementation and is used to provide feedback to the
+/// client and to transition the goal into its next state. There is no need to
+/// listen for cancellation requests since being in this state means all incoming
+/// cancellation requests will automatically be accepted.
+///
+/// If you drop this struct without explicitly transitioning it to its next state,
+/// the goal will report itself as aborted.
 pub struct CancellingGoal<A: Action> {
     live: Arc<LiveActionServerGoal<A>>,
 }
 
 impl<A: Action> CancellingGoal<A> {
     /// Get the goal of this action.
+    #[must_use]
     pub fn goal(&self) -> &Arc<A::Goal> {
         self.live.goal()
     }

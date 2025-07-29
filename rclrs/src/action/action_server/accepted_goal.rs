@@ -13,6 +13,7 @@ pub struct AcceptedGoal<A: Action> {
 
 impl<A: Action> AcceptedGoal<A> {
     /// Get the goal of this action.
+    #[must_use]
     pub fn goal(&self) -> &Arc<A::Goal> {
         self.live.goal()
     }
@@ -49,12 +50,15 @@ impl<A: Action> AcceptedGoal<A> {
 
     /// Transition the goal into the cancelling state.
     ///
-    /// This does not require an action client to request a cancellation. Instead
-    /// you may act as the action client and commanding that the goal transition
-    /// into cancelling.
+    /// This does not require an action client to request a cancellation. If no
+    /// cancellation was requested, then using this function will have your action
+    /// server act as an action client that is commanding that the goal transition
+    /// to cancel.
     ///
     /// If there are any open cancellation requests for this goal from any action
-    /// clients, they will all be notified that the cancellation is accepted.
+    /// clients, they will all be notified that the cancellation is accepted. Any
+    /// new cancellation requests that arrive for the goal after this will
+    /// automatically be accepted.
     ///
     /// For the goal to reach the cancelled state, you must follow this up with
     /// [`CancellingGoal::cancelled_with`].
@@ -94,7 +98,16 @@ impl<A: Action> AcceptedGoal<A> {
     }
 }
 
+/// While a goal was waiting to be executed, it is possible for cancellation
+/// requests to arrive for it. An accepted goal may transition directly into
+/// either executing or cancelling.
+///
+/// If you use [`AcceptedGoal::begin`] then the goal will be transitioned into
+/// the executing state if no cancellation requests have arrived, or the cancelling
+/// state if a cancellation has arrived. This enum will tell you which has occurred.
 pub enum BeginAcceptedGoal<A: Action> {
+    /// The goal has transitioned into executing.
     Execute(ExecutingGoal<A>),
+    /// The goal has transitioned into cancelling.
     Cancel(CancellingGoal<A>),
 }

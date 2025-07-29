@@ -33,11 +33,14 @@ impl Time {
         Ok(builtin_interfaces::msg::Time { nanosec, sec })
     }
 
+    /// Convenience function for converting time into an rcl message.
     pub fn to_rcl(&self) -> Result<builtin_interfaces__msg__Time, TryFromIntError> {
         let (sec, nanosec) = self.to_sec_nanosec()?;
         Ok(builtin_interfaces__msg__Time { sec, nanosec })
     }
 
+    /// Convenience function for converting time into a (sec, nanosec) representation
+    /// which is commonly used in the ROS ecosystem.
     pub fn to_sec_nanosec(&self) -> Result<(i32, u32), TryFromIntError> {
         let sec = self.nsec / 1_000_000_000;
         let nanosec = self.nsec % 1_000_000_000;

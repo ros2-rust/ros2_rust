@@ -19,13 +19,26 @@ pub struct RequestedGoal<A: Action> {
 
 impl<A: Action> RequestedGoal<A> {
     /// Get the goal of this action.
+    #[must_use]
     pub fn goal(&self) -> &Arc<A::Goal> {
         &self.goal_request
     }
 
     /// Accept the requested goal. The action client will be notified that the
     /// goal was accepted, and you will be able to begin executing.
-    pub fn accept(mut self) -> Result<AcceptedGoal<A>, RclrsError> {
+    ///
+    /// This will panic if a [`RclrsError::GoalAcceptanceError`] occurs which
+    /// most likely indicates a memory allocation failure, which the program is
+    /// not likely to recover from anyway.
+    #[must_use]
+    pub fn accept(self) -> AcceptedGoal<A> {
+        self.try_accept().unwrap()
+    }
+
+    /// An alternative to [`RequestedGoal::accept`] which does not panic in the
+    /// event of an error.
+    #[must_use]
+    pub fn try_accept(mut self) -> Result<AcceptedGoal<A>, RclrsError> {
         let handle = {
             let mut goal_info = unsafe {
                 // SAFETY: Zero-initialized rcl structs are always safe to make
@@ -75,7 +88,12 @@ impl<A: Action> RequestedGoal<A> {
         self.board.handle.goals.lock().unwrap().insert(*handle.goal_id(), Arc::clone(&handle));
 
         self.accepted = true;
-        self.send_goal_response()?;
+        if let Err(err) = self.send_goal_response() {
+            log_error!(
+                "requested_goal.try_accept",
+                "Failed to send an action goal acceptance response: {err}",
+            );
+        }
 
         let live = Arc::new(LiveActionServerGoal::new(
             handle,

@@ -56,3 +56,26 @@ pub enum CancelResponse {
     /// The server will try to cancel the goal.
     Accept = 2,
 }
+
+/// Values defined by `action_msgs/msg/GoalStatus`
+#[repr(i8)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+pub enum GoalStatus {
+    /// The goal status has never been initialized. This likely means it has not
+    /// yet been accepted.
+    Unknown = 0,
+    /// The goal was accepted by the action server.
+    Accepted = 1,
+    /// The goal is being executed by the action server.
+    Executing = 2,
+    /// The action server has accepting cancelling the goal and is in the process
+    /// of cancelling it.
+    Cancelling = 3,
+    /// The action server has successfully reached the goal.
+    Succeeded = 4,
+    /// The action server has finished cancelling the goal.
+    Cancelled = 5,
+    /// The action server has aborted the goal. This suggests an error happened
+    /// during execution or cancelling.
+    Aborted = 6,
+}

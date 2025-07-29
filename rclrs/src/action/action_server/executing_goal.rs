@@ -5,6 +5,13 @@ use std::{
 };
 use rosidl_runtime_rs::Action;
 
+/// This represents a goal that is in the Executing state. This struct is held
+/// by an action server implementation and is used to provide feedback to the
+/// client, to listen for cancellation requests, and to transition the goal into
+/// its next state.
+///
+/// If you drop this struct without explicitly transitioning it to its next state,
+/// the goal will report itself as aborted.
 pub struct ExecutingGoal<A: Action> {
     live: Arc<LiveActionServerGoal<A>>,
 }
@@ -44,12 +51,15 @@ impl<A: Action> ExecutingGoal<A> {
 
     /// Transition the goal into the cancelling state.
     ///
-    /// This does not require an action client to request a cancellation. Instead
-    /// you may act as the action client and commanding that the goal transition
-    /// into cancelling.
+    /// This does not require an action client to request a cancellation. If no
+    /// cancellation was requested, then using this function will have your action
+    /// server act as an action client that is commanding that the goal transition
+    /// to cancel.
     ///
     /// If there are any open cancellation requests for this goal from any action
-    /// clients, they will all be notified that the cancellation is accepted.
+    /// clients, they will all be notified that the cancellation is accepted. Any
+    /// new cancellation requests that arrive for the goal after this will
+    /// automatically be accepted.
     ///
     /// For the goal to reach the cancelled state, you must follow this up with
     /// [`CancellingGoal::cancelled_with`].

@@ -58,28 +58,10 @@ impl<A: Action> ActionServerGoalHandle<A> {
         unsafe { std::mem::transmute(state) }
     }
 
-    /// Returns whether the client has requested that this goal be cancelled.
-    pub(super) fn is_cancelling(&self) -> bool {
-        self.get_status() == GoalStatus::Cancelling
-    }
-
     /// This is used to check if we should respond as accepting a cancellation
     /// request for this goal after it is no longer live.
     pub(super) fn is_cancelled(&self) -> bool {
         self.get_status() == GoalStatus::Cancelled
-    }
-
-    /// Returns true if the goal is either pending or executing, or false if it has reached a
-    /// terminal state.
-    pub(super) fn is_active(&self) -> bool {
-        let rcl_handle = self.rcl_handle.lock().unwrap();
-        // SAFETY: The provided goal handle is properly initialized by construction.
-        unsafe { rcl_action_goal_handle_is_active(&*rcl_handle) }
-    }
-
-    /// Returns whether the goal is executing.
-    pub(super) fn is_executing(&self) -> bool {
-        self.get_status() == GoalStatus::Executing
     }
 
     /// Get the unique identifier of the goal.
