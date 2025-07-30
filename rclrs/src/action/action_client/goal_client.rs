@@ -1,4 +1,7 @@
-use crate::{FeedbackClient, StatusClient, ResultClient};
+use crate::{
+    vendor::builtin_interfaces::msg::Time,
+    CancellationClient, FeedbackClient, StatusClient, ResultClient,
+};
 use rosidl_runtime_rs::Action;
 
 /// The goal client bundles a set of receivers that will allow you to await
@@ -20,4 +23,8 @@ pub struct GoalClient<A: Action> {
     pub status: StatusClient<A>,
     /// Get the final result of the goal.
     pub result: ResultClient<A>,
+    /// Use this if you want to request the goal to be cancelled.
+    pub cancellation: CancellationClient<A>,
+    /// The time that the goal was accepted.
+    pub stamp: Time,
 }

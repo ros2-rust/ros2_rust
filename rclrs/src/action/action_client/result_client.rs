@@ -16,6 +16,15 @@ pub struct ResultClient<A: Action> {
     lifecycle: GoalClientLifecycle<A>,
 }
 
+impl<A: Action> ResultClient<A> {
+    pub(super) fn new(
+        receiver: Receiver<(GoalStatusCode, A::Result)>,
+        lifecycle: GoalClientLifecycle<A>,
+    ) -> Self {
+        Self { receiver, lifecycle }
+    }
+}
+
 impl<A: Action> Deref for ResultClient<A> {
     type Target = Receiver<(GoalStatusCode, A::Result)>;
     fn deref(&self) -> &Self::Target {

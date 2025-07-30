@@ -1,11 +1,7 @@
-use crate::{GoalStatusCode, GoalUuid, FeedbackClient};
-use super::{ActionClientGoalBoard, GoalClientLifecycle};
+use crate::GoalStatusCode;
+use super::GoalClientLifecycle;
 use rosidl_runtime_rs::Action;
-use tokio::sync::{
-    watch::Receiver as Watcher,
-    mpsc::UnboundedReceiver,
-    oneshot::Receiver,
-};
+use tokio::sync::watch::Receiver as Watcher;
 use std::{
     ops::{Deref, DerefMut},
     sync::Arc,

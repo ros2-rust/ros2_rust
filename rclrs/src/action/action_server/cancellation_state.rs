@@ -8,7 +8,7 @@ use crate::{
         unique_identifier_msgs::msg::UUID,
     },
     log_error,
-    CancelResponse, GoalUuid, ToResult, Node, RclrsErrorFilter,
+    CancelResponseCode, GoalUuid, ToResult, Node, RclrsErrorFilter,
 };
 use super::ActionServerHandle;
 use std::{
@@ -237,9 +237,9 @@ impl<A: Action> CancellationRequestInner<A> {
         let mut response = CancelGoal_Response::default();
         response.goals_canceling = self.accepted.drain(..).collect();
         if response.goals_canceling.is_empty() {
-            response.return_code = CancelResponse::Reject as i8;
+            response.return_code = CancelResponseCode::Reject as i8;
         } else {
-            response.return_code = CancelResponse::Accept as i8;
+            response.return_code = CancelResponseCode::Accept as i8;
         }
 
         let mut response_rmw = CancelGoal_Response::into_rmw_message(Cow::Owned(response)).into_owned();

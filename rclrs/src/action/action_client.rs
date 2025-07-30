@@ -1,21 +1,27 @@
 use crate::{
     rcl_bindings::*,
-    vendor::builtin_interfaces::msg::Time,
-    DropGuard, GoalStatus, GoalStatusCode, GoalUuid, ToResult, Node, NodeHandle,
-    QoSProfile, RclrsError, TakeFailedAsNone, ENTITY_LIFECYCLE_MUTEX,
+    vendor::{
+        action_msgs::{msg::GoalInfo, srv::{CancelGoal_Response, CancelGoal_Request}},
+        builtin_interfaces::msg::Time,
+        unique_identifier_msgs::msg::UUID,
+    },
+    CancelResponse, CancelResponseCode, DropGuard, GoalStatus, GoalStatusCode, GoalUuid, ToResult, Node,
+    NodeHandle, QoSProfile, RclrsError, RclPrimitive, RclPrimitiveHandle, RclPrimitiveKind,
+    ReadyKind, TakeFailedAsNone, Waitable, WaitableLifecycle, ENTITY_LIFECYCLE_MUTEX,
 };
 use std::{
-    borrow::Borrow,
+    any::Any,
+    borrow::{Borrow, Cow},
     collections::HashMap,
     ffi::CString,
-    sync::{Arc, Mutex, MutexGuard},
+    sync::{Arc, Mutex, MutexGuard, Weak},
 };
 use tokio::sync::{
     watch::Sender as WatchSender,
     mpsc::UnboundedSender,
-    oneshot::Sender,
+    oneshot::{channel as oneshot_channel, Sender},
 };
-use rosidl_runtime_rs::{Action, Message, RmwFeedbackMessage, RmwResultResponse};
+use rosidl_runtime_rs::{Action, Message, RmwGoalResponse, RmwFeedbackMessage, RmwResultResponse};
 
 mod cancellation_client;
 pub use cancellation_client::*;
@@ -31,6 +37,9 @@ pub use status_client::*;
 
 mod result_client;
 pub use result_client::*;
+
+mod requested_goal_client;
+pub use requested_goal_client::*;
 
 /// `ActionClientOptions` are used by [`Node::create_action_client`][1] to initialize an
 /// [`ActionClient`].
@@ -95,17 +104,16 @@ pub type ActionClient<A> = Arc<ActionClientState<A>>;
 /// [1]: std::sync::Weak
 pub struct ActionClientState<A: Action> {
     board: Arc<ActionClientGoalBoard<A>>,
+    #[allow(unused)]
+    lifecycle: WaitableLifecycle,
 }
 
 impl<A: Action> ActionClientState<A> {
     /// Creates a new action client.
-    pub(crate) fn new<'a>(
+    pub(crate) fn create<'a>(
         node: &Node,
         options: impl Into<ActionClientOptions<'a>>,
-    ) -> Result<Self, RclrsError>
-    where
-        A: rosidl_runtime_rs::Action,
-    {
+    ) -> Result<Arc<Self>, RclrsError> {
         let options = options.into();
         // SAFETY: Getting a zero-initialized value is always safe.
         let mut rcl_action_client = unsafe { rcl_action_get_zero_initialized_client() };
@@ -150,24 +158,48 @@ impl<A: Action> ActionClientState<A> {
         let board = Arc::new(ActionClientGoalBoard {
             handle,
             node: Arc::clone(node),
+            pending_goal_clients: Default::default(),
             feedback_senders: Default::default(),
             status_senders: Default::default(),
+            cancel_response_senders: Default::default(),
             result_senders: Default::default(),
+            client: Default::default(),
         });
 
-        Ok(Self { board })
+        let async_commands = node.commands().async_worker_commands();
+        let (waitable, lifecycle) = Waitable::new(
+            Box::new(ActionClientExecutable {
+                board: Arc::clone(&board),
+            }),
+            Some(Arc::clone(async_commands.get_guard_condition())),
+        );
+        async_commands.add_to_wait_set(waitable);
+
+        let client = Arc::new(Self { board, lifecycle });
+        *client.board.client.lock().unwrap() = Arc::downgrade(&client);
+        Ok(client)
     }
 }
 
 struct ActionClientGoalBoard<A: Action> {
+    pending_goal_clients: Mutex<HashMap<i64, PendingGoalClient<A>>>,
     feedback_senders: Mutex<HashMap<GoalUuid, Vec<UnboundedSender<A::Feedback>>>>,
     status_senders: Mutex<HashMap<GoalUuid, WatchSender<GoalStatus>>>,
+    cancel_response_senders: Mutex<HashMap<i64, CancelResponseSender>>,
     result_senders: Mutex<HashMap<i64, Sender<(GoalStatusCode, A::Result)>>>,
     handle: Arc<ActionClientHandle>,
+    client: Mutex<Weak<ActionClientState<A>>>,
     /// Ensure the parent node remains alive as long as the subscription is held.
     /// This implementation will change in the future.
     #[allow(unused)]
     node: Node,
+}
+
+enum CancelResponseSender {
+    /// Used when only a single goal is being cancelled
+    SingleGoalCancel(Sender<CancelResponse>),
+    /// Used when multiple goals are being cancelled
+    MultiGoalCancel(Sender<(CancelResponseCode, Vec<GoalUuid>)>),
 }
 
 impl<A: Action> ActionClientGoalBoard<A> {
@@ -220,11 +252,64 @@ impl<A: Action> ActionClientGoalBoard<A> {
     }
 
     fn execute_goal_response(&self) -> Result<(), RclrsError> {
-        todo!()
+        let Some(client) = self.client.lock().unwrap().upgrade() else {
+            // The action client has already expired which means the user is not
+            // waiting for this response any longer. We can just discard it.
+            return Ok(());
+        };
+
+        let Some((response_rmw, header)) = self.handle.take_goal_response::<A>().take_failed_as_none()? else {
+            return Ok(());
+        };
+
+        let accepted = A::get_goal_response_accepted(&response_rmw);
+        let stamp = A::get_goal_response_stamp(&response_rmw);
+
+        let Some(pending) = self.pending_goal_clients.lock().unwrap().remove(&header.sequence_number) else {
+            // This suggests that the RequestedGoalClient was dropped before the result arrived.
+            return Ok(());
+        };
+
+        if accepted {
+            let _ = pending.sender.send(
+                Some(GoalClient {
+                    feedback: pending.feedback,
+                    status: pending.status,
+                    result: self.request_result(Arc::clone(&client), pending.goal_id)?,
+                    cancellation: CancellationClient::new(client, pending.goal_id),
+                    stamp: Time { sec: stamp.0, nanosec: stamp.1 },
+                })
+            );
+        } else {
+            pending.sender.send(None);
+        }
+
+        Ok(())
     }
 
     fn execute_cancel_response(&self) -> Result<(), RclrsError> {
-        todo!()
+        let Some((result, header)) = self.handle.take_cancel_response().take_failed_as_none()? else {
+            return Ok(());
+        };
+
+        let seq = header.sequence_number;
+        let Some(sender) = self.cancel_response_senders.lock().unwrap().remove(&seq) else {
+            // If the sender doesn't exist, most likely it means the CancelResponseClient
+            // has been dropped.
+            return Ok(());
+        };
+
+        let code =
+        match sender {
+            CancelResponseSender::SingleGoalCancel(sender) => {
+                let _ = sender.send(result.return_code.into());
+            }
+            CancelResponseSender::MultiGoalCancel(sender) => {
+                result.goals_canceling
+            }
+        }
+
+        Ok(())
     }
 
     fn execute_result_response(&self) -> Result<(), RclrsError> {
@@ -242,10 +327,65 @@ impl<A: Action> ActionClientGoalBoard<A> {
             return Ok(());
         };
 
+
         let result = Message::from_rmw_message(result);
-        sender.send((status_code, result));
+        let _ = sender.send((status_code, result));
         Ok(())
     }
+
+    fn request_single_cancel(
+        &self,
+        client: ActionClient<A>,
+        goal_id: GoalUuid,
+    ) -> Result<CancelResponseClient<A>, RclrsError> {
+        let seq = self.handle.send_cancel_goal(goal_id, Time { sec: 0, nanosec: 0 })?;
+        let (sender, receiver) = oneshot_channel();
+        self.cancel_response_senders.lock().unwrap().insert(seq, CancelResponseSender::SingleGoalCancel(sender));
+        Ok(CancelResponseClient::new(
+            receiver,
+            GoalClientLifecycle {
+                kind: GoalClientKind::CancelResponse(seq),
+                client,
+            },
+        ))
+    }
+
+    fn request_result(
+        &self,
+        client: ActionClient<A>,
+        goal_id: GoalUuid,
+    ) -> Result<ResultClient<A>, RclrsError> {
+        let request_rmw = A::create_result_request(&*goal_id);
+        let mut seq: i64 = 0;
+        unsafe {
+            let handle = self.handle.lock();
+            rcl_action_send_result_request(
+                &*handle,
+                &request_rmw as *const _ as *const _,
+                &mut seq,
+            )
+        }
+        .ok()?;
+
+        let (sender, receiver) = oneshot_channel();
+        self.result_senders.lock().unwrap().insert(seq, sender);
+        let lifecycle = GoalClientLifecycle {
+            client,
+            kind: GoalClientKind::Result(seq),
+        };
+        Ok(ResultClient::new(receiver, lifecycle))
+    }
+}
+
+/// This struct represents a goal client that has not been accepted yet. We
+/// create the feedback and status channels before sending the request just in
+/// case the action server sends updates for the goal before we process that the
+/// goal was accepted. This ensures that no information can be lost by accident.
+struct PendingGoalClient<A: Action> {
+    goal_id: GoalUuid,
+    feedback: FeedbackClient<A>,
+    status: StatusClient<A>,
+    sender: Sender<Option<GoalClient<A>>>,
 }
 
 /// Once all of the constituent clients for the goal are dropped, this will
@@ -256,7 +396,7 @@ impl<A: Action> ActionClientGoalBoard<A> {
 /// of its constituent clients are using it.
 struct GoalClientLifecycle<A: Action> {
     kind: GoalClientKind,
-    client: Arc<ActionClient<A>>,
+    client: ActionClient<A>,
 }
 
 enum GoalClientKind {
@@ -264,12 +404,16 @@ enum GoalClientKind {
     Feedback(GoalUuid),
     Status(GoalUuid),
     Result(i64),
-    Cancellation,
+    CancelResponse(i64),
 }
 
 impl<A: Action> Drop for GoalClientLifecycle<A> {
     fn drop(&mut self) {
         match self.kind {
+            GoalClientKind::Request(seq) => {
+                let mut all_pending_goal_clients = self.client.board.pending_goal_clients.lock().unwrap();
+                all_pending_goal_clients.remove(&seq);
+            }
             GoalClientKind::Feedback(goal_uuid) => {
                 let mut all_feedback_senders = self.client.board.feedback_senders.lock().unwrap();
 
@@ -290,6 +434,10 @@ impl<A: Action> Drop for GoalClientLifecycle<A> {
                     all_status_senders.remove(&goal_uuid);
                 }
             }
+            GoalClientKind::CancelResponse(seq) => {
+                let mut all_cancel_response_senders = self.client.board.cancel_response_senders.lock().unwrap();
+                all_cancel_response_senders.remove(&seq);
+            }
             GoalClientKind::Result(seq) => {
                 let mut all_result_senders = self.client.board.result_senders.lock().unwrap();
                 all_result_senders.remove(&seq);
@@ -300,6 +448,42 @@ impl<A: Action> Drop for GoalClientLifecycle<A> {
 
 struct ActionClientExecutable<A: Action> {
     board: Arc<ActionClientGoalBoard<A>>,
+}
+
+impl<A: Action> RclPrimitive for ActionClientExecutable<A> {
+    unsafe fn execute(&mut self, ready: ReadyKind, _: &mut dyn Any) -> Result<(), RclrsError> {
+        let ready = ready.for_action_client()?;
+
+        if ready.goal_response {
+            self.board.execute_goal_response()?;
+        }
+
+        if ready.feedback {
+            self.board.execute_feedback()?;
+        }
+
+        if ready.status {
+            self.board.execute_status()?;
+        }
+
+        if ready.cancel_response {
+            self.board.execute_cancel_response()?;
+        }
+
+        if ready.result_response {
+            self.board.execute_result_response()?;
+        }
+
+        Ok(())
+    }
+
+    fn kind(&self) -> RclPrimitiveKind {
+        RclPrimitiveKind::ActionClient
+    }
+
+    fn handle(&self) -> crate::RclPrimitiveHandle {
+        RclPrimitiveHandle::ActionClient(self.board.handle.lock())
+    }
 }
 
 /// Manage the lifecycle of an `rcl_action_client_t`, including managing its dependencies
@@ -315,6 +499,26 @@ pub struct ActionClientHandle {
 impl ActionClientHandle {
     fn lock(&self) -> MutexGuard<rcl_action_client_t> {
         self.rcl_action_client.lock().unwrap()
+    }
+
+    fn take_goal_response<A: Action>(&self) -> Result<(RmwGoalResponse<A>, rmw_request_id_t), RclrsError> {
+        let mut response_rmw = RmwGoalResponse::<A>::default();
+        let mut response_header = rmw_request_id_t {
+            writer_guid: [0; 16],
+            sequence_number: 0,
+        };
+
+        unsafe {
+            let handle = self.lock();
+            rcl_action_take_goal_response(
+                &*handle,
+                &mut response_header,
+                &mut response_rmw as *mut _ as *mut _,
+            )
+        }
+        .ok()?;
+
+        Ok((response_rmw, response_header))
     }
 
     fn take_feedback<A: Action>(&self) -> Result<RmwFeedbackMessage<A>, RclrsError> {
@@ -368,6 +572,55 @@ impl ActionClientHandle {
         .ok()?;
 
         Ok((result_rmw, response_header))
+    }
+
+    fn send_cancel_goal(
+        &self,
+        goal_id: GoalUuid,
+        stamp: Time,
+    ) -> Result<i64, RclrsError> {
+        let cancel_request = CancelGoal_Request {
+            goal_info: GoalInfo {
+                goal_id: UUID { uuid: *goal_id },
+                stamp,
+            }
+        };
+
+        let cancel_request_rmw = <CancelGoal_Request as Message>::into_rmw_message(Cow::Owned(cancel_request));
+        let mut seq: i64 = 0;
+
+        unsafe {
+            let handle = self.lock();
+            rcl_action_send_cancel_request(
+                &*handle,
+                &cancel_request_rmw as *const _ as *const _,
+                &mut seq,
+            )
+        }
+        .ok()?;
+
+        Ok(seq)
+    }
+
+    fn take_cancel_response(&self) -> Result<(CancelGoal_Response, rmw_request_id_t), RclrsError> {
+        let mut result_rmw = <CancelGoal_Response as Message>::RmwMsg::default();
+        let mut header = rmw_request_id_t {
+            writer_guid: [0; 16],
+            sequence_number: 0,
+        };
+
+        unsafe {
+            let handle = self.lock();
+            rcl_action_take_cancel_response(
+                &*handle,
+                &mut header,
+                &mut result_rmw as *mut _ as *mut _,
+            )
+        }
+        .ok()?;
+
+        let result = Message::from_rmw_message(result_rmw);
+        Ok((result, header))
     }
 }
 

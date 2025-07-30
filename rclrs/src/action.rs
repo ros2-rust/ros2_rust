@@ -53,17 +53,56 @@ impl Deref for GoalUuid {
 }
 
 /// The response returned by an [`ActionServer`]'s cancel callback when a goal is requested to be cancelled.
-#[derive(PartialEq, Eq)]
-pub enum CancelResponse {
+#[repr(i8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum CancelResponseCode {
+    /// The server will try to cancel the goal.
+    Accept = 0,
     /// The server will not try to cancel the goal.
     Reject = 1,
-    /// The server will try to cancel the goal.
-    Accept = 2,
+    /// The requested goal is unknown.
+    UnknownGoal = 2,
+    /// The goal already reached a terminal state.
+    GoalTerminated = 3,
+}
+
+impl CancelResponseCode {
+    /// Check if the cancellation was accepted.
+    pub fn is_accepted(&self) -> bool {
+        matches!(self, Self::Accept)
+    }
+}
+
+impl From<i8> for CancelResponseCode {
+    fn from(value: i8) -> Self {
+        if value <= 0 && value <= 3 {
+            unsafe {
+                // SAFETY: We have already ensured that the integer value is
+                // within the acceptable range for the enum, so transmuting is
+                // safe.
+                return std::mem::transmute(value);
+            }
+        }
+
+        log_error!(
+            "cancel_response.from",
+            "Invalid integer value being cast to a cancel response: {value}. \
+            Values should be in the range [0, 3]. We will set this as 1 (Reject).",
+        );
+        CancelResponseCode::Reject
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
+pub struct CancelResponse {
+    pub code: CancelResponseCode,
+    pub goal_id: GoalUuid,
+    pub stamp: Time,
 }
 
 /// Values defined by `action_msgs/msg/GoalStatus`
 #[repr(i8)]
-#[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum GoalStatusCode {
     /// The goal status has never been initialized. This likely means it has not
     /// yet been accepted.
