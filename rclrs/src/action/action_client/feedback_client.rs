@@ -1,10 +1,7 @@
 use super::GoalClientLifecycle;
 use rosidl_runtime_rs::Action;
 use tokio::sync::mpsc::UnboundedReceiver;
-use std::{
-    ops::{Deref, DerefMut},
-    sync::Arc,
-};
+use std::ops::{Deref, DerefMut};
 
 /// This struct allows you to receive feedback messages for the goal. Through the
 /// [`DerefMut`] trait you can use the [`UnboundedReceiver`] API to await new
@@ -15,7 +12,7 @@ pub struct FeedbackClient<A: Action> {
     /// This must come after the receiver in the struct to ensure cleanup is done
     /// correctly.
     #[allow(unused)]
-    lifecycle: Arc<GoalClientLifecycle<A>>,
+    lifecycle: GoalClientLifecycle<A>,
 }
 
 impl<A: Action> Deref for FeedbackClient<A> {
