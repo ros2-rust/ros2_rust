@@ -9,7 +9,11 @@ pub use action_goal_receiver::*;
 pub(crate) mod action_server;
 pub use action_server::*;
 
-use crate::rcl_bindings::RCL_ACTION_UUID_SIZE;
+use crate::{
+    rcl_bindings::RCL_ACTION_UUID_SIZE,
+    vendor::builtin_interfaces::msg::Time,
+    log_error,
+};
 use std::fmt;
 
 
@@ -59,8 +63,8 @@ pub enum CancelResponse {
 
 /// Values defined by `action_msgs/msg/GoalStatus`
 #[repr(i8)]
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
-pub enum GoalStatus {
+#[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub enum GoalStatusCode {
     /// The goal status has never been initialized. This likely means it has not
     /// yet been accepted.
     Unknown = 0,
@@ -78,4 +82,38 @@ pub enum GoalStatus {
     /// The action server has aborted the goal. This suggests an error happened
     /// during execution or cancelling.
     Aborted = 6,
+}
+
+impl From<i8> for GoalStatusCode {
+    fn from(value: i8) -> Self {
+        if value <= 0 && value <= 6 {
+            unsafe {
+                // SAFETY: We have already ensured that the integer value is
+                // within the acceptable range for the enum, so transmuting is
+                // safe.
+                return std::mem::transmute(value);
+            }
+        }
+
+        log_error!(
+            "goal_status_code.from",
+            "Invalid integer value being cast to a goal status code: {value}. \
+            Values should be in the range [0, 6]. We will set this as 0 (Unknown).",
+        );
+        GoalStatusCode::Unknown
+    }
+}
+
+/// A status update for a goal. Includes the status code, the goal uuid, and the
+/// timestamp of when the status was set by the action server.
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
+pub struct GoalStatus {
+    /// The status code describing what status was set by the action server.
+    pub code: GoalStatusCode,
+    /// The uuid of the goal whose status was updated.
+    pub goal_id: GoalUuid,
+    /// Time that the status was set by the action server. The time measured by
+    /// the action server might not align with the time measured by the action
+    /// client, so care should be taken when using this time value.
+    pub stamp: Time,
 }

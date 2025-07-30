@@ -596,3 +596,24 @@ impl RclrsErrorFilter for Vec<RclrsError> {
         self
     }
 }
+
+pub trait TakeFailedAsNone {
+    type T;
+    fn take_failed_as_none(self) -> Result<Option<Self::T>, RclrsError>;
+}
+
+impl<T> TakeFailedAsNone for Result<T, RclrsError> {
+    type T = T;
+    fn take_failed_as_none(self) -> Result<Option<T>, RclrsError> {
+        match self {
+            Ok(value) => Ok(Some(value)),
+            Err(err) => {
+                if err.is_take_failed() {
+                    return Ok(None);
+                }
+
+                return Err(err);
+            }
+        }
+    }
+}

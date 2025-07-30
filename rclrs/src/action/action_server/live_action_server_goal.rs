@@ -5,7 +5,7 @@ use crate::{
 };
 use super::{
     ActionServerGoalHandle, ActionServerHandle, CancellationState,
-    CancellationRequest, GoalStatus, TerminalStatus,
+    CancellationRequest, GoalStatusCode, TerminalStatus,
 };
 use std::{
     borrow::Cow,
@@ -236,19 +236,19 @@ impl<A: Action> Deref for LiveActionServerGoal<A> {
 impl<A: Action> Drop for LiveActionServerGoal<A> {
     fn drop(&mut self) {
         match self.get_status() {
-            GoalStatus::Accepted => {
+            GoalStatusCode::Accepted => {
                 // Transition into executing and then into aborted to reach a
                 // terminal state.
                 self.transition_to_executing();
                 self.transition_to_aborted(&Default::default());
             }
-            GoalStatus::Cancelling | GoalStatus::Executing => {
+            GoalStatusCode::Cancelling | GoalStatusCode::Executing => {
                 self.transition_to_aborted(&Default::default());
             }
-            GoalStatus::Succeeded | GoalStatus::Cancelled | GoalStatus::Aborted => {
+            GoalStatusCode::Succeeded | GoalStatusCode::Cancelled | GoalStatusCode::Aborted => {
                 // Already in a terminal state, no need to do anything.
             }
-            GoalStatus::Unknown => {
+            GoalStatusCode::Unknown => {
                 log_error!(
                     "LiveActionServerGoal.drop",
                     "Goal status is unknown. This indicates a bug, please \

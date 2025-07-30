@@ -2,8 +2,9 @@ use crate::{
     action::GoalUuid,
     error::ToResult,
     rcl_bindings::*,
-    ActionGoalReceiver, DropGuard, GoalStatus, Node, NodeHandle, QoSProfile, RclPrimitive, RclrsError,
-    RclPrimitiveHandle, RclPrimitiveKind, ReadyKind, Waitable, WaitableLifecycle, ENTITY_LIFECYCLE_MUTEX,
+    ActionGoalReceiver, DropGuard, GoalStatusCode, Node, NodeHandle, QoSProfile, RclPrimitive, RclrsError,
+    RclPrimitiveHandle, RclPrimitiveKind, ReadyKind, TakeFailedAsNone,
+    Waitable, WaitableLifecycle, ENTITY_LIFECYCLE_MUTEX,
 };
 use rosidl_runtime_rs::{Action, Message, RmwGoalRequest, RmwResultRequest};
 use std::{
@@ -260,7 +261,7 @@ impl<A: Action> ActionServerState<A> {
     }
 
     /// Used internally to change a receiver into an action server without the
-    /// risk of dropping buffered any goal requests or receiving goals out of
+    /// risk of dropping any buffered goal requests or receiving goals out of
     /// their original order.
     pub(super) fn drain_receiver_into_callback<Task>(
         &self,
@@ -322,17 +323,8 @@ impl<A: Action> ActionServerGoalBoard<A> {
     }
 
     fn execute_goal_request(self: &Arc<Self>) -> Result<(), RclrsError> {
-        let (request, goal_request_id) = match self.handle.take_goal_request() {
-            Ok(res) => res,
-            Err(err) => {
-                if err.is_take_failed() {
-                    // Spurious wakeup – this may happen even when a waitset indicated that this
-                    // action was ready, so it shouldn't be an error.
-                    return Ok(());
-                }
-
-                return Err(err);
-            }
+        let Some((request, goal_request_id)) = self.handle.take_goal_request().take_failed_as_none()? else {
+            return Ok(());
         };
 
         let (uuid, request) = <A as Action>::split_goal_request(request);
@@ -361,17 +353,8 @@ impl<A: Action> ActionServerGoalBoard<A> {
     }
 
     fn execute_cancel_request(&self) -> Result<(), RclrsError> {
-        let (request, request_id) = match self.handle.take_cancel_request() {
-            Ok(res) => res,
-            Err(err) => {
-                if err.is_take_failed() {
-                    // Spurious wakeup – this may happen even when a waitset indicated that this
-                    // action was ready, so it shouldn't be an error.
-                    return Ok(());
-                }
-
-                return Err(err);
-            }
+        let Some((request, request_id)) = self.handle.take_cancel_request().take_failed_as_none()? else {
+            return Ok(());
         };
 
         let response_rmw = {
@@ -436,14 +419,8 @@ impl<A: Action> ActionServerGoalBoard<A> {
     }
 
     fn execute_result_request(&self) -> Result<(), RclrsError> {
-        let (request, mut request_id) = match self.handle.take_result_request() {
-            Ok(res) => res,
-            Err(err) => {
-                if err.is_take_failed() {
-                    return Ok(());
-                }
-                return Err(err);
-            },
+        let Some((request, mut request_id)) = self.handle.take_result_request().take_failed_as_none()? else {
+            return Ok(());
         };
 
         let uuid = GoalUuid(*<A as Action>::get_result_request_uuid(&request));
@@ -453,7 +430,7 @@ impl<A: Action> ActionServerGoalBoard<A> {
             // The goal either never existed or expired, so we give back an
             // unknown response
             let result_rmw = <<A::Result as Message>::RmwMsg as Default>::default();
-            let mut response_rmw = A::create_result_response(GoalStatus::Unknown as i8, result_rmw);
+            let mut response_rmw = A::create_result_response(GoalStatusCode::Unknown as i8, result_rmw);
 
             let server = self.handle.lock();
             unsafe {

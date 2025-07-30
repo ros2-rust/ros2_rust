@@ -1,14 +1,14 @@
 use crate::{
     rcl_bindings::*,
-    GoalStatus, GoalUuid, ToResult, Node, NodeHandle, QoSProfile,
-    RclrsError, ENTITY_LIFECYCLE_MUTEX,
+    vendor::builtin_interfaces::msg::Time,
+    DropGuard, GoalStatus, GoalUuid, ToResult, Node, NodeHandle,
+    QoSProfile, RclrsError, TakeFailedAsNone, ENTITY_LIFECYCLE_MUTEX,
 };
 use std::{
     borrow::Borrow,
     collections::HashMap,
     ffi::CString,
-    marker::PhantomData,
-    sync::{atomic::AtomicBool, Arc, Mutex, MutexGuard},
+    sync::{Arc, Mutex, MutexGuard},
 };
 use tokio::sync::{
     watch::Sender as WatchSender,
@@ -22,6 +22,9 @@ pub use feedback_client::*;
 
 mod goal_client;
 pub use goal_client::*;
+
+mod status_client;
+pub use status_client::*;
 
 /// `ActionClientOptions` are used by [`Node::create_action_client`][1] to initialize an
 /// [`ActionClient`].
@@ -141,7 +144,9 @@ impl<A: Action> ActionClientState<A> {
         let board = Arc::new(ActionClientGoalBoard {
             handle,
             node: Arc::clone(node),
-            result_clients: Default::default(),
+            feedback_senders: Default::default(),
+            status_senders: Default::default(),
+            result_senders: Default::default(),
         });
 
         Ok(Self { board })
@@ -150,7 +155,8 @@ impl<A: Action> ActionClientState<A> {
 
 struct ActionClientGoalBoard<A: Action> {
     feedback_senders: Mutex<HashMap<GoalUuid, Vec<UnboundedSender<A::Feedback>>>>,
-    result_clients: Mutex<HashMap<rmw_request_id_t, Sender<A::Result>>>,
+    status_senders: Mutex<HashMap<GoalUuid, WatchSender<GoalStatus>>>,
+    result_senders: Mutex<HashMap<rmw_request_id_t, Sender<A::Result>>>,
     handle: Arc<ActionClientHandle>,
     /// Ensure the parent node remains alive as long as the subscription is held.
     /// This implementation will change in the future.
@@ -160,7 +166,10 @@ struct ActionClientGoalBoard<A: Action> {
 
 impl<A: Action> ActionClientGoalBoard<A> {
     fn execute_feedback(&self) -> Result<(), RclrsError> {
-        let feedback_rmw = self.handle.take_feedback::<A>()?;
+        let Some(feedback_rmw) = self.handle.take_feedback::<A>().take_failed_as_none()? else {
+            return Ok(());
+        };
+
         let (goal_uuid, feedback) = A::split_feedback_message(feedback_rmw);
         let feedback: A::Feedback = Message::from_rmw_message(feedback);
         if let Some(senders) = self.feedback_senders.lock().unwrap().get(&GoalUuid(goal_uuid)) {
@@ -178,7 +187,30 @@ impl<A: Action> ActionClientGoalBoard<A> {
     }
 
     fn execute_status(&self) -> Result<(), RclrsError> {
-        todo!()
+        let Some(goal_statuses) = self.handle.take_status().take_failed_as_none()? else {
+            return Ok(());
+        };
+
+        let all_status_senders = self.status_senders.lock().unwrap();
+        for index in 0..goal_statuses.msg.status_list.size {
+            let rcl_status = unsafe {
+                &*goal_statuses.msg.status_list.data.add(index)
+            };
+
+            let stamp = &rcl_status.goal_info.stamp;
+            let goal_id = GoalUuid(rcl_status.goal_info.goal_id.uuid);
+            let status = GoalStatus {
+                goal_id,
+                code: rcl_status.status.into(),
+                stamp: Time { sec: stamp.sec, nanosec: stamp.nanosec },
+            };
+
+            if let Some(sender) = all_status_senders.get(&goal_id) {
+                sender.send_modify(|watched_status| *watched_status = status);
+            }
+        }
+
+        Ok(())
     }
 
     fn execute_goal_response(&self) -> Result<(), RclrsError> {
@@ -215,13 +247,21 @@ impl<A: Action> Drop for GoalClientLifecycle<A> {
             GoalClientKind::Feedback(goal_uuid) => {
                 let mut all_feedback_senders = self.board.feedback_senders.lock().unwrap();
 
-                let mut empty = false;
+                let mut is_empty = false;
                 if let Some(senders) = all_feedback_senders.get_mut(&goal_uuid) {
                     senders.retain(|sender| !sender.is_closed());
-                    empty = senders.is_empty();
+                    is_empty = senders.is_empty();
                 }
-                if empty {
+                if is_empty {
                     all_feedback_senders.remove(&goal_uuid);
+                }
+            }
+            GoalClientKind::Status(goal_uuid) => {
+                let mut all_status_senders = self.board.status_senders.lock().unwrap();
+
+                let remove = all_status_senders.get(&goal_uuid).is_some_and(|sender| sender.is_closed());
+                if remove {
+                    all_status_senders.remove(&goal_uuid);
                 }
             }
         }
@@ -254,7 +294,30 @@ impl ActionClientHandle {
             rcl_action_take_feedback(&*handle, &mut feedback_rmw as *mut _ as *mut _)
         }
         .ok()?;
+
         Ok(feedback_rmw)
+    }
+
+    fn take_status(&self) -> Result<DropGuard<rcl_action_goal_status_array_t>, RclrsError> {
+        let mut goal_statuses = DropGuard::new(
+            unsafe {
+                // SAFETY: No preconditions
+                rcl_action_get_zero_initialized_goal_status_array()
+            },
+            |mut goal_statuses| unsafe {
+                // SAFETY: The goal_status array is either zero-initialized and empty or populated by
+                // `rcl_action_get_goal_status_array`. In either case, it can be safely finalized.
+                rcl_action_goal_status_array_fini(&mut goal_statuses);
+            }
+        );
+
+        unsafe {
+            let handle = self.lock();
+            rcl_action_take_status(&*handle, &mut *goal_statuses as *mut _ as *mut _)
+        }
+        .ok()?;
+
+        Ok(goal_statuses)
     }
 }
 

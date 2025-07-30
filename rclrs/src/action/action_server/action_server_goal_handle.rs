@@ -3,7 +3,7 @@ use crate::{
     log_error,
     GoalUuid, ToResult, RclrsError, RclReturnCode, RclErrorMsg, ActionServerHandle,
 };
-use super::{GoalStatus};
+use super::{GoalStatusCode};
 use std::sync::{Mutex, MutexGuard};
 use rosidl_runtime_rs::{Action, RmwResultResponse};
 
@@ -40,8 +40,8 @@ impl<A: Action> ActionServerGoalHandle<A> {
     }
 
     /// Returns the goal state.
-    pub(super) fn get_status(&self) -> GoalStatus {
-        let mut state = GoalStatus::Unknown as rcl_action_goal_state_t;
+    pub(super) fn get_status(&self) -> GoalStatusCode {
+        let mut state = GoalStatusCode::Unknown as rcl_action_goal_state_t;
         {
             let rcl_handle = self.rcl_handle.lock().unwrap();
             // SAFETY: The provided goal handle is properly initialized by construction.
@@ -61,7 +61,7 @@ impl<A: Action> ActionServerGoalHandle<A> {
     /// This is used to check if we should respond as accepting a cancellation
     /// request for this goal after it is no longer live.
     pub(super) fn is_cancelled(&self) -> bool {
-        self.get_status() == GoalStatus::Cancelled
+        self.get_status() == GoalStatusCode::Cancelled
     }
 
     /// Get the unique identifier of the goal.
