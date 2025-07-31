@@ -1,4 +1,4 @@
-use crate::GoalStatusCode;
+use crate::GoalStatus;
 use super::GoalClientLifecycle;
 use rosidl_runtime_rs::Action;
 use tokio::sync::watch::Receiver as Watcher;
@@ -11,7 +11,7 @@ use std::{
 /// [`DerefMut`] trait you can use the [`watch::Receiver`][Watcher] API to
 /// check the latest status and monitor changes.
 pub struct StatusClient<A: Action> {
-    receiver: Watcher<GoalStatusCode>,
+    receiver: Watcher<GoalStatus>,
     /// This keeps track of whether any goal client components are still being used.
     /// This must come after the receiver in the struct to ensure cleanup is done
     /// correctly.
@@ -29,7 +29,7 @@ impl<A: Action> Clone for StatusClient<A> {
 }
 
 impl<A: Action> Deref for StatusClient<A> {
-    type Target = Watcher<GoalStatusCode>;
+    type Target = Watcher<GoalStatus>;
     fn deref(&self) -> &Self::Target {
         &self.receiver
     }
@@ -38,5 +38,14 @@ impl<A: Action> Deref for StatusClient<A> {
 impl<A: Action> DerefMut for StatusClient<A> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.receiver
+    }
+}
+
+impl<A: Action> StatusClient<A> {
+    pub(super) fn new(
+        receiver: Watcher<GoalStatus>,
+        lifecycle: Arc<GoalClientLifecycle<A>>,
+    ) -> Self {
+        Self { receiver, lifecycle }
     }
 }

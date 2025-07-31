@@ -1,4 +1,4 @@
-use crate::GoalClient;
+use crate::{GoalClient, GoalUuid};
 use super::GoalClientLifecycle;
 use rosidl_runtime_rs::Action;
 use tokio::sync::oneshot::Receiver;
@@ -11,12 +11,28 @@ use std::ops::{Deref, DerefMut};
 /// If the action server rejects the goal then this will yield a [`None`] instead
 /// of a [`GoalClient`].
 pub struct RequestedGoalClient<A: Action> {
+    goal_id: GoalUuid,
     receiver: Receiver<Option<GoalClient<A>>>,
     /// This keeps track of whether any goal client components are still being used.
     /// This must come after the receiver in the struct to ensure cleanup is done
     /// correctly.
     #[allow(unused)]
     lifecycle: GoalClientLifecycle<A>,
+}
+
+impl<A: Action> RequestedGoalClient<A> {
+    /// Get the unique ID for the goal that has been requested.
+    pub fn goal_id(&self) -> &GoalUuid {
+        &self.goal_id
+    }
+
+    pub(super) fn new(
+        goal_id: GoalUuid,
+        receiver: Receiver<Option<GoalClient<A>>>,
+        lifecycle: GoalClientLifecycle<A>,
+    ) -> Self {
+        Self { goal_id, receiver, lifecycle }
+    }
 }
 
 impl<A: Action> Deref for RequestedGoalClient<A> {

@@ -36,8 +36,14 @@ rosidl_runtime_rs = "0.4"
 serde = { version = "1", optional = true, features = ["derive"] }
 serde-big-array = { version = "0.5.1", optional = true }
 
-# Needed to watch for the cancel signal for actions
+# Needed to watch for the cancel signal for actions. Note that this only brings
+# in the sync module of tokio, which is a fairly light weight dependency. The
+# channels in this module work with any async runtime, so this does not lock us
+# into the tokio runtime.
 tokio = { version = "1", features = ["sync"] }
+
+# Needed by action clients to generate UUID values for their goals
+uuid = { version = "1", features = ["v4"] }
 
 [dev-dependencies]
 # Needed for e.g. writing yaml files in tests

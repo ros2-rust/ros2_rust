@@ -20,7 +20,7 @@ use std::{
 };
 use tokio::sync::{
     watch::Sender as WatchSender,
-    mpsc::UnboundedSender,
+    mpsc::{unbounded_channel, UnboundedSender},
     oneshot::{channel as oneshot_channel, Sender},
 };
 use rosidl_runtime_rs::{Action, Message, RmwGoalResponse, RmwFeedbackMessage, RmwResultResponse};
@@ -111,6 +111,40 @@ pub struct ActionClientState<A: Action> {
 }
 
 impl<A: Action> ActionClientState<A> {
+    /// Request the action server to execute a goal. You will receive a
+    /// [`RequestedGoalClient`] which you can use to wait for the reply from the
+    /// action server that indicates whether the goal was accepted.
+    ///
+    /// If the goal is accepted, the [`RequestedGoalClient`] will yield a
+    /// [`GoalClient`]. If the goal was rejected by the action server then it will
+    /// yield a [`None`]. The easiest way to get the response is to use `.await`
+    /// in an async function.
+    ///
+    /// In the unlikely event of an error at the rcl layer, this will panic.
+    /// Use [`Self::try_request_goal`] to handle errors without panicking.
+    pub fn request_goal(self: &Arc<Self>, goal: A::Goal) -> RequestedGoalClient<A> {
+        self.try_request_goal(goal).unwrap()
+    }
+
+    /// A version of [`Self::request_goal`] which allows you to handle any errors
+    /// that may happen at the rcl layer.
+    pub fn try_request_goal(
+        self: &Arc<Self>,
+        goal: A::Goal,
+    ) -> Result<RequestedGoalClient<A>, RclrsError> {
+        self.board.request_goal(self, goal)
+    }
+
+    /// Get a client to receive feedback for a specific goal.
+    pub fn receive_feedback(self: &Arc<Self>, goal_id: GoalUuid) -> FeedbackClient<A> {
+        self.board.create_feedback_client(self, goal_id)
+    }
+
+    /// Get a client to watch the status of a specific goal.
+    pub fn watch_status(self: &Arc<Self>, goal_id: GoalUuid) -> StatusClient<A> {
+        self.board.create_status_client(self, goal_id)
+    }
+
     /// Ask the action server to cancel a single goal.
     ///
     /// In the unlikely event of an error at the rcl layer, this will panic.
@@ -398,6 +432,89 @@ impl<A: Action> ActionClientGoalBoard<A> {
         let result = Message::from_rmw_message(result);
         let _ = sender.send((status_code, result));
         Ok(())
+    }
+
+    fn request_goal(
+        &self,
+        client: &ActionClient<A>,
+        goal: A::Goal,
+    ) -> Result<RequestedGoalClient<A>, RclrsError> {
+        let goal_id: GoalUuid = uuid::Uuid::new_v4().as_bytes().into();
+        let goal_rmw = <A::Goal as Message>::into_rmw_message(Cow::Owned(goal)).into_owned();
+        let request = A::create_goal_request(&*goal_id, goal_rmw);
+
+        let mut seq: i64 = 0;
+        unsafe {
+            let handle = self.handle.lock();
+            rcl_action_send_goal_request(
+                &*handle,
+                &request as *const _ as *const _,
+                &mut seq,
+            )
+        }
+        .ok()?;
+
+        let (sender, receiver) = oneshot_channel();
+        let feedback = self.create_feedback_client(client, goal_id);
+        let status = self.create_status_client(client, goal_id);
+
+        self.pending_goal_clients.lock().unwrap().insert(
+            seq,
+            PendingGoalClient { goal_id, feedback, status, sender },
+        );
+
+        Ok(RequestedGoalClient::new(
+            goal_id,
+            receiver,
+            GoalClientLifecycle {
+                kind: GoalClientKind::Request(seq),
+                client: Arc::clone(client),
+            },
+        ))
+    }
+
+    fn create_feedback_client(
+        &self,
+        client: &ActionClient<A>,
+        goal_id: GoalUuid,
+    ) -> FeedbackClient<A> {
+        let (sender, receiver) = unbounded_channel();
+        self.feedback_senders.lock().unwrap().entry(goal_id).or_default().push(sender);
+        FeedbackClient::new(
+            receiver,
+            GoalClientLifecycle {
+                kind: GoalClientKind::Feedback(goal_id),
+                client: Arc::clone(client),
+            },
+        )
+    }
+
+    fn create_status_client(
+        &self,
+        client: &ActionClient<A>,
+        goal_id: GoalUuid,
+    ) -> StatusClient<A> {
+        let receiver = self
+            .status_senders
+            .lock()
+            .unwrap()
+            .entry(goal_id)
+            .or_insert_with(||
+                WatchSender::new(GoalStatus {
+                    code: GoalStatusCode::Unknown,
+                    goal_id,
+                    stamp: Time { sec: 0, nanosec: 0 },
+                })
+            )
+            .subscribe();
+
+        StatusClient::new(
+            receiver,
+            Arc::new(GoalClientLifecycle {
+                kind: GoalClientKind::Status(goal_id),
+                client: Arc::clone(client),
+            }),
+        )
     }
 
     fn request_single_cancel(

@@ -60,6 +60,18 @@ impl Deref for GoalUuid {
     }
 }
 
+impl From<[u8; RCL_ACTION_UUID_SIZE]> for GoalUuid {
+    fn from(value: [u8; RCL_ACTION_UUID_SIZE]) -> Self {
+        Self(value)
+    }
+}
+
+impl From<&[u8; RCL_ACTION_UUID_SIZE]> for GoalUuid {
+    fn from(value: &[u8; RCL_ACTION_UUID_SIZE]) -> Self {
+        Self(*value)
+    }
+}
+
 /// The response returned by an [`ActionServer`]'s cancel callback when a goal is requested to be cancelled.
 #[repr(i8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]

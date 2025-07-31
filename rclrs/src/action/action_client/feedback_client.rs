@@ -27,3 +27,12 @@ impl<A: Action> DerefMut for FeedbackClient<A> {
         &mut self.receiver
     }
 }
+
+impl<A: Action> FeedbackClient<A> {
+    pub(super) fn new(
+        receiver: UnboundedReceiver<A::Feedback>,
+        lifecycle: GoalClientLifecycle<A>,
+    ) -> Self {
+        Self { receiver, lifecycle }
+    }
+}
