@@ -360,7 +360,7 @@ impl NodeState {
         self: &Arc<Self>,
         options: impl Into<ActionClientOptions<'a>>,
     ) -> Result<ActionClient<A>, RclrsError> {
-        todo!();
+        ActionClientState::create(self, options)
     }
 
     /// Creates an [`ActionServer`].

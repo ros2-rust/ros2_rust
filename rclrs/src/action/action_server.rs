@@ -583,7 +583,7 @@ impl<A: Action> ActionServerHandle<A> {
 
     fn take_goal_request(&self) -> Result<(RmwGoalRequest<A>, rmw_request_id_t), RclrsError> {
         let mut request_id = rmw_request_id_t {
-            writer_guid: [0; 16],
+            writer_guid: [0; RCL_ACTION_UUID_SIZE],
             sequence_number: 0,
         };
         let mut request_rmw = RmwGoalRequest::<A>::default();
@@ -605,7 +605,7 @@ impl<A: Action> ActionServerHandle<A> {
 
     fn take_cancel_request(&self) -> Result<(action_msgs__srv__CancelGoal_Request, rmw_request_id_t), RclrsError> {
         let mut request_id = rmw_request_id_t {
-            writer_guid: [0; 16],
+            writer_guid: [0; RCL_ACTION_UUID_SIZE],
             sequence_number: 0,
         };
         // SAFETY: No preconditions
@@ -628,7 +628,7 @@ impl<A: Action> ActionServerHandle<A> {
 
     fn take_result_request(&self) -> Result<(RmwResultRequest<A>, rmw_request_id_t), RclrsError> {
         let mut request_id = rmw_request_id_t {
-            writer_guid: [0; 16],
+            writer_guid: [0; RCL_ACTION_UUID_SIZE],
             sequence_number: 0,
         };
 

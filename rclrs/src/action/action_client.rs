@@ -5,9 +5,11 @@ use crate::{
         builtin_interfaces::msg::Time,
         unique_identifier_msgs::msg::UUID,
     },
-    CancelResponse, CancelResponseCode, DropGuard, GoalStatus, GoalStatusCode, GoalUuid, ToResult, Node,
-    NodeHandle, QoSProfile, RclrsError, RclPrimitive, RclPrimitiveHandle, RclPrimitiveKind,
-    ReadyKind, TakeFailedAsNone, Waitable, WaitableLifecycle, ENTITY_LIFECYCLE_MUTEX,
+    log_warn,
+    CancelResponse, CancelResponseCode, DropGuard, GoalStatus, GoalStatusCode, GoalUuid,
+    MultiCancelResponse, Node, NodeHandle, QoSProfile, RclrsError, RclPrimitive,
+    RclPrimitiveHandle, RclPrimitiveKind, ReadyKind, TakeFailedAsNone, ToResult,
+    Waitable, WaitableLifecycle, ENTITY_LIFECYCLE_MUTEX,
 };
 use std::{
     any::Any,
@@ -109,6 +111,53 @@ pub struct ActionClientState<A: Action> {
 }
 
 impl<A: Action> ActionClientState<A> {
+    /// Ask the action server to cancel a single goal.
+    ///
+    /// In the unlikely event of an error at the rcl layer, this will panic.
+    /// Use [`Self::try_cancel_goal`] to handle errors without panicking.
+    pub fn cancel_goal(self: &Arc<Self>, goal_id: GoalUuid) -> CancelResponseClient<A> {
+        self.try_cancel_goal(goal_id).unwrap()
+    }
+
+    /// Try to ask the action server to cancel a single goal. If an rcl error
+    /// happens, you can handle it.
+    pub fn try_cancel_goal(self: &Arc<Self>, goal_id: GoalUuid) -> Result<CancelResponseClient<A>, RclrsError> {
+        self.board.request_single_cancel(self, goal_id)
+    }
+
+    /// Ask the action server to cancel all of its goals.
+    ///
+    /// In the unlikely event of an error at the rcl layer, this will panic.
+    /// Use [`Self::try_cancel_all_goals`] to catch errors without panicking.
+    pub fn cancel_all_goals(self: &Arc<Self>) -> MultiCancelResponseClient<A> {
+        self.try_cancel_all_goals().unwrap()
+    }
+
+    /// Try to ask the action server to cancel all of its goals. If an rcl error
+    /// happens, you can handle it.
+    pub fn try_cancel_all_goals(self: &Arc<Self>) -> Result<MultiCancelResponseClient<A>, RclrsError> {
+        self.board.request_multi_cancel(self, None)
+    }
+
+    /// Ask the action server to cancel all of its goals that started before a
+    /// specified time stamp.
+    ///
+    /// <div class="warning">Make sure the time stamp is based on the time according to the action server.</div>
+    ///
+    /// In the unlikely event of an error at the rcl layer, this will panic.
+    /// Use [`Self::try_cancel_goals_prior_to`] to catch errors without panicking.
+    pub fn cancel_goals_prior_to(self: &Arc<Self>, time: Time) -> MultiCancelResponseClient<A> {
+        self.try_cancel_goals_prior_to(time).unwrap()
+    }
+
+    /// Try to ask the action server to cancel all of its goals that started before
+    /// a specified time stamp. If an rcl error happens, you can handle it.
+    ///
+    /// <div class="warning">Make sure the time stamp is based on the time according to the action server.</div>
+    pub fn try_cancel_goals_prior_to(self: &Arc<Self>, time: Time) -> Result<MultiCancelResponseClient<A>, RclrsError> {
+        self.board.request_multi_cancel(self, Some(time))
+    }
+
     /// Creates a new action client.
     pub(crate) fn create<'a>(
         node: &Node,
@@ -199,7 +248,7 @@ enum CancelResponseSender {
     /// Used when only a single goal is being cancelled
     SingleGoalCancel(Sender<CancelResponse>),
     /// Used when multiple goals are being cancelled
-    MultiGoalCancel(Sender<(CancelResponseCode, Vec<GoalUuid>)>),
+    MultiGoalCancel(Sender<MultiCancelResponse>),
 }
 
 impl<A: Action> ActionClientGoalBoard<A> {
@@ -213,11 +262,11 @@ impl<A: Action> ActionClientGoalBoard<A> {
         if let Some(senders) = self.feedback_senders.lock().unwrap().get(&GoalUuid(goal_uuid)) {
             // Avoid making any unnecessary clones
             for sender in senders.iter().take(senders.len() - 1) {
-                sender.send(feedback.clone());
+                let _ =sender.send(feedback.clone());
             }
 
             if let Some(last_sender) = senders.last() {
-                last_sender.send(feedback);
+                let _ = last_sender.send(feedback);
             }
         }
 
@@ -281,7 +330,7 @@ impl<A: Action> ActionClientGoalBoard<A> {
                 })
             );
         } else {
-            pending.sender.send(None);
+            let _ = pending.sender.send(None);
         }
 
         Ok(())
@@ -299,13 +348,31 @@ impl<A: Action> ActionClientGoalBoard<A> {
             return Ok(());
         };
 
-        let code =
+        let code: CancelResponseCode = result.return_code.into();
         match sender {
             CancelResponseSender::SingleGoalCancel(sender) => {
-                let _ = sender.send(result.return_code.into());
+                if result.goals_canceling.len() > 1 {
+                    log_warn!(
+                        "action_client.execute_cancel_response",
+                        "Multiple goals were cancelled when only one was expected. \
+                        This may indicate a client library implementation bug.",
+                    );
+                }
+
+                // Use the first goal's info to get the time stamp. We should
+                // only be expecting one goal to be cancelled anyway.
+                let stamp = result
+                    .goals_canceling
+                    .first()
+                    .map(|g| g.stamp.clone());
+                let _ = sender.send(CancelResponse { code, stamp });
             }
             CancelResponseSender::MultiGoalCancel(sender) => {
-                result.goals_canceling
+                let mut stamps = HashMap::default();
+                for info in result.goals_canceling {
+                    stamps.insert(GoalUuid(info.goal_id.uuid), info.stamp);
+                }
+                let _ = sender.send(MultiCancelResponse { code, stamps });
             }
         }
 
@@ -335,7 +402,7 @@ impl<A: Action> ActionClientGoalBoard<A> {
 
     fn request_single_cancel(
         &self,
-        client: ActionClient<A>,
+        client: &ActionClient<A>,
         goal_id: GoalUuid,
     ) -> Result<CancelResponseClient<A>, RclrsError> {
         let seq = self.handle.send_cancel_goal(goal_id, Time { sec: 0, nanosec: 0 })?;
@@ -345,7 +412,26 @@ impl<A: Action> ActionClientGoalBoard<A> {
             receiver,
             GoalClientLifecycle {
                 kind: GoalClientKind::CancelResponse(seq),
-                client,
+                client: Arc::clone(client),
+            },
+        ))
+    }
+
+    fn request_multi_cancel(
+        &self,
+        client: &ActionClient<A>,
+        stamp: Option<Time>,
+    ) -> Result<MultiCancelResponseClient<A>, RclrsError> {
+        let goal_id = GoalUuid::zero();
+        let stamp = stamp.unwrap_or(Time { sec: 0, nanosec: 0 });
+        let seq = self.handle.send_cancel_goal(goal_id, stamp)?;
+        let (sender, receiver) = oneshot_channel();
+        self.cancel_response_senders.lock().unwrap().insert(seq, CancelResponseSender::MultiGoalCancel(sender));
+        Ok(MultiCancelResponseClient::new(
+            receiver,
+            GoalClientLifecycle {
+                kind: GoalClientKind::CancelResponse(seq),
+                client: Arc::clone(client),
             },
         ))
     }
@@ -504,7 +590,7 @@ impl ActionClientHandle {
     fn take_goal_response<A: Action>(&self) -> Result<(RmwGoalResponse<A>, rmw_request_id_t), RclrsError> {
         let mut response_rmw = RmwGoalResponse::<A>::default();
         let mut response_header = rmw_request_id_t {
-            writer_guid: [0; 16],
+            writer_guid: [0; RCL_ACTION_UUID_SIZE],
             sequence_number: 0,
         };
 
@@ -557,7 +643,7 @@ impl ActionClientHandle {
     fn take_result_response<A: Action>(&self) -> Result<(RmwResultResponse<A>, rmw_request_id_t), RclrsError> {
         let mut result_rmw = RmwResultResponse::<A>::default();
         let mut response_header = rmw_request_id_t {
-            writer_guid: [0; 16],
+            writer_guid: [0; RCL_ACTION_UUID_SIZE],
             sequence_number: 0,
         };
 
@@ -605,7 +691,7 @@ impl ActionClientHandle {
     fn take_cancel_response(&self) -> Result<(CancelGoal_Response, rmw_request_id_t), RclrsError> {
         let mut result_rmw = <CancelGoal_Response as Message>::RmwMsg::default();
         let mut header = rmw_request_id_t {
-            writer_guid: [0; 16],
+            writer_guid: [0; RCL_ACTION_UUID_SIZE],
             sequence_number: 0,
         };
 

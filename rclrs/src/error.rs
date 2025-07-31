@@ -96,7 +96,10 @@ impl RclrsError {
             RclrsError::RclError {
                 code: RclReturnCode::SubscriptionTakeFailed
                     | RclReturnCode::ServiceTakeFailed
-                    | RclReturnCode::ClientTakeFailed,
+                    | RclReturnCode::ClientTakeFailed
+                    | RclReturnCode::ActionServerTakeFailed
+                    | RclReturnCode::ActionClientTakeFailed
+                    | RclReturnCode::EventTakeFailed,
                 ..
             }
         )
@@ -597,8 +600,14 @@ impl RclrsErrorFilter for Vec<RclrsError> {
     }
 }
 
+/// A helper trait to handle common error handling flows
 pub trait TakeFailedAsNone {
+    /// The type you would receive when there is no error
     type T;
+
+    /// If the result has an error indicating that a take failed, convert the
+    /// output into an `Ok(None)`. Any other error returns `Err(error)`. If there
+    /// is no error, return `Ok(Some(value))`.
     fn take_failed_as_none(self) -> Result<Option<Self::T>, RclrsError>;
 }
 

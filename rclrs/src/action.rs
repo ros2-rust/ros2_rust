@@ -1,4 +1,4 @@
-use std::ops::Deref;
+use std::{collections::HashMap, ops::Deref};
 
 pub(crate) mod action_client;
 pub use action_client::*;
@@ -20,6 +20,14 @@ use std::fmt;
 /// A unique identifier for a goal request.
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct GoalUuid(pub [u8; RCL_ACTION_UUID_SIZE]);
+
+impl GoalUuid {
+    /// A zeroed-out goal ID has a special meaning for cancellation requests
+    /// which indicates that no specific goal is being requested.
+    fn zero() -> Self {
+        Self([0; RCL_ACTION_UUID_SIZE])
+    }
+}
 
 impl fmt::Display for GoalUuid {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
@@ -93,11 +101,43 @@ impl From<i8> for CancelResponseCode {
     }
 }
 
+/// This is returned by [`CancellationClient`] to inform whether a cancellation
+/// of a single goal was successful.
+///
+/// When a cancellation request might cancel multiple goals, [`MultiCancelResponse`]
+/// will be used.
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct CancelResponse {
+    /// What kind of response was given.
     pub code: CancelResponseCode,
-    pub goal_id: GoalUuid,
-    pub stamp: Time,
+    /// What time the response took effect according to the action server.
+    /// This will be default-initialized if no goal was cancelled.
+    pub stamp: Option<Time>,
+}
+
+impl CancelResponse {
+    /// Check whether the request was accepted.
+    pub fn is_accepted(&self) -> bool {
+        self.code.is_accepted()
+    }
+}
+
+/// This is returned by [`ActionClientState::cancel_all_goals`] and
+/// [`ActionClientState::cancel_goals_prior_to`].
+#[derive(Debug, Clone, PartialEq)]
+pub struct MultiCancelResponse {
+    /// What kind of response was given.
+    pub code: CancelResponseCode,
+    /// The time stamp that the response took effect for each goal that is being
+    /// cancelled. If the request was not accepted then this may be empty.
+    pub stamps: HashMap<GoalUuid, Time>,
+}
+
+impl MultiCancelResponse {
+    /// Check whether the request was accepted.
+    pub fn is_accepted(&self) -> bool {
+        self.code.is_accepted()
+    }
 }
 
 /// Values defined by `action_msgs/msg/GoalStatus`

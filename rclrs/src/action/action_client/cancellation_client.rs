@@ -1,4 +1,4 @@
-use crate::{ActionClient, CancelResponseCode, GoalUuid, RclrsError};
+use crate::{ActionClient, CancelResponse, GoalUuid, MultiCancelResponse, RclrsError};
 use super::GoalClientLifecycle;
 use tokio::sync::oneshot::Receiver;
 use rosidl_runtime_rs::Action;
@@ -36,7 +36,7 @@ impl<A: Action> CancellationClient<A> {
 
     /// A version of [`Self::cancel`] which does not panic when an error occurs.
     pub fn try_cancel(&self) -> Result<CancelResponseClient<A>, RclrsError> {
-        self.client.board.request_single_cancel(Arc::clone(&self.client), self.goal_id)
+        self.client.board.request_single_cancel(&self.client, self.goal_id)
     }
 
     pub(super) fn new(
@@ -49,8 +49,14 @@ impl<A: Action> CancellationClient<A> {
 
 /// This will allow you to receive a response to your cancellation request so you
 /// can know if the cancellation was successful or not.
+///
+/// You can obtain one of these using [`CancellationClient`] (which is provided
+/// by [`GoalClient`][1]) or using [`ActionClientState::cancel_goal`][2].
+///
+/// [1]: crate::GoalClient
+/// [2]: crate::ActionClientState::cancel_goal
 pub struct CancelResponseClient<A: Action> {
-    receiver: Receiver<CancelResponseCode>,
+    receiver: Receiver<CancelResponse>,
     /// This keeps track of whether any goal client components are still being used.
     /// This must come after the receiver in the struct to ensure cleanup is done
     /// correctly.
@@ -59,7 +65,7 @@ pub struct CancelResponseClient<A: Action> {
 }
 
 impl<A: Action> Deref for CancelResponseClient<A> {
-    type Target = Receiver<CancelResponseCode>;
+    type Target = Receiver<CancelResponse>;
     fn deref(&self) -> &Self::Target {
         &self.receiver
     }
@@ -73,7 +79,46 @@ impl<A: Action> DerefMut for CancelResponseClient<A> {
 
 impl<A: Action> CancelResponseClient<A> {
     pub(super) fn new(
-        receiver: Receiver<CancelResponseCode>,
+        receiver: Receiver<CancelResponse>,
+        lifecycle: GoalClientLifecycle<A>,
+    ) -> Self {
+        Self { receiver, lifecycle }
+    }
+}
+
+/// This will allow you to receive a response to a cancellation request that
+/// impacts multiple goals.
+///
+/// You can obtain one of these using [`ActionClientState::cancel_all_goals`][1]
+/// or [`ActionClientState::cancel_goals_prior_to`][2].
+///
+/// [1]: crate::ActionClientState::cancel_all_goals
+/// [2]: crate::ActionClientState::cancel_goals_prior_to
+pub struct MultiCancelResponseClient<A: Action> {
+    receiver: Receiver<MultiCancelResponse>,
+    /// This keeps track of whether any goal client components are still being used.
+    /// This must come after the receiver in the struct to ensure cleanup is done
+    /// correctly.
+    #[allow(unused)]
+    lifecycle: GoalClientLifecycle<A>,
+}
+
+impl<A: Action> Deref for MultiCancelResponseClient<A> {
+    type Target = Receiver<MultiCancelResponse>;
+    fn deref(&self) -> &Self::Target {
+        &self.receiver
+    }
+}
+
+impl<A: Action> DerefMut for MultiCancelResponseClient<A> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.receiver
+    }
+}
+
+impl<A: Action> MultiCancelResponseClient<A> {
+    pub(super) fn new(
+        receiver: Receiver<MultiCancelResponse>,
         lifecycle: GoalClientLifecycle<A>,
     ) -> Self {
         Self { receiver, lifecycle }
