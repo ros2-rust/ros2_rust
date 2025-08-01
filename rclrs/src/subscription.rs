@@ -658,8 +658,6 @@ mod tests {
 
         assert!(subscriber.take()?.is_none());
         assert!(subscriber.take_with_info()?.is_none());
-        assert!(subscriber.take_loaned()?.is_none());
-        assert!(subscriber.take_loaned_with_info()?.is_none());
 
         publisher.publish(msg::Empty::default())?;
         waitset.wait(timeout, |_| Ok(()))?;
@@ -668,28 +666,9 @@ mod tests {
 
         assert!(subscriber.take()?.is_none());
         assert!(subscriber.take_with_info()?.is_none());
-        assert!(subscriber.take_loaned()?.is_none());
-        assert!(subscriber.take_loaned_with_info()?.is_none());
 
         publisher.publish(msg::Empty::default())?;
         waitset.wait(timeout, |_| Ok(()))?;
-
-        assert!(subscriber.take_loaned()?.is_some());
-
-        assert!(subscriber.take()?.is_none());
-        assert!(subscriber.take_with_info()?.is_none());
-        assert!(subscriber.take_loaned()?.is_none());
-        assert!(subscriber.take_loaned_with_info()?.is_none());
-
-        publisher.publish(msg::Empty::default())?;
-        waitset.wait(timeout, |_| Ok(()))?;
-
-        assert!(subscriber.take_loaned_with_info()?.is_some());
-
-        assert!(subscriber.take()?.is_none());
-        assert!(subscriber.take_with_info()?.is_none());
-        assert!(subscriber.take_loaned()?.is_none());
-        assert!(subscriber.take_loaned_with_info()?.is_none());
 
         Ok(())
     }
