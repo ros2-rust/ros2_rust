@@ -196,6 +196,9 @@ impl TypeErasedSequence {
         T: Proxy<'msg>,
     {
         let element_size = T::size_in_memory(metadata);
+        if self.data.is_null() {
+            return Vec::new();
+        };
         let sequence_data =
             std::slice::from_raw_parts(self.data as *const u8, self.size * element_size);
         check::<T>(sequence_data);
@@ -210,6 +213,9 @@ impl TypeErasedSequence {
         T: ProxyMut<'msg>,
     {
         let element_size = T::size_in_memory(metadata);
+        if self.data.is_null() {
+            return Vec::new();
+        };
         let sequence_data =
             std::slice::from_raw_parts_mut(self.data as *mut u8, self.size * element_size);
         check::<T>(sequence_data);

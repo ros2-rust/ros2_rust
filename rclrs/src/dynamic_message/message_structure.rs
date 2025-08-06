@@ -1141,4 +1141,16 @@ mod tests {
         let _dyn_msg =
             DynamicMessage::new("test_msgs/msg/BoundedSequences".try_into().unwrap()).unwrap();
     }
+
+    #[test]
+    fn empty_sequence_issue_492() {
+        let message_type = MessageTypeName {
+            package_name: "test_msgs".to_owned(),
+            type_name: "UnboundedSequences".to_owned(),
+        };
+        let mut msg = DynamicMessage::new(message_type).unwrap();
+
+        let _ = msg.get("basic_types_values");
+        let _ = msg.get_mut("basic_types_values");
+    }
 }
