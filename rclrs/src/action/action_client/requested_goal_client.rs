@@ -2,11 +2,18 @@ use crate::{GoalClient, GoalUuid};
 use super::GoalClientLifecycle;
 use rosidl_runtime_rs::Action;
 use tokio::sync::oneshot::Receiver;
-use std::ops::{Deref, DerefMut};
+use std::{
+    future::Future,
+    ops::{Deref, DerefMut},
+    pin::Pin,
+    task::{Context, Poll},
+};
 
 /// This struct allows you to receive a [`GoalClient`] for a goal that you
-/// requested. Through the [`DerefMut`] trait you can use the [`oneshot::Receiver`][Receiver]
-/// API to await the goal client. Note that it can only be received once.
+/// requested. Call `.await` on this to obtain the response to the goal request.
+/// Note that the [`GoalClient`] can only be received once.
+///
+/// Through the [`DerefMut`] trait you can use the [`oneshot::Receiver`][Receiver] API.
 ///
 /// If the action server rejects the goal then this will yield a [`None`] instead
 /// of a [`GoalClient`].
@@ -45,5 +52,17 @@ impl<A: Action> Deref for RequestedGoalClient<A> {
 impl<A: Action> DerefMut for RequestedGoalClient<A> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.receiver
+    }
+}
+
+impl<A: Action> Future for RequestedGoalClient<A> {
+    type Output = Option<GoalClient<A>>;
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        Future::poll(Pin::new(&mut self.get_mut().receiver), cx)
+            // SAFETY: The Receiver returns an Err if the sender is dropped, but
+            // the RegisteredGoalClient makes sure that the sender is alive in
+            // the ActionClient, so we can always safely unwrap this.
+            .map(|result| result.unwrap())
     }
 }

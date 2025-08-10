@@ -18,6 +18,7 @@ use std::{
     future::Future,
 };
 use futures::{future::{select, Either}, pin_mut};
+use futures_lite::future::race;
 use rosidl_runtime_rs::{Action, Message};
 use tokio::sync::watch::{Sender, Receiver, channel as watch_channel};
 
@@ -42,6 +43,19 @@ impl<A: Action> CancellationState<A> {
                 Either::Right((_, f)) => Err(f),
             }
         }
+    }
+
+    pub(super) fn unless_cancel_requested<F: Future>(&self, f: F) -> impl Future<Output = Result<F::Output, ()>> {
+        let mut watcher = self.receiver.clone();
+        race(
+            async move {
+                Ok(f.await)
+            },
+            async move {
+                let _ = watcher.wait_for(|request_received| *request_received).await;
+                Err(())
+            }
+        )
     }
 
     /// Check if a cancellation is currently being requested.

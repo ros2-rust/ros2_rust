@@ -17,11 +17,17 @@ path = "src/lib.rs"
 # Needed for dynamically finding type support libraries
 ament_rs = { version = "0.2", optional = true }
 
+# Needed to create the GoalClientStream
+async-stream = "*"
+
 # Needed for uploading documentation to docs.rs
 cfg-if = "1.0.0"
 
 # Needed for clients
 futures = "0.3"
+
+# Needed for racing futures
+futures-lite = { version = "2.6", features = ["std", "race"] }
 
 # Needed for the runtime-agnostic timeout feature
 async-std = "1.13"
@@ -41,6 +47,9 @@ serde-big-array = { version = "0.5.1", optional = true }
 # channels in this module work with any async runtime, so this does not lock us
 # into the tokio runtime.
 tokio = { version = "1", features = ["sync"] }
+
+# Needed to combine concurrent streams for easier ergonomics in action clients
+tokio-stream = "0.1"
 
 # Needed by action clients to generate UUID values for their goals
 uuid = { version = "1", features = ["v4"] }

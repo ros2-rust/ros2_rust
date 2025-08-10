@@ -11,6 +11,7 @@ use crate::{
     RclPrimitiveHandle, RclPrimitiveKind, ReadyKind, TakeFailedAsNone, ToResult,
     Waitable, WaitableLifecycle, ENTITY_LIFECYCLE_MUTEX,
 };
+use super::empty_goal_status_array;
 use std::{
     any::Any,
     borrow::{Borrow, Cow},
@@ -140,9 +141,31 @@ impl<A: Action> ActionClientState<A> {
         self.board.create_feedback_client(self, goal_id)
     }
 
-    /// Get a client to watch the status of a specific goal.
-    pub fn watch_status(self: &Arc<Self>, goal_id: GoalUuid) -> StatusClient<A> {
+    /// Get a client to receive all status updates for a specific goal. If you
+    /// only care about the latest status update, consider using [`Self::watch_status`]
+    /// instead.
+    pub fn receive_status(self: &Arc<Self>, goal_id: GoalUuid) -> StatusClient<A> {
         self.board.create_status_client(self, goal_id)
+    }
+
+    /// Get a client to watch the status of a specific goal.
+    pub fn watch_status(self: &Arc<Self>, goal_id: GoalUuid) -> StatusWatcher<A> {
+        self.board.create_status_watcher(self, goal_id)
+    }
+
+    /// Ask to receive the result of a goal. You can `.await` the [`ResultClient`]
+    /// to get the result asynchronously.
+    ///
+    /// In the unlikely event of an error at the rcl layer, this will panic.
+    /// Use [`Self::try_receive_result`] to catch errors without panicking.
+    pub fn receive_result(self: &Arc<Self>, goal_id: GoalUuid) -> ResultClient<A> {
+        self.try_receive_result(goal_id).unwrap()
+    }
+
+    /// Try to receive the result of a goal. If an rcl error happens, you can
+    /// handle it.
+    pub fn try_receive_result(self: &Arc<Self>, goal_id: GoalUuid) -> Result<ResultClient<A>, RclrsError> {
+        self.board.request_result(Arc::clone(self), goal_id)
     }
 
     /// Ask the action server to cancel a single goal.
@@ -244,6 +267,7 @@ impl<A: Action> ActionClientState<A> {
             pending_goal_clients: Default::default(),
             feedback_senders: Default::default(),
             status_senders: Default::default(),
+            status_posters: Default::default(),
             cancel_response_senders: Default::default(),
             result_senders: Default::default(),
             client: Default::default(),
@@ -267,7 +291,8 @@ impl<A: Action> ActionClientState<A> {
 struct ActionClientGoalBoard<A: Action> {
     pending_goal_clients: Mutex<HashMap<i64, PendingGoalClient<A>>>,
     feedback_senders: Mutex<HashMap<GoalUuid, Vec<UnboundedSender<A::Feedback>>>>,
-    status_senders: Mutex<HashMap<GoalUuid, WatchSender<GoalStatus>>>,
+    status_senders: Mutex<HashMap<GoalUuid, Vec<UnboundedSender<GoalStatus>>>>,
+    status_posters: Mutex<HashMap<GoalUuid, WatchSender<GoalStatus>>>,
     cancel_response_senders: Mutex<HashMap<i64, CancelResponseSender>>,
     result_senders: Mutex<HashMap<i64, Sender<(GoalStatusCode, A::Result)>>>,
     handle: Arc<ActionClientHandle>,
@@ -313,6 +338,7 @@ impl<A: Action> ActionClientGoalBoard<A> {
         };
 
         let all_status_senders = self.status_senders.lock().unwrap();
+        let all_status_watchers = self.status_posters.lock().unwrap();
         for index in 0..goal_statuses.msg.status_list.size {
             let rcl_status = unsafe {
                 &*goal_statuses.msg.status_list.data.add(index)
@@ -326,8 +352,14 @@ impl<A: Action> ActionClientGoalBoard<A> {
                 stamp: Time { sec: stamp.sec, nanosec: stamp.nanosec },
             };
 
-            if let Some(sender) = all_status_senders.get(&goal_id) {
-                sender.send_modify(|watched_status| *watched_status = status);
+            if let Some(senders) = all_status_senders.get(&goal_id) {
+                for sender in senders {
+                    let _ = sender.send(status.clone());
+                }
+            }
+
+            if let Some(watcher) = all_status_watchers.get(&goal_id) {
+                watcher.send_modify(|watched_status| *watched_status = status);
             }
         }
 
@@ -456,7 +488,7 @@ impl<A: Action> ActionClientGoalBoard<A> {
 
         let (sender, receiver) = oneshot_channel();
         let feedback = self.create_feedback_client(client, goal_id);
-        let status = self.create_status_client(client, goal_id);
+        let status = self.create_status_watcher(client, goal_id);
 
         self.pending_goal_clients.lock().unwrap().insert(
             seq,
@@ -482,6 +514,7 @@ impl<A: Action> ActionClientGoalBoard<A> {
         self.feedback_senders.lock().unwrap().entry(goal_id).or_default().push(sender);
         FeedbackClient::new(
             receiver,
+            goal_id,
             GoalClientLifecycle {
                 kind: GoalClientKind::Feedback(goal_id),
                 client: Arc::clone(client),
@@ -494,8 +527,25 @@ impl<A: Action> ActionClientGoalBoard<A> {
         client: &ActionClient<A>,
         goal_id: GoalUuid,
     ) -> StatusClient<A> {
-        let receiver = self
-            .status_senders
+        let (sender, receiver) = unbounded_channel();
+        self.status_senders.lock().unwrap().entry(goal_id).or_default().push(sender);
+        StatusClient::new(
+            receiver,
+            goal_id,
+            GoalClientLifecycle {
+                kind: GoalClientKind::Status(goal_id),
+                client: Arc::clone(client),
+            },
+        )
+    }
+
+    fn create_status_watcher(
+        &self,
+        client: &ActionClient<A>,
+        goal_id: GoalUuid,
+    ) -> StatusWatcher<A> {
+        let watcher = self
+            .status_posters
             .lock()
             .unwrap()
             .entry(goal_id)
@@ -508,8 +558,8 @@ impl<A: Action> ActionClientGoalBoard<A> {
             )
             .subscribe();
 
-        StatusClient::new(
-            receiver,
+        StatusWatcher::new(
+            watcher,
             Arc::new(GoalClientLifecycle {
                 kind: GoalClientKind::Status(goal_id),
                 client: Arc::clone(client),
@@ -587,7 +637,7 @@ impl<A: Action> ActionClientGoalBoard<A> {
 struct PendingGoalClient<A: Action> {
     goal_id: GoalUuid,
     feedback: FeedbackClient<A>,
-    status: StatusClient<A>,
+    status: StatusWatcher<A>,
     sender: Sender<Option<GoalClient<A>>>,
 }
 
@@ -630,11 +680,24 @@ impl<A: Action> Drop for GoalClientLifecycle<A> {
                 }
             }
             GoalClientKind::Status(goal_uuid) => {
-                let mut all_status_senders = self.client.board.status_senders.lock().unwrap();
+                {
+                    let mut all_status_senders = self.client.board.status_senders.lock().unwrap();
+                    let mut is_empty = false;
+                    if let Some(senders) = all_status_senders.get_mut(&goal_uuid) {
+                        senders.retain(|sender| !sender.is_closed());
+                        is_empty = senders.is_empty();
+                    }
+                    if is_empty {
+                        all_status_senders.remove(&goal_uuid);
+                    }
+                }
 
-                let remove = all_status_senders.get(&goal_uuid).is_some_and(|sender| sender.is_closed());
-                if remove {
-                    all_status_senders.remove(&goal_uuid);
+                {
+                    let mut all_status_posters = self.client.board.status_posters.lock().unwrap();
+                    let remove = all_status_posters.get(&goal_uuid).is_some_and(|sender| sender.is_closed());
+                    if remove {
+                        all_status_posters.remove(&goal_uuid);
+                    }
                 }
             }
             GoalClientKind::CancelResponse(seq) => {
@@ -736,18 +799,7 @@ impl ActionClientHandle {
     }
 
     fn take_status(&self) -> Result<DropGuard<rcl_action_goal_status_array_t>, RclrsError> {
-        let mut goal_statuses = DropGuard::new(
-            unsafe {
-                // SAFETY: No preconditions
-                rcl_action_get_zero_initialized_goal_status_array()
-            },
-            |mut goal_statuses| unsafe {
-                // SAFETY: The goal_status array is either zero-initialized and empty or populated by
-                // `rcl_action_get_goal_status_array`. In either case, it can be safely finalized.
-                rcl_action_goal_status_array_fini(&mut goal_statuses);
-            }
-        );
-
+        let mut goal_statuses = empty_goal_status_array();
         unsafe {
             let handle = self.lock();
             rcl_action_take_status(&*handle, &mut *goal_statuses as *mut _ as *mut _)

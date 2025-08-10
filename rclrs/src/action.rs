@@ -10,8 +10,9 @@ pub(crate) mod action_server;
 pub use action_server::*;
 
 use crate::{
-    rcl_bindings::RCL_ACTION_UUID_SIZE,
+    rcl_bindings::*,
     vendor::builtin_interfaces::msg::Time,
+    DropGuard,
     log_error,
 };
 use std::fmt;
@@ -95,7 +96,7 @@ impl CancelResponseCode {
 
 impl From<i8> for CancelResponseCode {
     fn from(value: i8) -> Self {
-        if value <= 0 && value <= 3 {
+        if 0 <= value && value <= 3 {
             unsafe {
                 // SAFETY: We have already ensured that the integer value is
                 // within the acceptable range for the enum, so transmuting is
@@ -177,7 +178,7 @@ pub enum GoalStatusCode {
 
 impl From<i8> for GoalStatusCode {
     fn from(value: i8) -> Self {
-        if value <= 0 && value <= 6 {
+        if 0 <= value && value <= 6 {
             unsafe {
                 // SAFETY: We have already ensured that the integer value is
                 // within the acceptable range for the enum, so transmuting is
@@ -207,4 +208,148 @@ pub struct GoalStatus {
     /// the action server might not align with the time measured by the action
     /// client, so care should be taken when using this time value.
     pub stamp: Time,
+}
+
+fn empty_goal_status_array() -> DropGuard<rcl_action_goal_status_array_t> {
+    DropGuard::new(
+        unsafe {
+            // SAFETY: No preconditions
+            let mut array = rcl_action_get_zero_initialized_goal_status_array();
+            array.allocator = rcutils_get_default_allocator();
+            array
+        },
+        |mut goal_statuses| unsafe {
+            // SAFETY: The goal_status array is either zero-initialized and empty or populated by
+            // `rcl_action_get_goal_status_array`. In either case, it can be safely finalized.
+            rcl_action_goal_status_array_fini(&mut goal_statuses);
+        }
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::*;
+    use example_interfaces::action::{Fibonacci, Fibonacci_Goal, Fibonacci_Result, Fibonacci_Feedback};
+    use tokio::sync::mpsc::unbounded_channel;
+    use futures::StreamExt;
+    use std::time::Duration;
+
+    #[test]
+    fn test_action_success() {
+        let mut executor = Context::default().create_basic_executor();
+
+        let node = executor.create_node(&format!("test_action_success_{}", line!())).unwrap();
+        let action_name = format!("test_action_success_{}_action", line!());
+        let _action_server = node.create_action_server(
+            &action_name,
+            fibonacci_action,
+        ).unwrap();
+
+        let client = node.create_action_client::<Fibonacci>(&action_name).unwrap();
+
+        let order_10_sequence = [1, 1, 2, 3, 5, 8, 13, 21, 34, 55];
+
+        let request = client.request_goal(Fibonacci_Goal {
+            order: 10,
+        });
+
+        let promise = executor.commands().run(async move {
+            let mut goal_client_stream = request.await.unwrap().stream();
+            let mut expected_feedback_len = 0;
+            while let Some(event) = goal_client_stream.next().await {
+                match event {
+                    GoalEvent::Feedback(feedback) => {
+                        expected_feedback_len += 1;
+                        assert_eq!(feedback.sequence.len(), expected_feedback_len);
+                    }
+                    GoalEvent::Status(s) => {
+                        assert!(
+                            matches!(s.code, GoalStatusCode::Unknown | GoalStatusCode::Executing | GoalStatusCode::Succeeded),
+                            "Actual code: {:?}",
+                            s.code,
+                        );
+                    }
+                    GoalEvent::Result((status, result)) => {
+                        assert_eq!(status, GoalStatusCode::Succeeded);
+                        assert_eq!(result.sequence, order_10_sequence);
+                        return;
+                    }
+                }
+            }
+        });
+
+        executor.spin(SpinOptions::default().until_promise_resolved(promise));
+
+        let request = client.request_goal(Fibonacci_Goal {
+            order: 10,
+        });
+
+        let promise = executor.commands().run(async move {
+            let (status, result) = request.await.unwrap().result.await;
+            assert_eq!(status, GoalStatusCode::Succeeded);
+            assert_eq!(result.sequence, order_10_sequence);
+        });
+
+        executor.spin(SpinOptions::default().until_promise_resolved(promise));
+    }
+
+    async fn fibonacci_action(handle: RequestedGoal<Fibonacci>) -> TerminatedGoal {
+        let goal_order = handle.goal().order;
+        if goal_order < 0 {
+            return handle.reject();
+        }
+
+        let mut result = Fibonacci_Result::default();
+
+        let executing = match handle.accept().begin() {
+            BeginAcceptedGoal::Execute(executing) => executing,
+            BeginAcceptedGoal::Cancel(cancelling) => {
+                return cancelling.cancelled_with(result);
+            }
+        };
+
+        let (sender, mut receiver) = unbounded_channel();
+        std::thread::spawn(move || {
+
+            let mut previous = 0;
+            let mut current = 1;
+
+            for _ in 0..goal_order {
+                if let Err(_) = sender.send(current) {
+                    // The action has been cancelled early, so just drop this thread.
+                    return;
+                }
+
+                let next = previous + current;
+                previous = current;
+                current = next;
+                std::thread::sleep(Duration::from_micros(10));
+            }
+        });
+
+        let mut sequence = Vec::new();
+        loop {
+            match executing.unless_cancel_requested(receiver.recv()).await {
+                Ok(Some(next)) => {
+                    // We have a new item in the sequence
+                    sequence.push(next);
+                    executing.publish_feedback(
+                        Fibonacci_Feedback {
+                            sequence: sequence.clone(),
+                        }
+                    );
+                }
+                Ok(None) => {
+                    // The sequence has finished
+                    result.sequence = sequence;
+                    return executing.succeeded_with(result);
+                }
+                Err(_) => {
+                    // The action has been cancelled
+                    result.sequence = sequence;
+                    return executing.begin_cancelling().cancelled_with(result);
+                }
+            }
+        }
+    }
 }

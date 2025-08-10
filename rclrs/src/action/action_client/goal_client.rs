@@ -1,8 +1,13 @@
 use crate::{
     vendor::builtin_interfaces::msg::Time,
-    CancellationClient, FeedbackClient, StatusClient, ResultClient,
+    CancellationClient, FeedbackClient, GoalStatus, GoalStatusCode, StatusWatcher, ResultClient,
 };
 use rosidl_runtime_rs::Action;
+use tokio_stream::{StreamMap, Stream};
+use std::{
+    pin::Pin,
+    task::{Context, Poll},
+};
 
 /// The goal client bundles a set of receivers that will allow you to await
 /// different information from the action server, such as feedback messages,
@@ -20,11 +25,84 @@ pub struct GoalClient<A: Action> {
     /// Receive feedback messages for the goal.
     pub feedback: FeedbackClient<A>,
     /// Watch the status of the goal.
-    pub status: StatusClient<A>,
+    pub status: StatusWatcher<A>,
     /// Get the final result of the goal.
     pub result: ResultClient<A>,
     /// Use this if you want to request the goal to be cancelled.
     pub cancellation: CancellationClient<A>,
     /// The time that the goal was accepted.
     pub stamp: Time,
+}
+
+impl<A: Action> Clone for GoalClient<A> {
+    fn clone(&self) -> Self {
+        Self {
+            feedback: self.feedback.clone(),
+            status: self.status.clone(),
+            result: self.result.clone(),
+            cancellation: self.cancellation.clone(),
+            stamp: self.stamp.clone(),
+        }
+    }
+}
+
+impl<A: Action> GoalClient<A> {
+    /// Create a concurrent stream that will emit events related to this goal.
+    pub fn stream(self) -> GoalClientStream<A> {
+        let Self { mut feedback, mut status, result, .. } = self;
+
+        let rx_feedback = Box::pin(async_stream::stream! {
+            while let Some(msg) = feedback.recv().await {
+                yield GoalEvent::Feedback(msg);
+            }
+        }) as Pin<Box<dyn Stream<Item = GoalEvent<A>> + Send>>;
+
+        let rx_status = Box::pin(async_stream::stream! {
+            let initial_value = (*status.borrow_and_update()).clone();
+            yield GoalEvent::Status(initial_value);
+
+            while let Ok(_) = status.changed().await {
+                let value = (*status.borrow_and_update()).clone();
+                yield GoalEvent::Status(value);
+            }
+        }) as Pin<Box<dyn Stream<Item = GoalEvent<A>> + Send>>;
+
+        let rx_result = Box::pin(async_stream::stream! {
+            yield GoalEvent::Result(result.await);
+        }) as Pin<Box<dyn Stream<Item = GoalEvent<A>> + Send>>;
+
+        let mut stream_map: StreamMap<i32, Pin<Box<dyn Stream<Item = GoalEvent<A>> + Send>>> = StreamMap::new();
+        stream_map.insert(0, rx_feedback);
+        stream_map.insert(1, rx_status);
+        stream_map.insert(2, rx_result);
+        GoalClientStream { stream_map }
+    }
+}
+
+/// Use this to
+pub struct GoalClientStream<A: Action> {
+    stream_map: StreamMap<i32, Pin<Box<dyn Stream<Item = GoalEvent<A>> + Send>>>,
+}
+
+impl<A: Action> Stream for GoalClientStream<A> {
+    type Item = GoalEvent<A>;
+
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
+        Stream::poll_next(Pin::new(&mut self.get_mut().stream_map), cx)
+            .map(|r| r.map(|(_, event)| event))
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.stream_map.size_hint()
+    }
+}
+
+/// Any of the possible update events that can happen for a goal.
+pub enum GoalEvent<A: Action> {
+    /// A feedback message was received
+    Feedback(A::Feedback),
+    /// A status update was received
+    Status(GoalStatus),
+    /// The result of the goal was received
+    Result((GoalStatusCode, A::Result)),
 }

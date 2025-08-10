@@ -91,7 +91,7 @@ impl<A: Action> LiveActionServerGoal<A> {
     /// so no more methods may be called on a goal handle after this is called.
     ///
     /// Returns an error if the goal is in any state other than executing.
-    pub(super) fn transition_to_aborted(&self, result: &A::Result) {
+    pub(super) fn transition_to_aborted(&self, result: A::Result) {
         let r = self
             .update_state(rcl_action_goal_event_t::GOAL_EVENT_ABORT)
             .and_then(|_| self.terminate_goal(TerminalStatus::Aborted, result));
@@ -111,7 +111,7 @@ impl<A: Action> LiveActionServerGoal<A> {
     /// terminal state, so no more methods may be called on a goal handle after this is called.
     ///
     /// Returns an error if the goal is in any state other than executing.
-    pub(super) fn transition_to_succeed(&self, result: &A::Result) {
+    pub(super) fn transition_to_succeed(&self, result: A::Result) {
         let r = self
             .update_state(rcl_action_goal_event_t::GOAL_EVENT_SUCCEED)
             .and_then(|_| self.terminate_goal(TerminalStatus::Succeeded, result));
@@ -131,7 +131,7 @@ impl<A: Action> LiveActionServerGoal<A> {
     /// terminal state, so no more methods may be called on a goal handle after this is called.
     ///
     /// Returns an error if the goal is in any state other than executing or pending.
-    pub(super) fn transition_to_cancelled(&self, result: &A::Result) {
+    pub(super) fn transition_to_cancelled(&self, result: A::Result) {
         let r = self
             .update_state(rcl_action_goal_event_t::GOAL_EVENT_CANCELED)
             .and_then(|_| self.terminate_goal(TerminalStatus::Cancelled, result));
@@ -167,11 +167,10 @@ impl<A: Action> LiveActionServerGoal<A> {
 
     /// Send an update about the goal's progress.
     ///
-    /// This may only be called when the goal is executing.
-    ///
-    /// Returns an error if the goal is in any state other than executing.
-    pub(super) fn publish_feedback(&self, feedback: &A::Feedback) {
-        let feedback_rmw = <<A as Action>::Feedback as Message>::into_rmw_message(Cow::Borrowed(feedback));
+    /// This should only be called in between a goal being accepted and terminated,
+    /// but that is not enforced in this method.
+    pub(super) fn publish_feedback(&self, feedback: A::Feedback) {
+        let feedback_rmw = <<A as Action>::Feedback as Message>::into_rmw_message(Cow::Owned(feedback));
         let mut feedback_msg = <A as Action>::create_feedback_message(&*self.goal_id(), feedback_rmw.into_owned());
         let r = unsafe {
             // SAFETY: The action server is locked through the handle, meaning that no other
@@ -195,12 +194,43 @@ impl<A: Action> LiveActionServerGoal<A> {
         }
     }
 
+    /// Atomically check the state of the goal and send feedback if the state
+    /// has not terminated.
+    ///
+    /// This is used by [`crate::FeedbackSender`] to ensure that it does not
+    /// send feedback in an unacceptable state, even if the state of the goal
+    /// may change while it tries to send the feedback.
+    pub(super) fn safe_publish_feedback(&self, feedback: A::Feedback) -> Result<(), A::Feedback> {
+        let goal_handle = self.handle.lock();
+
+        let mut state = GoalStatusCode::Unknown as rcl_action_goal_state_t;
+        let r = unsafe {
+            // SAFETY: The goal handle is properly initialized and its mutex is locked
+            rcl_action_goal_handle_get_status(&*goal_handle, &mut state).ok()
+        };
+        if let Err(err) = r {
+            log_error!(
+                "LiveActionServerGoal.safe_publish_feedback",
+                "Unexpected error while getting status: {err}",
+            );
+            return Err(feedback);
+        }
+
+        // The goal's rcl_handle mutex is locked and will prevent the goal status from
+        // being changed until this function is finished.
+        //
+        // The publish_feedback method does not need to lock the goal's rcl_handle
+        // so there is no double-lock to worry about.
+        self.publish_feedback(feedback);
+        Ok(())
+    }
+
     fn terminate_goal(
         &self,
         status: TerminalStatus,
-        result: &A::Result,
+        result: A::Result,
     ) -> Result<(), RclrsError> {
-        let result_rmw = <A::Result as Message>::into_rmw_message(Cow::Borrowed(result)).into_owned();
+        let result_rmw = <A::Result as Message>::into_rmw_message(Cow::Owned(result)).into_owned();
         let response_rmw = <A as Action>::create_result_response(status as i8, result_rmw);
         self.handle.provide_result(self.server.as_ref(), response_rmw)?;
 
@@ -240,10 +270,10 @@ impl<A: Action> Drop for LiveActionServerGoal<A> {
                 // Transition into executing and then into aborted to reach a
                 // terminal state.
                 self.transition_to_executing();
-                self.transition_to_aborted(&Default::default());
+                self.transition_to_aborted(Default::default());
             }
             GoalStatusCode::Cancelling | GoalStatusCode::Executing => {
-                self.transition_to_aborted(&Default::default());
+                self.transition_to_aborted(Default::default());
             }
             GoalStatusCode::Succeeded | GoalStatusCode::Cancelled | GoalStatusCode::Aborted => {
                 // Already in a terminal state, no need to do anything.

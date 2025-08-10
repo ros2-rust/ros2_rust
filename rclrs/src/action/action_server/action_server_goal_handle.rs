@@ -43,7 +43,7 @@ impl<A: Action> ActionServerGoalHandle<A> {
     pub(super) fn get_status(&self) -> GoalStatusCode {
         let mut state = GoalStatusCode::Unknown as rcl_action_goal_state_t;
         {
-            let rcl_handle = self.rcl_handle.lock().unwrap();
+            let rcl_handle = self.lock();
             // SAFETY: The provided goal handle is properly initialized by construction.
             let r = unsafe { rcl_action_goal_handle_get_status(&*rcl_handle, &mut state).ok() };
             if let Err(err) = r {

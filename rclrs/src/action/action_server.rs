@@ -6,6 +6,7 @@ use crate::{
     RclPrimitiveHandle, RclPrimitiveKind, ReadyKind, TakeFailedAsNone,
     Waitable, WaitableLifecycle, ENTITY_LIFECYCLE_MUTEX,
 };
+use super::empty_goal_status_array;
 use rosidl_runtime_rs::{Action, Message, RmwGoalRequest, RmwResultRequest};
 use std::{
     any::Any,
@@ -32,6 +33,9 @@ use cancelling_goal::*;
 
 mod executing_goal;
 pub use executing_goal::*;
+
+mod feedback_publisher;
+pub use feedback_publisher::*;
 
 mod live_action_server_goal;
 use live_action_server_goal::*;
@@ -550,18 +554,7 @@ impl<A: Action> ActionServerHandle<A> {
     }
 
     pub(super) fn publish_status(&self) -> Result<(), RclrsError> {
-        let mut goal_statuses = DropGuard::new(
-            unsafe {
-                // SAFETY: No preconditions
-                rcl_action_get_zero_initialized_goal_status_array()
-            },
-            |mut goal_statuses| unsafe {
-                // SAFETY: The goal_status array is either zero-initialized and empty or populated by
-                // `rcl_action_get_goal_status_array`. In either case, it can be safely finalized.
-                rcl_action_goal_status_array_fini(&mut goal_statuses);
-            },
-        );
-
+        let mut goal_statuses = empty_goal_status_array();
         let rcl_handle = self.lock();
         unsafe {
             // SAFETY: The action server is locked through the handle and goal_statuses is

@@ -1,4 +1,4 @@
-use super::{LiveActionServerGoal, TerminatedGoal};
+use super::{LiveActionServerGoal, FeedbackPublisher, TerminatedGoal};
 use std::sync::Arc;
 use rosidl_runtime_rs::Action;
 
@@ -25,7 +25,7 @@ impl<A: Action> CancellingGoal<A> {
     ///
     /// "Cancelled" is a terminal state, so the state of the goal can no longer
     /// be changed after this. Publish all relevant feedback before calling this.
-    pub fn cancelled_with(self, result: &A::Result) -> TerminatedGoal {
+    pub fn cancelled_with(self, result: A::Result) -> TerminatedGoal {
         self.live.transition_to_cancelled(result);
         TerminatedGoal { uuid: *self.live.goal_id() }
     }
@@ -34,7 +34,7 @@ impl<A: Action> CancellingGoal<A> {
     ///
     /// "Succeeded" is a terminal state, so the state of the goal can no longer
     /// be changed after this. Publish all relevant feedback before calling this.
-    pub fn succeeded_with(self, result: &A::Result) -> TerminatedGoal {
+    pub fn succeeded_with(self, result: A::Result) -> TerminatedGoal {
         self.live.transition_to_succeed(result);
         TerminatedGoal { uuid: *self.live.goal_id() }
     }
@@ -43,14 +43,28 @@ impl<A: Action> CancellingGoal<A> {
     ///
     /// "Aborted" is a terminal state, so the state of the goal can no longer
     /// be changed after this. Publish all relevant feedback before calling this.
-    pub fn aborted_with(self, result: &A::Result) -> TerminatedGoal {
+    pub fn aborted_with(self, result: A::Result) -> TerminatedGoal {
         self.live.transition_to_aborted(result);
         TerminatedGoal { uuid: *self.live.goal_id() }
     }
 
     /// Publish feedback for action clients to read.
-    pub fn publish_feedback(&self, feedback: &A::Feedback) {
+    ///
+    /// If you need to publish feedback from a separate thread or async task
+    /// which does not have direct access to the goal's state machine, you can
+    /// use [`Self::feedback_publisher`] to get a handle that you can pass along.
+    pub fn publish_feedback(&self, feedback: A::Feedback) {
         self.live.publish_feedback(feedback);
+    }
+
+    /// Get a handle specifically for publishing feedback for this goal. This
+    /// publisher can be used separately from the overall state machine of the
+    /// goal, but it will stop working once the goal reaches a terminal state.
+    ///
+    /// If you just need to publish a one-off feedback message, you can use
+    /// [`Self::publish_feedback`].
+    pub fn feedback_publisher(&self) -> FeedbackPublisher<A> {
+        FeedbackPublisher::new(Arc::clone(&self.live))
     }
 
     pub(super) fn new(live: Arc<LiveActionServerGoal<A>>) -> Self {
