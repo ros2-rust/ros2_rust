@@ -204,6 +204,8 @@ impl<Scope: WorkScope> TimerState<Scope> {
     /// Checks if the timer is ready (not canceled)
     pub fn is_ready(&self) -> Result<bool, RclrsError> {
         let is_ready = unsafe {
+            // SAFETY: The timer is valid because its lifecycle is managed by
+            // this struct. There are no other preconditions.
             let mut is_ready: bool = false;
             let rcl_timer = self.handle.rcl_timer.lock().unwrap();
             rcl_timer_is_ready(&*rcl_timer, &mut is_ready).ok()?;
