@@ -12,7 +12,7 @@
 #![allow(missing_docs)]
 
 cfg_if::cfg_if! {
-    if #[cfg(feature="generate_docs")] {
+    if #[cfg(feature="use_ros_shim")] {
         #[repr(C)]
         #[derive(Debug)]
         pub struct rcl_allocator_t;

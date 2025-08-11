@@ -26,7 +26,7 @@ fn main() {
         let error_msg =
             "ROS_DISTRO environment variable not set - please source ROS 2 installation first.";
         cfg_if::cfg_if! {
-            if #[cfg(feature="generate_docs")] {
+            if #[cfg(feature="use_ros_shim")] {
                 println!("{}", error_msg);
                 return;
             } else {
