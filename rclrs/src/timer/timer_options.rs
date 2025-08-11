@@ -54,7 +54,7 @@ pub trait IntoTimerOptions<'a>: Sized {
         options
     }
 
-    /// Use a specific clock for the
+    /// Use a specific clock for the timer
     fn clock(self, clock: &'a Clock) -> TimerOptions<'a> {
         let mut options = self.into_timer_options();
         options.clock = TimerClock::Clock(clock);
