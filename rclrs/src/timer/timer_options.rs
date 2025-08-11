@@ -77,6 +77,11 @@ pub enum TimerClock<'a> {
 }
 
 impl TimerClock<'_> {
+    /// Check if node time has been selected for the timer's clock.
+    pub fn is_node_time(&self) -> bool {
+        matches!(self, Self::NodeTime)
+    }
+
     pub(crate) fn as_clock(&self, node: &NodeState) -> Clock {
         match self {
             TimerClock::SteadyTime => Clock::steady(),

@@ -78,6 +78,9 @@ pub struct TimerState<Scope: WorkScope> {
     /// before we can get the lifecycle handle.
     #[allow(unused)]
     lifecycle: Mutex<Option<WaitableLifecycle>>,
+    /// We optionally hold onto a live node if the timer is depending on node time.
+    #[allow(unused)]
+    node: Option<Node>,
     _ignore: std::marker::PhantomData<Scope>,
 }
 
@@ -115,7 +118,8 @@ impl<Scope: WorkScope> TimerState<Scope> {
             // function call is thread-safe and only requires a valid rcl_timer
             // to be passed in.
             rcl_timer_cancel(&mut *rcl_timer)
-        }.ok()?;
+        }
+        .ok()?;
         Ok(cancel_result)
     }
 
@@ -198,7 +202,8 @@ impl<Scope: WorkScope> TimerState<Scope> {
             // function call is thread-safe and only requires a valid rcl_timer
             // to be passed in.
             rcl_timer_reset(&mut *rcl_timer)
-        }.ok()
+        }
+        .ok()
     }
 
     /// Checks if the timer is ready (not canceled)
@@ -257,18 +262,17 @@ impl<Scope: WorkScope> TimerState<Scope> {
         callback: AnyTimerCallback<Scope>,
         commands: &Arc<WorkerCommands>,
         context: &ContextHandle,
+        node: Option<Node>,
     ) -> Result<Arc<Self>, RclrsError> {
         let period = period.as_nanos() as i64;
 
         // Callbacks will be handled at the rclrs layer.
         let rcl_timer_callback: rcl_timer_callback_t = None;
 
-        let rcl_timer = Arc::new(Mutex::new(
-            unsafe {
-                // SAFETY: Zero-initializing a timer is always safe
-                rcl_get_zero_initialized_timer()
-            },
-        ));
+        let rcl_timer = Arc::new(Mutex::new(unsafe {
+            // SAFETY: Zero-initializing a timer is always safe
+            rcl_get_zero_initialized_timer()
+        }));
 
         unsafe {
             let mut rcl_clock = clock.get_rcl_clock().lock().unwrap();
@@ -321,6 +325,7 @@ impl<Scope: WorkScope> TimerState<Scope> {
             callback: Mutex::new(Some(callback)),
             last_elapse: Mutex::new(Duration::ZERO),
             lifecycle: Mutex::default(),
+            node,
             _ignore: Default::default(),
         });
 
@@ -400,7 +405,8 @@ impl<Scope: WorkScope> TimerState<Scope> {
             // function call is thread-safe and only requires a valid rcl_timer
             // to be passed in.
             rcl_timer_call(&mut *rcl_timer)
-        }.ok()
+        }
+        .ok()
     }
 
     /// Used by [`Timer::execute`] to restore the state of the callback if and
@@ -570,6 +576,7 @@ mod tests {
             (|| {}).into_node_timer_repeating_callback(),
             executor.commands().async_worker_commands(),
             &executor.commands().context().handle,
+            None,
         );
         assert!(result.is_ok());
     }
@@ -583,6 +590,7 @@ mod tests {
             (|| {}).into_node_timer_repeating_callback(),
             executor.commands().async_worker_commands(),
             &executor.commands().context().handle,
+            None,
         );
         assert!(result.is_ok());
     }
@@ -605,6 +613,7 @@ mod tests {
             (|| {}).into_node_timer_repeating_callback(),
             executor.commands().async_worker_commands(),
             &executor.commands().context().handle,
+            None,
         );
         assert!(result.is_ok());
     }
@@ -621,6 +630,7 @@ mod tests {
             (|| {}).into_node_timer_repeating_callback(),
             executor.commands().async_worker_commands(),
             &executor.commands().context().handle,
+            None,
         );
 
         let timer = result.unwrap();
@@ -638,6 +648,7 @@ mod tests {
             (|| {}).into_node_timer_repeating_callback(),
             executor.commands().async_worker_commands(),
             &executor.commands().context().handle,
+            None,
         );
 
         let timer = result.unwrap();
@@ -656,6 +667,7 @@ mod tests {
             (|| {}).into_node_timer_repeating_callback(),
             executor.commands().async_worker_commands(),
             &executor.commands().context().handle,
+            None,
         );
         let timer = result.unwrap();
 
@@ -682,6 +694,7 @@ mod tests {
             (|| {}).into_node_timer_repeating_callback(),
             executor.commands().async_worker_commands(),
             &executor.commands().context().handle,
+            None,
         );
         let timer = result.unwrap();
 
@@ -704,6 +717,7 @@ mod tests {
             (|| {}).into_node_timer_repeating_callback(),
             executor.commands().async_worker_commands(),
             &executor.commands().context().handle,
+            None,
         )
         .unwrap();
 
@@ -735,6 +749,7 @@ mod tests {
             (|| {}).into_node_timer_repeating_callback(),
             executor.commands().async_worker_commands(),
             &executor.commands().context().handle,
+            None,
         )
         .unwrap();
 
@@ -766,6 +781,7 @@ mod tests {
             (|| {}).into_node_timer_repeating_callback(),
             executor.commands().async_worker_commands(),
             &executor.commands().context().handle,
+            None,
         )
         .unwrap();
 
@@ -791,6 +807,7 @@ mod tests {
             create_timer_callback_for_testing(initial_time, Arc::clone(&executed)),
             executor.commands().async_worker_commands(),
             &executor.commands().context().handle,
+            None,
         )
         .unwrap();
 
@@ -812,6 +829,7 @@ mod tests {
             create_timer_callback_for_testing(initial_time, Arc::clone(&executed)),
             executor.commands().async_worker_commands(),
             &executor.commands().context().handle,
+            None,
         )
         .unwrap();
 
@@ -841,6 +859,7 @@ mod tests {
             create_timer_callback_for_testing(initial_time, Arc::clone(&executed)),
             executor.commands().async_worker_commands(),
             &executor.commands().context().handle,
+            None,
         )
         .unwrap();
 

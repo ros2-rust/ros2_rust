@@ -1005,7 +1005,7 @@ impl NodeState {
     /// [2]: crate::Time
     /// [3]: std::sync::Weak
     pub fn create_timer_repeating<'a, Args>(
-        &self,
+        self: &Arc<Self>,
         options: impl IntoTimerOptions<'a>,
         callback: impl IntoNodeTimerRepeatingCallback<Args>,
     ) -> Result<Timer, RclrsError> {
@@ -1060,7 +1060,7 @@ impl NodeState {
     /// [2]: crate::Time
     /// [3]: std::sync::Weak
     pub fn create_timer_oneshot<'a, Args>(
-        &self,
+        self: &Arc<Self>,
         options: impl IntoTimerOptions<'a>,
         callback: impl IntoNodeTimerOneshotCallback<Args>,
     ) -> Result<Timer, RclrsError> {
@@ -1075,7 +1075,7 @@ impl NodeState {
     /// * [`Self::create_timer_repeating`]
     /// * [`Self::create_timer_oneshot`]
     pub fn create_timer_inert<'a>(
-        &self,
+        self: &Arc<Self>,
         options: impl IntoTimerOptions<'a>,
     ) -> Result<Timer, RclrsError> {
         self.create_timer(options, AnyTimerCallback::Inert)
@@ -1088,18 +1088,20 @@ impl NodeState {
     /// * [`Self::create_timer_oneshot`]
     /// * [`Self::create_timer_inert`]
     fn create_timer<'a>(
-        &self,
+        self: &Arc<Self>,
         options: impl IntoTimerOptions<'a>,
         callback: AnyTimerCallback<Node>,
     ) -> Result<Timer, RclrsError> {
         let options = options.into_timer_options();
         let clock = options.clock.as_clock(self);
+        let node = options.clock.is_node_time().then(|| Arc::clone(self));
         TimerState::create(
             options.period,
             clock,
             callback,
             self.commands.async_worker_commands(),
             &self.handle.context_handle,
+            node,
         )
     }
 
