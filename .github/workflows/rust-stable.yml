@@ -99,7 +99,7 @@ jobs:
         for path in $(colcon list | awk '$3 == "(ament_cargo)" { print $2 }'); do
         cd $path
         echo "Running clippy in $path"
-        # Run clippy for all features except generate_docs (needed for docs.rs)
+        # Run clippy for all features except use_ros_shim (needed for docs.rs)
         if [ "$(basename $path)" = "rclrs" ]; then
           cargo clippy --no-deps --all-targets -F default,dyn_msg -- -D warnings
         else
@@ -115,7 +115,7 @@ jobs:
         for path in $(colcon list | awk '$3 == "(ament_cargo)" && $1 != "examples_rclrs_minimal_pub_sub" && $1 != "examples_rclrs_minimal_client_service" && $1 != "rust_pubsub" { print $2 }'); do
         cd $path
         echo "Running cargo test in $path"
-        # Run cargo test for all features except generate_docs (needed for docs.rs)
+        # Run cargo test for all features except use_ros_shim (needed for docs.rs)
         if [ "$(basename $path)" = "rclrs" ]; then
           cargo test -F default,dyn_msg
         elif [ "$(basename $path)" = "rosidl_runtime_rs" ]; then
