@@ -524,32 +524,52 @@ mod tests {
     #[test]
     fn test_delayed_subscription() {
         use crate::*;
-        use futures::channel::oneshot;
+        use futures::{
+            channel::{oneshot, mpsc},
+            StreamExt,
+        };
         use example_interfaces::msg::Empty;
+        use std::sync::atomic::{AtomicBool, Ordering};
 
         let mut executor = Context::default().create_basic_executor();
         let node = executor.create_node(&format!("test_delayed_subscription_{}", line!())).unwrap();
 
-        let (sender, receiver) = oneshot::channel();
-        let sender = Arc::new(Mutex::new(Some(sender)));
+        let (promise, receiver) = oneshot::channel();
+        let promise = Arc::new(Mutex::new(Some(promise)));
 
-        let _ = executor.commands().run(async move {
-            let _subscription = node.create_subscription(
-                "test_delayed_subscription",
-                move |_: Empty| {
-                    if let Some(sender) = sender.lock().unwrap().take() {
-                        let _ = sender.send(());
+        let success = Arc::new(AtomicBool::new(false));
+        let send_success = Arc::clone(&success);
+
+        let publisher = node.create_publisher("test_delayed_subscription").unwrap();
+
+        let commands = Arc::clone(executor.commands());
+        std::thread::spawn(move || {
+            // Wait a little while so the executor can start spinning
+            std::thread::sleep(std::time::Duration::from_millis(1));
+
+            let _ = commands.run(async move {
+                let (sender, mut receiver) = mpsc::unbounded();
+                let _subscription = node.create_subscription(
+                    "test_delayed_subscription",
+                    move |_: Empty| {
+                        let _ = sender.unbounded_send(());
+                    },
+                ).unwrap();
+
+                // Make sure the message doesn't get dropped due to the subscriber
+                // not being connected yet.
+                let _ = publisher.notify_on_subscriber_ready().await;
+
+                // Publish the message, which should trigger the executor to stop spinning
+                publisher.publish(Empty::default()).unwrap();
+
+                if let Some(_) = receiver.next().await {
+                    send_success.store(true, Ordering::Release);
+                    if let Some(promise) = promise.lock().unwrap().take() {
+                        promise.send(()).unwrap();
                     }
-                },
-            ).unwrap();
-
-            let publisher = node.create_publisher("test_delayed_subscription").unwrap();
-
-            // Make sure the message doesn't get dropped
-            let _ = publisher.notify_on_subscriber_ready().await;
-
-            // Publish the message, which should trigger the executor to stop spinning
-            publisher.publish(Empty::default()).unwrap();
+                }
+            });
         });
 
         let r = executor.spin(
@@ -559,5 +579,7 @@ mod tests {
         );
 
         assert!(r.is_empty());
+        let message_was_received = success.load(Ordering::Acquire);
+        assert!(message_was_received);
     }
 }
