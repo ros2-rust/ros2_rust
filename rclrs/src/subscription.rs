@@ -520,4 +520,44 @@ mod tests {
             assert!(start_time.elapsed() < std::time::Duration::from_secs(10));
         }
     }
+
+    #[test]
+    fn test_delayed_subscription() {
+        use crate::*;
+        use futures::channel::oneshot;
+        use example_interfaces::msg::Empty;
+
+        let mut executor = Context::default().create_basic_executor();
+        let node = executor.create_node(&format!("test_delayed_subscription_{}", line!())).unwrap();
+
+        let (sender, receiver) = oneshot::channel();
+        let sender = Arc::new(Mutex::new(Some(sender)));
+
+        let _ = executor.commands().run(async move {
+            let _subscription = node.create_subscription(
+                "test_delayed_subscription",
+                move |_: Empty| {
+                    if let Some(sender) = sender.lock().unwrap().take() {
+                        let _ = sender.send(());
+                    }
+                },
+            ).unwrap();
+
+            let publisher = node.create_publisher("test_delayed_subscription").unwrap();
+
+            // Make sure the message doesn't get dropped
+            let _ = publisher.notify_on_subscriber_ready().await;
+
+            // Publish the message, which should trigger the executor to stop spinning
+            publisher.publish(Empty::default()).unwrap();
+        });
+
+        let r = executor.spin(
+            SpinOptions::default()
+            .until_promise_resolved(receiver)
+            .timeout(std::time::Duration::from_secs(10))
+        );
+
+        assert!(r.is_empty());
+    }
 }
