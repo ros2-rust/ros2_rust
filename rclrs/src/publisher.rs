@@ -183,9 +183,11 @@ where
     /// listening to this publisher.
     pub fn notify_on_subscriber_ready(self: &Arc<PublisherState<T>>) -> Promise<()> {
         let publisher = Arc::clone(self);
-        self.handle
-            .node
-            .notify_on_graph_change(move || publisher.get_subscription_count().is_ok_and(|count| count > 0))
+        self.handle.node.notify_on_graph_change(move || {
+            publisher
+                .get_subscription_count()
+                .is_ok_and(|count| count > 0)
+        })
     }
 
     /// Publishes a message.

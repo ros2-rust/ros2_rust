@@ -524,20 +524,22 @@ mod tests {
     #[test]
     fn test_delayed_subscription() {
         use crate::*;
+        use example_interfaces::msg::Empty;
         use futures::{
-            channel::{oneshot, mpsc},
+            channel::{mpsc, oneshot},
             StreamExt,
         };
-        use example_interfaces::msg::Empty;
         use std::sync::atomic::{AtomicBool, Ordering};
 
         let mut executor = Context::default().create_basic_executor();
-        let node = executor.create_node(
-            format!("test_delayed_subscription_{}", line!())
-            // We need to turn off parameter services because their activity will
-            // wake up the wait set, which defeats the purpose of this test.
-            .start_parameter_services(false)
-        ).unwrap();
+        let node = executor
+            .create_node(
+                format!("test_delayed_subscription_{}", line!())
+                    // We need to turn off parameter services because their activity will
+                    // wake up the wait set, which defeats the purpose of this test.
+                    .start_parameter_services(false),
+            )
+            .unwrap();
 
         let (promise, receiver) = oneshot::channel();
         let promise = Arc::new(Mutex::new(Some(promise)));
@@ -555,12 +557,11 @@ mod tests {
 
             let _ = commands.run(async move {
                 let (sender, mut receiver) = mpsc::unbounded();
-                let _subscription = node.create_subscription(
-                    "test_delayed_subscription",
-                    move |_: Empty| {
+                let _subscription = node
+                    .create_subscription("test_delayed_subscription", move |_: Empty| {
                         let _ = sender.unbounded_send(());
-                    },
-                ).unwrap();
+                    })
+                    .unwrap();
 
                 // Make sure the message doesn't get dropped due to the subscriber
                 // not being connected yet.
@@ -580,8 +581,8 @@ mod tests {
 
         let r = executor.spin(
             SpinOptions::default()
-            .until_promise_resolved(receiver)
-            .timeout(std::time::Duration::from_secs(10))
+                .until_promise_resolved(receiver)
+                .timeout(std::time::Duration::from_secs(10)),
         );
 
         assert!(r.is_empty(), "{r:?}");
