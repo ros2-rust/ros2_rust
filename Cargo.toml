@@ -1,12 +1,5 @@
 [workspace]
 members = [
   "rclrs",
-  "examples/logging_demo",
-  "examples/message_demo",
-  "examples/minimal_client_service",
-  "examples/minimal_pub_sub",
-  "examples/parameter_demo",
-  "examples/rust_pubsub",
-  "examples/worker_demo",
 ]
 resolver = "2"
