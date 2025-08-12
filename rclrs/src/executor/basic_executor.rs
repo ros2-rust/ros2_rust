@@ -308,7 +308,7 @@ struct BasicWorkerChannel {
 }
 
 impl WorkerChannel for BasicWorkerChannel {
-    fn add_to_waitset(&self, new_entity: Waitable) {
+    fn add_to_wait_set(&self, new_entity: Waitable) {
         if let Err(err) = self.waitable_sender.unbounded_send(new_entity) {
             // This is a debug log because it is normal for this to happen while
             // an executor is winding down.
