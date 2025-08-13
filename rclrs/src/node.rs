@@ -385,13 +385,13 @@ impl NodeState {
     /// ```
     ///
     pub fn create_publisher<'a, T>(
-        &self,
+        self: &Arc<Self>,
         options: impl Into<PublisherOptions<'a>>,
     ) -> Result<Publisher<T>, RclrsError>
     where
         T: Message,
     {
-        PublisherState::<T>::create(options, Arc::clone(&self.handle))
+        PublisherState::<T>::create(options, Arc::clone(self))
     }
 
     /// Creates a [`Service`] with an ordinary callback.
