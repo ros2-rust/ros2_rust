@@ -37,7 +37,7 @@ impl<T: Service> NodeServiceCallback<T> {
                         if let Err(err) =
                             handle.send_response::<T>(&mut rmw_request_id, response.await)
                         {
-                            log_service_send_error(&*handle, rmw_request_id, err);
+                            log_service_send_error(&handle, rmw_request_id, err);
                         }
                     });
                 }
@@ -49,7 +49,7 @@ impl<T: Service> NodeServiceCallback<T> {
                         if let Err(err) =
                             handle.send_response::<T>(&mut rmw_request_id, response.await)
                         {
-                            log_service_send_error(&*handle, rmw_request_id, err);
+                            log_service_send_error(&handle, rmw_request_id, err);
                         }
                     });
                 }
@@ -62,7 +62,7 @@ impl<T: Service> NodeServiceCallback<T> {
                         if let Err(err) =
                             handle.send_response::<T>(&mut rmw_request_id, response.await)
                         {
-                            log_service_send_error(&*handle, rmw_request_id, err);
+                            log_service_send_error(&handle, rmw_request_id, err);
                         }
                     });
                 }

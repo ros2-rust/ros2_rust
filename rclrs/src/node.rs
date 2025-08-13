@@ -965,7 +965,7 @@ impl NodeState {
     /// Enables usage of undeclared parameters for this node.
     ///
     /// Returns a [`Parameters`] struct that can be used to get and set all parameters.
-    pub fn use_undeclared_parameters(&self) -> Parameters {
+    pub fn use_undeclared_parameters(&self) -> Parameters<'_> {
         self.parameter.allow_undeclared();
         Parameters {
             interface: &self.parameter,

@@ -349,7 +349,7 @@ where
         let commands = node.commands().async_worker_commands();
         let handle = Arc::new(ClientHandle {
             rcl_client: Mutex::new(rcl_client),
-            node: Arc::clone(&node),
+            node: Arc::clone(node),
         });
 
         let board = Arc::new(Mutex::new(ClientRequestBoard::new()));
@@ -359,7 +359,7 @@ where
                 handle: Arc::clone(&handle),
                 board: Arc::clone(&board),
             }),
-            Some(Arc::clone(&commands.get_guard_condition())),
+            Some(Arc::clone(commands.get_guard_condition())),
         );
         commands.add_to_wait_set(waitable);
 
@@ -419,7 +419,7 @@ where
         self.board.lock().unwrap().execute(&self.handle)
     }
 
-    fn handle(&self) -> RclPrimitiveHandle {
+    fn handle(&self) -> RclPrimitiveHandle<'_> {
         RclPrimitiveHandle::Client(self.handle.lock())
     }
 
@@ -542,7 +542,7 @@ struct ClientHandle {
 }
 
 impl ClientHandle {
-    fn lock(&self) -> MutexGuard<rcl_client_t> {
+    fn lock(&self) -> MutexGuard<'_, rcl_client_t> {
         self.rcl_client.lock().unwrap()
     }
 }

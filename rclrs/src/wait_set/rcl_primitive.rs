@@ -26,7 +26,7 @@ pub trait RclPrimitive: Send + Sync {
     fn kind(&self) -> RclPrimitiveKind;
 
     /// Provide the handle for this primitive
-    fn handle(&self) -> RclPrimitiveHandle;
+    fn handle(&self) -> RclPrimitiveHandle<'_>;
 }
 
 /// Enum to describe the kind of an executable.

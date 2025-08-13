@@ -75,7 +75,7 @@ impl GuardCondition {
 
         let handle = Arc::new(GuardConditionHandle {
             rcl_guard_condition,
-            context_handle: Arc::clone(&context),
+            context_handle: Arc::clone(context),
         });
 
         let (waitable, lifecycle) = Waitable::new(
@@ -105,7 +105,7 @@ impl GuardCondition {
 
         let handle = Arc::new(GuardConditionHandle {
             rcl_guard_condition,
-            context_handle: Arc::clone(&context),
+            context_handle: Arc::clone(context),
         });
 
         let (waitable, lifecycle) = Waitable::new(
@@ -216,7 +216,7 @@ impl RclPrimitive for GuardConditionExecutable {
         RclPrimitiveKind::GuardCondition
     }
 
-    fn handle(&self) -> RclPrimitiveHandle {
+    fn handle(&self) -> RclPrimitiveHandle<'_> {
         RclPrimitiveHandle::GuardCondition(self.handle.rcl_guard_condition.lock().unwrap())
     }
 }

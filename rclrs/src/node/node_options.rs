@@ -384,10 +384,10 @@ impl<'a> NodeOptions<'a> {
             )
         };
         commands.add_to_wait_set(graph_change_waitable);
-        let _ = commands.run(node_graph_task(
+        drop(commands.run(node_graph_task(
             graph_change_receiver,
             graph_change_guard_condition,
-        ));
+        )));
 
         let node = Arc::new(NodeState {
             time_source: TimeSource::builder(self.clock_type)
@@ -396,7 +396,7 @@ impl<'a> NodeOptions<'a> {
             parameter,
             logger: Logger::new(logger_name)?,
             graph_change_action,
-            commands: Arc::clone(&commands),
+            commands: Arc::clone(commands),
             handle,
         });
         node.time_source.attach_node(&node);
