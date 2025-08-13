@@ -4,12 +4,20 @@ use std::{
     fmt::{self, Display},
 };
 
-use crate::{rcl_bindings::*, DeclarationError};
+use crate::{DeclarationError, rcl_bindings::*};
 
 /// The main error type.
 #[derive(Debug, PartialEq, Eq)]
 pub enum RclrsError {
     /// An error originating in the `rcl` layer.
+    /// Example:    
+    /// ```rust
+    /// let error: RclrsError = RclrsError::RclError { code: RclReturnCode::Timeout, msg: None };
+    /// match &error {
+    ///     RclrsError::RclError { msg, .. } => assert_eq!(msg, &None),
+    ///     _ => panic!("Unexpected error variant"),
+    /// }
+    /// ```
     RclError {
         /// The error code.
         code: RclReturnCode,
