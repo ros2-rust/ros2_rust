@@ -72,7 +72,7 @@ jobs:
     - name: Install colcon-cargo and colcon-ros-cargo
       run: |
         sudo rm -f /usr/lib/python3.12/EXTERNALLY-MANAGED
-        sudo pip3 install git+https://github.com/esteve/colcon-cargo.git@discover-non-cargo-packages
+        sudo pip3 install git+https://github.com/colcon/colcon-cargo.git
         sudo pip3 install git+https://github.com/colcon/colcon-ros-cargo.git
 
     - name: Check formatting of Rust packages
