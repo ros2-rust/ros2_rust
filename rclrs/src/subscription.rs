@@ -520,4 +520,73 @@ mod tests {
             assert!(start_time.elapsed() < std::time::Duration::from_secs(10));
         }
     }
+
+    #[test]
+    fn test_delayed_subscription() {
+        use crate::*;
+        use example_interfaces::msg::Empty;
+        use futures::{
+            channel::{mpsc, oneshot},
+            StreamExt,
+        };
+        use std::sync::atomic::{AtomicBool, Ordering};
+
+        let mut executor = Context::default().create_basic_executor();
+        let node = executor
+            .create_node(
+                format!("test_delayed_subscription_{}", line!())
+                    // We need to turn off parameter services because their activity will
+                    // wake up the wait set, which defeats the purpose of this test.
+                    .start_parameter_services(false),
+            )
+            .unwrap();
+
+        let (promise, receiver) = oneshot::channel();
+        let promise = Arc::new(Mutex::new(Some(promise)));
+
+        let success = Arc::new(AtomicBool::new(false));
+        let send_success = Arc::clone(&success);
+
+        let publisher = node.create_publisher("test_delayed_subscription").unwrap();
+
+        let commands = Arc::clone(executor.commands());
+        std::thread::spawn(move || {
+            // Wait a little while so the executor can start spinning and guard
+            // conditions can settle down.
+            std::thread::sleep(std::time::Duration::from_millis(10));
+
+            let _ = commands.run(async move {
+                let (sender, mut receiver) = mpsc::unbounded();
+                let _subscription = node
+                    .create_subscription("test_delayed_subscription", move |_: Empty| {
+                        let _ = sender.unbounded_send(());
+                    })
+                    .unwrap();
+
+                // Make sure the message doesn't get dropped due to the subscriber
+                // not being connected yet.
+                let _ = publisher.notify_on_subscriber_ready().await;
+
+                // Publish the message, which should trigger the executor to stop spinning
+                publisher.publish(Empty::default()).unwrap();
+
+                if let Some(_) = receiver.next().await {
+                    send_success.store(true, Ordering::Release);
+                    if let Some(promise) = promise.lock().unwrap().take() {
+                        promise.send(()).unwrap();
+                    }
+                }
+            });
+        });
+
+        let r = executor.spin(
+            SpinOptions::default()
+                .until_promise_resolved(receiver)
+                .timeout(std::time::Duration::from_secs(10)),
+        );
+
+        assert!(r.is_empty(), "{r:?}");
+        let message_was_received = success.load(Ordering::Acquire);
+        assert!(message_was_received);
+    }
 }
