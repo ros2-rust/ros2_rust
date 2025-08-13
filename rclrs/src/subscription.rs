@@ -412,7 +412,7 @@ impl Drop for SubscriptionHandle {
 mod tests {
     use super::*;
     use crate::test_helpers::*;
-    use test_msgs::msg;
+    use crate::vendor::test_msgs::msg;
 
     #[test]
     fn traits() {
@@ -524,7 +524,7 @@ mod tests {
     #[test]
     fn test_delayed_subscription() {
         use crate::*;
-        use example_interfaces::msg::Empty;
+        use crate::vendor::example_interfaces::msg::Empty;
         use futures::{
             channel::{mpsc, oneshot},
             StreamExt,

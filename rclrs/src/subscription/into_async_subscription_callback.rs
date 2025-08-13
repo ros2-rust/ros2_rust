@@ -103,7 +103,7 @@ where
 mod tests {
     use super::*;
 
-    type TestMessage = test_msgs::msg::BoundedSequences;
+    type TestMessage = crate::vendor::test_msgs::msg::BoundedSequences;
 
     #[test]
     fn callback_conversion() {

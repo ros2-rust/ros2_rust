@@ -502,7 +502,7 @@ impl<Payload: 'static + Send + Sync> WorkScope for Worker<Payload> {
 mod tests {
     use crate::*;
     use std::time::Duration;
-    use test_msgs::{
+    use crate::vendor::test_msgs::{
         msg::Empty as EmptyMsg,
         srv::{Empty as EmptySrv, Empty_Request, Empty_Response},
     };

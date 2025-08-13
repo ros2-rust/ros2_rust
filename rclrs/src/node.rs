@@ -662,6 +662,9 @@ impl NodeState {
     /// # use rclrs::*;
     /// # let executor = Context::default().create_basic_executor();
     /// # let node = executor.create_node("my_node").unwrap();
+    /// # The following line of code is only needed for rclrs internal purposes,
+    /// # please use the test_msgs crate instead.
+    /// use vendor::test_msgs;
     /// let subscription = node.create_subscription(
     ///     "my_topic",
     ///     |_msg: test_msgs::msg::Empty| {
@@ -677,6 +680,9 @@ impl NodeState {
     /// # use rclrs::*;
     /// # let executor = Context::default().create_basic_executor();
     /// # let node = executor.create_node("my_node").unwrap();
+    /// # The following line of code is only needed for rclrs internal purposes,
+    /// # please use the test_msgs crate instead.
+    /// use vendor::test_msgs;
     /// let subscription = node.create_subscription(
     ///     "my_topic"
     ///     .keep_last(100)
@@ -1094,7 +1100,7 @@ mod tests {
 
     #[test]
     fn test_topic_names_and_types() -> Result<(), RclrsError> {
-        use test_msgs::msg;
+        use crate::vendor::test_msgs::msg;
 
         let graph = construct_test_graph("test_topics_graph")?;
 

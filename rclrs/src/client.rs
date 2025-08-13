@@ -162,7 +162,9 @@ where
     /// # let node = Context::default()
     /// #   .create_basic_executor()
     /// #   .create_node("test_node")?;
-    /// use test_msgs::srv::{Empty, Empty_Request, Empty_Response};
+    /// # The following line of code is only needed for rclrs internal purposes,
+    /// # please use the test_msgs crate instead.
+    /// use vendor::test_msgs::srv::{Empty, Empty_Request, Empty_Response};
     ///
     /// async fn print_hello(_response: Empty_Response) {
     ///     print!("Hello!");
@@ -191,7 +193,9 @@ where
     /// # let node = Context::default()
     /// #   .create_basic_executor()
     /// #   .create_node("test_node")?;
-    /// use test_msgs::srv::{Empty, Empty_Request, Empty_Response};
+    /// # The following line of code is only needed for rclrs internal purposes,
+    /// # please use the test_msgs crate instead.
+    /// use vendor::test_msgs::srv::{Empty, Empty_Request, Empty_Response};
     ///
     /// fn print_greeting(_response: Empty_Response) -> impl Future<Output=()> {
     ///     let greeting = "Hello!";
@@ -219,7 +223,9 @@ where
     /// # let node = Context::default()
     /// #   .create_basic_executor()
     /// #   .create_node("test_node")?;
-    /// use test_msgs::srv::{Empty, Empty_Request, Empty_Response};
+    /// # The following line of code is only needed for rclrs internal purposes,
+    /// # please use the test_msgs crate instead.
+    /// use vendor::test_msgs::srv::{Empty, Empty_Request, Empty_Response};
     ///
     /// let greeting = "Hello!";
     /// let client = node.create_client::<Empty>("my_service")?;
@@ -568,7 +574,7 @@ unsafe impl Send for rcl_client_t {}
 mod tests {
     use super::*;
     use crate::test_helpers::*;
-    use test_msgs::srv;
+    use crate::vendor::test_msgs::srv;
 
     #[test]
     fn traits() {

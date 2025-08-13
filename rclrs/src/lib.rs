@@ -36,6 +36,9 @@
 //! let context = Context::default_from_env()?;
 //! let mut executor = context.create_basic_executor();
 //! let node = executor.create_node("example_node")?;
+//! # The following line of code is only needed for rclrs internal purposes,
+//! # please use the example_interfaces crate instead.
+//! use vendor::example_interfaces;
 //!
 //! let subscription = node.create_subscription(
 //!     "topic_name",

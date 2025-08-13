@@ -16,8 +16,10 @@ import subprocess
 vendored_packages = [
   "action_msgs",
   "builtin_interfaces",
+  "example_interfaces",
   "rcl_interfaces",
   "rosgraph_msgs",
+  "test_msgs",
   "unique_identifier_msgs",
 ]
 
