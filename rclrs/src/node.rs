@@ -244,6 +244,7 @@ impl NodeState {
     /// In some cases the payload type can be inferred by Rust:
     /// ```
     /// # use rclrs::*;
+    /// # use rclrs::vendor::example_interfaces;
     /// let executor = Context::default().create_basic_executor();
     /// let node = executor.create_node("my_node").unwrap();
     ///
@@ -269,6 +270,7 @@ impl NodeState {
     ///
     /// ```
     /// # use rclrs::*;
+    /// # use rclrs::vendor::example_interfaces;
     /// # let executor = Context::default().create_basic_executor();
     /// # let node = executor.create_node("my_node").unwrap();
     /// let worker = node.create_worker::<String>(String::new());
@@ -277,6 +279,7 @@ impl NodeState {
     /// The data given to the worker can be any custom data type:
     /// ```
     /// # use rclrs::*;
+    /// # use rclrs::vendor::example_interfaces;
     /// # let executor = Context::default().create_basic_executor();
     /// # let node = executor.create_node("my_node").unwrap();
     ///
@@ -312,6 +315,7 @@ impl NodeState {
     /// # use rclrs::*;
     /// # let executor = Context::default().create_basic_executor();
     /// # let node = executor.create_node("my_node").unwrap();
+    /// # use rclrs::vendor::test_msgs;
     /// let client = node.create_client::<test_msgs::srv::Empty>(
     ///     "my_service"
     /// )
@@ -325,6 +329,7 @@ impl NodeState {
     /// # use rclrs::*;
     /// # let executor = Context::default().create_basic_executor();
     /// # let node = executor.create_node("my_node").unwrap();
+    /// # use rclrs::vendor::test_msgs;
     /// let client = node.create_client::<test_msgs::srv::Empty>(
     ///     "my_service"
     ///     .keep_all()
@@ -357,6 +362,7 @@ impl NodeState {
     /// # use rclrs::*;
     /// # let executor = Context::default().create_basic_executor();
     /// # let node = executor.create_node("my_node").unwrap();
+    /// # use rclrs::vendor::test_msgs;
     /// let publisher = node.create_publisher::<test_msgs::msg::Empty>(
     ///     "my_topic"
     /// )
@@ -368,6 +374,7 @@ impl NodeState {
     ///
     /// ```
     /// # use rclrs::*;
+    /// # use rclrs::vendor::test_msgs;
     /// # let executor = Context::default().create_basic_executor();
     /// # let node = executor.create_node("my_node").unwrap();
     /// let publisher = node.create_publisher::<test_msgs::msg::Empty>(
@@ -414,8 +421,10 @@ impl NodeState {
     /// Pass in only the service name for the `options` argument to use all default service options:
     /// ```
     /// # use rclrs::*;
+    /// # use rclrs::vendor::test_msgs;
     /// # let executor = Context::default().create_basic_executor();
     /// # let node = executor.create_node("my_node").unwrap();
+    ///
     /// let service = node.create_service::<test_msgs::srv::Empty, _>(
     ///     "my_service",
     ///     |_request: test_msgs::srv::Empty_Request| {
@@ -430,8 +439,10 @@ impl NodeState {
     ///
     /// ```
     /// # use rclrs::*;
+    /// # use rclrs::vendor::test_msgs;
     /// # let executor = Context::default().create_basic_executor();
     /// # let node = executor.create_node("my_node").unwrap();
+    ///
     /// let service = node.create_service::<test_msgs::srv::Empty, _>(
     ///     "my_service"
     ///     .keep_all()
@@ -468,10 +479,10 @@ impl NodeState {
     ///
     /// ```
     /// # use rclrs::*;
+    /// # use rclrs::vendor::example_interfaces::srv::*;
     /// # let executor = Context::default().create_basic_executor();
     /// # let node = executor.create_node("my_node").unwrap();
     /// use std::sync::Mutex;
-    /// use example_interfaces::srv::*;
     ///
     /// let counter = Mutex::new(0usize);
     /// let service = node.create_service::<Trigger, _>(
@@ -494,10 +505,10 @@ impl NodeState {
     ///
     /// ```
     /// # use rclrs::*;
+    /// # use rclrs::vendor::example_interfaces::srv::*;
     /// # let executor = Context::default().create_basic_executor();
     /// # let node = executor.create_node("my_node").unwrap();
     /// use std::sync::{Arc, Mutex};
-    /// use example_interfaces::srv::*;
     ///
     /// let counter = Arc::new(Mutex::new(0usize));
     ///
@@ -588,10 +599,10 @@ impl NodeState {
     ///
     /// ```
     /// # use rclrs::*;
+    /// # use rclrs::vendor::example_interfaces::srv::*;
     /// # let executor = Context::default().create_basic_executor();
     /// # let node = executor.create_node("my_node")?;
     /// use std::sync::Arc;
-    /// use example_interfaces::srv::*;
     ///
     /// let worker_a = node.create_worker(0_i64);
     /// let worker_b = node.create_worker(0_i64);
@@ -660,11 +671,9 @@ impl NodeState {
     /// Pass in only the topic name for the `options` argument to use all default subscription options:
     /// ```
     /// # use rclrs::*;
+    /// # use rclrs::vendor::test_msgs;
     /// # let executor = Context::default().create_basic_executor();
     /// # let node = executor.create_node("my_node").unwrap();
-    /// # The following line of code is only needed for rclrs internal purposes,
-    /// # please use the test_msgs crate instead.
-    /// use vendor::test_msgs;
     /// let subscription = node.create_subscription(
     ///     "my_topic",
     ///     |_msg: test_msgs::msg::Empty| {
@@ -678,11 +687,10 @@ impl NodeState {
     ///
     /// ```
     /// # use rclrs::*;
+    /// # use rclrs::vendor::test_msgs;
     /// # let executor = Context::default().create_basic_executor();
     /// # let node = executor.create_node("my_node").unwrap();
     /// # The following line of code is only needed for rclrs internal purposes,
-    /// # please use the test_msgs crate instead.
-    /// use vendor::test_msgs;
     /// let subscription = node.create_subscription(
     ///     "my_topic"
     ///     .keep_last(100)
@@ -723,6 +731,7 @@ impl NodeState {
     ///
     /// ```
     /// # use rclrs::*;
+    /// # use rclrs::vendor::example_interfaces;
     /// # let executor = Context::default().create_basic_executor();
     /// # let node = executor.create_node("my_node").unwrap();
     /// use std::sync::Mutex;
@@ -745,6 +754,7 @@ impl NodeState {
     ///
     /// ```
     /// # use rclrs::*;
+    /// # use rclrs::vendor::example_interfaces;
     /// # let executor = Context::default().create_basic_executor();
     /// # let node = executor.create_node("my_node").unwrap();
     /// use std::sync::{Arc, Mutex};
@@ -845,8 +855,10 @@ impl NodeState {
     ///
     /// ```
     /// # use rclrs::*;
+    /// # use rclrs::vendor::example_interfaces;
     /// # let executor = Context::default().create_basic_executor();
     /// # let node = executor.create_node("my_node").unwrap();
+    ///
     /// use std::sync::Arc;
     ///
     /// let count_worker = node.create_worker(0_usize);

@@ -523,8 +523,8 @@ mod tests {
 
     #[test]
     fn test_delayed_subscription() {
-        use crate::*;
         use crate::vendor::example_interfaces::msg::Empty;
+        use crate::*;
         use futures::{
             channel::{mpsc, oneshot},
             StreamExt,

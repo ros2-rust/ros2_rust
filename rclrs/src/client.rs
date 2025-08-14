@@ -159,12 +159,10 @@ where
     /// signatures and which returns a `()` (a.k.a. nothing).
     /// ```
     /// # use rclrs::*;
+    /// # use rclrs::vendor::test_msgs::srv::{Empty, Empty_Request, Empty_Response};
     /// # let node = Context::default()
     /// #   .create_basic_executor()
     /// #   .create_node("test_node")?;
-    /// # The following line of code is only needed for rclrs internal purposes,
-    /// # please use the test_msgs crate instead.
-    /// use vendor::test_msgs::srv::{Empty, Empty_Request, Empty_Response};
     ///
     /// async fn print_hello(_response: Empty_Response) {
     ///     print!("Hello!");
@@ -189,13 +187,11 @@ where
     ///
     /// ```
     /// # use rclrs::*;
+    /// # use rclrs::vendor::test_msgs::srv::{Empty, Empty_Request, Empty_Response};
     /// # use std::future::Future;
     /// # let node = Context::default()
     /// #   .create_basic_executor()
     /// #   .create_node("test_node")?;
-    /// # The following line of code is only needed for rclrs internal purposes,
-    /// # please use the test_msgs crate instead.
-    /// use vendor::test_msgs::srv::{Empty, Empty_Request, Empty_Response};
     ///
     /// fn print_greeting(_response: Empty_Response) -> impl Future<Output=()> {
     ///     let greeting = "Hello!";
@@ -220,12 +216,10 @@ where
     ///
     /// ```
     /// # use rclrs::*;
+    /// # use rclrs::vendor::test_msgs::srv::{Empty, Empty_Request, Empty_Response};
     /// # let node = Context::default()
     /// #   .create_basic_executor()
     /// #   .create_node("test_node")?;
-    /// # The following line of code is only needed for rclrs internal purposes,
-    /// # please use the test_msgs crate instead.
-    /// use vendor::test_msgs::srv::{Empty, Empty_Request, Empty_Response};
     ///
     /// let greeting = "Hello!";
     /// let client = node.create_client::<Empty>("my_service")?;
