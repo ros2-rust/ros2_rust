@@ -690,7 +690,6 @@ impl NodeState {
     /// # use rclrs::vendor::test_msgs;
     /// # let executor = Context::default().create_basic_executor();
     /// # let node = executor.create_node("my_node").unwrap();
-    /// # The following line of code is only needed for rclrs internal purposes,
     /// let subscription = node.create_subscription(
     ///     "my_topic"
     ///     .keep_last(100)
