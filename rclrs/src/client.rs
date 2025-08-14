@@ -159,17 +159,17 @@ where
     /// signatures and which returns a `()` (a.k.a. nothing).
     /// ```
     /// # use rclrs::*;
-    /// # use rclrs::vendor::test_msgs::srv::{Empty, Empty_Request, Empty_Response};
+    /// # use crate::rclrs::vendor::test_msgs;
     /// # let node = Context::default()
     /// #   .create_basic_executor()
     /// #   .create_node("test_node")?;
     ///
-    /// async fn print_hello(_response: Empty_Response) {
+    /// async fn print_hello(_response: test_msgs::srv::Empty_Response) {
     ///     print!("Hello!");
     /// }
     ///
-    /// let client = node.create_client::<Empty>("my_service")?;
-    /// let request = Empty_Request::default();
+    /// let client = node.create_client::<test_msgs::srv::Empty>("my_service")?;
+    /// let request = test_msgs::srv::Empty_Request::default();
     /// let promise = client.call_then_async(&request, print_hello)?;
     /// # Ok::<(), RclrsError>(())
     /// ```
@@ -187,21 +187,21 @@ where
     ///
     /// ```
     /// # use rclrs::*;
-    /// # use rclrs::vendor::test_msgs::srv::{Empty, Empty_Request, Empty_Response};
+    /// # use crate::rclrs::vendor::test_msgs;
     /// # use std::future::Future;
     /// # let node = Context::default()
     /// #   .create_basic_executor()
     /// #   .create_node("test_node")?;
     ///
-    /// fn print_greeting(_response: Empty_Response) -> impl Future<Output=()> {
+    /// fn print_greeting(_response: test_msgs::srv::Empty_Response) -> impl Future<Output=()> {
     ///     let greeting = "Hello!";
     ///     async move {
     ///         print!("Hello!");
     ///     }
     /// }
     ///
-    /// let client = node.create_client::<Empty>("my_service")?;
-    /// let request = Empty_Request::default();
+    /// let client = node.create_client::<test_msgs::srv::Empty>("my_service")?;
+    /// let request = test_msgs::srv::Empty_Request::default();
     /// let promise = client.call_then_async(
     ///     &request,
     ///     print_greeting)?;
@@ -216,17 +216,17 @@ where
     ///
     /// ```
     /// # use rclrs::*;
-    /// # use rclrs::vendor::test_msgs::srv::{Empty, Empty_Request, Empty_Response};
+    /// # use crate::rclrs::vendor::test_msgs;
     /// # let node = Context::default()
     /// #   .create_basic_executor()
     /// #   .create_node("test_node")?;
     ///
     /// let greeting = "Hello!";
-    /// let client = node.create_client::<Empty>("my_service")?;
-    /// let request = Empty_Request::default();
+    /// let client = node.create_client::<test_msgs::srv::Empty>("my_service")?;
+    /// let request = test_msgs::srv::Empty_Request::default();
     /// let promise = client.call_then_async(
     ///     &request,
-    ///     move |response: Empty_Response| {
+    ///     move |response: test_msgs::srv::Empty_Response| {
     ///         async move {
     ///             print!("{greeting}");
     ///         }
@@ -568,12 +568,12 @@ unsafe impl Send for rcl_client_t {}
 mod tests {
     use super::*;
     use crate::test_helpers::*;
-    use crate::vendor::test_msgs::srv;
+    use crate::vendor::test_msgs;
 
     #[test]
     fn traits() {
-        assert_send::<Client<srv::Arrays>>();
-        assert_sync::<Client<srv::Arrays>>();
+        assert_send::<Client<test_msgs::srv::Arrays>>();
+        assert_sync::<Client<test_msgs::srv::Arrays>>();
     }
 
     #[test]
@@ -582,7 +582,7 @@ mod tests {
         let graph = construct_test_graph(namespace)?;
         let _node_2_empty_client = graph
             .node2
-            .create_client::<srv::Empty>("graph_test_topic_4")?;
+            .create_client::<test_msgs::srv::Empty>("graph_test_topic_4")?;
 
         std::thread::sleep(std::time::Duration::from_millis(200));
 

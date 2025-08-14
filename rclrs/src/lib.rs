@@ -32,7 +32,7 @@
 //!
 //! ```no_run
 //! use rclrs::*;
-//! use crate::rclrs::vendor::example_interfaces;
+//! # use crate::rclrs::vendor::example_interfaces;
 //!
 //! let context = Context::default_from_env()?;
 //! let mut executor = context.create_basic_executor();
@@ -59,8 +59,8 @@
 //! # let context = Context::default_from_env()?;
 //! # let mut executor = context.create_basic_executor();
 //! # let node = executor.create_node("example_node")?;
-//! # use rclrs::vendor::example_interfaces;
-//!
+//! # use crate::rclrs::vendor::example_interfaces;
+//! #
 //! // This worker will manage the data for us.
 //! // The worker's data is called its payload.
 //! let worker = node.create_worker::<Option<String>>(None);
@@ -99,8 +99,7 @@
 //! The following is a simple example of using a mandatory parameter:
 //! ```no_run
 //! use rclrs::*;
-//! use rclrs::vendor::example_interfaces;
-//!
+//! # use crate::rclrs::vendor::example_interfaces;
 //! use std::sync::Arc;
 //!
 //! let mut executor = Context::default_from_env()?.create_basic_executor();
@@ -130,7 +129,7 @@
 //!
 //! ```no_run
 //! use rclrs::*;
-//! use rclrs::vendor::example_interfaces;
+//! # use crate::rclrs::vendor::example_interfaces;
 //! use std::time::Duration;
 //!
 //! let mut executor = Context::default_from_env()?.create_basic_executor();
