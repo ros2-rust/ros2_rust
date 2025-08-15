@@ -241,7 +241,7 @@ impl ExecutorCommands {
     }
 
     pub(crate) fn add_to_wait_set(&self, waitable: Waitable) {
-        self.async_worker_commands.channel.add_to_waitset(waitable);
+        self.async_worker_commands.add_to_wait_set(waitable);
     }
 
     #[cfg(test)]
@@ -275,7 +275,7 @@ impl ExecutorCommands {
             guard_condition: Arc::clone(&guard_condition),
         });
 
-        worker_channel.add_to_waitset(waitable);
+        worker_channel.add_to_wait_set(waitable);
 
         Arc::new(WorkerCommands {
             channel: worker_channel,
@@ -296,7 +296,8 @@ pub(crate) struct WorkerCommands {
 
 impl WorkerCommands {
     pub(crate) fn add_to_wait_set(&self, waitable: Waitable) {
-        self.channel.add_to_waitset(waitable);
+        self.channel.add_to_wait_set(waitable);
+        let _ = self.wakeup_wait_set.trigger();
     }
 
     pub(crate) fn run_async<F>(&self, f: F)
@@ -327,7 +328,7 @@ pub trait WorkerChannel: Send + Sync {
     fn add_async_task(&self, f: BoxFuture<'static, ()>);
 
     /// Add new entities to the waitset of the executor.
-    fn add_to_waitset(&self, new_entity: Waitable);
+    fn add_to_wait_set(&self, new_entity: Waitable);
 
     /// Send a one-time task for the worker to run with its payload.
     fn send_payload_task(&self, f: PayloadTask);

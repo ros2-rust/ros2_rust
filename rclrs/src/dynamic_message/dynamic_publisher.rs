@@ -7,7 +7,7 @@ use super::{
 };
 use crate::error::{RclrsError, ToResult};
 use crate::rcl_bindings::*;
-use crate::{NodeHandle, PublisherHandle, PublisherOptions, ENTITY_LIFECYCLE_MUTEX};
+use crate::{Node, PublisherHandle, PublisherOptions, ENTITY_LIFECYCLE_MUTEX};
 
 /// Struct for sending dynamic messages.
 ///
@@ -35,7 +35,7 @@ impl DynamicPublisherState {
     pub(crate) fn create<'a>(
         topic_type: MessageTypeName,
         options: impl Into<PublisherOptions<'a>>,
-        node_handle: Arc<NodeHandle>,
+        node: Node,
     ) -> Result<Arc<Self>, RclrsError> {
         // This loads the introspection type support library.
         let metadata = DynamicMessageMetadata::new(topic_type)?;
@@ -68,7 +68,7 @@ impl DynamicPublisherState {
         publisher_options.qos = qos.into();
 
         {
-            let rcl_node = node_handle.rcl_node.lock().unwrap();
+            let rcl_node = node.handle().rcl_node.lock().unwrap();
             let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
             unsafe {
                 // SAFETY: The rcl_publisher is zero-initialized as expected by this function.
@@ -90,7 +90,7 @@ impl DynamicPublisherState {
         Ok(Arc::new(Self {
             handle: PublisherHandle {
                 rcl_publisher: Mutex::new(rcl_publisher),
-                node_handle,
+                node,
             },
             metadata,
             type_support_library,

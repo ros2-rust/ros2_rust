@@ -397,13 +397,13 @@ impl NodeState {
     /// ```
     ///
     pub fn create_publisher<'a, T>(
-        &self,
+        self: &Arc<Self>,
         options: impl Into<PublisherOptions<'a>>,
     ) -> Result<Publisher<T>, RclrsError>
     where
         T: Message,
     {
-        PublisherState::<T>::create(options, Arc::clone(&self.handle))
+        PublisherState::<T>::create(options, Arc::clone(self))
     }
 
     /// Creates a [`DynamicPublisher`], a publisher whose type is only known at runtime.
@@ -426,11 +426,11 @@ impl NodeState {
     /// .unwrap();
     #[cfg(feature = "dyn_msg")]
     pub fn create_dynamic_publisher<'a>(
-        &self,
+        self: &Arc<Self>,
         topic_type: MessageTypeName,
         options: impl Into<PublisherOptions<'a>>,
     ) -> Result<DynamicPublisher, RclrsError> {
-        DynamicPublisherState::create(topic_type, options, Arc::clone(&self.handle))
+        DynamicPublisherState::create(topic_type, options, Arc::clone(self))
     }
 
     /// Creates a [`Service`] with an ordinary callback.

@@ -11,7 +11,7 @@ use crate::{
     error::{RclrsError, ToResult},
     qos::QoSProfile,
     rcl_bindings::*,
-    IntoPrimitiveOptions, NodeHandle, ENTITY_LIFECYCLE_MUTEX,
+    IntoPrimitiveOptions, Node, Promise, ENTITY_LIFECYCLE_MUTEX,
 };
 
 mod loaned_message;
@@ -28,12 +28,14 @@ unsafe impl Send for rcl_publisher_t {}
 /// [1]: <https://doc.rust-lang.org/reference/destructors.html>
 pub(crate) struct PublisherHandle {
     pub(crate) rcl_publisher: Mutex<rcl_publisher_t>,
-    pub(crate) node_handle: Arc<NodeHandle>,
+    /// We store the whole node here because we use some of its user-facing API
+    /// in some of the Publisher methods.
+    pub(crate) node: Node,
 }
 
 impl Drop for PublisherHandle {
     fn drop(&mut self) {
-        let mut rcl_node = self.node_handle.rcl_node.lock().unwrap();
+        let mut rcl_node = self.node.handle().rcl_node.lock().unwrap();
         let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
         // SAFETY: The entity lifecycle mutex is locked to protect against the risk of
         // global variables in the rmw implementation being unsafely modified during cleanup.
@@ -126,7 +128,7 @@ where
     /// Node and namespace changes are always applied _before_ topic remapping.
     pub(crate) fn create<'a>(
         options: impl Into<PublisherOptions<'a>>,
-        node_handle: Arc<NodeHandle>,
+        node: Node,
     ) -> Result<Arc<Self>, RclrsError>
     where
         T: Message,
@@ -146,7 +148,7 @@ where
         publisher_options.qos = qos.into();
 
         {
-            let rcl_node = node_handle.rcl_node.lock().unwrap();
+            let rcl_node = node.handle().rcl_node.lock().unwrap();
             let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
             unsafe {
                 // SAFETY:
@@ -171,7 +173,7 @@ where
             message: PhantomData,
             handle: PublisherHandle {
                 rcl_publisher: Mutex::new(rcl_publisher),
-                node_handle,
+                node,
             },
         }))
     }
@@ -187,6 +189,17 @@ where
     /// Returns the number of subscriptions of the publisher.
     pub fn get_subscription_count(&self) -> Result<usize, RclrsError> {
         self.handle.get_subscription_count()
+    }
+
+    /// Get a promise that will be fulfilled when at least one subscriber is
+    /// listening to this publisher.
+    pub fn notify_on_subscriber_ready(self: &Arc<PublisherState<T>>) -> Promise<()> {
+        let publisher = Arc::clone(self);
+        self.handle.node.notify_on_graph_change(move || {
+            publisher
+                .get_subscription_count()
+                .is_ok_and(|count| count > 0)
+        })
     }
 
     /// Publishes a message.
