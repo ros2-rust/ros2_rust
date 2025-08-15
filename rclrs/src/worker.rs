@@ -228,6 +228,7 @@ impl<Payload: 'static + Send + Sync> WorkerState<Payload> {
     ///
     /// ```
     /// # use rclrs::*;
+    /// # use crate::rclrs::vendor::example_interfaces;
     /// # let executor = Context::default().create_basic_executor();
     /// # let node = executor.create_node("my_node").unwrap();
     /// // The worker's payload is data that we want to share with other callbacks.
@@ -320,9 +321,9 @@ impl<Payload: 'static + Send + Sync> WorkerState<Payload> {
     ///
     /// ```
     /// # use rclrs::*;
+    /// # use crate::rclrs::vendor::example_interfaces;
     /// # let executor = Context::default().create_basic_executor();
     /// # let node = executor.create_node("my_node").unwrap();
-    /// use example_interfaces::srv::*;
     ///
     /// /// Store the operands of the service request for later reference
     /// #[derive(Default)]
@@ -338,17 +339,17 @@ impl<Payload: 'static + Send + Sync> WorkerState<Payload> {
     /// // callback.
     /// let mut count = 0_usize;
     ///
-    /// let service = worker.create_service::<AddTwoInts, _>(
+    /// let service = worker.create_service::<example_interfaces::srv::AddTwoInts, _>(
     ///     "add",
-    ///     move |payload: &mut Operands, request: AddTwoInts_Request| {
+    ///     move |payload: &mut Operands, request: example_interfaces::srv::AddTwoInts_Request| {
     ///         count += 1;
-    ///         let AddTwoInts_Request { a, b } = request;
+    ///         let example_interfaces::srv::AddTwoInts_Request { a, b } = request;
     ///         let sum = a + b;
     ///         println!("#{count} | {a} + {b} = {sum}");
     ///
     ///         *payload = Operands { a, b };
     ///
-    ///         AddTwoInts_Response { sum }
+    ///         example_interfaces::srv::AddTwoInts_Response { sum }
     ///     }
     /// )?;
     /// # Ok::<(), RclrsError>(())
@@ -500,12 +501,12 @@ impl<Payload: 'static + Send + Sync> WorkScope for Worker<Payload> {
 
 #[cfg(test)]
 mod tests {
-    use crate::*;
-    use std::time::Duration;
-    use test_msgs::{
+    use crate::vendor::test_msgs::{
         msg::Empty as EmptyMsg,
         srv::{Empty as EmptySrv, Empty_Request, Empty_Response},
     };
+    use crate::*;
+    use std::time::Duration;
 
     #[derive(Default, Clone, Copy, Debug)]
     struct TestPayload {

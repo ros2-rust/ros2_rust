@@ -16,8 +16,10 @@ import subprocess
 vendored_packages = [
   "action_msgs",
   "builtin_interfaces",
+  "example_interfaces",
   "rcl_interfaces",
   "rosgraph_msgs",
+  "test_msgs",
   "unique_identifier_msgs",
 ]
 
@@ -61,6 +63,7 @@ def main():
 
   mod_contents = "//! Created by {}\n".format(Path(__file__).name)
   mod_contents += "#![allow(dead_code)]\n"
+  mod_contents += "#![allow(missing_docs)]\n"
   mod_contents += "\n"
   for pkg in vendored_packages:
     mod_contents += f"pub mod {pkg};\n"

@@ -393,14 +393,15 @@ mod tests {
 
     #[test]
     fn traits() {
+        use crate::vendor::test_msgs;
         assert_send::<Service<test_msgs::srv::Arrays>>();
         assert_sync::<Service<test_msgs::srv::Arrays>>();
     }
 
     #[test]
     fn test_services() -> Result<(), RclrsError> {
+        use crate::vendor::test_msgs::srv;
         use crate::TopicNamesAndTypes;
-        use test_msgs::srv;
 
         let namespace = "/test_services_graph";
         let graph = construct_test_graph(namespace)?;

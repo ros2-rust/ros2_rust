@@ -39,10 +39,6 @@ serde-big-array = { version = "0.5.1", optional = true }
 [dev-dependencies]
 # Needed for e.g. writing yaml files in tests
 tempfile = "3.3.0"
-# Needed for publisher and subscriber tests
-test_msgs = {version = "*"}
-# Used in doctests
-example_interfaces = { version = "*" }
 # Needed for parameter service tests
 tokio = { version = "1", features = ["rt", "time", "macros"] }
 
