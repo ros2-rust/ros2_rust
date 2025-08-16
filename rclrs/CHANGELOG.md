@@ -13,15 +13,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - vendorize messages so that cargo update works ([#509](https://github.com/ros2-rust/ros2_rust/pull/509))
 
-### Fixed
-
-- add Cargo.lock to version control ([#486](https://github.com/ros2-rust/ros2_rust/pull/486))
-
 ### Other
 
+- Moved examples to its own repo ([#504](https://github.com/ros2-rust/ros2_rust/pull/504))
 - Wake up wait set when adding a new waitable ([#505](https://github.com/ros2-rust/ros2_rust/pull/505))
 - rename generate_docs feature to use_ros_shim ([#501](https://github.com/ros2-rust/ros2_rust/pull/501))
-- Remove lockfiles from being tracked ([#498](https://github.com/ros2-rust/ros2_rust/pull/498))
 - Async Workers ([#446](https://github.com/ros2-rust/ros2_rust/pull/446))
 - Shared state pattern (spin-off of #427) ([#430](https://github.com/ros2-rust/ros2_rust/pull/430))
 - Options pattern (spin-off of #427) ([#429](https://github.com/ros2-rust/ros2_rust/pull/429))
