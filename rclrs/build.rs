@@ -123,8 +123,9 @@ fn main() {
 
     let bindings = builder.generate().expect("Unable to generate bindings");
 
-    let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
+    let ros_distro = get_env_var_or_abort(ROS_DISTRO);
+    let out_path = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap()).join("src");
     bindings
-        .write_to_file(out_path.join("rcl_bindings_generated.rs"))
+        .write_to_file(out_path.join(format!("rcl_bindings_generated_{}.rs", ros_distro)))
         .expect("Couldn't write bindings!");
 }
