@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.4.2](https://github.com/ros2-rust/ros2_rust/compare/v0.4.1...v0.4.2) - 2025-08-15
+## [0.5.0](https://github.com/ros2-rust/ros2_rust/compare/v0.4.1...v0.5.0) - 2025-08-15
 
 ### Added
 
@@ -66,3 +66,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add default implementation and builder pattern for QoS ([#361](https://github.com/ros2-rust/ros2_rust/pull/361))
 - Adding a simple helper function for converting `rclrs::Time` to a ros message ([#359](https://github.com/ros2-rust/ros2_rust/pull/359))
 - Remove leading underscore from private fields ([#354](https://github.com/ros2-rust/ros2_rust/pull/354))
+
+## [0.4.1](https://github.com/ros2-rust/ros2_rust/compare/v0.4.0...v0.4.1) - 2023-11-28
+- Added minor changes to enable documentation generation on docs.rs for the `ros2-rust` projects.
+
+## [0.4.0](https://github.com/ros2-rust/ros2_rust/compare/v0.3.1...v0.4.0) - 2023-11-07
+- Service clients now support service_is_ready to check if a service server is present ahead of calling ([#399](https://github.com/ros2-rust/ros2_rust/pull/339))
+- Added preliminary support for parameters
+- Added support for Iron Irwini
+- Added Serde big array support
+- Added basic functionality for loading introspection type support libraries
+- Added extended string types
+- Added time source and clock API to nodes
+- Removed support for Galactic
+- Removed support for Foxy
+
+## [0.3.1](https://github.com/ros2-rust/ros2_rust/compare/v0.3.0...v0.3.1) - 2022-10-17
+- Fixed segfault when re-using `WaitSet`
+- Fixed `Node::get_{publishers,subscriptions}_info_by_topic()`
+
+## [0.3.0](https://github.com/ros2-rust/ros2_rust/compare/v0.2.0...v0.3.0) - 2022-10-03
+- Loaned messages (zero-copy) ([#212](https://github.com/ros2-rust/ros2_rust/pull/212))
+- Graph queries ([#234](https://github.com/ros2-rust/ros2_rust/pull/234))
+- Guard conditions ([#249](https://github.com/ros2-rust/ros2_rust/pull/249))
+
+## [0.2.0] (2022-07-21)
+- First release
+- `colcon-cargo` and `colcon-ros-cargo` can now build any pure Cargo and ament-aware Cargo projects
+- `rclrs` and `rclrs_examples` are now `ament_cargo` projects, no more CMake involved
+- `rosidl_generator_rs` has been updated to support all ROS message types
+- `rclrs` now supports clients and services
+- Better API documentation
+- Foxy, Galactic, Humble and Rolling are now supported ROS distros
+- Preliminary support for Windows
+- Build based on `colcon-ros-cargo`
+- Message generation packages `rosidl_generator_rs` and `rosidl_runtime_rs`
+- Publisher, Subscription, Client and Service
+- Tunable QoS settings
