@@ -33,16 +33,16 @@ pub struct rcutils_allocator_s {
     pub state: *mut ::std::os::raw::c_void,
 }
 pub type rcutils_allocator_t = rcutils_allocator_s;
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_get_zero_initialized_allocator() -> rcutils_allocator_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_get_default_allocator() -> rcutils_allocator_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_allocator_is_valid(allocator: *const rcutils_allocator_t) -> bool;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_reallocf(
         pointer: *mut ::std::os::raw::c_void,
         size: usize,
@@ -60,10 +60,10 @@ pub struct rcutils_array_list_s {
     pub impl_: *mut rcutils_array_list_impl_s,
 }
 pub type rcutils_array_list_t = rcutils_array_list_s;
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_get_zero_initialized_array_list() -> rcutils_array_list_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_array_list_init(
         array_list: *mut rcutils_array_list_t,
         initial_capacity: usize,
@@ -71,36 +71,36 @@ unsafe extern "C" {
         allocator: *const rcutils_allocator_t,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_array_list_fini(array_list: *mut rcutils_array_list_t) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_array_list_add(
         array_list: *mut rcutils_array_list_t,
         data: *const ::std::os::raw::c_void,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_array_list_set(
         array_list: *mut rcutils_array_list_t,
         index: usize,
         data: *const ::std::os::raw::c_void,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_array_list_remove(
         array_list: *mut rcutils_array_list_t,
         index: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_array_list_get(
         array_list: *const rcutils_array_list_t,
         index: usize,
         data: *mut ::std::os::raw::c_void,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_array_list_get_size(
         array_list: *const rcutils_array_list_t,
         size: *mut usize,
@@ -117,59 +117,59 @@ pub struct rcutils_char_array_s {
     pub allocator: rcutils_allocator_t,
 }
 pub type rcutils_char_array_t = rcutils_char_array_s;
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_get_zero_initialized_char_array() -> rcutils_char_array_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_char_array_init(
         char_array: *mut rcutils_char_array_t,
         buffer_capacity: usize,
         allocator: *const rcutils_allocator_t,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_char_array_fini(char_array: *mut rcutils_char_array_t) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_char_array_resize(
         char_array: *mut rcutils_char_array_t,
         new_size: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_char_array_expand_as_needed(
         char_array: *mut rcutils_char_array_t,
         new_size: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_char_array_vsprintf(
         char_array: *mut rcutils_char_array_t,
         format: *const ::std::os::raw::c_char,
         args: *mut __va_list_tag,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_char_array_strncat(
         char_array: *mut rcutils_char_array_t,
         src: *const ::std::os::raw::c_char,
         n: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_char_array_strcat(
         char_array: *mut rcutils_char_array_t,
         src: *const ::std::os::raw::c_char,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_char_array_memcpy(
         char_array: *mut rcutils_char_array_t,
         src: *const ::std::os::raw::c_char,
         n: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_char_array_strcpy(
         char_array: *mut rcutils_char_array_t,
         src: *const ::std::os::raw::c_char,
@@ -194,19 +194,19 @@ pub type rcutils_hash_map_key_cmp_t = ::std::option::Option<
         val2: *const ::std::os::raw::c_void,
     ) -> ::std::os::raw::c_int,
 >;
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_hash_map_string_hash_func(key_str: *const ::std::os::raw::c_void) -> usize;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_hash_map_string_cmp_func(
         val1: *const ::std::os::raw::c_void,
         val2: *const ::std::os::raw::c_void,
     ) -> ::std::os::raw::c_int;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_get_zero_initialized_hash_map() -> rcutils_hash_map_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_hash_map_init(
         hash_map: *mut rcutils_hash_map_t,
         initial_capacity: usize,
@@ -217,48 +217,48 @@ unsafe extern "C" {
         allocator: *const rcutils_allocator_t,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_hash_map_fini(hash_map: *mut rcutils_hash_map_t) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_hash_map_get_capacity(
         hash_map: *const rcutils_hash_map_t,
         capacity: *mut usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_hash_map_get_size(
         hash_map: *const rcutils_hash_map_t,
         size: *mut usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_hash_map_set(
         hash_map: *mut rcutils_hash_map_t,
         key: *const ::std::os::raw::c_void,
         value: *const ::std::os::raw::c_void,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_hash_map_unset(
         hash_map: *mut rcutils_hash_map_t,
         key: *const ::std::os::raw::c_void,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_hash_map_key_exists(
         hash_map: *const rcutils_hash_map_t,
         key: *const ::std::os::raw::c_void,
     ) -> bool;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_hash_map_get(
         hash_map: *const rcutils_hash_map_t,
         key: *const ::std::os::raw::c_void,
         data: *mut ::std::os::raw::c_void,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_hash_map_get_next_key_and_data(
         hash_map: *const rcutils_hash_map_t,
         previous_key: *const ::std::os::raw::c_void,
@@ -271,7 +271,7 @@ pub type __int64_t = ::std::os::raw::c_long;
 pub type __uint_least16_t = __uint16_t;
 pub type __int_least64_t = __int64_t;
 pub type int_least64_t = __int_least64_t;
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_snprintf(
         buffer: *mut ::std::os::raw::c_char,
         buffer_size: usize,
@@ -279,7 +279,7 @@ unsafe extern "C" {
         ...
     ) -> ::std::os::raw::c_int;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_vsnprintf(
         buffer: *mut ::std::os::raw::c_char,
         buffer_size: usize,
@@ -287,13 +287,13 @@ unsafe extern "C" {
         args: *mut __va_list_tag,
     ) -> ::std::os::raw::c_int;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_fault_injection_is_test_complete() -> bool;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_fault_injection_set_count(count: int_least64_t);
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_fault_injection_get_count() -> int_least64_t;
 }
 #[repr(C)]
@@ -310,31 +310,31 @@ pub struct rcutils_error_state_s {
     pub line_number: u64,
 }
 pub type rcutils_error_state_t = rcutils_error_state_s;
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_initialize_error_handling_thread_local_storage(
         allocator: rcutils_allocator_t,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_set_error_state(
         error_string: *const ::std::os::raw::c_char,
         file: *const ::std::os::raw::c_char,
         line_number: usize,
     );
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_error_is_set() -> bool;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_get_error_state() -> *const rcutils_error_state_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_get_error_string() -> rcutils_error_string_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_reset_error();
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_qsort(
         ptr: *mut ::std::os::raw::c_void,
         count: usize,
@@ -355,33 +355,33 @@ pub struct rcutils_string_array_s {
     pub allocator: rcutils_allocator_t,
 }
 pub type rcutils_string_array_t = rcutils_string_array_s;
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_get_zero_initialized_string_array() -> rcutils_string_array_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_string_array_init(
         string_array: *mut rcutils_string_array_t,
         size: usize,
         allocator: *const rcutils_allocator_t,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_string_array_fini(string_array: *mut rcutils_string_array_t) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_string_array_cmp(
         lhs: *const rcutils_string_array_t,
         rhs: *const rcutils_string_array_t,
         res: *mut ::std::os::raw::c_int,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_string_array_resize(
         string_array: *mut rcutils_string_array_t,
         new_size: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_string_array_sort_compare(
         lhs: *const ::std::os::raw::c_void,
         rhs: *const ::std::os::raw::c_void,
@@ -398,93 +398,93 @@ pub struct rcutils_string_map_s {
     pub impl_: *mut rcutils_string_map_impl_s,
 }
 pub type rcutils_string_map_t = rcutils_string_map_s;
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_get_zero_initialized_string_map() -> rcutils_string_map_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_string_map_init(
         string_map: *mut rcutils_string_map_t,
         initial_capacity: usize,
         allocator: rcutils_allocator_t,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_string_map_fini(string_map: *mut rcutils_string_map_t) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_string_map_get_capacity(
         string_map: *const rcutils_string_map_t,
         capacity: *mut usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_string_map_get_size(
         string_map: *const rcutils_string_map_t,
         size: *mut usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_string_map_reserve(
         string_map: *mut rcutils_string_map_t,
         capacity: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_string_map_clear(string_map: *mut rcutils_string_map_t) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_string_map_set(
         string_map: *mut rcutils_string_map_t,
         key: *const ::std::os::raw::c_char,
         value: *const ::std::os::raw::c_char,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_string_map_set_no_resize(
         string_map: *mut rcutils_string_map_t,
         key: *const ::std::os::raw::c_char,
         value: *const ::std::os::raw::c_char,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_string_map_unset(
         string_map: *mut rcutils_string_map_t,
         key: *const ::std::os::raw::c_char,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_string_map_key_exists(
         string_map: *const rcutils_string_map_t,
         key: *const ::std::os::raw::c_char,
     ) -> bool;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_string_map_key_existsn(
         string_map: *const rcutils_string_map_t,
         key: *const ::std::os::raw::c_char,
         key_length: usize,
     ) -> bool;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_string_map_get(
         string_map: *const rcutils_string_map_t,
         key: *const ::std::os::raw::c_char,
     ) -> *const ::std::os::raw::c_char;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_string_map_getn(
         string_map: *const rcutils_string_map_t,
         key: *const ::std::os::raw::c_char,
         key_length: usize,
     ) -> *const ::std::os::raw::c_char;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_string_map_get_next_key(
         string_map: *const rcutils_string_map_t,
         key: *const ::std::os::raw::c_char,
     ) -> *const ::std::os::raw::c_char;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_string_map_copy(
         src_string_map: *const rcutils_string_map_t,
         dst_string_map: *mut rcutils_string_map_t,
@@ -499,20 +499,20 @@ pub struct rcutils_uint8_array_s {
     pub allocator: rcutils_allocator_t,
 }
 pub type rcutils_uint8_array_t = rcutils_uint8_array_s;
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_get_zero_initialized_uint8_array() -> rcutils_uint8_array_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_uint8_array_init(
         uint8_array: *mut rcutils_uint8_array_t,
         buffer_capacity: usize,
         allocator: *const rcutils_allocator_t,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_uint8_array_fini(uint8_array: *mut rcutils_uint8_array_t) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_uint8_array_resize(
         uint8_array: *mut rcutils_uint8_array_t,
         new_size: usize,
@@ -520,42 +520,42 @@ unsafe extern "C" {
 }
 pub type rcutils_time_point_value_t = i64;
 pub type rcutils_duration_value_t = i64;
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_system_time_now(now: *mut rcutils_time_point_value_t) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_steady_time_now(now: *mut rcutils_time_point_value_t) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_time_point_value_as_nanoseconds_string(
         time_point: *const rcutils_time_point_value_t,
         str_: *mut ::std::os::raw::c_char,
         str_size: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_time_point_value_as_date_string(
         time_point: *const rcutils_time_point_value_t,
         str_: *mut ::std::os::raw::c_char,
         str_size: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_time_point_value_as_seconds_string(
         time_point: *const rcutils_time_point_value_t,
         str_: *mut ::std::os::raw::c_char,
         str_size: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_logging_initialize_with_allocator(
         allocator: rcutils_allocator_t,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_logging_initialize() -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_logging_shutdown() -> rcutils_ret_t;
 }
 #[repr(C)]
@@ -576,7 +576,7 @@ pub enum RCUTILS_LOG_SEVERITY {
     RCUTILS_LOG_SEVERITY_ERROR = 40,
     RCUTILS_LOG_SEVERITY_FATAL = 50,
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_logging_severity_level_from_string(
         severity_string: *const ::std::os::raw::c_char,
         allocator: rcutils_allocator_t,
@@ -593,13 +593,13 @@ pub type rcutils_logging_output_handler_t = ::std::option::Option<
         args: *mut va_list,
     ),
 >;
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_logging_get_output_handler() -> rcutils_logging_output_handler_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_logging_set_output_handler(function: rcutils_logging_output_handler_t);
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_logging_format_message(
         location: *const rcutils_log_location_t,
         severity: ::std::os::raw::c_int,
@@ -609,41 +609,41 @@ unsafe extern "C" {
         logging_output: *mut rcutils_char_array_t,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_logging_get_default_logger_level() -> ::std::os::raw::c_int;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_logging_set_default_logger_level(level: ::std::os::raw::c_int);
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_logging_get_logger_level(
         name: *const ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_logging_get_logger_leveln(
         name: *const ::std::os::raw::c_char,
         name_length: usize,
     ) -> ::std::os::raw::c_int;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_logging_set_logger_level(
         name: *const ::std::os::raw::c_char,
         level: ::std::os::raw::c_int,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_logging_logger_is_enabled_for(
         name: *const ::std::os::raw::c_char,
         severity: ::std::os::raw::c_int,
     ) -> bool;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_logging_get_logger_effective_level(
         name: *const ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_log_internal(
         location: *const rcutils_log_location_t,
         severity: ::std::os::raw::c_int,
@@ -652,7 +652,7 @@ unsafe extern "C" {
         ...
     );
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_log(
         location: *const rcutils_log_location_t,
         severity: ::std::os::raw::c_int,
@@ -661,7 +661,7 @@ unsafe extern "C" {
         ...
     );
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_logging_console_output_handler(
         location: *const rcutils_log_location_t,
         severity: ::std::os::raw::c_int,
@@ -775,31 +775,31 @@ pub struct rmw_discovery_options_s {
     pub allocator: rcutils_allocator_t,
 }
 pub type rmw_discovery_options_t = rmw_discovery_options_s;
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_get_zero_initialized_discovery_options() -> rmw_discovery_options_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_discovery_options_init(
         discovery_options: *mut rmw_discovery_options_t,
         size: usize,
         allocator: *mut rcutils_allocator_t,
     ) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_discovery_options_equal(
         left: *const rmw_discovery_options_t,
         right: *const rmw_discovery_options_t,
         result: *mut bool,
     ) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_discovery_options_copy(
         src: *const rmw_discovery_options_t,
         allocator: *mut rcutils_allocator_t,
         dst: *mut rmw_discovery_options_t,
     ) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_discovery_options_fini(discovery_options: *mut rmw_discovery_options_t)
         -> rmw_ret_t;
 }
@@ -825,27 +825,27 @@ pub struct rmw_security_options_s {
     pub security_root_path: *mut ::std::os::raw::c_char,
 }
 pub type rmw_security_options_t = rmw_security_options_s;
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_get_zero_initialized_security_options() -> rmw_security_options_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_get_default_security_options() -> rmw_security_options_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_security_options_copy(
         src: *const rmw_security_options_t,
         allocator: *const rcutils_allocator_t,
         dst: *mut rmw_security_options_t,
     ) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_security_options_set_root_path(
         security_root_path: *const ::std::os::raw::c_char,
         allocator: *const rcutils_allocator_t,
         security_options: *mut rmw_security_options_t,
     ) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_security_options_fini(
         security_options: *mut rmw_security_options_t,
         allocator: *const rcutils_allocator_t,
@@ -871,22 +871,22 @@ pub struct rmw_init_options_s {
     pub impl_: *mut rmw_init_options_impl_t,
 }
 pub type rmw_init_options_t = rmw_init_options_s;
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_get_zero_initialized_init_options() -> rmw_init_options_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_init_options_init(
         init_options: *mut rmw_init_options_t,
         allocator: rcutils_allocator_t,
     ) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_init_options_copy(
         src: *const rmw_init_options_t,
         dst: *mut rmw_init_options_t,
     ) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_init_options_fini(init_options: *mut rmw_init_options_t) -> rmw_ret_t;
 }
 #[repr(C)]
@@ -905,16 +905,16 @@ pub struct rmw_context_s {
     pub impl_: *mut rmw_context_impl_t,
 }
 pub type rmw_context_t = rmw_context_s;
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_get_zero_initialized_context() -> rmw_context_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_init(options: *const rmw_init_options_t, context: *mut rmw_context_t) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_shutdown(context: *mut rmw_context_t) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_context_fini(context: *mut rmw_context_t) -> rmw_ret_t;
 }
 pub type rmw_serialized_message_t = rcutils_uint8_array_t;
@@ -925,11 +925,11 @@ pub struct rmw_subscription_content_filter_options_s {
     pub expression_parameters: rcutils_string_array_t,
 }
 pub type rmw_subscription_content_filter_options_t = rmw_subscription_content_filter_options_s;
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_get_zero_initialized_content_filter_options(
     ) -> rmw_subscription_content_filter_options_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_subscription_content_filter_options_init(
         filter_expression: *const ::std::os::raw::c_char,
         expression_parameters_argc: usize,
@@ -938,7 +938,7 @@ unsafe extern "C" {
         options: *mut rmw_subscription_content_filter_options_t,
     ) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_subscription_content_filter_options_set(
         filter_expression: *const ::std::os::raw::c_char,
         expression_parameters_argc: usize,
@@ -947,14 +947,14 @@ unsafe extern "C" {
         options: *mut rmw_subscription_content_filter_options_t,
     ) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_subscription_content_filter_options_copy(
         src: *const rmw_subscription_content_filter_options_t,
         allocator: *const rcutils_allocator_t,
         dst: *mut rmw_subscription_content_filter_options_t,
     ) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_subscription_content_filter_options_fini(
         options: *mut rmw_subscription_content_filter_options_t,
         allocator: *const rcutils_allocator_t,
@@ -969,16 +969,16 @@ pub struct rmw_time_s {
 pub type rmw_time_t = rmw_time_s;
 pub type rmw_time_point_value_t = rcutils_time_point_value_t;
 pub type rmw_duration_t = rcutils_duration_value_t;
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_time_equal(left: rmw_time_t, right: rmw_time_t) -> bool;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_time_total_nsec(time: rmw_time_t) -> rmw_duration_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_time_from_nsec(nanoseconds: rmw_duration_t) -> rmw_time_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_time_normalize(time: rmw_time_t) -> rmw_time_t;
 }
 #[repr(C)]
@@ -1213,7 +1213,7 @@ pub struct rmw_message_info_s {
     pub from_intra_process: bool,
 }
 pub type rmw_message_info_t = rmw_message_info_s;
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_get_zero_initialized_message_info() -> rmw_message_info_t;
 }
 #[repr(u32)]
@@ -1232,24 +1232,24 @@ pub struct rmw_names_and_types_s {
     pub types: *mut rcutils_string_array_t,
 }
 pub type rmw_names_and_types_t = rmw_names_and_types_s;
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_get_zero_initialized_names_and_types() -> rmw_names_and_types_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_names_and_types_check_zero(names_and_types: *mut rmw_names_and_types_t)
         -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_names_and_types_init(
         names_and_types: *mut rmw_names_and_types_t,
         size: usize,
         allocator: *mut rcutils_allocator_t,
     ) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_names_and_types_fini(names_and_types: *mut rmw_names_and_types_t) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_get_topic_names_and_types(
         node: *const rmw_node_t,
         allocator: *mut rcutils_allocator_t,
@@ -1266,13 +1266,13 @@ pub struct rcutils_sha256_ctx_s {
     pub state: [u32; 8usize],
 }
 pub type rcutils_sha256_ctx_t = rcutils_sha256_ctx_s;
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_sha256_init(ctx: *mut rcutils_sha256_ctx_t);
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_sha256_update(ctx: *mut rcutils_sha256_ctx_t, data: *const u8, data_len: usize);
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcutils_sha256_final(ctx: *mut rcutils_sha256_ctx_t, output_hash: *mut u8);
 }
 #[repr(C)]
@@ -1282,17 +1282,17 @@ pub struct rosidl_type_hash_s {
     pub value: [u8; 32usize],
 }
 pub type rosidl_type_hash_t = rosidl_type_hash_s;
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_get_zero_initialized_type_hash() -> rosidl_type_hash_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_stringify_type_hash(
         type_hash: *const rosidl_type_hash_t,
         allocator: rcutils_allocator_t,
         output_string: *mut *mut ::std::os::raw::c_char,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_parse_type_hash_string(
         type_hash_string: *const ::std::os::raw::c_char,
         hash_out: *mut rosidl_type_hash_t,
@@ -1310,56 +1310,56 @@ pub struct rmw_topic_endpoint_info_s {
     pub qos_profile: rmw_qos_profile_t,
 }
 pub type rmw_topic_endpoint_info_t = rmw_topic_endpoint_info_s;
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_get_zero_initialized_topic_endpoint_info() -> rmw_topic_endpoint_info_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_topic_endpoint_info_fini(
         topic_endpoint_info: *mut rmw_topic_endpoint_info_t,
         allocator: *mut rcutils_allocator_t,
     ) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_topic_endpoint_info_set_topic_type(
         topic_endpoint_info: *mut rmw_topic_endpoint_info_t,
         topic_type: *const ::std::os::raw::c_char,
         allocator: *mut rcutils_allocator_t,
     ) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_topic_endpoint_info_set_topic_type_hash(
         topic_endpoint_info: *mut rmw_topic_endpoint_info_t,
         type_hash: *const rosidl_type_hash_t,
     ) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_topic_endpoint_info_set_node_name(
         topic_endpoint_info: *mut rmw_topic_endpoint_info_t,
         node_name: *const ::std::os::raw::c_char,
         allocator: *mut rcutils_allocator_t,
     ) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_topic_endpoint_info_set_node_namespace(
         topic_endpoint_info: *mut rmw_topic_endpoint_info_t,
         node_namespace: *const ::std::os::raw::c_char,
         allocator: *mut rcutils_allocator_t,
     ) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_topic_endpoint_info_set_endpoint_type(
         topic_endpoint_info: *mut rmw_topic_endpoint_info_t,
         type_: rmw_endpoint_type_t,
     ) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_topic_endpoint_info_set_gid(
         topic_endpoint_info: *mut rmw_topic_endpoint_info_t,
         gid: *const u8,
         size: usize,
     ) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_topic_endpoint_info_set_qos_profile(
         topic_endpoint_info: *mut rmw_topic_endpoint_info_t,
         qos_profile: *const rmw_qos_profile_t,
@@ -1372,22 +1372,22 @@ pub struct rmw_topic_endpoint_info_array_s {
     pub info_array: *mut rmw_topic_endpoint_info_t,
 }
 pub type rmw_topic_endpoint_info_array_t = rmw_topic_endpoint_info_array_s;
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_get_zero_initialized_topic_endpoint_info_array() -> rmw_topic_endpoint_info_array_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_topic_endpoint_info_array_check_zero(
         topic_endpoint_info_array: *mut rmw_topic_endpoint_info_array_t,
     ) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_topic_endpoint_info_array_init_with_size(
         topic_endpoint_info_array: *mut rmw_topic_endpoint_info_array_t,
         size: usize,
         allocator: *mut rcutils_allocator_t,
     ) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_topic_endpoint_info_array_fini(
         topic_endpoint_info_array: *mut rmw_topic_endpoint_info_array_t,
         allocator: *mut rcutils_allocator_t,
@@ -2223,7 +2223,7 @@ pub struct rosidl_message_type_support_t {
     pub get_type_description_func: rosidl_message_get_type_description_function,
     pub get_type_description_sources_func: rosidl_message_get_type_description_sources_function,
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_get_zero_initialized_message_type_support_handle() -> rosidl_message_type_support_t;
 }
 pub type rosidl_service_typesupport_handle_function = ::std::option::Option<
@@ -2310,29 +2310,29 @@ pub struct rcl_log_levels_s {
     pub allocator: rcl_allocator_t,
 }
 pub type rcl_log_levels_t = rcl_log_levels_s;
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_get_zero_initialized_log_levels() -> rcl_log_levels_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_log_levels_init(
         log_levels: *mut rcl_log_levels_t,
         allocator: *const rcl_allocator_t,
         logger_count: usize,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_log_levels_copy(
         src: *const rcl_log_levels_t,
         dst: *mut rcl_log_levels_t,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_log_levels_fini(log_levels: *mut rcl_log_levels_t) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_log_levels_shrink_to_size(log_levels: *mut rcl_log_levels_t) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_log_levels_add_logger_setting(
         log_levels: *mut rcl_log_levels_t,
         logger_name: *const ::std::os::raw::c_char,
@@ -2412,10 +2412,10 @@ pub struct rcl_arguments_s {
     pub impl_: *mut rcl_arguments_impl_t,
 }
 pub type rcl_arguments_t = rcl_arguments_s;
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_get_zero_initialized_arguments() -> rcl_arguments_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_parse_arguments(
         argc: ::std::os::raw::c_int,
         argv: *const *const ::std::os::raw::c_char,
@@ -2423,47 +2423,47 @@ unsafe extern "C" {
         args_output: *mut rcl_arguments_t,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_arguments_get_count_unparsed(args: *const rcl_arguments_t) -> ::std::os::raw::c_int;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_arguments_get_unparsed(
         args: *const rcl_arguments_t,
         allocator: rcl_allocator_t,
         output_unparsed_indices: *mut *mut ::std::os::raw::c_int,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_arguments_get_count_unparsed_ros(
         args: *const rcl_arguments_t,
     ) -> ::std::os::raw::c_int;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_arguments_get_unparsed_ros(
         args: *const rcl_arguments_t,
         allocator: rcl_allocator_t,
         output_unparsed_ros_indices: *mut *mut ::std::os::raw::c_int,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_arguments_get_param_files_count(
         args: *const rcl_arguments_t,
     ) -> ::std::os::raw::c_int;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_arguments_get_param_files(
         arguments: *const rcl_arguments_t,
         allocator: rcl_allocator_t,
         parameter_files: *mut *mut *mut ::std::os::raw::c_char,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_arguments_get_param_overrides(
         arguments: *const rcl_arguments_t,
         parameter_overrides: *mut *mut rcl_params_t,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_remove_ros_arguments(
         argv: *const *const ::std::os::raw::c_char,
         args: *const rcl_arguments_t,
@@ -2472,19 +2472,19 @@ unsafe extern "C" {
         nonros_argv: *mut *mut *const ::std::os::raw::c_char,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_arguments_get_log_levels(
         arguments: *const rcl_arguments_t,
         log_levels: *mut rcl_log_levels_t,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_arguments_copy(
         args: *const rcl_arguments_t,
         args_out: *mut rcl_arguments_t,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_arguments_fini(args: *mut rcl_arguments_t) -> rcl_ret_t;
 }
 #[repr(C)]
@@ -2499,42 +2499,42 @@ pub struct rcl_init_options_s {
     pub impl_: *mut rcl_init_options_impl_t,
 }
 pub type rcl_init_options_t = rcl_init_options_s;
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_get_zero_initialized_init_options() -> rcl_init_options_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_init_options_init(
         init_options: *mut rcl_init_options_t,
         allocator: rcl_allocator_t,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_init_options_copy(
         src: *const rcl_init_options_t,
         dst: *mut rcl_init_options_t,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_init_options_fini(init_options: *mut rcl_init_options_t) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_init_options_get_domain_id(
         init_options: *const rcl_init_options_t,
         domain_id: *mut usize,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_init_options_set_domain_id(
         init_options: *mut rcl_init_options_t,
         domain_id: usize,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_init_options_get_rmw_init_options(
         init_options: *mut rcl_init_options_t,
     ) -> *mut rmw_init_options_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_init_options_get_allocator(
         init_options: *const rcl_init_options_t,
     ) -> *const rcl_allocator_t;
@@ -2554,29 +2554,29 @@ pub struct rcl_context_s {
     pub instance_id_storage: [u8; 8usize],
 }
 pub type rcl_context_t = rcl_context_s;
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_get_zero_initialized_context() -> rcl_context_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_context_fini(context: *mut rcl_context_t) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_context_get_init_options(context: *const rcl_context_t)
         -> *const rcl_init_options_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_context_get_instance_id(context: *const rcl_context_t) -> rcl_context_instance_id_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_context_get_domain_id(
         context: *mut rcl_context_t,
         domain_id: *mut usize,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_context_is_valid(context: *const rcl_context_t) -> bool;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_context_get_rmw_context(context: *mut rcl_context_t) -> *mut rmw_context_t;
 }
 #[repr(C)]
@@ -2598,17 +2598,17 @@ pub struct rcl_guard_condition_options_s {
     pub allocator: rcl_allocator_t,
 }
 pub type rcl_guard_condition_options_t = rcl_guard_condition_options_s;
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_get_zero_initialized_guard_condition() -> rcl_guard_condition_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_guard_condition_init(
         guard_condition: *mut rcl_guard_condition_t,
         context: *mut rcl_context_t,
         options: rcl_guard_condition_options_t,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_guard_condition_init_from_rmw(
         guard_condition: *mut rcl_guard_condition_t,
         rmw_guard_condition: *const rmw_guard_condition_t,
@@ -2616,26 +2616,26 @@ unsafe extern "C" {
         options: rcl_guard_condition_options_t,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_guard_condition_fini(guard_condition: *mut rcl_guard_condition_t) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_guard_condition_get_default_options() -> rcl_guard_condition_options_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_trigger_guard_condition(guard_condition: *mut rcl_guard_condition_t) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_guard_condition_get_options(
         guard_condition: *const rcl_guard_condition_t,
     ) -> *const rcl_guard_condition_options_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_guard_condition_get_rmw_handle(
         guard_condition: *const rcl_guard_condition_t,
     ) -> *mut rmw_guard_condition_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_get_default_domain_id(domain_id: *mut usize) -> rcl_ret_t;
 }
 #[repr(C)]
@@ -2648,16 +2648,16 @@ pub struct rcl_node_options_s {
     pub rosout_qos: rmw_qos_profile_t,
 }
 pub type rcl_node_options_t = rcl_node_options_s;
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_node_get_default_options() -> rcl_node_options_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_node_options_copy(
         options: *const rcl_node_options_t,
         options_out: *mut rcl_node_options_t,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_node_options_fini(options: *mut rcl_node_options_t) -> rcl_ret_t;
 }
 #[repr(C)]
@@ -2770,23 +2770,23 @@ pub struct rosidl_action_type_support_t {
     pub get_type_description_func: rosidl_action_get_type_description_function,
     pub get_type_description_sources_func: rosidl_action_get_type_description_sources_function,
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_typesupport_c__get_message_type_support_handle__type_description_interfaces__srv__GetTypeDescription_Request(
     ) -> *const rosidl_message_type_support_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_typesupport_c__get_message_type_support_handle__type_description_interfaces__srv__GetTypeDescription_Response(
     ) -> *const rosidl_message_type_support_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_typesupport_c__get_message_type_support_handle__type_description_interfaces__srv__GetTypeDescription_Event(
     ) -> *const rosidl_message_type_support_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_typesupport_c__get_service_type_support_handle__type_description_interfaces__srv__GetTypeDescription(
     ) -> *const rosidl_service_type_support_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_typesupport_c__create_service_event_message__type_description_interfaces__srv__GetTypeDescription(
         info: *const rosidl_service_introspection_info_t,
         allocator: *mut rcutils_allocator_t,
@@ -2794,7 +2794,7 @@ unsafe extern "C" {
         response_message: *const ::std::os::raw::c_void,
     ) -> *mut ::std::os::raw::c_void;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_typesupport_c__destroy_service_event_message__type_description_interfaces__srv__GetTypeDescription(
         event_msg: *mut ::std::os::raw::c_void,
         allocator: *mut rcutils_allocator_t,
@@ -2814,10 +2814,10 @@ pub struct rcl_node_s {
     pub impl_: *mut rcl_node_impl_t,
 }
 pub type rcl_node_t = rcl_node_s;
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_get_zero_initialized_node() -> rcl_node_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_node_init(
         node: *mut rcl_node_t,
         name: *const ::std::os::raw::c_char,
@@ -2826,47 +2826,47 @@ unsafe extern "C" {
         options: *const rcl_node_options_t,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_node_fini(node: *mut rcl_node_t) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_node_is_valid(node: *const rcl_node_t) -> bool;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_node_is_valid_except_context(node: *const rcl_node_t) -> bool;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_node_get_name(node: *const rcl_node_t) -> *const ::std::os::raw::c_char;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_node_get_namespace(node: *const rcl_node_t) -> *const ::std::os::raw::c_char;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_node_get_fully_qualified_name(
         node: *const rcl_node_t,
     ) -> *const ::std::os::raw::c_char;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_node_get_options(node: *const rcl_node_t) -> *const rcl_node_options_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_node_get_domain_id(node: *const rcl_node_t, domain_id: *mut usize) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_node_get_rmw_handle(node: *const rcl_node_t) -> *mut rmw_node_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_node_get_rcl_instance_id(node: *const rcl_node_t) -> u64;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_node_get_graph_guard_condition(
         node: *const rcl_node_t,
     ) -> *const rcl_guard_condition_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_node_get_logger_name(node: *const rcl_node_t) -> *const ::std::os::raw::c_char;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_node_resolve_name(
         node: *const rcl_node_t,
         input_name: *const ::std::os::raw::c_char,
@@ -2876,16 +2876,16 @@ unsafe extern "C" {
         output_name: *mut *mut ::std::os::raw::c_char,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_get_disable_loaned_message(disable_loaned_message: *mut bool) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_node_type_description_service_init(
         service: *mut rcl_service_t,
         node: *const rcl_node_t,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_node_type_description_service_handle_request(
         node: *mut rcl_node_t,
         request_header: *const rmw_request_id_t,
@@ -2972,81 +2972,81 @@ pub struct rcl_time_point_s {
     pub clock_type: rcl_clock_type_t,
 }
 pub type rcl_time_point_t = rcl_time_point_s;
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_clock_time_started(clock: *mut rcl_clock_t) -> bool;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_clock_valid(clock: *mut rcl_clock_t) -> bool;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_clock_init(
         clock_type: rcl_clock_type_t,
         clock: *mut rcl_clock_t,
         allocator: *mut rcl_allocator_t,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_clock_fini(clock: *mut rcl_clock_t) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_ros_clock_init(
         clock: *mut rcl_clock_t,
         allocator: *mut rcl_allocator_t,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_ros_clock_fini(clock: *mut rcl_clock_t) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_steady_clock_init(
         clock: *mut rcl_clock_t,
         allocator: *mut rcl_allocator_t,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_steady_clock_fini(clock: *mut rcl_clock_t) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_system_clock_init(
         clock: *mut rcl_clock_t,
         allocator: *mut rcl_allocator_t,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_system_clock_fini(clock: *mut rcl_clock_t) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_difference_times(
         start: *const rcl_time_point_t,
         finish: *const rcl_time_point_t,
         delta: *mut rcl_duration_t,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_clock_get_now(
         clock: *mut rcl_clock_t,
         time_point_value: *mut rcl_time_point_value_t,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_enable_ros_time_override(clock: *mut rcl_clock_t) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_disable_ros_time_override(clock: *mut rcl_clock_t) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_is_enabled_ros_time_override(
         clock: *mut rcl_clock_t,
         is_enabled: *mut bool,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_set_ros_time_override(
         clock: *mut rcl_clock_t,
         time_value: rcl_time_point_value_t,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_clock_add_jump_callback(
         clock: *mut rcl_clock_t,
         threshold: rcl_jump_threshold_t,
@@ -3054,7 +3054,7 @@ unsafe extern "C" {
         user_data: *mut ::std::os::raw::c_void,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_clock_remove_jump_callback(
         clock: *mut rcl_clock_t,
         callback: rcl_jump_callback_t,
@@ -3082,10 +3082,10 @@ pub struct rcl_publisher_options_s {
     pub disable_loaned_message: bool,
 }
 pub type rcl_publisher_options_t = rcl_publisher_options_s;
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_get_zero_initialized_publisher() -> rcl_publisher_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_publisher_init(
         publisher: *mut rcl_publisher_t,
         node: *const rcl_node_t,
@@ -3094,89 +3094,89 @@ unsafe extern "C" {
         options: *const rcl_publisher_options_t,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_publisher_fini(publisher: *mut rcl_publisher_t, node: *mut rcl_node_t) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_publisher_get_default_options() -> rcl_publisher_options_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_borrow_loaned_message(
         publisher: *const rcl_publisher_t,
         type_support: *const rosidl_message_type_support_t,
         ros_message: *mut *mut ::std::os::raw::c_void,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_return_loaned_message_from_publisher(
         publisher: *const rcl_publisher_t,
         loaned_message: *mut ::std::os::raw::c_void,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_publish(
         publisher: *const rcl_publisher_t,
         ros_message: *const ::std::os::raw::c_void,
         allocation: *mut rmw_publisher_allocation_t,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_publish_serialized_message(
         publisher: *const rcl_publisher_t,
         serialized_message: *const rcl_serialized_message_t,
         allocation: *mut rmw_publisher_allocation_t,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_publish_loaned_message(
         publisher: *const rcl_publisher_t,
         ros_message: *mut ::std::os::raw::c_void,
         allocation: *mut rmw_publisher_allocation_t,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_publisher_assert_liveliness(publisher: *const rcl_publisher_t) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_publisher_wait_for_all_acked(
         publisher: *const rcl_publisher_t,
         timeout: rcl_duration_value_t,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_publisher_get_topic_name(
         publisher: *const rcl_publisher_t,
     ) -> *const ::std::os::raw::c_char;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_publisher_get_options(
         publisher: *const rcl_publisher_t,
     ) -> *const rcl_publisher_options_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_publisher_get_rmw_handle(publisher: *const rcl_publisher_t) -> *mut rmw_publisher_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_publisher_get_context(publisher: *const rcl_publisher_t) -> *mut rcl_context_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_publisher_is_valid(publisher: *const rcl_publisher_t) -> bool;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_publisher_is_valid_except_context(publisher: *const rcl_publisher_t) -> bool;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_publisher_get_subscription_count(
         publisher: *const rcl_publisher_t,
         subscription_count: *mut usize,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_publisher_get_actual_qos(
         publisher: *const rcl_publisher_t,
     ) -> *const rmw_qos_profile_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_publisher_can_loan_messages(publisher: *const rcl_publisher_t) -> bool;
 }
 #[repr(u32)]
@@ -3206,10 +3206,10 @@ pub struct rcl_client_options_s {
     pub allocator: rcl_allocator_t,
 }
 pub type rcl_client_options_t = rcl_client_options_s;
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_get_zero_initialized_client() -> rcl_client_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_client_init(
         client: *mut rcl_client_t,
         node: *const rcl_node_t,
@@ -3218,65 +3218,65 @@ unsafe extern "C" {
         options: *const rcl_client_options_t,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_client_fini(client: *mut rcl_client_t, node: *mut rcl_node_t) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_client_get_default_options() -> rcl_client_options_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_send_request(
         client: *const rcl_client_t,
         ros_request: *const ::std::os::raw::c_void,
         sequence_number: *mut i64,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_take_response_with_info(
         client: *const rcl_client_t,
         request_header: *mut rmw_service_info_t,
         ros_response: *mut ::std::os::raw::c_void,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_take_response(
         client: *const rcl_client_t,
         request_header: *mut rmw_request_id_t,
         ros_response: *mut ::std::os::raw::c_void,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_client_get_service_name(
         client: *const rcl_client_t,
     ) -> *const ::std::os::raw::c_char;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_client_get_options(client: *const rcl_client_t) -> *const rcl_client_options_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_client_get_rmw_handle(client: *const rcl_client_t) -> *mut rmw_client_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_client_is_valid(client: *const rcl_client_t) -> bool;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_client_request_publisher_get_actual_qos(
         client: *const rcl_client_t,
     ) -> *const rmw_qos_profile_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_client_response_subscription_get_actual_qos(
         client: *const rcl_client_t,
     ) -> *const rmw_qos_profile_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_client_set_on_new_response_callback(
         client: *const rcl_client_t,
         callback: rcl_event_callback_t,
         user_data: *const ::std::os::raw::c_void,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_client_configure_service_introspection(
         client: *mut rcl_client_t,
         node: *mut rcl_node_t,
@@ -3289,7 +3289,7 @@ unsafe extern "C" {
 pub type rcl_names_and_types_t = rmw_names_and_types_t;
 pub type rcl_topic_endpoint_info_t = rmw_topic_endpoint_info_t;
 pub type rcl_topic_endpoint_info_array_t = rmw_topic_endpoint_info_array_t;
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_get_publisher_names_and_types_by_node(
         node: *const rcl_node_t,
         allocator: *mut rcl_allocator_t,
@@ -3299,7 +3299,7 @@ unsafe extern "C" {
         topic_names_and_types: *mut rcl_names_and_types_t,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_get_subscriber_names_and_types_by_node(
         node: *const rcl_node_t,
         allocator: *mut rcl_allocator_t,
@@ -3309,7 +3309,7 @@ unsafe extern "C" {
         topic_names_and_types: *mut rcl_names_and_types_t,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_get_service_names_and_types_by_node(
         node: *const rcl_node_t,
         allocator: *mut rcl_allocator_t,
@@ -3318,7 +3318,7 @@ unsafe extern "C" {
         service_names_and_types: *mut rcl_names_and_types_t,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_get_client_names_and_types_by_node(
         node: *const rcl_node_t,
         allocator: *mut rcl_allocator_t,
@@ -3327,7 +3327,7 @@ unsafe extern "C" {
         service_names_and_types: *mut rcl_names_and_types_t,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_get_topic_names_and_types(
         node: *const rcl_node_t,
         allocator: *mut rcl_allocator_t,
@@ -3335,24 +3335,24 @@ unsafe extern "C" {
         topic_names_and_types: *mut rcl_names_and_types_t,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_get_service_names_and_types(
         node: *const rcl_node_t,
         allocator: *mut rcl_allocator_t,
         service_names_and_types: *mut rcl_names_and_types_t,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_names_and_types_init(
         names_and_types: *mut rcl_names_and_types_t,
         size: usize,
         allocator: *mut rcl_allocator_t,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_names_and_types_fini(names_and_types: *mut rcl_names_and_types_t) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_get_node_names(
         node: *const rcl_node_t,
         allocator: rcl_allocator_t,
@@ -3360,7 +3360,7 @@ unsafe extern "C" {
         node_namespaces: *mut rcutils_string_array_t,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_get_node_names_with_enclaves(
         node: *const rcl_node_t,
         allocator: rcl_allocator_t,
@@ -3369,35 +3369,35 @@ unsafe extern "C" {
         enclaves: *mut rcutils_string_array_t,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_count_publishers(
         node: *const rcl_node_t,
         topic_name: *const ::std::os::raw::c_char,
         count: *mut usize,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_count_subscribers(
         node: *const rcl_node_t,
         topic_name: *const ::std::os::raw::c_char,
         count: *mut usize,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_count_clients(
         node: *const rcl_node_t,
         service_name: *const ::std::os::raw::c_char,
         count: *mut usize,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_count_services(
         node: *const rcl_node_t,
         service_name: *const ::std::os::raw::c_char,
         count: *mut usize,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_wait_for_publishers(
         node: *const rcl_node_t,
         allocator: *mut rcl_allocator_t,
@@ -3407,7 +3407,7 @@ unsafe extern "C" {
         success: *mut bool,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_wait_for_subscribers(
         node: *const rcl_node_t,
         allocator: *mut rcl_allocator_t,
@@ -3417,7 +3417,7 @@ unsafe extern "C" {
         success: *mut bool,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_get_publishers_info_by_topic(
         node: *const rcl_node_t,
         allocator: *mut rcutils_allocator_t,
@@ -3426,7 +3426,7 @@ unsafe extern "C" {
         publishers_info: *mut rcl_topic_endpoint_info_array_t,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_get_subscriptions_info_by_topic(
         node: *const rcl_node_t,
         allocator: *mut rcutils_allocator_t,
@@ -3435,14 +3435,14 @@ unsafe extern "C" {
         subscriptions_info: *mut rcl_topic_endpoint_info_array_t,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_service_server_is_available(
         node: *const rcl_node_t,
         client: *const rcl_client_t,
         is_available: *mut bool,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_init(
         argc: ::std::os::raw::c_int,
         argv: *const *const ::std::os::raw::c_char,
@@ -3450,7 +3450,7 @@ unsafe extern "C" {
         context: *mut rcl_context_t,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_shutdown(context: *mut rcl_context_t) -> rcl_ret_t;
 }
 pub type char16_t = __uint_least16_t;
@@ -5367,7 +5367,7 @@ pub struct rosidl_dynamic_typesupport_serialization_support_interface_s {
         ) -> rcutils_ret_t,
     >,
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_get_zero_initialized_serialization_support_interface(
     ) -> rosidl_dynamic_typesupport_serialization_support_interface_t;
 }
@@ -5377,7 +5377,7 @@ pub struct rosidl_dynamic_typesupport_dynamic_data_impl_s {
     pub allocator: rcutils_allocator_t,
     pub handle: *mut ::std::os::raw::c_void,
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_get_zero_initialized_dynamic_data_impl(
     ) -> rosidl_dynamic_typesupport_dynamic_data_impl_t;
 }
@@ -5388,40 +5388,40 @@ pub struct rosidl_dynamic_typesupport_dynamic_data_s {
     pub impl_: rosidl_dynamic_typesupport_dynamic_data_impl_t,
     pub serialization_support: *mut rosidl_dynamic_typesupport_serialization_support_t,
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_get_zero_initialized_dynamic_data(
     ) -> rosidl_dynamic_typesupport_dynamic_data_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_clear_all_values(
         dynamic_data: *mut rosidl_dynamic_typesupport_dynamic_data_t,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_clear_nonkey_values(
         dynamic_data: *mut rosidl_dynamic_typesupport_dynamic_data_t,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_clear_value(
         dynamic_data: *mut rosidl_dynamic_typesupport_dynamic_data_t,
         id: rosidl_dynamic_typesupport_member_id_t,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_equals(
         dynamic_data: *const rosidl_dynamic_typesupport_dynamic_data_t,
         other: *const rosidl_dynamic_typesupport_dynamic_data_t,
         equals: *mut bool,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_get_item_count(
         dynamic_data: *const rosidl_dynamic_typesupport_dynamic_data_t,
         item_count: *mut usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_get_member_id_by_name(
         dynamic_data: *const rosidl_dynamic_typesupport_dynamic_data_t,
         name: *const ::std::os::raw::c_char,
@@ -5429,21 +5429,21 @@ unsafe extern "C" {
         member_id: *mut rosidl_dynamic_typesupport_member_id_t,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_get_member_id_at_index(
         dynamic_data: *const rosidl_dynamic_typesupport_dynamic_data_t,
         index: usize,
         member_id: *mut rosidl_dynamic_typesupport_member_id_t,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_get_array_index(
         dynamic_data: *const rosidl_dynamic_typesupport_dynamic_data_t,
         index: usize,
         array_index: *mut rosidl_dynamic_typesupport_member_id_t,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_loan_value(
         dynamic_data: *mut rosidl_dynamic_typesupport_dynamic_data_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -5451,174 +5451,174 @@ unsafe extern "C" {
         loaned_dynamic_data: *mut rosidl_dynamic_typesupport_dynamic_data_t,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_return_loaned_value(
         dynamic_data: *mut rosidl_dynamic_typesupport_dynamic_data_t,
         inner_dynamic_data: *mut rosidl_dynamic_typesupport_dynamic_data_t,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_return_and_destroy_loaned_value(
         dynamic_data: *mut rosidl_dynamic_typesupport_dynamic_data_t,
         inner_dynamic_data: *mut rosidl_dynamic_typesupport_dynamic_data_t,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_get_name(
         dynamic_data: *const rosidl_dynamic_typesupport_dynamic_data_t,
         name: *mut *const ::std::os::raw::c_char,
         name_length: *mut usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_init_from_dynamic_type_builder(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         allocator: *mut rcutils_allocator_t,
         dynamic_data: *mut rosidl_dynamic_typesupport_dynamic_data_t,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_init_from_dynamic_type(
         dynamic_type: *mut rosidl_dynamic_typesupport_dynamic_type_t,
         allocator: *mut rcutils_allocator_t,
         dynamic_data: *mut rosidl_dynamic_typesupport_dynamic_data_t,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_clone(
         other_dynamic_data: *const rosidl_dynamic_typesupport_dynamic_data_t,
         allocator: *mut rcutils_allocator_t,
         dynamic_data: *mut rosidl_dynamic_typesupport_dynamic_data_t,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_fini(
         dynamic_data: *mut rosidl_dynamic_typesupport_dynamic_data_t,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_destroy(
         dynamic_data: *mut rosidl_dynamic_typesupport_dynamic_data_t,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_serialize(
         dynamic_data: *mut rosidl_dynamic_typesupport_dynamic_data_t,
         buffer: *mut rcutils_uint8_array_t,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_deserialize(
         dynamic_data: *mut rosidl_dynamic_typesupport_dynamic_data_t,
         buffer: *mut rcutils_uint8_array_t,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_get_bool_value(
         dynamic_data: *const rosidl_dynamic_typesupport_dynamic_data_t,
         id: rosidl_dynamic_typesupport_member_id_t,
         value: *mut bool,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_get_byte_value(
         dynamic_data: *const rosidl_dynamic_typesupport_dynamic_data_t,
         id: rosidl_dynamic_typesupport_member_id_t,
         value: *mut ::std::os::raw::c_uchar,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_get_char_value(
         dynamic_data: *const rosidl_dynamic_typesupport_dynamic_data_t,
         id: rosidl_dynamic_typesupport_member_id_t,
         value: *mut ::std::os::raw::c_char,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_get_wchar_value(
         dynamic_data: *const rosidl_dynamic_typesupport_dynamic_data_t,
         id: rosidl_dynamic_typesupport_member_id_t,
         value: *mut char16_t,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_get_float32_value(
         dynamic_data: *const rosidl_dynamic_typesupport_dynamic_data_t,
         id: rosidl_dynamic_typesupport_member_id_t,
         value: *mut f32,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_get_float64_value(
         dynamic_data: *const rosidl_dynamic_typesupport_dynamic_data_t,
         id: rosidl_dynamic_typesupport_member_id_t,
         value: *mut f64,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_get_float128_value(
         dynamic_data: *const rosidl_dynamic_typesupport_dynamic_data_t,
         id: rosidl_dynamic_typesupport_member_id_t,
         value: *mut u128,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_get_int8_value(
         dynamic_data: *const rosidl_dynamic_typesupport_dynamic_data_t,
         id: rosidl_dynamic_typesupport_member_id_t,
         value: *mut i8,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_get_uint8_value(
         dynamic_data: *const rosidl_dynamic_typesupport_dynamic_data_t,
         id: rosidl_dynamic_typesupport_member_id_t,
         value: *mut u8,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_get_int16_value(
         dynamic_data: *const rosidl_dynamic_typesupport_dynamic_data_t,
         id: rosidl_dynamic_typesupport_member_id_t,
         value: *mut i16,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_get_uint16_value(
         dynamic_data: *const rosidl_dynamic_typesupport_dynamic_data_t,
         id: rosidl_dynamic_typesupport_member_id_t,
         value: *mut u16,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_get_int32_value(
         dynamic_data: *const rosidl_dynamic_typesupport_dynamic_data_t,
         id: rosidl_dynamic_typesupport_member_id_t,
         value: *mut i32,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_get_uint32_value(
         dynamic_data: *const rosidl_dynamic_typesupport_dynamic_data_t,
         id: rosidl_dynamic_typesupport_member_id_t,
         value: *mut u32,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_get_int64_value(
         dynamic_data: *const rosidl_dynamic_typesupport_dynamic_data_t,
         id: rosidl_dynamic_typesupport_member_id_t,
         value: *mut i64,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_get_uint64_value(
         dynamic_data: *const rosidl_dynamic_typesupport_dynamic_data_t,
         id: rosidl_dynamic_typesupport_member_id_t,
         value: *mut u64,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_get_string_value(
         dynamic_data: *const rosidl_dynamic_typesupport_dynamic_data_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -5626,7 +5626,7 @@ unsafe extern "C" {
         value_length: *mut usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_get_wstring_value(
         dynamic_data: *const rosidl_dynamic_typesupport_dynamic_data_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -5634,7 +5634,7 @@ unsafe extern "C" {
         value_length: *mut usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_get_fixed_string_value(
         dynamic_data: *const rosidl_dynamic_typesupport_dynamic_data_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -5643,7 +5643,7 @@ unsafe extern "C" {
         string_length: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_get_fixed_wstring_value(
         dynamic_data: *const rosidl_dynamic_typesupport_dynamic_data_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -5652,7 +5652,7 @@ unsafe extern "C" {
         wstring_length: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_get_bounded_string_value(
         dynamic_data: *const rosidl_dynamic_typesupport_dynamic_data_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -5661,7 +5661,7 @@ unsafe extern "C" {
         string_bound: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_get_bounded_wstring_value(
         dynamic_data: *const rosidl_dynamic_typesupport_dynamic_data_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -5670,112 +5670,112 @@ unsafe extern "C" {
         wstring_bound: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_set_bool_value(
         dynamic_data: *mut rosidl_dynamic_typesupport_dynamic_data_t,
         id: rosidl_dynamic_typesupport_member_id_t,
         value: bool,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_set_byte_value(
         dynamic_data: *mut rosidl_dynamic_typesupport_dynamic_data_t,
         id: rosidl_dynamic_typesupport_member_id_t,
         value: ::std::os::raw::c_uchar,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_set_char_value(
         dynamic_data: *mut rosidl_dynamic_typesupport_dynamic_data_t,
         id: rosidl_dynamic_typesupport_member_id_t,
         value: ::std::os::raw::c_char,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_set_wchar_value(
         dynamic_data: *mut rosidl_dynamic_typesupport_dynamic_data_t,
         id: rosidl_dynamic_typesupport_member_id_t,
         value: char16_t,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_set_float32_value(
         dynamic_data: *mut rosidl_dynamic_typesupport_dynamic_data_t,
         id: rosidl_dynamic_typesupport_member_id_t,
         value: f32,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_set_float64_value(
         dynamic_data: *mut rosidl_dynamic_typesupport_dynamic_data_t,
         id: rosidl_dynamic_typesupport_member_id_t,
         value: f64,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_set_float128_value(
         dynamic_data: *mut rosidl_dynamic_typesupport_dynamic_data_t,
         id: rosidl_dynamic_typesupport_member_id_t,
         value: u128,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_set_int8_value(
         dynamic_data: *mut rosidl_dynamic_typesupport_dynamic_data_t,
         id: rosidl_dynamic_typesupport_member_id_t,
         value: i8,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_set_uint8_value(
         dynamic_data: *mut rosidl_dynamic_typesupport_dynamic_data_t,
         id: rosidl_dynamic_typesupport_member_id_t,
         value: u8,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_set_int16_value(
         dynamic_data: *mut rosidl_dynamic_typesupport_dynamic_data_t,
         id: rosidl_dynamic_typesupport_member_id_t,
         value: i16,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_set_uint16_value(
         dynamic_data: *mut rosidl_dynamic_typesupport_dynamic_data_t,
         id: rosidl_dynamic_typesupport_member_id_t,
         value: u16,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_set_int32_value(
         dynamic_data: *mut rosidl_dynamic_typesupport_dynamic_data_t,
         id: rosidl_dynamic_typesupport_member_id_t,
         value: i32,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_set_uint32_value(
         dynamic_data: *mut rosidl_dynamic_typesupport_dynamic_data_t,
         id: rosidl_dynamic_typesupport_member_id_t,
         value: u32,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_set_int64_value(
         dynamic_data: *mut rosidl_dynamic_typesupport_dynamic_data_t,
         id: rosidl_dynamic_typesupport_member_id_t,
         value: i64,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_set_uint64_value(
         dynamic_data: *mut rosidl_dynamic_typesupport_dynamic_data_t,
         id: rosidl_dynamic_typesupport_member_id_t,
         value: u64,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_set_string_value(
         dynamic_data: *mut rosidl_dynamic_typesupport_dynamic_data_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -5783,7 +5783,7 @@ unsafe extern "C" {
         value_length: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_set_wstring_value(
         dynamic_data: *mut rosidl_dynamic_typesupport_dynamic_data_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -5791,7 +5791,7 @@ unsafe extern "C" {
         value_length: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_set_fixed_string_value(
         dynamic_data: *mut rosidl_dynamic_typesupport_dynamic_data_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -5800,7 +5800,7 @@ unsafe extern "C" {
         string_length: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_set_fixed_wstring_value(
         dynamic_data: *mut rosidl_dynamic_typesupport_dynamic_data_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -5809,7 +5809,7 @@ unsafe extern "C" {
         wstring_length: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_set_bounded_string_value(
         dynamic_data: *mut rosidl_dynamic_typesupport_dynamic_data_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -5818,7 +5818,7 @@ unsafe extern "C" {
         string_bound: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_set_bounded_wstring_value(
         dynamic_data: *mut rosidl_dynamic_typesupport_dynamic_data_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -5827,129 +5827,129 @@ unsafe extern "C" {
         wstring_bound: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_clear_sequence_data(
         dynamic_data: *mut rosidl_dynamic_typesupport_dynamic_data_t,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_remove_sequence_data(
         dynamic_data: *mut rosidl_dynamic_typesupport_dynamic_data_t,
         id: rosidl_dynamic_typesupport_member_id_t,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_insert_sequence_data(
         dynamic_data: *mut rosidl_dynamic_typesupport_dynamic_data_t,
         out_id: *mut rosidl_dynamic_typesupport_member_id_t,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_insert_bool_value(
         dynamic_data: *mut rosidl_dynamic_typesupport_dynamic_data_t,
         value: bool,
         out_id: *mut rosidl_dynamic_typesupport_member_id_t,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_insert_byte_value(
         dynamic_data: *mut rosidl_dynamic_typesupport_dynamic_data_t,
         value: u8,
         out_id: *mut rosidl_dynamic_typesupport_member_id_t,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_insert_char_value(
         dynamic_data: *mut rosidl_dynamic_typesupport_dynamic_data_t,
         value: ::std::os::raw::c_char,
         out_id: *mut rosidl_dynamic_typesupport_member_id_t,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_insert_wchar_value(
         dynamic_data: *mut rosidl_dynamic_typesupport_dynamic_data_t,
         value: char16_t,
         out_id: *mut rosidl_dynamic_typesupport_member_id_t,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_insert_float32_value(
         dynamic_data: *mut rosidl_dynamic_typesupport_dynamic_data_t,
         value: f32,
         out_id: *mut rosidl_dynamic_typesupport_member_id_t,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_insert_float64_value(
         dynamic_data: *mut rosidl_dynamic_typesupport_dynamic_data_t,
         value: f64,
         out_id: *mut rosidl_dynamic_typesupport_member_id_t,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_insert_float128_value(
         dynamic_data: *mut rosidl_dynamic_typesupport_dynamic_data_t,
         value: u128,
         out_id: *mut rosidl_dynamic_typesupport_member_id_t,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_insert_int8_value(
         dynamic_data: *mut rosidl_dynamic_typesupport_dynamic_data_t,
         value: i8,
         out_id: *mut rosidl_dynamic_typesupport_member_id_t,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_insert_uint8_value(
         dynamic_data: *mut rosidl_dynamic_typesupport_dynamic_data_t,
         value: u8,
         out_id: *mut rosidl_dynamic_typesupport_member_id_t,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_insert_int16_value(
         dynamic_data: *mut rosidl_dynamic_typesupport_dynamic_data_t,
         value: i16,
         out_id: *mut rosidl_dynamic_typesupport_member_id_t,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_insert_uint16_value(
         dynamic_data: *mut rosidl_dynamic_typesupport_dynamic_data_t,
         value: u16,
         out_id: *mut rosidl_dynamic_typesupport_member_id_t,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_insert_int32_value(
         dynamic_data: *mut rosidl_dynamic_typesupport_dynamic_data_t,
         value: i32,
         out_id: *mut rosidl_dynamic_typesupport_member_id_t,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_insert_uint32_value(
         dynamic_data: *mut rosidl_dynamic_typesupport_dynamic_data_t,
         value: u32,
         out_id: *mut rosidl_dynamic_typesupport_member_id_t,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_insert_int64_value(
         dynamic_data: *mut rosidl_dynamic_typesupport_dynamic_data_t,
         value: i64,
         out_id: *mut rosidl_dynamic_typesupport_member_id_t,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_insert_uint64_value(
         dynamic_data: *mut rosidl_dynamic_typesupport_dynamic_data_t,
         value: u64,
         out_id: *mut rosidl_dynamic_typesupport_member_id_t,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_insert_string_value(
         dynamic_data: *mut rosidl_dynamic_typesupport_dynamic_data_t,
         value: *const ::std::os::raw::c_char,
@@ -5957,7 +5957,7 @@ unsafe extern "C" {
         out_id: *mut rosidl_dynamic_typesupport_member_id_t,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_insert_wstring_value(
         dynamic_data: *mut rosidl_dynamic_typesupport_dynamic_data_t,
         value: *const char16_t,
@@ -5965,7 +5965,7 @@ unsafe extern "C" {
         out_id: *mut rosidl_dynamic_typesupport_member_id_t,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_insert_fixed_string_value(
         dynamic_data: *mut rosidl_dynamic_typesupport_dynamic_data_t,
         value: *const ::std::os::raw::c_char,
@@ -5974,7 +5974,7 @@ unsafe extern "C" {
         out_id: *mut rosidl_dynamic_typesupport_member_id_t,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_insert_fixed_wstring_value(
         dynamic_data: *mut rosidl_dynamic_typesupport_dynamic_data_t,
         value: *const char16_t,
@@ -5983,7 +5983,7 @@ unsafe extern "C" {
         out_id: *mut rosidl_dynamic_typesupport_member_id_t,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_insert_bounded_string_value(
         dynamic_data: *mut rosidl_dynamic_typesupport_dynamic_data_t,
         value: *const ::std::os::raw::c_char,
@@ -5992,7 +5992,7 @@ unsafe extern "C" {
         out_id: *mut rosidl_dynamic_typesupport_member_id_t,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_insert_bounded_wstring_value(
         dynamic_data: *mut rosidl_dynamic_typesupport_dynamic_data_t,
         value: *const char16_t,
@@ -6001,7 +6001,7 @@ unsafe extern "C" {
         out_id: *mut rosidl_dynamic_typesupport_member_id_t,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_get_complex_value(
         dynamic_data: *const rosidl_dynamic_typesupport_dynamic_data_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -6009,21 +6009,21 @@ unsafe extern "C" {
         value: *mut rosidl_dynamic_typesupport_dynamic_data_t,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_set_complex_value(
         dynamic_data: *mut rosidl_dynamic_typesupport_dynamic_data_t,
         id: rosidl_dynamic_typesupport_member_id_t,
         value: *mut rosidl_dynamic_typesupport_dynamic_data_t,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_insert_complex_value_copy(
         dynamic_data: *mut rosidl_dynamic_typesupport_dynamic_data_t,
         value: *const rosidl_dynamic_typesupport_dynamic_data_t,
         out_id: *mut rosidl_dynamic_typesupport_member_id_t,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_insert_complex_value(
         dynamic_data: *mut rosidl_dynamic_typesupport_dynamic_data_t,
         value: *mut rosidl_dynamic_typesupport_dynamic_data_t,
@@ -6036,7 +6036,7 @@ pub struct rosidl_dynamic_typesupport_dynamic_type_builder_impl_s {
     pub allocator: rcutils_allocator_t,
     pub handle: *mut ::std::os::raw::c_void,
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_get_zero_initialized_dynamic_type_builder_impl(
     ) -> rosidl_dynamic_typesupport_dynamic_type_builder_impl_t;
 }
@@ -6047,7 +6047,7 @@ pub struct rosidl_dynamic_typesupport_dynamic_type_builder_s {
     pub impl_: rosidl_dynamic_typesupport_dynamic_type_builder_impl_t,
     pub serialization_support: *mut rosidl_dynamic_typesupport_serialization_support_t,
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_get_zero_initialized_dynamic_type_builder(
     ) -> rosidl_dynamic_typesupport_dynamic_type_builder_t;
 }
@@ -6057,7 +6057,7 @@ pub struct rosidl_dynamic_typesupport_dynamic_type_impl_s {
     pub allocator: rcutils_allocator_t,
     pub handle: *mut ::std::os::raw::c_void,
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_get_zero_initialized_dynamic_type_impl(
     ) -> rosidl_dynamic_typesupport_dynamic_type_impl_t;
 }
@@ -6068,24 +6068,24 @@ pub struct rosidl_dynamic_typesupport_dynamic_type_s {
     pub impl_: rosidl_dynamic_typesupport_dynamic_type_impl_t,
     pub serialization_support: *mut rosidl_dynamic_typesupport_serialization_support_t,
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_get_zero_initialized_dynamic_type(
     ) -> rosidl_dynamic_typesupport_dynamic_type_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_equals(
         dynamic_type: *const rosidl_dynamic_typesupport_dynamic_type_t,
         other: *const rosidl_dynamic_typesupport_dynamic_type_t,
         equals: *mut bool,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_get_member_count(
         dynamic_type: *const rosidl_dynamic_typesupport_dynamic_type_t,
         member_count: *mut usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_init(
         serialization_support: *mut rosidl_dynamic_typesupport_serialization_support_t,
         name: *const ::std::os::raw::c_char,
@@ -6094,14 +6094,14 @@ unsafe extern "C" {
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_clone(
         other: *const rosidl_dynamic_typesupport_dynamic_type_builder_t,
         allocator: *mut rcutils_allocator_t,
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_init_from_description(
         serialization_support: *mut rosidl_dynamic_typesupport_serialization_support_t,
         description: *const rosidl_runtime_c__type_description__TypeDescription,
@@ -6109,24 +6109,24 @@ unsafe extern "C" {
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_fini(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_destroy(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_init_from_dynamic_type_builder(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         allocator: *mut rcutils_allocator_t,
         dynamic_type: *mut rosidl_dynamic_typesupport_dynamic_type_t,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_init_from_description(
         serialization_support: *mut rosidl_dynamic_typesupport_serialization_support_t,
         description: *const rosidl_runtime_c__type_description__TypeDescription,
@@ -6134,45 +6134,45 @@ unsafe extern "C" {
         dynamic_type: *mut rosidl_dynamic_typesupport_dynamic_type_t,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_clone(
         other: *const rosidl_dynamic_typesupport_dynamic_type_t,
         allocator: *mut rcutils_allocator_t,
         dynamic_type: *mut rosidl_dynamic_typesupport_dynamic_type_t,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_fini(
         dynamic_type: *mut rosidl_dynamic_typesupport_dynamic_type_t,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_destroy(
         dynamic_type: *mut rosidl_dynamic_typesupport_dynamic_type_t,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_get_name(
         dynamic_type: *const rosidl_dynamic_typesupport_dynamic_type_t,
         name: *mut *const ::std::os::raw::c_char,
         name_length: *mut usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_get_name(
         dynamic_type_builder: *const rosidl_dynamic_typesupport_dynamic_type_builder_t,
         name: *mut *const ::std::os::raw::c_char,
         name_length: *mut usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_set_name(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         name: *const ::std::os::raw::c_char,
         name_length: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_bool_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -6182,7 +6182,7 @@ unsafe extern "C" {
         default_value_length: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_byte_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -6192,7 +6192,7 @@ unsafe extern "C" {
         default_value_length: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_char_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -6202,7 +6202,7 @@ unsafe extern "C" {
         default_value_length: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_wchar_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -6212,7 +6212,7 @@ unsafe extern "C" {
         default_value_length: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_float32_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -6222,7 +6222,7 @@ unsafe extern "C" {
         default_value_length: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_float64_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -6232,7 +6232,7 @@ unsafe extern "C" {
         default_value_length: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_float128_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -6242,7 +6242,7 @@ unsafe extern "C" {
         default_value_length: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_int8_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -6252,7 +6252,7 @@ unsafe extern "C" {
         default_value_length: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_uint8_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -6262,7 +6262,7 @@ unsafe extern "C" {
         default_value_length: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_int16_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -6272,7 +6272,7 @@ unsafe extern "C" {
         default_value_length: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_uint16_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -6282,7 +6282,7 @@ unsafe extern "C" {
         default_value_length: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_int32_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -6292,7 +6292,7 @@ unsafe extern "C" {
         default_value_length: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_uint32_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -6302,7 +6302,7 @@ unsafe extern "C" {
         default_value_length: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_int64_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -6312,7 +6312,7 @@ unsafe extern "C" {
         default_value_length: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_uint64_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -6322,7 +6322,7 @@ unsafe extern "C" {
         default_value_length: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_string_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -6332,7 +6332,7 @@ unsafe extern "C" {
         default_value_length: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_wstring_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -6342,7 +6342,7 @@ unsafe extern "C" {
         default_value_length: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_bounded_string_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -6353,7 +6353,7 @@ unsafe extern "C" {
         string_bound: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_bounded_wstring_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -6364,7 +6364,7 @@ unsafe extern "C" {
         wstring_bound: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_fixed_string_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -6375,7 +6375,7 @@ unsafe extern "C" {
         string_length: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_fixed_wstring_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -6386,7 +6386,7 @@ unsafe extern "C" {
         wstring_length: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_bool_array_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -6397,7 +6397,7 @@ unsafe extern "C" {
         array_length: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_byte_array_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -6408,7 +6408,7 @@ unsafe extern "C" {
         array_length: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_char_array_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -6419,7 +6419,7 @@ unsafe extern "C" {
         array_length: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_wchar_array_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -6430,7 +6430,7 @@ unsafe extern "C" {
         array_length: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_float32_array_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -6441,7 +6441,7 @@ unsafe extern "C" {
         array_length: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_float64_array_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -6452,7 +6452,7 @@ unsafe extern "C" {
         array_length: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_float128_array_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -6463,7 +6463,7 @@ unsafe extern "C" {
         array_length: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_int8_array_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -6474,7 +6474,7 @@ unsafe extern "C" {
         array_length: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_uint8_array_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -6485,7 +6485,7 @@ unsafe extern "C" {
         array_length: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_int16_array_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -6496,7 +6496,7 @@ unsafe extern "C" {
         array_length: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_uint16_array_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -6507,7 +6507,7 @@ unsafe extern "C" {
         array_length: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_int32_array_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -6518,7 +6518,7 @@ unsafe extern "C" {
         array_length: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_uint32_array_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -6529,7 +6529,7 @@ unsafe extern "C" {
         array_length: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_int64_array_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -6540,7 +6540,7 @@ unsafe extern "C" {
         array_length: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_uint64_array_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -6551,7 +6551,7 @@ unsafe extern "C" {
         array_length: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_string_array_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -6562,7 +6562,7 @@ unsafe extern "C" {
         array_length: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_wstring_array_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -6573,7 +6573,7 @@ unsafe extern "C" {
         array_length: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_bounded_string_array_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -6585,7 +6585,7 @@ unsafe extern "C" {
         array_length: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_bounded_wstring_array_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -6597,7 +6597,7 @@ unsafe extern "C" {
         array_length: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_fixed_string_array_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -6609,7 +6609,7 @@ unsafe extern "C" {
         array_length: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_fixed_wstring_array_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -6621,7 +6621,7 @@ unsafe extern "C" {
         array_length: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_bool_unbounded_sequence_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -6631,7 +6631,7 @@ unsafe extern "C" {
         default_value_length: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_byte_unbounded_sequence_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -6641,7 +6641,7 @@ unsafe extern "C" {
         default_value_length: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_char_unbounded_sequence_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -6651,7 +6651,7 @@ unsafe extern "C" {
         default_value_length: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_wchar_unbounded_sequence_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -6661,7 +6661,7 @@ unsafe extern "C" {
         default_value_length: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_float32_unbounded_sequence_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -6671,7 +6671,7 @@ unsafe extern "C" {
         default_value_length: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_float64_unbounded_sequence_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -6681,7 +6681,7 @@ unsafe extern "C" {
         default_value_length: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_float128_unbounded_sequence_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -6691,7 +6691,7 @@ unsafe extern "C" {
         default_value_length: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_int8_unbounded_sequence_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -6701,7 +6701,7 @@ unsafe extern "C" {
         default_value_length: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_uint8_unbounded_sequence_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -6711,7 +6711,7 @@ unsafe extern "C" {
         default_value_length: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_int16_unbounded_sequence_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -6721,7 +6721,7 @@ unsafe extern "C" {
         default_value_length: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_uint16_unbounded_sequence_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -6731,7 +6731,7 @@ unsafe extern "C" {
         default_value_length: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_int32_unbounded_sequence_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -6741,7 +6741,7 @@ unsafe extern "C" {
         default_value_length: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_uint32_unbounded_sequence_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -6751,7 +6751,7 @@ unsafe extern "C" {
         default_value_length: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_int64_unbounded_sequence_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -6761,7 +6761,7 @@ unsafe extern "C" {
         default_value_length: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_uint64_unbounded_sequence_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -6771,7 +6771,7 @@ unsafe extern "C" {
         default_value_length: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_string_unbounded_sequence_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -6781,7 +6781,7 @@ unsafe extern "C" {
         default_value_length: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_wstring_unbounded_sequence_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -6791,7 +6791,7 @@ unsafe extern "C" {
         default_value_length: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_bounded_string_unbounded_sequence_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -6802,7 +6802,7 @@ unsafe extern "C" {
         string_bound: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_bounded_wstring_unbounded_sequence_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -6813,7 +6813,7 @@ unsafe extern "C" {
         wstring_bound: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_fixed_string_unbounded_sequence_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -6824,7 +6824,7 @@ unsafe extern "C" {
         string_length: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_fixed_wstring_unbounded_sequence_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -6835,7 +6835,7 @@ unsafe extern "C" {
         wstring_length: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_bool_bounded_sequence_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -6846,7 +6846,7 @@ unsafe extern "C" {
         sequence_bound: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_byte_bounded_sequence_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -6857,7 +6857,7 @@ unsafe extern "C" {
         sequence_bound: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_char_bounded_sequence_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -6868,7 +6868,7 @@ unsafe extern "C" {
         sequence_bound: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_wchar_bounded_sequence_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -6879,7 +6879,7 @@ unsafe extern "C" {
         sequence_bound: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_float32_bounded_sequence_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -6890,7 +6890,7 @@ unsafe extern "C" {
         sequence_bound: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_float64_bounded_sequence_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -6901,7 +6901,7 @@ unsafe extern "C" {
         sequence_bound: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_float128_bounded_sequence_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -6912,7 +6912,7 @@ unsafe extern "C" {
         sequence_bound: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_int8_bounded_sequence_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -6923,7 +6923,7 @@ unsafe extern "C" {
         sequence_bound: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_uint8_bounded_sequence_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -6934,7 +6934,7 @@ unsafe extern "C" {
         sequence_bound: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_int16_bounded_sequence_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -6945,7 +6945,7 @@ unsafe extern "C" {
         sequence_bound: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_uint16_bounded_sequence_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -6956,7 +6956,7 @@ unsafe extern "C" {
         sequence_bound: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_int32_bounded_sequence_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -6967,7 +6967,7 @@ unsafe extern "C" {
         sequence_bound: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_uint32_bounded_sequence_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -6978,7 +6978,7 @@ unsafe extern "C" {
         sequence_bound: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_int64_bounded_sequence_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -6989,7 +6989,7 @@ unsafe extern "C" {
         sequence_bound: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_uint64_bounded_sequence_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -7000,7 +7000,7 @@ unsafe extern "C" {
         sequence_bound: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_string_bounded_sequence_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -7011,7 +7011,7 @@ unsafe extern "C" {
         sequence_bound: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_wstring_bounded_sequence_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -7022,7 +7022,7 @@ unsafe extern "C" {
         sequence_bound: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_bounded_string_bounded_sequence_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -7034,7 +7034,7 @@ unsafe extern "C" {
         sequence_bound: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_bounded_wstring_bounded_sequence_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -7046,7 +7046,7 @@ unsafe extern "C" {
         sequence_bound: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_fixed_string_bounded_sequence_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -7058,7 +7058,7 @@ unsafe extern "C" {
         sequence_bound: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_fixed_wstring_bounded_sequence_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -7070,7 +7070,7 @@ unsafe extern "C" {
         sequence_bound: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_complex_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -7081,7 +7081,7 @@ unsafe extern "C" {
         nested_struct: *mut rosidl_dynamic_typesupport_dynamic_type_t,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_complex_array_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -7093,7 +7093,7 @@ unsafe extern "C" {
         array_length: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_complex_unbounded_sequence_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -7104,7 +7104,7 @@ unsafe extern "C" {
         nested_struct: *mut rosidl_dynamic_typesupport_dynamic_type_t,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_complex_bounded_sequence_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -7116,7 +7116,7 @@ unsafe extern "C" {
         sequence_bound: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_complex_member_builder(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -7127,7 +7127,7 @@ unsafe extern "C" {
         nested_struct_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_complex_array_member_builder(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -7139,7 +7139,7 @@ unsafe extern "C" {
         array_length: usize,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_complex_unbounded_sequence_member_builder(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -7150,7 +7150,7 @@ unsafe extern "C" {
         nested_struct_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_complex_bounded_sequence_member_builder(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -7169,7 +7169,7 @@ pub struct rosidl_dynamic_typesupport_serialization_support_impl_s {
     pub serialization_library_identifier: *const ::std::os::raw::c_char,
     pub handle: *mut ::std::os::raw::c_void,
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_get_zero_initialized_serialization_support_impl(
     ) -> rosidl_dynamic_typesupport_serialization_support_impl_t;
 }
@@ -7181,16 +7181,16 @@ pub struct rosidl_dynamic_typesupport_serialization_support_s {
     pub impl_: rosidl_dynamic_typesupport_serialization_support_impl_t,
     pub methods: rosidl_dynamic_typesupport_serialization_support_interface_t,
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_get_zero_initialized_serialization_support(
     ) -> rosidl_dynamic_typesupport_serialization_support_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_serialization_support_get_library_identifier(
         serialization_support: *const rosidl_dynamic_typesupport_serialization_support_t,
     ) -> *const ::std::os::raw::c_char;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_serialization_support_init(
         impl_: *mut rosidl_dynamic_typesupport_serialization_support_impl_t,
         methods: *mut rosidl_dynamic_typesupport_serialization_support_interface_t,
@@ -7198,15 +7198,15 @@ unsafe extern "C" {
         serialization_support: *mut rosidl_dynamic_typesupport_serialization_support_t,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_typesupport_serialization_support_fini(
         serialization_support: *mut rosidl_dynamic_typesupport_serialization_support_t,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub static rosidl_dynamic_typesupport_c__identifier: *const ::std::os::raw::c_char;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_get_dynamic_typesupport_identifier() -> *const ::std::os::raw::c_char;
 }
 #[repr(C)]
@@ -7221,7 +7221,7 @@ pub struct rosidl_dynamic_message_type_support_impl_s {
     pub dynamic_message: *mut rosidl_dynamic_typesupport_dynamic_data_t,
 }
 pub type rosidl_dynamic_message_type_support_impl_t = rosidl_dynamic_message_type_support_impl_s;
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_message_type_support_handle_init(
         serialization_support: *mut rosidl_dynamic_typesupport_serialization_support_t,
         type_hash: *const rosidl_type_hash_t,
@@ -7231,12 +7231,12 @@ unsafe extern "C" {
         ts: *mut rosidl_message_type_support_t,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_message_type_support_handle_fini(
         ts: *mut rosidl_message_type_support_t,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_message_type_support_handle_impl_init(
         serialization_support: *mut rosidl_dynamic_typesupport_serialization_support_t,
         type_hash: *const rosidl_type_hash_t,
@@ -7246,22 +7246,22 @@ unsafe extern "C" {
         ts_impl: *mut rosidl_dynamic_message_type_support_impl_t,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_dynamic_message_type_support_handle_impl_fini(
         ts_impl: *mut rosidl_dynamic_message_type_support_impl_t,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_get_dynamic_message_type_support_type_hash_function(
         type_support: *const rosidl_message_type_support_t,
     ) -> *const rosidl_type_hash_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_get_dynamic_message_type_support_type_description_function(
         type_support: *const rosidl_message_type_support_t,
     ) -> *const rosidl_runtime_c__type_description__TypeDescription;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rosidl_get_dynamic_message_type_support_type_description_sources_function(
         type_support: *const rosidl_message_type_support_t,
     ) -> *const rosidl_runtime_c__type_description__TypeSource__Sequence;
@@ -7275,10 +7275,10 @@ pub enum rmw_feature_e {
     RMW_MIDDLEWARE_CAN_TAKE_DYNAMIC_MESSAGE = 3,
 }
 pub use self::rmw_feature_e as rmw_feature_t;
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_feature_supported(feature: rmw_feature_t) -> bool;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_take_dynamic_message(
         subscription: *const rmw_subscription_t,
         dynamic_message: *mut rosidl_dynamic_typesupport_dynamic_data_t,
@@ -7286,7 +7286,7 @@ unsafe extern "C" {
         allocation: *mut rmw_subscription_allocation_t,
     ) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_take_dynamic_message_with_info(
         subscription: *const rmw_subscription_t,
         dynamic_message: *mut rosidl_dynamic_typesupport_dynamic_data_t,
@@ -7295,7 +7295,7 @@ unsafe extern "C" {
         allocation: *mut rmw_subscription_allocation_t,
     ) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_serialization_support_init(
         serialization_lib_name: *const ::std::os::raw::c_char,
         allocator: *mut rcutils_allocator_t,
@@ -7320,30 +7320,30 @@ pub struct rmw_message_info_sequence_s {
     pub allocator: *mut rcutils_allocator_t,
 }
 pub type rmw_message_info_sequence_t = rmw_message_info_sequence_s;
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_get_zero_initialized_message_sequence() -> rmw_message_sequence_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_message_sequence_init(
         sequence: *mut rmw_message_sequence_t,
         size: usize,
         allocator: *mut rcutils_allocator_t,
     ) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_message_sequence_fini(sequence: *mut rmw_message_sequence_t) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_get_zero_initialized_message_info_sequence() -> rmw_message_info_sequence_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_message_info_sequence_init(
         sequence: *mut rmw_message_info_sequence_t,
         size: usize,
         allocator: *mut rcutils_allocator_t,
     ) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_message_info_sequence_fini(sequence: *mut rmw_message_info_sequence_t) -> rmw_ret_t;
 }
 #[repr(C)]
@@ -7373,10 +7373,10 @@ pub struct rcl_subscription_content_filter_options_s {
     pub rmw_subscription_content_filter_options: rmw_subscription_content_filter_options_t,
 }
 pub type rcl_subscription_content_filter_options_t = rcl_subscription_content_filter_options_s;
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_get_zero_initialized_subscription() -> rcl_subscription_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_subscription_init(
         subscription: *mut rcl_subscription_t,
         node: *const rcl_node_t,
@@ -7385,19 +7385,19 @@ unsafe extern "C" {
         options: *const rcl_subscription_options_t,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_subscription_fini(
         subscription: *mut rcl_subscription_t,
         node: *mut rcl_node_t,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_subscription_get_default_options() -> rcl_subscription_options_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_subscription_options_fini(option: *mut rcl_subscription_options_t) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_subscription_options_set_content_filter_options(
         filter_expression: *const ::std::os::raw::c_char,
         expression_parameters_argc: usize,
@@ -7405,11 +7405,11 @@ unsafe extern "C" {
         options: *mut rcl_subscription_options_t,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_get_zero_initialized_subscription_content_filter_options(
     ) -> rcl_subscription_content_filter_options_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_subscription_content_filter_options_init(
         subscription: *const rcl_subscription_t,
         filter_expression: *const ::std::os::raw::c_char,
@@ -7418,7 +7418,7 @@ unsafe extern "C" {
         options: *mut rcl_subscription_content_filter_options_t,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_subscription_content_filter_options_set(
         subscription: *const rcl_subscription_t,
         filter_expression: *const ::std::os::raw::c_char,
@@ -7427,28 +7427,28 @@ unsafe extern "C" {
         options: *mut rcl_subscription_content_filter_options_t,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_subscription_content_filter_options_fini(
         subscription: *const rcl_subscription_t,
         options: *mut rcl_subscription_content_filter_options_t,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_subscription_is_cft_enabled(subscription: *const rcl_subscription_t) -> bool;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_subscription_set_content_filter(
         subscription: *const rcl_subscription_t,
         options: *const rcl_subscription_content_filter_options_t,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_subscription_get_content_filter(
         subscription: *const rcl_subscription_t,
         options: *mut rcl_subscription_content_filter_options_t,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_take(
         subscription: *const rcl_subscription_t,
         ros_message: *mut ::std::os::raw::c_void,
@@ -7456,7 +7456,7 @@ unsafe extern "C" {
         allocation: *mut rmw_subscription_allocation_t,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_take_sequence(
         subscription: *const rcl_subscription_t,
         count: usize,
@@ -7465,7 +7465,7 @@ unsafe extern "C" {
         allocation: *mut rmw_subscription_allocation_t,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_take_serialized_message(
         subscription: *const rcl_subscription_t,
         serialized_message: *mut rcl_serialized_message_t,
@@ -7473,7 +7473,7 @@ unsafe extern "C" {
         allocation: *mut rmw_subscription_allocation_t,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_take_dynamic_message(
         subscription: *const rcl_subscription_t,
         dynamic_message: *mut rosidl_dynamic_typesupport_dynamic_data_t,
@@ -7481,7 +7481,7 @@ unsafe extern "C" {
         allocation: *mut rmw_subscription_allocation_t,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_take_loaned_message(
         subscription: *const rcl_subscription_t,
         loaned_message: *mut *mut ::std::os::raw::c_void,
@@ -7489,45 +7489,45 @@ unsafe extern "C" {
         allocation: *mut rmw_subscription_allocation_t,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_return_loaned_message_from_subscription(
         subscription: *const rcl_subscription_t,
         loaned_message: *mut ::std::os::raw::c_void,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_subscription_get_topic_name(
         subscription: *const rcl_subscription_t,
     ) -> *const ::std::os::raw::c_char;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_subscription_get_options(
         subscription: *const rcl_subscription_t,
     ) -> *const rcl_subscription_options_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_subscription_get_rmw_handle(
         subscription: *const rcl_subscription_t,
     ) -> *mut rmw_subscription_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_subscription_is_valid(subscription: *const rcl_subscription_t) -> bool;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_subscription_get_publisher_count(
         subscription: *const rcl_subscription_t,
         publisher_count: *mut usize,
     ) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_subscription_get_actual_qos(
         subscription: *const rcl_subscription_t,
     ) -> *const rmw_qos_profile_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_subscription_can_loan_messages(subscription: *const rcl_subscription_t) -> bool;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_subscription_set_on_new_message_callback(
         subscription: *const rcl_subscription_t,
         callback: rcl_event_callback_t,
@@ -7552,10 +7552,10 @@ pub struct rcl_service_options_s {
     pub allocator: rcl_allocator_t,
 }
 pub type rcl_service_options_t = rcl_service_options_s;
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_get_zero_initialized_service() -> rcl_service_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_service_init(
         service: *mut rcl_service_t,
         node: *const rcl_node_t,
@@ -7564,65 +7564,65 @@ unsafe extern "C" {
         options: *const rcl_service_options_t,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_service_fini(service: *mut rcl_service_t, node: *mut rcl_node_t) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_service_get_default_options() -> rcl_service_options_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_take_request_with_info(
         service: *const rcl_service_t,
         request_header: *mut rmw_service_info_t,
         ros_request: *mut ::std::os::raw::c_void,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_take_request(
         service: *const rcl_service_t,
         request_header: *mut rmw_request_id_t,
         ros_request: *mut ::std::os::raw::c_void,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_send_response(
         service: *const rcl_service_t,
         response_header: *mut rmw_request_id_t,
         ros_response: *mut ::std::os::raw::c_void,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_service_get_service_name(
         service: *const rcl_service_t,
     ) -> *const ::std::os::raw::c_char;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_service_get_options(service: *const rcl_service_t) -> *const rcl_service_options_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_service_get_rmw_handle(service: *const rcl_service_t) -> *mut rmw_service_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_service_is_valid(service: *const rcl_service_t) -> bool;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_service_request_subscription_get_actual_qos(
         service: *const rcl_service_t,
     ) -> *const rmw_qos_profile_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_service_response_publisher_get_actual_qos(
         service: *const rcl_service_t,
     ) -> *const rmw_qos_profile_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_service_set_on_new_request_callback(
         service: *const rcl_service_t,
         callback: rcl_event_callback_t,
         user_data: *const ::std::os::raw::c_void,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_service_configure_service_introspection(
         service: *mut rcl_service_t,
         node: *mut rcl_node_t,
@@ -7670,61 +7670,61 @@ pub struct rmw_event_s {
     pub event_type: rmw_event_type_t,
 }
 pub type rmw_event_t = rmw_event_s;
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_get_zero_initialized_event() -> rmw_event_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_publisher_event_init(
         rmw_event: *mut rmw_event_t,
         publisher: *const rmw_publisher_t,
         event_type: rmw_event_type_t,
     ) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_subscription_event_init(
         rmw_event: *mut rmw_event_t,
         subscription: *const rmw_subscription_t,
         event_type: rmw_event_type_t,
     ) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_take_event(
         event_handle: *const rmw_event_t,
         event_info: *mut ::std::os::raw::c_void,
         taken: *mut bool,
     ) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_event_fini(event: *mut rmw_event_t) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_event_type_is_supported(rmw_event_type: rmw_event_type_t) -> bool;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_get_default_publisher_options() -> rmw_publisher_options_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub static rmw_qos_profile_sensor_data: rmw_qos_profile_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub static rmw_qos_profile_parameters: rmw_qos_profile_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub static rmw_qos_profile_default: rmw_qos_profile_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub static rmw_qos_profile_services_default: rmw_qos_profile_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub static rmw_qos_profile_parameter_events: rmw_qos_profile_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub static rmw_qos_profile_system_default: rmw_qos_profile_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub static rmw_qos_profile_best_available: rmw_qos_profile_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub static rmw_qos_profile_unknown: rmw_qos_profile_t;
 }
 #[repr(u32)]
@@ -7735,7 +7735,7 @@ pub enum rmw_qos_compatibility_type_e {
     RMW_QOS_COMPATIBILITY_ERROR = 2,
 }
 pub use self::rmw_qos_compatibility_type_e as rmw_qos_compatibility_type_t;
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_qos_profile_check_compatible(
         publisher_profile: rmw_qos_profile_t,
         subscription_profile: rmw_qos_profile_t,
@@ -7744,44 +7744,44 @@ unsafe extern "C" {
         reason_size: usize,
     ) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_get_default_subscription_options() -> rmw_subscription_options_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_get_implementation_identifier() -> *const ::std::os::raw::c_char;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_get_serialization_format() -> *const ::std::os::raw::c_char;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_create_node(
         context: *mut rmw_context_t,
         name: *const ::std::os::raw::c_char,
         namespace_: *const ::std::os::raw::c_char,
     ) -> *mut rmw_node_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_destroy_node(node: *mut rmw_node_t) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_node_assert_liveliness(node: *const rmw_node_t) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_node_get_graph_guard_condition(
         node: *const rmw_node_t,
     ) -> *const rmw_guard_condition_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_init_publisher_allocation(
         type_support: *const rosidl_message_type_support_t,
         message_bounds: *const rosidl_runtime_c__Sequence__bound,
         allocation: *mut rmw_publisher_allocation_t,
     ) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_fini_publisher_allocation(allocation: *mut rmw_publisher_allocation_t) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_create_publisher(
         node: *const rmw_node_t,
         type_support: *const rosidl_message_type_support_t,
@@ -7790,101 +7790,101 @@ unsafe extern "C" {
         publisher_options: *const rmw_publisher_options_t,
     ) -> *mut rmw_publisher_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_destroy_publisher(
         node: *mut rmw_node_t,
         publisher: *mut rmw_publisher_t,
     ) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_borrow_loaned_message(
         publisher: *const rmw_publisher_t,
         type_support: *const rosidl_message_type_support_t,
         ros_message: *mut *mut ::std::os::raw::c_void,
     ) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_return_loaned_message_from_publisher(
         publisher: *const rmw_publisher_t,
         loaned_message: *mut ::std::os::raw::c_void,
     ) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_publish(
         publisher: *const rmw_publisher_t,
         ros_message: *const ::std::os::raw::c_void,
         allocation: *mut rmw_publisher_allocation_t,
     ) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_publish_loaned_message(
         publisher: *const rmw_publisher_t,
         ros_message: *mut ::std::os::raw::c_void,
         allocation: *mut rmw_publisher_allocation_t,
     ) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_publisher_count_matched_subscriptions(
         publisher: *const rmw_publisher_t,
         subscription_count: *mut usize,
     ) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_publisher_get_actual_qos(
         publisher: *const rmw_publisher_t,
         qos: *mut rmw_qos_profile_t,
     ) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_publish_serialized_message(
         publisher: *const rmw_publisher_t,
         serialized_message: *const rmw_serialized_message_t,
         allocation: *mut rmw_publisher_allocation_t,
     ) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_get_serialized_message_size(
         type_support: *const rosidl_message_type_support_t,
         message_bounds: *const rosidl_runtime_c__Sequence__bound,
         size: *mut usize,
     ) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_publisher_assert_liveliness(publisher: *const rmw_publisher_t) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_publisher_wait_for_all_acked(
         publisher: *const rmw_publisher_t,
         wait_timeout: rmw_time_t,
     ) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_serialize(
         ros_message: *const ::std::os::raw::c_void,
         type_support: *const rosidl_message_type_support_t,
         serialized_message: *mut rmw_serialized_message_t,
     ) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_deserialize(
         serialized_message: *const rmw_serialized_message_t,
         type_support: *const rosidl_message_type_support_t,
         ros_message: *mut ::std::os::raw::c_void,
     ) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_init_subscription_allocation(
         type_support: *const rosidl_message_type_support_t,
         message_bounds: *const rosidl_runtime_c__Sequence__bound,
         allocation: *mut rmw_subscription_allocation_t,
     ) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_fini_subscription_allocation(
         allocation: *mut rmw_subscription_allocation_t,
     ) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_create_subscription(
         node: *const rmw_node_t,
         type_support: *const rosidl_message_type_support_t,
@@ -7893,38 +7893,38 @@ unsafe extern "C" {
         subscription_options: *const rmw_subscription_options_t,
     ) -> *mut rmw_subscription_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_destroy_subscription(
         node: *mut rmw_node_t,
         subscription: *mut rmw_subscription_t,
     ) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_subscription_count_matched_publishers(
         subscription: *const rmw_subscription_t,
         publisher_count: *mut usize,
     ) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_subscription_get_actual_qos(
         subscription: *const rmw_subscription_t,
         qos: *mut rmw_qos_profile_t,
     ) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_subscription_set_content_filter(
         subscription: *mut rmw_subscription_t,
         options: *const rmw_subscription_content_filter_options_t,
     ) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_subscription_get_content_filter(
         subscription: *const rmw_subscription_t,
         allocator: *mut rcutils_allocator_t,
         options: *mut rmw_subscription_content_filter_options_t,
     ) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_take(
         subscription: *const rmw_subscription_t,
         ros_message: *mut ::std::os::raw::c_void,
@@ -7932,7 +7932,7 @@ unsafe extern "C" {
         allocation: *mut rmw_subscription_allocation_t,
     ) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_take_with_info(
         subscription: *const rmw_subscription_t,
         ros_message: *mut ::std::os::raw::c_void,
@@ -7941,7 +7941,7 @@ unsafe extern "C" {
         allocation: *mut rmw_subscription_allocation_t,
     ) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_take_sequence(
         subscription: *const rmw_subscription_t,
         count: usize,
@@ -7951,7 +7951,7 @@ unsafe extern "C" {
         allocation: *mut rmw_subscription_allocation_t,
     ) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_take_serialized_message(
         subscription: *const rmw_subscription_t,
         serialized_message: *mut rmw_serialized_message_t,
@@ -7959,7 +7959,7 @@ unsafe extern "C" {
         allocation: *mut rmw_subscription_allocation_t,
     ) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_take_serialized_message_with_info(
         subscription: *const rmw_subscription_t,
         serialized_message: *mut rmw_serialized_message_t,
@@ -7968,7 +7968,7 @@ unsafe extern "C" {
         allocation: *mut rmw_subscription_allocation_t,
     ) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_take_loaned_message(
         subscription: *const rmw_subscription_t,
         loaned_message: *mut *mut ::std::os::raw::c_void,
@@ -7976,7 +7976,7 @@ unsafe extern "C" {
         allocation: *mut rmw_subscription_allocation_t,
     ) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_take_loaned_message_with_info(
         subscription: *const rmw_subscription_t,
         loaned_message: *mut *mut ::std::os::raw::c_void,
@@ -7985,13 +7985,13 @@ unsafe extern "C" {
         allocation: *mut rmw_subscription_allocation_t,
     ) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_return_loaned_message_from_subscription(
         subscription: *const rmw_subscription_t,
         loaned_message: *mut ::std::os::raw::c_void,
     ) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_create_client(
         node: *const rmw_node_t,
         type_support: *const rosidl_service_type_support_t,
@@ -7999,17 +7999,17 @@ unsafe extern "C" {
         qos_policies: *const rmw_qos_profile_t,
     ) -> *mut rmw_client_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_destroy_client(node: *mut rmw_node_t, client: *mut rmw_client_t) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_send_request(
         client: *const rmw_client_t,
         ros_request: *const ::std::os::raw::c_void,
         sequence_id: *mut i64,
     ) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_take_response(
         client: *const rmw_client_t,
         request_header: *mut rmw_service_info_t,
@@ -8017,19 +8017,19 @@ unsafe extern "C" {
         taken: *mut bool,
     ) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_client_request_publisher_get_actual_qos(
         client: *const rmw_client_t,
         qos: *mut rmw_qos_profile_t,
     ) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_client_response_subscription_get_actual_qos(
         client: *const rmw_client_t,
         qos: *mut rmw_qos_profile_t,
     ) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_create_service(
         node: *const rmw_node_t,
         type_support: *const rosidl_service_type_support_t,
@@ -8037,10 +8037,10 @@ unsafe extern "C" {
         qos_profile: *const rmw_qos_profile_t,
     ) -> *mut rmw_service_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_destroy_service(node: *mut rmw_node_t, service: *mut rmw_service_t) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_take_request(
         service: *const rmw_service_t,
         request_header: *mut rmw_service_info_t,
@@ -8048,44 +8048,44 @@ unsafe extern "C" {
         taken: *mut bool,
     ) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_send_response(
         service: *const rmw_service_t,
         request_header: *mut rmw_request_id_t,
         ros_response: *mut ::std::os::raw::c_void,
     ) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_service_request_subscription_get_actual_qos(
         service: *const rmw_service_t,
         qos: *mut rmw_qos_profile_t,
     ) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_service_response_publisher_get_actual_qos(
         service: *const rmw_service_t,
         qos: *mut rmw_qos_profile_t,
     ) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_create_guard_condition(context: *mut rmw_context_t) -> *mut rmw_guard_condition_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_destroy_guard_condition(guard_condition: *mut rmw_guard_condition_t) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_trigger_guard_condition(guard_condition: *const rmw_guard_condition_t) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_create_wait_set(
         context: *mut rmw_context_t,
         max_conditions: usize,
     ) -> *mut rmw_wait_set_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_destroy_wait_set(wait_set: *mut rmw_wait_set_t) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_wait(
         subscriptions: *mut rmw_subscriptions_t,
         guard_conditions: *mut rmw_guard_conditions_t,
@@ -8096,14 +8096,14 @@ unsafe extern "C" {
         wait_timeout: *const rmw_time_t,
     ) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_get_node_names(
         node: *const rmw_node_t,
         node_names: *mut rcutils_string_array_t,
         node_namespaces: *mut rcutils_string_array_t,
     ) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_get_node_names_with_enclaves(
         node: *const rmw_node_t,
         node_names: *mut rcutils_string_array_t,
@@ -8111,82 +8111,82 @@ unsafe extern "C" {
         enclaves: *mut rcutils_string_array_t,
     ) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_count_publishers(
         node: *const rmw_node_t,
         topic_name: *const ::std::os::raw::c_char,
         count: *mut usize,
     ) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_count_subscribers(
         node: *const rmw_node_t,
         topic_name: *const ::std::os::raw::c_char,
         count: *mut usize,
     ) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_count_clients(
         node: *const rmw_node_t,
         service_name: *const ::std::os::raw::c_char,
         count: *mut usize,
     ) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_count_services(
         node: *const rmw_node_t,
         service_name: *const ::std::os::raw::c_char,
         count: *mut usize,
     ) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_get_gid_for_publisher(
         publisher: *const rmw_publisher_t,
         gid: *mut rmw_gid_t,
     ) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_get_gid_for_client(client: *const rmw_client_t, gid: *mut rmw_gid_t) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_compare_gids_equal(
         gid1: *const rmw_gid_t,
         gid2: *const rmw_gid_t,
         result: *mut bool,
     ) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_service_server_is_available(
         node: *const rmw_node_t,
         client: *const rmw_client_t,
         is_available: *mut bool,
     ) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_set_log_severity(severity: rmw_log_severity_t) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_subscription_set_on_new_message_callback(
         subscription: *mut rmw_subscription_t,
         callback: rmw_event_callback_t,
         user_data: *const ::std::os::raw::c_void,
     ) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_service_set_on_new_request_callback(
         service: *mut rmw_service_t,
         callback: rmw_event_callback_t,
         user_data: *const ::std::os::raw::c_void,
     ) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_client_set_on_new_response_callback(
         client: *mut rmw_client_t,
         callback: rmw_event_callback_t,
         user_data: *const ::std::os::raw::c_void,
     ) -> rmw_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rmw_event_set_callback(
         event: *mut rmw_event_t,
         callback: rmw_event_callback_t,
@@ -8222,10 +8222,10 @@ pub struct rcl_timer_call_info_s {
 pub type rcl_timer_call_info_t = rcl_timer_call_info_s;
 pub type rcl_timer_callback_t =
     ::std::option::Option<unsafe extern "C" fn(arg1: *mut rcl_timer_t, arg2: i64)>;
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_get_zero_initialized_timer() -> rcl_timer_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_timer_init2(
         timer: *mut rcl_timer_t,
         clock: *mut rcl_clock_t,
@@ -8236,7 +8236,7 @@ unsafe extern "C" {
         autostart: bool,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_timer_init(
         timer: *mut rcl_timer_t,
         clock: *mut rcl_clock_t,
@@ -8246,77 +8246,77 @@ unsafe extern "C" {
         allocator: rcl_allocator_t,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_timer_fini(timer: *mut rcl_timer_t) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_timer_call(timer: *mut rcl_timer_t) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_timer_call_with_info(
         timer: *mut rcl_timer_t,
         call_info: *mut rcl_timer_call_info_t,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_timer_clock(timer: *const rcl_timer_t, clock: *mut *mut rcl_clock_t) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_timer_is_ready(timer: *const rcl_timer_t, is_ready: *mut bool) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_timer_get_time_until_next_call(
         timer: *const rcl_timer_t,
         time_until_next_call: *mut i64,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_timer_get_next_call_time(
         timer: *const rcl_timer_t,
         next_call_time: *mut i64,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_timer_get_time_since_last_call(
         timer: *const rcl_timer_t,
         time_since_last_call: *mut i64,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_timer_get_period(timer: *const rcl_timer_t, period: *mut i64) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_timer_exchange_period(
         timer: *const rcl_timer_t,
         new_period: i64,
         old_period: *mut i64,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_timer_get_callback(timer: *const rcl_timer_t) -> rcl_timer_callback_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_timer_exchange_callback(
         timer: *mut rcl_timer_t,
         new_callback: rcl_timer_callback_t,
     ) -> rcl_timer_callback_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_timer_cancel(timer: *mut rcl_timer_t) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_timer_is_canceled(timer: *const rcl_timer_t, is_canceled: *mut bool) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_timer_reset(timer: *mut rcl_timer_t) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_timer_get_allocator(timer: *const rcl_timer_t) -> *const rcl_allocator_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_timer_get_guard_condition(timer: *const rcl_timer_t) -> *mut rcl_guard_condition_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_timer_set_on_reset_callback(
         timer: *const rcl_timer_t,
         on_reset_callback: rcl_event_callback_t,
@@ -8356,39 +8356,39 @@ pub struct rcl_event_s {
     pub impl_: *mut rcl_event_impl_t,
 }
 pub type rcl_event_t = rcl_event_s;
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_get_zero_initialized_event() -> rcl_event_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_publisher_event_init(
         event: *mut rcl_event_t,
         publisher: *const rcl_publisher_t,
         event_type: rcl_publisher_event_type_t,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_subscription_event_init(
         event: *mut rcl_event_t,
         subscription: *const rcl_subscription_t,
         event_type: rcl_subscription_event_type_t,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_take_event(
         event: *const rcl_event_t,
         event_info: *mut ::std::os::raw::c_void,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_event_fini(event: *mut rcl_event_t) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_event_get_rmw_handle(event: *const rcl_event_t) -> *mut rmw_event_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_event_is_valid(event: *const rcl_event_t) -> bool;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_event_set_callback(
         event: *const rcl_event_t,
         callback: rcl_event_callback_t,
@@ -8419,10 +8419,10 @@ pub struct rcl_wait_set_s {
     pub impl_: *mut rcl_wait_set_impl_t,
 }
 pub type rcl_wait_set_t = rcl_wait_set_s;
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_get_zero_initialized_wait_set() -> rcl_wait_set_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_wait_set_init(
         wait_set: *mut rcl_wait_set_t,
         number_of_subscriptions: usize,
@@ -8435,26 +8435,26 @@ unsafe extern "C" {
         allocator: rcl_allocator_t,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_wait_set_fini(wait_set: *mut rcl_wait_set_t) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_wait_set_get_allocator(
         wait_set: *const rcl_wait_set_t,
         allocator: *mut rcl_allocator_t,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_wait_set_add_subscription(
         wait_set: *mut rcl_wait_set_t,
         subscription: *const rcl_subscription_t,
         index: *mut usize,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_wait_set_clear(wait_set: *mut rcl_wait_set_t) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_wait_set_resize(
         wait_set: *mut rcl_wait_set_t,
         subscriptions_size: usize,
@@ -8465,76 +8465,76 @@ unsafe extern "C" {
         events_size: usize,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_wait_set_add_guard_condition(
         wait_set: *mut rcl_wait_set_t,
         guard_condition: *const rcl_guard_condition_t,
         index: *mut usize,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_wait_set_add_timer(
         wait_set: *mut rcl_wait_set_t,
         timer: *const rcl_timer_t,
         index: *mut usize,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_wait_set_add_client(
         wait_set: *mut rcl_wait_set_t,
         client: *const rcl_client_t,
         index: *mut usize,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_wait_set_add_service(
         wait_set: *mut rcl_wait_set_t,
         service: *const rcl_service_t,
         index: *mut usize,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_wait_set_add_event(
         wait_set: *mut rcl_wait_set_t,
         event: *const rcl_event_t,
         index: *mut usize,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_wait(wait_set: *mut rcl_wait_set_t, timeout: i64) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_wait_set_is_valid(wait_set: *const rcl_wait_set_t) -> bool;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_yaml_node_struct_init(allocator: rcutils_allocator_t) -> *mut rcl_params_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_yaml_node_struct_init_with_capacity(
         capacity: usize,
         allocator: rcutils_allocator_t,
     ) -> *mut rcl_params_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_yaml_node_struct_reallocate(
         params_st: *mut rcl_params_t,
         new_capacity: usize,
         allocator: rcutils_allocator_t,
     ) -> rcutils_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_yaml_node_struct_copy(params_st: *const rcl_params_t) -> *mut rcl_params_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_yaml_node_struct_fini(params_st: *mut rcl_params_t);
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_parse_yaml_file(
         file_path: *const ::std::os::raw::c_char,
         params_st: *mut rcl_params_t,
     ) -> bool;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_parse_yaml_value(
         node_name: *const ::std::os::raw::c_char,
         param_name: *const ::std::os::raw::c_char,
@@ -8542,37 +8542,37 @@ unsafe extern "C" {
         params_st: *mut rcl_params_t,
     ) -> bool;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_yaml_node_struct_get(
         node_name: *const ::std::os::raw::c_char,
         param_name: *const ::std::os::raw::c_char,
         params_st: *mut rcl_params_t,
     ) -> *mut rcl_variant_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_yaml_node_struct_print(params_st: *const rcl_params_t);
 }
 pub type rcl_logging_output_handler_t = rcutils_logging_output_handler_t;
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_logging_configure(
         global_args: *const rcl_arguments_t,
         allocator: *const rcl_allocator_t,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_logging_configure_with_output_handler(
         global_args: *const rcl_arguments_t,
         allocator: *const rcl_allocator_t,
         output_handler: rcl_logging_output_handler_t,
     ) -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_logging_fini() -> rcl_ret_t;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_logging_rosout_enabled() -> bool;
 }
-unsafe extern "C" {
+extern "C" {
     pub fn rcl_logging_multiple_output_handler(
         location: *const rcutils_log_location_t,
         severity: ::std::os::raw::c_int,
