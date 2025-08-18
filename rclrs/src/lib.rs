@@ -178,10 +178,12 @@
 //! # Ok::<(), RclrsError>(())
 //! ```
 
+mod action;
 mod arguments;
 mod client;
 mod clock;
 mod context;
+mod drop_guard;
 mod error;
 mod executor;
 mod logging;
@@ -205,10 +207,12 @@ mod rcl_bindings;
 #[cfg(feature = "dyn_msg")]
 pub mod dynamic_message;
 
+pub use action::*;
 pub use arguments::*;
 pub use client::*;
 pub use clock::*;
 pub use context::*;
+use drop_guard::DropGuard;
 pub use error::*;
 pub use executor::*;
 pub use logging::*;

@@ -184,12 +184,12 @@ impl WaitSetRunner {
             });
 
             let mut at_least_one = false;
-            self.wait_set.wait(timeout, |executable| {
+            self.wait_set.wait(timeout, |ready, executable| {
                 at_least_one = true;
                 // SAFETY: The user of WaitSetRunner is responsible for ensuring
                 // the runner has the same payload type as the executables that
                 // are given to it.
-                unsafe { executable.execute(&mut *self.payload) }
+                unsafe { executable.execute(ready, &mut *self.payload) }
             })?;
 
             if at_least_one {

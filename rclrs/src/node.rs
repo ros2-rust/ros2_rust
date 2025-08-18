@@ -14,6 +14,7 @@ use std::{
     cmp::PartialEq,
     ffi::CStr,
     fmt,
+    future::Future,
     os::raw::c_char,
     sync::{atomic::AtomicBool, Arc, Mutex},
     time::Duration,
@@ -26,15 +27,17 @@ use futures::{
 
 use async_std::future::timeout;
 
-use rosidl_runtime_rs::Message;
+use rosidl_runtime_rs::{Message, Action};
 
 use crate::{
-    rcl_bindings::*, Client, ClientOptions, ClientState, Clock, ContextHandle, ExecutorCommands,
-    IntoAsyncServiceCallback, IntoAsyncSubscriptionCallback, IntoNodeServiceCallback,
-    IntoNodeSubscriptionCallback, LogParams, Logger, ParameterBuilder, ParameterInterface,
-    ParameterVariant, Parameters, Promise, Publisher, PublisherOptions, PublisherState, RclrsError,
-    Service, ServiceOptions, ServiceState, Subscription, SubscriptionOptions, SubscriptionState,
-    TimeSource, ToLogParams, Worker, WorkerOptions, WorkerState, ENTITY_LIFECYCLE_MUTEX,
+    rcl_bindings::*, ActionClient, ActionClientOptions, ActionClientState, ActionGoalReceiver,
+    ActionServer, ActionServerOptions, ActionServerState, Client, ClientOptions,
+    ClientState, Clock, ContextHandle, ExecutorCommands, IntoAsyncServiceCallback,
+    IntoAsyncSubscriptionCallback, IntoNodeServiceCallback, IntoNodeSubscriptionCallback,
+    LogParams, Logger, ParameterBuilder, ParameterInterface, ParameterVariant, Parameters,
+    Promise, Publisher, PublisherOptions, PublisherState, RclrsError, RequestedGoal, Service,
+    ServiceOptions, ServiceState, Subscription, SubscriptionOptions, SubscriptionState,
+    TerminatedGoal, TimeSource, ToLogParams, Worker, WorkerOptions, WorkerState, ENTITY_LIFECYCLE_MUTEX,
 };
 
 /// A processing unit that can communicate with other nodes. See the API of
@@ -353,6 +356,40 @@ impl NodeState {
         T: rosidl_runtime_rs::Service,
     {
         ClientState::<T>::create(options, self)
+    }
+    /// Creates an [`ActionClient`][1].
+    ///
+    /// [1]: crate::ActionClient
+    // TODO: make action client's lifetime depend on node's lifetime
+    pub fn create_action_client<'a, A: Action>(
+        self: &Arc<Self>,
+        options: impl Into<ActionClientOptions<'a>>,
+    ) -> Result<ActionClient<A>, RclrsError> {
+        ActionClientState::create(self, options)
+    }
+
+    /// Creates an [`ActionServer`].
+    //
+    // TODO(@mxgrey): Add extensive documentation and usage examples
+    pub fn create_action_server<'a, A: Action, Task>(
+        self: &Arc<Self>,
+        options: impl Into<ActionServerOptions<'a>>,
+        callback: impl FnMut(RequestedGoal<A>) -> Task + Send + Sync + 'static,
+    ) -> Result<ActionServer<A>, RclrsError>
+    where
+        Task: Future<Output = TerminatedGoal> + Send + Sync + 'static,
+    {
+        ActionServerState::create(self, options, callback)
+    }
+
+    /// Creates an [`ActionGoalReceiver`].
+    //
+    // TODO(@mxgrey): Add extensive documentation and usage examples
+    pub fn create_goal_receiver<'a, A: Action>(
+        self: &Arc<Self>,
+        options: impl Into<ActionServerOptions<'a>>,
+    ) -> Result<ActionGoalReceiver<A>, RclrsError> {
+        ActionGoalReceiver::new(self, options)
     }
 
     /// Creates a [`Publisher`].
