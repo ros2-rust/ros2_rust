@@ -43,10 +43,9 @@ tempfile = "3.3.0"
 tokio = { version = "1", features = ["rt", "time", "macros"] }
 
 [build-dependencies]
-# Needed for FFI
-bindgen = "0.70"
 # Needed for uploading documentation to docs.rs
 cfg-if = "1.0.0"
+rustflags = "0.1"
 
 [features]
 default = []
@@ -58,3 +57,4 @@ use_ros_shim = ["rosidl_runtime_rs/use_ros_shim"]
 
 [package.metadata.docs.rs]
 features = ["use_ros_shim"]
+rustc-args = ["--cfg", "ros_distro=\"humble\""]
