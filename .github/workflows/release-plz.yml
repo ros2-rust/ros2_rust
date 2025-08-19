@@ -6,7 +6,7 @@ on:
       - main
 
 env:
-  RUSTFLAGS: --cfg ros_distro="humble"
+  RUSTFLAGS: "--cfg ros_distro=\"humble\""
 
 jobs:
   release-plz-release:
