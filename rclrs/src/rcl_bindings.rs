@@ -12,28 +12,26 @@
 #![allow(missing_docs)]
 
 cfg_if::cfg_if! {
-    if #[cfg(feature="use_ros_shim")] {
-        include!(
-            concat!(
-                env!("CARGO_MANIFEST_DIR"),
-                "/src/rcl_bindings_generated_",
-                "rolling", // rolling will always be a valid ROS distro
-                ".rs",
-            )
-        );
-
+    let ros_distro = if #[cfg(ros_distro="humble")] {
+        "humble"
+    } else if #[cfg(ros_distro="jazzy")] {
+        "jazzy"
+    } else if #[cfg(ros_distro="kilted")] {
+        "kilted"
+    } else if #[cfg(ros_distro="rolling")] {
+        "rolling"
     } else {
-        include!(
-            concat!(
-                env!("CARGO_MANIFEST_DIR"),
-                "/src/rcl_bindings_generated_",
-                env!("ROS_DISTRO"),
-                ".rs",
+        panic!("Unsupported ROS distribution");
+    }
+    include!(
+        concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/src/rcl_bindings_generated_",
+            ros_distro,
+            ".rs",
             )
         );
-
-        pub const RMW_GID_STORAGE_SIZE: usize = rmw_gid_storage_size_constant;
-    }
+    pub const RMW_GID_STORAGE_SIZE: usize = rmw_gid_storage_size_constant;
 }
 
 /// Wrapper around [`std::slice::from_raw_parts`] that accommodates the rcl
