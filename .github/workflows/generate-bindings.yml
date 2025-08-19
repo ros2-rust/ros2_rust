@@ -2,10 +2,10 @@ name: Generate bindings
 
 on:
   schedule:
-    # Run the CI at 02:22 UTC every Tuesday
+    # Run the CI at 00:11 UTC every night
     # We pick an arbitrary time outside of most of the world's work hours
     # to minimize the likelihood of running alongside a heavy workload.
-    - cron: '22 2 * * 2'
+    - cron: '11 0 * * *'
   workflow_dispatch:
 
 env:
