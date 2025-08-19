@@ -1,0 +1,18 @@
+[package]
+name= "rclrs_proc_macros"
+version = "0.0.1"
+authors = ["Balthasar Schüss <rclrs@bschuess.dev>"]
+edition = "2021"
+license = "Apache-2.0"
+description = "A rust library providing proc macros for rclrs"
+rust-version = "1.75"
+
+
+[lib]
+path = "src/lib.rs"
+proc-macro = true
+
+[dependencies]
+proc-macro2 = "1.0"
+quote = "1.0"
+syn = "2.0"

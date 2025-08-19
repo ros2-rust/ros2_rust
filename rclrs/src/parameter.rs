@@ -871,6 +871,38 @@ impl ParameterInterface {
     }
 }
 
+pub trait StructuredParameters: Sized {
+    fn declare_structured(
+        node: &crate::NodeState,
+        name: &str,
+    ) -> core::result::Result<Self, crate::DeclarationError>;
+}
+
+impl<T: crate::ParameterVariant> StructuredParameters for crate::MandatoryParameter<T> {
+    fn declare_structured(
+        node: &crate::NodeState,
+        name: &str,
+    ) -> core::result::Result<crate::MandatoryParameter<T>, crate::DeclarationError> {
+        node.declare_parameter(name).mandatory()
+    }
+}
+impl<T: crate::ParameterVariant> StructuredParameters for crate::OptionalParameter<T> {
+    fn declare_structured(
+        node: &crate::NodeState,
+        name: &str,
+    ) -> core::result::Result<crate::OptionalParameter<T>, crate::DeclarationError> {
+        node.declare_parameter(name).optional()
+    }
+}
+impl<T: crate::ParameterVariant> StructuredParameters for crate::ReadOnlyParameter<T> {
+    fn declare_structured(
+        node: &crate::NodeState,
+        name: &str,
+    ) -> core::result::Result<crate::ReadOnlyParameter<T>, crate::DeclarationError> {
+        node.declare_parameter(name).read_only()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1409,5 +1441,67 @@ mod tests {
         node.declare_parameter::<i64>("int_param")
             .optional()
             .unwrap();
+    }
+
+    use crate as rclrs;
+    use rclrs_proc_macros::StructuredParameters;
+
+    #[derive(StructuredParameters, Debug)]
+    struct SimpleStructuredParameters {
+        _mandatory: MandatoryParameter<f64>,
+        _optional: OptionalParameter<f64>,
+        _readonly: ReadOnlyParameter<f64>,
+    }
+
+    #[test]
+    fn test_simple_structured_parameters() {
+        let args: Vec<String> = [
+            "test",
+            "--ros-args",
+            "-p",
+            "_mandatory:=1.0",
+            "-p",
+            "_optional:=1.0",
+            "-p",
+            "_readonly:=1.0",
+        ]
+        .into_iter()
+        .map(str::to_string)
+        .collect();
+
+        let context = crate::Context::new(args, InitOptions::default()).unwrap();
+        let exec = context.create_basic_executor();
+        let node = exec.create_node(NodeOptions::new("test")).unwrap();
+        let _params = SimpleStructuredParameters::declare_structured(&node, "").unwrap();
+    }
+
+    #[derive(StructuredParameters, Debug)]
+    struct NestedStructuredParameters {
+        _simple: SimpleStructuredParameters,
+        _mandatory: MandatoryParameter<Arc<str>>,
+    }
+
+    #[test]
+    fn test_nested_structured_parameters() {
+        let args: Vec<String> = [
+            "test",
+            "--ros-args",
+            "-p",
+            "nested._simple._mandatory:=1.0",
+            "-p",
+            "nested._simple._optional:=1.0",
+            "-p",
+            "nested._simple._readonly:=1.0",
+            "-p",
+            "nested._mandatory:=foo",
+        ]
+        .into_iter()
+        .map(str::to_string)
+        .collect();
+
+        let context = crate::Context::new(args, InitOptions::default()).unwrap();
+        let exec = context.create_basic_executor();
+        let node = exec.create_node(NodeOptions::new("test")).unwrap();
+        let _params = NestedStructuredParameters::declare_structured(&node, "nested").unwrap();
     }
 }

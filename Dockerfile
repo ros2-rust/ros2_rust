@@ -9,6 +9,8 @@ RUN apt-get update && apt-get install -y \
     libclang-dev \
     tmux \
     python3-pip \
+    ros-humble-test-msgs \
+    ros-humble-example-interfaces \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Rust
@@ -22,7 +24,9 @@ COPY src/ros2_rust/docker/rosidl_rust_setup.sh /
 RUN ./rosidl_rust_setup.sh
 
 RUN mkdir -p /workspace && echo "Did you forget to mount the repository into the Docker container?" > /workspace/HELLO.txt
+RUN echo -e "\nsource /opt/ros/${ROS_DISTRO}/setup.sh"
 WORKDIR /workspace
+
 
 COPY src/ros2_rust/docker/rosidl_rust_entrypoint.sh /
 ENTRYPOINT ["/rosidl_rust_entrypoint.sh"]
