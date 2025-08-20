@@ -12,29 +12,40 @@
 #![allow(missing_docs)]
 
 cfg_if::cfg_if! {
-    if #[cfg(feature="use_ros_shim")] {
+    if #[cfg(ros_distro="humble")] {
         include!(
             concat!(
                 env!("CARGO_MANIFEST_DIR"),
-                "/src/rcl_bindings_generated_",
-                "rolling", // rolling will always be a valid ROS distro
-                ".rs",
-            )
-        );
-
+                "/src/rcl_bindings_generated_humble.rs",
+                )
+            );
+    } else if #[cfg(ros_distro="jazzy")] {
+        include!(
+            concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/src/rcl_bindings_generated_jazzy.rs",
+                )
+            );
+    } else if #[cfg(ros_distro="kilted")] {
+        include!(
+            concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/src/rcl_bindings_generated_kilted.rs",
+                )
+            );
+    } else if #[cfg(ros_distro="rolling")] {
+        include!(
+            concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/src/rcl_bindings_generated_rolling.rs",
+                )
+            );
     } else {
-        include!(
-            concat!(
-                env!("CARGO_MANIFEST_DIR"),
-                "/src/rcl_bindings_generated_",
-                env!("ROS_DISTRO"),
-                ".rs",
-            )
-        );
-
-        pub const RMW_GID_STORAGE_SIZE: usize = rmw_gid_storage_size_constant;
+        panic!("Unsupported ROS distribution");
     }
 }
+
+pub const RMW_GID_STORAGE_SIZE: usize = rmw_gid_storage_size_constant;
 
 /// Wrapper around [`std::slice::from_raw_parts`] that accommodates the rcl
 /// convention of providing a null pointer to represent empty arrays. This
