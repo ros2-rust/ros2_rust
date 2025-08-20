@@ -143,14 +143,14 @@ where
 
         let handle = Arc::new(ServiceHandle {
             rcl_service: Mutex::new(rcl_service),
-            node_handle: Arc::clone(&node_handle),
+            node_handle: Arc::clone(node_handle),
         });
 
         let (waitable, lifecycle) = Waitable::new(
             Box::new(ServiceExecutable::<T, Scope> {
                 handle: Arc::clone(&handle),
                 callback: Arc::clone(&callback),
-                commands: Arc::clone(&commands),
+                commands: Arc::clone(commands),
             }),
             Some(Arc::clone(commands.get_guard_condition())),
         );
@@ -260,7 +260,7 @@ where
         RclPrimitiveKind::Service
     }
 
-    fn handle(&self) -> RclPrimitiveHandle {
+    fn handle(&self) -> RclPrimitiveHandle<'_> {
         RclPrimitiveHandle::Service(self.handle.lock())
     }
 }
@@ -280,7 +280,7 @@ pub struct ServiceHandle {
 }
 
 impl ServiceHandle {
-    fn lock(&self) -> MutexGuard<rcl_service_t> {
+    fn lock(&self) -> MutexGuard<'_, rcl_service_t> {
         self.rcl_service.lock().unwrap()
     }
 

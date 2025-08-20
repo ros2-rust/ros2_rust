@@ -134,7 +134,7 @@ fn list_parameters(req: ListParameters_Request, map: &ParameterMap) -> ListParam
         .keys()
         .filter_map(|name| {
             let name: rosidl_runtime_rs::String = name.clone().into();
-            if req.prefixes.len() == 0 && check_parameter_name_depth(&name[..]) {
+            if req.prefixes.is_empty() && check_parameter_name_depth(&name[..]) {
                 return Some(name);
             }
             req.prefixes
