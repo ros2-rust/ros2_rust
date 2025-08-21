@@ -61,7 +61,7 @@ jobs:
       run: curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
 
     - name: Install bindgen
-      run: cargo binstall -y bindgen
+      run: cargo binstall -y bindgen-cli
 
     - name: Generate bindings
       run: |
