@@ -114,11 +114,15 @@ impl WaitSet {
                 })
             }
         };
+
+        dbg!(timeout_ns);
         // SAFETY: The comments in rcl mention "This function cannot operate on the same wait set
         // in multiple threads, and the wait sets may not share content."
-        // We cannot currently guarantee that the wait sets may not share content, but it is
-        // mentioned in the doc comment for `add_subscription`.
-        // Also, the rcl_wait_set is obviously valid.
+        // * We guarantee that the wait sets do not share content by funneling
+        //   the exeuctor of each primitive to one (and only one) WaitSet when
+        //   the primitive gets constructed. The primitive executors are never
+        //   allowed to transfer wait sets.
+        // * The rcl_wait_set is kept valid by the lifecycle of the WaitSet struct.
         match unsafe { rcl_wait(&mut self.handle.rcl_wait_set, timeout_ns) }.ok() {
             Ok(_) => (),
             Err(error) => match error {
