@@ -12,146 +12,40 @@
 #![allow(missing_docs)]
 
 cfg_if::cfg_if! {
-    if #[cfg(feature="use_ros_shim")] {
-        #[repr(C)]
-        #[derive(Debug)]
-        pub struct rcl_allocator_t;
-
-        #[repr(C)]
-        #[derive(Debug)]
-        pub struct rcl_arguments_t;
-
-        #[repr(C)]
-        #[derive(Debug)]
-        pub struct rcl_client_t;
-
-        #[repr(C)]
-        #[derive(Debug)]
-        pub struct rcl_clock_t;
-
-        #[repr(C)]
-        #[derive(Debug)]
-        pub struct rcl_clock_type_t;
-
-        #[repr(C)]
-        #[derive(Debug)]
-        pub struct rcl_context_t;
-
-        #[repr(C)]
-        #[derive(Debug)]
-        pub struct rcl_guard_condition_t;
-
-        #[repr(C)]
-        #[derive(Debug)]
-        pub struct rcl_names_and_types_t;
-
-        #[repr(C)]
-        #[derive(Debug)]
-        pub struct rcl_node_options_t;
-
-        #[repr(C)]
-        #[derive(Debug)]
-        pub struct rcl_node_params_t;
-
-        #[repr(C)]
-        #[derive(Debug)]
-        pub struct rcl_node_t;
-
-        #[repr(C)]
-        #[derive(Debug)]
-        pub struct rcl_params_t;
-
-        #[repr(C)]
-        #[derive(Debug)]
-        pub struct rcl_publisher_t;
-
-        #[repr(C)]
-        #[derive(Debug)]
-        pub struct rcl_ret_t;
-
-        #[repr(C)]
-        #[derive(Debug)]
-        pub struct rcl_service_t;
-
-        #[repr(C)]
-        #[derive(Debug)]
-        pub struct rcl_subscription_t;
-
-        #[repr(C)]
-        #[derive(Debug)]
-        pub struct rcl_topic_endpoint_info_array_t;
-
-        #[repr(C)]
-        #[derive(Debug)]
-        pub struct rcl_variant_t;
-
-        #[repr(C)]
-        #[derive(Debug)]
-        pub struct rcl_wait_set_t;
-
-        #[repr(C)]
-        #[derive(Debug)]
-        pub struct rcl_timer_t;
-
-        #[repr(C)]
-        #[derive(Debug)]
-        pub struct rcutils_string_array_t;
-
-        #[repr(C)]
-        #[derive(Debug)]
-        pub struct rmw_message_info_t;
-
-        #[repr(C)]
-        #[derive(Debug)]
-        pub struct rmw_names_and_types_t;
-
-        #[repr(C)]
-        #[derive(Debug)]
-        pub struct rmw_qos_durability_policy_t;
-
-        #[repr(C)]
-        #[derive(Debug)]
-        pub struct rmw_qos_history_policy_t;
-
-        #[repr(C)]
-        #[derive(Debug)]
-        pub struct rmw_qos_liveliness_policy_t;
-
-        #[repr(C)]
-        #[derive(Debug)]
-        pub struct rmw_qos_profile_t;
-
-        #[repr(C)]
-        #[derive(Debug)]
-        pub struct rmw_qos_reliability_policy_t;
-
-        #[repr(C)]
-        #[derive(Debug)]
-        pub struct rmw_request_id_t;
-
-        #[repr(C)]
-        #[derive(Debug)]
-        pub struct rmw_time_t;
-
-        #[repr(C)]
-        #[derive(Debug)]
-        pub struct rmw_topic_endpoint_info_array_t;
-
-        #[repr(C)]
-        #[derive(Debug)]
-        pub struct rosidl_message_type_support_t;
-
-        pub const RMW_GID_STORAGE_SIZE: usize = 24;
-
-        extern "C" {
-            pub fn rcl_context_is_valid(context: *const rcl_context_t) -> bool;
-        }
+    if #[cfg(ros_distro="humble")] {
+        include!(
+            concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/src/rcl_bindings_generated_humble.rs",
+                )
+            );
+    } else if #[cfg(ros_distro="jazzy")] {
+        include!(
+            concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/src/rcl_bindings_generated_jazzy.rs",
+                )
+            );
+    } else if #[cfg(ros_distro="kilted")] {
+        include!(
+            concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/src/rcl_bindings_generated_kilted.rs",
+                )
+            );
+    } else if #[cfg(ros_distro="rolling")] {
+        include!(
+            concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/src/rcl_bindings_generated_rolling.rs",
+                )
+            );
     } else {
-        include!(concat!(env!("OUT_DIR"), "/rcl_bindings_generated.rs"));
-
-        pub const RMW_GID_STORAGE_SIZE: usize = rmw_gid_storage_size_constant;
+        panic!("Unsupported ROS distribution");
     }
 }
+
+pub const RMW_GID_STORAGE_SIZE: usize = rmw_gid_storage_size_constant;
 
 /// Wrapper around [`std::slice::from_raw_parts`] that accommodates the rcl
 /// convention of providing a null pointer to represent empty arrays. This

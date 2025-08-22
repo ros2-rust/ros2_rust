@@ -27,6 +27,10 @@ repositories:
     type: git
     url: https://github.com/ros2/unique_identifier_msgs.git
     version: kilted
+  ros2-rust/examples:
+    type: git
+    url: https://github.com/ros2-rust/examples.git
+    version: main
   ros2-rust/rosidl_rust:
     type: git
     url: https://github.com/ros2-rust/rosidl_rust.git
