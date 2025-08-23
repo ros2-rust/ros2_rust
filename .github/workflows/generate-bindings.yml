@@ -65,6 +65,7 @@ jobs:
 
     - name: Generate bindings
       run: |
+        . /opt/ros/${{ matrix.ros_distribution }}/setup.sh
         cd rclrs/src
         ../generate_bindings.py rcl_wrapper.h ${{ matrix.ros_distribution }} .
 
