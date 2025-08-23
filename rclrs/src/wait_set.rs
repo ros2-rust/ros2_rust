@@ -123,8 +123,7 @@ impl WaitSet {
         //   the waitable of each primitive to one (and only one) WaitSet when
         //   the primitive gets constructed. The waitables are never allowed to
         //   move between wait sets.
-        let r = match unsafe { rcl_wait(&mut self.handle.rcl_wait_set, timeout_ns) }.ok()
-        {
+        let r = match unsafe { rcl_wait(&mut self.handle.rcl_wait_set, timeout_ns) }.ok() {
             Ok(_) => Ok(()),
             Err(error) => match error {
                 RclrsError::RclError { code, msg } => match code {

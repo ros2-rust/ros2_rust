@@ -497,12 +497,20 @@ mod tests {
     fn test_timeout() {
         let context = Context::default();
         let mut executor = context.create_basic_executor();
-        let _node = executor.create_node(&format!("test_timeout_{}", line!())).unwrap();
+        let _node = executor
+            .create_node(&format!("test_timeout_{}", line!()))
+            .unwrap();
 
         for _ in 0..10 {
             let r = executor.spin(SpinOptions::default().timeout(Duration::from_millis(1)));
             assert_eq!(r.len(), 1);
-            assert!(matches!(r[0], RclrsError::RclError { code: RclReturnCode::Timeout, .. }));
+            assert!(matches!(
+                r[0],
+                RclrsError::RclError {
+                    code: RclReturnCode::Timeout,
+                    ..
+                }
+            ));
         }
     }
 }
