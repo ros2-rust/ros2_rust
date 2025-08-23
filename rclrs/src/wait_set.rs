@@ -123,18 +123,31 @@ impl WaitSet {
         //   the waitable of each primitive to one (and only one) WaitSet when
         //   the primitive gets constructed. The waitables are never allowed to
         //   move between wait sets.
-        let r = unsafe { rcl_wait(&mut self.handle.rcl_wait_set, timeout_ns) }.ok();
+        let r = match unsafe { rcl_wait(&mut self.handle.rcl_wait_set, timeout_ns) }.ok()
+        {
+            Ok(_) => Ok(()),
+            Err(error) => match error {
+                RclrsError::RclError { code, msg } => match code {
+                    RclReturnCode::WaitSetEmpty => Ok(()),
+                    _ => Err(RclrsError::RclError { code, msg }),
+                },
+                _ => Err(error),
+            },
+        };
 
         // Remove any waitables that are no longer being used
         for waitable in self.primitives.values_mut() {
             waitable.retain(|w| w.in_use());
         }
 
-        // For the remaining entities, check if they were activated and then run
-        // the callback for those that were.
-        for waiter in self.primitives.values_mut().flat_map(|v| v) {
-            if waiter.is_ready(&self.handle.rcl_wait_set) {
-                f(&mut *waiter.primitive)?;
+        // Do not check the readiness if an error was reported.
+        if !r.is_err() {
+            // For the remaining entities, check if they were activated and then run
+            // the callback for those that were.
+            for waiter in self.primitives.values_mut().flat_map(|v| v) {
+                if waiter.is_ready(&self.handle.rcl_wait_set) {
+                    f(&mut *waiter.primitive)?;
+                }
             }
         }
 
@@ -155,16 +168,7 @@ impl WaitSet {
             );
         }
 
-        match r {
-            Ok(_) => Ok(()),
-            Err(error) => match error {
-                RclrsError::RclError { code, msg } => match code {
-                    RclReturnCode::WaitSetEmpty => Ok(()),
-                    _ => Err(RclrsError::RclError { code, msg }),
-                },
-                _ => Err(error),
-            },
-        }
+        r
     }
 
     /// Get a count of the different kinds of entities in the wait set.
