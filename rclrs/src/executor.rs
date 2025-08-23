@@ -491,20 +491,16 @@ impl CreateBasicExecutor for Context {
 #[cfg(test)]
 mod tests {
     use crate::*;
-    use std::time::{Duration, Instant};
+    use std::time::Duration;
 
     #[test]
-    fn test_spin_once() {
+    fn test_timeout() {
         let context = Context::default();
         let mut executor = context.create_basic_executor();
-        let node = executor.create_node("spin_once").unwrap();
-        let subscription = node.create_subscription("test", |msg: crate::vendor::example_interfaces::msg::Empty| { }).unwrap();
-
-        let start = Instant::now();
+        let _node = executor.create_node(&format!("test_timeout_{}", line!())).unwrap();
 
         for _ in 0..10 {
-            println!("Spinning exeuctor: {:?}", start.elapsed());
-            executor.spin(SpinOptions::default().timeout(Duration::from_secs(1)));
+            executor.spin(SpinOptions::default().timeout(Duration::from_millis(1)));
         }
     }
 }

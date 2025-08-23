@@ -115,24 +115,15 @@ impl WaitSet {
             }
         };
 
-        dbg!(timeout_ns);
         // SAFETY: The comments in rcl mention "This function cannot operate on the same wait set
         // in multiple threads, and the wait sets may not share content."
+        // * The we have exclusive access to rcl_wait_set because this is a
+        //   mutable borrow of WaitSet, which houses rcl_wait_set.
         // * We guarantee that the wait sets do not share content by funneling
-        //   the exeuctor of each primitive to one (and only one) WaitSet when
-        //   the primitive gets constructed. The primitive executors are never
-        //   allowed to transfer wait sets.
-        // * The rcl_wait_set is kept valid by the lifecycle of the WaitSet struct.
-        match unsafe { rcl_wait(&mut self.handle.rcl_wait_set, timeout_ns) }.ok() {
-            Ok(_) => (),
-            Err(error) => match error {
-                RclrsError::RclError { code, msg } => match code {
-                    RclReturnCode::WaitSetEmpty => (),
-                    _ => return Err(RclrsError::RclError { code, msg }),
-                },
-                _ => return Err(error),
-            },
-        }
+        //   the waitable of each primitive to one (and only one) WaitSet when
+        //   the primitive gets constructed. The waitables are never allowed to
+        //   move between wait sets.
+        let r = unsafe { rcl_wait(&mut self.handle.rcl_wait_set, timeout_ns) }.ok();
 
         // Remove any waitables that are no longer being used
         for waitable in self.primitives.values_mut() {
@@ -164,7 +155,16 @@ impl WaitSet {
             );
         }
 
-        Ok(())
+        match r {
+            Ok(_) => Ok(()),
+            Err(error) => match error {
+                RclrsError::RclError { code, msg } => match code {
+                    RclReturnCode::WaitSetEmpty => Ok(()),
+                    _ => Err(RclrsError::RclError { code, msg }),
+                },
+                _ => Err(error),
+            },
+        }
     }
 
     /// Get a count of the different kinds of entities in the wait set.
