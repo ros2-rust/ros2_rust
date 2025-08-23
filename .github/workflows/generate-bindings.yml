@@ -71,6 +71,7 @@ jobs:
 
     - name: Submit PR
       run: |
+        cd rclrs/src
         if git diff --exit-code; then
           exit 0
         fi
@@ -83,7 +84,7 @@ jobs:
           CREATE_PR=1
           git checkout -b update-bindings-${{ matrix.ros_distribution }}
         fi
-        git add rclrs/src/rcl_bindings_generated_${{ matrix.ros_distribution }}.rs
+        git add rcl_bindings_generated_${{ matrix.ros_distribution }}.rs
         git commit -m "Regenerate bindings for ${{ matrix.ros_distribution }}"
         git push -u origin update-bindings-${{ matrix.ros_distribution }}
         if [ $CREATE_PR -eq 1 ]; then
