@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.1](https://github.com/ros2-rust/ros2_rust/compare/v0.5.0...v0.5.1) - 2025-08-23
+
+### Other
+
+- Fix executor timeout ([#519](https://github.com/ros2-rust/ros2_rust/pull/519))
+
 ## [0.5.0](https://github.com/ros2-rust/ros2_rust/compare/v0.4.1...v0.5.0) - 2025-08-15
 
 ### Added
