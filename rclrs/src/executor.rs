@@ -500,7 +500,9 @@ mod tests {
         let _node = executor.create_node(&format!("test_timeout_{}", line!())).unwrap();
 
         for _ in 0..10 {
-            executor.spin(SpinOptions::default().timeout(Duration::from_millis(1)));
+            let r = executor.spin(SpinOptions::default().timeout(Duration::from_millis(1)));
+            assert_eq!(r.len(), 1);
+            assert!(matches!(r[0], RclrsError::RclError { code: RclReturnCode::Timeout, .. }));
         }
     }
 }
