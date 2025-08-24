@@ -44,7 +44,9 @@ jobs:
     container:
       image: ${{ matrix.docker_image }}
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
+      with:
+        fetch-depth: 0
 
     - name: Setup ROS environment
       uses: ros-tooling/setup-ros@v0.7
@@ -71,7 +73,6 @@ jobs:
 
     - name: Submit PR
       run: |
-        cd rclrs/src
         if git diff --exit-code; then
           exit 0
         fi
@@ -80,11 +81,11 @@ jobs:
         git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}
         git remote update origin
         CREATE_PR=0
-        if !git checkout update-bindings-${{ matrix.ros_distribution }}; then
+        if ! git checkout update-bindings-${{ matrix.ros_distribution }}; then
           CREATE_PR=1
           git checkout -b update-bindings-${{ matrix.ros_distribution }}
         fi
-        git add rcl_bindings_generated_${{ matrix.ros_distribution }}.rs
+        git add rclrs/src/rcl_bindings_generated_${{ matrix.ros_distribution }}.rs
         git commit -m "Regenerate bindings for ${{ matrix.ros_distribution }}"
         git push -u origin update-bindings-${{ matrix.ros_distribution }}
         if [ $CREATE_PR -eq 1 ]; then
