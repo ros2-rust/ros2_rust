@@ -4,6 +4,8 @@ use std::{
     fmt::{self, Display},
 };
 
+#[cfg(feature = "dyn_msg")]
+use crate::dynamic_message::DynamicMessageError;
 use crate::{rcl_bindings::*, DeclarationError};
 
 /// The main error type.
@@ -32,6 +34,12 @@ pub enum RclrsError {
     },
     /// It was attempted to add a waitable to a wait set twice.
     AlreadyAddedToWaitSet,
+    #[cfg(feature = "dyn_msg")]
+    /// An error while creating dynamic message.
+    DynamicMessageError {
+        /// The error containing more detailed information.
+        err: DynamicMessageError,
+    },
     /// A negative duration was obtained from rcl which should have been positive.
     ///
     /// The value represents nanoseconds.
@@ -94,6 +102,10 @@ impl Display for RclrsError {
                     "Could not add entity to wait set because it was already added to a wait set"
                 )
             }
+            #[cfg(feature = "dyn_msg")]
+            RclrsError::DynamicMessageError { .. } => {
+                write!(f, "Could not create dynamic message")
+            }
             RclrsError::NegativeDuration(duration) => {
                 write!(
                     f,
@@ -119,6 +131,13 @@ impl Display for RclrsError {
                 write!(f, "A mutex used internally has been poisoned")
             }
         }
+    }
+}
+
+#[cfg(feature = "dyn_msg")]
+impl From<DynamicMessageError> for RclrsError {
+    fn from(err: DynamicMessageError) -> Self {
+        Self::DynamicMessageError { err }
     }
 }
 
@@ -152,6 +171,8 @@ impl Error for RclrsError {
             // TODO(@mxgrey): We should provide source information for these other types.
             // It should be easy to do this using the thiserror crate.
             RclrsError::AlreadyAddedToWaitSet => None,
+            #[cfg(feature = "dyn_msg")]
+            RclrsError::DynamicMessageError { err } => Some(err).map(|e| e as &dyn Error),
             RclrsError::NegativeDuration(_) => None,
             RclrsError::UnownedGuardCondition => None,
             RclrsError::InvalidPayload { .. } => None,
