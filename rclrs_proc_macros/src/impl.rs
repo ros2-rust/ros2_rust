@@ -1,6 +1,8 @@
+use std::default;
+
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::DeriveInput;
+use syn::{Data, DeriveInput, Expr, Lit, Meta};
 
 pub(crate) fn derive_struct_parameters(input: DeriveInput) -> syn::Result<TokenStream> {
     let ident = input.ident;
@@ -21,6 +23,27 @@ pub(crate) fn derive_struct_parameters(input: DeriveInput) -> syn::Result<TokenS
     for f in fields {
         let ident = f.ident.as_ref().unwrap();
         let ident_str = syn::LitStr::new(&f.ident.as_ref().unwrap().to_string(), ident.span());
+
+        let mut default: Option<Expr> = None;
+
+        for attr in &f.attrs {
+            if attr.path().is_ident("param") {
+                attr.parse_nested_meta(|meta| {
+                    if meta.path.is_ident("default") {
+                        default = Some(meta.value()?.parse()?);
+                        Ok(())
+                    } else {
+                        syn::Result::Err(syn::Error::new_spanned(meta.path, "Unknown key."))
+                    }
+                })?;
+            }
+        }
+
+        let default = match default {
+            Some(expr) => quote! {Some(#expr)},
+            None => quote! {None},
+        };
+
         let field_type = match &f.ty {
             syn::Type::Path(p) => {
                 let mut p = p.path.clone();
@@ -32,17 +55,21 @@ pub(crate) fn derive_struct_parameters(input: DeriveInput) -> syn::Result<TokenS
             e => {
                 return syn::Result::Err(syn::Error::new_spanned(
                     e,
-                    "attribute can only be path type",
+                    "only PathType attributes are supported.",
                 ));
             }
         };
         let r = quote! {
            #ident : #field_type::declare_structured(
-              node, &{match name {
-                "" => #ident_str.to_string(),
-                prefix => [prefix, ".", #ident_str].concat(),
+              rclrs::parameter::structured::ParameterOptions {
+                node: options.node,
+                name: &{match options.name {
+                    "" => #ident_str.to_string(),
+                    prefix => [prefix, ".", #ident_str].concat(),
+                }},
+                default: #default,
               }
-           })?,
+          )?,
         };
         args.push(r);
     }
@@ -50,18 +77,20 @@ pub(crate) fn derive_struct_parameters(input: DeriveInput) -> syn::Result<TokenS
     let result = quote!(
       impl #ident {
             const _ASSERT_PARAMETER: fn() = || {
-                fn assert_parameter<T: rclrs::StructuredParameters>() {}
+                fn assert_parameter<T: rclrs::parameter::structured::StructuredParameters>() {}
                 #(
                   assert_parameter::<#field_types>();
                 )*
             };
-        }
-
-      impl rclrs::StructuredParameters for #ident {
-        fn declare_structured(node: &rclrs::NodeState, name: &str) -> core::result::Result<Self, rclrs::DeclarationError> {
-          core::result::Result::Ok(Self{ #(#args)*})
-        }
       }
+      impl rclrs::parameter::structured::StructuredParametersMeta<rclrs::parameter::structured::DefaultForbidden> for #ident {
+        fn declare_structured_(options: rclrs::parameter::structured::ParameterOptions<rclrs::parameter::structured::DefaultForbidden>)
+          -> core::result::Result<Self, crate::DeclarationError> {
+              core::result::Result::Ok(Self{ #(#args)*})
+          }
+
+      }
+      impl rclrs::StructuredParameters for #ident {}
     );
     syn::Result::Ok(result)
 }

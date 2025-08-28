@@ -213,6 +213,7 @@ pub use error::*;
 pub use executor::*;
 pub use logging::*;
 pub use node::*;
+pub use parameter::structured::{ParameterOptions, StructuredParameters, StructuredParametersMeta};
 pub use parameter::*;
 pub use publisher::*;
 pub use qos::*;
