@@ -25,6 +25,7 @@ pub(crate) fn derive_struct_parameters(input: DeriveInput) -> syn::Result<TokenS
         let ident_str = syn::LitStr::new(&f.ident.as_ref().unwrap().to_string(), ident.span());
 
         let mut default: Option<Expr> = None;
+        let mut description: Option<Expr> = None;
 
         for attr in &f.attrs {
             if attr.path().is_ident("param") {
@@ -32,8 +33,12 @@ pub(crate) fn derive_struct_parameters(input: DeriveInput) -> syn::Result<TokenS
                     if meta.path.is_ident("default") {
                         default = Some(meta.value()?.parse()?);
                         Ok(())
+                    } else if meta.path.is_ident("description") {
+                        description = Some(meta.value()?.parse()?);
+                        Ok(())
                     } else {
-                        syn::Result::Err(syn::Error::new_spanned(meta.path, "Unknown key."))
+                        let err = format!("Unknown key: {:?}", &meta.path);
+                        syn::Result::Err(syn::Error::new_spanned(meta.path, err))
                     }
                 })?;
             }
@@ -42,6 +47,10 @@ pub(crate) fn derive_struct_parameters(input: DeriveInput) -> syn::Result<TokenS
         let default = match default {
             Some(expr) => quote! {Some(#expr)},
             None => quote! {None},
+        };
+        let description = match description {
+            Some(expr) => quote! {#expr},
+            None => quote! {""},
         };
 
         let field_type = match &f.ty {
@@ -67,6 +76,8 @@ pub(crate) fn derive_struct_parameters(input: DeriveInput) -> syn::Result<TokenS
                     prefix => [prefix, ".", #ident_str].concat(),
               }},
               #default,
+              #description,
+
           )?,
         };
         args.push(r);
@@ -86,6 +97,7 @@ pub(crate) fn derive_struct_parameters(input: DeriveInput) -> syn::Result<TokenS
           node: &rclrs::NodeState,
           name: &str,
           default: Option<DefaultForbidden>,
+          description: impl Into<std::sync::Arc<str>>,
         )
           -> core::result::Result<Self, crate::DeclarationError> {
               core::result::Result::Ok(Self{ #(#args)*})
