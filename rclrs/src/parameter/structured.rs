@@ -1,38 +1,36 @@
-use crate::{Node, NodeState};
+use crate::NodeState;
 
 pub enum DefaultForbidden {}
-
-pub struct ParameterOptions<'a, T> {
-    name: &'a str,
-    default: Option<T>,
-}
 
 pub trait StructuredParametersMeta<T>: Sized {
     fn declare_structured_(
         node: &NodeState,
-        options: ParameterOptions<T>,
+        name: &str,
+        default: Option<T>,
     ) -> core::result::Result<Self, crate::DeclarationError>;
 }
 
 pub trait StructuredParameters: Sized {
     fn declare_structured<T>(
         node: &NodeState,
-        options: ParameterOptions<T>,
+        name: &str,
+        default: Option<T>,
     ) -> core::result::Result<Self, crate::DeclarationError>
     where
         Self: StructuredParametersMeta<T>,
     {
-        Self::declare_structured_(node, options)
+        Self::declare_structured_(node, name, default)
     }
 }
 impl<T: crate::ParameterVariant> StructuredParameters for crate::MandatoryParameter<T> {}
 impl<T: crate::ParameterVariant> StructuredParametersMeta<T> for crate::MandatoryParameter<T> {
     fn declare_structured_(
         node: &NodeState,
-        options: ParameterOptions<T>,
+        name: &str,
+        default: Option<T>,
     ) -> core::result::Result<Self, crate::DeclarationError> {
-        let builder = node.declare_parameter(options.name);
-        let builder = match options.default {
+        let builder = node.declare_parameter(name);
+        let builder = match default {
             Some(default) => builder.default(default),
             None => builder,
         };
@@ -43,10 +41,11 @@ impl<T: crate::ParameterVariant> StructuredParameters for crate::ReadOnlyParamet
 impl<T: crate::ParameterVariant> StructuredParametersMeta<T> for crate::ReadOnlyParameter<T> {
     fn declare_structured_(
         node: &NodeState,
-        options: ParameterOptions<T>,
+        name: &str,
+        default: Option<T>,
     ) -> core::result::Result<Self, crate::DeclarationError> {
-        let builder = node.declare_parameter(options.name);
-        let builder = match options.default {
+        let builder = node.declare_parameter(name);
+        let builder = match default {
             Some(default) => builder.default(default),
             None => builder,
         };
@@ -57,10 +56,11 @@ impl<T: crate::ParameterVariant> StructuredParameters for crate::OptionalParamet
 impl<T: crate::ParameterVariant> StructuredParametersMeta<T> for crate::OptionalParameter<T> {
     fn declare_structured_(
         node: &NodeState,
-        options: ParameterOptions<T>,
+        name: &str,
+        default: Option<T>,
     ) -> core::result::Result<Self, crate::DeclarationError> {
-        let builder = node.declare_parameter(options.name);
-        let builder = match options.default {
+        let builder = node.declare_parameter(name);
+        let builder = match default {
             Some(default) => builder.default(default),
             None => builder,
         };
@@ -76,13 +76,7 @@ impl NodeState {
     where
         T: StructuredParameters + StructuredParametersMeta<T0>,
     {
-        T::declare_structured(
-            self,
-            ParameterOptions {
-                name: name,
-                default: None,
-            },
-        )
+        T::declare_structured(self, name, None)
     }
 }
 
