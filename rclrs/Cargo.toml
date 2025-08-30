@@ -36,6 +36,8 @@ rosidl_runtime_rs = "0.4"
 serde = { version = "1", optional = true, features = ["derive"] }
 serde-big-array = { version = "0.5.1", optional = true }
 
+rclrs_proc_macros = {path = "../rclrs_proc_macros"}
+
 [dev-dependencies]
 # Needed for e.g. writing yaml files in tests
 tempfile = "3.3.0"
