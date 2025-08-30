@@ -217,6 +217,7 @@ mod tests {
         let context = crate::Context::new(args, rclrs::InitOptions::default()).unwrap();
         let exec = context.create_basic_executor();
         let node = exec.create_node(rclrs::NodeOptions::new("test")).unwrap();
+
         let _params: NestedStructuredParameters = node.declare_parameters("nested").unwrap();
         println!("{:?}", _params);
     }
