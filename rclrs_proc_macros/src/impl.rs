@@ -61,8 +61,8 @@ pub(crate) fn derive_struct_parameters(input: DeriveInput) -> syn::Result<TokenS
         };
         let r = quote! {
            #ident : #field_type::declare_structured(
+              node,
               rclrs::parameter::structured::ParameterOptions {
-                node: options.node,
                 name: &{match options.name {
                     "" => #ident_str.to_string(),
                     prefix => [prefix, ".", #ident_str].concat(),
@@ -84,7 +84,7 @@ pub(crate) fn derive_struct_parameters(input: DeriveInput) -> syn::Result<TokenS
             };
       }
       impl rclrs::parameter::structured::StructuredParametersMeta<rclrs::parameter::structured::DefaultForbidden> for #ident {
-        fn declare_structured_(options: rclrs::parameter::structured::ParameterOptions<rclrs::parameter::structured::DefaultForbidden>)
+        fn declare_structured_(node: &rclrs::NodeState, options: rclrs::parameter::structured::ParameterOptions<rclrs::parameter::structured::DefaultForbidden>)
           -> core::result::Result<Self, crate::DeclarationError> {
               core::result::Result::Ok(Self{ #(#args)*})
           }
