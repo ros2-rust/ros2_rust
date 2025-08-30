@@ -1,3 +1,36 @@
+//! This module provides the trait [`StructuredParameters`] default implementations for declaring parameters in structured fashion.
+//! [`rclrs_proc_macros::StructuredParameters`] provides a macro to derive the trait for structs automatically.
+//!
+//! # Example
+//! ```
+//! use rclrs::*;
+//! use rclrs_proc_macros::StructuredParameters;
+//!
+//! #[derive(StructuredParameters, Debug)]
+//! pub struct SimpleStructuredParameters {
+//!     #[param(description = "optional parameter description")]
+//!     pub optional: rclrs::OptionalParameter<f64>,
+//! }
+//! #[derive(StructuredParameters, Debug)]
+//! pub struct NestedStructuredParameters {
+//!     pub simple: SimpleStructuredParameters,
+//!     #[param(default = Arc::from("test"))]
+//!     pub mandatory: rclrs::MandatoryParameter<Arc<str>>,
+//! }
+//! let args: Vec<String> = [
+//!   "test", "--ros-args",
+//!   "-p", "mandatory:=override",
+//!   "-p", "simple.optional:=3.14",
+//! ].into_iter().map(str::to_string).collect();
+//! let context = crate::Context::new(args, rclrs::InitOptions::default()).unwrap();
+//! let exec = context.create_basic_executor();
+//! let node = exec.create_node(rclrs::NodeOptions::new("test")).unwrap();
+//! let params: NestedStructuredParameters =
+//!     node.declare_parameters("").unwrap();
+//! let param = params.simple.optional.get();
+//! println!("{:?}", param)
+//! ```
+
 use crate::NodeState;
 
 /// Marker trait for implementing [`StructuredParameters`] where a default value cannot be specified.
