@@ -64,7 +64,7 @@ impl<T: crate::ParameterVariant> StructuredParametersMeta<T> for crate::Optional
 }
 
 impl NodeState {
-    fn declare_parameters<T, T0>(
+    pub fn declare_parameters<T, T0>(
         &self,
         name: &str,
     ) -> core::result::Result<T, crate::DeclarationError>
