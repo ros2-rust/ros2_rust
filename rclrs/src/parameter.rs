@@ -14,7 +14,6 @@ use crate::vendor::rcl_interfaces::msg::rmw::{ParameterType, ParameterValue as R
 use crate::{
     call_string_getter_with_rcl_node, rcl_bindings::*, Node, RclrsError, ENTITY_LIFECYCLE_MUTEX,
 };
-use std::default;
 use std::{
     collections::{btree_map::Entry, BTreeMap},
     fmt::Debug,

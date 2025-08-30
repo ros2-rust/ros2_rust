@@ -1,17 +1,26 @@
 use crate::NodeState;
 
+/// Marker trait for implementing [`StructuredParameters`] where a default value cannot be specified.
+/// This is usually the case for container types, that are not represented by any actual parameter.
 pub enum DefaultForbidden {}
 
-pub trait StructuredParametersMeta<T>: Sized {
-    fn declare_structured_(
-        node: &NodeState,
-        name: &str,
-        default: Option<T>,
-        description: impl Into<std::sync::Arc<str>>,
-    ) -> core::result::Result<Self, crate::DeclarationError>;
-}
-
+/// Types implementing this trait can delcare their parameters with[`NodeState::declare_parameters`].
+/// The trait can be automatically derived using [`rclrs_proc_macros`] if:
+/// - if the type is a struct
+/// - all attributes implement [`StructuredParameters`]
 pub trait StructuredParameters: Sized {
+    /// Declares all parameters in ros node.
+    ///
+    /// # Parameters
+    ///
+    /// - `node`: The ros node to declare parameters for.
+    /// - `name`: The name of the parameter. Nested parameters are recursively declared with "{name}.{field_name}" if the name is not empty else "{field_name}".
+    /// - `default`: The default value for the paramter.
+    /// - `description` The description of the parameter
+    ///
+    /// # Returns
+    ///
+    /// [`Result`] containing the declared structured parameters or [`crate::DeclarationError`]
     fn declare_structured<T>(
         node: &NodeState,
         name: &str,
@@ -24,6 +33,42 @@ pub trait StructuredParameters: Sized {
         Self::declare_structured_(node, name, default, description)
     }
 }
+
+/// Helper trait to unify the default value type with generic container types like
+/// - [`crate::MandatoryParameter<T>`]
+/// - [`crate::OptionalParameter<T>`]
+/// - [`crate::ReadOnlyParameter<T>`]
+///
+/// In these cases the [`Self`] != [`T`] and forces the usage of a generic trait.
+/// However, a generic trait also requires annotating this default value in the derive macro.
+/// For the container based structured parameters [`T`] is always [`DefaultForbidden`]
+/// and therefore we can hide this form the trait + macro by using this helper trait.
+/// The previously mentioned leaf types that actually hold parameters, are to be implemented manually anyway.
+///
+pub trait StructuredParametersMeta<T>: Sized {
+    /// See [`StructuredParameters::declare_structured`]
+    fn declare_structured_(
+        node: &NodeState,
+        name: &str,
+        default: Option<T>,
+        description: impl Into<std::sync::Arc<str>>,
+    ) -> core::result::Result<Self, crate::DeclarationError>;
+}
+
+impl NodeState {
+    /// Declares all nested parameters of the [`StructuredParameters`].
+    /// Parameter naming recursively follows "`name`.`field_name`" or "`field_name`" if the initial `name` is empty.
+    pub fn declare_parameters<T, T0>(
+        &self,
+        name: &str,
+    ) -> core::result::Result<T, crate::DeclarationError>
+    where
+        T: StructuredParameters + StructuredParametersMeta<T0>,
+    {
+        T::declare_structured(self, name, None, "")
+    }
+}
+
 impl<T: crate::ParameterVariant> StructuredParameters for crate::MandatoryParameter<T> {}
 impl<T: crate::ParameterVariant> StructuredParametersMeta<T> for crate::MandatoryParameter<T> {
     fn declare_structured_(
@@ -73,18 +118,7 @@ impl<T: crate::ParameterVariant> StructuredParametersMeta<T> for crate::Optional
     }
 }
 
-impl NodeState {
-    pub fn declare_parameters<T, T0>(
-        &self,
-        name: &str,
-    ) -> core::result::Result<T, crate::DeclarationError>
-    where
-        T: StructuredParameters + StructuredParametersMeta<T0>,
-    {
-        T::declare_structured(self, name, None, "")
-    }
-}
-
+#[cfg(test)]
 mod tests {
     use std::sync::Arc;
 

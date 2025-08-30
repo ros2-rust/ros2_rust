@@ -1,8 +1,6 @@
-use std::default;
-
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::{Data, DeriveInput, Expr, Lit, Meta};
+use syn::{DeriveInput, Expr};
 
 pub(crate) fn derive_struct_parameters(input: DeriveInput) -> syn::Result<TokenStream> {
     let ident = input.ident;
@@ -37,7 +35,7 @@ pub(crate) fn derive_struct_parameters(input: DeriveInput) -> syn::Result<TokenS
                         description = Some(meta.value()?.parse()?);
                         Ok(())
                     } else {
-                        let err = format!("Unknown key: {:?}", &meta.path);
+                        let err = format!("Unknown key: {:?}", &meta.path.get_ident());
                         syn::Result::Err(syn::Error::new_spanned(meta.path, err))
                     }
                 })?;
