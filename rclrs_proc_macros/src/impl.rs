@@ -10,7 +10,7 @@ pub(crate) fn derive_struct_parameters(input: DeriveInput) -> syn::Result<TokenS
         _ => {
             return syn::Result::Err(syn::Error::new_spanned(
                 ident,
-                "StrucutredParameter trait can only be derived for structs",
+                "StructuredParameters trait can only be derived for structs",
             ));
         }
     };
@@ -62,7 +62,7 @@ pub(crate) fn derive_struct_parameters(input: DeriveInput) -> syn::Result<TokenS
             e => {
                 return syn::Result::Err(syn::Error::new_spanned(
                     e,
-                    "only PathType attributes are supported.",
+                    "Only PathType attributes are supported",
                 ));
             }
         };
