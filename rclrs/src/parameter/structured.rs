@@ -156,8 +156,7 @@ mod tests {
     use std::sync::Arc;
 
     use crate as rclrs;
-    use rclrs::parameter::structured::*;
-    use rclrs::CreateBasicExecutor;
+    use rclrs::{parameter::structured::*, CreateBasicExecutor};
     use rclrs_proc_macros::StructuredParameters;
 
     #[derive(StructuredParameters, Debug)]
