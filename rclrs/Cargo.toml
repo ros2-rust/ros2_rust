@@ -1,6 +1,6 @@
 [package]
 name = "rclrs"
-version = "0.5.0"
+version = "0.5.1"
 # This project is not military-sponsored, Jacob's employment contract just requires him to use this email address
 authors = ["Esteve Fernandez <esteve@apache.org>", "Nikolai Morin <nnmmgit@gmail.com>", "Jacob Hassold <jacob.a.hassold.civ@army.mil>"]
 edition = "2021"
@@ -45,10 +45,9 @@ tempfile = "3.3.0"
 tokio = { version = "1", features = ["rt", "time", "macros"] }
 
 [build-dependencies]
-# Needed for FFI
-bindgen = "0.70"
 # Needed for uploading documentation to docs.rs
 cfg-if = "1.0.0"
+rustflags = "0.1"
 
 [features]
 default = []
@@ -60,3 +59,4 @@ use_ros_shim = ["rosidl_runtime_rs/use_ros_shim"]
 
 [package.metadata.docs.rs]
 features = ["use_ros_shim"]
+rustc-args = ["--cfg", "ros_distro=\"humble\""]

@@ -2,10 +2,10 @@ name: Generate bindings
 
 on:
   schedule:
-    # Run the CI at 02:22 UTC every Tuesday
+    # Run the CI at 00:11 UTC every night
     # We pick an arbitrary time outside of most of the world's work hours
     # to minimize the likelihood of running alongside a heavy workload.
-    - cron: '22 2 * * 2'
+    - cron: '11 0 * * *'
   workflow_dispatch:
 
 env:
@@ -44,7 +44,9 @@ jobs:
     container:
       image: ${{ matrix.docker_image }}
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
+      with:
+        fetch-depth: 0
 
     - name: Setup ROS environment
       uses: ros-tooling/setup-ros@v0.7
@@ -61,10 +63,11 @@ jobs:
       run: curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
 
     - name: Install bindgen
-      run: cargo binstall -y bindgen
+      run: cargo binstall -y bindgen-cli
 
     - name: Generate bindings
       run: |
+        . /opt/ros/${{ matrix.ros_distribution }}/setup.sh
         cd rclrs/src
         ../generate_bindings.py rcl_wrapper.h ${{ matrix.ros_distribution }} .
 
@@ -78,7 +81,7 @@ jobs:
         git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}
         git remote update origin
         CREATE_PR=0
-        if !git checkout update-bindings-${{ matrix.ros_distribution }}; then
+        if ! git checkout update-bindings-${{ matrix.ros_distribution }}; then
           CREATE_PR=1
           git checkout -b update-bindings-${{ matrix.ros_distribution }}
         fi
