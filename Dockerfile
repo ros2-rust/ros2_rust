@@ -9,8 +9,6 @@ RUN apt-get update && apt-get install -y \
     libclang-dev \
     tmux \
     python3-pip \
-    ros-humble-test-msgs \
-    ros-humble-example-interfaces \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Rust
