@@ -73,6 +73,7 @@ jobs:
 
     - name: Submit PR
       run: |
+        pwd
         if git diff --exit-code; then
           exit 0
         fi
