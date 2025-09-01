@@ -73,7 +73,8 @@ jobs:
 
     - name: Submit PR
       run: |
-        pwd
+        cd $GITHUB_WORKSPACE
+        git config --global --add safe.directory $GITHUB_WORKSPACE
         if git diff --exit-code; then
           exit 0
         fi
