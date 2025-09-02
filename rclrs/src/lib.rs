@@ -226,5 +226,3 @@ pub use time::*;
 use time_source::*;
 pub use wait_set::*;
 pub use worker::*;
-
-pub use rclrs_proc_macros::StructuredParameters;
