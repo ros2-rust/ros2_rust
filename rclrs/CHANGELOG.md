@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.2](https://github.com/ros2-rust/ros2_rust/compare/v0.5.1...v0.5.2) - 2025-09-02
+
+### Other
+
+- Put `use rustflags` next to its usage to prevent a build warning. ([#526](https://github.com/ros2-rust/ros2_rust/pull/526))
+
 ## [0.5.1](https://github.com/ros2-rust/ros2_rust/compare/v0.5.0...v0.5.1) - 2025-08-23
 
 ### Other
