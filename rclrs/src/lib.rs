@@ -213,7 +213,10 @@ pub use error::*;
 pub use executor::*;
 pub use logging::*;
 pub use node::*;
-pub use parameter::*;
+pub use parameter::{
+    structured::{StructuredParameters, StructuredParametersMeta},
+    *,
+};
 pub use publisher::*;
 pub use qos::*;
 pub use rcl_bindings::rmw_request_id_t;
@@ -223,3 +226,5 @@ pub use time::*;
 use time_source::*;
 pub use wait_set::*;
 pub use worker::*;
+
+pub use rclrs_proc_macros::StructuredParameters;
