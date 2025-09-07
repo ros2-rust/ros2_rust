@@ -1,5 +1,6 @@
 use crate::{rcl_bindings::*, vendor::builtin_interfaces};
 use std::{
+    fmt,
     num::TryFromIntError,
     ops::{Add, Sub},
     sync::{Mutex, Weak},
@@ -63,6 +64,55 @@ impl Sub<Duration> for Time {
     }
 }
 
+/// An error which can be returned when converting a ROS [`Time`] into a [`Duration`].
+///
+/// # Example
+/// ```
+/// use std::time::Duration;
+/// use rclrs::Time;
+/// # use std::sync::Weak;
+///
+/// let ros_time = Time{nsec: -1, clock: Weak::new()};
+///
+/// if let Err(e) = TryInto::<Duration>::try_into(ros_time) {
+///     println!("Failed conversion to Duration: {e}");
+/// }
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TryFromTimeError {
+    kind: TryFromTimeErrorKind,
+}
+
+impl fmt::Display for TryFromTimeError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.kind {
+            TryFromTimeErrorKind::Negative => {
+                "cannot convert nanoseconds to Duration: value is negative"
+            }
+        }
+        .fmt(f)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum TryFromTimeErrorKind {
+    // Value is negative.
+    Negative,
+}
+
+impl TryInto<Duration> for Time {
+    type Error = TryFromTimeError;
+
+    fn try_into(self) -> Result<Duration, Self::Error> {
+        if self.nsec < 0 {
+            return Err(TryFromTimeError {
+                kind: TryFromTimeErrorKind::Negative,
+            });
+        }
+
+        Ok(Duration::from_nanos(u64::try_from(self.nsec).unwrap()))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -110,5 +160,32 @@ mod tests {
         let msg = time.to_ros_msg().unwrap();
         assert_eq!(msg.nanosec, 100);
         assert_eq!(msg.sec, 1);
+    }
+
+    #[test]
+    fn test_duration_conversion() {
+        let clock = Clock::system();
+        let t1 = clock.now();
+        let bad_time = Time {
+            nsec: -1,
+            clock: t1.clock.clone(),
+        };
+
+        assert_eq!(
+            TryInto::<Duration>::try_into(bad_time).err(),
+            Some(TryFromTimeError {
+                kind: TryFromTimeErrorKind::Negative
+            })
+        );
+
+        let good_time = Time {
+            nsec: 1_000_000_100,
+            clock: t1.clock.clone(),
+        };
+
+        assert_eq!(
+            TryInto::<Duration>::try_into(good_time).unwrap(),
+            Duration::from_nanos(1_000_000_100)
+        );
     }
 }
