@@ -135,7 +135,10 @@ fn derive_structured_parameters_struct(
           constraints: impl core::convert::Into<std::sync::Arc<str>>,
           ignore_override: bool,
           discard_mismatching_prior_value: bool,
-          discriminate: core::option::Option<Box<dyn core::ops::function::FnOnce(rclrs::AvailableValues<T>) -> core::option::Option<T>>>,
+          discriminate: core::option::Option<Box<
+            dyn core::ops::FnOnce(rclrs::AvailableValues<rclrs::structured::DefaultForbidden>)
+            -> core::option::Option<rclrs::structured::DefaultForbidden
+          >>>,
         )
           -> core::result::Result<Self, rclrs::DeclarationError> {
               core::result::Result::Ok(Self{ #(#args)*})
