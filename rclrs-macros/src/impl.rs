@@ -2,21 +2,26 @@ use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{DeriveInput, Expr};
 
-pub(crate) fn derive_struct_parameters(input: DeriveInput) -> syn::Result<TokenStream> {
+pub(crate) fn derive_structured_parameters(input: DeriveInput) -> syn::Result<TokenStream> {
     let ident = input.ident;
 
-    let fields = match input.data {
-        syn::Data::Struct(ref s) => &s.fields,
+    match input.data {
+        syn::Data::Struct(ref s) => derive_structured_parameters_struct(ident, s),
         _ => {
             return syn::Result::Err(syn::Error::new_spanned(
                 ident,
                 "StructuredParameters trait can only be derived for structs",
             ));
         }
-    };
+    }
+}
+pub(crate) fn derive_structured_parameters_struct(
+    ident: proc_macro2::Ident,
+    struct_: &syn::DataStruct,
+) -> syn::Result<TokenStream> {
+    let fields = &struct_.fields;
 
     let field_types: Vec<_> = fields.iter().map(|f| &f.ty).collect();
-
     let mut args = Vec::new();
     for f in fields {
         let ident = f.ident.as_ref().unwrap();
