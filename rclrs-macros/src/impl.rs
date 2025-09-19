@@ -1,6 +1,6 @@
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::{DeriveInput, Expr};
+use syn::{token::Token, DeriveInput, Expr};
 
 pub(crate) fn derive_structured_parameters(input: DeriveInput) -> syn::Result<TokenStream> {
     let ident = input.ident;
@@ -15,6 +15,7 @@ pub(crate) fn derive_structured_parameters(input: DeriveInput) -> syn::Result<To
         }
     }
 }
+
 fn derive_structured_parameters_struct(
     ident: proc_macro2::Ident,
     struct_: &syn::DataStruct,
@@ -29,6 +30,9 @@ fn derive_structured_parameters_struct(
 
         let mut default: Option<Expr> = None;
         let mut description: Option<Expr> = None;
+        let mut constraints: Option<Expr> = None;
+        let mut ignore_override = false;
+        let mut discard_mismatching_prior_value = false;
 
         for attr in &f.attrs {
             if attr.path().is_ident("param") {
@@ -38,6 +42,15 @@ fn derive_structured_parameters_struct(
                         Ok(())
                     } else if meta.path.is_ident("description") {
                         description = Some(meta.value()?.parse()?);
+                        Ok(())
+                    } else if meta.path.is_ident("constraints") {
+                        constraints = Some(meta.value()?.parse()?);
+                        Ok(())
+                    } else if meta.path.is_ident("ignore_override") {
+                        ignore_override = true;
+                        Ok(())
+                    } else if meta.path.is_ident("discard_mismatching_prior_value") {
+                        discard_mismatching_prior_value = true;
                         Ok(())
                     } else {
                         let err = format!("Unknown key: {:?}", &meta.path.get_ident());
@@ -52,6 +65,10 @@ fn derive_structured_parameters_struct(
             None => quote! {None},
         };
         let description = match description {
+            Some(expr) => quote! {#expr},
+            None => quote! {""},
+        };
+        let constraints = match constraints {
             Some(expr) => quote! {#expr},
             None => quote! {""},
         };
@@ -80,6 +97,9 @@ fn derive_structured_parameters_struct(
               }},
               #default,
               #description,
+              #constraints,
+              #ignore_override,
+              #discard_mismatching_prior_value,
 
           )?,
         };
@@ -101,6 +121,9 @@ fn derive_structured_parameters_struct(
           name: &str,
           default: Option<DefaultForbidden>,
           description: impl Into<std::sync::Arc<str>>,
+          constraints: impl Into<std::sync::Arc<str>>,
+          ignore_override: bool,
+          discard_mismatching_prior_value: bool,
         )
           -> core::result::Result<Self, crate::DeclarationError> {
               core::result::Result::Ok(Self{ #(#args)*})

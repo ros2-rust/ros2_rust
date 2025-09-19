@@ -30,11 +30,22 @@ pub trait StructuredParameters: Sized {
         name: &str,
         default: Option<T>,
         description: impl Into<std::sync::Arc<str>>,
+        constraints: impl Into<std::sync::Arc<str>>,
+        ignore_override: bool,
+        discard_mismatching_prior_value: bool,
     ) -> core::result::Result<Self, crate::DeclarationError>
     where
         Self: StructuredParametersMeta<T>,
     {
-        Self::declare_structured_(node, name, default, description)
+        Self::declare_structured_(
+            node,
+            name,
+            default,
+            description,
+            constraints,
+            ignore_override,
+            discard_mismatching_prior_value,
+        )
     }
 }
 
@@ -56,6 +67,9 @@ pub trait StructuredParametersMeta<T>: Sized {
         name: &str,
         default: Option<T>,
         description: impl Into<std::sync::Arc<str>>,
+        constraints: impl Into<std::sync::Arc<str>>,
+        ignore_override: bool,
+        discard_mismatching_prior_value: bool,
     ) -> core::result::Result<Self, crate::DeclarationError>;
 }
 
@@ -69,7 +83,7 @@ impl NodeState {
     where
         T: StructuredParameters + StructuredParametersMeta<T0>,
     {
-        T::declare_structured(self, name, None, "")
+        T::declare_structured(self, name, None, "", "", false, false)
     }
 }
 
@@ -80,13 +94,27 @@ impl<T: crate::ParameterVariant> StructuredParametersMeta<T> for crate::Mandator
         name: &str,
         default: Option<T>,
         description: impl Into<std::sync::Arc<str>>,
+        constraints: impl Into<std::sync::Arc<str>>,
+        ignore_override: bool,
+        discard_mismatching_prior_value: bool,
     ) -> core::result::Result<Self, crate::DeclarationError> {
         let builder = node.declare_parameter(name);
         let builder = match default {
             Some(default) => builder.default(default),
             None => builder,
         };
-        builder.description(description).mandatory()
+        let builder = match ignore_override {
+            true => builder.ignore_override(),
+            false => builder,
+        };
+        let builder = match discard_mismatching_prior_value {
+            true => builder.discard_mismatching_prior_value(),
+            false => builder,
+        };
+        builder
+            .description(description)
+            .constraints(constraints)
+            .mandatory()
     }
 }
 impl<T: crate::ParameterVariant> StructuredParameters for crate::ReadOnlyParameter<T> {}
@@ -96,13 +124,27 @@ impl<T: crate::ParameterVariant> StructuredParametersMeta<T> for crate::ReadOnly
         name: &str,
         default: Option<T>,
         description: impl Into<std::sync::Arc<str>>,
+        constraints: impl Into<std::sync::Arc<str>>,
+        ignore_override: bool,
+        discard_mismatching_prior_value: bool,
     ) -> core::result::Result<Self, crate::DeclarationError> {
         let builder = node.declare_parameter(name);
         let builder = match default {
             Some(default) => builder.default(default),
             None => builder,
         };
-        builder.description(description).read_only()
+        let builder = match ignore_override {
+            true => builder.ignore_override(),
+            false => builder,
+        };
+        let builder = match discard_mismatching_prior_value {
+            true => builder.discard_mismatching_prior_value(),
+            false => builder,
+        };
+        builder
+            .description(description)
+            .constraints(constraints)
+            .read_only()
     }
 }
 impl<T: crate::ParameterVariant> StructuredParameters for crate::OptionalParameter<T> {}
@@ -112,13 +154,31 @@ impl<T: crate::ParameterVariant> StructuredParametersMeta<T> for crate::Optional
         name: &str,
         default: Option<T>,
         description: impl Into<std::sync::Arc<str>>,
+        constraints: impl Into<std::sync::Arc<str>>,
+        ignore_override: bool,
+        discard_mismatching_prior_value: bool,
     ) -> core::result::Result<Self, crate::DeclarationError> {
         let builder = node.declare_parameter(name);
         let builder = match default {
             Some(default) => builder.default(default),
             None => builder,
         };
-        builder.description(description).optional()
+        let builder = match ignore_override {
+            true => builder.ignore_override(),
+            false => builder,
+        };
+        let builder = match discard_mismatching_prior_value {
+            true => builder.discard_mismatching_prior_value(),
+            false => builder,
+        };
+
+        //builder.discriminate(f)
+        //builder.range(range)
+
+        builder
+            .description(description)
+            .constraints(constraints)
+            .optional()
     }
 }
 
@@ -216,7 +276,7 @@ mod tests {
     }
     #[derive(Debug, StructuredParameters)]
     struct SimpleStructuredParametersWithDefaultsAndDescriptions {
-        #[param(default = 42.0, description = "_mandatory")]
+        #[param(default = 42.0, ignore_override, description = "_mandatory")]
         _mandatory: rclrs::MandatoryParameter<f64>,
         #[param(default = 42.0, description = "_optional")]
         _optional: rclrs::OptionalParameter<f64>,
