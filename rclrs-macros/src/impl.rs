@@ -15,7 +15,7 @@ pub(crate) fn derive_structured_parameters(input: DeriveInput) -> syn::Result<To
         }
     }
 }
-pub(crate) fn derive_structured_parameters_struct(
+fn derive_structured_parameters_struct(
     ident: proc_macro2::Ident,
     struct_: &syn::DataStruct,
 ) -> syn::Result<TokenStream> {
