@@ -21,9 +21,9 @@ fn main() {
     let ros_distro = if let Ok(value) = env::var(ROS_DISTRO) {
         value
     } else {
-        use rustflags;
         cfg_if::cfg_if! {
             if #[cfg(feature="use_ros_shim")] {
+                use rustflags;
                 // // Look for --cfg ros_distro=<ros_distro>
                 for flag in rustflags::from_env() {
                     if matches!(flag, rustflags::Flag::Cfg { ref name, value : _ } if name == "ros_distro") {
