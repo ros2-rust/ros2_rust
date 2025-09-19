@@ -33,6 +33,7 @@ pub trait StructuredParameters: Sized {
         constraints: impl Into<std::sync::Arc<str>>,
         ignore_override: bool,
         discard_mismatching_prior_value: bool,
+        discriminate: Option<Box<dyn FnOnce(crate::AvailableValues<T>) -> Option<T>>>,
     ) -> core::result::Result<Self, crate::DeclarationError>
     where
         Self: StructuredParametersMeta<T>,
@@ -45,6 +46,7 @@ pub trait StructuredParameters: Sized {
             constraints,
             ignore_override,
             discard_mismatching_prior_value,
+            discriminate,
         )
     }
 }
@@ -70,6 +72,7 @@ pub trait StructuredParametersMeta<T>: Sized {
         constraints: impl Into<std::sync::Arc<str>>,
         ignore_override: bool,
         discard_mismatching_prior_value: bool,
+        discriminate: Option<Box<dyn FnOnce(crate::AvailableValues<T>) -> Option<T>>>,
     ) -> core::result::Result<Self, crate::DeclarationError>;
 }
 
@@ -83,7 +86,7 @@ impl NodeState {
     where
         T: StructuredParameters + StructuredParametersMeta<T0>,
     {
-        T::declare_structured(self, name, None, "", "", false, false)
+        T::declare_structured(self, name, None, "", "", false, false, None)
     }
 }
 
@@ -97,6 +100,7 @@ impl<T: crate::ParameterVariant> StructuredParametersMeta<T> for crate::Mandator
         constraints: impl Into<std::sync::Arc<str>>,
         ignore_override: bool,
         discard_mismatching_prior_value: bool,
+        discriminate: Option<Box<dyn FnOnce(crate::AvailableValues<T>) -> Option<T>>>,
     ) -> core::result::Result<Self, crate::DeclarationError> {
         let builder = node.declare_parameter(name);
         let builder = match default {
@@ -111,6 +115,12 @@ impl<T: crate::ParameterVariant> StructuredParametersMeta<T> for crate::Mandator
             true => builder.discard_mismatching_prior_value(),
             false => builder,
         };
+        let builder = match discriminate {
+            Some(f) => builder.discriminate(f),
+            None => builder,
+        };
+        //builder.range(range)
+
         builder
             .description(description)
             .constraints(constraints)
@@ -127,6 +137,7 @@ impl<T: crate::ParameterVariant> StructuredParametersMeta<T> for crate::ReadOnly
         constraints: impl Into<std::sync::Arc<str>>,
         ignore_override: bool,
         discard_mismatching_prior_value: bool,
+        discriminate: Option<Box<dyn FnOnce(crate::AvailableValues<T>) -> Option<T>>>,
     ) -> core::result::Result<Self, crate::DeclarationError> {
         let builder = node.declare_parameter(name);
         let builder = match default {
@@ -140,6 +151,10 @@ impl<T: crate::ParameterVariant> StructuredParametersMeta<T> for crate::ReadOnly
         let builder = match discard_mismatching_prior_value {
             true => builder.discard_mismatching_prior_value(),
             false => builder,
+        };
+        let builder = match discriminate {
+            Some(f) => builder.discriminate(f),
+            None => builder,
         };
         builder
             .description(description)
@@ -157,6 +172,7 @@ impl<T: crate::ParameterVariant> StructuredParametersMeta<T> for crate::Optional
         constraints: impl Into<std::sync::Arc<str>>,
         ignore_override: bool,
         discard_mismatching_prior_value: bool,
+        discriminate: Option<Box<dyn FnOnce(crate::AvailableValues<T>) -> Option<T>>>,
     ) -> core::result::Result<Self, crate::DeclarationError> {
         let builder = node.declare_parameter(name);
         let builder = match default {
@@ -171,9 +187,10 @@ impl<T: crate::ParameterVariant> StructuredParametersMeta<T> for crate::Optional
             true => builder.discard_mismatching_prior_value(),
             false => builder,
         };
-
-        //builder.discriminate(f)
-        //builder.range(range)
+        let builder = match discriminate {
+            Some(f) => builder.discriminate(f),
+            None => builder,
+        };
 
         builder
             .description(description)

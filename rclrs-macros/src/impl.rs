@@ -33,6 +33,7 @@ fn derive_structured_parameters_struct(
         let mut constraints: Option<Expr> = None;
         let mut ignore_override = false;
         let mut discard_mismatching_prior_value = false;
+        let mut discriminate: Option<Expr> = None;
 
         for attr in &f.attrs {
             if attr.path().is_ident("param") {
@@ -51,6 +52,9 @@ fn derive_structured_parameters_struct(
                         Ok(())
                     } else if meta.path.is_ident("discard_mismatching_prior_value") {
                         discard_mismatching_prior_value = true;
+                        Ok(())
+                    } else if meta.path.is_ident("discriminate") {
+                        discriminate = Some(meta.value()?.parse()?);
                         Ok(())
                     } else {
                         let err = format!("Unknown key: {:?}", &meta.path.get_ident());
@@ -71,6 +75,12 @@ fn derive_structured_parameters_struct(
         let constraints = match constraints {
             Some(expr) => quote! {#expr},
             None => quote! {""},
+        };
+        let discriminate = match discriminate {
+            Some(expr) => quote! {
+                core::option::Option::Some(Box::new(#expr))
+            },
+            None => quote! {core::option::Option::None},
         };
 
         let field_type = match &f.ty {
@@ -100,6 +110,7 @@ fn derive_structured_parameters_struct(
               #constraints,
               #ignore_override,
               #discard_mismatching_prior_value,
+              #discriminate,
 
           )?,
         };
@@ -119,13 +130,14 @@ fn derive_structured_parameters_struct(
         fn declare_structured_(
           node: &rclrs::NodeState,
           name: &str,
-          default: Option<DefaultForbidden>,
-          description: impl Into<std::sync::Arc<str>>,
-          constraints: impl Into<std::sync::Arc<str>>,
+          default: core::option::Option<rclrs::structured::DefaultForbidden>,
+          description: impl core::convert::Into<std::sync::Arc<str>>,
+          constraints: impl core::convert::Into<std::sync::Arc<str>>,
           ignore_override: bool,
           discard_mismatching_prior_value: bool,
+          discriminate: core::option::Option<Box<dyn core::ops::function::FnOnce(rclrs::AvailableValues<T>) -> core::option::Option<T>>>,
         )
-          -> core::result::Result<Self, crate::DeclarationError> {
+          -> core::result::Result<Self, rclrs::DeclarationError> {
               core::result::Result::Ok(Self{ #(#args)*})
           }
 
