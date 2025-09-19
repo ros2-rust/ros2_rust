@@ -1,5 +1,5 @@
 [package]
-name= "rclrs_proc_macros"
+name= "rclrs-macros"
 version = "0.0.1"
 authors = ["Balthasar Schüss <rclrs@bschuess.dev>"]
 edition = "2021"

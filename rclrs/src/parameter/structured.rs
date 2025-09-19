@@ -128,7 +128,7 @@ mod tests {
 
     use crate as rclrs;
     use rclrs::{parameter::structured::*, CreateBasicExecutor};
-    use rclrs_proc_macros::StructuredParameters;
+    use rclrs_macros::StructuredParameters;
 
     #[derive(StructuredParameters, Debug)]
     struct SimpleStructuredParameters {
