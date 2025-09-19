@@ -4,9 +4,36 @@
 
 use crate::NodeState;
 
+use super::ParameterVariant;
+
 /// Marker trait for implementing [`StructuredParameters`] where a default value cannot be specified.
 /// This is usually the case for container types, that are not represented by any actual parameter.
+
+#[derive(Clone, Copy)]
 pub enum DefaultForbidden {}
+impl crate::ParameterVariant for DefaultForbidden {
+    type Range = ();
+
+    fn kind() -> crate::ParameterKind {
+        // cannot be instantiated cannot be called
+        // let's satisfy the type checker
+        unreachable!()
+    }
+}
+impl From<DefaultForbidden> for crate::ParameterValue {
+    fn from(_value: DefaultForbidden) -> Self {
+        // cannot be instantiated cannot be called
+        // let's satisfy the type checker
+        unreachable!()
+    }
+}
+impl From<crate::ParameterValue> for DefaultForbidden {
+    fn from(_value: crate::ParameterValue) -> Self {
+        // cannot be instantiated cannot be called
+        // let's satisfy the type checker
+        unreachable!()
+    }
+}
 
 /// Types implementing this trait can delcare their parameters with[`NodeState::declare_parameters`].
 /// The trait can be automatically derived using [`rclrs_proc_macros`] if:
@@ -25,7 +52,7 @@ pub trait StructuredParameters: Sized {
     /// # Returns
     ///
     /// [`Result`] containing the declared structured parameters or [`crate::DeclarationError`]
-    fn declare_structured<T>(
+    fn declare_structured<T: ParameterVariant>(
         node: &NodeState,
         name: &str,
         default: Option<T>,
@@ -34,6 +61,7 @@ pub trait StructuredParameters: Sized {
         ignore_override: bool,
         discard_mismatching_prior_value: bool,
         discriminate: Option<Box<dyn FnOnce(crate::AvailableValues<T>) -> Option<T>>>,
+        range: Option<<T as crate::ParameterVariant>::Range>,
     ) -> core::result::Result<Self, crate::DeclarationError>
     where
         Self: StructuredParametersMeta<T>,
@@ -47,6 +75,7 @@ pub trait StructuredParameters: Sized {
             ignore_override,
             discard_mismatching_prior_value,
             discriminate,
+            range,
         )
     }
 }
@@ -62,7 +91,7 @@ pub trait StructuredParameters: Sized {
 /// and therefore we can hide this form the trait + macro by using this helper trait.
 /// The previously mentioned leaf types that actually hold parameters, are to be implemented manually anyway.
 ///
-pub trait StructuredParametersMeta<T>: Sized {
+pub trait StructuredParametersMeta<T: ParameterVariant>: Sized {
     /// See [`StructuredParameters::declare_structured`]
     fn declare_structured_(
         node: &NodeState,
@@ -73,20 +102,21 @@ pub trait StructuredParametersMeta<T>: Sized {
         ignore_override: bool,
         discard_mismatching_prior_value: bool,
         discriminate: Option<Box<dyn FnOnce(crate::AvailableValues<T>) -> Option<T>>>,
+        range: Option<<T as crate::ParameterVariant>::Range>,
     ) -> core::result::Result<Self, crate::DeclarationError>;
 }
 
 impl NodeState {
     /// Declares all nested parameters of the [`StructuredParameters`].
     /// Parameter naming recursively follows "`name`.`field_name`" or "`field_name`" if the initial `name` is empty.
-    pub fn declare_parameters<T, T0>(
+    pub fn declare_parameters<T, T0: ParameterVariant>(
         &self,
         name: &str,
     ) -> core::result::Result<T, crate::DeclarationError>
     where
         T: StructuredParameters + StructuredParametersMeta<T0>,
     {
-        T::declare_structured(self, name, None, "", "", false, false, None)
+        T::declare_structured(self, name, None, "", "", false, false, None, None)
     }
 }
 
@@ -101,6 +131,7 @@ impl<T: crate::ParameterVariant> StructuredParametersMeta<T> for crate::Mandator
         ignore_override: bool,
         discard_mismatching_prior_value: bool,
         discriminate: Option<Box<dyn FnOnce(crate::AvailableValues<T>) -> Option<T>>>,
+        range: Option<<T as crate::ParameterVariant>::Range>,
     ) -> core::result::Result<Self, crate::DeclarationError> {
         let builder = node.declare_parameter(name);
         let builder = match default {
@@ -119,8 +150,10 @@ impl<T: crate::ParameterVariant> StructuredParametersMeta<T> for crate::Mandator
             Some(f) => builder.discriminate(f),
             None => builder,
         };
-        //builder.range(range)
-
+        let builder = match range {
+            Some(range) => builder.range(range),
+            None => builder,
+        };
         builder
             .description(description)
             .constraints(constraints)
@@ -138,6 +171,7 @@ impl<T: crate::ParameterVariant> StructuredParametersMeta<T> for crate::ReadOnly
         ignore_override: bool,
         discard_mismatching_prior_value: bool,
         discriminate: Option<Box<dyn FnOnce(crate::AvailableValues<T>) -> Option<T>>>,
+        range: Option<<T as crate::ParameterVariant>::Range>,
     ) -> core::result::Result<Self, crate::DeclarationError> {
         let builder = node.declare_parameter(name);
         let builder = match default {
@@ -154,6 +188,10 @@ impl<T: crate::ParameterVariant> StructuredParametersMeta<T> for crate::ReadOnly
         };
         let builder = match discriminate {
             Some(f) => builder.discriminate(f),
+            None => builder,
+        };
+        let builder = match range {
+            Some(range) => builder.range(range),
             None => builder,
         };
         builder
@@ -173,6 +211,7 @@ impl<T: crate::ParameterVariant> StructuredParametersMeta<T> for crate::Optional
         ignore_override: bool,
         discard_mismatching_prior_value: bool,
         discriminate: Option<Box<dyn FnOnce(crate::AvailableValues<T>) -> Option<T>>>,
+        range: Option<<T as crate::ParameterVariant>::Range>,
     ) -> core::result::Result<Self, crate::DeclarationError> {
         let builder = node.declare_parameter(name);
         let builder = match default {
@@ -191,7 +230,10 @@ impl<T: crate::ParameterVariant> StructuredParametersMeta<T> for crate::Optional
             Some(f) => builder.discriminate(f),
             None => builder,
         };
-
+        let builder = match range {
+            Some(range) => builder.range(range),
+            None => builder,
+        };
         builder
             .description(description)
             .constraints(constraints)

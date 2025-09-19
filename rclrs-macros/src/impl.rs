@@ -1,6 +1,6 @@
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::{token::Token, DeriveInput, Expr};
+use syn::{DeriveInput, Expr};
 
 pub(crate) fn derive_structured_parameters(input: DeriveInput) -> syn::Result<TokenStream> {
     let ident = input.ident;
@@ -34,6 +34,7 @@ fn derive_structured_parameters_struct(
         let mut ignore_override = false;
         let mut discard_mismatching_prior_value = false;
         let mut discriminate: Option<Expr> = None;
+        let mut range: Option<Expr> = None;
 
         for attr in &f.attrs {
             if attr.path().is_ident("param") {
@@ -55,6 +56,9 @@ fn derive_structured_parameters_struct(
                         Ok(())
                     } else if meta.path.is_ident("discriminate") {
                         discriminate = Some(meta.value()?.parse()?);
+                        Ok(())
+                    } else if meta.path.is_ident("range") {
+                        range = Some(meta.value()?.parse()?);
                         Ok(())
                     } else {
                         let err = format!("Unknown key: {:?}", &meta.path.get_ident());
@@ -79,6 +83,12 @@ fn derive_structured_parameters_struct(
         let discriminate = match discriminate {
             Some(expr) => quote! {
                 core::option::Option::Some(Box::new(#expr))
+            },
+            None => quote! {core::option::Option::None},
+        };
+        let range = match range {
+            Some(expr) => quote! {
+                core::option::Option::Some(#expr)
             },
             None => quote! {core::option::Option::None},
         };
@@ -111,7 +121,7 @@ fn derive_structured_parameters_struct(
               #ignore_override,
               #discard_mismatching_prior_value,
               #discriminate,
-
+              #range,
           )?,
         };
         args.push(r);
@@ -130,15 +140,16 @@ fn derive_structured_parameters_struct(
         fn declare_structured_(
           node: &rclrs::NodeState,
           name: &str,
-          default: core::option::Option<rclrs::structured::DefaultForbidden>,
+          default: core::option::Option<rclrs::parameter::structured::DefaultForbidden>,
           description: impl core::convert::Into<std::sync::Arc<str>>,
           constraints: impl core::convert::Into<std::sync::Arc<str>>,
           ignore_override: bool,
           discard_mismatching_prior_value: bool,
           discriminate: core::option::Option<Box<
-            dyn core::ops::FnOnce(rclrs::AvailableValues<rclrs::structured::DefaultForbidden>)
-            -> core::option::Option<rclrs::structured::DefaultForbidden
+            dyn core::ops::FnOnce(rclrs::AvailableValues<rclrs::parameter::structured::DefaultForbidden>)
+            -> core::option::Option<rclrs::parameter::structured::DefaultForbidden
           >>>,
+          range: core::option::Option<<rclrs::structured::DefaultForbidden as rclrs::ParameterVariant>::Range>,
         )
           -> core::result::Result<Self, rclrs::DeclarationError> {
               core::result::Result::Ok(Self{ #(#args)*})
