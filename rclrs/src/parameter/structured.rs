@@ -85,10 +85,10 @@ pub trait StructuredParameters: Sized {
 /// - [`crate::OptionalParameter<T>`]
 /// - [`crate::ReadOnlyParameter<T>`]
 ///
-/// In these cases the [`Self`] != [`T`] and forces the usage of a generic trait.
+/// In these cases [`Self`] != [`T`] and forces the usage of a generic trait.
 /// However, a generic trait also requires annotating this default value in the derive macro.
 /// For the container based structured parameters [`T`] is always [`DefaultForbidden`]
-/// and therefore we can hide this form the trait + macro by using this helper trait.
+/// and therefore we can hide this from the trait + macro by using this helper trait.
 /// The previously mentioned leaf types that actually hold parameters, are to be implemented manually anyway.
 ///
 pub trait StructuredParametersMeta<T: ParameterVariant>: Sized {
@@ -354,6 +354,32 @@ mod tests {
         let node = exec.create_node(rclrs::NodeOptions::new("test")).unwrap();
         let _params: SimpleStructuredParametersWithDefaultsAndDescriptions =
             node.declare_parameters("").unwrap();
+        println!("{:?}", _params);
+    }
+    #[derive(Debug, StructuredParameters)]
+    struct AllMacroOptions {
+        #[param(
+            default = 42.0,
+            ignore_override,
+            description = "_mandatory",
+            constraints = "some_constraints",
+            discard_mismatching_prior_value,
+            discriminate = |av| av.default_value,
+            range = rclrs::ParameterRange { lower: Some(1.0), ..Default::default()},
+        )]
+        _mandatory: rclrs::MandatoryParameter<f64>,
+    }
+
+    #[test]
+    fn test_all_macro_options() {
+        let args: Vec<String> = ["test", "--ros-args"]
+            .into_iter()
+            .map(str::to_string)
+            .collect();
+        let context = crate::Context::new(args, rclrs::InitOptions::default()).unwrap();
+        let exec = context.create_basic_executor();
+        let node = exec.create_node(rclrs::NodeOptions::new("test")).unwrap();
+        let _params: AllMacroOptions = node.declare_parameters("").unwrap();
         println!("{:?}", _params);
     }
 }
