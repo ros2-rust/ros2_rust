@@ -531,6 +531,13 @@ impl<Payload: 'static + Send + Sync> WorkerState<Payload> {
     /// `WorkerTimer` elapses until you use [`TimerState::set_worker_repeating`]
     /// or [`TimerState::set_worker_oneshot`].
     ///
+    /// This function is not usually what you want. An inert timer is usually
+    /// just a follow-up state to a oneshot timer which is waiting to be given
+    /// a new callback to run. However, you could use this method to declare a
+    /// timer whose callbacks you will start to feed in at a later.
+    ///
+    /// There is no equivalent to this function in `rclcpp`.
+    ///
     /// See also:
     /// * [`Self::create_timer_repeating`]
     /// * [`Self::create_timer_oneshot`]

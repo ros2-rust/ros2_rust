@@ -912,6 +912,10 @@ impl NodeState {
 
     /// Create a [`Timer`] with a repeating callback.
     ///
+    /// This has similar behavior to `rclcpp::Node::create_timer` by periodically
+    /// triggering the callback of the timer. For a one-shot timer alternative,
+    /// see [`NodeState::create_timer_oneshot`].
+    ///
     /// See also:
     /// * [`Self::create_timer_oneshot`]
     /// * [`Self::create_timer_inert`]
@@ -1024,13 +1028,15 @@ impl NodeState {
         options: impl IntoTimerOptions<'a>,
         callback: impl IntoNodeTimerRepeatingCallback<Args>,
     ) -> Result<Timer, RclrsError> {
-        self.create_timer(options, callback.into_node_timer_repeating_callback())
+        self.create_timer_internal(options, callback.into_node_timer_repeating_callback())
     }
 
     /// Create a [`Timer`] whose callback will be triggered once after the period
     /// of the timer has elapsed. After that you will need to use
     /// [`TimerState::set_repeating`] or [`TimerState::set_oneshot`] or else
     /// nothing will happen the following times that the `Timer` elapses.
+    ///
+    /// This does not have an equivalent in `rclcpp`.
     ///
     /// See also:
     /// * [`Self::create_timer_repeating`]
@@ -1058,10 +1064,10 @@ impl NodeState {
     ///
     /// # Node Timer Oneshot Callbacks
     ///
-    /// Node Timer repeating callbacks support three signatures:
-    /// - <code>[FnMut] ()</code>
-    /// - <code>[FnMut] ([Time][2])</code>
-    /// - <code>[FnMut] (&[Timer])</code>
+    /// Node Timer OneShot callbacks support three signatures:
+    /// - <code>[FnOnce] ()</code>
+    /// - <code>[FnOnce] ([Time][2])</code>
+    /// - <code>[FnOnce] (&[Timer])</code>
     ///
     /// You can choose to receive the current time when the callback is being
     /// triggered.
@@ -1079,12 +1085,19 @@ impl NodeState {
         options: impl IntoTimerOptions<'a>,
         callback: impl IntoNodeTimerOneshotCallback<Args>,
     ) -> Result<Timer, RclrsError> {
-        self.create_timer(options, callback.into_node_timer_oneshot_callback())
+        self.create_timer_internal(options, callback.into_node_timer_oneshot_callback())
     }
 
     /// Create a [`Timer`] without a callback. Nothing will happen when this
     /// `Timer` elapses until you use [`TimerState::set_repeating`] or
     /// [`TimerState::set_oneshot`].
+    ///
+    /// This function is not usually what you want. An inert timer is usually
+    /// just a follow-up state to a oneshot timer which is waiting to be given
+    /// a new callback to run. However, you could use this method to declare a
+    /// timer whose callbacks you will start to feed in at a later.
+    ///
+    /// There is no equivalent to this function in `rclcpp`.
     ///
     /// See also:
     /// * [`Self::create_timer_repeating`]
@@ -1093,16 +1106,16 @@ impl NodeState {
         self: &Arc<Self>,
         options: impl IntoTimerOptions<'a>,
     ) -> Result<Timer, RclrsError> {
-        self.create_timer(options, AnyTimerCallback::Inert)
+        self.create_timer_internal(options, AnyTimerCallback::Inert)
     }
 
-    /// Used internally to create a [`Timer`].
+    /// Used internally to create any kind of [`Timer`].
     ///
     /// Downstream users should instead use:
     /// * [`Self::create_timer_repeating`]
     /// * [`Self::create_timer_oneshot`]
     /// * [`Self::create_timer_inert`]
-    fn create_timer<'a>(
+    fn create_timer_internal<'a>(
         self: &Arc<Self>,
         options: impl IntoTimerOptions<'a>,
         callback: AnyTimerCallback<Node>,
