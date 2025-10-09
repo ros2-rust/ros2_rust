@@ -1,6 +1,6 @@
 [package]
 name = "rclrs"
-version = "0.4.1"
+version = "0.5.1"
 # This project is not military-sponsored, Jacob's employment contract just requires him to use this email address
 authors = ["Esteve Fernandez <esteve@apache.org>", "Nikolai Morin <nnmmgit@gmail.com>", "Jacob Hassold <jacob.a.hassold.civ@army.mil>"]
 edition = "2021"
@@ -57,18 +57,13 @@ uuid = { version = "1", features = ["v4"] }
 [dev-dependencies]
 # Needed for e.g. writing yaml files in tests
 tempfile = "3.3.0"
-# Needed for publisher and subscriber tests
-test_msgs = {version = "*"}
-# Used in doctests
-example_interfaces = { version = "*" }
 # Needed for parameter service tests
 tokio = { version = "1", features = ["rt", "time", "macros"] }
 
 [build-dependencies]
-# Needed for FFI
-bindgen = "0.70"
 # Needed for uploading documentation to docs.rs
 cfg-if = "1.0.0"
+rustflags = "0.1"
 
 [features]
 default = []
@@ -80,3 +75,4 @@ use_ros_shim = ["rosidl_runtime_rs/use_ros_shim"]
 
 [package.metadata.docs.rs]
 features = ["use_ros_shim"]
+rustc-args = ["--cfg", "ros_distro=\"humble\""]

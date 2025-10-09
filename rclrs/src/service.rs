@@ -5,7 +5,7 @@ use std::{
     sync::{Arc, Mutex, MutexGuard},
 };
 
-use rosidl_runtime_rs::{Message, Service as IdlService};
+use rosidl_runtime_rs::{Message, Service as ServiceIDL};
 
 use crate::{
     error::ToResult, rcl_bindings::*, IntoPrimitiveOptions, MessageCow, Node, NodeHandle,
@@ -71,7 +71,7 @@ pub type WorkerService<T, Payload> = Arc<ServiceState<T, Worker<Payload>>>;
 /// [1]: std::sync::Weak
 pub struct ServiceState<T, Scope>
 where
-    T: IdlService,
+    T: ServiceIDL,
     Scope: WorkScope,
 {
     /// This handle is used to access the data that rcl holds for this service.
@@ -86,7 +86,7 @@ where
 
 impl<T, Scope> ServiceState<T, Scope>
 where
-    T: IdlService,
+    T: ServiceIDL,
     Scope: WorkScope + 'static,
 {
     /// Returns the name of the service.
@@ -166,7 +166,7 @@ where
     }
 }
 
-impl<T: IdlService> ServiceState<T, Node> {
+impl<T: ServiceIDL> ServiceState<T, Node> {
     /// Set the callback of this service, replacing the callback that was
     /// previously set.
     ///
@@ -192,7 +192,7 @@ impl<T: IdlService> ServiceState<T, Node> {
     }
 }
 
-impl<T: IdlService, Payload: 'static + Send + Sync> ServiceState<T, Worker<Payload>> {
+impl<T: ServiceIDL, Payload: 'static + Send + Sync> ServiceState<T, Worker<Payload>> {
     /// Set the callback of this service, replacing the callback that was
     /// previously set.
     ///
@@ -238,7 +238,7 @@ impl<'a, T: IntoPrimitiveOptions<'a>> From<T> for ServiceOptions<'a> {
     }
 }
 
-struct ServiceExecutable<T: IdlService, Scope: WorkScope> {
+struct ServiceExecutable<T: ServiceIDL, Scope: WorkScope> {
     handle: Arc<ServiceHandle>,
     callback: Arc<Mutex<AnyServiceCallback<T, Scope::Payload>>>,
     commands: Arc<WorkerCommands>,
@@ -246,7 +246,7 @@ struct ServiceExecutable<T: IdlService, Scope: WorkScope> {
 
 impl<T, Scope> RclPrimitive for ServiceExecutable<T, Scope>
 where
-    T: IdlService,
+    T: ServiceIDL,
     Scope: WorkScope,
 {
     unsafe fn execute(&mut self, ready: ReadyKind, payload: &mut dyn Any) -> Result<(), RclrsError> {
@@ -318,9 +318,9 @@ impl ServiceHandle {
     // |      rmw_take       |
     // +---------------------+
     // ```
-    fn take_request<T: IdlService>(&self) -> Result<(T::Request, rmw_request_id_t), RclrsError> {
+    fn take_request<T: ServiceIDL>(&self) -> Result<(T::Request, rmw_request_id_t), RclrsError> {
         let mut request_id_out = RequestId::zero_initialized_rmw();
-        type RmwMsg<T> = <<T as IdlService>::Request as Message>::RmwMsg;
+        type RmwMsg<T> = <<T as ServiceIDL>::Request as Message>::RmwMsg;
         let mut request_out = RmwMsg::<T>::default();
         let handle = &*self.lock();
         unsafe {
@@ -336,11 +336,11 @@ impl ServiceHandle {
     }
 
     /// Same as [`Self::take_request`] but includes additional info about the service
-    fn take_request_with_info<T: IdlService>(
+    fn take_request_with_info<T: ServiceIDL>(
         &self,
     ) -> Result<(T::Request, rmw_service_info_t), RclrsError> {
         let mut service_info_out = ServiceInfo::zero_initialized_rmw();
-        type RmwMsg<T> = <<T as IdlService>::Request as Message>::RmwMsg;
+        type RmwMsg<T> = <<T as ServiceIDL>::Request as Message>::RmwMsg;
         let mut request_out = RmwMsg::<T>::default();
         let handle = &*self.lock();
         unsafe {
@@ -355,7 +355,7 @@ impl ServiceHandle {
         Ok((T::Request::from_rmw_message(request_out), service_info_out))
     }
 
-    fn send_response<T: IdlService>(
+    fn send_response<T: ServiceIDL>(
         self: &Arc<Self>,
         request_id: &mut rmw_request_id_t,
         response: T::Response,
@@ -394,14 +394,15 @@ mod tests {
 
     #[test]
     fn traits() {
+        use crate::vendor::test_msgs;
         assert_send::<Service<test_msgs::srv::Arrays>>();
         assert_sync::<Service<test_msgs::srv::Arrays>>();
     }
 
     #[test]
     fn test_services() -> Result<(), RclrsError> {
+        use crate::vendor::test_msgs::srv;
         use crate::TopicNamesAndTypes;
-        use test_msgs::srv;
 
         let namespace = "/test_services_graph";
         let graph = construct_test_graph(namespace)?;
