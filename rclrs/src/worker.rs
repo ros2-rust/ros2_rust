@@ -4,7 +4,7 @@ use crate::{
     WorkerCommands, WorkerService, WorkerSubscription,
 };
 use futures::channel::oneshot;
-use rosidl_runtime_rs::{Message, Service as IdlService};
+use rosidl_runtime_rs::{Message, Service as ServiceIDL};
 use std::{
     any::Any,
     sync::{Arc, Mutex, Weak},
@@ -360,7 +360,7 @@ impl<Payload: 'static + Send + Sync> WorkerState<Payload> {
         callback: impl IntoWorkerServiceCallback<T, Payload, Args>,
     ) -> Result<WorkerService<T, Payload>, RclrsError>
     where
-        T: IdlService,
+        T: ServiceIDL,
     {
         ServiceState::<T, Worker<Payload>>::create(
             options,

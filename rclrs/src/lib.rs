@@ -223,3 +223,5 @@ pub use time::*;
 use time_source::*;
 pub use wait_set::*;
 pub use worker::*;
+
+pub use rosidl_runtime_rs::{Message as MessageIDL, Service as ServiceIDL};
