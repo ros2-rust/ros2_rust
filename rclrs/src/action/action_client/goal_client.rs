@@ -85,7 +85,40 @@ impl<A: Action> GoalClient<A> {
     }
 }
 
-/// Use this to
+/// Use this to receive a stream of messages from the action server which may be
+/// a mix of feedback messages, status updates, and the final result. These are
+/// multiplexed by the [`GoalEvent`] enum.
+///
+/// Remember to `use futures::StreamExt;` in order to use the streaming trait
+/// of this struct.
+///
+/// # Example
+///
+/// ```
+/// use rclrs::*;
+/// use crate::rclrs::vendor::example_interfaces::action::Fibonacci;
+/// use futures::StreamExt;
+///
+/// async fn process_goal_client_stream(
+///     mut goal_client_stream: GoalClientStream<Fibonacci>
+/// ) {
+///     while let Some(event) = goal_client_stream.next().await {
+///         match event {
+///             GoalEvent::Feedback(feedback) => {
+///                 println!("Received feedback: {feedback:?}");
+///             }
+///             GoalEvent::Status(status) => {
+///                 println!("Received status update: {status:?}");
+///             }
+///             GoalEvent::Result((status, result)) => {
+///                 println!("Received the final status: {status:?}");
+///                 println!("The result was: {result:?}");
+///                 break;
+///             }
+///         }
+///     }
+/// }
+/// ```
 pub struct GoalClientStream<A: Action> {
     stream_map: StreamMap<i32, Pin<Box<dyn Stream<Item = GoalEvent<A>> + Send>>>,
 }
