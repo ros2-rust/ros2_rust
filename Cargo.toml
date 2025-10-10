@@ -1,5 +1,6 @@
 [workspace]
 members = [
   "rclrs",
+  "generate_bindings",
 ]
 resolver = "2"

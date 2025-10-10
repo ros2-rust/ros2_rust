@@ -229,7 +229,7 @@ fn empty_goal_status_array() -> DropGuard<rcl_action_goal_status_array_t> {
 #[cfg(test)]
 mod tests {
     use crate::*;
-    use example_interfaces::action::{Fibonacci, Fibonacci_Goal, Fibonacci_Result, Fibonacci_Feedback};
+    use crate::vendor::example_interfaces::action::{Fibonacci, Fibonacci_Goal, Fibonacci_Result, Fibonacci_Feedback};
     use tokio::sync::mpsc::unbounded_channel;
     use futures::StreamExt;
     use std::time::Duration;
