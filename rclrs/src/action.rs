@@ -12,7 +12,12 @@ pub use action_server::*;
 use crate::{log_error, rcl_bindings::*, vendor::builtin_interfaces::msg::Time, DropGuard};
 use std::fmt;
 
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
 /// A unique identifier for a goal request.
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
+#[cfg_attr(feature = "serde", serde(transparent))]
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct GoalUuid(pub [u8; RCL_ACTION_UUID_SIZE]);
 
@@ -148,6 +153,7 @@ impl MultiCancelResponse {
 }
 
 /// Values defined by `action_msgs/msg/GoalStatus`
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[repr(i8)]
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum GoalStatusCode {
@@ -192,6 +198,7 @@ impl From<i8> for GoalStatusCode {
 
 /// A status update for a goal. Includes the status code, the goal uuid, and the
 /// timestamp of when the status was set by the action server.
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct GoalStatus {
     /// The status code describing what status was set by the action server.
