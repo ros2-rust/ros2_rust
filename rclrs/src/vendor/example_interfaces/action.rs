@@ -381,9 +381,6 @@ pub mod rmw {
         }
     }
 
-    #[cfg(feature = "serde")]
-    use serde::{Deserialize, Serialize};
-
     #[link(name = "example_interfaces__rosidl_typesupport_c")]
     extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__example_interfaces__action__Fibonacci_SendGoal_Request(
@@ -1005,9 +1002,6 @@ impl rosidl_runtime_rs::Message for Fibonacci_FeedbackMessage {
         }
     }
 }
-
-#[cfg(feature = "serde")]
-use serde::{Deserialize, Serialize};
 
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Clone, Debug, PartialEq, PartialOrd)]
