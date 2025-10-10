@@ -1,9 +1,6 @@
 use super::{CancellingGoal, ExecutingGoal, FeedbackPublisher, LiveActionServerGoal};
-use std::{
-    future::Future,
-    sync::Arc
-};
 use rosidl_runtime_rs::Action;
+use std::{future::Future, sync::Arc};
 
 /// This manages a goal which has been accepted but has not begun executing yet.
 /// It is allowed to transition into the executing or cancelling state.

@@ -1,11 +1,11 @@
-use crate::{GoalStatus, GoalUuid};
 use super::GoalClientLifecycle;
+use crate::{GoalStatus, GoalUuid};
 use rosidl_runtime_rs::Action;
-use tokio::sync::{watch::Receiver as Watcher, mpsc::UnboundedReceiver};
 use std::{
     ops::{Deref, DerefMut},
     sync::Arc,
 };
+use tokio::sync::{mpsc::UnboundedReceiver, watch::Receiver as Watcher};
 
 /// This struct allows you to receive every status update experienced by a goal.
 ///
@@ -48,7 +48,11 @@ impl<A: Action> StatusClient<A> {
         goal_id: GoalUuid,
         lifecycle: GoalClientLifecycle<A>,
     ) -> Self {
-        Self { receiver, goal_id, lifecycle }
+        Self {
+            receiver,
+            goal_id,
+            lifecycle,
+        }
     }
 }
 

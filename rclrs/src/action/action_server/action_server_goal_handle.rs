@@ -1,11 +1,10 @@
+use super::GoalStatusCode;
 use crate::{
-    rcl_bindings::*,
-    log_error,
-    GoalUuid, ToResult, RclrsError, RclReturnCode, RclErrorMsg, ActionServerHandle,
+    log_error, rcl_bindings::*, ActionServerHandle, GoalUuid, RclErrorMsg, RclReturnCode,
+    RclrsError, ToResult,
 };
-use super::{GoalStatusCode};
-use std::sync::{Mutex, MutexGuard};
 use rosidl_runtime_rs::{Action, RmwResultResponse};
+use std::sync::{Mutex, MutexGuard};
 
 /// This struct is a minimal bridge to the `rcl_action` API for action server goals.
 /// While the goal is still live, it will be managed by a [`LiveActionServerGoal`][1]
@@ -24,10 +23,7 @@ pub(super) struct ActionServerGoalHandle<A: Action> {
 }
 
 impl<A: Action> ActionServerGoalHandle<A> {
-    pub(super) fn new(
-        rcl_handle: rcl_action_goal_handle_s,
-        uuid: GoalUuid,
-    ) -> Self {
+    pub(super) fn new(rcl_handle: rcl_action_goal_handle_s, uuid: GoalUuid) -> Self {
         Self {
             rcl_handle: Mutex::new(rcl_handle),
             result_response: Mutex::new(ResponseState::new()),
@@ -75,7 +71,9 @@ impl<A: Action> ActionServerGoalHandle<A> {
         action_server_handle: &ActionServerHandle<A>,
         result: RmwResultResponse<A>,
     ) -> Result<(), RclrsError> {
-        self.result_response.lock()?.provide_result(action_server_handle, &self.uuid, result)
+        self.result_response
+            .lock()?
+            .provide_result(action_server_handle, &self.uuid, result)
     }
 
     /// Add a result requester for this action goal
@@ -84,7 +82,9 @@ impl<A: Action> ActionServerGoalHandle<A> {
         action_server_handle: &ActionServerHandle<A>,
         result_request: rmw_request_id_t,
     ) -> Result<(), RclrsError> {
-        self.result_response.lock()?.add_result_request(action_server_handle, result_request)
+        self.result_response
+            .lock()?
+            .add_result_request(action_server_handle, result_request)
     }
 }
 
@@ -137,7 +137,9 @@ impl<A: Action> ResponseState<A> {
                 );
                 return Err(RclrsError::RclError {
                     code: RclReturnCode::ActionGoalEventInvalid,
-                    msg: Some(RclErrorMsg("action goal response is already set".to_string())),
+                    msg: Some(RclErrorMsg(
+                        "action goal response is already set".to_string(),
+                    )),
                 });
             }
         };

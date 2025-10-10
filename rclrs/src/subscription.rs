@@ -261,7 +261,11 @@ impl<T, Payload: 'static> RclPrimitive for SubscriptionExecutable<T, Payload>
 where
     T: Message,
 {
-    unsafe fn execute(&mut self, ready: ReadyKind, payload: &mut dyn Any) -> Result<(), RclrsError> {
+    unsafe fn execute(
+        &mut self,
+        ready: ReadyKind,
+        payload: &mut dyn Any,
+    ) -> Result<(), RclrsError> {
         ready.for_basic()?;
         self.callback
             .lock()
@@ -412,8 +416,7 @@ impl Drop for SubscriptionHandle {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_helpers::*;
-    use crate::vendor::test_msgs::msg;
+    use crate::{test_helpers::*, vendor::test_msgs::msg};
 
     #[test]
     fn traits() {
@@ -524,8 +527,7 @@ mod tests {
 
     #[test]
     fn test_delayed_subscription() {
-        use crate::vendor::example_interfaces::msg::Empty;
-        use crate::*;
+        use crate::{vendor::example_interfaces::msg::Empty, *};
         use futures::{
             channel::{mpsc, oneshot},
             StreamExt,

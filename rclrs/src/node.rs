@@ -27,17 +27,18 @@ use futures::{
 
 use async_std::future::timeout;
 
-use rosidl_runtime_rs::{Message, Action};
+use rosidl_runtime_rs::{Action, Message};
 
 use crate::{
     rcl_bindings::*, ActionClient, ActionClientOptions, ActionClientState, ActionGoalReceiver,
-    ActionServer, ActionServerOptions, ActionServerState, Client, ClientOptions,
-    ClientState, Clock, ContextHandle, ExecutorCommands, IntoAsyncServiceCallback,
+    ActionServer, ActionServerOptions, ActionServerState, Client, ClientOptions, ClientState,
+    Clock, ContextHandle, ExecutorCommands, IntoAsyncServiceCallback,
     IntoAsyncSubscriptionCallback, IntoNodeServiceCallback, IntoNodeSubscriptionCallback,
-    LogParams, Logger, ParameterBuilder, ParameterInterface, ParameterVariant, Parameters,
-    Promise, Publisher, PublisherOptions, PublisherState, RclrsError, RequestedGoal, Service,
+    LogParams, Logger, ParameterBuilder, ParameterInterface, ParameterVariant, Parameters, Promise,
+    Publisher, PublisherOptions, PublisherState, RclrsError, RequestedGoal, Service,
     ServiceOptions, ServiceState, Subscription, SubscriptionOptions, SubscriptionState,
-    TerminatedGoal, TimeSource, ToLogParams, Worker, WorkerOptions, WorkerState, ENTITY_LIFECYCLE_MUTEX,
+    TerminatedGoal, TimeSource, ToLogParams, Worker, WorkerOptions, WorkerState,
+    ENTITY_LIFECYCLE_MUTEX,
 };
 
 /// A processing unit that can communicate with other nodes. See the API of

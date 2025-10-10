@@ -1,11 +1,10 @@
-use crate::{
-    rcl_bindings::*,
-    log_error,
-    GoalUuid, RclrsError, RclrsErrorFilter, ToResult,
+use super::{
+    AcceptedGoal, ActionServerGoalBoard, ActionServerGoalHandle, LiveActionServerGoal,
+    TerminatedGoal,
 };
-use super::{ActionServerGoalBoard, ActionServerGoalHandle, LiveActionServerGoal, AcceptedGoal, TerminatedGoal};
-use std::sync::Arc;
+use crate::{log_error, rcl_bindings::*, GoalUuid, RclrsError, RclrsErrorFilter, ToResult};
 use rosidl_runtime_rs::Action;
+use std::sync::Arc;
 
 /// An action goal that has been requested but not accepted yet. If this is
 /// dropped without being accepted then the goal request will be rejected.
@@ -45,9 +44,13 @@ impl<A: Action> RequestedGoal<A> {
                 rcl_action_get_zero_initialized_goal_info()
             };
             goal_info.goal_id.uuid = *self.uuid;
-            goal_info.stamp = self.board.node().get_clock().now().to_rcl().unwrap_or(
-                builtin_interfaces__msg__Time { sec: 0, nanosec: 0 }
-            );
+            goal_info.stamp = self
+                .board
+                .node()
+                .get_clock()
+                .now()
+                .to_rcl()
+                .unwrap_or(builtin_interfaces__msg__Time { sec: 0, nanosec: 0 });
 
             let mut server_handle = self.board.handle.lock();
             let goal_handle_ptr = unsafe {
@@ -85,7 +88,12 @@ impl<A: Action> RequestedGoal<A> {
         // We need to store a strong reference to the goal handle in the action
         // server handle to ensure the goal handle outlives its use within the
         // action server.
-        self.board.handle.goals.lock().unwrap().insert(*handle.goal_id(), Arc::clone(&handle));
+        self.board
+            .handle
+            .goals
+            .lock()
+            .unwrap()
+            .insert(*handle.goal_id(), Arc::clone(&handle));
 
         self.accepted = true;
         if let Err(err) = self.send_goal_response() {
@@ -103,7 +111,11 @@ impl<A: Action> RequestedGoal<A> {
 
         // Add the live goal to the goal board so the action server executor can
         // interact with it.
-        self.board.live_goals.lock().unwrap().insert(self.uuid, Arc::downgrade(&live));
+        self.board
+            .live_goals
+            .lock()
+            .unwrap()
+            .insert(self.uuid, Arc::downgrade(&live));
 
         Ok(AcceptedGoal::new(live))
     }
@@ -120,7 +132,13 @@ impl<A: Action> RequestedGoal<A> {
     }
 
     fn send_goal_response(&mut self) -> Result<(), RclrsError> {
-        let stamp = self.board.node().get_clock().now().to_sec_nanosec().unwrap_or((0, 0));
+        let stamp = self
+            .board
+            .node()
+            .get_clock()
+            .now()
+            .to_sec_nanosec()
+            .unwrap_or((0, 0));
         let mut response_rmw = <A as Action>::create_goal_response(self.accepted, stamp);
         unsafe {
             rcl_action_send_goal_response(

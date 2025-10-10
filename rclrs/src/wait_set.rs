@@ -144,7 +144,7 @@ impl WaitSet {
             // For the remaining entities, check if they were activated and then run
             // the callback for those that were.
             for waiter in self.primitives.values_mut().flat_map(|v| v) {
-                if let Some(ready) =  waiter.is_ready(&self.handle.rcl_wait_set) {
+                if let Some(ready) = waiter.is_ready(&self.handle.rcl_wait_set) {
                     f(ready, &mut *waiter.primitive)?;
                 }
             }

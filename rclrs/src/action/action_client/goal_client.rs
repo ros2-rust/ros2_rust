@@ -1,13 +1,13 @@
 use crate::{
-    vendor::builtin_interfaces::msg::Time,
-    CancellationClient, FeedbackClient, GoalStatus, GoalStatusCode, StatusWatcher, ResultClient,
+    vendor::builtin_interfaces::msg::Time, CancellationClient, FeedbackClient, GoalStatus,
+    GoalStatusCode, ResultClient, StatusWatcher,
 };
 use rosidl_runtime_rs::Action;
-use tokio_stream::{StreamMap, Stream};
 use std::{
     pin::Pin,
     task::{Context, Poll},
 };
+use tokio_stream::{Stream, StreamMap};
 
 /// The goal client bundles a set of receivers that will allow you to await
 /// different information from the action server, such as feedback messages,
@@ -49,7 +49,12 @@ impl<A: Action> Clone for GoalClient<A> {
 impl<A: Action> GoalClient<A> {
     /// Create a concurrent stream that will emit events related to this goal.
     pub fn stream(self) -> GoalClientStream<A> {
-        let Self { mut feedback, mut status, result, .. } = self;
+        let Self {
+            mut feedback,
+            mut status,
+            result,
+            ..
+        } = self;
 
         let rx_feedback = Box::pin(async_stream::stream! {
             while let Some(msg) = feedback.recv().await {
@@ -71,7 +76,8 @@ impl<A: Action> GoalClient<A> {
             yield GoalEvent::Result(result.await);
         }) as Pin<Box<dyn Stream<Item = GoalEvent<A>> + Send>>;
 
-        let mut stream_map: StreamMap<i32, Pin<Box<dyn Stream<Item = GoalEvent<A>> + Send>>> = StreamMap::new();
+        let mut stream_map: StreamMap<i32, Pin<Box<dyn Stream<Item = GoalEvent<A>> + Send>>> =
+            StreamMap::new();
         stream_map.insert(0, rx_feedback);
         stream_map.insert(1, rx_status);
         stream_map.insert(2, rx_result);

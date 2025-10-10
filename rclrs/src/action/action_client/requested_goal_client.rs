@@ -1,13 +1,13 @@
-use crate::{GoalClient, GoalUuid};
 use super::GoalClientLifecycle;
+use crate::{GoalClient, GoalUuid};
 use rosidl_runtime_rs::Action;
-use tokio::sync::oneshot::Receiver;
 use std::{
     future::Future,
     ops::{Deref, DerefMut},
     pin::Pin,
     task::{Context, Poll},
 };
+use tokio::sync::oneshot::Receiver;
 
 /// This struct allows you to receive a [`GoalClient`] for a goal that you
 /// requested. Call `.await` on this to obtain the response to the goal request.
@@ -38,7 +38,11 @@ impl<A: Action> RequestedGoalClient<A> {
         receiver: Receiver<Option<GoalClient<A>>>,
         lifecycle: GoalClientLifecycle<A>,
     ) -> Self {
-        Self { goal_id, receiver, lifecycle }
+        Self {
+            goal_id,
+            receiver,
+            lifecycle,
+        }
     }
 }
 

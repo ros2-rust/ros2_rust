@@ -1,12 +1,11 @@
-use crate::{
-    action::GoalUuid,
-    error::ToResult,
-    rcl_bindings::*,
-    ActionGoalReceiver, DropGuard, GoalStatusCode, Node, NodeHandle, QoSProfile, RclPrimitive, RclrsError,
-    RclPrimitiveHandle, RclPrimitiveKind, ReadyKind, TakeFailedAsNone,
-    Waitable, WaitableLifecycle, ENTITY_LIFECYCLE_MUTEX,
-};
 use super::empty_goal_status_array;
+use crate::{
+    action::GoalUuid, error::ToResult, rcl_bindings::*, ActionGoalReceiver, DropGuard,
+    GoalStatusCode, Node, NodeHandle, QoSProfile, RclPrimitive, RclPrimitiveHandle,
+    RclPrimitiveKind, RclrsError, ReadyKind, TakeFailedAsNone, Waitable, WaitableLifecycle,
+    ENTITY_LIFECYCLE_MUTEX,
+};
+use futures::future::BoxFuture;
 use rosidl_runtime_rs::{Action, Message, RmwGoalRequest, RmwResultRequest};
 use std::{
     any::Any,
@@ -16,8 +15,7 @@ use std::{
     future::Future,
     sync::{Arc, Mutex, MutexGuard, Weak},
 };
-use futures::future::BoxFuture;
-use tokio::sync::mpsc::{UnboundedSender, UnboundedReceiver};
+use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
 mod accepted_goal;
 pub use accepted_goal::*;
@@ -131,13 +129,14 @@ impl<A: Action> ActionServerState<A> {
     pub fn set_callback<Task>(
         &self,
         mut callback: impl FnMut(RequestedGoal<A>) -> Task + Send + Sync + 'static,
-    )
-    where
+    ) where
         Task: Future<Output = TerminatedGoal> + Send + Sync + 'static,
     {
-        let callback = Box::new(move |requested_goal| -> BoxFuture<'static, TerminatedGoal> {
-            Box::pin(callback(requested_goal))
-        });
+        let callback = Box::new(
+            move |requested_goal| -> BoxFuture<'static, TerminatedGoal> {
+                Box::pin(callback(requested_goal))
+            },
+        );
 
         let mut dispatch = match self.board.dispatch.lock() {
             Ok(dispatch) => dispatch,
@@ -173,11 +172,17 @@ impl<A: Action> ActionServerState<A> {
     where
         Task: Future<Output = TerminatedGoal> + Send + Sync + 'static,
     {
-        let callback = Box::new(move |requested_goal| -> BoxFuture<'static, TerminatedGoal> {
-            Box::pin(callback(requested_goal))
-        });
+        let callback = Box::new(
+            move |requested_goal| -> BoxFuture<'static, TerminatedGoal> {
+                Box::pin(callback(requested_goal))
+            },
+        );
 
-        Ok(Arc::new(Self::new(node, options, GoalDispatch::Callback(callback))?))
+        Ok(Arc::new(Self::new(
+            node,
+            options,
+            GoalDispatch::Callback(callback),
+        )?))
     }
 
     pub(super) fn new_for_receiver<'a>(
@@ -271,13 +276,14 @@ impl<A: Action> ActionServerState<A> {
         &self,
         mut receiver: UnboundedReceiver<RequestedGoal<A>>,
         mut callback: impl FnMut(RequestedGoal<A>) -> Task + Send + Sync + 'static,
-    )
-    where
+    ) where
         Task: Future<Output = TerminatedGoal> + Send + Sync + 'static,
     {
-        let mut callback = Box::new(move |requested_goal| -> BoxFuture<'static, TerminatedGoal> {
-            Box::pin(callback(requested_goal))
-        });
+        let mut callback = Box::new(
+            move |requested_goal| -> BoxFuture<'static, TerminatedGoal> {
+                Box::pin(callback(requested_goal))
+            },
+        );
 
         let mut dispatch = match self.board.dispatch.lock() {
             Ok(dispatch) => dispatch,
@@ -309,11 +315,7 @@ struct ActionServerGoalBoard<A: Action> {
 }
 
 impl<A: Action> ActionServerGoalBoard<A> {
-    fn new(
-        dispatch: GoalDispatch<A>,
-        handle: Arc<ActionServerHandle<A>>,
-        node: &Node,
-    ) -> Self {
+    fn new(dispatch: GoalDispatch<A>, handle: Arc<ActionServerHandle<A>>, node: &Node) -> Self {
         Self {
             dispatch: Mutex::new(dispatch),
             handle,
@@ -327,7 +329,9 @@ impl<A: Action> ActionServerGoalBoard<A> {
     }
 
     fn execute_goal_request(self: &Arc<Self>) -> Result<(), RclrsError> {
-        let Some((request, goal_request_id)) = self.handle.take_goal_request().take_failed_as_none()? else {
+        let Some((request, goal_request_id)) =
+            self.handle.take_goal_request().take_failed_as_none()?
+        else {
             return Ok(());
         };
 
@@ -357,7 +361,9 @@ impl<A: Action> ActionServerGoalBoard<A> {
     }
 
     fn execute_cancel_request(&self) -> Result<(), RclrsError> {
-        let Some((request, request_id)) = self.handle.take_cancel_request().take_failed_as_none()? else {
+        let Some((request, request_id)) =
+            self.handle.take_cancel_request().take_failed_as_none()?
+        else {
             return Ok(());
         };
 
@@ -423,7 +429,9 @@ impl<A: Action> ActionServerGoalBoard<A> {
     }
 
     fn execute_result_request(&self) -> Result<(), RclrsError> {
-        let Some((request, mut request_id)) = self.handle.take_result_request().take_failed_as_none()? else {
+        let Some((request, mut request_id)) =
+            self.handle.take_result_request().take_failed_as_none()?
+        else {
             return Ok(());
         };
 
@@ -434,7 +442,8 @@ impl<A: Action> ActionServerGoalBoard<A> {
             // The goal either never existed or expired, so we give back an
             // unknown response
             let result_rmw = <<A::Result as Message>::RmwMsg as Default>::default();
-            let mut response_rmw = A::create_result_response(GoalStatusCode::Unknown as i8, result_rmw);
+            let mut response_rmw =
+                A::create_result_response(GoalStatusCode::Unknown as i8, result_rmw);
 
             let server = self.handle.lock();
             unsafe {
@@ -444,7 +453,7 @@ impl<A: Action> ActionServerGoalBoard<A> {
                 rcl_action_send_result_response(
                     &*server,
                     &mut request_id,
-                    &mut response_rmw as *mut _ as *mut _
+                    &mut response_rmw as *mut _ as *mut _,
                 )
             }
             .ok()?;
@@ -466,7 +475,12 @@ impl<A: Action> ActionServerGoalBoard<A> {
                 // SAFETY: The action server is locked through the handle. The `expired_goal`
                 // argument points to an array of one rcl_action_goal_info_t and num_expired points
                 // to a `size_t`.
-                rcl_action_expire_goals(&*self.handle.lock(), &mut expired_goal, 1, &mut num_expired)
+                rcl_action_expire_goals(
+                    &*self.handle.lock(),
+                    &mut expired_goal,
+                    1,
+                    &mut num_expired,
+                )
             }
             .ok()?;
 
@@ -481,9 +495,10 @@ impl<A: Action> ActionServerGoalBoard<A> {
         }
 
         // Clear any lingering dropped goals from the board to avoid leaks
-        self.live_goals.lock().unwrap().retain(
-            |_, weak| weak.upgrade().is_some()
-        );
+        self.live_goals
+            .lock()
+            .unwrap()
+            .retain(|_, weak| weak.upgrade().is_some());
 
         Ok(())
     }
@@ -596,7 +611,9 @@ impl<A: Action> ActionServerHandle<A> {
         Ok((request_rmw, request_id))
     }
 
-    fn take_cancel_request(&self) -> Result<(action_msgs__srv__CancelGoal_Request, rmw_request_id_t), RclrsError> {
+    fn take_cancel_request(
+        &self,
+    ) -> Result<(action_msgs__srv__CancelGoal_Request, rmw_request_id_t), RclrsError> {
         let mut request_id = rmw_request_id_t {
             writer_guid: [0; RCL_ACTION_UUID_SIZE],
             sequence_number: 0,

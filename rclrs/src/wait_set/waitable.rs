@@ -4,8 +4,8 @@ use std::sync::{
 };
 
 use crate::{
-    error::ToResult, log_error, rcl_bindings::*, ActionServerReady, ActionClientReady, GuardCondition,
-    RclPrimitive, RclPrimitiveHandle, RclPrimitiveKind, RclrsError, ReadyKind,
+    error::ToResult, log_error, rcl_bindings::*, ActionClientReady, ActionServerReady,
+    GuardCondition, RclPrimitive, RclPrimitiveHandle, RclPrimitiveKind, RclrsError, ReadyKind,
 };
 
 /// This struct manages the presence of an rcl primitive inside the wait set.
@@ -56,7 +56,7 @@ impl Waitable {
                     // element of the array at the index-th position.
                     ReadyKind::from_ptr(unsafe { wait_set.subscriptions.add(index) })
                 })
-            },
+            }
             RclPrimitiveKind::GuardCondition => {
                 self.index_in_wait_set.and_then(|index| {
                     // SAFETY: Each field in the wait set is an array of points.
@@ -115,7 +115,7 @@ impl Waitable {
                         None
                     }
                 }
-            },
+            }
             RclPrimitiveKind::ActionClient => {
                 match self.primitive.handle() {
                     RclPrimitiveHandle::ActionClient(handle) => {
@@ -168,9 +168,12 @@ impl Waitable {
                 RclPrimitiveHandle::ActionServer(handle) => {
                     rcl_action_wait_set_add_action_server(wait_set, &*handle, std::ptr::null_mut())
                 }
-                RclPrimitiveHandle::ActionClient(handle) => {
-                    rcl_action_wait_set_add_action_client(wait_set, &*handle, std::ptr::null_mut(), std::ptr::null_mut())
-                }
+                RclPrimitiveHandle::ActionClient(handle) => rcl_action_wait_set_add_action_client(
+                    wait_set,
+                    &*handle,
+                    std::ptr::null_mut(),
+                    std::ptr::null_mut(),
+                ),
             }
         }
         .ok()?;
@@ -221,11 +224,7 @@ impl WaitableCount {
         Self::default()
     }
 
-    pub(super) fn add_group(
-        &mut self,
-        kind: &RclPrimitiveKind,
-        waitables: &Vec<Waitable>,
-    ) {
+    pub(super) fn add_group(&mut self, kind: &RclPrimitiveKind, waitables: &Vec<Waitable>) {
         match kind {
             RclPrimitiveKind::Subscription => self.subscriptions += waitables.len(),
             RclPrimitiveKind::GuardCondition => self.guard_conditions += waitables.len(),

@@ -1,6 +1,6 @@
-use super::{LiveActionServerGoal, FeedbackPublisher, TerminatedGoal};
-use std::sync::Arc;
+use super::{FeedbackPublisher, LiveActionServerGoal, TerminatedGoal};
 use rosidl_runtime_rs::Action;
+use std::sync::Arc;
 
 /// This represents a goal that is in the Cancelling state. This struct is held
 /// by an action server implementation and is used to provide feedback to the
@@ -27,7 +27,9 @@ impl<A: Action> CancellingGoal<A> {
     /// be changed after this. Publish all relevant feedback before calling this.
     pub fn cancelled_with(self, result: A::Result) -> TerminatedGoal {
         self.live.transition_to_cancelled(result);
-        TerminatedGoal { uuid: *self.live.goal_id() }
+        TerminatedGoal {
+            uuid: *self.live.goal_id(),
+        }
     }
 
     /// Transition the goal into the succeeded state.
@@ -36,7 +38,9 @@ impl<A: Action> CancellingGoal<A> {
     /// be changed after this. Publish all relevant feedback before calling this.
     pub fn succeeded_with(self, result: A::Result) -> TerminatedGoal {
         self.live.transition_to_succeed(result);
-        TerminatedGoal { uuid: *self.live.goal_id() }
+        TerminatedGoal {
+            uuid: *self.live.goal_id(),
+        }
     }
 
     /// Transition the goal into the aborted state.
@@ -45,7 +49,9 @@ impl<A: Action> CancellingGoal<A> {
     /// be changed after this. Publish all relevant feedback before calling this.
     pub fn aborted_with(self, result: A::Result) -> TerminatedGoal {
         self.live.transition_to_aborted(result);
-        TerminatedGoal { uuid: *self.live.goal_id() }
+        TerminatedGoal {
+            uuid: *self.live.goal_id(),
+        }
     }
 
     /// Publish feedback for action clients to read.

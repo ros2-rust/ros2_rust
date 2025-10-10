@@ -1,7 +1,7 @@
-use crate::GoalStatusCode;
 use super::GoalClientLifecycle;
+use crate::GoalStatusCode;
+use futures::{future::Shared, FutureExt};
 use rosidl_runtime_rs::Action;
-use tokio::sync::oneshot::Receiver;
 use std::{
     future::Future,
     ops::{Deref, DerefMut},
@@ -9,7 +9,7 @@ use std::{
     sync::Arc,
     task::{Context, Poll},
 };
-use futures::{future::Shared, FutureExt};
+use tokio::sync::oneshot::Receiver;
 
 /// This struct allows you to receive the result of the goal. Through the [`DerefMut`]
 /// trait you can use the [`oneshot::Receiver`][Receiver] API to await the final

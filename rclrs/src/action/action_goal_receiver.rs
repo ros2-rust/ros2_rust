@@ -1,6 +1,6 @@
 use crate::{
-    ActionServer, ActionServerOptions, ActionServerState, RequestedGoal, TerminatedGoal,
-    Node, RclrsError,
+    ActionServer, ActionServerOptions, ActionServerState, Node, RclrsError, RequestedGoal,
+    TerminatedGoal,
 };
 use rosidl_runtime_rs::Action;
 use std::{

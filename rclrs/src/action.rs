@@ -9,14 +9,8 @@ pub use action_goal_receiver::*;
 pub(crate) mod action_server;
 pub use action_server::*;
 
-use crate::{
-    rcl_bindings::*,
-    vendor::builtin_interfaces::msg::Time,
-    DropGuard,
-    log_error,
-};
+use crate::{log_error, rcl_bindings::*, vendor::builtin_interfaces::msg::Time, DropGuard};
 use std::fmt;
-
 
 /// A unique identifier for a goal request.
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -222,36 +216,41 @@ fn empty_goal_status_array() -> DropGuard<rcl_action_goal_status_array_t> {
             // SAFETY: The goal_status array is either zero-initialized and empty or populated by
             // `rcl_action_get_goal_status_array`. In either case, it can be safely finalized.
             rcl_action_goal_status_array_fini(&mut goal_statuses);
-        }
+        },
     )
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::*;
-    use crate::vendor::example_interfaces::action::{Fibonacci, Fibonacci_Goal, Fibonacci_Result, Fibonacci_Feedback};
-    use tokio::sync::mpsc::unbounded_channel;
+    use crate::{
+        vendor::example_interfaces::action::{
+            Fibonacci, Fibonacci_Feedback, Fibonacci_Goal, Fibonacci_Result,
+        },
+        *,
+    };
     use futures::StreamExt;
     use std::time::Duration;
+    use tokio::sync::mpsc::unbounded_channel;
 
     #[test]
     fn test_action_success() {
         let mut executor = Context::default().create_basic_executor();
 
-        let node = executor.create_node(&format!("test_action_success_{}", line!())).unwrap();
+        let node = executor
+            .create_node(&format!("test_action_success_{}", line!()))
+            .unwrap();
         let action_name = format!("test_action_success_{}_action", line!());
-        let _action_server = node.create_action_server(
-            &action_name,
-            fibonacci_action,
-        ).unwrap();
+        let _action_server = node
+            .create_action_server(&action_name, fibonacci_action)
+            .unwrap();
 
-        let client = node.create_action_client::<Fibonacci>(&action_name).unwrap();
+        let client = node
+            .create_action_client::<Fibonacci>(&action_name)
+            .unwrap();
 
         let order_10_sequence = [1, 1, 2, 3, 5, 8, 13, 21, 34, 55];
 
-        let request = client.request_goal(Fibonacci_Goal {
-            order: 10,
-        });
+        let request = client.request_goal(Fibonacci_Goal { order: 10 });
 
         let promise = executor.commands().run(async move {
             let mut goal_client_stream = request.await.unwrap().stream();
@@ -264,7 +263,12 @@ mod tests {
                     }
                     GoalEvent::Status(s) => {
                         assert!(
-                            matches!(s.code, GoalStatusCode::Unknown | GoalStatusCode::Executing | GoalStatusCode::Succeeded),
+                            matches!(
+                                s.code,
+                                GoalStatusCode::Unknown
+                                    | GoalStatusCode::Executing
+                                    | GoalStatusCode::Succeeded
+                            ),
                             "Actual code: {:?}",
                             s.code,
                         );
@@ -280,9 +284,7 @@ mod tests {
 
         executor.spin(SpinOptions::default().until_promise_resolved(promise));
 
-        let request = client.request_goal(Fibonacci_Goal {
-            order: 10,
-        });
+        let request = client.request_goal(Fibonacci_Goal { order: 10 });
 
         let promise = executor.commands().run(async move {
             let (status, result) = request.await.unwrap().result.await;
@@ -310,7 +312,6 @@ mod tests {
 
         let (sender, mut receiver) = unbounded_channel();
         std::thread::spawn(move || {
-
             let mut previous = 0;
             let mut current = 1;
 
@@ -333,11 +334,9 @@ mod tests {
                 Ok(Some(next)) => {
                     // We have a new item in the sequence
                     sequence.push(next);
-                    executing.publish_feedback(
-                        Fibonacci_Feedback {
-                            sequence: sequence.clone(),
-                        }
-                    );
+                    executing.publish_feedback(Fibonacci_Feedback {
+                        sequence: sequence.clone(),
+                    });
                 }
                 Ok(None) => {
                     // The sequence has finished

@@ -1,6 +1,5 @@
 use cargo_manifest::Manifest;
-use std::path::Path;
-use std::fs::read_dir;
+use std::{fs::read_dir, path::Path};
 
 const AMENT_PREFIX_PATH: &str = "AMENT_PREFIX_PATH";
 const ROS_DISTRO: &str = "ROS_DISTRO";
@@ -23,12 +22,18 @@ fn main() {
 
     let Ok(workspace) = Manifest::from_path("Cargo.toml")
         .map_err(|_| ())
-        .and_then(|manifest| manifest.workspace.ok_or(())) else
-    {
-        panic!(" > ERROR: Run the generate_bindings script from the root Cargo workspace of ros2_rust");
+        .and_then(|manifest| manifest.workspace.ok_or(()))
+    else {
+        panic!(
+            " > ERROR: Run the generate_bindings script from the root Cargo workspace of ros2_rust"
+        );
     };
 
-    let has_rclrs = workspace.members.iter().find(|member | *member == "rclrs").is_some();
+    let has_rclrs = workspace
+        .members
+        .iter()
+        .find(|member| *member == "rclrs")
+        .is_some();
     if !has_rclrs {
         panic!(
             " > ERROR: Run the generate_bindings script from the root Cargo workspace of ros2_rust. \
@@ -91,5 +96,7 @@ fn main() {
 
     let bindings = builder.generate().expect("Unable to generate bindings");
     let bindings_path = format!("rclrs/src/rcl_bindings_generated_{ros_distro}.rs");
-    bindings.write_to_file(bindings_path).expect("Failed to generate bindings");
+    bindings
+        .write_to_file(bindings_path)
+        .expect("Failed to generate bindings");
 }

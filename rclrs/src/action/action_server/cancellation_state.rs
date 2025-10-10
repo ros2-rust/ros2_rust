@@ -1,26 +1,26 @@
+use super::ActionServerHandle;
 use crate::{
+    log_error,
     rcl_bindings::*,
     vendor::{
-        action_msgs::{
-            msg::GoalInfo,
-            srv::CancelGoal_Response,
-        },
+        action_msgs::{msg::GoalInfo, srv::CancelGoal_Response},
         unique_identifier_msgs::msg::UUID,
     },
-    log_error,
-    CancelResponseCode, GoalUuid, ToResult, Node, RclrsErrorFilter,
+    CancelResponseCode, GoalUuid, Node, RclrsErrorFilter, ToResult,
 };
-use super::ActionServerHandle;
+use futures::{
+    future::{select, Either},
+    pin_mut,
+};
+use futures_lite::future::race;
+use rosidl_runtime_rs::{Action, Message};
 use std::{
     borrow::Cow,
     collections::HashSet,
-    sync::{Arc, Mutex},
     future::Future,
+    sync::{Arc, Mutex},
 };
-use futures::{future::{select, Either}, pin_mut};
-use futures_lite::future::race;
-use rosidl_runtime_rs::{Action, Message};
-use tokio::sync::watch::{Sender, Receiver, channel as watch_channel};
+use tokio::sync::watch::{channel as watch_channel, Receiver, Sender};
 
 pub(super) struct CancellationState<A: Action> {
     receiver: Receiver<bool>,
@@ -33,7 +33,10 @@ pub(super) struct CancellationState<A: Action> {
 }
 
 impl<A: Action> CancellationState<A> {
-    pub(super) fn until_cancel_requested<F: Future + Unpin>(&self, f: F) -> impl Future<Output = Result<F::Output, F>> {
+    pub(super) fn until_cancel_requested<F: Future + Unpin>(
+        &self,
+        f: F,
+    ) -> impl Future<Output = Result<F::Output, F>> {
         let mut watcher = self.receiver.clone();
         async move {
             let cancel_requested = watcher.wait_for(|request_received| *request_received);
@@ -45,17 +48,15 @@ impl<A: Action> CancellationState<A> {
         }
     }
 
-    pub(super) fn unless_cancel_requested<F: Future>(&self, f: F) -> impl Future<Output = Result<F::Output, ()>> {
+    pub(super) fn unless_cancel_requested<F: Future>(
+        &self,
+        f: F,
+    ) -> impl Future<Output = Result<F::Output, ()>> {
         let mut watcher = self.receiver.clone();
-        race(
-            async move {
-                Ok(f.await)
-            },
-            async move {
-                let _ = watcher.wait_for(|request_received| *request_received).await;
-                Err(())
-            }
-        )
+        race(async move { Ok(f.await) }, async move {
+            let _ = watcher.wait_for(|request_received| *request_received).await;
+            Err(())
+        })
     }
 
     /// Check if a cancellation is currently being requested.
@@ -63,11 +64,7 @@ impl<A: Action> CancellationState<A> {
         *self.receiver.borrow()
     }
 
-    pub(super) fn request_cancellation(
-        &self,
-        request: CancellationRequest<A>,
-        uuid: &GoalUuid,
-    ) {
+    pub(super) fn request_cancellation(&self, request: CancellationRequest<A>, uuid: &GoalUuid) {
         let mut mode = self.mode.lock().unwrap();
         match &mut *mode {
             CancellationMode::None => {
@@ -168,7 +165,7 @@ pub(super) struct CancellationRequest<A: Action> {
 impl<A: Action> Clone for CancellationRequest<A> {
     fn clone(&self) -> Self {
         Self {
-            inner: Arc::clone(&self.inner)
+            inner: Arc::clone(&self.inner),
         }
     }
 }
@@ -189,7 +186,7 @@ impl<A: Action> CancellationRequest<A> {
                 received: Default::default(),
                 accepted: Vec::new(),
                 response_sent: false,
-            }))
+            })),
         }
     }
 
@@ -199,7 +196,12 @@ impl<A: Action> CancellationRequest<A> {
             return;
         }
 
-        let stamp = inner.node.get_clock().now().to_ros_msg().unwrap_or_default();
+        let stamp = inner
+            .node
+            .get_clock()
+            .now()
+            .to_ros_msg()
+            .unwrap_or_default();
         let info = GoalInfo {
             goal_id: UUID { uuid: *uuid },
             stamp,
@@ -217,7 +219,6 @@ impl<A: Action> CancellationRequest<A> {
 
         inner.respond_if_ready();
     }
-
 }
 
 struct CancellationRequestInner<A: Action> {
@@ -256,7 +257,8 @@ impl<A: Action> CancellationRequestInner<A> {
             response.return_code = CancelResponseCode::Accept as i8;
         }
 
-        let mut response_rmw = CancelGoal_Response::into_rmw_message(Cow::Owned(response)).into_owned();
+        let mut response_rmw =
+            CancelGoal_Response::into_rmw_message(Cow::Owned(response)).into_owned();
         let r = unsafe {
             // SAFETY: The action server handle is locked and so synchronized with other functions.
             // The request_id and response are both uniquely owned or borrowed, and so neither will

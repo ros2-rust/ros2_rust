@@ -1,18 +1,10 @@
-use crate::{
-    rcl_bindings::*,
-    log_error,
-    RclrsError, ToResult,
-};
 use super::{
-    ActionServerGoalHandle, ActionServerHandle, CancellationState,
-    CancellationRequest, GoalStatusCode, TerminalStatus,
+    ActionServerGoalHandle, ActionServerHandle, CancellationRequest, CancellationState,
+    GoalStatusCode, TerminalStatus,
 };
-use std::{
-    borrow::Cow,
-    sync::Arc,
-    ops::Deref,
-};
+use crate::{log_error, rcl_bindings::*, RclrsError, ToResult};
 use rosidl_runtime_rs::{Action, Message};
+use std::{borrow::Cow, ops::Deref, sync::Arc};
 
 /// This struct is the bridge to the rcl_action API for action server goals that
 /// are still active. It can be used to perform transitions while keeping data in
@@ -57,7 +49,8 @@ impl<A: Action> LiveActionServerGoal<A> {
     }
 
     pub(super) fn request_cancellation(&self, request: CancellationRequest<A>) {
-        self.cancellation.request_cancellation(request, self.goal_id());
+        self.cancellation
+            .request_cancellation(request, self.goal_id());
     }
 
     /// Indicate that the goal is being cancelled.
@@ -170,18 +163,17 @@ impl<A: Action> LiveActionServerGoal<A> {
     /// This should only be called in between a goal being accepted and terminated,
     /// but that is not enforced in this method.
     pub(super) fn publish_feedback(&self, feedback: A::Feedback) {
-        let feedback_rmw = <<A as Action>::Feedback as Message>::into_rmw_message(Cow::Owned(feedback));
-        let mut feedback_msg = <A as Action>::create_feedback_message(&*self.goal_id(), feedback_rmw.into_owned());
+        let feedback_rmw =
+            <<A as Action>::Feedback as Message>::into_rmw_message(Cow::Owned(feedback));
+        let mut feedback_msg =
+            <A as Action>::create_feedback_message(&*self.goal_id(), feedback_rmw.into_owned());
         let r = unsafe {
             // SAFETY: The action server is locked through the handle, meaning that no other
             // non-thread-safe functions can be called on it at the same time. The feedback_msg is
             // exclusively owned here, ensuring that it won't be modified during the call.
             // rcl_action_publish_feedback() guarantees that it won't modify `feedback_msg`.
-            rcl_action_publish_feedback(
-                &*self.server.lock(),
-                &mut feedback_msg as *mut _ as *mut _,
-            )
-            .ok()
+            rcl_action_publish_feedback(&*self.server.lock(), &mut feedback_msg as *mut _ as *mut _)
+                .ok()
         };
 
         if let Err(err) = r {
@@ -225,14 +217,11 @@ impl<A: Action> LiveActionServerGoal<A> {
         Ok(())
     }
 
-    fn terminate_goal(
-        &self,
-        status: TerminalStatus,
-        result: A::Result,
-    ) -> Result<(), RclrsError> {
+    fn terminate_goal(&self, status: TerminalStatus, result: A::Result) -> Result<(), RclrsError> {
         let result_rmw = <A::Result as Message>::into_rmw_message(Cow::Owned(result)).into_owned();
         let response_rmw = <A as Action>::create_result_response(status as i8, result_rmw);
-        self.handle.provide_result(self.server.as_ref(), response_rmw)?;
+        self.handle
+            .provide_result(self.server.as_ref(), response_rmw)?;
 
         // Publish the state change.
         self.server.publish_status()?;

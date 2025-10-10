@@ -1,11 +1,11 @@
-use crate::{ActionClient, CancelResponse, GoalUuid, MultiCancelResponse, RclrsError};
 use super::GoalClientLifecycle;
-use tokio::sync::oneshot::Receiver;
+use crate::{ActionClient, CancelResponse, GoalUuid, MultiCancelResponse, RclrsError};
 use rosidl_runtime_rs::Action;
 use std::{
+    ops::{Deref, DerefMut},
     sync::Arc,
-    ops::{Deref, DerefMut}
 };
+use tokio::sync::oneshot::Receiver;
 
 /// This can be used to request the cancellation of a specific goal. When you
 /// put in the request you will get a one-shot receiver which will tell you
@@ -36,13 +36,12 @@ impl<A: Action> CancellationClient<A> {
 
     /// A version of [`Self::cancel`] which does not panic when an error occurs.
     pub fn try_cancel(&self) -> Result<CancelResponseClient<A>, RclrsError> {
-        self.client.board.request_single_cancel(&self.client, self.goal_id)
+        self.client
+            .board
+            .request_single_cancel(&self.client, self.goal_id)
     }
 
-    pub(super) fn new(
-        client: ActionClient<A>,
-        goal_id: GoalUuid,
-    ) -> Self {
+    pub(super) fn new(client: ActionClient<A>, goal_id: GoalUuid) -> Self {
         Self { client, goal_id }
     }
 }
@@ -82,7 +81,10 @@ impl<A: Action> CancelResponseClient<A> {
         receiver: Receiver<CancelResponse>,
         lifecycle: GoalClientLifecycle<A>,
     ) -> Self {
-        Self { receiver, lifecycle }
+        Self {
+            receiver,
+            lifecycle,
+        }
     }
 }
 
@@ -121,6 +123,9 @@ impl<A: Action> MultiCancelResponseClient<A> {
         receiver: Receiver<MultiCancelResponse>,
         lifecycle: GoalClientLifecycle<A>,
     ) -> Self {
-        Self { receiver, lifecycle }
+        Self {
+            receiver,
+            lifecycle,
+        }
     }
 }

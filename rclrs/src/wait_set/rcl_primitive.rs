@@ -1,8 +1,6 @@
 use std::{any::Any, sync::MutexGuard};
 
-use crate::{
-    log_error, rcl_bindings::*, InnerGuardConditionHandle, RclrsError, ToResult,
-};
+use crate::{log_error, rcl_bindings::*, InnerGuardConditionHandle, RclrsError, ToResult};
 
 /// This provides the public API for executing a waitable item.
 pub trait RclPrimitive: Send + Sync {
@@ -22,7 +20,8 @@ pub trait RclPrimitive: Send + Sync {
     /// [1]: crate::ExecutorChannel
     /// [2]: crate::WorkerChannel
     /// [3]: crate::Worker
-    unsafe fn execute(&mut self, ready: ReadyKind, payload: &mut dyn Any) -> Result<(), RclrsError>;
+    unsafe fn execute(&mut self, ready: ReadyKind, payload: &mut dyn Any)
+        -> Result<(), RclrsError>;
 
     /// Indicate what kind of primitive this is.
     fn kind(&self) -> RclPrimitiveKind;
@@ -107,7 +106,7 @@ impl ReadyKind {
             _ => Err(RclrsError::InvalidReadyInformation {
                 expected: Self::Basic,
                 received: self,
-            })
+            }),
         }
     }
 
@@ -118,7 +117,7 @@ impl ReadyKind {
             _ => Err(RclrsError::InvalidReadyInformation {
                 expected: Self::ActionServer(Default::default()),
                 received: self,
-            })
+            }),
         }
     }
 
@@ -129,7 +128,7 @@ impl ReadyKind {
             _ => Err(RclrsError::InvalidReadyInformation {
                 expected: Self::ActionClient(Default::default()),
                 received: self,
-            })
+            }),
         }
     }
 }
@@ -207,10 +206,7 @@ impl ActionServerReady {
     /// Check whether any of the primitives of the action server are ready. When
     /// this is false, we can skip producing a [`ReadyKind`] entirely.
     pub fn any_ready(&self) -> bool {
-        self.goal_request
-        || self.cancel_request
-        || self.result_request
-        || self.goal_expired
+        self.goal_request || self.cancel_request || self.result_request || self.goal_expired
     }
 }
 
@@ -274,10 +270,10 @@ impl ActionClientReady {
     /// this is false, we can skip producing a [`ReadyKind`] entirely.
     pub fn any_ready(&self) -> bool {
         self.feedback
-        || self.status
-        || self.goal_response
-        || self.cancel_response
-        || self.result_response
+            || self.status
+            || self.goal_response
+            || self.cancel_response
+            || self.result_response
     }
 }
 

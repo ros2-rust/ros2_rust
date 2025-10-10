@@ -45,10 +45,7 @@ impl Time {
         let sec = self.nsec / 1_000_000_000;
         let nanosec = self.nsec % 1_000_000_000;
 
-        Ok((
-            sec.try_into()?,
-            nanosec.try_into()?,
-        ))
+        Ok((sec.try_into()?, nanosec.try_into()?))
     }
 }
 

@@ -467,12 +467,24 @@ impl Display for RclReturnCode {
             // Self::ActionNameInvalid => "Action name does not pass validation (RCL_RET_ACTION_NAME_INVALID).",
             Self::ActionGoalAccepted => "Action goal accepted (RCL_RET_ACTION_GOAL_ACCEPTED).",
             Self::ActionGoalRejected => "Action goal rejected (RCL_RET_ACTION_GOAL_REJECTED).",
-            Self::ActionClientInvalid => "Action client is invalid (RCL_RET_ACTION_CLIENT_INVALID).",
-            Self::ActionClientTakeFailed => "Action client failed to take response (RCL_RET_ACTION_CLIENT_TAKE_FAILED).",
-            Self::ActionServerInvalid => "Action server is invalid (RCL_RET_ACTION_SERVER_INVALID).",
-            Self::ActionServerTakeFailed => "Action server failed to take request (RCL_RET_ACTION_SERVER_TAKE_FAILED).",
-            Self::ActionGoalHandleInvalid => "Action goal handle invalid (RCL_RET_ACTION_GOAL_HANDLE_INVALID).",
-            Self::ActionGoalEventInvalid => "Action invalid event (RCL_RET_ACTION_GOAL_EVENT_INVALID).",
+            Self::ActionClientInvalid => {
+                "Action client is invalid (RCL_RET_ACTION_CLIENT_INVALID)."
+            }
+            Self::ActionClientTakeFailed => {
+                "Action client failed to take response (RCL_RET_ACTION_CLIENT_TAKE_FAILED)."
+            }
+            Self::ActionServerInvalid => {
+                "Action server is invalid (RCL_RET_ACTION_SERVER_INVALID)."
+            }
+            Self::ActionServerTakeFailed => {
+                "Action server failed to take request (RCL_RET_ACTION_SERVER_TAKE_FAILED)."
+            }
+            Self::ActionGoalHandleInvalid => {
+                "Action goal handle invalid (RCL_RET_ACTION_GOAL_HANDLE_INVALID)."
+            }
+            Self::ActionGoalEventInvalid => {
+                "Action invalid event (RCL_RET_ACTION_GOAL_EVENT_INVALID)."
+            }
             Self::LifecycleStateRegistered => {
                 "`rcl_lifecycle` state registered (RCL_RET_LIFECYCLE_STATE_REGISTERED)."
             }

@@ -568,8 +568,7 @@ unsafe impl Send for rcl_client_t {}
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_helpers::*;
-    use crate::vendor::test_msgs;
+    use crate::{test_helpers::*, vendor::test_msgs};
 
     #[test]
     fn traits() {

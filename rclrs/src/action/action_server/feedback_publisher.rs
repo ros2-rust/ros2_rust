@@ -1,6 +1,6 @@
 use super::LiveActionServerGoal;
-use std::sync::Arc;
 use rosidl_runtime_rs::Action;
+use std::sync::Arc;
 
 /// Use this to send feedback from an action server. This struct can be cloned
 /// and sent to other threads without the main goal handle. It can continue to
