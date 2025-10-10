@@ -400,8 +400,7 @@ mod tests {
 
     #[test]
     fn test_services() -> Result<(), RclrsError> {
-        use crate::vendor::test_msgs::srv;
-        use crate::TopicNamesAndTypes;
+        use crate::{vendor::test_msgs::srv, TopicNamesAndTypes};
 
         let namespace = "/test_services_graph";
         let graph = construct_test_graph(namespace)?;

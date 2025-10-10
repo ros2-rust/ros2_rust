@@ -381,9 +381,6 @@ pub mod rmw {
         }
     }
 
-    #[cfg(feature = "serde")]
-    use serde::{Deserialize, Serialize};
-
     #[link(name = "example_interfaces__rosidl_typesupport_c")]
     extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__example_interfaces__action__Fibonacci_SendGoal_Request(
@@ -830,8 +827,7 @@ pub mod rmw {
 
     impl rosidl_runtime_rs::Service for Fibonacci_GetResult {
         type Request = crate::vendor::example_interfaces::action::rmw::Fibonacci_GetResult_Request;
-        type Response =
-            crate::vendor::example_interfaces::action::rmw::Fibonacci_GetResult_Response;
+        type Response = crate::vendor::example_interfaces::action::rmw::Fibonacci_GetResult_Response;
 
         fn get_type_support() -> *const std::ffi::c_void {
             // SAFETY: No preconditions for this function.
@@ -973,41 +969,31 @@ impl rosidl_runtime_rs::Message for Fibonacci_FeedbackMessage {
                     std::borrow::Cow::Owned(msg.goal_id),
                 )
                 .into_owned(),
-                feedback:
-                    crate::vendor::example_interfaces::action::Fibonacci_Feedback::into_rmw_message(
-                        std::borrow::Cow::Owned(msg.feedback),
-                    )
-                    .into_owned(),
+                feedback: crate::vendor::example_interfaces::action::Fibonacci_Feedback::into_rmw_message(
+                    std::borrow::Cow::Owned(msg.feedback),
+                )
+                .into_owned(),
             }),
             std::borrow::Cow::Borrowed(msg) => std::borrow::Cow::Owned(Self::RmwMsg {
                 goal_id: crate::vendor::unique_identifier_msgs::msg::UUID::into_rmw_message(
                     std::borrow::Cow::Borrowed(&msg.goal_id),
                 )
                 .into_owned(),
-                feedback:
-                    crate::vendor::example_interfaces::action::Fibonacci_Feedback::into_rmw_message(
-                        std::borrow::Cow::Borrowed(&msg.feedback),
-                    )
-                    .into_owned(),
+                feedback: crate::vendor::example_interfaces::action::Fibonacci_Feedback::into_rmw_message(
+                    std::borrow::Cow::Borrowed(&msg.feedback),
+                )
+                .into_owned(),
             }),
         }
     }
 
     fn from_rmw_message(msg: Self::RmwMsg) -> Self {
         Self {
-            goal_id: crate::vendor::unique_identifier_msgs::msg::UUID::from_rmw_message(
-                msg.goal_id,
-            ),
-            feedback:
-                crate::vendor::example_interfaces::action::Fibonacci_Feedback::from_rmw_message(
-                    msg.feedback,
-                ),
+            goal_id: crate::vendor::unique_identifier_msgs::msg::UUID::from_rmw_message(msg.goal_id),
+            feedback: crate::vendor::example_interfaces::action::Fibonacci_Feedback::from_rmw_message(msg.feedback),
         }
     }
 }
-
-#[cfg(feature = "serde")]
-use serde::{Deserialize, Serialize};
 
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Clone, Debug, PartialEq, PartialOrd)]
@@ -1034,9 +1020,9 @@ impl rosidl_runtime_rs::Message for Fibonacci_SendGoal_Request {
                     std::borrow::Cow::Owned(msg.goal_id),
                 )
                 .into_owned(),
-                goal: crate::vendor::example_interfaces::action::Fibonacci_Goal::into_rmw_message(
-                    std::borrow::Cow::Owned(msg.goal),
-                )
+                goal: crate::vendor::example_interfaces::action::Fibonacci_Goal::into_rmw_message(std::borrow::Cow::Owned(
+                    msg.goal,
+                ))
                 .into_owned(),
             }),
             std::borrow::Cow::Borrowed(msg) => std::borrow::Cow::Owned(Self::RmwMsg {
@@ -1044,9 +1030,9 @@ impl rosidl_runtime_rs::Message for Fibonacci_SendGoal_Request {
                     std::borrow::Cow::Borrowed(&msg.goal_id),
                 )
                 .into_owned(),
-                goal: crate::vendor::example_interfaces::action::Fibonacci_Goal::into_rmw_message(
-                    std::borrow::Cow::Borrowed(&msg.goal),
-                )
+                goal: crate::vendor::example_interfaces::action::Fibonacci_Goal::into_rmw_message(std::borrow::Cow::Borrowed(
+                    &msg.goal,
+                ))
                 .into_owned(),
             }),
         }
@@ -1054,12 +1040,8 @@ impl rosidl_runtime_rs::Message for Fibonacci_SendGoal_Request {
 
     fn from_rmw_message(msg: Self::RmwMsg) -> Self {
         Self {
-            goal_id: crate::vendor::unique_identifier_msgs::msg::UUID::from_rmw_message(
-                msg.goal_id,
-            ),
-            goal: crate::vendor::example_interfaces::action::Fibonacci_Goal::from_rmw_message(
-                msg.goal,
-            ),
+            goal_id: crate::vendor::unique_identifier_msgs::msg::UUID::from_rmw_message(msg.goal_id),
+            goal: crate::vendor::example_interfaces::action::Fibonacci_Goal::from_rmw_message(msg.goal),
         }
     }
 }
@@ -1086,16 +1068,16 @@ impl rosidl_runtime_rs::Message for Fibonacci_SendGoal_Response {
         match msg_cow {
             std::borrow::Cow::Owned(msg) => std::borrow::Cow::Owned(Self::RmwMsg {
                 accepted: msg.accepted,
-                stamp: crate::vendor::builtin_interfaces::msg::Time::into_rmw_message(
-                    std::borrow::Cow::Owned(msg.stamp),
-                )
+                stamp: crate::vendor::builtin_interfaces::msg::Time::into_rmw_message(std::borrow::Cow::Owned(
+                    msg.stamp,
+                ))
                 .into_owned(),
             }),
             std::borrow::Cow::Borrowed(msg) => std::borrow::Cow::Owned(Self::RmwMsg {
                 accepted: msg.accepted,
-                stamp: crate::vendor::builtin_interfaces::msg::Time::into_rmw_message(
-                    std::borrow::Cow::Borrowed(&msg.stamp),
-                )
+                stamp: crate::vendor::builtin_interfaces::msg::Time::into_rmw_message(std::borrow::Cow::Borrowed(
+                    &msg.stamp,
+                ))
                 .into_owned(),
             }),
         }
@@ -1145,9 +1127,7 @@ impl rosidl_runtime_rs::Message for Fibonacci_GetResult_Request {
 
     fn from_rmw_message(msg: Self::RmwMsg) -> Self {
         Self {
-            goal_id: crate::vendor::unique_identifier_msgs::msg::UUID::from_rmw_message(
-                msg.goal_id,
-            ),
+            goal_id: crate::vendor::unique_identifier_msgs::msg::UUID::from_rmw_message(msg.goal_id),
         }
     }
 }
@@ -1174,19 +1154,17 @@ impl rosidl_runtime_rs::Message for Fibonacci_GetResult_Response {
         match msg_cow {
             std::borrow::Cow::Owned(msg) => std::borrow::Cow::Owned(Self::RmwMsg {
                 status: msg.status,
-                result:
-                    crate::vendor::example_interfaces::action::Fibonacci_Result::into_rmw_message(
-                        std::borrow::Cow::Owned(msg.result),
-                    )
-                    .into_owned(),
+                result: crate::vendor::example_interfaces::action::Fibonacci_Result::into_rmw_message(std::borrow::Cow::Owned(
+                    msg.result,
+                ))
+                .into_owned(),
             }),
             std::borrow::Cow::Borrowed(msg) => std::borrow::Cow::Owned(Self::RmwMsg {
                 status: msg.status,
-                result:
-                    crate::vendor::example_interfaces::action::Fibonacci_Result::into_rmw_message(
-                        std::borrow::Cow::Borrowed(&msg.result),
-                    )
-                    .into_owned(),
+                result: crate::vendor::example_interfaces::action::Fibonacci_Result::into_rmw_message(
+                    std::borrow::Cow::Borrowed(&msg.result),
+                )
+                .into_owned(),
             }),
         }
     }
@@ -1194,9 +1172,7 @@ impl rosidl_runtime_rs::Message for Fibonacci_GetResult_Response {
     fn from_rmw_message(msg: Self::RmwMsg) -> Self {
         Self {
             status: msg.status,
-            result: crate::vendor::example_interfaces::action::Fibonacci_Result::from_rmw_message(
-                msg.result,
-            ),
+            result: crate::vendor::example_interfaces::action::Fibonacci_Result::from_rmw_message(msg.result),
         }
     }
 }
@@ -1267,8 +1243,7 @@ impl rosidl_runtime_rs::Action for Fibonacci {
 
 impl rosidl_runtime_rs::ActionImpl for Fibonacci {
     type GoalStatusMessage = crate::vendor::action_msgs::msg::rmw::GoalStatusArray;
-    type FeedbackMessage =
-        crate::vendor::example_interfaces::action::rmw::Fibonacci_FeedbackMessage;
+    type FeedbackMessage = crate::vendor::example_interfaces::action::rmw::Fibonacci_FeedbackMessage;
 
     type SendGoalService = crate::vendor::example_interfaces::action::rmw::Fibonacci_SendGoal;
     type CancelGoalService = crate::vendor::action_msgs::srv::rmw::CancelGoal;
@@ -1319,8 +1294,7 @@ impl rosidl_runtime_rs::ActionImpl for Fibonacci {
         goal_id: &[u8; 16],
         feedback: crate::vendor::example_interfaces::action::rmw::Fibonacci_Feedback,
     ) -> crate::vendor::example_interfaces::action::rmw::Fibonacci_FeedbackMessage {
-        let mut message =
-            crate::vendor::example_interfaces::action::rmw::Fibonacci_FeedbackMessage::default();
+        let mut message = crate::vendor::example_interfaces::action::rmw::Fibonacci_FeedbackMessage::default();
         message.goal_id.uuid = *goal_id;
         message.feedback = feedback;
         message
@@ -1356,10 +1330,7 @@ impl rosidl_runtime_rs::ActionImpl for Fibonacci {
         status: i8,
         result: crate::vendor::example_interfaces::action::rmw::Fibonacci_Result,
     ) -> crate::vendor::example_interfaces::action::rmw::Fibonacci_GetResult_Response {
-        crate::vendor::example_interfaces::action::rmw::Fibonacci_GetResult_Response {
-            status,
-            result,
-        }
+        crate::vendor::example_interfaces::action::rmw::Fibonacci_GetResult_Response { status, result }
     }
 
     fn get_result_response_result(

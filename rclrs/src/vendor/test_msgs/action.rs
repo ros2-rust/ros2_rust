@@ -729,9 +729,6 @@ pub mod rmw {
         }
     }
 
-    #[cfg(feature = "serde")]
-    use serde::{Deserialize, Serialize};
-
     #[link(name = "test_msgs__rosidl_typesupport_c")]
     extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__test_msgs__action__Fibonacci_SendGoal_Request(
@@ -1756,12 +1753,8 @@ impl rosidl_runtime_rs::Message for Fibonacci_FeedbackMessage {
 
     fn from_rmw_message(msg: Self::RmwMsg) -> Self {
         Self {
-            goal_id: crate::vendor::unique_identifier_msgs::msg::UUID::from_rmw_message(
-                msg.goal_id,
-            ),
-            feedback: crate::vendor::test_msgs::action::Fibonacci_Feedback::from_rmw_message(
-                msg.feedback,
-            ),
+            goal_id: crate::vendor::unique_identifier_msgs::msg::UUID::from_rmw_message(msg.goal_id),
+            feedback: crate::vendor::test_msgs::action::Fibonacci_Feedback::from_rmw_message(msg.feedback),
         }
     }
 }
@@ -1792,42 +1785,36 @@ impl rosidl_runtime_rs::Message for NestedMessage_Goal {
                     std::borrow::Cow::Owned(msg.nested_field_no_pkg),
                 )
                 .into_owned(),
-                nested_field: crate::vendor::test_msgs::msg::BasicTypes::into_rmw_message(
-                    std::borrow::Cow::Owned(msg.nested_field),
+                nested_field: crate::vendor::test_msgs::msg::BasicTypes::into_rmw_message(std::borrow::Cow::Owned(
+                    msg.nested_field,
+                ))
+                .into_owned(),
+                nested_different_pkg: crate::vendor::builtin_interfaces::msg::Time::into_rmw_message(
+                    std::borrow::Cow::Owned(msg.nested_different_pkg),
                 )
                 .into_owned(),
-                nested_different_pkg:
-                    crate::vendor::builtin_interfaces::msg::Time::into_rmw_message(
-                        std::borrow::Cow::Owned(msg.nested_different_pkg),
-                    )
-                    .into_owned(),
             }),
             std::borrow::Cow::Borrowed(msg) => std::borrow::Cow::Owned(Self::RmwMsg {
                 nested_field_no_pkg: crate::vendor::test_msgs::msg::Builtins::into_rmw_message(
                     std::borrow::Cow::Borrowed(&msg.nested_field_no_pkg),
                 )
                 .into_owned(),
-                nested_field: crate::vendor::test_msgs::msg::BasicTypes::into_rmw_message(
-                    std::borrow::Cow::Borrowed(&msg.nested_field),
+                nested_field: crate::vendor::test_msgs::msg::BasicTypes::into_rmw_message(std::borrow::Cow::Borrowed(
+                    &msg.nested_field,
+                ))
+                .into_owned(),
+                nested_different_pkg: crate::vendor::builtin_interfaces::msg::Time::into_rmw_message(
+                    std::borrow::Cow::Borrowed(&msg.nested_different_pkg),
                 )
                 .into_owned(),
-                nested_different_pkg:
-                    crate::vendor::builtin_interfaces::msg::Time::into_rmw_message(
-                        std::borrow::Cow::Borrowed(&msg.nested_different_pkg),
-                    )
-                    .into_owned(),
             }),
         }
     }
 
     fn from_rmw_message(msg: Self::RmwMsg) -> Self {
         Self {
-            nested_field_no_pkg: crate::vendor::test_msgs::msg::Builtins::from_rmw_message(
-                msg.nested_field_no_pkg,
-            ),
-            nested_field: crate::vendor::test_msgs::msg::BasicTypes::from_rmw_message(
-                msg.nested_field,
-            ),
+            nested_field_no_pkg: crate::vendor::test_msgs::msg::Builtins::from_rmw_message(msg.nested_field_no_pkg),
+            nested_field: crate::vendor::test_msgs::msg::BasicTypes::from_rmw_message(msg.nested_field),
             nested_different_pkg: crate::vendor::builtin_interfaces::msg::Time::from_rmw_message(
                 msg.nested_different_pkg,
             ),
@@ -1861,42 +1848,36 @@ impl rosidl_runtime_rs::Message for NestedMessage_Result {
                     std::borrow::Cow::Owned(msg.nested_field_no_pkg),
                 )
                 .into_owned(),
-                nested_field: crate::vendor::test_msgs::msg::BasicTypes::into_rmw_message(
-                    std::borrow::Cow::Owned(msg.nested_field),
+                nested_field: crate::vendor::test_msgs::msg::BasicTypes::into_rmw_message(std::borrow::Cow::Owned(
+                    msg.nested_field,
+                ))
+                .into_owned(),
+                nested_different_pkg: crate::vendor::builtin_interfaces::msg::Time::into_rmw_message(
+                    std::borrow::Cow::Owned(msg.nested_different_pkg),
                 )
                 .into_owned(),
-                nested_different_pkg:
-                    crate::vendor::builtin_interfaces::msg::Time::into_rmw_message(
-                        std::borrow::Cow::Owned(msg.nested_different_pkg),
-                    )
-                    .into_owned(),
             }),
             std::borrow::Cow::Borrowed(msg) => std::borrow::Cow::Owned(Self::RmwMsg {
                 nested_field_no_pkg: crate::vendor::test_msgs::msg::Builtins::into_rmw_message(
                     std::borrow::Cow::Borrowed(&msg.nested_field_no_pkg),
                 )
                 .into_owned(),
-                nested_field: crate::vendor::test_msgs::msg::BasicTypes::into_rmw_message(
-                    std::borrow::Cow::Borrowed(&msg.nested_field),
+                nested_field: crate::vendor::test_msgs::msg::BasicTypes::into_rmw_message(std::borrow::Cow::Borrowed(
+                    &msg.nested_field,
+                ))
+                .into_owned(),
+                nested_different_pkg: crate::vendor::builtin_interfaces::msg::Time::into_rmw_message(
+                    std::borrow::Cow::Borrowed(&msg.nested_different_pkg),
                 )
                 .into_owned(),
-                nested_different_pkg:
-                    crate::vendor::builtin_interfaces::msg::Time::into_rmw_message(
-                        std::borrow::Cow::Borrowed(&msg.nested_different_pkg),
-                    )
-                    .into_owned(),
             }),
         }
     }
 
     fn from_rmw_message(msg: Self::RmwMsg) -> Self {
         Self {
-            nested_field_no_pkg: crate::vendor::test_msgs::msg::Builtins::from_rmw_message(
-                msg.nested_field_no_pkg,
-            ),
-            nested_field: crate::vendor::test_msgs::msg::BasicTypes::from_rmw_message(
-                msg.nested_field,
-            ),
+            nested_field_no_pkg: crate::vendor::test_msgs::msg::Builtins::from_rmw_message(msg.nested_field_no_pkg),
+            nested_field: crate::vendor::test_msgs::msg::BasicTypes::from_rmw_message(msg.nested_field),
             nested_different_pkg: crate::vendor::builtin_interfaces::msg::Time::from_rmw_message(
                 msg.nested_different_pkg,
             ),
@@ -1930,42 +1911,36 @@ impl rosidl_runtime_rs::Message for NestedMessage_Feedback {
                     std::borrow::Cow::Owned(msg.nested_field_no_pkg),
                 )
                 .into_owned(),
-                nested_field: crate::vendor::test_msgs::msg::BasicTypes::into_rmw_message(
-                    std::borrow::Cow::Owned(msg.nested_field),
+                nested_field: crate::vendor::test_msgs::msg::BasicTypes::into_rmw_message(std::borrow::Cow::Owned(
+                    msg.nested_field,
+                ))
+                .into_owned(),
+                nested_different_pkg: crate::vendor::builtin_interfaces::msg::Time::into_rmw_message(
+                    std::borrow::Cow::Owned(msg.nested_different_pkg),
                 )
                 .into_owned(),
-                nested_different_pkg:
-                    crate::vendor::builtin_interfaces::msg::Time::into_rmw_message(
-                        std::borrow::Cow::Owned(msg.nested_different_pkg),
-                    )
-                    .into_owned(),
             }),
             std::borrow::Cow::Borrowed(msg) => std::borrow::Cow::Owned(Self::RmwMsg {
                 nested_field_no_pkg: crate::vendor::test_msgs::msg::Builtins::into_rmw_message(
                     std::borrow::Cow::Borrowed(&msg.nested_field_no_pkg),
                 )
                 .into_owned(),
-                nested_field: crate::vendor::test_msgs::msg::BasicTypes::into_rmw_message(
-                    std::borrow::Cow::Borrowed(&msg.nested_field),
+                nested_field: crate::vendor::test_msgs::msg::BasicTypes::into_rmw_message(std::borrow::Cow::Borrowed(
+                    &msg.nested_field,
+                ))
+                .into_owned(),
+                nested_different_pkg: crate::vendor::builtin_interfaces::msg::Time::into_rmw_message(
+                    std::borrow::Cow::Borrowed(&msg.nested_different_pkg),
                 )
                 .into_owned(),
-                nested_different_pkg:
-                    crate::vendor::builtin_interfaces::msg::Time::into_rmw_message(
-                        std::borrow::Cow::Borrowed(&msg.nested_different_pkg),
-                    )
-                    .into_owned(),
             }),
         }
     }
 
     fn from_rmw_message(msg: Self::RmwMsg) -> Self {
         Self {
-            nested_field_no_pkg: crate::vendor::test_msgs::msg::Builtins::from_rmw_message(
-                msg.nested_field_no_pkg,
-            ),
-            nested_field: crate::vendor::test_msgs::msg::BasicTypes::from_rmw_message(
-                msg.nested_field,
-            ),
+            nested_field_no_pkg: crate::vendor::test_msgs::msg::Builtins::from_rmw_message(msg.nested_field_no_pkg),
+            nested_field: crate::vendor::test_msgs::msg::BasicTypes::from_rmw_message(msg.nested_field),
             nested_different_pkg: crate::vendor::builtin_interfaces::msg::Time::from_rmw_message(
                 msg.nested_different_pkg,
             ),
@@ -1998,40 +1973,31 @@ impl rosidl_runtime_rs::Message for NestedMessage_FeedbackMessage {
                     std::borrow::Cow::Owned(msg.goal_id),
                 )
                 .into_owned(),
-                feedback:
-                    crate::vendor::test_msgs::action::NestedMessage_Feedback::into_rmw_message(
-                        std::borrow::Cow::Owned(msg.feedback),
-                    )
-                    .into_owned(),
+                feedback: crate::vendor::test_msgs::action::NestedMessage_Feedback::into_rmw_message(
+                    std::borrow::Cow::Owned(msg.feedback),
+                )
+                .into_owned(),
             }),
             std::borrow::Cow::Borrowed(msg) => std::borrow::Cow::Owned(Self::RmwMsg {
                 goal_id: crate::vendor::unique_identifier_msgs::msg::UUID::into_rmw_message(
                     std::borrow::Cow::Borrowed(&msg.goal_id),
                 )
                 .into_owned(),
-                feedback:
-                    crate::vendor::test_msgs::action::NestedMessage_Feedback::into_rmw_message(
-                        std::borrow::Cow::Borrowed(&msg.feedback),
-                    )
-                    .into_owned(),
+                feedback: crate::vendor::test_msgs::action::NestedMessage_Feedback::into_rmw_message(
+                    std::borrow::Cow::Borrowed(&msg.feedback),
+                )
+                .into_owned(),
             }),
         }
     }
 
     fn from_rmw_message(msg: Self::RmwMsg) -> Self {
         Self {
-            goal_id: crate::vendor::unique_identifier_msgs::msg::UUID::from_rmw_message(
-                msg.goal_id,
-            ),
-            feedback: crate::vendor::test_msgs::action::NestedMessage_Feedback::from_rmw_message(
-                msg.feedback,
-            ),
+            goal_id: crate::vendor::unique_identifier_msgs::msg::UUID::from_rmw_message(msg.goal_id),
+            feedback: crate::vendor::test_msgs::action::NestedMessage_Feedback::from_rmw_message(msg.feedback),
         }
     }
 }
-
-#[cfg(feature = "serde")]
-use serde::{Deserialize, Serialize};
 
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Clone, Debug, PartialEq, PartialOrd)]
@@ -2058,9 +2024,9 @@ impl rosidl_runtime_rs::Message for Fibonacci_SendGoal_Request {
                     std::borrow::Cow::Owned(msg.goal_id),
                 )
                 .into_owned(),
-                goal: crate::vendor::test_msgs::action::Fibonacci_Goal::into_rmw_message(
-                    std::borrow::Cow::Owned(msg.goal),
-                )
+                goal: crate::vendor::test_msgs::action::Fibonacci_Goal::into_rmw_message(std::borrow::Cow::Owned(
+                    msg.goal,
+                ))
                 .into_owned(),
             }),
             std::borrow::Cow::Borrowed(msg) => std::borrow::Cow::Owned(Self::RmwMsg {
@@ -2068,9 +2034,9 @@ impl rosidl_runtime_rs::Message for Fibonacci_SendGoal_Request {
                     std::borrow::Cow::Borrowed(&msg.goal_id),
                 )
                 .into_owned(),
-                goal: crate::vendor::test_msgs::action::Fibonacci_Goal::into_rmw_message(
-                    std::borrow::Cow::Borrowed(&msg.goal),
-                )
+                goal: crate::vendor::test_msgs::action::Fibonacci_Goal::into_rmw_message(std::borrow::Cow::Borrowed(
+                    &msg.goal,
+                ))
                 .into_owned(),
             }),
         }
@@ -2078,9 +2044,7 @@ impl rosidl_runtime_rs::Message for Fibonacci_SendGoal_Request {
 
     fn from_rmw_message(msg: Self::RmwMsg) -> Self {
         Self {
-            goal_id: crate::vendor::unique_identifier_msgs::msg::UUID::from_rmw_message(
-                msg.goal_id,
-            ),
+            goal_id: crate::vendor::unique_identifier_msgs::msg::UUID::from_rmw_message(msg.goal_id),
             goal: crate::vendor::test_msgs::action::Fibonacci_Goal::from_rmw_message(msg.goal),
         }
     }
@@ -2108,16 +2072,16 @@ impl rosidl_runtime_rs::Message for Fibonacci_SendGoal_Response {
         match msg_cow {
             std::borrow::Cow::Owned(msg) => std::borrow::Cow::Owned(Self::RmwMsg {
                 accepted: msg.accepted,
-                stamp: crate::vendor::builtin_interfaces::msg::Time::into_rmw_message(
-                    std::borrow::Cow::Owned(msg.stamp),
-                )
+                stamp: crate::vendor::builtin_interfaces::msg::Time::into_rmw_message(std::borrow::Cow::Owned(
+                    msg.stamp,
+                ))
                 .into_owned(),
             }),
             std::borrow::Cow::Borrowed(msg) => std::borrow::Cow::Owned(Self::RmwMsg {
                 accepted: msg.accepted,
-                stamp: crate::vendor::builtin_interfaces::msg::Time::into_rmw_message(
-                    std::borrow::Cow::Borrowed(&msg.stamp),
-                )
+                stamp: crate::vendor::builtin_interfaces::msg::Time::into_rmw_message(std::borrow::Cow::Borrowed(
+                    &msg.stamp,
+                ))
                 .into_owned(),
             }),
         }
@@ -2167,9 +2131,7 @@ impl rosidl_runtime_rs::Message for Fibonacci_GetResult_Request {
 
     fn from_rmw_message(msg: Self::RmwMsg) -> Self {
         Self {
-            goal_id: crate::vendor::unique_identifier_msgs::msg::UUID::from_rmw_message(
-                msg.goal_id,
-            ),
+            goal_id: crate::vendor::unique_identifier_msgs::msg::UUID::from_rmw_message(msg.goal_id),
         }
     }
 }
@@ -2196,9 +2158,9 @@ impl rosidl_runtime_rs::Message for Fibonacci_GetResult_Response {
         match msg_cow {
             std::borrow::Cow::Owned(msg) => std::borrow::Cow::Owned(Self::RmwMsg {
                 status: msg.status,
-                result: crate::vendor::test_msgs::action::Fibonacci_Result::into_rmw_message(
-                    std::borrow::Cow::Owned(msg.result),
-                )
+                result: crate::vendor::test_msgs::action::Fibonacci_Result::into_rmw_message(std::borrow::Cow::Owned(
+                    msg.result,
+                ))
                 .into_owned(),
             }),
             std::borrow::Cow::Borrowed(msg) => std::borrow::Cow::Owned(Self::RmwMsg {
@@ -2214,9 +2176,7 @@ impl rosidl_runtime_rs::Message for Fibonacci_GetResult_Response {
     fn from_rmw_message(msg: Self::RmwMsg) -> Self {
         Self {
             status: msg.status,
-            result: crate::vendor::test_msgs::action::Fibonacci_Result::from_rmw_message(
-                msg.result,
-            ),
+            result: crate::vendor::test_msgs::action::Fibonacci_Result::from_rmw_message(msg.result),
         }
     }
 }
@@ -2246,9 +2206,9 @@ impl rosidl_runtime_rs::Message for NestedMessage_SendGoal_Request {
                     std::borrow::Cow::Owned(msg.goal_id),
                 )
                 .into_owned(),
-                goal: crate::vendor::test_msgs::action::NestedMessage_Goal::into_rmw_message(
-                    std::borrow::Cow::Owned(msg.goal),
-                )
+                goal: crate::vendor::test_msgs::action::NestedMessage_Goal::into_rmw_message(std::borrow::Cow::Owned(
+                    msg.goal,
+                ))
                 .into_owned(),
             }),
             std::borrow::Cow::Borrowed(msg) => std::borrow::Cow::Owned(Self::RmwMsg {
@@ -2266,9 +2226,7 @@ impl rosidl_runtime_rs::Message for NestedMessage_SendGoal_Request {
 
     fn from_rmw_message(msg: Self::RmwMsg) -> Self {
         Self {
-            goal_id: crate::vendor::unique_identifier_msgs::msg::UUID::from_rmw_message(
-                msg.goal_id,
-            ),
+            goal_id: crate::vendor::unique_identifier_msgs::msg::UUID::from_rmw_message(msg.goal_id),
             goal: crate::vendor::test_msgs::action::NestedMessage_Goal::from_rmw_message(msg.goal),
         }
     }
@@ -2296,16 +2254,16 @@ impl rosidl_runtime_rs::Message for NestedMessage_SendGoal_Response {
         match msg_cow {
             std::borrow::Cow::Owned(msg) => std::borrow::Cow::Owned(Self::RmwMsg {
                 accepted: msg.accepted,
-                stamp: crate::vendor::builtin_interfaces::msg::Time::into_rmw_message(
-                    std::borrow::Cow::Owned(msg.stamp),
-                )
+                stamp: crate::vendor::builtin_interfaces::msg::Time::into_rmw_message(std::borrow::Cow::Owned(
+                    msg.stamp,
+                ))
                 .into_owned(),
             }),
             std::borrow::Cow::Borrowed(msg) => std::borrow::Cow::Owned(Self::RmwMsg {
                 accepted: msg.accepted,
-                stamp: crate::vendor::builtin_interfaces::msg::Time::into_rmw_message(
-                    std::borrow::Cow::Borrowed(&msg.stamp),
-                )
+                stamp: crate::vendor::builtin_interfaces::msg::Time::into_rmw_message(std::borrow::Cow::Borrowed(
+                    &msg.stamp,
+                ))
                 .into_owned(),
             }),
         }
@@ -2355,9 +2313,7 @@ impl rosidl_runtime_rs::Message for NestedMessage_GetResult_Request {
 
     fn from_rmw_message(msg: Self::RmwMsg) -> Self {
         Self {
-            goal_id: crate::vendor::unique_identifier_msgs::msg::UUID::from_rmw_message(
-                msg.goal_id,
-            ),
+            goal_id: crate::vendor::unique_identifier_msgs::msg::UUID::from_rmw_message(msg.goal_id),
         }
     }
 }
@@ -2402,9 +2358,7 @@ impl rosidl_runtime_rs::Message for NestedMessage_GetResult_Response {
     fn from_rmw_message(msg: Self::RmwMsg) -> Self {
         Self {
             status: msg.status,
-            result: crate::vendor::test_msgs::action::NestedMessage_Result::from_rmw_message(
-                msg.result,
-            ),
+            result: crate::vendor::test_msgs::action::NestedMessage_Result::from_rmw_message(msg.result),
         }
     }
 }
@@ -2568,8 +2522,7 @@ impl rosidl_runtime_rs::ActionImpl for Fibonacci {
         goal_id: &[u8; 16],
         feedback: crate::vendor::test_msgs::action::rmw::Fibonacci_Feedback,
     ) -> crate::vendor::test_msgs::action::rmw::Fibonacci_FeedbackMessage {
-        let mut message =
-            crate::vendor::test_msgs::action::rmw::Fibonacci_FeedbackMessage::default();
+        let mut message = crate::vendor::test_msgs::action::rmw::Fibonacci_FeedbackMessage::default();
         message.goal_id.uuid = *goal_id;
         message.feedback = feedback;
         message
@@ -2696,8 +2649,7 @@ impl rosidl_runtime_rs::ActionImpl for NestedMessage {
         goal_id: &[u8; 16],
         feedback: crate::vendor::test_msgs::action::rmw::NestedMessage_Feedback,
     ) -> crate::vendor::test_msgs::action::rmw::NestedMessage_FeedbackMessage {
-        let mut message =
-            crate::vendor::test_msgs::action::rmw::NestedMessage_FeedbackMessage::default();
+        let mut message = crate::vendor::test_msgs::action::rmw::NestedMessage_FeedbackMessage::default();
         message.goal_id.uuid = *goal_id;
         message.feedback = feedback;
         message
