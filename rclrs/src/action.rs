@@ -73,6 +73,8 @@ impl From<&[u8; RCL_ACTION_UUID_SIZE]> for GoalUuid {
 }
 
 /// The response returned by an [`ActionServer`]'s cancel callback when a goal is requested to be cancelled.
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
+#[cfg_attr(feature = "serde", serde(rename = "snake_case"))]
 #[repr(i8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum CancelResponseCode {
@@ -118,6 +120,7 @@ impl From<i8> for CancelResponseCode {
 ///
 /// When a cancellation request might cancel multiple goals, [`MultiCancelResponse`]
 /// will be used.
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct CancelResponse {
     /// What kind of response was given.
@@ -154,6 +157,7 @@ impl MultiCancelResponse {
 
 /// Values defined by `action_msgs/msg/GoalStatus`
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
+#[cfg_attr(feature = "serde", serde(rename = "snake_case"))]
 #[repr(i8)]
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum GoalStatusCode {
@@ -240,7 +244,7 @@ mod tests {
     use tokio::sync::mpsc::unbounded_channel;
 
     #[test]
-    fn test_action_success() {
+    fn test_action_success_streaming() {
         let mut executor = Context::default().create_basic_executor();
 
         let node = executor
@@ -248,7 +252,9 @@ mod tests {
             .unwrap();
         let action_name = format!("test_action_success_{}_action", line!());
         let _action_server = node
-            .create_action_server(&action_name, fibonacci_action)
+            .create_action_server(&action_name, |handle| {
+                fibonacci_action(handle, Duration::from_micros(10))
+            })
             .unwrap();
 
         let client = node
@@ -302,7 +308,41 @@ mod tests {
         executor.spin(SpinOptions::default().until_promise_resolved(promise));
     }
 
-    async fn fibonacci_action(handle: RequestedGoal<Fibonacci>) -> TerminatedGoal {
+    #[test]
+    fn test_action_cancel() {
+        let mut executor = Context::default().create_basic_executor();
+
+        let node = executor
+            .create_node(&format!("test_action_cancel_{}", line!()))
+            .unwrap();
+        let action_name = format!("test_action_cancel_{}_slow_action", line!());
+        let _action_server = node
+            .create_action_server(&action_name, |handle| {
+                fibonacci_action(handle, Duration::from_secs(1))
+            })
+            .unwrap();
+
+        let client = node
+            .create_action_client::<Fibonacci>(&action_name)
+            .unwrap();
+
+        let request = client.request_goal(Fibonacci_Goal { order: 10 });
+
+        let promise = executor.commands().run(async move {
+            let goal_client = request.await.unwrap();
+            let cancellation = goal_client.cancellation.cancel().await;
+            assert!(cancellation.is_accepted());
+            let (status, _) = goal_client.result.await;
+            assert_eq!(status, GoalStatusCode::Cancelled);
+        });
+
+        executor.spin(SpinOptions::default().until_promise_resolved(promise));
+    }
+
+    async fn fibonacci_action(
+        handle: RequestedGoal<Fibonacci>,
+        period: Duration,
+    ) -> TerminatedGoal {
         let goal_order = handle.goal().order;
         if goal_order < 0 {
             return handle.reject();
@@ -331,7 +371,7 @@ mod tests {
                 let next = previous + current;
                 previous = current;
                 current = next;
-                std::thread::sleep(Duration::from_micros(10));
+                std::thread::sleep(period);
             }
         });
 

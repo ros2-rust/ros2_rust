@@ -63,7 +63,7 @@ impl<A: Action> Future for ResultClient<A> {
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         Future::poll(Pin::new(&mut self.get_mut().receiver), cx)
             // SAFETY: The Receiver returns an Err if the sender is dropped, but
-            // the RegisteredGoalClient makes sure that the sender is alive in
+            // the ResultClient makes sure that the sender is alive in
             // the ActionClient, so we can always safely unwrap this.
             .map(|result| result.unwrap())
     }

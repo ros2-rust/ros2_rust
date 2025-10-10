@@ -70,9 +70,11 @@ impl<A: Action> CancellationState<A> {
             CancellationMode::None => {
                 let requests = Vec::from_iter([request]);
                 *mode = CancellationMode::CancelRequested(requests);
+                self.change_cancel_requested_status(true);
             }
             CancellationMode::CancelRequested(requests) => {
                 requests.push(request);
+                self.change_cancel_requested_status(true);
             }
             CancellationMode::Cancelling => {
                 request.accept(*uuid);
@@ -93,7 +95,7 @@ impl<A: Action> CancellationState<A> {
                 *mode = CancellationMode::None;
                 // We do not need to worry about errors from sending this state
                 // since it is okay for the receiver to be dropped.
-                let _ = self.sender.send(false);
+                let _ = self.change_cancel_requested_status(false);
             }
             CancellationMode::None => {
                 // Do nothing
@@ -120,7 +122,7 @@ impl<A: Action> CancellationState<A> {
                 // a true value in the cancel requested channel. We can ignore
                 // errors from this because it is okay for the receiver to be
                 // dropped.
-                let _ = self.sender.send(true);
+                let _ = self.change_cancel_requested_status(true);
             }
             CancellationMode::None => {
                 // Skip straight to cancellation mode since the user has accepted
@@ -128,12 +130,24 @@ impl<A: Action> CancellationState<A> {
                 *mode = CancellationMode::Cancelling;
                 // Make sure the cancellation is signalled. We can ignore errors
                 // from this because it is okay for the receiver to be dropped.
-                let _ = self.sender.send(true);
+                let _ = self.change_cancel_requested_status(true);
             }
             CancellationMode::Cancelling => {
                 // Do nothing
             }
         }
+    }
+
+    fn change_cancel_requested_status(&self, cancel_requested: bool) {
+        self.sender.send_if_modified(|status| {
+            let previously_requested = *status;
+            *status = cancel_requested;
+            // Only notify the listeners if a cancellation has been requested
+            // and was not previously requested. We do not need to notify when
+            // a cancellation has been rejected (i.e. reverting back to no
+            // cancellation requested).
+            cancel_requested && !previously_requested
+        });
     }
 }
 

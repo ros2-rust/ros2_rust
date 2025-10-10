@@ -2,14 +2,7 @@ use super::empty_goal_status_array;
 use crate::{
     log_warn,
     rcl_bindings::*,
-    vendor::{
-        action_msgs::{
-            msg::GoalInfo,
-            srv::{CancelGoal_Request, CancelGoal_Response},
-        },
-        builtin_interfaces::msg::Time,
-        unique_identifier_msgs::msg::UUID,
-    },
+    vendor::{action_msgs::srv::CancelGoal_Response, builtin_interfaces::msg::Time},
     CancelResponse, CancelResponseCode, DropGuard, GoalStatus, GoalStatusCode, GoalUuid,
     MultiCancelResponse, Node, NodeHandle, QoSProfile, RclPrimitive, RclPrimitiveHandle,
     RclPrimitiveKind, RclrsError, ReadyKind, TakeFailedAsNone, ToResult, Waitable,
@@ -880,15 +873,15 @@ impl ActionClientHandle {
     }
 
     fn send_cancel_goal(&self, goal_id: GoalUuid, stamp: Time) -> Result<i64, RclrsError> {
-        let cancel_request = CancelGoal_Request {
-            goal_info: GoalInfo {
-                goal_id: UUID { uuid: *goal_id },
-                stamp,
+        let cancel_request_rmw = action_msgs__srv__CancelGoal_Request {
+            goal_info: action_msgs__msg__GoalInfo {
+                goal_id: unique_identifier_msgs__msg__UUID { uuid: *goal_id },
+                stamp: builtin_interfaces__msg__Time {
+                    sec: stamp.sec,
+                    nanosec: stamp.nanosec,
+                },
             },
         };
-
-        let cancel_request_rmw =
-            <CancelGoal_Request as Message>::into_rmw_message(Cow::Owned(cancel_request));
         let mut seq: i64 = 0;
 
         unsafe {

@@ -2,8 +2,11 @@ use super::GoalClientLifecycle;
 use crate::{ActionClient, CancelResponse, GoalUuid, MultiCancelResponse, RclrsError};
 use rosidl_runtime_rs::Action;
 use std::{
+    future::Future,
     ops::{Deref, DerefMut},
+    pin::Pin,
     sync::Arc,
+    task::{Context, Poll},
 };
 use tokio::sync::oneshot::Receiver;
 
@@ -85,6 +88,18 @@ impl<A: Action> CancelResponseClient<A> {
             receiver,
             lifecycle,
         }
+    }
+}
+
+impl<A: Action> Future for CancelResponseClient<A> {
+    type Output = CancelResponse;
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        Future::poll(Pin::new(&mut self.get_mut().receiver), cx)
+            // SAFETY: The Receiver returns an Err if the sender is dropped, but
+            // the CancelResponseClient makes sure that the sender is alive in
+            // the ActionClient, so we can always safely unwrap this.
+            .map(|result| result.unwrap())
     }
 }
 
