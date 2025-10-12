@@ -697,11 +697,13 @@ impl<Payload: 'static + Send + Sync> WorkScope for Worker<Payload> {
 
 #[cfg(test)]
 mod tests {
-    use crate::vendor::test_msgs::{
-        msg::Empty as EmptyMsg,
-        srv::{Empty as EmptySrv, Empty_Request, Empty_Response},
+    use crate::{
+        vendor::test_msgs::{
+            msg::Empty as EmptyMsg,
+            srv::{Empty as EmptySrv, Empty_Request, Empty_Response},
+        },
+        *,
     };
-    use crate::*;
     use std::time::Duration;
 
     #[derive(Default, Clone, Copy, Debug)]

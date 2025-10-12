@@ -344,8 +344,7 @@ mod tests {
 
     #[test]
     fn test_publishers() -> Result<(), RclrsError> {
-        use crate::vendor::test_msgs::msg;
-        use crate::TopicEndpointInfo;
+        use crate::{vendor::test_msgs::msg, TopicEndpointInfo};
 
         let namespace = "/test_publishers_graph";
         let graph = construct_test_graph(namespace)?;
