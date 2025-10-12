@@ -88,6 +88,11 @@ impl Clock {
         Self { kind, rcl_clock }
     }
 
+    /// Returns the clock's `rcl_clock_t`.
+    pub(crate) fn get_rcl_clock(&self) -> &Arc<Mutex<rcl_clock_t>> {
+        &self.rcl_clock
+    }
+
     /// Returns the clock's `ClockType`.
     pub fn clock_type(&self) -> ClockType {
         self.kind
