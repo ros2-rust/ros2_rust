@@ -68,7 +68,7 @@ jobs:
         components: clippy, rustfmt
 
     # Colcon can not be run in a venv which is required in Ubuntu Noble
-    # Removing the externally managed file 
+    # Removing the externally managed file
     - name: Install colcon-cargo and colcon-ros-cargo
       run: |
         sudo rm -f /usr/lib/python3.12/EXTERNALLY-MANAGED
@@ -117,9 +117,7 @@ jobs:
         echo "Running cargo test in $path"
         # Run cargo test for all features except use_ros_shim (needed for docs.rs)
         if [ "$(basename $path)" = "rclrs" ]; then
-          cargo test -F default,dyn_msg
-        elif [ "$(basename $path)" = "rosidl_runtime_rs" ]; then
-          cargo test -F default
+          cargo test -F default,dyn_msg,serde
         else
           cargo test --all-features
         fi
