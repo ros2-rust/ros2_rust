@@ -1,5 +1,5 @@
 use crate::{
-    ActionServer, ActionServerOptions, ActionServerState, Node, RclrsError, RequestedGoal,
+    ActionServer, ActionServerState, IntoActionServerOptions, Node, RclrsError, RequestedGoal,
     TerminatedGoal,
 };
 use rosidl_runtime_rs::Action;
@@ -59,7 +59,7 @@ impl<A: Action> ActionGoalReceiver<A> {
 
     pub(crate) fn new<'a>(
         node: &Node,
-        options: impl Into<ActionServerOptions<'a>>,
+        options: impl IntoActionServerOptions<'a>,
     ) -> Result<Self, RclrsError> {
         let (sender, receiver) = unbounded_channel();
         let server = ActionServerState::new_for_receiver(node, options, sender)?;

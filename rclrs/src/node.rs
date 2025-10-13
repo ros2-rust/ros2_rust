@@ -31,8 +31,8 @@ use rosidl_runtime_rs::{Action, Message};
 
 use crate::{
     rcl_bindings::*, ActionClient, ActionClientOptions, ActionClientState, ActionGoalReceiver,
-    ActionServer, ActionServerOptions, ActionServerState, AnyTimerCallback, Client, ClientOptions,
-    ClientState, Clock, ContextHandle, ExecutorCommands, IntoAsyncServiceCallback,
+    ActionServer, ActionServerState, AnyTimerCallback, Client, ClientOptions, ClientState, Clock,
+    ContextHandle, ExecutorCommands, IntoActionServerOptions, IntoAsyncServiceCallback,
     IntoAsyncSubscriptionCallback, IntoNodeServiceCallback, IntoNodeSubscriptionCallback,
     IntoNodeTimerOneshotCallback, IntoNodeTimerRepeatingCallback, IntoTimerOptions, LogParams,
     Logger, ParameterBuilder, ParameterInterface, ParameterVariant, Parameters, Promise, Publisher,
@@ -374,7 +374,7 @@ impl NodeState {
     // TODO(@mxgrey): Add extensive documentation and usage examples
     pub fn create_action_server<'a, A: Action, Task>(
         self: &Arc<Self>,
-        options: impl Into<ActionServerOptions<'a>>,
+        options: impl IntoActionServerOptions<'a>,
         callback: impl FnMut(RequestedGoal<A>) -> Task + Send + Sync + 'static,
     ) -> Result<ActionServer<A>, RclrsError>
     where
@@ -388,7 +388,7 @@ impl NodeState {
     // TODO(@mxgrey): Add extensive documentation and usage examples
     pub fn create_goal_receiver<'a, A: Action>(
         self: &Arc<Self>,
-        options: impl Into<ActionServerOptions<'a>>,
+        options: impl IntoActionServerOptions<'a>,
     ) -> Result<ActionGoalReceiver<A>, RclrsError> {
         ActionGoalReceiver::new(self, options)
     }

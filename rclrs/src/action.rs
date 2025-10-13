@@ -93,6 +93,11 @@ impl CancelResponseCode {
     pub fn is_accepted(&self) -> bool {
         matches!(self, Self::Accept)
     }
+
+    /// Check if the cancellation was rejected.
+    pub fn is_rejected(&self) -> bool {
+        matches!(self, Self::Reject)
+    }
 }
 
 impl From<i8> for CancelResponseCode {
@@ -135,6 +140,11 @@ impl CancelResponse {
     pub fn is_accepted(&self) -> bool {
         self.code.is_accepted()
     }
+
+    /// Check whether the request was rejected.
+    pub fn is_rejected(&self) -> bool {
+        self.code.is_rejected()
+    }
 }
 
 /// This is returned by [`ActionClientState::cancel_all_goals`] and
@@ -152,6 +162,11 @@ impl MultiCancelResponse {
     /// Check whether the request was accepted.
     pub fn is_accepted(&self) -> bool {
         self.code.is_accepted()
+    }
+
+    /// Check whether the request was rejected.
+    pub fn is_rejected(&self) -> bool {
+        self.code.is_rejected()
     }
 }
 
@@ -178,6 +193,13 @@ pub enum GoalStatusCode {
     /// The action server has aborted the goal. This suggests an error happened
     /// during execution or cancelling.
     Aborted = 6,
+}
+
+impl GoalStatusCode {
+    /// Check if the status belongs to one of the terminated modes
+    pub fn is_terminated(&self) -> bool {
+        matches!(self, Self::Succeeded | Self::Cancelled | Self::Aborted)
+    }
 }
 
 impl From<i8> for GoalStatusCode {
@@ -253,7 +275,7 @@ mod tests {
         let action_name = format!("test_action_success_{}_action", line!());
         let _action_server = node
             .create_action_server(&action_name, |handle| {
-                fibonacci_action(handle, Duration::from_micros(10))
+                fibonacci_action(handle, TestActionSettings::default())
             })
             .unwrap();
 
@@ -315,10 +337,10 @@ mod tests {
         let node = executor
             .create_node(&format!("test_action_cancel_{}", line!()))
             .unwrap();
-        let action_name = format!("test_action_cancel_{}_slow_action", line!());
+        let action_name = format!("test_action_cancel_{}_action", line!());
         let _action_server = node
             .create_action_server(&action_name, |handle| {
-                fibonacci_action(handle, Duration::from_secs(1))
+                fibonacci_action(handle, TestActionSettings::slow())
             })
             .unwrap();
 
@@ -339,9 +361,121 @@ mod tests {
         executor.spin(SpinOptions::default().until_promise_resolved(promise));
     }
 
+    #[test]
+    fn test_action_cancel_rejection() {
+        let mut executor = Context::default().create_basic_executor();
+
+        let node = executor
+            .create_node(&format!("test_action_cancel_refusal_{}", line!()))
+            .unwrap();
+        let action_name = format!("test_action_cancel_refusal_{}_action", line!());
+        let _action_server = node
+            .create_action_server(&action_name, |handle| {
+                // This action server will intentionally reject 3 cancellation requests
+                fibonacci_action(handle, TestActionSettings::slow().cancel_refusal(3))
+            })
+            .unwrap();
+
+        let client = node
+            .create_action_client::<Fibonacci>(&action_name)
+            .unwrap();
+
+        let request = client.request_goal(Fibonacci_Goal { order: 10 });
+
+        let promise = executor.commands().run(async move {
+            let goal_client = request.await.unwrap();
+
+            // The first three cancellation requests should be rejected
+            for _ in 0..3 {
+                let cancellation = goal_client.cancellation.cancel().await;
+                assert!(cancellation.is_rejected());
+            }
+
+            // The next cancellation request should be accepted
+            let cancellation = goal_client.cancellation.cancel().await;
+            assert!(cancellation.is_accepted());
+
+            // The next one should also be accepted or we get notified that the
+            // goal no longer exists.
+            let late_cancellation = goal_client.cancellation.cancel().await;
+            assert!(matches!(
+                late_cancellation.code,
+                CancelResponseCode::Accept | CancelResponseCode::GoalTerminated
+            ));
+
+            let (status, _) = goal_client.result.await;
+            assert_eq!(status, GoalStatusCode::Cancelled);
+
+            // After we have received the response, we can be confident that the
+            // action server will report back that the goal was terminated.
+            let very_late_cancellation = goal_client.cancellation.cancel().await;
+            assert!(matches!(
+                very_late_cancellation.code,
+                CancelResponseCode::GoalTerminated
+            ));
+        });
+
+        executor.spin(SpinOptions::default().until_promise_resolved(promise));
+    }
+
+    #[test]
+    fn test_action_slow_cancel() {
+        let mut executor = Context::default().create_basic_executor();
+
+        let node = executor
+            .create_node(&format!("test_action_slow_cancel_{}", line!()))
+            .unwrap();
+        let action_name = format!("test_action_slow_cancel_{}_action", line!());
+        let _action_server = node
+            .create_action_server(&action_name, |handle| {
+                // This action server will intentionally reject 3 cancellation requests
+                fibonacci_action(
+                    handle,
+                    TestActionSettings::slow()
+                        .cancel_refusal(3)
+                        .continue_after_cancelling(),
+                )
+            })
+            .unwrap();
+
+        let client = node
+            .create_action_client::<Fibonacci>(&action_name)
+            .unwrap();
+
+        let request = client.request_goal(Fibonacci_Goal { order: 10 });
+
+        let promise = executor.commands().run(async move {
+            let goal_client = request.await.unwrap();
+
+            // The first three cancellation requests should be rejected
+            for _ in 0..3 {
+                let cancellation = goal_client.cancellation.cancel().await;
+                assert!(cancellation.is_rejected());
+            }
+
+            // The next cancellation request should be accepted
+            let cancellation = goal_client.cancellation.cancel().await;
+            assert!(cancellation.is_accepted());
+
+            // The next one should also be accepted or we get notified that the
+            // goal no longer exists.
+            let late_cancellation = goal_client.cancellation.cancel().await;
+            assert!(late_cancellation.is_accepted());
+
+            let very_late_cancellation = goal_client.cancellation.cancel().await;
+            assert!(very_late_cancellation.is_accepted());
+        });
+
+        executor.spin(SpinOptions::default().until_promise_resolved(promise));
+    }
+
     async fn fibonacci_action(
         handle: RequestedGoal<Fibonacci>,
-        period: Duration,
+        TestActionSettings {
+            period,
+            cancel_refusal_limit,
+            continue_after_cancelling,
+        }: TestActionSettings,
     ) -> TerminatedGoal {
         let goal_order = handle.goal().order;
         if goal_order < 0 {
@@ -376,7 +510,8 @@ mod tests {
         });
 
         let mut sequence = Vec::new();
-        loop {
+        let mut cancel_requests = 0;
+        let cancelling = loop {
             match executing.unless_cancel_requested(receiver.recv()).await {
                 Ok(Some(next)) => {
                     // We have a new item in the sequence
@@ -391,11 +526,78 @@ mod tests {
                     return executing.succeeded_with(result);
                 }
                 Err(_) => {
-                    // The action has been cancelled
-                    result.sequence = sequence;
-                    return executing.begin_cancelling().cancelled_with(result);
+                    // The user has asked for the action to be cancelled
+                    cancel_requests += 1;
+                    if cancel_requests > cancel_refusal_limit {
+                        let cancelling = executing.begin_cancelling();
+                        if !continue_after_cancelling {
+                            result.sequence = sequence;
+                            return cancelling.cancelled_with(result);
+                        }
+
+                        break cancelling;
+                    }
+
+                    // We have not yet reached the number of cancel requests that
+                    // we intend to reject. Reject this cancellation and wait for
+                    // the next one.
+                    executing.reject_cancellation();
                 }
             }
+        };
+
+        // We will continue to iterate to the finish even though we are in the
+        // cancelling mode. We only do this as a way of running tests on a
+        // prolonged action cancelling state.
+        loop {
+            match receiver.recv().await {
+                Some(next) => {
+                    sequence.push(next);
+                    cancelling.publish_feedback(Fibonacci_Feedback {
+                        sequence: sequence.clone(),
+                    });
+                }
+                None => {
+                    // The sequence has finished
+                    result.sequence = sequence;
+                    return cancelling.succeeded_with(result);
+                }
+            }
+        }
+    }
+
+    struct TestActionSettings {
+        period: Duration,
+        cancel_refusal_limit: usize,
+        continue_after_cancelling: bool,
+    }
+
+    impl Default for TestActionSettings {
+        fn default() -> Self {
+            TestActionSettings {
+                period: Duration::from_micros(10),
+                cancel_refusal_limit: 0,
+                continue_after_cancelling: false,
+            }
+        }
+    }
+
+    impl TestActionSettings {
+        fn slow() -> Self {
+            TestActionSettings {
+                period: Duration::from_secs(1),
+                ..Default::default()
+            }
+        }
+
+        fn cancel_refusal(mut self, limit: usize) -> Self {
+            self.cancel_refusal_limit = limit;
+            self
+        }
+
+        fn continue_after_cancelling(mut self) -> Self {
+            self.continue_after_cancelling = true;
+            self
         }
     }
 }

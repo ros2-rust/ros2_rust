@@ -1,7 +1,8 @@
 use super::empty_goal_status_array;
 use crate::{
-    action::GoalUuid, error::ToResult, rcl_bindings::*, ActionGoalReceiver, DropGuard,
-    GoalStatusCode, Node, NodeHandle, QoSProfile, RclPrimitive, RclPrimitiveHandle,
+    action::GoalUuid, error::ToResult, rcl_bindings::*,
+    vendor::action_msgs::srv::CancelGoal_Response, ActionGoalReceiver, CancelResponseCode,
+    DropGuard, GoalStatusCode, Node, NodeHandle, QoSProfile, RclPrimitive, RclPrimitiveHandle,
     RclPrimitiveKind, RclrsError, ReadyKind, TakeFailedAsNone, Waitable, WaitableLifecycle,
     ENTITY_LIFECYCLE_MUTEX,
 };
@@ -9,11 +10,12 @@ use futures::future::BoxFuture;
 use rosidl_runtime_rs::{Action, Message, RmwGoalRequest, RmwResultRequest};
 use std::{
     any::Any,
-    borrow::Borrow,
+    borrow::{Borrow, Cow},
     collections::HashMap,
     ffi::CString,
     future::Future,
     sync::{Arc, Mutex, MutexGuard, Weak},
+    time::Duration,
 };
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
@@ -63,7 +65,9 @@ pub struct ActionServerOptions<'a> {
     pub feedback_topic_qos: QoSProfile,
     /// The quality of service profile for the status topic
     pub status_topic_qos: QoSProfile,
-    // TODO(nwn): result_timeout
+    /// How long should it take for a goal to expire after it has terminated.
+    /// By default this is 1 minute.
+    pub goal_expiration_timeout: Duration,
 }
 
 impl<'a> ActionServerOptions<'a> {
@@ -76,13 +80,83 @@ impl<'a> ActionServerOptions<'a> {
             cancel_service_qos: QoSProfile::services_default(),
             feedback_topic_qos: QoSProfile::topics_default(),
             status_topic_qos: QoSProfile::action_status_default(),
+            goal_expiration_timeout: Duration::from_secs(60),
+        }
+    }
+
+    fn into_rcl(&self) -> rcl_action_server_options_t {
+        rcl_action_server_options_s {
+            goal_service_qos: self.goal_service_qos.into(),
+            cancel_service_qos: self.cancel_service_qos.into(),
+            result_service_qos: self.result_service_qos.into(),
+            feedback_topic_qos: self.feedback_topic_qos.into(),
+            status_topic_qos: self.status_topic_qos.into(),
+            // SAFETY: No preconditions for this function
+            allocator: unsafe { rcutils_get_default_allocator() },
+            result_timeout: rcl_duration_s {
+                nanoseconds: self.goal_expiration_timeout.as_nanos() as i64,
+            },
         }
     }
 }
 
-impl<'a, T: Borrow<str> + ?Sized + 'a> From<&'a T> for ActionServerOptions<'a> {
-    fn from(value: &'a T) -> Self {
-        Self::new(value.borrow())
+/// Trait to implicitly convert a compatible object into [`ActionServerOptions`].
+pub trait IntoActionServerOptions<'a>: Sized {
+    /// Change this into an [`ActionServerOptions`].
+    fn into_action_server_options(self) -> ActionServerOptions<'a>;
+
+    /// Set the quality of service profile for the goal service
+    fn goal_service_qos(self, profile: QoSProfile) -> ActionServerOptions<'a> {
+        let mut options = self.into_action_server_options();
+        options.goal_service_qos = profile;
+        options
+    }
+
+    /// Set the quality of service profile for the result service
+    fn result_service_qos(self, profile: QoSProfile) -> ActionServerOptions<'a> {
+        let mut options = self.into_action_server_options();
+        options.result_service_qos = profile;
+        options
+    }
+
+    /// Set the quality of service profile for the cancel service
+    fn cancel_service_qos(self, profile: QoSProfile) -> ActionServerOptions<'a> {
+        let mut options = self.into_action_server_options();
+        options.cancel_service_qos = profile;
+        options
+    }
+
+    /// Set the quality of service profile for the feedback topic
+    fn feedback_topic_qos(self, profile: QoSProfile) -> ActionServerOptions<'a> {
+        let mut options = self.into_action_server_options();
+        options.feedback_topic_qos = profile;
+        options
+    }
+
+    /// Set the quality of service profile for the status topic
+    fn status_topic_qos(self, profile: QoSProfile) -> ActionServerOptions<'a> {
+        let mut options = self.into_action_server_options();
+        options.status_topic_qos = profile;
+        options
+    }
+
+    /// Set how long should it take for a goal to expire after it has terminated.
+    fn goal_expiration_timeout(self, duration: Duration) -> ActionServerOptions<'a> {
+        let mut options = self.into_action_server_options();
+        options.goal_expiration_timeout = duration;
+        options
+    }
+}
+
+impl<'a, T: Borrow<str> + 'a> IntoActionServerOptions<'a> for &'a T {
+    fn into_action_server_options(self) -> ActionServerOptions<'a> {
+        ActionServerOptions::new(self.borrow())
+    }
+}
+
+impl<'a> IntoActionServerOptions<'a> for ActionServerOptions<'a> {
+    fn into_action_server_options(self) -> ActionServerOptions<'a> {
+        self
     }
 }
 
@@ -166,7 +240,7 @@ impl<A: Action> ActionServerState<A> {
 
     pub(crate) fn create<'a, Task>(
         node: &Node,
-        options: impl Into<ActionServerOptions<'a>>,
+        options: impl IntoActionServerOptions<'a>,
         mut callback: impl FnMut(RequestedGoal<A>) -> Task + Send + Sync + 'static,
     ) -> Result<ActionServer<A>, RclrsError>
     where
@@ -187,7 +261,7 @@ impl<A: Action> ActionServerState<A> {
 
     pub(super) fn new_for_receiver<'a>(
         node: &Node,
-        options: impl Into<ActionServerOptions<'a>>,
+        options: impl IntoActionServerOptions<'a>,
         sender: UnboundedSender<RequestedGoal<A>>,
     ) -> Result<Self, RclrsError> {
         Self::new(node, options, GoalDispatch::Sender(sender))
@@ -196,10 +270,10 @@ impl<A: Action> ActionServerState<A> {
     /// Creates a new action server.
     fn new<'a>(
         node: &Node,
-        options: impl Into<ActionServerOptions<'a>>,
+        options: impl IntoActionServerOptions<'a>,
         dispatch: GoalDispatch<A>,
     ) -> Result<Self, RclrsError> {
-        let options = options.into();
+        let options = options.into_action_server_options();
         // SAFETY: Getting a zero-initialized value is always safe.
         let mut rcl_action_server = unsafe { rcl_action_get_zero_initialized_server() };
         let type_support = A::get_type_support() as *const rosidl_action_type_support_t;
@@ -209,8 +283,7 @@ impl<A: Action> ActionServerState<A> {
                 s: options.action_name.into(),
             })?;
 
-        // SAFETY: No preconditions for this function.
-        let action_server_options = unsafe { rcl_action_server_get_default_options() };
+        let action_server_options = options.into_rcl();
 
         {
             let mut rcl_node = node.handle().rcl_node.lock().unwrap();
@@ -361,7 +434,7 @@ impl<A: Action> ActionServerGoalBoard<A> {
     }
 
     fn execute_cancel_request(&self) -> Result<(), RclrsError> {
-        let Some((request, request_id)) =
+        let Some((request, mut request_id)) =
             self.handle.take_cancel_request().take_failed_as_none()?
         else {
             return Ok(());
@@ -399,6 +472,57 @@ impl<A: Action> ActionServerGoalBoard<A> {
             };
             let goal_uuid = GoalUuid(goal_info.goal_id.uuid);
             waiting_for.push(goal_uuid);
+        }
+
+        if waiting_for.is_empty() {
+            // rcl_action_process_cancel_request may give back an empty set if
+            // the requested action was already cancelled, but then we should
+            // examine whether the goal may have already been cancelled or has
+            // been terminated, otherwise we are not providing useful information
+            // to the action client.
+            if request.goal_info.goal_id.uuid != [0; RCL_ACTION_UUID_SIZE] {
+                // The user has asked for a specific goal to be cancelled, so
+                // we should check on its status and report back accordingly.
+                waiting_for.push(GoalUuid(request.goal_info.goal_id.uuid));
+            }
+        }
+
+        if waiting_for.len() == 1 {
+            if let Some(single_goal) = waiting_for.first() {
+                // For exactly one cancelled goal request, we should consider whether
+                // it's more appropriate to send an UnknownGoal or GoalTerminated
+                // result rather than Accept or Reject.
+                let mut send_response_code = None;
+                let goals = self.handle.goals.lock()?;
+                if let Some(goal_handle) = goals.get(single_goal) {
+                    if goal_handle.get_status().is_terminated() {
+                        send_response_code = Some(CancelResponseCode::GoalTerminated);
+                    }
+                } else {
+                    send_response_code = Some(CancelResponseCode::UnknownGoal);
+                }
+
+                if let Some(response_code) = send_response_code {
+                    // We have a special response type for this specific request.
+                    // Either the goal has been terminated or we don't know about
+                    // it at all.
+                    let mut response = CancelGoal_Response::default();
+                    response.return_code = response_code as i8;
+                    let mut response_rmw =
+                        CancelGoal_Response::into_rmw_message(Cow::Owned(response)).into_owned();
+                    return unsafe {
+                        rcl_action_send_cancel_response(
+                            &*self.handle.lock(),
+                            &mut request_id,
+                            &mut response_rmw as *mut _ as *mut _,
+                        )
+                        .ok()
+                    };
+                }
+
+                // We don't have a special case, so continue along with the
+                // usual cancellation workflow.
+            }
         }
 
         let cancellation_request = CancellationRequest::new(
