@@ -30,7 +30,7 @@ use async_std::future::timeout;
 use rosidl_runtime_rs::{Action, Message};
 
 use crate::{
-    rcl_bindings::*, ActionClient, ActionClientOptions, ActionClientState, ActionGoalReceiver,
+    rcl_bindings::*, ActionClient, IntoActionClientOptions, ActionClientState, ActionGoalReceiver,
     ActionServer, ActionServerState, AnyTimerCallback, Client, ClientOptions, ClientState, Clock,
     ContextHandle, ExecutorCommands, IntoActionServerOptions, IntoAsyncServiceCallback,
     IntoAsyncSubscriptionCallback, IntoNodeServiceCallback, IntoNodeSubscriptionCallback,
@@ -364,7 +364,7 @@ impl NodeState {
     // TODO: make action client's lifetime depend on node's lifetime
     pub fn create_action_client<'a, A: Action>(
         self: &Arc<Self>,
-        options: impl Into<ActionClientOptions<'a>>,
+        options: impl IntoActionClientOptions<'a>,
     ) -> Result<ActionClient<A>, RclrsError> {
         ActionClientState::create(self, options)
     }

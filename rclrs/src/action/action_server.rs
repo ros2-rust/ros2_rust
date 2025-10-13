@@ -83,21 +83,6 @@ impl<'a> ActionServerOptions<'a> {
             goal_expiration_timeout: Duration::from_secs(60),
         }
     }
-
-    fn into_rcl(&self) -> rcl_action_server_options_t {
-        rcl_action_server_options_s {
-            goal_service_qos: self.goal_service_qos.into(),
-            cancel_service_qos: self.cancel_service_qos.into(),
-            result_service_qos: self.result_service_qos.into(),
-            feedback_topic_qos: self.feedback_topic_qos.into(),
-            status_topic_qos: self.status_topic_qos.into(),
-            // SAFETY: No preconditions for this function
-            allocator: unsafe { rcutils_get_default_allocator() },
-            result_timeout: rcl_duration_s {
-                nanoseconds: self.goal_expiration_timeout.as_nanos() as i64,
-            },
-        }
-    }
 }
 
 /// Trait to implicitly convert a compatible object into [`ActionServerOptions`].
@@ -148,7 +133,7 @@ pub trait IntoActionServerOptions<'a>: Sized {
     }
 }
 
-impl<'a, T: Borrow<str> + 'a> IntoActionServerOptions<'a> for &'a T {
+impl<'a, T: Borrow<str> + ?Sized + 'a> IntoActionServerOptions<'a> for &'a T {
     fn into_action_server_options(self) -> ActionServerOptions<'a> {
         ActionServerOptions::new(self.borrow())
     }
@@ -157,6 +142,23 @@ impl<'a, T: Borrow<str> + 'a> IntoActionServerOptions<'a> for &'a T {
 impl<'a> IntoActionServerOptions<'a> for ActionServerOptions<'a> {
     fn into_action_server_options(self) -> ActionServerOptions<'a> {
         self
+    }
+}
+
+impl<'a> From<&'_ ActionServerOptions<'a>> for rcl_action_server_options_t {
+    fn from(value: &ActionServerOptions<'a>) -> Self {
+        rcl_action_server_options_s {
+            goal_service_qos: value.goal_service_qos.into(),
+            cancel_service_qos: value.cancel_service_qos.into(),
+            result_service_qos: value.result_service_qos.into(),
+            feedback_topic_qos: value.feedback_topic_qos.into(),
+            status_topic_qos: value.status_topic_qos.into(),
+            // SAFETY: No preconditions for this function
+            allocator: unsafe { rcutils_get_default_allocator() },
+            result_timeout: rcl_duration_s {
+                nanoseconds: value.goal_expiration_timeout.as_nanos() as i64,
+            },
+        }
     }
 }
 
@@ -283,7 +285,7 @@ impl<A: Action> ActionServerState<A> {
                 s: options.action_name.into(),
             })?;
 
-        let action_server_options = options.into_rcl();
+        let action_server_options = (&options).into();
 
         {
             let mut rcl_node = node.handle().rcl_node.lock().unwrap();

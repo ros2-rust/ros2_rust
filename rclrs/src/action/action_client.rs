@@ -75,9 +75,70 @@ impl<'a> ActionClientOptions<'a> {
     }
 }
 
-impl<'a, T: Borrow<str> + ?Sized + 'a> From<&'a T> for ActionClientOptions<'a> {
-    fn from(value: &'a T) -> Self {
-        Self::new(value.borrow())
+/// Trait to implicitly convert a compatible object into [`ActionClientOptions`].
+pub trait IntoActionClientOptions<'a>: Sized {
+    /// Change this into an [`ActionClientOptions`].
+    fn into_action_client_options(self) -> ActionClientOptions<'a>;
+
+    /// Set the quality of service profile for the goal service
+    fn goal_service_qos(self, profile: QoSProfile) -> ActionClientOptions<'a> {
+        let mut options = self.into_action_client_options();
+        options.goal_service_qos = profile;
+        options
+    }
+
+    /// Set the quality of service profile for the result service
+    fn result_service_qos(self, profile: QoSProfile) -> ActionClientOptions<'a> {
+        let mut options = self.into_action_client_options();
+        options.result_service_qos = profile;
+        options
+    }
+
+    /// Set the quality of service profile for the cancel service
+    fn cancel_service_qos(self, profile: QoSProfile) -> ActionClientOptions<'a> {
+        let mut options = self.into_action_client_options();
+        options.cancel_service_qos = profile;
+        options
+    }
+
+    /// Set the quality of service profile for the feedback topic
+    fn feedback_topic_qos(self, profile: QoSProfile) -> ActionClientOptions<'a> {
+        let mut options = self.into_action_client_options();
+        options.feedback_topic_qos = profile;
+        options
+    }
+
+    /// Set the quality of service profile for the status topic
+    fn status_topic_qos(self, profile: QoSProfile) -> ActionClientOptions<'a> {
+        let mut options = self.into_action_client_options();
+        options.status_topic_qos = profile;
+        options
+    }
+}
+
+impl<'a, T: Borrow<str> + ?Sized + 'a> IntoActionClientOptions<'a> for &'a T {
+    fn into_action_client_options(self) -> ActionClientOptions<'a> {
+        ActionClientOptions::new(self.borrow())
+    }
+}
+
+impl<'a> IntoActionClientOptions<'a> for ActionClientOptions<'a> {
+    fn into_action_client_options(self) -> ActionClientOptions<'a> {
+        self
+    }
+}
+
+impl<'a> From<&'_ ActionClientOptions<'a>> for rcl_action_client_options_t {
+    fn from(value: &'_ ActionClientOptions<'a>) -> Self {
+        rcl_action_client_options_s {
+            goal_service_qos: value.goal_service_qos.into(),
+            result_service_qos: value.result_service_qos.into(),
+            cancel_service_qos: value.cancel_service_qos.into(),
+            feedback_topic_qos: value.feedback_topic_qos.into(),
+            status_topic_qos: value.status_topic_qos.into(),
+            // SAFETY: No preconditions for this function
+            allocator: unsafe { rcutils_get_default_allocator() },
+        }
     }
 }
 
@@ -225,9 +286,9 @@ impl<A: Action> ActionClientState<A> {
     /// Creates a new action client.
     pub(crate) fn create<'a>(
         node: &Node,
-        options: impl Into<ActionClientOptions<'a>>,
+        options: impl IntoActionClientOptions<'a>,
     ) -> Result<Arc<Self>, RclrsError> {
-        let options = options.into();
+        let options = options.into_action_client_options();
         // SAFETY: Getting a zero-initialized value is always safe.
         let mut rcl_action_client = unsafe { rcl_action_get_zero_initialized_client() };
         let type_support = A::get_type_support() as *const rosidl_action_type_support_t;
@@ -238,7 +299,7 @@ impl<A: Action> ActionClientState<A> {
             })?;
 
         // SAFETY: No preconditions for this function.
-        let action_client_options = unsafe { rcl_action_client_get_default_options() };
+        let action_client_options = (&options).into();
 
         {
             let mut rcl_node = node.handle().rcl_node.lock().unwrap();
