@@ -220,7 +220,6 @@ impl<A: Action> ActionServerState<A> {
         };
 
         *dispatch = GoalDispatch::Callback(callback);
-        self.board.dispatch.clear_poison();
     }
 
     /// Change this action server into an action goal receiver, which may be more
@@ -341,7 +340,6 @@ impl<A: Action> ActionServerState<A> {
         };
 
         *dispatch = GoalDispatch::Sender(sender);
-        self.board.dispatch.clear_poison();
     }
 
     /// Used internally to change a receiver into an action server without the
@@ -375,7 +373,6 @@ impl<A: Action> ActionServerState<A> {
         }
 
         *dispatch = GoalDispatch::Callback(callback);
-        self.board.dispatch.clear_poison();
     }
 }
 
