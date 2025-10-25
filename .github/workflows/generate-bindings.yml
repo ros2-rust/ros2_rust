@@ -99,6 +99,8 @@ jobs:
           CREATE_PR=1
           git checkout -b update-bindings-${{ matrix.ros_distribution }}
         fi
+        git fetch origin update-bindings-${{ matrix.ros_distribution }}
+        git rebase origin/update-bindings-${{ matrix.ros_distribution }}
         git add rclrs/src/rcl_bindings_generated_${{ matrix.ros_distribution }}.rs
         git commit -m "Regenerate bindings for ${{ matrix.ros_distribution }}"
         git push -u origin update-bindings-${{ matrix.ros_distribution }}
