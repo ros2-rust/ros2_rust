@@ -74,8 +74,3 @@ ros2 launch examples_rclrs_minimal_pub_sub minimal_pub_sub.launch.xml
 Further documentation articles:
 - [Tutorial on writing your first node with `rclrs`](docs/writing-your-first-rclrs-node.md)
 - [Contributor's guide](docs/CONTRIBUTING.md)
-
-> [!TIP]
-> For maintainers: To (re-)generate bindings for a certain ROS distro, source that distro
-> and then run `cargo run --bin rclrs_generate_bindings` from this root directory of the repo.
-> Remember to commit the new or changed binding file.
