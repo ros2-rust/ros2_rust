@@ -1,6 +1,6 @@
 use crate::{
     clock::Clock, context::ContextHandle, error::RclrsError, log_error, rcl_bindings::*, Node,
-    RclPrimitive, RclPrimitiveHandle, RclPrimitiveKind, ToLogParams, ToResult, Waitable,
+    RclPrimitive, RclPrimitiveHandle, RclPrimitiveKind, ReadyKind, ToLogParams, ToResult, Waitable,
     WaitableLifecycle, WorkScope, Worker, WorkerCommands, ENTITY_LIFECYCLE_MUTEX,
 };
 // TODO: fix me when the callback type is properly defined.
@@ -487,7 +487,12 @@ struct TimerExecutable<Scope: WorkScope> {
 }
 
 impl<Scope: WorkScope> RclPrimitive for TimerExecutable<Scope> {
-    unsafe fn execute(&mut self, payload: &mut dyn Any) -> Result<(), RclrsError> {
+    unsafe fn execute(
+        &mut self,
+        ready: ReadyKind,
+        payload: &mut dyn Any,
+    ) -> Result<(), RclrsError> {
+        ready.for_basic()?;
         if let Some(timer) = self.timer.upgrade() {
             if timer.is_ready()? {
                 timer.call(payload)?;
@@ -840,7 +845,7 @@ mod tests {
 
         unsafe {
             // SAFETY: Node timers expect a payload of ()
-            executable.execute(&mut ()).unwrap();
+            executable.execute(ReadyKind::Basic, &mut ()).unwrap();
         }
         assert!(!executed.load(Ordering::Acquire));
     }
@@ -872,7 +877,7 @@ mod tests {
 
         unsafe {
             // SAFETY: Node timers expect a payload of ()
-            executable.execute(&mut ()).unwrap();
+            executable.execute(ReadyKind::Basic, &mut ()).unwrap();
         }
         assert!(executed.load(Ordering::Acquire));
     }

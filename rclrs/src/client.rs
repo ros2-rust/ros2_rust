@@ -10,7 +10,7 @@ use rosidl_runtime_rs::Message;
 use crate::{
     error::ToResult, log_fatal, rcl_bindings::*, IntoPrimitiveOptions, MessageCow, Node, Promise,
     QoSProfile, RclPrimitive, RclPrimitiveHandle, RclPrimitiveKind, RclReturnCode, RclrsError,
-    ServiceInfo, Waitable, WaitableLifecycle, ENTITY_LIFECYCLE_MUTEX,
+    ReadyKind, ServiceInfo, Waitable, WaitableLifecycle, ENTITY_LIFECYCLE_MUTEX,
 };
 
 mod client_async_callback;
@@ -415,7 +415,8 @@ impl<T> RclPrimitive for ClientExecutable<T>
 where
     T: rosidl_runtime_rs::Service,
 {
-    unsafe fn execute(&mut self, _: &mut dyn Any) -> Result<(), RclrsError> {
+    unsafe fn execute(&mut self, ready: ReadyKind, _: &mut dyn Any) -> Result<(), RclrsError> {
+        ready.for_basic()?;
         self.board.lock().unwrap().execute(&self.handle)
     }
 

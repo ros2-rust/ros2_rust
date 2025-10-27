@@ -5,7 +5,7 @@ use std::{
 
 use crate::{
     rcl_bindings::*, ContextHandle, RclPrimitive, RclPrimitiveHandle, RclPrimitiveKind, RclrsError,
-    ToResult, Waitable, WaitableLifecycle,
+    ReadyKind, ToResult, Waitable, WaitableLifecycle,
 };
 
 /// A waitable entity used for waking up a wait set manually.
@@ -136,6 +136,7 @@ struct GuardConditionHandle {
 /// condition variables are owned at the rclrs layer while others were obtained
 /// from rcl and either have static lifetimes or lifetimes that depend on
 /// something else.
+#[derive(Debug)]
 pub enum InnerGuardConditionHandle {
     /// This variant means the guard condition was created and owned by rclrs.
     /// Its memory is managed by us.
@@ -205,7 +206,8 @@ struct GuardConditionExecutable {
 }
 
 impl RclPrimitive for GuardConditionExecutable {
-    unsafe fn execute(&mut self, _: &mut dyn Any) -> Result<(), RclrsError> {
+    unsafe fn execute(&mut self, ready: ReadyKind, _: &mut dyn Any) -> Result<(), RclrsError> {
+        ready.for_basic()?;
         if let Some(callback) = &mut self.callback {
             callback();
         }

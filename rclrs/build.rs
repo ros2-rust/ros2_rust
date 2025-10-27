@@ -55,6 +55,7 @@ fn main() {
     }
 
     println!("cargo:rustc-link-lib=dylib=rcl");
+    println!("cargo:rustc-link-lib=dylib=rcl_action");
     println!("cargo:rustc-link-lib=dylib=rcl_yaml_param_parser");
     println!("cargo:rustc-link-lib=dylib=rcutils");
     println!("cargo:rustc-link-lib=dylib=rmw");

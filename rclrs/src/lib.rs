@@ -178,10 +178,12 @@
 //! # Ok::<(), RclrsError>(())
 //! ```
 
+mod action;
 mod arguments;
 mod client;
 mod clock;
 mod context;
+mod drop_guard;
 mod error;
 mod executor;
 mod logging;
@@ -206,10 +208,12 @@ mod rcl_bindings;
 #[cfg(feature = "dyn_msg")]
 pub mod dynamic_message;
 
+pub use action::*;
 pub use arguments::*;
 pub use client::*;
 pub use clock::*;
 pub use context::*;
+use drop_guard::DropGuard;
 pub use error::*;
 pub use executor::*;
 pub use logging::*;
@@ -226,4 +230,6 @@ pub use timer::*;
 pub use wait_set::*;
 pub use worker::*;
 
-pub use rosidl_runtime_rs::{Message as MessageIDL, Service as ServiceIDL};
+pub use rosidl_runtime_rs::{
+    Action as ActionIDL, Message as MessageIDL, RmwMessage as RmwMessageIDL, Service as ServiceIDL,
+};

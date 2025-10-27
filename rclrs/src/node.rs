@@ -14,6 +14,7 @@ use std::{
     cmp::PartialEq,
     ffi::CStr,
     fmt,
+    future::Future,
     os::raw::c_char,
     sync::{atomic::AtomicBool, Arc, Mutex},
     time::Duration,
@@ -26,17 +27,18 @@ use futures::{
 
 use async_std::future::timeout;
 
-use rosidl_runtime_rs::Message;
+use rosidl_runtime_rs::{Action, Message};
 
 use crate::{
-    rcl_bindings::*, AnyTimerCallback, Client, ClientOptions, ClientState, Clock, ContextHandle,
-    ExecutorCommands, IntoAsyncServiceCallback, IntoAsyncSubscriptionCallback,
-    IntoNodeServiceCallback, IntoNodeSubscriptionCallback, IntoNodeTimerOneshotCallback,
-    IntoNodeTimerRepeatingCallback, IntoTimerOptions, LogParams, Logger, ParameterBuilder,
-    ParameterInterface, ParameterVariant, Parameters, Promise, Publisher, PublisherOptions,
-    PublisherState, RclrsError, Service, ServiceOptions, ServiceState, Subscription,
-    SubscriptionOptions, SubscriptionState, TimeSource, Timer, TimerState, ToLogParams, Worker,
-    WorkerOptions, WorkerState, ENTITY_LIFECYCLE_MUTEX,
+    rcl_bindings::*, ActionClient, ActionClientState, ActionGoalReceiver, ActionServer,
+    ActionServerState, AnyTimerCallback, Client, ClientOptions, ClientState, Clock, ContextHandle,
+    ExecutorCommands, IntoActionClientOptions, IntoActionServerOptions, IntoAsyncServiceCallback,
+    IntoAsyncSubscriptionCallback, IntoNodeServiceCallback, IntoNodeSubscriptionCallback,
+    IntoNodeTimerOneshotCallback, IntoNodeTimerRepeatingCallback, IntoTimerOptions, LogParams,
+    Logger, ParameterBuilder, ParameterInterface, ParameterVariant, Parameters, Promise, Publisher,
+    PublisherOptions, PublisherState, RclrsError, RequestedGoal, Service, ServiceOptions,
+    ServiceState, Subscription, SubscriptionOptions, SubscriptionState, TerminatedGoal, TimeSource,
+    Timer, TimerState, ToLogParams, Worker, WorkerOptions, WorkerState, ENTITY_LIFECYCLE_MUTEX,
 };
 
 /// A processing unit that can communicate with other nodes. See the API of
@@ -355,6 +357,40 @@ impl NodeState {
         T: rosidl_runtime_rs::Service,
     {
         ClientState::<T>::create(options, self)
+    }
+    /// Creates an [`ActionClient`][1].
+    ///
+    /// [1]: crate::ActionClient
+    // TODO: make action client's lifetime depend on node's lifetime
+    pub fn create_action_client<'a, A: Action>(
+        self: &Arc<Self>,
+        options: impl IntoActionClientOptions<'a>,
+    ) -> Result<ActionClient<A>, RclrsError> {
+        ActionClientState::create(self, options)
+    }
+
+    /// Creates an [`ActionServer`].
+    //
+    // TODO(@mxgrey): Add extensive documentation and usage examples
+    pub fn create_action_server<'a, A: Action, Task>(
+        self: &Arc<Self>,
+        options: impl IntoActionServerOptions<'a>,
+        callback: impl FnMut(RequestedGoal<A>) -> Task + Send + Sync + 'static,
+    ) -> Result<ActionServer<A>, RclrsError>
+    where
+        Task: Future<Output = TerminatedGoal> + Send + Sync + 'static,
+    {
+        ActionServerState::create(self, options, callback)
+    }
+
+    /// Creates an [`ActionGoalReceiver`].
+    //
+    // TODO(@mxgrey): Add extensive documentation and usage examples
+    pub fn create_goal_receiver<'a, A: Action>(
+        self: &Arc<Self>,
+        options: impl IntoActionServerOptions<'a>,
+    ) -> Result<ActionGoalReceiver<A>, RclrsError> {
+        ActionGoalReceiver::new(self, options)
     }
 
     /// Creates a [`Publisher`].

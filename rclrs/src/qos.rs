@@ -295,6 +295,11 @@ impl QoSProfile {
     pub fn system_default() -> Self {
         QOS_PROFILE_SYSTEM_DEFAULT
     }
+
+    /// Get the default QoS profile for action status topics.
+    pub fn action_status_default() -> Self {
+        QOS_PROFILE_ACTION_STATUS_DEFAULT
+    }
 }
 
 impl From<QoSHistoryPolicy> for rmw_qos_history_policy_t {
@@ -472,6 +477,20 @@ pub const QOS_PROFILE_SYSTEM_DEFAULT: QoSProfile = QoSProfile {
     history: QoSHistoryPolicy::SystemDefault { depth: 0 },
     reliability: QoSReliabilityPolicy::SystemDefault,
     durability: QoSDurabilityPolicy::SystemDefault,
+    deadline: QoSDuration::SystemDefault,
+    lifespan: QoSDuration::SystemDefault,
+    liveliness: QoSLivelinessPolicy::SystemDefault,
+    liveliness_lease: QoSDuration::SystemDefault,
+    avoid_ros_namespace_conventions: false,
+};
+
+/// Equivalent to `rcl_action_qos_profile_status_default` from the [`rcl_action` package][1].
+///
+/// [1]: https://github.com/ros2/rcl/blob/rolling/rcl_action/include/rcl_action/default_qos.h
+pub const QOS_PROFILE_ACTION_STATUS_DEFAULT: QoSProfile = QoSProfile {
+    history: QoSHistoryPolicy::KeepLast { depth: 1 },
+    reliability: QoSReliabilityPolicy::Reliable,
+    durability: QoSDurabilityPolicy::TransientLocal,
     deadline: QoSDuration::SystemDefault,
     lifespan: QoSDuration::SystemDefault,
     liveliness: QoSLivelinessPolicy::SystemDefault,
