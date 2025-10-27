@@ -101,8 +101,6 @@ jobs:
         fi
         git add rclrs/src/rcl_bindings_generated_${{ matrix.ros_distribution }}.rs
         git commit -m "Regenerate bindings for ${{ matrix.ros_distribution }}"
-        git fetch origin update-bindings-${{ matrix.ros_distribution }}
-        git rebase origin/update-bindings-${{ matrix.ros_distribution }}
         git push -u origin update-bindings-${{ matrix.ros_distribution }}
         if [ $CREATE_PR -eq 1 ]; then
           gh pr create --base main --head update-bindings-${{ matrix.ros_distribution }} --title "Regenerate bindings for ${{ matrix.ros_distribution }}" --body "This PR regenerates the bindings for ${{ matrix.ros_distribution }}."
