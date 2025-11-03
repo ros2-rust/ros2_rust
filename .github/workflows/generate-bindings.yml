@@ -95,7 +95,8 @@ jobs:
         git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}
         git fetch origin
 
-        if gh pr list --head "update-bindings-${{ matrix.ros_distribution }}" --state open --json number --jq length | grep -q '^0$'; then
+        BRANCH_NAME="update-bindings-${{ matrix.ros_distribution }}"
+        if gh pr list --head "$BRANCH_NAME" --state open --json number --jq length | grep -q '^0$'; then
           echo "No existing PR found, will create new one"
           CREATE_PR=1
         else
@@ -106,10 +107,14 @@ jobs:
         git add rclrs/src/rcl_bindings_generated_${{ matrix.ros_distribution }}.rs
         git commit -m "Regenerate bindings for ${{ matrix.ros_distribution }}"
         
-        git push -f origin HEAD:refs/heads/update-bindings-${{ matrix.ros_distribution }}
+        git push -f origin HEAD:refs/heads/$BRANCH_NAME
         
         if [ $CREATE_PR -eq 1 ]; then
-          gh pr create --base main --head update-bindings-${{ matrix.ros_distribution }} --title "Regenerate bindings for ${{ matrix.ros_distribution }}" --body "This PR regenerates the bindings for ${{ matrix.ros_distribution }}."
+          gh pr create \
+            --base main \
+            --head "$BRANCH_NAME" \
+            --title "Regenerate bindings for ${{ matrix.ros_distribution }}" \
+            --body "This PR regenerates the bindings for ${{ matrix.ros_distribution }}."
         else
           echo "PR already exists and has been updated with new commit"
         fi
