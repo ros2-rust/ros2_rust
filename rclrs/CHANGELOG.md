@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.1](https://github.com/ros2-rust/ros2_rust/compare/v0.6.0...v0.6.1) - 2025-11-03
+
+### Other
+
+- Regenerate bindings for kilted ([#542](https://github.com/ros2-rust/ros2_rust/pull/542))
+- Regenerate bindings for rolling ([#543](https://github.com/ros2-rust/ros2_rust/pull/543))
+- Regenerate bindings for jazzy ([#529](https://github.com/ros2-rust/ros2_rust/pull/529))
+- Regenerate bindings for humble ([#534](https://github.com/ros2-rust/ros2_rust/pull/534))
+
 ## [0.6.0](https://github.com/ros2-rust/ros2_rust/compare/v0.5.1...v0.6.0) - 2025-10-27
 
 ### Added
