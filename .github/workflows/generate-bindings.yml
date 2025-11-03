@@ -88,12 +88,16 @@ jobs:
         cd $GITHUB_WORKSPACE
         git config --global --add safe.directory $GITHUB_WORKSPACE
         if git diff --exit-code; then
+          echo "No changes detected, skipping PR creation"
           exit 0
         fi
+
         git config --global user.email "action@github.com"
         git config --global user.name "GitHub Action"
         git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}
         git fetch origin
+
+        echo "Github env set and origin is fetched! Now checking if PR exists.."
 
         BRANCH_NAME="update-bindings-${{ matrix.ros_distribution }}"
         if gh pr list --head "$BRANCH_NAME" --state open --json number --jq length | grep -q '^0$'; then
@@ -115,6 +119,7 @@ jobs:
             --head "$BRANCH_NAME" \
             --title "Regenerate bindings for ${{ matrix.ros_distribution }}" \
             --body "This PR regenerates the bindings for ${{ matrix.ros_distribution }}."
+            echo "Created new PR!"
         else
           echo "PR already exists and has been updated with new commit"
         fi
