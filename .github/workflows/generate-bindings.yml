@@ -94,10 +94,12 @@ jobs:
         git config --global user.name "GitHub Action"
         git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}
         git remote update origin
-        CREATE_PR=0
-        if ! git checkout update-bindings-${{ matrix.ros_distribution }}; then
+        if gh pr list --head "update-bindings-${{ matrix.ros_distribution }}" --state open --json number --jq length | grep -q '^0$'; then
+          echo "No existing PR found, will create new one"
           CREATE_PR=1
-          git checkout -b update-bindings-${{ matrix.ros_distribution }}
+        else
+          echo "PR already exists, will update it"
+          CREATE_PR=0
         fi
         git add rclrs/src/rcl_bindings_generated_${{ matrix.ros_distribution }}.rs
         git commit -m "Regenerate bindings for ${{ matrix.ros_distribution }}"
