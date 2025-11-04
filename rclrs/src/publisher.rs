@@ -337,14 +337,14 @@ mod tests {
 
     #[test]
     fn traits() {
+        use crate::vendor::test_msgs;
         assert_send::<Publisher<test_msgs::msg::BoundedSequences>>();
         assert_sync::<Publisher<test_msgs::msg::BoundedSequences>>();
     }
 
     #[test]
     fn test_publishers() -> Result<(), RclrsError> {
-        use crate::TopicEndpointInfo;
-        use test_msgs::msg;
+        use crate::{vendor::test_msgs::msg, TopicEndpointInfo};
 
         let namespace = "/test_publishers_graph";
         let graph = construct_test_graph(namespace)?;

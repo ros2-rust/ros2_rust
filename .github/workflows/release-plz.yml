@@ -5,6 +5,9 @@ on:
     branches:
       - main
 
+env:
+  RUSTFLAGS: "--cfg ros_distro=\"humble\""
+
 jobs:
   release-plz-release:
     name: Release-plz release
