@@ -139,14 +139,11 @@ impl WaitSet {
             waitable.retain(|w| w.in_use());
         }
 
-        // Do not check the readiness if an error was reported.
-        if !r.is_err() {
-            // For the remaining entities, check if they were activated and then run
-            // the callback for those that were.
-            for waiter in self.primitives.values_mut().flat_map(|v| v) {
-                if let Some(ready) = waiter.is_ready(&self.handle.rcl_wait_set) {
-                    f(ready, &mut *waiter.primitive)?;
-                }
+        // For the remaining entities, check if they were activated and then run
+        // the callback for those that were.
+        for waiter in self.primitives.values_mut().flatten() {
+            if waiter.is_ready(&self.handle.rcl_wait_set) {
+                f(&mut *waiter.primitive)?;
             }
         }
 
@@ -208,7 +205,7 @@ impl WaitSet {
     ///
     /// [1]: crate::RclReturnCode
     fn register_rcl_primitives(&mut self) -> Result<(), RclrsError> {
-        for entity in self.primitives.values_mut().flat_map(|c| c) {
+        for entity in self.primitives.values_mut().flatten() {
             entity.add_to_wait_set(&mut self.handle.rcl_wait_set)?;
         }
         Ok(())

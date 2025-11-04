@@ -277,7 +277,7 @@ where
         RclPrimitiveKind::Subscription
     }
 
-    fn handle(&self) -> RclPrimitiveHandle {
+    fn handle(&self) -> RclPrimitiveHandle<'_> {
         RclPrimitiveHandle::Subscription(self.handle.lock())
     }
 }
@@ -297,7 +297,7 @@ struct SubscriptionHandle {
 }
 
 impl SubscriptionHandle {
-    fn lock(&self) -> MutexGuard<rcl_subscription_t> {
+    fn lock(&self) -> MutexGuard<'_, rcl_subscription_t> {
         self.rcl_subscription.lock().unwrap()
     }
 
