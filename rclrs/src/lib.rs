@@ -207,6 +207,8 @@ mod rcl_bindings;
 
 #[cfg(feature = "dyn_msg")]
 pub mod dynamic_message;
+#[cfg(feature = "dyn_msg")]
+pub use dynamic_message::*;
 
 pub use action::*;
 pub use arguments::*;
