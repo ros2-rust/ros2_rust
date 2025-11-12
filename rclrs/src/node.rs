@@ -24,6 +24,7 @@ use std::{
     cmp::PartialEq,
     ffi::CStr,
     fmt,
+    future::Future,
     os::raw::c_char,
     sync::{atomic::AtomicBool, Arc, Mutex},
     time::Duration,
@@ -36,15 +37,18 @@ use futures::{
 
 use async_std::future::timeout;
 
-use rosidl_runtime_rs::Message;
+use rosidl_runtime_rs::{Action, Message};
 
 use crate::{
-    rcl_bindings::*, Client, ClientOptions, ClientState, Clock, ContextHandle, ExecutorCommands,
-    IntoAsyncServiceCallback, IntoAsyncSubscriptionCallback, IntoNodeServiceCallback,
-    IntoNodeSubscriptionCallback, LogParams, Logger, ParameterBuilder, ParameterInterface,
-    ParameterVariant, Parameters, Promise, Publisher, PublisherOptions, PublisherState, RclrsError,
-    Service, ServiceOptions, ServiceState, Subscription, SubscriptionOptions, SubscriptionState,
-    TimeSource, ToLogParams, Worker, WorkerOptions, WorkerState, ENTITY_LIFECYCLE_MUTEX,
+    rcl_bindings::*, ActionClient, ActionClientState, ActionGoalReceiver, ActionServer,
+    ActionServerState, AnyTimerCallback, Client, ClientOptions, ClientState, Clock, ContextHandle,
+    ExecutorCommands, IntoActionClientOptions, IntoActionServerOptions, IntoAsyncServiceCallback,
+    IntoAsyncSubscriptionCallback, IntoNodeServiceCallback, IntoNodeSubscriptionCallback,
+    IntoNodeTimerOneshotCallback, IntoNodeTimerRepeatingCallback, IntoTimerOptions, LogParams,
+    Logger, ParameterBuilder, ParameterInterface, ParameterVariant, Parameters, Promise, Publisher,
+    PublisherOptions, PublisherState, RclrsError, RequestedGoal, Service, ServiceOptions,
+    ServiceState, Subscription, SubscriptionOptions, SubscriptionState, TerminatedGoal, TimeSource,
+    Timer, TimerState, ToLogParams, Worker, WorkerOptions, WorkerState, ENTITY_LIFECYCLE_MUTEX,
 };
 
 /// A processing unit that can communicate with other nodes. See the API of
@@ -254,6 +258,7 @@ impl NodeState {
     /// In some cases the payload type can be inferred by Rust:
     /// ```
     /// # use rclrs::*;
+    /// # use crate::rclrs::vendor::example_interfaces;
     /// let executor = Context::default().create_basic_executor();
     /// let node = executor.create_node("my_node").unwrap();
     ///
@@ -279,6 +284,7 @@ impl NodeState {
     ///
     /// ```
     /// # use rclrs::*;
+    /// # use crate::rclrs::vendor::example_interfaces;
     /// # let executor = Context::default().create_basic_executor();
     /// # let node = executor.create_node("my_node").unwrap();
     /// let worker = node.create_worker::<String>(String::new());
@@ -287,6 +293,7 @@ impl NodeState {
     /// The data given to the worker can be any custom data type:
     /// ```
     /// # use rclrs::*;
+    /// # use crate::rclrs::vendor::example_interfaces;
     /// # let executor = Context::default().create_basic_executor();
     /// # let node = executor.create_node("my_node").unwrap();
     ///
@@ -322,6 +329,7 @@ impl NodeState {
     /// # use rclrs::*;
     /// # let executor = Context::default().create_basic_executor();
     /// # let node = executor.create_node("my_node").unwrap();
+    /// # use crate::rclrs::vendor::test_msgs;
     /// let client = node.create_client::<test_msgs::srv::Empty>(
     ///     "my_service"
     /// )
@@ -335,6 +343,7 @@ impl NodeState {
     /// # use rclrs::*;
     /// # let executor = Context::default().create_basic_executor();
     /// # let node = executor.create_node("my_node").unwrap();
+    /// # use crate::rclrs::vendor::test_msgs;
     /// let client = node.create_client::<test_msgs::srv::Empty>(
     ///     "my_service"
     ///     .keep_all()
@@ -359,6 +368,40 @@ impl NodeState {
     {
         ClientState::<T>::create(options, self)
     }
+    /// Creates an [`ActionClient`][1].
+    ///
+    /// [1]: crate::ActionClient
+    // TODO: make action client's lifetime depend on node's lifetime
+    pub fn create_action_client<'a, A: Action>(
+        self: &Arc<Self>,
+        options: impl IntoActionClientOptions<'a>,
+    ) -> Result<ActionClient<A>, RclrsError> {
+        ActionClientState::create(self, options)
+    }
+
+    /// Creates an [`ActionServer`].
+    //
+    // TODO(@mxgrey): Add extensive documentation and usage examples
+    pub fn create_action_server<'a, A: Action, Task>(
+        self: &Arc<Self>,
+        options: impl IntoActionServerOptions<'a>,
+        callback: impl FnMut(RequestedGoal<A>) -> Task + Send + Sync + 'static,
+    ) -> Result<ActionServer<A>, RclrsError>
+    where
+        Task: Future<Output = TerminatedGoal> + Send + Sync + 'static,
+    {
+        ActionServerState::create(self, options, callback)
+    }
+
+    /// Creates an [`ActionGoalReceiver`].
+    //
+    // TODO(@mxgrey): Add extensive documentation and usage examples
+    pub fn create_goal_receiver<'a, A: Action>(
+        self: &Arc<Self>,
+        options: impl IntoActionServerOptions<'a>,
+    ) -> Result<ActionGoalReceiver<A>, RclrsError> {
+        ActionGoalReceiver::new(self, options)
+    }
 
     /// Creates a [`Publisher`].
     ///
@@ -367,6 +410,7 @@ impl NodeState {
     /// # use rclrs::*;
     /// # let executor = Context::default().create_basic_executor();
     /// # let node = executor.create_node("my_node").unwrap();
+    /// # use crate::rclrs::vendor::test_msgs;
     /// let publisher = node.create_publisher::<test_msgs::msg::Empty>(
     ///     "my_topic"
     /// )
@@ -378,6 +422,7 @@ impl NodeState {
     ///
     /// ```
     /// # use rclrs::*;
+    /// # use crate::rclrs::vendor::test_msgs;
     /// # let executor = Context::default().create_basic_executor();
     /// # let node = executor.create_node("my_node").unwrap();
     /// let publisher = node.create_publisher::<test_msgs::msg::Empty>(
@@ -450,6 +495,7 @@ impl NodeState {
     /// Pass in only the service name for the `options` argument to use all default service options:
     /// ```
     /// # use rclrs::*;
+    /// # use crate::rclrs::vendor::test_msgs;
     /// # let executor = Context::default().create_basic_executor();
     /// # let node = executor.create_node("my_node").unwrap();
     /// let service = node.create_service::<test_msgs::srv::Empty, _>(
@@ -466,6 +512,7 @@ impl NodeState {
     ///
     /// ```
     /// # use rclrs::*;
+    /// # use crate::rclrs::vendor::test_msgs;
     /// # let executor = Context::default().create_basic_executor();
     /// # let node = executor.create_node("my_node").unwrap();
     /// let service = node.create_service::<test_msgs::srv::Empty, _>(
@@ -504,19 +551,19 @@ impl NodeState {
     ///
     /// ```
     /// # use rclrs::*;
+    /// # use crate::rclrs::vendor::example_interfaces;
     /// # let executor = Context::default().create_basic_executor();
     /// # let node = executor.create_node("my_node").unwrap();
     /// use std::sync::Mutex;
-    /// use example_interfaces::srv::*;
     ///
     /// let counter = Mutex::new(0usize);
-    /// let service = node.create_service::<Trigger, _>(
+    /// let service = node.create_service::<example_interfaces::srv::Trigger, _>(
     ///     "trigger_counter",
-    ///     move |_request: Trigger_Request| {
+    ///     move |_request: example_interfaces::srv::Trigger_Request| {
     ///         let mut counter = counter.lock().unwrap();
     ///         *counter += 1;
     ///         println!("Triggered {} times", *counter);
-    ///         Trigger_Response {
+    ///         example_interfaces::srv::Trigger_Response {
     ///             success: true,
     ///             message: "no problems here".to_string(),
     ///         }
@@ -530,21 +577,21 @@ impl NodeState {
     ///
     /// ```
     /// # use rclrs::*;
+    /// # use crate::rclrs::vendor::example_interfaces;
     /// # let executor = Context::default().create_basic_executor();
     /// # let node = executor.create_node("my_node").unwrap();
     /// use std::sync::{Arc, Mutex};
-    /// use example_interfaces::srv::*;
     ///
     /// let counter = Arc::new(Mutex::new(0usize));
     ///
     /// let counter_in_service = Arc::clone(&counter);
-    /// let service = node.create_service::<Trigger, _>(
+    /// let service = node.create_service::<example_interfaces::srv::Trigger, _>(
     ///     "trigger_counter",
-    ///     move |_request: Trigger_Request| {
+    ///     move |_request: example_interfaces::srv::Trigger_Request| {
     ///         let mut counter = counter_in_service.lock().unwrap();
     ///         *counter += 1;
     ///         println!("Triggered {} times", *counter);
-    ///         Trigger_Response {
+    ///         example_interfaces::srv::Trigger_Response {
     ///             success: true,
     ///             message: "no problems here".to_string(),
     ///         }
@@ -624,17 +671,17 @@ impl NodeState {
     ///
     /// ```
     /// # use rclrs::*;
+    /// # use crate::rclrs::vendor::example_interfaces;
     /// # let executor = Context::default().create_basic_executor();
     /// # let node = executor.create_node("my_node")?;
     /// use std::sync::Arc;
-    /// use example_interfaces::srv::*;
     ///
     /// let worker_a = node.create_worker(0_i64);
     /// let worker_b = node.create_worker(0_i64);
     ///
-    /// let service = node.create_async_service::<AddTwoInts, _>(
+    /// let service = node.create_async_service::<example_interfaces::srv::AddTwoInts, _>(
     ///     "add",
-    ///     move |request: AddTwoInts_Request| {
+    ///     move |request: example_interfaces::srv::AddTwoInts_Request| {
     ///         // Clone the workers so they can be captured into the async block
     ///         let worker_a = Arc::clone(&worker_a);
     ///         let worker_b = Arc::clone(&worker_b);
@@ -653,7 +700,7 @@ impl NodeState {
     ///             // Awaiting above ensures that each number from the
     ///             // request is saved in its respective worker before
     ///             // we give back a response.
-    ///             AddTwoInts_Response { sum: a + b }
+    ///             example_interfaces::srv::AddTwoInts_Response { sum: a + b }
     ///        }
     ///     }
     /// )?;
@@ -696,6 +743,7 @@ impl NodeState {
     /// Pass in only the topic name for the `options` argument to use all default subscription options:
     /// ```
     /// # use rclrs::*;
+    /// # use crate::rclrs::vendor::test_msgs;
     /// # let executor = Context::default().create_basic_executor();
     /// # let node = executor.create_node("my_node").unwrap();
     /// let subscription = node.create_subscription(
@@ -711,6 +759,7 @@ impl NodeState {
     ///
     /// ```
     /// # use rclrs::*;
+    /// # use crate::rclrs::vendor::test_msgs;
     /// # let executor = Context::default().create_basic_executor();
     /// # let node = executor.create_node("my_node").unwrap();
     /// let subscription = node.create_subscription(
@@ -753,6 +802,7 @@ impl NodeState {
     ///
     /// ```
     /// # use rclrs::*;
+    /// # use crate::rclrs::vendor::example_interfaces;
     /// # let executor = Context::default().create_basic_executor();
     /// # let node = executor.create_node("my_node").unwrap();
     /// use std::sync::Mutex;
@@ -775,6 +825,7 @@ impl NodeState {
     ///
     /// ```
     /// # use rclrs::*;
+    /// # use crate::rclrs::vendor::example_interfaces;
     /// # let executor = Context::default().create_basic_executor();
     /// # let node = executor.create_node("my_node").unwrap();
     /// use std::sync::{Arc, Mutex};
@@ -1005,8 +1056,10 @@ impl NodeState {
     ///
     /// ```
     /// # use rclrs::*;
+    /// # use crate::rclrs::vendor::example_interfaces;
     /// # let executor = Context::default().create_basic_executor();
     /// # let node = executor.create_node("my_node").unwrap();
+    ///
     /// use std::sync::Arc;
     ///
     /// let count_worker = node.create_worker(0_usize);
@@ -1056,6 +1109,229 @@ impl NodeState {
             callback.into_async_subscription_callback(),
             &self.handle,
             self.commands.async_worker_commands(),
+        )
+    }
+
+    /// Create a [`Timer`] with a repeating callback.
+    ///
+    /// This has similar behavior to `rclcpp::Node::create_timer` by periodically
+    /// triggering the callback of the timer. For a one-shot timer alternative,
+    /// see [`NodeState::create_timer_oneshot`].
+    ///
+    /// See also:
+    /// * [`Self::create_timer_oneshot`]
+    /// * [`Self::create_timer_inert`]
+    ///
+    /// # Behavior
+    ///
+    /// While the callback of this timer is running, no other callbacks associated
+    /// with this node will be able to run. This is in contrast to callbacks given
+    /// to [`Self::create_subscription`] which can run multiple times in parallel.
+    ///
+    /// Since the callback of this timer may block other callbacks from being able
+    /// to run, it is strongly recommended to ensure that the callback returns
+    /// quickly. If the callback needs to trigger long-running behavior then you
+    /// can consider using [`std::thread::spawn`], or for async behaviors you can
+    /// capture an [`ExecutorCommands`] in your callback and use [`ExecutorCommands::run`]
+    /// to issue a task for the executor to run in its async task pool.
+    ///
+    /// Since these callbacks are blocking, you may use [`FnMut`] here instead of
+    /// being limited to [`Fn`].
+    ///
+    /// # Timer Options
+    ///
+    /// You can choose both
+    /// 1. a timer period (duration) which determines how often the callback is triggered
+    /// 2. a clock to measure the passage of time
+    ///
+    /// Both of these choices are expressed by [`TimerOptions`][1].
+    ///
+    /// By default the steady clock time will be used, but you could choose
+    /// node time instead if you want the timer to automatically use simulated
+    /// time when running as part of a simulation:
+    /// ```
+    /// # use rclrs::*;
+    /// # let executor = Context::default().create_basic_executor();
+    /// # let node = executor.create_node("my_node").unwrap();
+    /// use std::time::Duration;
+    ///
+    /// let timer = node.create_timer_repeating(
+    ///     TimerOptions::new(Duration::from_secs(1))
+    ///     .node_time(),
+    ///     || {
+    ///         println!("Triggering once each simulated second");
+    ///     },
+    /// )?;
+    /// # Ok::<(), RclrsError>(())
+    /// ```
+    ///
+    /// If there is a specific manually-driven clock you want to use, you can
+    /// also select that:
+    /// ```
+    /// # use rclrs::*;
+    /// # let executor = Context::default().create_basic_executor();
+    /// # let node = executor.create_node("my_node").unwrap();
+    /// use std::time::Duration;
+    ///
+    /// let (my_clock, my_source) = Clock::with_source();
+    ///
+    /// let timer = node.create_timer_repeating(
+    ///     TimerOptions::new(Duration::from_secs(1))
+    ///     .clock(&my_clock),
+    ///     || {
+    ///         println!("Triggering once each simulated second");
+    ///     },
+    /// )?;
+    ///
+    /// my_source.set_ros_time_override(1_500_000_000);
+    /// # Ok::<(), RclrsError>(())
+    /// ```
+    ///
+    /// If you are okay with the default choice of clock (steady clock) then you
+    /// can choose to simply pass a duration in as the options:
+    /// ```
+    /// # use rclrs::*;
+    /// # let executor = Context::default().create_basic_executor();
+    /// # let node = executor.create_node("my_node").unwrap();
+    /// use std::time::Duration;
+    ///
+    /// let timer = node.create_timer_repeating(
+    ///     Duration::from_secs(1),
+    ///     || {
+    ///         println!("Triggering per steady clock second");
+    ///     },
+    /// )?;
+    /// # Ok::<(), RclrsError>(())
+    /// ```
+    ///
+    /// # Node Timer Repeating Callbacks
+    ///
+    /// Node Timer repeating callbacks support three signatures:
+    /// - <code>[FnMut] ()</code>
+    /// - <code>[FnMut] ([Time][2])</code>
+    /// - <code>[FnMut] (&[Timer])</code>
+    ///
+    /// You can choose to receive the current time when the callback is being
+    /// triggered.
+    ///
+    /// Or instead of the current time, you can get a borrow of the [`Timer`]
+    /// itself, that way if you need to access it from inside the callback, you
+    /// do not need to worry about capturing a [`Weak`][3] and then locking it.
+    /// This is useful if you need to change the callback of the timer from inside
+    /// the callback of the timer.
+    ///
+    /// For an [`FnOnce`] instead of [`FnMut`], use [`Self::create_timer_oneshot`].
+    ///
+    /// [1]: crate::TimerOptions
+    /// [2]: crate::Time
+    /// [3]: std::sync::Weak
+    pub fn create_timer_repeating<'a, Args>(
+        self: &Arc<Self>,
+        options: impl IntoTimerOptions<'a>,
+        callback: impl IntoNodeTimerRepeatingCallback<Args>,
+    ) -> Result<Timer, RclrsError> {
+        self.create_timer_internal(options, callback.into_node_timer_repeating_callback())
+    }
+
+    /// Create a [`Timer`] whose callback will be triggered once after the period
+    /// of the timer has elapsed. After that you will need to use
+    /// [`TimerState::set_repeating`] or [`TimerState::set_oneshot`] or else
+    /// nothing will happen the following times that the `Timer` elapses.
+    ///
+    /// This does not have an equivalent in `rclcpp`.
+    ///
+    /// See also:
+    /// * [`Self::create_timer_repeating`]
+    /// * [`Self::create_timer_inert`]
+    ///
+    /// # Behavior
+    ///
+    /// While the callback of this timer is running, no other callbacks associated
+    /// with this node will be able to run. This is in contrast to callbacks given
+    /// to [`Self::create_subscription`] which can run multiple times in parallel.
+    ///
+    /// Since the callback of this timer may block other callbacks from being able
+    /// to run, it is strongly recommended to ensure that the callback returns
+    /// quickly. If the callback needs to trigger long-running behavior then you
+    /// can consider using [`std::thread::spawn`], or for async behaviors you can
+    /// capture an [`ExecutorCommands`] in your callback and use [`ExecutorCommands::run`]
+    /// to issue a task for the executor to run in its async task pool.
+    ///
+    /// Since these callbacks will only be triggered once, you may use [`FnOnce`] here.
+    ///
+    /// # Timer Options
+    ///
+    /// See [`NodeSate::create_timer_repeating`][3] for examples of setting the
+    /// timer options.
+    ///
+    /// # Node Timer Oneshot Callbacks
+    ///
+    /// Node Timer OneShot callbacks support three signatures:
+    /// - <code>[FnOnce] ()</code>
+    /// - <code>[FnOnce] ([Time][2])</code>
+    /// - <code>[FnOnce] (&[Timer])</code>
+    ///
+    /// You can choose to receive the current time when the callback is being
+    /// triggered.
+    ///
+    /// Or instead of the current time, you can get a borrow of the [`Timer`]
+    /// itself, that way if you need to access it from inside the callback, you
+    /// do not need to worry about capturing a [`Weak`][3] and then locking it.
+    /// This is useful if you need to change the callback of the timer from inside
+    /// the callback of the timer.
+    ///
+    /// [2]: crate::Time
+    /// [3]: std::sync::Weak
+    pub fn create_timer_oneshot<'a, Args>(
+        self: &Arc<Self>,
+        options: impl IntoTimerOptions<'a>,
+        callback: impl IntoNodeTimerOneshotCallback<Args>,
+    ) -> Result<Timer, RclrsError> {
+        self.create_timer_internal(options, callback.into_node_timer_oneshot_callback())
+    }
+
+    /// Create a [`Timer`] without a callback. Nothing will happen when this
+    /// `Timer` elapses until you use [`TimerState::set_repeating`] or
+    /// [`TimerState::set_oneshot`].
+    ///
+    /// This function is not usually what you want. An inert timer is usually
+    /// just a follow-up state to a oneshot timer which is waiting to be given
+    /// a new callback to run. However, you could use this method to declare a
+    /// timer whose callbacks you will start to feed in at a later.
+    ///
+    /// There is no equivalent to this function in `rclcpp`.
+    ///
+    /// See also:
+    /// * [`Self::create_timer_repeating`]
+    /// * [`Self::create_timer_oneshot`]
+    pub fn create_timer_inert<'a>(
+        self: &Arc<Self>,
+        options: impl IntoTimerOptions<'a>,
+    ) -> Result<Timer, RclrsError> {
+        self.create_timer_internal(options, AnyTimerCallback::Inert)
+    }
+
+    /// Used internally to create any kind of [`Timer`].
+    ///
+    /// Downstream users should instead use:
+    /// * [`Self::create_timer_repeating`]
+    /// * [`Self::create_timer_oneshot`]
+    /// * [`Self::create_timer_inert`]
+    fn create_timer_internal<'a>(
+        self: &Arc<Self>,
+        options: impl IntoTimerOptions<'a>,
+        callback: AnyTimerCallback<Node>,
+    ) -> Result<Timer, RclrsError> {
+        let options = options.into_timer_options();
+        let clock = options.clock.as_clock(self);
+        let node = options.clock.is_node_time().then(|| Arc::clone(self));
+        TimerState::create(
+            options.period,
+            clock,
+            callback,
+            self.commands.async_worker_commands(),
+            &self.handle.context_handle,
+            node,
         )
     }
 
@@ -1260,7 +1536,7 @@ mod tests {
 
     #[test]
     fn test_topic_names_and_types() -> Result<(), RclrsError> {
-        use test_msgs::msg;
+        use crate::vendor::test_msgs::msg;
 
         let graph = construct_test_graph("test_topics_graph")?;
 

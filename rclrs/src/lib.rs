@@ -32,6 +32,7 @@
 //!
 //! ```no_run
 //! use rclrs::*;
+//! # use crate::rclrs::vendor::example_interfaces;
 //!
 //! let context = Context::default_from_env()?;
 //! let mut executor = context.create_basic_executor();
@@ -58,6 +59,7 @@
 //! # let context = Context::default_from_env()?;
 //! # let mut executor = context.create_basic_executor();
 //! # let node = executor.create_node("example_node")?;
+//! # use crate::rclrs::vendor::example_interfaces;
 //! #
 //! // This worker will manage the data for us.
 //! // The worker's data is called its payload.
@@ -97,6 +99,7 @@
 //! The following is a simple example of using a mandatory parameter:
 //! ```no_run
 //! use rclrs::*;
+//! # use crate::rclrs::vendor::example_interfaces;
 //! use std::sync::Arc;
 //!
 //! let mut executor = Context::default_from_env()?.create_basic_executor();
@@ -126,6 +129,7 @@
 //!
 //! ```no_run
 //! use rclrs::*;
+//! # use crate::rclrs::vendor::example_interfaces;
 //! use std::time::Duration;
 //!
 //! let mut executor = Context::default_from_env()?.create_basic_executor();
@@ -174,10 +178,12 @@
 //! # Ok::<(), RclrsError>(())
 //! ```
 
+mod action;
 mod arguments;
 mod client;
 mod clock;
 mod context;
+mod drop_guard;
 mod error;
 mod executor;
 mod logging;
@@ -189,7 +195,8 @@ mod service;
 mod subscription;
 mod time;
 mod time_source;
-mod vendor;
+mod timer;
+pub mod vendor;
 mod wait_set;
 mod worker;
 
@@ -201,10 +208,12 @@ mod rcl_bindings;
 pub mod dynamic_message;
 pub use dynamic_message::*;
 
+pub use action::*;
 pub use arguments::*;
 pub use client::*;
 pub use clock::*;
 pub use context::*;
+use drop_guard::DropGuard;
 pub use error::*;
 pub use executor::*;
 pub use logging::*;
@@ -217,5 +226,10 @@ pub use service::*;
 pub use subscription::*;
 pub use time::*;
 use time_source::*;
+pub use timer::*;
 pub use wait_set::*;
 pub use worker::*;
+
+pub use rosidl_runtime_rs::{
+    Action as ActionIDL, Message as MessageIDL, RmwMessage as RmwMessageIDL, Service as ServiceIDL,
+};
