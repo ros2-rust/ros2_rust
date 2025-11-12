@@ -13,7 +13,7 @@ use super::{
 use crate::rcl_bindings::*;
 use crate::{
     MessageInfo, Node, NodeHandle, RclPrimitive, RclPrimitiveHandle, RclPrimitiveKind, RclrsError,
-    RclrsErrorFilter, SubscriptionHandle, SubscriptionOptions, ToResult, Waitable,
+    RclrsErrorFilter, SubscriptionHandle, SubscriptionOptions, ReadyKind, ToResult, Waitable,
     WaitableLifecycle, WorkScope, Worker, WorkerCommands, ENTITY_LIFECYCLE_MUTEX,
 };
 
@@ -215,7 +215,8 @@ impl<Payload> DynamicSubscriptionExecutable<Payload> {
 }
 
 impl<Payload: 'static> RclPrimitive for DynamicSubscriptionExecutable<Payload> {
-    unsafe fn execute(&mut self, payload: &mut dyn Any) -> Result<(), RclrsError> {
+    unsafe fn execute(&mut self, ready: ReadyKind, payload: &mut dyn Any) -> Result<(), RclrsError> {
+        ready.for_basic()?;
         self.callback
             .lock()
             .unwrap()
