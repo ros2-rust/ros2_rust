@@ -6,11 +6,10 @@
 //! The central type of this module is [`DynamicMessage`].
 
 use std::{
-    collections::HashMap,
     fmt::{self, Display},
     ops::Deref,
     path::PathBuf,
-    sync::{Arc, LazyLock, Mutex},
+    sync::Arc,
 };
 
 use rosidl_runtime_rs::RmwMessage;
@@ -30,49 +29,24 @@ pub use error::*;
 pub use field_access::*;
 pub use message_structure::*;
 
-/// A struct to cache loaded shared libraries for dynamic messages, indexing them by name.
-#[derive(Default)]
-pub struct DynamicMessageLibraryCache(HashMap<String, Arc<libloading::Library>>);
-
-impl DynamicMessageLibraryCache {
-    /// Get a reference to the library for the specific `package_name`. Attempt to load and store
-    /// it in the cache if it is not currently loaded.
-    pub fn get_or_load(
-        &mut self,
-        package_name: &str,
-    ) -> Result<Arc<libloading::Library>, DynamicMessageError> {
-        use std::collections::hash_map::Entry;
-        let lib = match self.0.entry(package_name.into()) {
-            Entry::Occupied(entry) => entry.get().clone(),
-            Entry::Vacant(entry) => entry
-                .insert(get_type_support_library(
-                    package_name,
-                    INTROSPECTION_TYPE_SUPPORT_IDENTIFIER,
-                )?)
-                .clone(),
-        };
-        Ok(lib)
-    }
-
-    /// Remove a package_name from the cache. Return `true` if it was removed, `false` otherwise
-    ///
-    /// This function can be used to reduce memory footprint if the message library is not used
-    /// anymore.
-    /// Note that since shared libraries are wrapped by an `Arc` this does _not_ unload the library
-    /// until all other structures that reference it ([`DynamicMessage`] or
-    /// [`DynamicMessageMetadata`]) are also dropped.
-    pub fn unload(&mut self, package_name: &str) -> bool {
-        self.0.remove(package_name).is_some()
-    }
-}
-
-/// A global cache for loaded message packages.
+/// Factory for constructing messages in a certain package dynamically.
 ///
-/// Since creating a new dynamic message requires loading a shared library from the file system, by
-/// caching loaded libraries we can reduce the overhead for preloaded libraries to
-/// just a [`Arc::clone`].
-pub static DYNAMIC_MESSAGE_PACKAGE_CACHE: LazyLock<Mutex<DynamicMessageLibraryCache>> =
-    LazyLock::new(|| Default::default());
+/// This is the result of loading the introspection type support library (which is a per-package
+/// operation), whereas [`DynamicMessageMetadata`] is the result of loading the data related to
+/// the message from the library.
+//
+// Theoretically it could be beneficial to make this struct public so users can "cache"
+// the library loading, but unless a compelling use case comes up, I don't think it's
+// worth the complexity.
+//
+// Under the hood, this is an `Arc<libloading::Library>`, so if this struct and the
+// [`DynamicMessageMetadata`] and [`DynamicMessage`] structs created from it are dropped,
+// the library will be unloaded. This shared ownership ensures that the type_support_ptr
+// is always valid.
+struct DynamicMessagePackage {
+    introspection_type_support_library: Arc<libloading::Library>,
+    package: String,
+}
 
 /// A parsed/validated message type name of the form `<package_name>/msg/<type_name>`.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -115,6 +89,8 @@ pub struct DynamicMessage {
     // in which case the drop impl is not responsible for calling fini anymore
     needs_fini: bool,
 }
+
+// ========================= impl for DynamicMessagePackage =========================
 
 /// This is an analogue of rclcpp::get_typesupport_library.
 fn get_type_support_library(
@@ -184,6 +160,62 @@ unsafe fn get_type_support_handle(
 
 const INTROSPECTION_TYPE_SUPPORT_IDENTIFIER: &str = "rosidl_typesupport_introspection_c";
 
+impl DynamicMessagePackage {
+    /// Creates a new `DynamicMessagePackage`.
+    ///
+    /// This dynamically loads a type support library for the specified package.
+    pub fn new(package_name: impl Into<String>) -> Result<Self, DynamicMessageError> {
+        let package_name = package_name.into();
+        Ok(Self {
+            introspection_type_support_library: get_type_support_library(
+                &package_name,
+                INTROSPECTION_TYPE_SUPPORT_IDENTIFIER,
+            )?,
+            package: package_name,
+        })
+    }
+
+    pub(crate) fn message_metadata(
+        &self,
+        type_name: impl Into<String>,
+    ) -> Result<DynamicMessageMetadata, DynamicMessageError> {
+        let message_type = MessageTypeName {
+            package_name: self.package.clone(),
+            type_name: type_name.into(),
+        };
+        // SAFETY: The symbol type of the type support getter function can be trusted
+        // assuming the install dir hasn't been tampered with.
+        // The pointer returned by this function is kept valid by keeping the library loaded.
+        let type_support_ptr = unsafe {
+            get_type_support_handle(
+                self.introspection_type_support_library.as_ref(),
+                INTROSPECTION_TYPE_SUPPORT_IDENTIFIER,
+                &message_type,
+            )?
+        };
+        // SAFETY: The pointer returned by get_type_support_handle() is always valid.
+        let type_support = unsafe { &*type_support_ptr };
+        debug_assert!(!type_support.data.is_null());
+        let message_members: &rosidl_message_members_t =
+            // SAFETY: The data pointer is supposed to be always valid.
+            unsafe { &*(type_support.data as *const rosidl_message_members_t) };
+        // SAFETY: The message members coming from a type support library will always be valid.
+        let structure = unsafe { MessageStructure::from_rosidl_message_members(message_members) };
+        // The fini function will always exist.
+        let fini_function = message_members.fini_function.unwrap();
+        let metadata = DynamicMessageMetadata {
+            message_type,
+            introspection_type_support_library: Arc::clone(
+                &self.introspection_type_support_library,
+            ),
+            type_support_ptr,
+            structure,
+            fini_function,
+        };
+        Ok(metadata)
+    }
+}
+
 // ========================= impl for MessageTypeName =========================
 
 impl TryFrom<&str> for MessageTypeName {
@@ -248,38 +280,8 @@ impl DynamicMessageMetadata {
     ///
     /// See [`DynamicMessage::new()`] for the expected format of the `full_message_type`.
     pub fn new(message_type: MessageTypeName) -> Result<Self, DynamicMessageError> {
-        // SAFETY: The symbol type of the type support getter function can be trusted
-        // assuming the install dir hasn't been tampered with.
-        // The pointer returned by this function is kept valid by keeping the library loaded.
-        let library = DYNAMIC_MESSAGE_PACKAGE_CACHE
-            .lock()
-            .unwrap()
-            .get_or_load(&message_type.package_name)?;
-        let type_support_ptr = unsafe {
-            get_type_support_handle(
-                &*library,
-                INTROSPECTION_TYPE_SUPPORT_IDENTIFIER,
-                &message_type,
-            )?
-        };
-        // SAFETY: The pointer returned by get_type_support_handle() is always valid.
-        let type_support = unsafe { &*type_support_ptr };
-        debug_assert!(!type_support.data.is_null());
-        let message_members: &rosidl_message_members_t =
-            // SAFETY: The data pointer is supposed to be always valid.
-            unsafe { &*(type_support.data as *const rosidl_message_members_t) };
-        // SAFETY: The message members coming from a type support library will always be valid.
-        let structure = unsafe { MessageStructure::from_rosidl_message_members(message_members) };
-        // The fini function will always exist.
-        let fini_function = message_members.fini_function.unwrap();
-        let metadata = DynamicMessageMetadata {
-            message_type,
-            introspection_type_support_library: library,
-            type_support_ptr,
-            structure,
-            fini_function,
-        };
-        Ok(metadata)
+        let pkg = DynamicMessagePackage::new(&message_type.package_name)?;
+        pkg.message_metadata(&message_type.type_name)
     }
 
     /// Instantiates a new message.
@@ -562,24 +564,5 @@ mod tests {
             };
             assert_eq!(*value, 42);
         }
-    }
-
-    #[test]
-    fn message_package_cache() {
-        let package_name = "test_msgs";
-
-        // Create a weak reference to avoid increasing reference count
-        let mut cache = DynamicMessageLibraryCache::default();
-        let lib = Arc::downgrade(&cache.get_or_load(package_name).unwrap());
-        {
-            // Mock a user of the library (i.e. message)
-            let _mock = lib.upgrade().unwrap();
-            assert!(cache.unload(package_name));
-            assert!(!cache.unload("non_existing_package"));
-            // The library should _still_ be loaded since the message holds a reference
-            assert!(lib.upgrade().is_some());
-        }
-        // Now the library should be unloaded and the reference should not be upgradeable
-        assert!(lib.upgrade().is_none());
     }
 }
