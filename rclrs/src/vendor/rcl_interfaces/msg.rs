@@ -1036,6 +1036,196 @@ pub mod rmw {
             }
         }
     }
+
+    #[link(name = "rcl_interfaces__rosidl_typesupport_c")]
+    extern "C" {
+        fn rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__msg__LoggerLevel(
+        ) -> *const std::ffi::c_void;
+    }
+
+    #[link(name = "rcl_interfaces__rosidl_generator_c")]
+    extern "C" {
+        fn rcl_interfaces__msg__LoggerLevel__init(msg: *mut LoggerLevel) -> bool;
+        fn rcl_interfaces__msg__LoggerLevel__Sequence__init(
+            seq: *mut rosidl_runtime_rs::Sequence<LoggerLevel>,
+            size: usize,
+        ) -> bool;
+        fn rcl_interfaces__msg__LoggerLevel__Sequence__fini(
+            seq: *mut rosidl_runtime_rs::Sequence<LoggerLevel>,
+        );
+        fn rcl_interfaces__msg__LoggerLevel__Sequence__copy(
+            in_seq: &rosidl_runtime_rs::Sequence<LoggerLevel>,
+            out_seq: *mut rosidl_runtime_rs::Sequence<LoggerLevel>,
+        ) -> bool;
+    }
+
+    // Corresponds to rcl_interfaces__msg__LoggerLevel
+    #[repr(C)]
+    #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
+    #[derive(Clone, Debug, PartialEq, PartialOrd)]
+    pub struct LoggerLevel {
+        pub name: rosidl_runtime_rs::String,
+        pub level: u32,
+    }
+
+    impl LoggerLevel {
+        pub const LOG_LEVEL_UNKNOWN: u8 = 0;
+        pub const LOG_LEVEL_DEBUG: u8 = 10;
+        pub const LOG_LEVEL_INFO: u8 = 20;
+        pub const LOG_LEVEL_WARN: u8 = 30;
+        pub const LOG_LEVEL_ERROR: u8 = 40;
+        pub const LOG_LEVEL_FATAL: u8 = 50;
+    }
+
+    impl Default for LoggerLevel {
+        fn default() -> Self {
+            unsafe {
+                let mut msg = std::mem::zeroed();
+                if !rcl_interfaces__msg__LoggerLevel__init(&mut msg as *mut _) {
+                    panic!("Call to rcl_interfaces__msg__LoggerLevel__init() failed");
+                }
+                msg
+            }
+        }
+    }
+
+    impl rosidl_runtime_rs::SequenceAlloc for LoggerLevel {
+        fn sequence_init(seq: &mut rosidl_runtime_rs::Sequence<Self>, size: usize) -> bool {
+            // SAFETY: This is safe since the pointer is guaranteed to be valid/initialized.
+            unsafe { rcl_interfaces__msg__LoggerLevel__Sequence__init(seq as *mut _, size) }
+        }
+        fn sequence_fini(seq: &mut rosidl_runtime_rs::Sequence<Self>) {
+            // SAFETY: This is safe since the pointer is guaranteed to be valid/initialized.
+            unsafe { rcl_interfaces__msg__LoggerLevel__Sequence__fini(seq as *mut _) }
+        }
+        fn sequence_copy(
+            in_seq: &rosidl_runtime_rs::Sequence<Self>,
+            out_seq: &mut rosidl_runtime_rs::Sequence<Self>,
+        ) -> bool {
+            // SAFETY: This is safe since the pointer is guaranteed to be valid/initialized.
+            unsafe { rcl_interfaces__msg__LoggerLevel__Sequence__copy(in_seq, out_seq as *mut _) }
+        }
+    }
+
+    impl rosidl_runtime_rs::Message for LoggerLevel {
+        type RmwMsg = Self;
+        fn into_rmw_message(
+            msg_cow: std::borrow::Cow<'_, Self>,
+        ) -> std::borrow::Cow<'_, Self::RmwMsg> {
+            msg_cow
+        }
+        fn from_rmw_message(msg: Self::RmwMsg) -> Self {
+            msg
+        }
+    }
+
+    impl rosidl_runtime_rs::RmwMessage for LoggerLevel
+    where
+        Self: Sized,
+    {
+        const TYPE_NAME: &'static str = "rcl_interfaces/msg/LoggerLevel";
+        fn get_type_support() -> *const std::ffi::c_void {
+            // SAFETY: No preconditions for this function.
+            unsafe {
+                rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__msg__LoggerLevel()
+            }
+        }
+    }
+
+    #[link(name = "rcl_interfaces__rosidl_typesupport_c")]
+    extern "C" {
+        fn rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__msg__SetLoggerLevelsResult(
+        ) -> *const std::ffi::c_void;
+    }
+
+    #[link(name = "rcl_interfaces__rosidl_generator_c")]
+    extern "C" {
+        fn rcl_interfaces__msg__SetLoggerLevelsResult__init(
+            msg: *mut SetLoggerLevelsResult,
+        ) -> bool;
+        fn rcl_interfaces__msg__SetLoggerLevelsResult__Sequence__init(
+            seq: *mut rosidl_runtime_rs::Sequence<SetLoggerLevelsResult>,
+            size: usize,
+        ) -> bool;
+        fn rcl_interfaces__msg__SetLoggerLevelsResult__Sequence__fini(
+            seq: *mut rosidl_runtime_rs::Sequence<SetLoggerLevelsResult>,
+        );
+        fn rcl_interfaces__msg__SetLoggerLevelsResult__Sequence__copy(
+            in_seq: &rosidl_runtime_rs::Sequence<SetLoggerLevelsResult>,
+            out_seq: *mut rosidl_runtime_rs::Sequence<SetLoggerLevelsResult>,
+        ) -> bool;
+    }
+
+    // Corresponds to rcl_interfaces__msg__SetLoggerLevelsResult
+    #[repr(C)]
+    #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
+    #[derive(Clone, Debug, PartialEq, PartialOrd)]
+    pub struct SetLoggerLevelsResult {
+        pub successful: bool,
+        pub reason: rosidl_runtime_rs::String,
+    }
+
+    impl Default for SetLoggerLevelsResult {
+        fn default() -> Self {
+            unsafe {
+                let mut msg = std::mem::zeroed();
+                if !rcl_interfaces__msg__SetLoggerLevelsResult__init(&mut msg as *mut _) {
+                    panic!("Call to rcl_interfaces__msg__SetLoggerLevelsResult__init() failed");
+                }
+                msg
+            }
+        }
+    }
+
+    impl rosidl_runtime_rs::SequenceAlloc for SetLoggerLevelsResult {
+        fn sequence_init(seq: &mut rosidl_runtime_rs::Sequence<Self>, size: usize) -> bool {
+            // SAFETY: This is safe since the pointer is guaranteed to be valid/initialized.
+            unsafe {
+                rcl_interfaces__msg__SetLoggerLevelsResult__Sequence__init(seq as *mut _, size)
+            }
+        }
+        fn sequence_fini(seq: &mut rosidl_runtime_rs::Sequence<Self>) {
+            // SAFETY: This is safe since the pointer is guaranteed to be valid/initialized.
+            unsafe { rcl_interfaces__msg__SetLoggerLevelsResult__Sequence__fini(seq as *mut _) }
+        }
+        fn sequence_copy(
+            in_seq: &rosidl_runtime_rs::Sequence<Self>,
+            out_seq: &mut rosidl_runtime_rs::Sequence<Self>,
+        ) -> bool {
+            // SAFETY: This is safe since the pointer is guaranteed to be valid/initialized.
+            unsafe {
+                rcl_interfaces__msg__SetLoggerLevelsResult__Sequence__copy(
+                    in_seq,
+                    out_seq as *mut _,
+                )
+            }
+        }
+    }
+
+    impl rosidl_runtime_rs::Message for SetLoggerLevelsResult {
+        type RmwMsg = Self;
+        fn into_rmw_message(
+            msg_cow: std::borrow::Cow<'_, Self>,
+        ) -> std::borrow::Cow<'_, Self::RmwMsg> {
+            msg_cow
+        }
+        fn from_rmw_message(msg: Self::RmwMsg) -> Self {
+            msg
+        }
+    }
+
+    impl rosidl_runtime_rs::RmwMessage for SetLoggerLevelsResult
+    where
+        Self: Sized,
+    {
+        const TYPE_NAME: &'static str = "rcl_interfaces/msg/SetLoggerLevelsResult";
+        fn get_type_support() -> *const std::ffi::c_void {
+            // SAFETY: No preconditions for this function.
+            unsafe {
+                rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__msg__SetLoggerLevelsResult()
+            }
+        }
+    }
 } // mod rmw
 
 #[cfg(feature = "serde")]
@@ -1757,6 +1947,93 @@ impl Default for SetParametersResult {
 
 impl rosidl_runtime_rs::Message for SetParametersResult {
     type RmwMsg = crate::vendor::rcl_interfaces::msg::rmw::SetParametersResult;
+
+    fn into_rmw_message(msg_cow: std::borrow::Cow<'_, Self>) -> std::borrow::Cow<'_, Self::RmwMsg> {
+        match msg_cow {
+            std::borrow::Cow::Owned(msg) => std::borrow::Cow::Owned(Self::RmwMsg {
+                successful: msg.successful,
+                reason: msg.reason.as_str().into(),
+            }),
+            std::borrow::Cow::Borrowed(msg) => std::borrow::Cow::Owned(Self::RmwMsg {
+                successful: msg.successful,
+                reason: msg.reason.as_str().into(),
+            }),
+        }
+    }
+
+    fn from_rmw_message(msg: Self::RmwMsg) -> Self {
+        Self {
+            successful: msg.successful,
+            reason: msg.reason.to_string(),
+        }
+    }
+}
+
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
+#[derive(Clone, Debug, PartialEq, PartialOrd)]
+pub struct LoggerLevel {
+    pub name: std::string::String,
+    pub level: u32,
+}
+
+impl LoggerLevel {
+    pub const LOG_LEVEL_UNKNOWN: u8 = 0;
+    pub const LOG_LEVEL_DEBUG: u8 = 10;
+    pub const LOG_LEVEL_INFO: u8 = 20;
+    pub const LOG_LEVEL_WARN: u8 = 30;
+    pub const LOG_LEVEL_ERROR: u8 = 40;
+    pub const LOG_LEVEL_FATAL: u8 = 50;
+}
+
+impl Default for LoggerLevel {
+    fn default() -> Self {
+        <Self as rosidl_runtime_rs::Message>::from_rmw_message(
+            crate::vendor::rcl_interfaces::msg::rmw::LoggerLevel::default(),
+        )
+    }
+}
+
+impl rosidl_runtime_rs::Message for LoggerLevel {
+    type RmwMsg = crate::vendor::rcl_interfaces::msg::rmw::LoggerLevel;
+
+    fn into_rmw_message(msg_cow: std::borrow::Cow<'_, Self>) -> std::borrow::Cow<'_, Self::RmwMsg> {
+        match msg_cow {
+            std::borrow::Cow::Owned(msg) => std::borrow::Cow::Owned(Self::RmwMsg {
+                name: msg.name.as_str().into(),
+                level: msg.level,
+            }),
+            std::borrow::Cow::Borrowed(msg) => std::borrow::Cow::Owned(Self::RmwMsg {
+                name: msg.name.as_str().into(),
+                level: msg.level,
+            }),
+        }
+    }
+
+    fn from_rmw_message(msg: Self::RmwMsg) -> Self {
+        Self {
+            name: msg.name.to_string(),
+            level: msg.level,
+        }
+    }
+}
+
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
+#[derive(Clone, Debug, PartialEq, PartialOrd)]
+pub struct SetLoggerLevelsResult {
+    pub successful: bool,
+    pub reason: std::string::String,
+}
+
+impl Default for SetLoggerLevelsResult {
+    fn default() -> Self {
+        <Self as rosidl_runtime_rs::Message>::from_rmw_message(
+            crate::vendor::rcl_interfaces::msg::rmw::SetLoggerLevelsResult::default(),
+        )
+    }
+}
+
+impl rosidl_runtime_rs::Message for SetLoggerLevelsResult {
+    type RmwMsg = crate::vendor::rcl_interfaces::msg::rmw::SetLoggerLevelsResult;
 
     fn into_rmw_message(msg_cow: std::borrow::Cow<'_, Self>) -> std::borrow::Cow<'_, Self::RmwMsg> {
         match msg_cow {
