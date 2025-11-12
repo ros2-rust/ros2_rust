@@ -5,7 +5,6 @@ mod primitive_options;
 pub use primitive_options::*;
 
 mod graph;
-#[cfg(feature = "dyn_msg")]
 use crate::{
     dynamic_message::{
         DynamicMessage, DynamicPublisher, DynamicPublisherState, DynamicSubscription,
@@ -14,7 +13,6 @@ use crate::{
     },
     MessageInfo,
 };
-#[cfg(feature = "dyn_msg")]
 use futures::future::BoxFuture;
 
 pub use graph::*;
@@ -424,7 +422,6 @@ impl NodeState {
     ///     .keep_last(100)
     /// )
     /// .unwrap();
-    #[cfg(feature = "dyn_msg")]
     pub fn create_dynamic_publisher<'a>(
         self: &Arc<Self>,
         topic_type: MessageTypeName,
@@ -862,7 +859,6 @@ impl NodeState {
     ///     },
     /// );
     /// ```
-    #[cfg(feature = "dyn_msg")]
     pub fn create_dynamic_subscription<'a, F>(
         &self,
         topic_type: MessageTypeName,
@@ -937,7 +933,6 @@ impl NodeState {
     /// )?;
     /// # Ok::<(), RclrsError>(())
     /// ```
-    #[cfg(feature = "dyn_msg")]
     pub fn create_async_dynamic_subscription<'a, F>(
         &self,
         topic_type: MessageTypeName,
