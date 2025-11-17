@@ -10,7 +10,7 @@ use std::{
     fmt::{self, Display},
     ops::Deref,
     path::PathBuf,
-    sync::{Arc, LazyLock, Mutex},
+    sync::{Arc, Mutex, OnceLock},
 };
 
 use rosidl_runtime_rs::RmwMessage;
@@ -71,8 +71,11 @@ impl DynamicMessageLibraryCache {
 /// Since creating a new dynamic message requires loading a shared library from the file system, by
 /// caching loaded libraries we can reduce the overhead for preloaded libraries to
 /// just a [`Arc::clone`].
-pub static DYNAMIC_MESSAGE_PACKAGE_CACHE: LazyLock<Mutex<DynamicMessageLibraryCache>> =
-    LazyLock::new(|| Default::default());
+pub fn get_dynamic_message_package_cache() -> &'static Mutex<DynamicMessageLibraryCache> {
+    static DYNAMIC_MESSAGE_PACKAGE_CACHE: OnceLock<Mutex<DynamicMessageLibraryCache>> =
+        OnceLock::new();
+    DYNAMIC_MESSAGE_PACKAGE_CACHE.get_or_init(|| Default::default())
+}
 
 /// A parsed/validated message type name of the form `<package_name>/msg/<type_name>`.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -251,7 +254,7 @@ impl DynamicMessageMetadata {
         // SAFETY: The symbol type of the type support getter function can be trusted
         // assuming the install dir hasn't been tampered with.
         // The pointer returned by this function is kept valid by keeping the library loaded.
-        let library = DYNAMIC_MESSAGE_PACKAGE_CACHE
+        let library = get_dynamic_message_package_cache()
             .lock()
             .unwrap()
             .get_or_load(&message_type.package_name)?;
