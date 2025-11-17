@@ -5,18 +5,6 @@ mod primitive_options;
 pub use primitive_options::*;
 
 mod graph;
-#[cfg(feature = "dyn_msg")]
-use crate::{
-    dynamic_message::{
-        DynamicMessage, DynamicPublisher, DynamicPublisherState, DynamicSubscription,
-        DynamicSubscriptionState, MessageTypeName, NodeAsyncDynamicSubscriptionCallback,
-        NodeDynamicSubscriptionCallback,
-    },
-    MessageInfo,
-};
-#[cfg(feature = "dyn_msg")]
-use futures::future::BoxFuture;
-
 pub use graph::*;
 
 mod node_graph_task;
@@ -34,6 +22,7 @@ use std::{
 
 use futures::{
     channel::mpsc::{unbounded, UnboundedSender},
+    future::BoxFuture,
     StreamExt,
 };
 
@@ -42,15 +31,22 @@ use async_std::future::timeout;
 use rosidl_runtime_rs::{Action, Message};
 
 use crate::{
-    rcl_bindings::*, ActionClient, ActionClientState, ActionGoalReceiver, ActionServer,
-    ActionServerState, AnyTimerCallback, Client, ClientOptions, ClientState, Clock, ContextHandle,
-    ExecutorCommands, IntoActionClientOptions, IntoActionServerOptions, IntoAsyncServiceCallback,
+    dynamic_message::{
+        DynamicMessage, DynamicPublisher, DynamicPublisherState, DynamicSubscription,
+        DynamicSubscriptionState, MessageTypeName, NodeAsyncDynamicSubscriptionCallback,
+        NodeDynamicSubscriptionCallback,
+    },
+    rcl_bindings::*,
+    ActionClient, ActionClientState, ActionGoalReceiver, ActionServer, ActionServerState,
+    AnyTimerCallback, Client, ClientOptions, ClientState, Clock, ContextHandle, ExecutorCommands,
+    IntoActionClientOptions, IntoActionServerOptions, IntoAsyncServiceCallback,
     IntoAsyncSubscriptionCallback, IntoNodeServiceCallback, IntoNodeSubscriptionCallback,
     IntoNodeTimerOneshotCallback, IntoNodeTimerRepeatingCallback, IntoTimerOptions, LogParams,
-    Logger, ParameterBuilder, ParameterInterface, ParameterVariant, Parameters, Promise, Publisher,
-    PublisherOptions, PublisherState, RclrsError, RequestedGoal, Service, ServiceOptions,
-    ServiceState, Subscription, SubscriptionOptions, SubscriptionState, TerminatedGoal, TimeSource,
-    Timer, TimerState, ToLogParams, Worker, WorkerOptions, WorkerState, ENTITY_LIFECYCLE_MUTEX,
+    Logger, MessageInfo, ParameterBuilder, ParameterInterface, ParameterVariant, Parameters,
+    Promise, Publisher, PublisherOptions, PublisherState, RclrsError, RequestedGoal, Service,
+    ServiceOptions, ServiceState, Subscription, SubscriptionOptions, SubscriptionState,
+    TerminatedGoal, TimeSource, Timer, TimerState, ToLogParams, Worker, WorkerOptions, WorkerState,
+    ENTITY_LIFECYCLE_MUTEX,
 };
 
 /// A processing unit that can communicate with other nodes. See the API of
@@ -469,7 +465,6 @@ impl NodeState {
     ///     .keep_last(100)
     /// )
     /// .unwrap();
-    #[cfg(feature = "dyn_msg")]
     pub fn create_dynamic_publisher<'a>(
         self: &Arc<Self>,
         topic_type: MessageTypeName,
@@ -913,7 +908,6 @@ impl NodeState {
     ///     },
     /// );
     /// ```
-    #[cfg(feature = "dyn_msg")]
     pub fn create_dynamic_subscription<'a, F>(
         &self,
         topic_type: MessageTypeName,
@@ -988,7 +982,6 @@ impl NodeState {
     /// )?;
     /// # Ok::<(), RclrsError>(())
     /// ```
-    #[cfg(feature = "dyn_msg")]
     pub fn create_async_dynamic_subscription<'a, F>(
         &self,
         topic_type: MessageTypeName,

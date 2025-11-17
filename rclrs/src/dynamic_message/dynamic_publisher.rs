@@ -150,8 +150,8 @@ mod tests {
 
     #[test]
     fn test_dynamic_publishers() -> Result<(), RclrsError> {
+        use crate::vendor::test_msgs::msg;
         use crate::TopicEndpointInfo;
-        use test_msgs::msg;
 
         let namespace = "/test_dynamic_publishers_graph";
         let graph = construct_test_graph(namespace)?;

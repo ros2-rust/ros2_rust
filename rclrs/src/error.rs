@@ -5,9 +5,7 @@ use std::{
     sync::PoisonError,
 };
 
-#[cfg(feature = "dyn_msg")]
-use crate::dynamic_message::DynamicMessageError;
-use crate::{rcl_bindings::*, DeclarationError, ReadyKind};
+use crate::{dynamic_message::DynamicMessageError, rcl_bindings::*, DeclarationError, ReadyKind};
 
 /// The main error type.
 #[derive(Debug, PartialEq, Eq)]
@@ -35,7 +33,7 @@ pub enum RclrsError {
     },
     /// It was attempted to add a waitable to a wait set twice.
     AlreadyAddedToWaitSet,
-    #[cfg(feature = "dyn_msg")]
+
     /// An error while creating dynamic message.
     DynamicMessageError {
         /// The error containing more detailed information.
@@ -128,7 +126,6 @@ impl Display for RclrsError {
                     "Could not add entity to wait set because it was already added to a wait set"
                 )
             }
-            #[cfg(feature = "dyn_msg")]
             RclrsError::DynamicMessageError { .. } => {
                 write!(f, "Could not create dynamic message")
             }
@@ -175,7 +172,6 @@ impl Display for RclrsError {
     }
 }
 
-#[cfg(feature = "dyn_msg")]
 impl From<DynamicMessageError> for RclrsError {
     fn from(err: DynamicMessageError) -> Self {
         Self::DynamicMessageError { err }
@@ -212,7 +208,6 @@ impl Error for RclrsError {
             // TODO(@mxgrey): We should provide source information for these other types.
             // It should be easy to do this using the thiserror crate.
             RclrsError::AlreadyAddedToWaitSet => None,
-            #[cfg(feature = "dyn_msg")]
             RclrsError::DynamicMessageError { err } => Some(err).map(|e| e as &dyn Error),
             RclrsError::NegativeDuration(_) => None,
             RclrsError::UnownedGuardCondition => None,

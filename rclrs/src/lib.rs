@@ -184,6 +184,7 @@ mod client;
 mod clock;
 mod context;
 mod drop_guard;
+mod dynamic_message;
 mod error;
 mod executor;
 mod logging;
@@ -205,17 +206,13 @@ mod test_helpers;
 
 mod rcl_bindings;
 
-#[cfg(feature = "dyn_msg")]
-pub mod dynamic_message;
-#[cfg(feature = "dyn_msg")]
-pub use dynamic_message::*;
-
 pub use action::*;
 pub use arguments::*;
 pub use client::*;
 pub use clock::*;
 pub use context::*;
 use drop_guard::DropGuard;
+pub use dynamic_message::*;
 pub use error::*;
 pub use executor::*;
 pub use logging::*;

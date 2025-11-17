@@ -1,17 +1,13 @@
-#[cfg(feature = "dyn_msg")]
 use crate::{
     dynamic_message::{
         DynamicMessage, DynamicSubscriptionState, MessageTypeName, WorkerDynamicSubscription,
         WorkerDynamicSubscriptionCallback,
     },
-    MessageInfo,
-};
-use crate::{
     log_fatal, AnyTimerCallback, IntoTimerOptions, IntoWorkerServiceCallback,
     IntoWorkerSubscriptionCallback, IntoWorkerTimerOneshotCallback,
-    IntoWorkerTimerRepeatingCallback, Node, Promise, RclrsError, ServiceOptions, ServiceState,
-    SubscriptionOptions, SubscriptionState, TimerState, WorkerCommands, WorkerService,
-    WorkerSubscription, WorkerTimer,
+    IntoWorkerTimerRepeatingCallback, MessageInfo, Node, Promise, RclrsError, ServiceOptions,
+    ServiceState, SubscriptionOptions, SubscriptionState, TimerState, WorkerCommands,
+    WorkerService, WorkerSubscription, WorkerTimer,
 };
 use futures::channel::oneshot;
 use rosidl_runtime_rs::{Message, Service as ServiceIDL};
@@ -314,7 +310,6 @@ impl<Payload: 'static + Send + Sync> WorkerState<Payload> {
     /// )?;
     /// # Ok::<(), RclrsError>(())
     /// ```
-    #[cfg(feature = "dyn_msg")]
     pub fn create_dynamic_subscription<'a, F>(
         &self,
         topic_type: MessageTypeName,
@@ -776,7 +771,6 @@ mod tests {
     struct TestPayload {
         subscription_count: usize,
         service_count: usize,
-        #[cfg(feature = "dyn_msg")]
         dynamic_subscription_count: usize,
     }
 
@@ -792,7 +786,6 @@ mod tests {
             },
         );
 
-        #[cfg(feature = "dyn_msg")]
         let _count_dynamic_sub = worker.create_dynamic_subscription(
             "test_msgs/msg/Empty".try_into().unwrap(),
             "test_worker_topic",
@@ -810,14 +803,10 @@ mod tests {
         );
 
         let promise = worker.listen_until(move |payload| {
-            if payload.service_count > 0 && payload.subscription_count > 0 {
-                #[cfg(feature = "dyn_msg")]
-                if payload.dynamic_subscription_count > 0 {
-                    Some(*payload)
-                } else {
-                    None
-                }
-                #[cfg(not(feature = "dyn_msg"))]
+            if payload.service_count > 0
+                && payload.subscription_count > 0
+                && payload.dynamic_subscription_count > 0
+            {
                 Some(*payload)
             } else {
                 None
