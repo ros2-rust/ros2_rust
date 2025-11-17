@@ -22,6 +22,7 @@ use std::{
 
 use futures::{
     channel::mpsc::{unbounded, UnboundedSender},
+    future::BoxFuture,
     StreamExt,
 };
 
@@ -30,15 +31,22 @@ use async_std::future::timeout;
 use rosidl_runtime_rs::{Action, Message};
 
 use crate::{
-    rcl_bindings::*, ActionClient, ActionClientState, ActionGoalReceiver, ActionServer,
-    ActionServerState, AnyTimerCallback, Client, ClientOptions, ClientState, Clock, ContextHandle,
-    ExecutorCommands, IntoActionClientOptions, IntoActionServerOptions, IntoAsyncServiceCallback,
+    dynamic_message::{
+        DynamicMessage, DynamicPublisher, DynamicPublisherState, DynamicSubscription,
+        DynamicSubscriptionState, MessageTypeName, NodeAsyncDynamicSubscriptionCallback,
+        NodeDynamicSubscriptionCallback,
+    },
+    rcl_bindings::*,
+    ActionClient, ActionClientState, ActionGoalReceiver, ActionServer, ActionServerState,
+    AnyTimerCallback, Client, ClientOptions, ClientState, Clock, ContextHandle, ExecutorCommands,
+    IntoActionClientOptions, IntoActionServerOptions, IntoAsyncServiceCallback,
     IntoAsyncSubscriptionCallback, IntoNodeServiceCallback, IntoNodeSubscriptionCallback,
     IntoNodeTimerOneshotCallback, IntoNodeTimerRepeatingCallback, IntoTimerOptions, LogParams,
-    Logger, ParameterBuilder, ParameterInterface, ParameterVariant, Parameters, Promise, Publisher,
-    PublisherOptions, PublisherState, RclrsError, RequestedGoal, Service, ServiceOptions,
-    ServiceState, Subscription, SubscriptionOptions, SubscriptionState, TerminatedGoal, TimeSource,
-    Timer, TimerState, ToLogParams, Worker, WorkerOptions, WorkerState, ENTITY_LIFECYCLE_MUTEX,
+    Logger, MessageInfo, ParameterBuilder, ParameterInterface, ParameterVariant, Parameters,
+    Promise, Publisher, PublisherOptions, PublisherState, RclrsError, RequestedGoal, Service,
+    ServiceOptions, ServiceState, Subscription, SubscriptionOptions, SubscriptionState,
+    TerminatedGoal, TimeSource, Timer, TimerState, ToLogParams, Worker, WorkerOptions, WorkerState,
+    ENTITY_LIFECYCLE_MUTEX,
 };
 
 /// A processing unit that can communicate with other nodes. See the API of
@@ -439,6 +447,32 @@ impl NodeState {
         PublisherState::<T>::create(options, Arc::clone(self))
     }
 
+    /// Creates a [`DynamicPublisher`], a publisher whose type is only known at runtime.
+    ///
+    /// Refer to [`Node::create_publisher`][1] for the API, the only key difference is that the
+    /// publisher's message type is passed as a [`crate::MessageTypeName`] parameter.
+    ///
+    /// Pass in only the topic name for the `options` argument to use all default publisher options:
+    ///
+    /// [1]: crate::NodeState::create_publisher
+    /// ```
+    /// # use rclrs::*;
+    /// # let executor = Context::default().create_basic_executor();
+    /// # let node = executor.create_node("my_node").unwrap();
+    /// let publisher = node.create_dynamic_publisher(
+    ///     "test_msgs/msg/Empty".try_into().unwrap(),
+    ///     "my_topic"
+    ///     .keep_last(100)
+    /// )
+    /// .unwrap();
+    pub fn create_dynamic_publisher<'a>(
+        self: &Arc<Self>,
+        topic_type: MessageTypeName,
+        options: impl Into<PublisherOptions<'a>>,
+    ) -> Result<DynamicPublisher, RclrsError> {
+        DynamicPublisherState::create(topic_type, options, Arc::clone(self))
+    }
+
     /// Creates a [`Service`] with an ordinary callback.
     ///
     /// # Behavior
@@ -831,6 +865,136 @@ impl NodeState {
         SubscriptionState::<T, Node>::create(
             options,
             callback.into_node_subscription_callback(),
+            &self.handle,
+            self.commands.async_worker_commands(),
+        )
+    }
+
+    /// Creates a [`DynamicSubscription`] with an ordinary callback.
+    ///
+    /// For the behavior and API refer to [`Node::create_subscription`][1], except two key
+    /// differences:
+    ///
+    ///   - The message type is determined at runtime through the `topic_type` function parameter.
+    ///   - Only one type of callback is supported (returning both [`crate::DynamicMessage`] and
+    ///   [`crate::MessageInfo`]).
+    ///
+    /// # Message type passing
+    ///
+    /// The message type can be passed as a [`crate::MessageTypeName`] struct. The struct also implements `TryFrom<&str>`
+    ///
+    /// [1]: crate::NodeState::create_publisher
+    /// ```
+    /// # use rclrs::*;
+    /// # let executor = Context::default().create_basic_executor();
+    /// # let node = executor.create_node("my_node").unwrap();
+    /// let subscription = node.create_dynamic_subscription(
+    ///     MessageTypeName {
+    ///         package_name: "test_msgs".to_owned(),
+    ///         type_name: "Empty".to_owned(),
+    ///     },
+    ///     "my_topic"
+    ///     .transient_local(),
+    ///     |_msg: DynamicMessage, _info: MessageInfo| {
+    ///         println!("Received message!");
+    ///     },
+    /// );
+    ///
+    /// let subscription = node.create_dynamic_subscription(
+    ///     "test_msgs/msg/Empty".try_into().unwrap(),
+    ///     "my_topic",
+    ///     |_msg: DynamicMessage, _info: MessageInfo| {
+    ///         println!("Received message!");
+    ///     },
+    /// );
+    /// ```
+    pub fn create_dynamic_subscription<'a, F>(
+        &self,
+        topic_type: MessageTypeName,
+        options: impl Into<SubscriptionOptions<'a>>,
+        callback: F,
+    ) -> Result<DynamicSubscription, RclrsError>
+    where
+        F: Fn(DynamicMessage, MessageInfo) + Send + Sync + 'static,
+    {
+        DynamicSubscriptionState::<Node>::create(
+            topic_type,
+            options,
+            NodeDynamicSubscriptionCallback::new(callback),
+            &self.handle,
+            self.commands.async_worker_commands(),
+        )
+    }
+
+    /// Creates a [`DynamicSubscription`] with an async callback.
+    ///
+    /// For the behavior and API refer to [`Node::create_async_subscription`][1], except two key
+    /// differences:
+    ///
+    ///   - The message type is determined at runtime through the `topic_type` function parameter.
+    ///   - Only one type of callback is supported (returning both [`crate::DynamicMessage`] and
+    ///   [`crate::MessageInfo`].
+    ///
+    /// # Message type passing
+    ///
+    /// The message type can be passed as a [`crate::MessageTypeName`] struct. The struct also implements `TryFrom<&str>`
+    ///
+    /// [1]: crate::NodeState::create_async_subscription
+    /// ```
+    /// # use rclrs::*;
+    /// # let executor = Context::default().create_basic_executor();
+    /// # let node = executor.create_node("my_node").unwrap();
+    /// use std::sync::Arc;
+    ///
+    /// let count_worker = node.create_worker(0_usize);
+    /// let data_worker = node.create_worker(String::new());
+    ///
+    /// let service = node.create_async_dynamic_subscription(
+    ///     "example_interfaces/msg/String".try_into()?,
+    ///     "topic",
+    ///     move |msg: DynamicMessage, _info: MessageInfo| {
+    ///         // Clone the workers so they can be captured into the async block
+    ///         let count_worker = Arc::clone(&count_worker);
+    ///         let data_worker = Arc::clone(&data_worker);
+    ///         Box::pin(async move {
+    ///             // Update the message count
+    ///             let current_count = count_worker.run(move |count: &mut usize| {
+    ///                 *count += 1;
+    ///                 *count
+    ///             }).await.unwrap();
+    ///
+    ///             // Change the data in the data_worker and get back the data
+    ///             // that was previously put in there.
+    ///             let previous = data_worker.run(move |data: &mut String| {
+    ///                 let value = msg.get("data").unwrap();
+    ///                 let Value::Simple(value) = value else {
+    ///                     panic!("Unexpected value type, expected Simple value");
+    ///                 };
+    ///                 let SimpleValue::String(value) = value else {
+    ///                     panic!("Unexpected value type, expected String");
+    ///                 };
+    ///                 std::mem::replace(data, value.to_string())
+    ///             }).await.unwrap();
+    ///
+    ///             println!("Current count is {current_count}, data was previously {previous}");
+    ///        })
+    ///     }
+    /// )?;
+    /// # Ok::<(), RclrsError>(())
+    /// ```
+    pub fn create_async_dynamic_subscription<'a, F>(
+        &self,
+        topic_type: MessageTypeName,
+        options: impl Into<SubscriptionOptions<'a>>,
+        callback: F,
+    ) -> Result<DynamicSubscription, RclrsError>
+    where
+        F: FnMut(DynamicMessage, MessageInfo) -> BoxFuture<'static, ()> + Send + Sync + 'static,
+    {
+        DynamicSubscriptionState::<Node>::create(
+            topic_type,
+            options,
+            NodeAsyncDynamicSubscriptionCallback::new(callback),
             &self.handle,
             self.commands.async_worker_commands(),
         )

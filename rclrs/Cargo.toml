@@ -15,7 +15,7 @@ path = "src/lib.rs"
 # and also state why each dependency is needed.
 [dependencies]
 # Needed for dynamically finding type support libraries
-ament_rs = { version = "0.2", optional = true }
+ament_rs = "0.2"
 
 # Needed to create the GoalClientStream
 async-stream = "0.3.6"
@@ -33,7 +33,7 @@ futures-lite = { version = "2.6", features = ["std", "race"] }
 async-std = "1.13"
 
 # Needed for dynamic messages
-libloading = { version = "0.8", optional = true }
+libloading = "0.8"
 
 # Needed for the Message trait, among others
 rosidl_runtime_rs = "0.5"
@@ -67,7 +67,6 @@ rustflags = "0.1"
 
 [features]
 default = []
-dyn_msg = ["ament_rs", "libloading"]
 serde = ["dep:serde", "dep:serde-big-array", "rosidl_runtime_rs/serde"]
 # This feature is solely for the purpose of being able to generate documetation without a ROS installation
 # The only intended usage of this feature is for docs.rs builders to work, and is not intended to be used by end users

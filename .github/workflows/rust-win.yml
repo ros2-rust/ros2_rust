@@ -75,7 +75,7 @@ jobs:
                 cd %%B
                 echo Running cargo test in %%B
                 if /I "%%~nxB"=="rclrs" (
-                  cargo test -F default,dyn_msg
+                  cargo test -F default
                 ) else if /I "%%~nxB"=="rosidl_runtime_rs" (
                   cargo test -F default
                 ) else (
