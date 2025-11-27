@@ -632,6 +632,21 @@ mod tests {
             .unwrap();
 
         let qos = subscription.qos();
-        assert!(matches!(qos.reliability, QoSReliabilityPolicy::BestEffort));
+        assert_eq!(qos.reliability, QoSReliabilityPolicy::BestEffort);
+
+        let expected_qos = QoSProfile::topics_default().best_effort();
+        assert_eq!(expected_qos.reliability, QoSReliabilityPolicy::BestEffort);
+        let subscription = node
+            .create_subscription(
+                "test_subscription_qos_topic_2".qos(expected_qos),
+                |_: Empty| {
+                    // Do nothing
+                },
+            )
+            .unwrap();
+
+        let qos = subscription.qos();
+        assert_eq!(expected_qos.reliability, qos.reliability);
+        assert_eq!(qos.reliability, QoSReliabilityPolicy::BestEffort);
     }
 }
