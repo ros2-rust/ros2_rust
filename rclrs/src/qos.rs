@@ -356,6 +356,7 @@ impl QoSProfile {
     /// > with newly discovered endpoints. Therefore, this profile should be used
     /// > with care since non-deterministic behavior can occur due to races with
     /// > discovery.
+    #[cfg(not(ros_distro = "humble"))]
     pub fn best_available() -> Self {
         unsafe {
             // SAFETY: There are no preconditions for using this static const
@@ -485,6 +486,7 @@ impl From<QoSLivelinessPolicy> for rmw_qos_liveliness_policy_t {
             QoSLivelinessPolicy::ManualByTopic => {
                 rmw_qos_liveliness_policy_t::RMW_QOS_POLICY_LIVELINESS_MANUAL_BY_TOPIC
             }
+            #[cfg(not(ros_distro = "humble"))]
             QoSLivelinessPolicy::BestAvailable => {
                 rmw_qos_liveliness_policy_t::RMW_QOS_POLICY_LIVELINESS_BEST_AVAILABLE
             }
@@ -504,6 +506,7 @@ impl From<&rmw_qos_liveliness_policy_t> for QoSLivelinessPolicy {
             rmw_qos_liveliness_policy_e::RMW_QOS_POLICY_LIVELINESS_MANUAL_BY_TOPIC => {
                 QoSLivelinessPolicy::ManualByTopic
             }
+            #[cfg(not(ros_distro = "humble"))]
             rmw_qos_liveliness_policy_e::RMW_QOS_POLICY_LIVELINESS_BEST_AVAILABLE => {
                 QoSLivelinessPolicy::BestAvailable
             }
