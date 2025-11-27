@@ -1,9 +1,6 @@
 use std::time::Duration;
 
-use crate::{
-    rcl_bindings::*,
-    log_error,
-};
+use crate::{log_error, rcl_bindings::*};
 
 /// The `HISTORY` DDS QoS policy.
 ///
@@ -222,20 +219,24 @@ impl From<&rmw_qos_profile_t> for QoSProfile {
     fn from(profile: &rmw_qos_profile_t) -> Self {
         let history = match profile.history {
             rmw_qos_history_policy_e::RMW_QOS_POLICY_HISTORY_SYSTEM_DEFAULT => {
-                QoSHistoryPolicy::SystemDefault { depth: profile.depth as u32 }
+                QoSHistoryPolicy::SystemDefault {
+                    depth: profile.depth as u32,
+                }
             }
             rmw_qos_history_policy_e::RMW_QOS_POLICY_HISTORY_KEEP_LAST => {
-                QoSHistoryPolicy::KeepLast { depth: profile.depth as u32 }
+                QoSHistoryPolicy::KeepLast {
+                    depth: profile.depth as u32,
+                }
             }
-            rmw_qos_history_policy_e::RMW_QOS_POLICY_HISTORY_KEEP_ALL => {
-                QoSHistoryPolicy::KeepAll
-            }
+            rmw_qos_history_policy_e::RMW_QOS_POLICY_HISTORY_KEEP_ALL => QoSHistoryPolicy::KeepAll,
             rmw_qos_history_policy_e::RMW_QOS_POLICY_HISTORY_UNKNOWN => {
                 log_error!(
                     "QoSProfile.conversion",
                     "History policy is unknown. Converting as KeepLast.",
                 );
-                QoSHistoryPolicy::KeepLast { depth: profile.depth as u32 }
+                QoSHistoryPolicy::KeepLast {
+                    depth: profile.depth as u32,
+                }
             }
         };
 

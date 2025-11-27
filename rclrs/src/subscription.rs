@@ -7,10 +7,9 @@ use std::{
 use rosidl_runtime_rs::{Message, RmwMessage};
 
 use crate::{
-    error::ToResult, qos::QoSProfile, rcl_bindings::*, IntoPrimitiveOptions, Node, NodeHandle,
-    RclPrimitive, RclPrimitiveHandle, RclPrimitiveKind, RclrsError, ReadyKind, Waitable,
-    WaitableLifecycle, WorkScope, Worker, WorkerCommands, ENTITY_LIFECYCLE_MUTEX,
-    log_error,
+    error::ToResult, log_error, qos::QoSProfile, rcl_bindings::*, IntoPrimitiveOptions, Node,
+    NodeHandle, RclPrimitive, RclPrimitiveHandle, RclPrimitiveKind, RclrsError, ReadyKind,
+    Waitable, WaitableLifecycle, WorkScope, Worker, WorkerCommands, ENTITY_LIFECYCLE_MUTEX,
 };
 
 mod any_subscription_callback;
@@ -617,8 +616,8 @@ mod tests {
 
     #[test]
     fn test_subscription_qos_settings() {
-        use crate::*;
         use crate::vendor::example_interfaces::msg::Empty;
+        use crate::*;
 
         let executor = Context::default().create_basic_executor();
 
@@ -626,14 +625,11 @@ mod tests {
             .create_node(&format!("test_subscription_qos_settings_{}", line!()))
             .unwrap();
 
-        let subscription = node.create_subscription(
-            "test_subscription_qos_topic"
-            .best_effort(),
-            |_: Empty| {
+        let subscription = node
+            .create_subscription("test_subscription_qos_topic".best_effort(), |_: Empty| {
                 // Do nothing
-            }
-        )
-        .unwrap();
+            })
+            .unwrap();
 
         let qos = subscription.qos();
         assert!(matches!(qos.reliability, QoSReliabilityPolicy::BestEffort));
