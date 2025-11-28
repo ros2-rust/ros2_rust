@@ -671,11 +671,7 @@ mod tests {
         use crate::vendor::example_interfaces::msg::Empty;
         use crate::*;
 
-        let args = [
-            "--ros-args",
-            "-p",
-            "qos_reliability:=best_effort",
-        ].map(ToString::to_string);
+        let args = ["--ros-args", "-p", "qos_reliability:=best_effort"].map(ToString::to_string);
 
         let context = Context::new(args, InitOptions::default()).unwrap();
 
@@ -706,7 +702,7 @@ mod tests {
                 "test_setting_qos_from_parameters_topic".qos(expected_qos),
                 |_: Empty| {
                     // Do nothing
-                }
+                },
             )
             .unwrap();
 
