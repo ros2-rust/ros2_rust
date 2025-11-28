@@ -692,6 +692,7 @@ mod tests {
         expected_qos.reliability = match &*qos_reliability_str {
             "reliable" => QoSReliabilityPolicy::Reliable,
             "best_effort" => QoSReliabilityPolicy::BestEffort,
+            #[cfg(not(ros_distro = "humble"))]
             "best_available" => QoSReliabilityPolicy::BestAvailable,
             x => panic!("unknown reliability string: {x}"),
         };
