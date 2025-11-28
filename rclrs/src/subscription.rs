@@ -665,4 +665,53 @@ mod tests {
         assert_eq!(expected_qos.reliability, qos.reliability);
         assert_eq!(qos.reliability, QoSReliabilityPolicy::BestEffort);
     }
+
+    #[test]
+    fn test_setting_qos_from_parameters() {
+        use crate::vendor::example_interfaces::msg::Empty;
+        use crate::*;
+
+        let args = [
+            "--ros-args",
+            "-p",
+            "qos_reliability:=best_effort",
+        ].map(ToString::to_string);
+
+        let context = Context::new(args, InitOptions::default()).unwrap();
+
+        let executor = context.create_basic_executor();
+
+        let node = executor
+            .create_node(&format!("test_setting_qos_from_parameters_{}", line!()))
+            .unwrap();
+
+        let qos_reliability_str = node
+            .declare_parameter::<Arc<str>>("qos_reliability")
+            .default("best_effort".into())
+            .mandatory()
+            .unwrap()
+            .get();
+
+        let mut expected_qos = QOS_PROFILE_DEFAULT;
+        expected_qos.reliability = match &*qos_reliability_str {
+            "reliable" => QoSReliabilityPolicy::Reliable,
+            "best_effort" => QoSReliabilityPolicy::BestEffort,
+            "best_available" => QoSReliabilityPolicy::BestAvailable,
+            x => panic!("unknown reliability string: {x}"),
+        };
+
+        assert_eq!(expected_qos.reliability, QoSReliabilityPolicy::BestEffort);
+        let subscription = node
+            .create_subscription(
+                "test_setting_qos_from_parameters_topic".qos(expected_qos),
+                |_: Empty| {
+                    // Do nothing
+                }
+            )
+            .unwrap();
+
+        let qos = subscription.qos();
+        assert_eq!(expected_qos.reliability, qos.reliability);
+        assert_eq!(qos.reliability, QoSReliabilityPolicy::BestEffort);
+    }
 }
