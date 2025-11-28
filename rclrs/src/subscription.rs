@@ -7,9 +7,9 @@ use std::{
 use rosidl_runtime_rs::{Message, RmwMessage};
 
 use crate::{
-    error::ToResult, qos::QoSProfile, rcl_bindings::*, IntoPrimitiveOptions, Node, NodeHandle,
-    RclPrimitive, RclPrimitiveHandle, RclPrimitiveKind, RclrsError, ReadyKind, Waitable,
-    WaitableLifecycle, WorkScope, Worker, WorkerCommands, ENTITY_LIFECYCLE_MUTEX,
+    error::ToResult, log_error, qos::QoSProfile, rcl_bindings::*, IntoPrimitiveOptions, Node,
+    NodeHandle, RclPrimitive, RclPrimitiveHandle, RclPrimitiveKind, RclrsError, ReadyKind,
+    Waitable, WaitableLifecycle, WorkScope, Worker, WorkerCommands, ENTITY_LIFECYCLE_MUTEX,
 };
 
 mod any_subscription_callback;
@@ -108,6 +108,27 @@ where
         }
         .to_string_lossy()
         .into_owned()
+    }
+
+    /// Returns the QoS settings of the subscription.
+    pub fn qos(&self) -> QoSProfile {
+        let options = unsafe {
+            // SAFETY: The handle is protected by a mutex. No other
+            // preconditions need to be met.
+            let handle = self.handle.lock();
+            let options = rcl_subscription_get_options(&*handle);
+            if options.is_null() {
+                None
+            } else {
+                Some((&(*options).qos).into())
+            }
+        };
+
+        if options.is_none() {
+            log_error!("Subscroption.qos", "Options returned null");
+        }
+
+        options.unwrap_or_default()
     }
 
     /// Used by [`Node`][crate::Node] to create a new subscription.
@@ -591,5 +612,103 @@ mod tests {
         assert!(r.is_empty(), "{r:?}");
         let message_was_received = success.load(Ordering::Acquire);
         assert!(message_was_received);
+    }
+
+    #[test]
+    fn test_subscription_qos_settings() {
+        use crate::vendor::example_interfaces::msg::Empty;
+        use crate::*;
+
+        let executor = Context::default().create_basic_executor();
+
+        let node = executor
+            .create_node(&format!("test_subscription_qos_settings_{}", line!()))
+            .unwrap();
+
+        let subscription = node
+            .create_subscription("test_subscription_qos_topic".best_effort(), |_: Empty| {
+                // Do nothing
+            })
+            .unwrap();
+
+        let qos = subscription.qos();
+        assert_eq!(qos.reliability, QoSReliabilityPolicy::BestEffort);
+
+        let expected_qos = QoSProfile::topics_default().best_effort();
+        assert_eq!(expected_qos.reliability, QoSReliabilityPolicy::BestEffort);
+        let subscription = node
+            .create_subscription(
+                "test_subscription_qos_topic_2".qos(expected_qos),
+                |_: Empty| {
+                    // Do nothing
+                },
+            )
+            .unwrap();
+
+        let qos = subscription.qos();
+        assert_eq!(expected_qos.reliability, qos.reliability);
+        assert_eq!(qos.reliability, QoSReliabilityPolicy::BestEffort);
+
+        let subscription = node
+            .create_subscription(
+                SubscriptionOptions {
+                    topic: "test_subscription_qos_topic_3",
+                    qos: expected_qos,
+                },
+                |_: Empty| {
+                    // Do nothing
+                },
+            )
+            .unwrap();
+
+        let qos = subscription.qos();
+        assert_eq!(expected_qos.reliability, qos.reliability);
+        assert_eq!(qos.reliability, QoSReliabilityPolicy::BestEffort);
+    }
+
+    #[test]
+    fn test_setting_qos_from_parameters() {
+        use crate::vendor::example_interfaces::msg::Empty;
+        use crate::*;
+
+        let args = ["--ros-args", "-p", "qos_reliability:=best_effort"].map(ToString::to_string);
+
+        let context = Context::new(args, InitOptions::default()).unwrap();
+
+        let executor = context.create_basic_executor();
+
+        let node = executor
+            .create_node(&format!("test_setting_qos_from_parameters_{}", line!()))
+            .unwrap();
+
+        let qos_reliability_str = node
+            .declare_parameter::<Arc<str>>("qos_reliability")
+            .default("best_effort".into())
+            .mandatory()
+            .unwrap()
+            .get();
+
+        let mut expected_qos = QOS_PROFILE_DEFAULT;
+        expected_qos.reliability = match &*qos_reliability_str {
+            "reliable" => QoSReliabilityPolicy::Reliable,
+            "best_effort" => QoSReliabilityPolicy::BestEffort,
+            #[cfg(not(ros_distro = "humble"))]
+            "best_available" => QoSReliabilityPolicy::BestAvailable,
+            x => panic!("unknown reliability string: {x}"),
+        };
+
+        assert_eq!(expected_qos.reliability, QoSReliabilityPolicy::BestEffort);
+        let subscription = node
+            .create_subscription(
+                "test_setting_qos_from_parameters_topic".qos(expected_qos),
+                |_: Empty| {
+                    // Do nothing
+                },
+            )
+            .unwrap();
+
+        let qos = subscription.qos();
+        assert_eq!(expected_qos.reliability, qos.reliability);
+        assert_eq!(qos.reliability, QoSReliabilityPolicy::BestEffort);
     }
 }
