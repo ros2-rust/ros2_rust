@@ -271,7 +271,7 @@ impl<Payload: 'static + Send + Sync> WorkerState<Payload> {
         )
     }
 
-    /// Creates a [`WorkerDynamicSubscription`], whose message type is only know at runtime.
+    /// Creates a [`WorkerDynamicSubscription`], whose message type is only known at runtime.
     ///
     /// Refer to ['Worker::create_subscription`] for the API and behavior except two key
     /// differences:

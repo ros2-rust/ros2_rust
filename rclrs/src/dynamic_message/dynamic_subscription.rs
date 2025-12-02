@@ -17,7 +17,7 @@ use crate::{
     WaitableLifecycle, WorkScope, Worker, WorkerCommands, ENTITY_LIFECYCLE_MUTEX,
 };
 
-/// Struct for receiving messages whose type is not know at compile time.
+/// Struct for receiving messages whose type is not known at compile time.
 ///
 /// Create a dynamic subscription using [`NodeState::create_dynamic_subscription()`][1]
 /// or [`NodeState::create_async_dynamic_subscription`][2].
