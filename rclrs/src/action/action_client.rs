@@ -2,7 +2,7 @@ use super::empty_goal_status_array;
 use crate::{
     log_warn,
     rcl_bindings::*,
-    vendor::{action_msgs::srv::CancelGoal_Response, builtin_interfaces::msg::Time},
+    {action_msgs::srv::CancelGoal_Response, builtin_interfaces::msg::Time},
     CancelResponse, CancelResponseCode, DropGuard, GoalStatus, GoalStatusCode, GoalUuid,
     MultiCancelResponse, Node, NodeHandle, QoSProfile, RclPrimitive, RclPrimitiveHandle,
     RclPrimitiveKind, RclrsError, ReadyKind, TakeFailedAsNone, ToResult, Waitable,
