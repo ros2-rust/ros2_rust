@@ -274,7 +274,7 @@ impl NodeState {
     /// In some cases the payload type can be inferred by Rust:
     /// ```
     /// # use rclrs::*;
-    /// # use crate::rclrs::vendor::example_interfaces;
+    /// # use crate::rclrs::example_interfaces;
     /// let executor = Context::default().create_basic_executor();
     /// let node = executor.create_node("my_node").unwrap();
     ///
@@ -300,7 +300,7 @@ impl NodeState {
     ///
     /// ```
     /// # use rclrs::*;
-    /// # use crate::rclrs::vendor::example_interfaces;
+    /// # use crate::rclrs::example_interfaces;
     /// # let executor = Context::default().create_basic_executor();
     /// # let node = executor.create_node("my_node").unwrap();
     /// let worker = node.create_worker::<String>(String::new());
@@ -309,7 +309,7 @@ impl NodeState {
     /// The data given to the worker can be any custom data type:
     /// ```
     /// # use rclrs::*;
-    /// # use crate::rclrs::vendor::example_interfaces;
+    /// # use crate::rclrs::example_interfaces;
     /// # let executor = Context::default().create_basic_executor();
     /// # let node = executor.create_node("my_node").unwrap();
     ///
@@ -345,7 +345,7 @@ impl NodeState {
     /// # use rclrs::*;
     /// # let executor = Context::default().create_basic_executor();
     /// # let node = executor.create_node("my_node").unwrap();
-    /// # use crate::rclrs::vendor::test_msgs;
+    /// # use crate::rclrs::test_msgs;
     /// let client = node.create_client::<test_msgs::srv::Empty>(
     ///     "my_service"
     /// )
@@ -359,7 +359,7 @@ impl NodeState {
     /// # use rclrs::*;
     /// # let executor = Context::default().create_basic_executor();
     /// # let node = executor.create_node("my_node").unwrap();
-    /// # use crate::rclrs::vendor::test_msgs;
+    /// # use crate::rclrs::test_msgs;
     /// let client = node.create_client::<test_msgs::srv::Empty>(
     ///     "my_service"
     ///     .keep_all()
@@ -426,7 +426,7 @@ impl NodeState {
     /// # use rclrs::*;
     /// # let executor = Context::default().create_basic_executor();
     /// # let node = executor.create_node("my_node").unwrap();
-    /// # use crate::rclrs::vendor::test_msgs;
+    /// # use crate::rclrs::test_msgs;
     /// let publisher = node.create_publisher::<test_msgs::msg::Empty>(
     ///     "my_topic"
     /// )
@@ -438,7 +438,7 @@ impl NodeState {
     ///
     /// ```
     /// # use rclrs::*;
-    /// # use crate::rclrs::vendor::test_msgs;
+    /// # use crate::rclrs::test_msgs;
     /// # let executor = Context::default().create_basic_executor();
     /// # let node = executor.create_node("my_node").unwrap();
     /// let publisher = node.create_publisher::<test_msgs::msg::Empty>(
@@ -511,7 +511,7 @@ impl NodeState {
     /// Pass in only the service name for the `options` argument to use all default service options:
     /// ```
     /// # use rclrs::*;
-    /// # use crate::rclrs::vendor::test_msgs;
+    /// # use crate::rclrs::test_msgs;
     /// # let executor = Context::default().create_basic_executor();
     /// # let node = executor.create_node("my_node").unwrap();
     /// let service = node.create_service::<test_msgs::srv::Empty, _>(
@@ -528,7 +528,7 @@ impl NodeState {
     ///
     /// ```
     /// # use rclrs::*;
-    /// # use crate::rclrs::vendor::test_msgs;
+    /// # use crate::rclrs::test_msgs;
     /// # let executor = Context::default().create_basic_executor();
     /// # let node = executor.create_node("my_node").unwrap();
     /// let service = node.create_service::<test_msgs::srv::Empty, _>(
@@ -567,7 +567,7 @@ impl NodeState {
     ///
     /// ```
     /// # use rclrs::*;
-    /// # use crate::rclrs::vendor::example_interfaces;
+    /// # use crate::rclrs::example_interfaces;
     /// # let executor = Context::default().create_basic_executor();
     /// # let node = executor.create_node("my_node").unwrap();
     /// use std::sync::Mutex;
@@ -593,7 +593,7 @@ impl NodeState {
     ///
     /// ```
     /// # use rclrs::*;
-    /// # use crate::rclrs::vendor::example_interfaces;
+    /// # use crate::rclrs::example_interfaces;
     /// # let executor = Context::default().create_basic_executor();
     /// # let node = executor.create_node("my_node").unwrap();
     /// use std::sync::{Arc, Mutex};
@@ -687,7 +687,7 @@ impl NodeState {
     ///
     /// ```
     /// # use rclrs::*;
-    /// # use crate::rclrs::vendor::example_interfaces;
+    /// # use crate::rclrs::example_interfaces;
     /// # let executor = Context::default().create_basic_executor();
     /// # let node = executor.create_node("my_node")?;
     /// use std::sync::Arc;
@@ -759,7 +759,7 @@ impl NodeState {
     /// Pass in only the topic name for the `options` argument to use all default subscription options:
     /// ```
     /// # use rclrs::*;
-    /// # use crate::rclrs::vendor::test_msgs;
+    /// # use crate::rclrs::test_msgs;
     /// # let executor = Context::default().create_basic_executor();
     /// # let node = executor.create_node("my_node").unwrap();
     /// let subscription = node.create_subscription(
@@ -775,7 +775,7 @@ impl NodeState {
     ///
     /// ```
     /// # use rclrs::*;
-    /// # use crate::rclrs::vendor::test_msgs;
+    /// # use crate::rclrs::test_msgs;
     /// # let executor = Context::default().create_basic_executor();
     /// # let node = executor.create_node("my_node").unwrap();
     /// let subscription = node.create_subscription(
@@ -818,7 +818,7 @@ impl NodeState {
     ///
     /// ```
     /// # use rclrs::*;
-    /// # use crate::rclrs::vendor::example_interfaces;
+    /// # use crate::rclrs::example_interfaces;
     /// # let executor = Context::default().create_basic_executor();
     /// # let node = executor.create_node("my_node").unwrap();
     /// use std::sync::Mutex;
@@ -841,7 +841,7 @@ impl NodeState {
     ///
     /// ```
     /// # use rclrs::*;
-    /// # use crate::rclrs::vendor::example_interfaces;
+    /// # use crate::rclrs::example_interfaces;
     /// # let executor = Context::default().create_basic_executor();
     /// # let node = executor.create_node("my_node").unwrap();
     /// use std::sync::{Arc, Mutex};
@@ -1072,7 +1072,7 @@ impl NodeState {
     ///
     /// ```
     /// # use rclrs::*;
-    /// # use crate::rclrs::vendor::example_interfaces;
+    /// # use crate::rclrs::example_interfaces;
     /// # let executor = Context::default().create_basic_executor();
     /// # let node = executor.create_node("my_node").unwrap();
     ///
@@ -1554,7 +1554,7 @@ mod tests {
 
     #[test]
     fn test_topic_names_and_types() -> Result<(), RclrsError> {
-        use crate::vendor::test_msgs::msg;
+        use crate::test_msgs::msg;
 
         let graph = construct_test_graph("test_topics_graph")?;
 

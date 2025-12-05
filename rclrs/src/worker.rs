@@ -234,7 +234,7 @@ impl<Payload: 'static + Send + Sync> WorkerState<Payload> {
     ///
     /// ```
     /// # use rclrs::*;
-    /// # use crate::rclrs::vendor::example_interfaces;
+    /// # use crate::rclrs::example_interfaces;
     /// # let executor = Context::default().create_basic_executor();
     /// # let node = executor.create_node("my_node").unwrap();
     /// // The worker's payload is data that we want to share with other callbacks.
@@ -384,7 +384,7 @@ impl<Payload: 'static + Send + Sync> WorkerState<Payload> {
     ///
     /// ```
     /// # use rclrs::*;
-    /// # use crate::rclrs::vendor::example_interfaces;
+    /// # use crate::rclrs::example_interfaces;
     /// # let executor = Context::default().create_basic_executor();
     /// # let node = executor.create_node("my_node").unwrap();
     ///
@@ -759,7 +759,7 @@ impl<Payload: 'static + Send + Sync> WorkScope for Worker<Payload> {
 #[cfg(test)]
 mod tests {
     use crate::{
-        vendor::test_msgs::{
+        test_msgs::{
             msg::Empty as EmptyMsg,
             srv::{Empty as EmptySrv, Empty_Request, Empty_Response},
         },
