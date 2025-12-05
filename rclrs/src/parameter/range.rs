@@ -1,5 +1,5 @@
 use crate::{
-    vendor::rcl_interfaces::msg::rmw::{FloatingPointRange, IntegerRange},
+    rcl_interfaces::msg::rmw::{FloatingPointRange, IntegerRange},
     DeclarationError, ParameterValue, ParameterVariant,
 };
 use rosidl_runtime_rs::{seq, BoundedSequence};

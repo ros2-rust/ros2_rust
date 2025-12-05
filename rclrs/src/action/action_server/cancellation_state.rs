@@ -2,7 +2,7 @@ use super::ActionServerHandle;
 use crate::{
     log_error,
     rcl_bindings::*,
-    vendor::{
+    {
         action_msgs::{msg::GoalInfo, srv::CancelGoal_Response},
         unique_identifier_msgs::msg::UUID,
     },

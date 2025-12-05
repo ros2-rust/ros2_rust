@@ -416,7 +416,7 @@ impl Drop for SubscriptionHandle {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{test_helpers::*, vendor::test_msgs::msg};
+    use crate::{test_helpers::*, test_msgs::msg};
 
     #[test]
     fn traits() {
@@ -527,12 +527,14 @@ mod tests {
 
     #[test]
     fn test_delayed_subscription() {
-        use crate::{vendor::example_interfaces::msg::Empty, *};
+        use crate::{example_interfaces::msg::Empty, *};
         use futures::{
             channel::{mpsc, oneshot},
             StreamExt,
         };
         use std::sync::atomic::{AtomicBool, Ordering};
+
+        let _ = crate::rcl_interfaces::msg::IntegerRange;
 
         let mut executor = Context::default().create_basic_executor();
         let node = executor
