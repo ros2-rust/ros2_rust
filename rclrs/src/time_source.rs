@@ -1,6 +1,6 @@
 use crate::{
     clock::{Clock, ClockSource, ClockType},
-    vendor::rosgraph_msgs::msg::Clock as ClockMsg,
+    rosgraph_msgs::msg::Clock as ClockMsg,
     IntoPrimitiveOptions, Node, NodeState, QoSProfile, ReadOnlyParameter, Subscription,
     QOS_PROFILE_CLOCK,
 };

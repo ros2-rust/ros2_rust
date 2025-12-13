@@ -1,4 +1,4 @@
-use crate::{rcl_bindings::*, vendor::builtin_interfaces};
+use crate::{rcl_bindings::*, builtin_interfaces};
 use std::{
     num::TryFromIntError,
     ops::{Add, Sub},
