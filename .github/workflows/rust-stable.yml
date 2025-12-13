@@ -69,11 +69,10 @@ jobs:
 
     # Colcon can not be run in a venv which is required in Ubuntu Noble
     # Removing the externally managed file
-    - name: Install colcon-cargo and colcon-ros-cargo
+    - name: Install colcon-cargo
       run: |
         sudo rm -f /usr/lib/python3.12/EXTERNALLY-MANAGED
         sudo pip3 install git+https://github.com/colcon/colcon-cargo.git
-        sudo pip3 install git+https://github.com/colcon/colcon-ros-cargo.git
 
     - name: Check formatting of Rust packages
       run: |
