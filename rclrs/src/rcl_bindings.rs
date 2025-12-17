@@ -46,6 +46,7 @@ cfg_if::cfg_if! {
 }
 
 pub const RMW_GID_STORAGE_SIZE: usize = rmw_gid_storage_size_constant;
+pub const RCL_ACTION_UUID_SIZE: usize = rcl_action_uuid_size_constant;
 
 /// Wrapper around [`std::slice::from_raw_parts`] that accommodates the rcl
 /// convention of providing a null pointer to represent empty arrays. This

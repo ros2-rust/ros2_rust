@@ -2,9 +2,10 @@ use std::{
     error::Error,
     ffi::{CStr, NulError},
     fmt::{self, Display},
+    sync::PoisonError,
 };
 
-use crate::{rcl_bindings::*, DeclarationError};
+use crate::{rcl_bindings::*, DeclarationError, ReadyKind};
 
 /// The main error type.
 #[derive(Debug, PartialEq, Eq)]
@@ -51,6 +52,28 @@ pub enum RclrsError {
     ParameterDeclarationError(crate::DeclarationError),
     /// A mutex used internally has been [poisoned][std::sync::PoisonError].
     PoisonedMutex,
+    /// An [`crate::RclPrimitive`] received ready information that is not
+    /// compatible with its type.
+    InvalidReadyInformation {
+        /// The expected format of the ready information (default-initialized)
+        expected: ReadyKind,
+        /// The ready information that was received.
+        received: ReadyKind,
+    },
+    /// From rcl documentation for rcl_action_accept_new_goal:
+    ///
+    /// If a failure occurs, `NULL` is returned and an error message is set.
+    /// Possible reasons for failure:
+    ///   - action server is invalid
+    ///   - goal info is invalid
+    ///   - goal ID is already being tracked by the action server
+    ///   - memory allocation failure
+    ///
+    /// We have no way of diagnosing which of these errors caused the failure, so
+    /// all we can do is indicate that an error occurred with accepting the goal.
+    /// However, the implementation of rclrs automatically protects from all of
+    /// these errors except memory allocation failure.
+    GoalAcceptanceError,
 }
 
 impl RclrsError {
@@ -73,7 +96,10 @@ impl RclrsError {
             RclrsError::RclError {
                 code: RclReturnCode::SubscriptionTakeFailed
                     | RclReturnCode::ServiceTakeFailed
-                    | RclReturnCode::ClientTakeFailed,
+                    | RclReturnCode::ClientTakeFailed
+                    | RclReturnCode::ActionServerTakeFailed
+                    | RclReturnCode::ActionClientTakeFailed
+                    | RclReturnCode::EventTakeFailed,
                 ..
             }
         )
@@ -118,6 +144,21 @@ impl Display for RclrsError {
             RclrsError::PoisonedMutex => {
                 write!(f, "A mutex used internally has been poisoned")
             }
+            RclrsError::InvalidReadyInformation { expected, received } => {
+                write!(
+                    f,
+                    "Invalid ready information was provided. This suggests an error \
+                    in how the wait set is being used.\
+                    \n - Expected information: {expected:?}\
+                    \n - Actual: {received:?}",
+                )
+            }
+            RclrsError::GoalAcceptanceError => {
+                write!(
+                    f,
+                    "An error occurred while trying to accept an action server goal",
+                )
+            }
         }
     }
 }
@@ -133,7 +174,7 @@ impl Display for RclrsError {
 /// [1]: std::error::Error
 /// [2]: crate::RclrsError
 #[derive(Debug, PartialEq, Eq)]
-pub struct RclErrorMsg(String);
+pub struct RclErrorMsg(pub(crate) String);
 
 impl Display for RclErrorMsg {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -157,6 +198,8 @@ impl Error for RclrsError {
             RclrsError::InvalidPayload { .. } => None,
             RclrsError::ParameterDeclarationError(_) => None,
             RclrsError::PoisonedMutex => None,
+            RclrsError::InvalidReadyInformation { .. } => None,
+            RclrsError::GoalAcceptanceError => None,
         }
     }
 }
@@ -251,6 +294,26 @@ pub enum RclReturnCode {
     EventInvalid = 2000,
     /// Failed to take an event from the event handle
     EventTakeFailed = 2001,
+    // ====== 2XXX: action-specific errors ======
+    /// Action name does not pass validation
+    // TODO(nwn): Consult with upstream about this reused error code.
+    // ActionNameInvalid = 2000,
+    /// Action goal accepted
+    ActionGoalAccepted = 2100,
+    /// Action goal rejected
+    ActionGoalRejected = 2101,
+    /// Action client is invalid
+    ActionClientInvalid = 2102,
+    /// Action client failed to take response
+    ActionClientTakeFailed = 2103,
+    /// Action server is invalid
+    ActionServerInvalid = 2200,
+    /// Action server failed to take request
+    ActionServerTakeFailed = 2201,
+    /// Action goal handle invalid
+    ActionGoalHandleInvalid = 2300,
+    /// Action invalid event
+    ActionGoalEventInvalid = 2301,
     // ====== 30XX: lifecycle-specific errors ======
     /// `rcl_lifecycle` state registered
     LifecycleStateRegistered = 3000,
@@ -261,6 +324,12 @@ pub enum RclReturnCode {
 impl From<DeclarationError> for RclrsError {
     fn from(value: DeclarationError) -> Self {
         RclrsError::ParameterDeclarationError(value)
+    }
+}
+
+impl<T> From<PoisonError<T>> for RclrsError {
+    fn from(_: PoisonError<T>) -> Self {
+        RclrsError::PoisonedMutex
     }
 }
 
@@ -305,6 +374,15 @@ impl TryFrom<i32> for RclReturnCode {
             x if x == Self::InvalidLogLevelRule as i32 => Self::InvalidLogLevelRule,
             x if x == Self::EventInvalid as i32 => Self::EventInvalid,
             x if x == Self::EventTakeFailed as i32 => Self::EventTakeFailed,
+            // x if x == Self::ActionNameInvalid as i32 => Self::ActionNameInvalid,
+            x if x == Self::ActionGoalAccepted as i32 => Self::ActionGoalAccepted,
+            x if x == Self::ActionGoalRejected as i32 => Self::ActionGoalRejected,
+            x if x == Self::ActionClientInvalid as i32 => Self::ActionClientInvalid,
+            x if x == Self::ActionClientTakeFailed as i32 => Self::ActionClientTakeFailed,
+            x if x == Self::ActionServerInvalid as i32 => Self::ActionServerInvalid,
+            x if x == Self::ActionServerTakeFailed as i32 => Self::ActionServerTakeFailed,
+            x if x == Self::ActionGoalHandleInvalid as i32 => Self::ActionGoalHandleInvalid,
+            x if x == Self::ActionGoalEventInvalid as i32 => Self::ActionGoalEventInvalid,
             x if x == Self::LifecycleStateRegistered as i32 => Self::LifecycleStateRegistered,
             x if x == Self::LifecycleStateNotRegistered as i32 => Self::LifecycleStateNotRegistered,
             other => {
@@ -385,6 +463,27 @@ impl Display for RclReturnCode {
             Self::EventInvalid => "Invalid `rcl_event_t` given (RCL_RET_EVENT_INVALID).",
             Self::EventTakeFailed => {
                 "Failed to take an event from the event handle (RCL_RET_EVENT_TAKE_FAILED)."
+            }
+            // Self::ActionNameInvalid => "Action name does not pass validation (RCL_RET_ACTION_NAME_INVALID).",
+            Self::ActionGoalAccepted => "Action goal accepted (RCL_RET_ACTION_GOAL_ACCEPTED).",
+            Self::ActionGoalRejected => "Action goal rejected (RCL_RET_ACTION_GOAL_REJECTED).",
+            Self::ActionClientInvalid => {
+                "Action client is invalid (RCL_RET_ACTION_CLIENT_INVALID)."
+            }
+            Self::ActionClientTakeFailed => {
+                "Action client failed to take response (RCL_RET_ACTION_CLIENT_TAKE_FAILED)."
+            }
+            Self::ActionServerInvalid => {
+                "Action server is invalid (RCL_RET_ACTION_SERVER_INVALID)."
+            }
+            Self::ActionServerTakeFailed => {
+                "Action server failed to take request (RCL_RET_ACTION_SERVER_TAKE_FAILED)."
+            }
+            Self::ActionGoalHandleInvalid => {
+                "Action goal handle invalid (RCL_RET_ACTION_GOAL_HANDLE_INVALID)."
+            }
+            Self::ActionGoalEventInvalid => {
+                "Action invalid event (RCL_RET_ACTION_GOAL_EVENT_INVALID)."
             }
             Self::LifecycleStateRegistered => {
                 "`rcl_lifecycle` state registered (RCL_RET_LIFECYCLE_STATE_REGISTERED)."
@@ -510,5 +609,32 @@ impl RclrsErrorFilter for Vec<RclrsError> {
     fn take_failed_ok(mut self) -> Self {
         self.retain(|err| !err.is_take_failed());
         self
+    }
+}
+
+/// A helper trait to handle common error handling flows
+pub trait TakeFailedAsNone {
+    /// The type you would receive when there is no error
+    type T;
+
+    /// If the result has an error indicating that a take failed, convert the
+    /// output into an `Ok(None)`. Any other error returns `Err(error)`. If there
+    /// is no error, return `Ok(Some(value))`.
+    fn take_failed_as_none(self) -> Result<Option<Self::T>, RclrsError>;
+}
+
+impl<T> TakeFailedAsNone for Result<T, RclrsError> {
+    type T = T;
+    fn take_failed_as_none(self) -> Result<Option<T>, RclrsError> {
+        match self {
+            Ok(value) => Ok(Some(value)),
+            Err(err) => {
+                if err.is_take_failed() {
+                    return Ok(None);
+                }
+
+                return Err(err);
+            }
+        }
     }
 }

@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0](https://github.com/ros2-rust/ros2_rust/compare/v0.5.1...v0.6.0) - 2025-10-27
+
+### Added
+
+- [**breaking**] async actions ([#503](https://github.com/ros2-rust/ros2_rust/pull/503))
+- timers API ([#480](https://github.com/ros2-rust/ros2_rust/pull/480))
+
+### Other
+
+- re-add generate_bindings.py script
+- Minimal changes for new Action trait ([#539](https://github.com/ros2-rust/ros2_rust/pull/539))
+- Re-export traits from rosidl_runtime_rs ([#537](https://github.com/ros2-rust/ros2_rust/pull/537))
+- Fix use of serde ([#538](https://github.com/ros2-rust/ros2_rust/pull/538))
+- Put `use rustflags` next to its usage to prevent a build warning. ([#526](https://github.com/ros2-rust/ros2_rust/pull/526))
+
 ## [0.5.1](https://github.com/ros2-rust/ros2_rust/compare/v0.5.0...v0.5.1) - 2025-08-23
 
 ### Other

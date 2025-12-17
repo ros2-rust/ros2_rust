@@ -729,9 +729,6 @@ pub mod rmw {
         }
     }
 
-    #[cfg(feature = "serde")]
-    use serde::{Deserialize, Serialize};
-
     #[link(name = "test_msgs__rosidl_typesupport_c")]
     extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__test_msgs__action__Fibonacci_SendGoal_Request(
@@ -2030,9 +2027,6 @@ impl rosidl_runtime_rs::Message for NestedMessage_FeedbackMessage {
     }
 }
 
-#[cfg(feature = "serde")]
-use serde::{Deserialize, Serialize};
-
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Clone, Debug, PartialEq, PartialOrd)]
 pub struct Fibonacci_SendGoal_Request {
@@ -2503,25 +2497,24 @@ extern "C" {
 pub struct Fibonacci;
 
 impl rosidl_runtime_rs::Action for Fibonacci {
+    // --- Associated types for client library users ---
     type Goal = crate::vendor::test_msgs::action::Fibonacci_Goal;
     type Result = crate::vendor::test_msgs::action::Fibonacci_Result;
     type Feedback = crate::vendor::test_msgs::action::Fibonacci_Feedback;
 
+    // --- Associated types for client library implementation ---
+    type FeedbackMessage = crate::vendor::test_msgs::action::rmw::Fibonacci_FeedbackMessage;
+    type SendGoalService = crate::vendor::test_msgs::action::rmw::Fibonacci_SendGoal;
+    type CancelGoalService = crate::vendor::action_msgs::srv::rmw::CancelGoal;
+    type GetResultService = crate::vendor::test_msgs::action::rmw::Fibonacci_GetResult;
+
+    // --- Methods for client library implementation ---
     fn get_type_support() -> *const std::ffi::c_void {
         // SAFETY: No preconditions for this function.
         unsafe {
             rosidl_typesupport_c__get_action_type_support_handle__test_msgs__action__Fibonacci()
         }
     }
-}
-
-impl rosidl_runtime_rs::ActionImpl for Fibonacci {
-    type GoalStatusMessage = crate::vendor::action_msgs::msg::rmw::GoalStatusArray;
-    type FeedbackMessage = crate::vendor::test_msgs::action::rmw::Fibonacci_FeedbackMessage;
-
-    type SendGoalService = crate::vendor::test_msgs::action::rmw::Fibonacci_SendGoal;
-    type CancelGoalService = crate::vendor::action_msgs::srv::rmw::CancelGoal;
-    type GetResultService = crate::vendor::test_msgs::action::rmw::Fibonacci_GetResult;
 
     fn create_goal_request(
         goal_id: &[u8; 16],
@@ -2533,10 +2526,13 @@ impl rosidl_runtime_rs::ActionImpl for Fibonacci {
         }
     }
 
-    fn get_goal_request_uuid(
-        request: &crate::vendor::test_msgs::action::rmw::Fibonacci_SendGoal_Request,
-    ) -> &[u8; 16] {
-        &request.goal_id.uuid
+    fn split_goal_request(
+        request: crate::vendor::test_msgs::action::rmw::Fibonacci_SendGoal_Request,
+    ) -> (
+        [u8; 16],
+        crate::vendor::test_msgs::action::rmw::Fibonacci_Goal,
+    ) {
+        (request.goal_id.uuid, request.goal)
     }
 
     fn create_goal_response(
@@ -2575,16 +2571,13 @@ impl rosidl_runtime_rs::ActionImpl for Fibonacci {
         message
     }
 
-    fn get_feedback_message_uuid(
-        feedback: &crate::vendor::test_msgs::action::rmw::Fibonacci_FeedbackMessage,
-    ) -> &[u8; 16] {
-        &feedback.goal_id.uuid
-    }
-
-    fn get_feedback_message_feedback(
-        feedback: &crate::vendor::test_msgs::action::rmw::Fibonacci_FeedbackMessage,
-    ) -> &crate::vendor::test_msgs::action::rmw::Fibonacci_Feedback {
-        &feedback.feedback
+    fn split_feedback_message(
+        feedback: crate::vendor::test_msgs::action::rmw::Fibonacci_FeedbackMessage,
+    ) -> (
+        [u8; 16],
+        crate::vendor::test_msgs::action::rmw::Fibonacci_Feedback,
+    ) {
+        (feedback.goal_id.uuid, feedback.feedback)
     }
 
     fn create_result_request(
@@ -2608,16 +2601,10 @@ impl rosidl_runtime_rs::ActionImpl for Fibonacci {
         crate::vendor::test_msgs::action::rmw::Fibonacci_GetResult_Response { status, result }
     }
 
-    fn get_result_response_result(
-        response: &crate::vendor::test_msgs::action::rmw::Fibonacci_GetResult_Response,
-    ) -> &crate::vendor::test_msgs::action::rmw::Fibonacci_Result {
-        &response.result
-    }
-
-    fn get_result_response_status(
-        response: &crate::vendor::test_msgs::action::rmw::Fibonacci_GetResult_Response,
-    ) -> i8 {
-        response.status
+    fn split_result_response(
+        response: crate::vendor::test_msgs::action::rmw::Fibonacci_GetResult_Response,
+    ) -> (i8, crate::vendor::test_msgs::action::rmw::Fibonacci_Result) {
+        (response.status, response.result)
     }
 }
 
@@ -2631,25 +2618,24 @@ extern "C" {
 pub struct NestedMessage;
 
 impl rosidl_runtime_rs::Action for NestedMessage {
+    // --- Associated types for client library users ---
     type Goal = crate::vendor::test_msgs::action::NestedMessage_Goal;
     type Result = crate::vendor::test_msgs::action::NestedMessage_Result;
     type Feedback = crate::vendor::test_msgs::action::NestedMessage_Feedback;
 
+    // --- Associated types for client library implementation ---
+    type FeedbackMessage = crate::vendor::test_msgs::action::rmw::NestedMessage_FeedbackMessage;
+    type SendGoalService = crate::vendor::test_msgs::action::rmw::NestedMessage_SendGoal;
+    type CancelGoalService = crate::vendor::action_msgs::srv::rmw::CancelGoal;
+    type GetResultService = crate::vendor::test_msgs::action::rmw::NestedMessage_GetResult;
+
+    // --- Methods for client library implementation ---
     fn get_type_support() -> *const std::ffi::c_void {
         // SAFETY: No preconditions for this function.
         unsafe {
             rosidl_typesupport_c__get_action_type_support_handle__test_msgs__action__NestedMessage()
         }
     }
-}
-
-impl rosidl_runtime_rs::ActionImpl for NestedMessage {
-    type GoalStatusMessage = crate::vendor::action_msgs::msg::rmw::GoalStatusArray;
-    type FeedbackMessage = crate::vendor::test_msgs::action::rmw::NestedMessage_FeedbackMessage;
-
-    type SendGoalService = crate::vendor::test_msgs::action::rmw::NestedMessage_SendGoal;
-    type CancelGoalService = crate::vendor::action_msgs::srv::rmw::CancelGoal;
-    type GetResultService = crate::vendor::test_msgs::action::rmw::NestedMessage_GetResult;
 
     fn create_goal_request(
         goal_id: &[u8; 16],
@@ -2661,10 +2647,13 @@ impl rosidl_runtime_rs::ActionImpl for NestedMessage {
         }
     }
 
-    fn get_goal_request_uuid(
-        request: &crate::vendor::test_msgs::action::rmw::NestedMessage_SendGoal_Request,
-    ) -> &[u8; 16] {
-        &request.goal_id.uuid
+    fn split_goal_request(
+        request: crate::vendor::test_msgs::action::rmw::NestedMessage_SendGoal_Request,
+    ) -> (
+        [u8; 16],
+        crate::vendor::test_msgs::action::rmw::NestedMessage_Goal,
+    ) {
+        (request.goal_id.uuid, request.goal)
     }
 
     fn create_goal_response(
@@ -2703,16 +2692,13 @@ impl rosidl_runtime_rs::ActionImpl for NestedMessage {
         message
     }
 
-    fn get_feedback_message_uuid(
-        feedback: &crate::vendor::test_msgs::action::rmw::NestedMessage_FeedbackMessage,
-    ) -> &[u8; 16] {
-        &feedback.goal_id.uuid
-    }
-
-    fn get_feedback_message_feedback(
-        feedback: &crate::vendor::test_msgs::action::rmw::NestedMessage_FeedbackMessage,
-    ) -> &crate::vendor::test_msgs::action::rmw::NestedMessage_Feedback {
-        &feedback.feedback
+    fn split_feedback_message(
+        feedback: crate::vendor::test_msgs::action::rmw::NestedMessage_FeedbackMessage,
+    ) -> (
+        [u8; 16],
+        crate::vendor::test_msgs::action::rmw::NestedMessage_Feedback,
+    ) {
+        (feedback.goal_id.uuid, feedback.feedback)
     }
 
     fn create_result_request(
@@ -2736,15 +2722,12 @@ impl rosidl_runtime_rs::ActionImpl for NestedMessage {
         crate::vendor::test_msgs::action::rmw::NestedMessage_GetResult_Response { status, result }
     }
 
-    fn get_result_response_result(
-        response: &crate::vendor::test_msgs::action::rmw::NestedMessage_GetResult_Response,
-    ) -> &crate::vendor::test_msgs::action::rmw::NestedMessage_Result {
-        &response.result
-    }
-
-    fn get_result_response_status(
-        response: &crate::vendor::test_msgs::action::rmw::NestedMessage_GetResult_Response,
-    ) -> i8 {
-        response.status
+    fn split_result_response(
+        response: crate::vendor::test_msgs::action::rmw::NestedMessage_GetResult_Response,
+    ) -> (
+        i8,
+        crate::vendor::test_msgs::action::rmw::NestedMessage_Result,
+    ) {
+        (response.status, response.result)
     }
 }

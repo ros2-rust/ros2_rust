@@ -1,6 +1,6 @@
 [package]
 name = "rclrs"
-version = "0.5.1"
+version = "0.6.0"
 # This project is not military-sponsored, Jacob's employment contract just requires him to use this email address
 authors = ["Esteve Fernandez <esteve@apache.org>", "Nikolai Morin <nnmmgit@gmail.com>", "Jacob Hassold <jacob.a.hassold.civ@army.mil>"]
 edition = "2021"
@@ -17,11 +17,17 @@ path = "src/lib.rs"
 # Needed for dynamically finding type support libraries
 ament_rs = { version = "0.2", optional = true }
 
+# Needed to create the GoalClientStream
+async-stream = "0.3.6"
+
 # Needed for uploading documentation to docs.rs
 cfg-if = "1.0.0"
 
 # Needed for clients
 futures = "0.3"
+
+# Needed for racing futures
+futures-lite = { version = "2.6", features = ["std", "race"] }
 
 # Needed for the runtime-agnostic timeout feature
 async-std = "1.13"
@@ -30,12 +36,23 @@ async-std = "1.13"
 libloading = { version = "0.8", optional = true }
 
 # Needed for the Message trait, among others
-rosidl_runtime_rs = "0.4"
+rosidl_runtime_rs = "0.5"
 
 # Needed for serliazation and deserialization of vendored messages
 serde = { version = "1", optional = true, features = ["derive"] }
 serde-big-array = { version = "0.5.1", optional = true }
 
+# Needed to watch for the cancel signal for actions. Note that this only brings
+# in the sync module of tokio, which is a fairly light weight dependency. The
+# channels in this module work with any async runtime, so this does not lock us
+# into the tokio runtime.
+tokio = { version = "1", features = ["sync"] }
+
+# Needed to combine concurrent streams for easier ergonomics in action clients
+tokio-stream = "0.1"
+
+# Needed by action clients to generate UUID values for their goals
+uuid = { version = "1", features = ["v4"] }
 
 [dev-dependencies]
 # Needed for e.g. writing yaml files in tests

@@ -102,7 +102,7 @@ impl WaitSet {
     pub fn wait(
         &mut self,
         timeout: Option<Duration>,
-        mut f: impl FnMut(&mut dyn RclPrimitive) -> Result<(), RclrsError>,
+        mut f: impl FnMut(ReadyKind, &mut dyn RclPrimitive) -> Result<(), RclrsError>,
     ) -> Result<(), RclrsError> {
         let timeout_ns = match timeout.map(|d| d.as_nanos()) {
             None => -1,
@@ -144,8 +144,8 @@ impl WaitSet {
             // For the remaining entities, check if they were activated and then run
             // the callback for those that were.
             for waiter in self.primitives.values_mut().flat_map(|v| v) {
-                if waiter.is_ready(&self.handle.rcl_wait_set) {
-                    f(&mut *waiter.primitive)?;
+                if let Some(ready) = waiter.is_ready(&self.handle.rcl_wait_set) {
+                    f(ready, &mut *waiter.primitive)?;
                 }
             }
         }
@@ -174,7 +174,7 @@ impl WaitSet {
     pub fn count(&self) -> WaitableCount {
         let mut c = WaitableCount::new();
         for (kind, collection) in &self.primitives {
-            c.add(*kind, collection.len());
+            c.add_group(kind, collection);
         }
         c
     }
