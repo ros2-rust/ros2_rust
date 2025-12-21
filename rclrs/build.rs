@@ -16,7 +16,7 @@ fn get_env_var_or_abort(env_var: &'static str) -> String {
 fn main() {
     println!(
         "cargo:rustc-check-cfg=cfg(ros_distro, values(\"{}\"))",
-        vec!["humble", "jazzy", "kilted", "rolling"].join("\", \"")
+        ["humble", "jazzy", "kilted", "rolling"].join("\", \"")
     );
     let ros_distro = if let Ok(value) = env::var(ROS_DISTRO) {
         value
