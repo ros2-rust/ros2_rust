@@ -8395,10 +8395,6 @@ pub struct action_msgs__msg__GoalInfo__Sequence {
     pub size: usize,
     pub capacity: usize,
 }
-extern "C" {
-    pub fn rosidl_typesupport_c__get_message_type_support_handle__action_msgs__msg__GoalInfo(
-    ) -> *const rosidl_message_type_support_t;
-}
 #[repr(C)]
 #[derive(Debug)]
 pub struct action_msgs__msg__GoalStatus {
@@ -8412,18 +8408,10 @@ pub struct action_msgs__msg__GoalStatus__Sequence {
     pub size: usize,
     pub capacity: usize,
 }
-extern "C" {
-    pub fn rosidl_typesupport_c__get_message_type_support_handle__action_msgs__msg__GoalStatus(
-    ) -> *const rosidl_message_type_support_t;
-}
 #[repr(C)]
 #[derive(Debug)]
 pub struct action_msgs__msg__GoalStatusArray {
     pub status_list: action_msgs__msg__GoalStatus__Sequence,
-}
-extern "C" {
-    pub fn rosidl_typesupport_c__get_message_type_support_handle__action_msgs__msg__GoalStatusArray(
-    ) -> *const rosidl_message_type_support_t;
 }
 #[repr(C)]
 #[derive(Debug)]
@@ -8437,20 +8425,8 @@ pub struct action_msgs__srv__CancelGoal_Response {
     pub goals_canceling: action_msgs__msg__GoalInfo__Sequence,
 }
 extern "C" {
-    pub fn rosidl_typesupport_c__get_message_type_support_handle__action_msgs__srv__CancelGoal_Request(
-    ) -> *const rosidl_message_type_support_t;
-}
-extern "C" {
-    pub fn rosidl_typesupport_c__get_message_type_support_handle__action_msgs__srv__CancelGoal_Response(
-    ) -> *const rosidl_message_type_support_t;
-}
-extern "C" {
     pub fn rosidl_typesupport_c__get_message_type_support_handle__action_msgs__srv__CancelGoal_Event(
     ) -> *const rosidl_message_type_support_t;
-}
-extern "C" {
-    pub fn rosidl_typesupport_c__get_service_type_support_handle__action_msgs__srv__CancelGoal(
-    ) -> *const rosidl_service_type_support_t;
 }
 extern "C" {
     pub fn rosidl_typesupport_c__create_service_event_message__action_msgs__srv__CancelGoal(
