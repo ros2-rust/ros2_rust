@@ -506,7 +506,7 @@ impl<Scope: WorkScope> RclPrimitive for TimerExecutable<Scope> {
         RclPrimitiveKind::Timer
     }
 
-    fn handle(&self) -> RclPrimitiveHandle {
+    fn handle(&self) -> RclPrimitiveHandle<'_> {
         RclPrimitiveHandle::Timer(self.handle.rcl_timer.lock().unwrap())
     }
 }

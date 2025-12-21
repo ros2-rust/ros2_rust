@@ -265,7 +265,7 @@ where
         RclPrimitiveKind::Service
     }
 
-    fn handle(&self) -> RclPrimitiveHandle {
+    fn handle(&self) -> RclPrimitiveHandle<'_> {
         RclPrimitiveHandle::Service(self.handle.lock())
     }
 }
@@ -285,7 +285,7 @@ pub struct ServiceHandle {
 }
 
 impl ServiceHandle {
-    fn lock(&self) -> MutexGuard<rcl_service_t> {
+    fn lock(&self) -> MutexGuard<'_, rcl_service_t> {
         self.rcl_service.lock().unwrap()
     }
 

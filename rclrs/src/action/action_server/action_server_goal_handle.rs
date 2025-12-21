@@ -31,7 +31,7 @@ impl<A: Action> ActionServerGoalHandle<A> {
         }
     }
 
-    pub(super) fn lock(&self) -> MutexGuard<rcl_action_goal_handle_t> {
+    pub(super) fn lock(&self) -> MutexGuard<'_, rcl_action_goal_handle_t> {
         self.rcl_handle.lock().unwrap()
     }
 
