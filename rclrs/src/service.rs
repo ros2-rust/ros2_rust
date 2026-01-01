@@ -101,7 +101,7 @@ where
     pub(crate) fn create<'a>(
         options: impl Into<ServiceOptions<'a>>,
         callback: AnyServiceCallback<T, Scope::Payload>,
-        node_handle: &Arc<NodeHandle>,
+        node: &Node,
         commands: &Arc<WorkerCommands>,
     ) -> Result<Arc<Self>, RclrsError> {
         let ServiceOptions { name, qos } = options.into();
@@ -120,7 +120,7 @@ where
         service_options.qos = qos.into();
 
         {
-            let rcl_node = node_handle.rcl_node.lock().unwrap();
+            let rcl_node = node.handle().rcl_node.lock().unwrap();
             let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
             unsafe {
                 // SAFETY:
@@ -143,7 +143,7 @@ where
 
         let handle = Arc::new(ServiceHandle {
             rcl_service: Mutex::new(rcl_service),
-            node_handle: Arc::clone(&node_handle),
+            node: Arc::clone(node),
         });
 
         let (waitable, lifecycle) = Waitable::new(
@@ -163,6 +163,41 @@ where
         commands.add_to_wait_set(waitable);
 
         Ok(service)
+    }
+
+    /// Configure service introspection for this service.
+    /// Service introspection allows tools to monitor service requests and responses.
+    /// Service introspection can be set to either
+    ///     - Off: Disabled
+    ///     - Metadata: Only metadata without any user data contents
+    ///     - Contents: User data contents with metadata
+    pub fn configure_introspection(
+        &self,
+        introspection_state: ServiceIntrospectionState,
+    ) -> Result<(), RclrsError> {
+        let service = &mut *self.handle.rcl_service.lock().unwrap();
+        let node = &mut *self.handle.node.handle().rcl_node.lock().unwrap();
+        let clock = self.handle.node.get_clock();
+        let rcl_clock = &mut *clock.get_rcl_clock().lock().unwrap();
+        let type_support = <T as rosidl_runtime_rs::Service>::get_type_support()
+            as *const rosidl_service_type_support_t;
+
+        // SAFETY: No preconditions for this function.
+        let publisher_options = unsafe { rcl_publisher_get_default_options() };
+
+        unsafe {
+            rcl_service_configure_service_introspection(
+                service,
+                node,
+                rcl_clock,
+                type_support,
+                publisher_options,
+                introspection_state.into(),
+            )
+            .ok()?;
+        }
+
+        Ok(())
     }
 }
 
@@ -281,7 +316,7 @@ unsafe impl Send for rcl_service_t {}
 /// [1]: <https://doc.rust-lang.org/reference/destructors.html>
 pub struct ServiceHandle {
     rcl_service: Mutex<rcl_service_t>,
-    node_handle: Arc<NodeHandle>,
+    node: Node,
 }
 
 impl ServiceHandle {
@@ -381,7 +416,7 @@ impl ServiceHandle {
 impl Drop for ServiceHandle {
     fn drop(&mut self) {
         let rcl_service = self.rcl_service.get_mut().unwrap();
-        let mut rcl_node = self.node_handle.rcl_node.lock().unwrap();
+        let mut rcl_node = self.node.handle().rcl_node.lock().unwrap();
         let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
         // SAFETY: The entity lifecycle mutex is locked to protect against the risk of
         // global variables in the rmw implementation being unsafely modified during cleanup.
