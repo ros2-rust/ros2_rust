@@ -391,6 +391,45 @@ impl Drop for ServiceHandle {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ServiceIntrospectionState {
+    Off,
+    Metadata,
+    Contents,
+}
+
+impl From<rcl_service_introspection_state_e> for ServiceIntrospectionState {
+    fn from(value: rcl_service_introspection_state_e) -> Self {
+        match value {
+            rcl_service_introspection_state_e::RCL_SERVICE_INTROSPECTION_OFF => {
+                ServiceIntrospectionState::Off
+            }
+            rcl_service_introspection_state_e::RCL_SERVICE_INTROSPECTION_METADATA => {
+                ServiceIntrospectionState::Metadata
+            }
+            rcl_service_introspection_state_e::RCL_SERVICE_INTROSPECTION_CONTENTS => {
+                ServiceIntrospectionState::Contents
+            }
+        }
+    }
+}
+
+impl From<ServiceIntrospectionState> for rcl_service_introspection_state_e {
+    fn from(value: ServiceIntrospectionState) -> Self {
+        match value {
+            ServiceIntrospectionState::Off => {
+                rcl_service_introspection_state_e::RCL_SERVICE_INTROSPECTION_OFF
+            }
+            ServiceIntrospectionState::Metadata => {
+                rcl_service_introspection_state_e::RCL_SERVICE_INTROSPECTION_METADATA
+            }
+            ServiceIntrospectionState::Contents => {
+                rcl_service_introspection_state_e::RCL_SERVICE_INTROSPECTION_CONTENTS
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
