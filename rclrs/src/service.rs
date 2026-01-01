@@ -143,7 +143,7 @@ where
 
         let handle = Arc::new(ServiceHandle {
             rcl_service: Mutex::new(rcl_service),
-            node: Arc::clone(node),
+            node: Arc::clone(&node),
         });
 
         let (waitable, lifecycle) = Waitable::new(
