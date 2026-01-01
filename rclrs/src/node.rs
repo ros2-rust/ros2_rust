@@ -580,7 +580,7 @@ impl NodeState {
     /// The advantage of creating a service directly from the [`NodeState`] is you
     /// can create async services using [`NodeState::create_async_service`].
     pub fn create_service<'a, T, Args>(
-        &self,
+        self: &Arc<Self>,
         options: impl Into<ServiceOptions<'a>>,
         callback: impl IntoNodeServiceCallback<T, Args>,
     ) -> Result<Service<T>, RclrsError>
@@ -590,7 +590,7 @@ impl NodeState {
         ServiceState::<T, Node>::create(
             options,
             callback.into_node_service_callback(),
-            &self.handle,
+            self,
             self.commands.async_worker_commands(),
         )
     }
@@ -671,7 +671,7 @@ impl NodeState {
     /// # Ok::<(), RclrsError>(())
     /// ```
     pub fn create_async_service<'a, T, Args>(
-        &self,
+        self: &Arc<Self>,
         options: impl Into<ServiceOptions<'a>>,
         callback: impl IntoAsyncServiceCallback<T, Args>,
     ) -> Result<Service<T>, RclrsError>
@@ -681,7 +681,7 @@ impl NodeState {
         ServiceState::<T, Node>::create(
             options,
             callback.into_async_service_callback(),
-            &self.handle,
+            self,
             self.commands.async_worker_commands(),
         )
     }
