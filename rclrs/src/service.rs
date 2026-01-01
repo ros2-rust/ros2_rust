@@ -8,7 +8,7 @@ use std::{
 use rosidl_runtime_rs::{Message, Service as ServiceIDL};
 
 use crate::{
-    error::ToResult, rcl_bindings::*, IntoPrimitiveOptions, MessageCow, Node, NodeHandle,
+    error::ToResult, rcl_bindings::*, Clock, IntoPrimitiveOptions, MessageCow, Node, NodeHandle,
     QoSProfile, RclPrimitive, RclPrimitiveHandle, RclPrimitiveKind, RclrsError, ReadyKind,
     Waitable, WaitableLifecycle, WorkScope, Worker, WorkerCommands, ENTITY_LIFECYCLE_MUTEX,
 };
@@ -143,7 +143,8 @@ where
 
         let handle = Arc::new(ServiceHandle {
             rcl_service: Mutex::new(rcl_service),
-            node: Arc::clone(&node),
+            node_handle: Arc::clone(node.handle()),
+            clock: node.get_clock(),
         });
 
         let (waitable, lifecycle) = Waitable::new(
@@ -176,8 +177,8 @@ where
         introspection_state: ServiceIntrospectionState,
     ) -> Result<(), RclrsError> {
         let service = &mut *self.handle.rcl_service.lock().unwrap();
-        let node = &mut *self.handle.node.handle().rcl_node.lock().unwrap();
-        let clock = self.handle.node.get_clock();
+        let node = &mut *self.handle.node_handle.rcl_node.lock().unwrap();
+        let clock = &self.handle.clock;
         let rcl_clock = &mut *clock.get_rcl_clock().lock().unwrap();
         let type_support = <T as rosidl_runtime_rs::Service>::get_type_support()
             as *const rosidl_service_type_support_t;
@@ -316,7 +317,8 @@ unsafe impl Send for rcl_service_t {}
 /// [1]: <https://doc.rust-lang.org/reference/destructors.html>
 pub struct ServiceHandle {
     rcl_service: Mutex<rcl_service_t>,
-    node: Node,
+    node_handle: Arc<NodeHandle>,
+    clock: Clock,
 }
 
 impl ServiceHandle {
@@ -416,7 +418,7 @@ impl ServiceHandle {
 impl Drop for ServiceHandle {
     fn drop(&mut self) {
         let rcl_service = self.rcl_service.get_mut().unwrap();
-        let mut rcl_node = self.node.handle().rcl_node.lock().unwrap();
+        let mut rcl_node = self.node_handle.rcl_node.lock().unwrap();
         let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
         // SAFETY: The entity lifecycle mutex is locked to protect against the risk of
         // global variables in the rmw implementation being unsafely modified during cleanup.
