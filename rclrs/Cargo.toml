@@ -32,7 +32,7 @@ futures-lite = { version = "2.6", features = ["std", "race"] }
 # Needed for the runtime-agnostic timeout feature
 async-std = "1.13"
 # NOTE(sam): needed to make sure we can compile with rustc 1.75
-async-lock = "<3.4.1"
+async-lock = ">=3, <3.4.2"
 
 # Needed for dynamic messages
 libloading = { version = "0.8", optional = true }
