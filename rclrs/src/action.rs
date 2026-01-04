@@ -9,7 +9,7 @@ pub use action_goal_receiver::*;
 pub(crate) mod action_server;
 pub use action_server::*;
 
-use crate::{log_error, rcl_bindings::*, builtin_interfaces::msg::Time, DropGuard};
+use crate::{builtin_interfaces::msg::Time, log_error, rcl_bindings::*, DropGuard};
 use std::fmt;
 
 #[cfg(feature = "serde")]

@@ -533,7 +533,7 @@ mod tests {
             StreamExt,
         };
         use std::sync::atomic::{AtomicBool, Ordering};
-        
+
         let mut executor = Context::default().create_basic_executor();
         let node = executor
             .create_node(
