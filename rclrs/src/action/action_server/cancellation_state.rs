@@ -2,11 +2,11 @@ use super::ActionServerHandle;
 use crate::{
     log_error,
     rcl_bindings::*,
+    CancelResponseCode, GoalUuid, Node, RclrsErrorFilter, ToResult,
     {
         action_msgs::{msg::GoalInfo, srv::CancelGoal_Response},
         unique_identifier_msgs::msg::UUID,
     },
-    CancelResponseCode, GoalUuid, Node, RclrsErrorFilter, ToResult,
 };
 use futures::{
     future::{select, Either},
