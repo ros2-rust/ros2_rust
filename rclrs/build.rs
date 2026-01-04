@@ -1,92 +1,153 @@
-use std::env;
-use std::fs;
-use std::path::{Path, PathBuf};
-
-use cargo_toml::Manifest;
-
-use ament_rs::search_paths::get_search_paths;
+use std::path::PathBuf;
+use std::{env, fs};
 use ament_rs::AMENT_PREFIX_PATH_ENV_VAR;
+use ament_rs::search_paths::get_search_paths;
+use cargo_toml::Manifest;
 
 const ROS_DISTRO: &str = "ROS_DISTRO";
 const KNOWN_DISTROS: &[&str] = &["humble", "jazzy", "kilted", "rolling"];
 
-fn main() {
-    println!("cargo:rustc-check-cfg=cfg(ros_distro, values(\"{}\"))", KNOWN_DISTROS.join("\", \""));
-    println!("cargo:rustc-cfg=ros_distro=\"{}\"", get_ros_distro());
-    println!("cargo:rerun-if-env-changed={ROS_DISTRO}");
-    println!("cargo:rerun-if-env-changed={AMENT_PREFIX_PATH_ENV_VAR}");
-
-    let search_paths = get_search_paths();
-
-    // Link search paths
-    search_paths.iter()
-        .for_each(|p| println!("cargo:rustc-link-search=native={}", p.join("lib")));
-
-    // Generate interfaces.rs
-    let content: String = search_paths.iter()
-        .filter_map(|base| fs::read_dir(base.join("share")).ok())
-        .flatten()
-        .flatten()
-        .map(|entry| entry.path())
-        .filter(|path| path.is_dir())
-        .map(|pkg_dir| pkg_dir.join("rust"))
-        .filter(|rust_dir| is_marked_for_reexport(&rust_dir.join("Cargo.toml")))
-        .filter_map(|rust_dir| build_package_module(&rust_dir))
-        .collect();
-
-    let out_path = PathBuf::from(env::var_os("OUT_DIR").unwrap()).join("interfaces.rs");
-    fs::write(out_path, content).expect("Failed to write interfaces.rs");
-
-    // Static library links
-    ["rcl", "rcl_action", "rcl_yaml_param_parser", "rcutils", "rmw", "rmw_implementation"]
-        .iter()
-        .for_each(|lib| println!("cargo:rustc-link-lib=dylib={lib}"));
-}
-
 fn get_ros_distro() -> String {
-    env::var(ROS_DISTRO).or_else(|_| {
-        if env::var("CARGO_FEATURE_USE_ROS_SHIM").is_ok() {
-            rustflags::from_env().find_map(|f| match f {
-                rustflags::Flag::Cfg { name, value } if name.as_str() == "ros_distro" => value,
-                _ => None,
-            }).ok_or_else(|| "Missing --cfg ros_distro in RUSTFLAGS".to_string())
-        } else {
-            Err(format!("Set {ROS_DISTRO} or use ROS shim"))
-        }
-    }).expect("Failed to determine ROS distro")
+    env::var(ROS_DISTRO)
+        .or_else(|_| {
+            if env::var("CARGO_FEATURE_USE_ROS_SHIM").is_ok() {
+                rustflags::from_env()
+                    .find_map(|f| match f {
+                        rustflags::Flag::Cfg { name, value } if name.as_str() == "ros_distro" => {
+                            value
+                        }
+                        _ => None,
+                    })
+                    .ok_or_else(|| "Missing --cfg ros_distro in RUSTFLAGS".to_string())
+            } else {
+                Err(format!("Set {ROS_DISTRO} or use ROS shim"))
+            }
+        })
+        .expect("Failed to determine ROS distro")
 }
 
-fn is_marked_for_reexport(path: &Path) -> bool {
+fn is_marked_for_reexport(path: &PathBuf) -> bool {
     fs::read_to_string(path)
         .map(|s| s.contains("[package.metadata.rclrs]") && s.contains("reexport = true"))
         .unwrap_or(false)
 }
 
-fn build_package_module(rust_dir: &Path) -> Option<String> {
-    let manifest = Manifest::from_path(rust_dir.join("Cargo.toml")).ok()?;
-    let pkg_name = rust_dir.parent()?.file_name()?.to_str()?;
-
-    let deps_code: String = manifest.dependencies.iter()
-        .filter(|(_, details)| details.req() == "*")
+fn star_deps_to_use(manifest: &Manifest) -> String {
+    manifest
+        .dependencies
+        .iter()
+        .filter(|(_, version)| version.req() == "*")
         .map(|(name, _)| format!("use crate::{name};\n"))
+        .collect::<String>()
+}
+
+fn main() {
+    println!(
+        "cargo:rustc-check-cfg=cfg(ros_distro, values(\"{}\"))",
+        KNOWN_DISTROS.join("\", \"")
+    );
+    println!("cargo:rustc-cfg=ros_distro=\"{}\"", get_ros_distro());
+    println!("cargo:rerun-if-env-changed={ROS_DISTRO}");
+    println!("cargo:rerun-if-env-changed={AMENT_PREFIX_PATH_ENV_VAR}");
+    
+    let ament_prefix_paths = get_search_paths().unwrap_or_default();
+
+    for ament_prefix_path in &ament_prefix_paths {
+        // Link the native libraries
+        let library_path = PathBuf::from(ament_prefix_path).join("lib");
+        println!("cargo:rustc-link-search=native={}", library_path.display());
+    }
+
+    // Re-export any generated interface crates that we find
+    let export_crate_tomls: Vec<PathBuf> = ament_prefix_paths
+        .iter()
+        .map(PathBuf::from)
+        .flat_map(|base_path| {
+            // 1. Try to read share/ directory
+            fs::read_dir(base_path.join("share")).into_iter().flatten()
+        })
+        .filter_map(|entry| entry.ok())
+        .filter(|entry| entry.path().is_dir())
+        .flat_map(|package_dir| {
+            // 2. Try to read <package>/rust/ directory
+            fs::read_dir(package_dir.path().join("rust"))
+                .into_iter()
+                .flatten()
+        })
+        .filter_map(|entry| entry.ok())
+        .map(|entry| entry.path())
+        .filter(|path| path.file_name() == Some(std::ffi::OsStr::new("Cargo.toml")))
+        .filter(is_marked_for_reexport)
         .collect();
 
-    let internal_mods: String = fs::read_dir(rust_dir.join("src")).ok()?
-        .flatten()
-        .filter(|e| e.path().is_file())
-        .filter_map(|e| {
-            let stem = e.path().file_stem()?.to_str()?.to_string();
-            if stem == "lib" || stem == "rmw" { return None; }
+    let content: String = export_crate_tomls
+        .iter()
+        .filter_map(|path| path.parent().map(|p| p.to_path_buf()))
+        .map(|package_dir| {
+            let package = package_dir
+                .parent()
+                .unwrap()
+                .file_name()
+                .unwrap()
+                .to_str()
+                .unwrap();
 
-            let path = e.path().display().to_string();
-            let rmw = e.path().with_file_name(format!("{stem}/rmw.rs")).display().to_string();
+            // Find all dependencies for this crate that have a `*` version requirement.
+            // We will assume that these are other exported dependencies that need symbols
+            // exposed in their module.
+            let dependencies: String = Manifest::from_path(package_dir.clone().join("Cargo.toml"))
+                .iter()
+                .map(star_deps_to_use)
+                .collect();
 
-            Some(format!(
-                "pub mod {stem} {{ {deps_code} include!(\"{path}\"); \
-                 pub mod rmw {{ {deps_code} include!(\"{rmw}\"); }} }}"
-            ))
+            let internal_mods: String = fs::read_dir(package_dir.join("src"))
+                .into_iter()
+                .flatten()
+                .filter_map(|entry| entry.ok())
+                .filter(|entry| entry.path().is_file())
+                // Ignore lib.rs and any rmw.rs. lib.rs is only used if the crate is consumed
+                // independently, and rmw.rs files need their top level module
+                // (i.e., msg, srv, action) to exist to be re-exported.
+                .filter(|entry| {
+                    let name = entry.file_name();
+                    name != "lib.rs" && name != "rmw.rs"
+                })
+                // Wrap the inclusion of each file in a module matching the file stem
+                // so that the generated code can be imported like `rclrs::std_msgs::msgs::Bool`
+                .filter_map(|e| {
+                    e.path()
+                        .file_stem()
+                        .and_then(|stem| stem.to_str())
+                        .map(|stem| {
+                            let idiomatic_path = e.path().display().to_string();
+                            let sep = std::path::MAIN_SEPARATOR;
+                            let rmw_path = idiomatic_path
+                                .rsplit_once(std::path::MAIN_SEPARATOR)
+                                .map(|(dir, _)| format!("{dir}{sep}{stem}{sep}rmw.rs"))
+                                .unwrap_or_else(|| "rmw.rs".to_string());
+
+                            // TODO I would like to run rustfmt on this generated code, similar to how bindgen does it
+                            format!("pub mod {stem} {{ {dependencies} include!(\"{idiomatic_path}\"); pub mod rmw {{ {dependencies} include!(\"{rmw_path}\"); }} }}")
+                        })
+                })
+                .collect();
+
+            format!("pub mod {package} {{ {internal_mods} }}")
         })
         .collect();
 
-    Some(format!("pub mod {pkg_name} {{ {internal_mods} }}\n"))
+    let out_path =
+        PathBuf::from(env::var_os("OUT_DIR").expect("OUT_DIR not set")).join("interfaces.rs");
+    fs::write(out_path, content).expect("Failed to write interfaces.rs");
+
+    [
+        "rcl",
+        "rcl_action",
+        "rcl_yaml_param_parser",
+        "rcutils",
+        "rmw",
+        "rmw_implementation",
+    ]
+    .iter()
+    .for_each(|lib| println!("cargo:rustc-link-lib=dylib={lib}"));
 }
