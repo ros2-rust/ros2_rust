@@ -1,5 +1,5 @@
-use std::{env, fs, path::Path};
 use std::path::PathBuf;
+use std::{env, fs, path::Path};
 
 use cargo_toml::Manifest;
 
@@ -10,15 +10,17 @@ fn get_env_or_shim<F>(var_name: &str, shim_logic: F) -> String
 where
     F: FnOnce() -> Result<String, String>,
 {
-    let res = env::var(var_name).or_else(|_| {
-        if env::var("CARGO_FEATURE_USE_ROS_SHIM").is_ok() {
-            shim_logic()
-        } else {
-            Err(format!(
+    let res = env::var(var_name)
+        .or_else(|_| {
+            if env::var("CARGO_FEATURE_USE_ROS_SHIM").is_ok() {
+                shim_logic()
+            } else {
+                Err(format!(
                 "{var_name} environment variable not set - please source ROS 2 installation first."
             ))
-        }
-    }).expect(format!("Failed to get {var_name}").as_str());
+            }
+        })
+        .expect(format!("Failed to get {var_name}").as_str());
 
     // Make sure this script will rerun if the environment variable changes.
     // If we used `env!` or `option_env!`, we would not need this.
@@ -28,12 +30,12 @@ where
 }
 
 fn marked_reexport(cargo_toml: String) -> bool {
-    cargo_toml.contains("[package.metadata.rclrs]")
-        && cargo_toml.contains("reexport = true")
+    cargo_toml.contains("[package.metadata.rclrs]") && cargo_toml.contains("reexport = true")
 }
 
 fn star_deps_to_use(manifest: &Manifest) -> String {
-    manifest.dependencies
+    manifest
+        .dependencies
         .iter()
         .filter(|(_, version)| version.req() == "*")
         .map(|(name, _)| format!("use crate::{name};\n"))
@@ -51,7 +53,10 @@ fn main() {
                 rustflags::Flag::Cfg { name, value } if &name == "ros_distro" => value,
                 _ => None,
             })
-            .ok_or_else(|| "When using use_ros_shim, you must pass --cfg ros_distro=\"...\" via RUSTFLAGS".to_string())
+            .ok_or_else(|| {
+                "When using use_ros_shim, you must pass --cfg ros_distro=\"...\" via RUSTFLAGS"
+                    .to_string()
+            })
     });
 
     println!("cargo:rustc-cfg=ros_distro=\"{ros_distro}\"");
