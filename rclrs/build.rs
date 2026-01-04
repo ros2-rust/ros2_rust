@@ -6,15 +6,25 @@ use cargo_toml::Manifest;
 const AMENT_PREFIX_PATH: &str = "AMENT_PREFIX_PATH";
 const ROS_DISTRO: &str = "ROS_DISTRO";
 
-fn get_env_var_or_abort(env_var: &'static str) -> String {
-    if let Ok(value) = env::var(env_var) {
-        value
-    } else {
-        panic!(
-            "{} environment variable not set - please source ROS 2 installation first.",
-            env_var
-        );
-    }
+fn get_env_or_shim<F>(var_name: &str, shim_logic: F) -> String
+where
+    F: FnOnce() -> Result<String, String>,
+{
+    let res = env::var(var_name).or_else(|_| {
+        if env::var("CARGO_FEATURE_USE_ROS_SHIM").is_ok() {
+            shim_logic()
+        } else {
+            Err(format!(
+                "{var_name} environment variable not set - please source ROS 2 installation first."
+            ))
+        }
+    }).expect(format!("Failed to get {var_name}").as_str());
+
+    // Make sure this script will rerun if the environment variable changes.
+    // If we used `env!` or `option_env!`, we would not need this.
+    println!("cargo:rerun-if-env-changed={var_name}");
+
+    res
 }
 
 fn marked_reexport(cargo_toml: String) -> bool {
@@ -35,36 +45,19 @@ fn main() {
         "cargo:rustc-check-cfg=cfg(ros_distro, values(\"{}\"))",
         vec!["humble", "jazzy", "kilted", "rolling"].join("\", \"")
     );
-    let ros_distro = if let Ok(value) = env::var(ROS_DISTRO) {
-        value
-    } else {
-        cfg_if::cfg_if! {
-            if #[cfg(feature="use_ros_shim")] {
-                use rustflags;
-                // // Look for --cfg ros_distro=<ros_distro>
-                for flag in rustflags::from_env() {
-                    if matches!(flag, rustflags::Flag::Cfg { ref name, value : _ } if name == "ros_distro") {
-                        if let rustflags::Flag::Cfg {name:_, value: flag_value} = flag {
-                            println!("cargo:rustc-cfg=ros_distro=\"{}\"", flag_value.unwrap());
-                            return;
-                        } else {
-                            continue;
-                        }
-                    }
-                }
-                let error_msg =
-                    "When using the use_ros_shim feature, you must pass the ROS distribution you are targeting as a compiler flag with --cfg ros_distro=\"<ros_distro>\"";
-                panic!("{}", error_msg);
-            } else {
-                let error_msg =
-                    "ROS_DISTRO environment variable not set - please source ROS 2 installation first.";
-                panic!("{}", error_msg);
-            }
-        }
-    };
+    let ros_distro = get_env_or_shim(ROS_DISTRO, || {
+        rustflags::from_env()
+            .find_map(|flag| match flag {
+                rustflags::Flag::Cfg { name, value } if &name == "ros_distro" => value,
+                _ => None,
+            })
+            .ok_or_else(|| "When using use_ros_shim, you must pass --cfg ros_distro=\"...\" via RUSTFLAGS".to_string())
+    });
+
     println!("cargo:rustc-cfg=ros_distro=\"{ros_distro}\"");
 
-    let ament_prefix_paths = get_env_var_or_abort(AMENT_PREFIX_PATH);
+    let ament_prefix_paths = get_env_or_shim(AMENT_PREFIX_PATH, || Ok(String::new()));
+
     for ament_prefix_path in ament_prefix_paths.split(':').map(Path::new) {
         // Link the native libraries
         let library_path = ament_prefix_path.join("lib");
@@ -72,7 +65,6 @@ fn main() {
     }
 
     // Re-export any generated interface crates that we find
-    let ament_prefix_paths = env!("AMENT_PREFIX_PATH", "AMENT_PREFIX_PATH environment variable not set - please source ROS 2 installation first.");
     let export_crate_tomls = ament_prefix_paths
         .split(':')
         .map(PathBuf::from)
@@ -123,7 +115,7 @@ fn main() {
                 .filter(|entry| entry.path().is_file())
                 // Ignore lib.rs and any rmw.rs. lib.rs is only used if the crate is consumed
                 // independently, and rmw.rs files need their top level module
-                // (i.e. msg, srv, action) to exist to be re-exported.
+                // (i.e., msg, srv, action) to exist to be re-exported.
                 .filter(|entry| {
                     let name = entry.file_name();
                     name != "lib.rs" && name != "rmw.rs"
@@ -154,7 +146,7 @@ fn main() {
     let dest_path = PathBuf::from(out_dir).join("interfaces.rs");
 
     // TODO I would like to run rustfmt on this generated code, similar to how bindgen does it
-    fs::write(dest_path, content.clone()).expect("Failed to write interfaces.rs");
+    fs::write(&dest_path, content.clone()).expect("Failed to write interfaces.rs");
 
     println!("cargo:rustc-link-lib=dylib=rcl");
     println!("cargo:rustc-link-lib=dylib=rcl_action");

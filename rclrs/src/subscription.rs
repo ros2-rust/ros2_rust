@@ -533,9 +533,7 @@ mod tests {
             StreamExt,
         };
         use std::sync::atomic::{AtomicBool, Ordering};
-
-        let _ = crate::rcl_interfaces::msg::IntegerRange;
-
+        
         let mut executor = Context::default().create_basic_executor();
         let node = executor
             .create_node(
