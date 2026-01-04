@@ -74,7 +74,7 @@ jobs:
         sudo rm -f /usr/lib/python3.12/EXTERNALLY-MANAGED
         sudo pip3 install git+https://github.com/colcon/colcon-cargo.git
         sudo pip3 install git+https://github.com/colcon/colcon-ros-cargo.git
-        cargo install --git ssh://git@github.com/maspe36/cargo-ament-build.git --branch feature/skip_reexport_marker_file
+        cargo install --git https://git@github.com/maspe36/cargo-ament-build.git --branch feature/skip_reexport_marker_file
 
     - name: Check formatting of Rust packages
       run: |
