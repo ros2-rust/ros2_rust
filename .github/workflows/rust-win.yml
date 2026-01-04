@@ -50,7 +50,7 @@ jobs:
           pixi add --pypi "colcon-ros-cargo@git+https://github.com/colcon/colcon-ros-cargo.git" --manifest-path C:\pixi_ws\pixi.toml
           pixi add --pypi "colcon-cargo@git+https://github.com/colcon/colcon-cargo.git" --manifest-path C:\pixi_ws\pixi.toml
           pixi upgrade colcon-core --manifest-path C:\pixi_ws\pixi.toml
-          cargo install --git ssh://git@github.com/maspe36/cargo-ament-build.git --branch feature/skip_reexport_marker_file
+          cargo install --git https://git@github.com/maspe36/cargo-ament-build.git --branch feature/skip_reexport_marker_file
 
       - name: Get prebuild ROS files and unzip
         run: |
