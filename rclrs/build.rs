@@ -1,7 +1,6 @@
-use std::path::PathBuf;
-use std::{env, fs};
-use ament_rs::AMENT_PREFIX_PATH_ENV_VAR;
-use ament_rs::search_paths::get_search_paths;
+use std::{env, fs, path::PathBuf};
+
+use ament_rs::{search_paths::get_search_paths, AMENT_PREFIX_PATH_ENV_VAR};
 use cargo_toml::Manifest;
 
 const ROS_DISTRO: &str = "ROS_DISTRO";
@@ -33,6 +32,9 @@ fn is_marked_for_reexport(path: &PathBuf) -> bool {
 }
 
 fn star_deps_to_use(manifest: &Manifest) -> String {
+    // Find all dependencies for this crate that have a `*` version requirement.
+    // We will assume that these are other exported dependencies that need symbols
+    // exposed in their module.
     manifest
         .dependencies
         .iter()
@@ -49,7 +51,7 @@ fn main() {
     println!("cargo:rustc-cfg=ros_distro=\"{}\"", get_ros_distro());
     println!("cargo:rerun-if-env-changed={ROS_DISTRO}");
     println!("cargo:rerun-if-env-changed={AMENT_PREFIX_PATH_ENV_VAR}");
-    
+
     let ament_prefix_paths = get_search_paths().unwrap_or_default();
 
     for ament_prefix_path in &ament_prefix_paths {
