@@ -3,13 +3,13 @@ pub mod rmw {
     use serde::{Deserialize, Serialize};
 
     #[link(name = "example_interfaces__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__example_interfaces__msg__Bool(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "example_interfaces__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn example_interfaces__msg__Bool__init(msg: *mut Bool) -> bool;
         fn example_interfaces__msg__Bool__Sequence__init(
             seq: *mut rosidl_runtime_rs::Sequence<Bool>,
@@ -89,13 +89,13 @@ pub mod rmw {
     }
 
     #[link(name = "example_interfaces__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__example_interfaces__msg__Byte(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "example_interfaces__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn example_interfaces__msg__Byte__init(msg: *mut Byte) -> bool;
         fn example_interfaces__msg__Byte__Sequence__init(
             seq: *mut rosidl_runtime_rs::Sequence<Byte>,
@@ -175,13 +175,13 @@ pub mod rmw {
     }
 
     #[link(name = "example_interfaces__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__example_interfaces__msg__ByteMultiArray(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "example_interfaces__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn example_interfaces__msg__ByteMultiArray__init(msg: *mut ByteMultiArray) -> bool;
         fn example_interfaces__msg__ByteMultiArray__Sequence__init(
             seq: *mut rosidl_runtime_rs::Sequence<ByteMultiArray>,
@@ -263,13 +263,13 @@ pub mod rmw {
     }
 
     #[link(name = "example_interfaces__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__example_interfaces__msg__Char(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "example_interfaces__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn example_interfaces__msg__Char__init(msg: *mut Char) -> bool;
         fn example_interfaces__msg__Char__Sequence__init(
             seq: *mut rosidl_runtime_rs::Sequence<Char>,
@@ -349,13 +349,13 @@ pub mod rmw {
     }
 
     #[link(name = "example_interfaces__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__example_interfaces__msg__Empty(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "example_interfaces__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn example_interfaces__msg__Empty__init(msg: *mut Empty) -> bool;
         fn example_interfaces__msg__Empty__Sequence__init(
             seq: *mut rosidl_runtime_rs::Sequence<Empty>,
@@ -434,13 +434,13 @@ pub mod rmw {
     }
 
     #[link(name = "example_interfaces__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__example_interfaces__msg__Float32(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "example_interfaces__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn example_interfaces__msg__Float32__init(msg: *mut Float32) -> bool;
         fn example_interfaces__msg__Float32__Sequence__init(
             seq: *mut rosidl_runtime_rs::Sequence<Float32>,
@@ -519,13 +519,13 @@ pub mod rmw {
     }
 
     #[link(name = "example_interfaces__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__example_interfaces__msg__Float32MultiArray(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "example_interfaces__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn example_interfaces__msg__Float32MultiArray__init(msg: *mut Float32MultiArray) -> bool;
         fn example_interfaces__msg__Float32MultiArray__Sequence__init(
             seq: *mut rosidl_runtime_rs::Sequence<Float32MultiArray>,
@@ -612,13 +612,13 @@ pub mod rmw {
     }
 
     #[link(name = "example_interfaces__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__example_interfaces__msg__Float64(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "example_interfaces__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn example_interfaces__msg__Float64__init(msg: *mut Float64) -> bool;
         fn example_interfaces__msg__Float64__Sequence__init(
             seq: *mut rosidl_runtime_rs::Sequence<Float64>,
@@ -697,13 +697,13 @@ pub mod rmw {
     }
 
     #[link(name = "example_interfaces__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__example_interfaces__msg__Float64MultiArray(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "example_interfaces__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn example_interfaces__msg__Float64MultiArray__init(msg: *mut Float64MultiArray) -> bool;
         fn example_interfaces__msg__Float64MultiArray__Sequence__init(
             seq: *mut rosidl_runtime_rs::Sequence<Float64MultiArray>,
@@ -790,13 +790,13 @@ pub mod rmw {
     }
 
     #[link(name = "example_interfaces__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__example_interfaces__msg__Int16(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "example_interfaces__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn example_interfaces__msg__Int16__init(msg: *mut Int16) -> bool;
         fn example_interfaces__msg__Int16__Sequence__init(
             seq: *mut rosidl_runtime_rs::Sequence<Int16>,
@@ -875,13 +875,13 @@ pub mod rmw {
     }
 
     #[link(name = "example_interfaces__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__example_interfaces__msg__Int16MultiArray(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "example_interfaces__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn example_interfaces__msg__Int16MultiArray__init(msg: *mut Int16MultiArray) -> bool;
         fn example_interfaces__msg__Int16MultiArray__Sequence__init(
             seq: *mut rosidl_runtime_rs::Sequence<Int16MultiArray>,
@@ -963,13 +963,13 @@ pub mod rmw {
     }
 
     #[link(name = "example_interfaces__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__example_interfaces__msg__Int32(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "example_interfaces__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn example_interfaces__msg__Int32__init(msg: *mut Int32) -> bool;
         fn example_interfaces__msg__Int32__Sequence__init(
             seq: *mut rosidl_runtime_rs::Sequence<Int32>,
@@ -1048,13 +1048,13 @@ pub mod rmw {
     }
 
     #[link(name = "example_interfaces__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__example_interfaces__msg__Int32MultiArray(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "example_interfaces__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn example_interfaces__msg__Int32MultiArray__init(msg: *mut Int32MultiArray) -> bool;
         fn example_interfaces__msg__Int32MultiArray__Sequence__init(
             seq: *mut rosidl_runtime_rs::Sequence<Int32MultiArray>,
@@ -1136,13 +1136,13 @@ pub mod rmw {
     }
 
     #[link(name = "example_interfaces__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__example_interfaces__msg__Int64(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "example_interfaces__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn example_interfaces__msg__Int64__init(msg: *mut Int64) -> bool;
         fn example_interfaces__msg__Int64__Sequence__init(
             seq: *mut rosidl_runtime_rs::Sequence<Int64>,
@@ -1221,13 +1221,13 @@ pub mod rmw {
     }
 
     #[link(name = "example_interfaces__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__example_interfaces__msg__Int64MultiArray(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "example_interfaces__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn example_interfaces__msg__Int64MultiArray__init(msg: *mut Int64MultiArray) -> bool;
         fn example_interfaces__msg__Int64MultiArray__Sequence__init(
             seq: *mut rosidl_runtime_rs::Sequence<Int64MultiArray>,
@@ -1309,13 +1309,13 @@ pub mod rmw {
     }
 
     #[link(name = "example_interfaces__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__example_interfaces__msg__Int8(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "example_interfaces__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn example_interfaces__msg__Int8__init(msg: *mut Int8) -> bool;
         fn example_interfaces__msg__Int8__Sequence__init(
             seq: *mut rosidl_runtime_rs::Sequence<Int8>,
@@ -1395,13 +1395,13 @@ pub mod rmw {
     }
 
     #[link(name = "example_interfaces__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__example_interfaces__msg__Int8MultiArray(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "example_interfaces__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn example_interfaces__msg__Int8MultiArray__init(msg: *mut Int8MultiArray) -> bool;
         fn example_interfaces__msg__Int8MultiArray__Sequence__init(
             seq: *mut rosidl_runtime_rs::Sequence<Int8MultiArray>,
@@ -1483,13 +1483,13 @@ pub mod rmw {
     }
 
     #[link(name = "example_interfaces__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__example_interfaces__msg__MultiArrayDimension(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "example_interfaces__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn example_interfaces__msg__MultiArrayDimension__init(
             msg: *mut MultiArrayDimension,
         ) -> bool;
@@ -1579,13 +1579,13 @@ pub mod rmw {
     }
 
     #[link(name = "example_interfaces__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__example_interfaces__msg__MultiArrayLayout(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "example_interfaces__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn example_interfaces__msg__MultiArrayLayout__init(msg: *mut MultiArrayLayout) -> bool;
         fn example_interfaces__msg__MultiArrayLayout__Sequence__init(
             seq: *mut rosidl_runtime_rs::Sequence<MultiArrayLayout>,
@@ -1671,13 +1671,13 @@ pub mod rmw {
     }
 
     #[link(name = "example_interfaces__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__example_interfaces__msg__String(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "example_interfaces__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn example_interfaces__msg__String__init(msg: *mut String) -> bool;
         fn example_interfaces__msg__String__Sequence__init(
             seq: *mut rosidl_runtime_rs::Sequence<String>,
@@ -1756,13 +1756,13 @@ pub mod rmw {
     }
 
     #[link(name = "example_interfaces__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__example_interfaces__msg__UInt16(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "example_interfaces__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn example_interfaces__msg__UInt16__init(msg: *mut UInt16) -> bool;
         fn example_interfaces__msg__UInt16__Sequence__init(
             seq: *mut rosidl_runtime_rs::Sequence<UInt16>,
@@ -1841,13 +1841,13 @@ pub mod rmw {
     }
 
     #[link(name = "example_interfaces__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__example_interfaces__msg__UInt16MultiArray(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "example_interfaces__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn example_interfaces__msg__UInt16MultiArray__init(msg: *mut UInt16MultiArray) -> bool;
         fn example_interfaces__msg__UInt16MultiArray__Sequence__init(
             seq: *mut rosidl_runtime_rs::Sequence<UInt16MultiArray>,
@@ -1931,13 +1931,13 @@ pub mod rmw {
     }
 
     #[link(name = "example_interfaces__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__example_interfaces__msg__UInt32(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "example_interfaces__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn example_interfaces__msg__UInt32__init(msg: *mut UInt32) -> bool;
         fn example_interfaces__msg__UInt32__Sequence__init(
             seq: *mut rosidl_runtime_rs::Sequence<UInt32>,
@@ -2016,13 +2016,13 @@ pub mod rmw {
     }
 
     #[link(name = "example_interfaces__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__example_interfaces__msg__UInt32MultiArray(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "example_interfaces__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn example_interfaces__msg__UInt32MultiArray__init(msg: *mut UInt32MultiArray) -> bool;
         fn example_interfaces__msg__UInt32MultiArray__Sequence__init(
             seq: *mut rosidl_runtime_rs::Sequence<UInt32MultiArray>,
@@ -2106,13 +2106,13 @@ pub mod rmw {
     }
 
     #[link(name = "example_interfaces__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__example_interfaces__msg__UInt64(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "example_interfaces__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn example_interfaces__msg__UInt64__init(msg: *mut UInt64) -> bool;
         fn example_interfaces__msg__UInt64__Sequence__init(
             seq: *mut rosidl_runtime_rs::Sequence<UInt64>,
@@ -2191,13 +2191,13 @@ pub mod rmw {
     }
 
     #[link(name = "example_interfaces__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__example_interfaces__msg__UInt64MultiArray(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "example_interfaces__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn example_interfaces__msg__UInt64MultiArray__init(msg: *mut UInt64MultiArray) -> bool;
         fn example_interfaces__msg__UInt64MultiArray__Sequence__init(
             seq: *mut rosidl_runtime_rs::Sequence<UInt64MultiArray>,
@@ -2281,13 +2281,13 @@ pub mod rmw {
     }
 
     #[link(name = "example_interfaces__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__example_interfaces__msg__UInt8(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "example_interfaces__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn example_interfaces__msg__UInt8__init(msg: *mut UInt8) -> bool;
         fn example_interfaces__msg__UInt8__Sequence__init(
             seq: *mut rosidl_runtime_rs::Sequence<UInt8>,
@@ -2366,13 +2366,13 @@ pub mod rmw {
     }
 
     #[link(name = "example_interfaces__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__example_interfaces__msg__UInt8MultiArray(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "example_interfaces__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn example_interfaces__msg__UInt8MultiArray__init(msg: *mut UInt8MultiArray) -> bool;
         fn example_interfaces__msg__UInt8MultiArray__Sequence__init(
             seq: *mut rosidl_runtime_rs::Sequence<UInt8MultiArray>,
@@ -2454,13 +2454,13 @@ pub mod rmw {
     }
 
     #[link(name = "example_interfaces__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__example_interfaces__msg__WString(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "example_interfaces__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn example_interfaces__msg__WString__init(msg: *mut WString) -> bool;
         fn example_interfaces__msg__WString__Sequence__init(
             seq: *mut rosidl_runtime_rs::Sequence<WString>,

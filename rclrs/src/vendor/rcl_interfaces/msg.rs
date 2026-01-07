@@ -3,13 +3,13 @@ pub mod rmw {
     use serde::{Deserialize, Serialize};
 
     #[link(name = "rcl_interfaces__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__msg__FloatingPointRange(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "rcl_interfaces__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rcl_interfaces__msg__FloatingPointRange__init(msg: *mut FloatingPointRange) -> bool;
         fn rcl_interfaces__msg__FloatingPointRange__Sequence__init(
             seq: *mut rosidl_runtime_rs::Sequence<FloatingPointRange>,
@@ -92,13 +92,13 @@ pub mod rmw {
     }
 
     #[link(name = "rcl_interfaces__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__msg__IntegerRange(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "rcl_interfaces__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rcl_interfaces__msg__IntegerRange__init(msg: *mut IntegerRange) -> bool;
         fn rcl_interfaces__msg__IntegerRange__Sequence__init(
             seq: *mut rosidl_runtime_rs::Sequence<IntegerRange>,
@@ -179,13 +179,13 @@ pub mod rmw {
     }
 
     #[link(name = "rcl_interfaces__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__msg__ListParametersResult(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "rcl_interfaces__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rcl_interfaces__msg__ListParametersResult__init(msg: *mut ListParametersResult) -> bool;
         fn rcl_interfaces__msg__ListParametersResult__Sequence__init(
             seq: *mut rosidl_runtime_rs::Sequence<ListParametersResult>,
@@ -269,13 +269,13 @@ pub mod rmw {
     }
 
     #[link(name = "rcl_interfaces__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__msg__Log(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "rcl_interfaces__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rcl_interfaces__msg__Log__init(msg: *mut Log) -> bool;
         fn rcl_interfaces__msg__Log__Sequence__init(
             seq: *mut rosidl_runtime_rs::Sequence<Log>,
@@ -373,13 +373,13 @@ pub mod rmw {
     }
 
     #[link(name = "rcl_interfaces__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__msg__ParameterDescriptor(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "rcl_interfaces__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rcl_interfaces__msg__ParameterDescriptor__init(msg: *mut ParameterDescriptor) -> bool;
         fn rcl_interfaces__msg__ParameterDescriptor__Sequence__init(
             seq: *mut rosidl_runtime_rs::Sequence<ParameterDescriptor>,
@@ -473,13 +473,13 @@ pub mod rmw {
     }
 
     #[link(name = "rcl_interfaces__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__msg__ParameterEventDescriptors(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "rcl_interfaces__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rcl_interfaces__msg__ParameterEventDescriptors__init(
             msg: *mut ParameterEventDescriptors,
         ) -> bool;
@@ -575,13 +575,13 @@ pub mod rmw {
     }
 
     #[link(name = "rcl_interfaces__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__msg__ParameterEvent(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "rcl_interfaces__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rcl_interfaces__msg__ParameterEvent__init(msg: *mut ParameterEvent) -> bool;
         fn rcl_interfaces__msg__ParameterEvent__Sequence__init(
             seq: *mut rosidl_runtime_rs::Sequence<ParameterEvent>,
@@ -669,13 +669,13 @@ pub mod rmw {
     }
 
     #[link(name = "rcl_interfaces__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__msg__Parameter(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "rcl_interfaces__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rcl_interfaces__msg__Parameter__init(msg: *mut Parameter) -> bool;
         fn rcl_interfaces__msg__Parameter__Sequence__init(
             seq: *mut rosidl_runtime_rs::Sequence<Parameter>,
@@ -755,13 +755,13 @@ pub mod rmw {
     }
 
     #[link(name = "rcl_interfaces__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__msg__ParameterType(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "rcl_interfaces__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rcl_interfaces__msg__ParameterType__init(msg: *mut ParameterType) -> bool;
         fn rcl_interfaces__msg__ParameterType__Sequence__init(
             seq: *mut rosidl_runtime_rs::Sequence<ParameterType>,
@@ -854,13 +854,13 @@ pub mod rmw {
     }
 
     #[link(name = "rcl_interfaces__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__msg__ParameterValue(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "rcl_interfaces__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rcl_interfaces__msg__ParameterValue__init(msg: *mut ParameterValue) -> bool;
         fn rcl_interfaces__msg__ParameterValue__Sequence__init(
             seq: *mut rosidl_runtime_rs::Sequence<ParameterValue>,
@@ -950,13 +950,13 @@ pub mod rmw {
     }
 
     #[link(name = "rcl_interfaces__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__msg__SetParametersResult(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "rcl_interfaces__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rcl_interfaces__msg__SetParametersResult__init(msg: *mut SetParametersResult) -> bool;
         fn rcl_interfaces__msg__SetParametersResult__Sequence__init(
             seq: *mut rosidl_runtime_rs::Sequence<SetParametersResult>,
@@ -1038,13 +1038,13 @@ pub mod rmw {
     }
 
     #[link(name = "rcl_interfaces__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__msg__LoggerLevel(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "rcl_interfaces__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rcl_interfaces__msg__LoggerLevel__init(msg: *mut LoggerLevel) -> bool;
         fn rcl_interfaces__msg__LoggerLevel__Sequence__init(
             seq: *mut rosidl_runtime_rs::Sequence<LoggerLevel>,
@@ -1133,13 +1133,13 @@ pub mod rmw {
     }
 
     #[link(name = "rcl_interfaces__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__msg__SetLoggerLevelsResult(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "rcl_interfaces__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rcl_interfaces__msg__SetLoggerLevelsResult__init(
             msg: *mut SetLoggerLevelsResult,
         ) -> bool;

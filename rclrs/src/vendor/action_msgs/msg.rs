@@ -3,13 +3,13 @@ pub mod rmw {
     use serde::{Deserialize, Serialize};
 
     #[link(name = "action_msgs__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__action_msgs__msg__GoalInfo(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "action_msgs__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn action_msgs__msg__GoalInfo__init(msg: *mut GoalInfo) -> bool;
         fn action_msgs__msg__GoalInfo__Sequence__init(
             seq: *mut rosidl_runtime_rs::Sequence<GoalInfo>,
@@ -89,13 +89,13 @@ pub mod rmw {
     }
 
     #[link(name = "action_msgs__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__action_msgs__msg__GoalStatus(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "action_msgs__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn action_msgs__msg__GoalStatus__init(msg: *mut GoalStatus) -> bool;
         fn action_msgs__msg__GoalStatus__Sequence__init(
             seq: *mut rosidl_runtime_rs::Sequence<GoalStatus>,
@@ -194,13 +194,13 @@ pub mod rmw {
     }
 
     #[link(name = "action_msgs__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__action_msgs__msg__GoalStatusArray(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "action_msgs__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn action_msgs__msg__GoalStatusArray__init(msg: *mut GoalStatusArray) -> bool;
         fn action_msgs__msg__GoalStatusArray__Sequence__init(
             seq: *mut rosidl_runtime_rs::Sequence<GoalStatusArray>,

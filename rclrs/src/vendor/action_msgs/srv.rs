@@ -127,7 +127,7 @@ impl rosidl_runtime_rs::Message for CancelGoal_Response {
 }
 
 #[link(name = "action_msgs__rosidl_typesupport_c")]
-extern "C" {
+unsafe extern "C" {
     fn rosidl_typesupport_c__get_service_type_support_handle__action_msgs__srv__CancelGoal(
     ) -> *const std::ffi::c_void;
 }
@@ -153,13 +153,13 @@ pub mod rmw {
     use serde::{Deserialize, Serialize};
 
     #[link(name = "action_msgs__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__action_msgs__srv__CancelGoal_Request(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "action_msgs__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn action_msgs__srv__CancelGoal_Request__init(msg: *mut CancelGoal_Request) -> bool;
         fn action_msgs__srv__CancelGoal_Request__Sequence__init(
             seq: *mut rosidl_runtime_rs::Sequence<CancelGoal_Request>,
@@ -240,13 +240,13 @@ pub mod rmw {
     }
 
     #[link(name = "action_msgs__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__action_msgs__srv__CancelGoal_Response(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "action_msgs__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn action_msgs__srv__CancelGoal_Response__init(msg: *mut CancelGoal_Response) -> bool;
         fn action_msgs__srv__CancelGoal_Response__Sequence__init(
             seq: *mut rosidl_runtime_rs::Sequence<CancelGoal_Response>,
@@ -352,7 +352,7 @@ pub mod rmw {
     }
 
     #[link(name = "action_msgs__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_service_type_support_handle__action_msgs__srv__CancelGoal(
         ) -> *const std::ffi::c_void;
     }

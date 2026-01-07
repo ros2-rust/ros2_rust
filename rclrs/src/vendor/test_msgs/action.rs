@@ -3,13 +3,13 @@ pub mod rmw {
     use serde::{Deserialize, Serialize};
 
     #[link(name = "test_msgs__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__test_msgs__action__Fibonacci_Goal(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "test_msgs__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn test_msgs__action__Fibonacci_Goal__init(msg: *mut Fibonacci_Goal) -> bool;
         fn test_msgs__action__Fibonacci_Goal__Sequence__init(
             seq: *mut rosidl_runtime_rs::Sequence<Fibonacci_Goal>,
@@ -88,13 +88,13 @@ pub mod rmw {
     }
 
     #[link(name = "test_msgs__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__test_msgs__action__Fibonacci_Result(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "test_msgs__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn test_msgs__action__Fibonacci_Result__init(msg: *mut Fibonacci_Result) -> bool;
         fn test_msgs__action__Fibonacci_Result__Sequence__init(
             seq: *mut rosidl_runtime_rs::Sequence<Fibonacci_Result>,
@@ -175,13 +175,13 @@ pub mod rmw {
     }
 
     #[link(name = "test_msgs__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__test_msgs__action__Fibonacci_Feedback(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "test_msgs__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn test_msgs__action__Fibonacci_Feedback__init(msg: *mut Fibonacci_Feedback) -> bool;
         fn test_msgs__action__Fibonacci_Feedback__Sequence__init(
             seq: *mut rosidl_runtime_rs::Sequence<Fibonacci_Feedback>,
@@ -262,13 +262,13 @@ pub mod rmw {
     }
 
     #[link(name = "test_msgs__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__test_msgs__action__Fibonacci_FeedbackMessage(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "test_msgs__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn test_msgs__action__Fibonacci_FeedbackMessage__init(
             msg: *mut Fibonacci_FeedbackMessage,
         ) -> bool;
@@ -357,13 +357,13 @@ pub mod rmw {
     }
 
     #[link(name = "test_msgs__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__test_msgs__action__NestedMessage_Goal(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "test_msgs__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn test_msgs__action__NestedMessage_Goal__init(msg: *mut NestedMessage_Goal) -> bool;
         fn test_msgs__action__NestedMessage_Goal__Sequence__init(
             seq: *mut rosidl_runtime_rs::Sequence<NestedMessage_Goal>,
@@ -446,13 +446,13 @@ pub mod rmw {
     }
 
     #[link(name = "test_msgs__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__test_msgs__action__NestedMessage_Result(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "test_msgs__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn test_msgs__action__NestedMessage_Result__init(msg: *mut NestedMessage_Result) -> bool;
         fn test_msgs__action__NestedMessage_Result__Sequence__init(
             seq: *mut rosidl_runtime_rs::Sequence<NestedMessage_Result>,
@@ -535,13 +535,13 @@ pub mod rmw {
     }
 
     #[link(name = "test_msgs__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__test_msgs__action__NestedMessage_Feedback(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "test_msgs__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn test_msgs__action__NestedMessage_Feedback__init(
             msg: *mut NestedMessage_Feedback,
         ) -> bool;
@@ -628,13 +628,13 @@ pub mod rmw {
     }
 
     #[link(name = "test_msgs__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__test_msgs__action__NestedMessage_FeedbackMessage(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "test_msgs__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn test_msgs__action__NestedMessage_FeedbackMessage__init(
             msg: *mut NestedMessage_FeedbackMessage,
         ) -> bool;
@@ -730,13 +730,13 @@ pub mod rmw {
     }
 
     #[link(name = "test_msgs__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__test_msgs__action__Fibonacci_SendGoal_Request(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "test_msgs__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn test_msgs__action__Fibonacci_SendGoal_Request__init(
             msg: *mut Fibonacci_SendGoal_Request,
         ) -> bool;
@@ -825,13 +825,13 @@ pub mod rmw {
     }
 
     #[link(name = "test_msgs__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__test_msgs__action__Fibonacci_SendGoal_Response(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "test_msgs__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn test_msgs__action__Fibonacci_SendGoal_Response__init(
             msg: *mut Fibonacci_SendGoal_Response,
         ) -> bool;
@@ -920,13 +920,13 @@ pub mod rmw {
     }
 
     #[link(name = "test_msgs__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__test_msgs__action__Fibonacci_GetResult_Request(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "test_msgs__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn test_msgs__action__Fibonacci_GetResult_Request__init(
             msg: *mut Fibonacci_GetResult_Request,
         ) -> bool;
@@ -1014,13 +1014,13 @@ pub mod rmw {
     }
 
     #[link(name = "test_msgs__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__test_msgs__action__Fibonacci_GetResult_Response(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "test_msgs__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn test_msgs__action__Fibonacci_GetResult_Response__init(
             msg: *mut Fibonacci_GetResult_Response,
         ) -> bool;
@@ -1113,13 +1113,13 @@ pub mod rmw {
     }
 
     #[link(name = "test_msgs__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__test_msgs__action__NestedMessage_SendGoal_Request(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "test_msgs__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn test_msgs__action__NestedMessage_SendGoal_Request__init(
             msg: *mut NestedMessage_SendGoal_Request,
         ) -> bool;
@@ -1215,13 +1215,13 @@ pub mod rmw {
     }
 
     #[link(name = "test_msgs__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__test_msgs__action__NestedMessage_SendGoal_Response(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "test_msgs__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn test_msgs__action__NestedMessage_SendGoal_Response__init(
             msg: *mut NestedMessage_SendGoal_Response,
         ) -> bool;
@@ -1317,13 +1317,13 @@ pub mod rmw {
     }
 
     #[link(name = "test_msgs__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__test_msgs__action__NestedMessage_GetResult_Request(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "test_msgs__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn test_msgs__action__NestedMessage_GetResult_Request__init(
             msg: *mut NestedMessage_GetResult_Request,
         ) -> bool;
@@ -1418,13 +1418,13 @@ pub mod rmw {
     }
 
     #[link(name = "test_msgs__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__test_msgs__action__NestedMessage_GetResult_Response(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "test_msgs__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn test_msgs__action__NestedMessage_GetResult_Response__init(
             msg: *mut NestedMessage_GetResult_Response,
         ) -> bool;
@@ -1518,7 +1518,7 @@ pub mod rmw {
     }
 
     #[link(name = "test_msgs__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_service_type_support_handle__test_msgs__action__Fibonacci_SendGoal(
         ) -> *const std::ffi::c_void;
     }
@@ -1539,7 +1539,7 @@ pub mod rmw {
     }
 
     #[link(name = "test_msgs__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_service_type_support_handle__test_msgs__action__Fibonacci_GetResult(
         ) -> *const std::ffi::c_void;
     }
@@ -1560,7 +1560,7 @@ pub mod rmw {
     }
 
     #[link(name = "test_msgs__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_service_type_support_handle__test_msgs__action__NestedMessage_SendGoal(
         ) -> *const std::ffi::c_void;
     }
@@ -1581,7 +1581,7 @@ pub mod rmw {
     }
 
     #[link(name = "test_msgs__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_service_type_support_handle__test_msgs__action__NestedMessage_GetResult(
         ) -> *const std::ffi::c_void;
     }
@@ -2404,7 +2404,7 @@ impl rosidl_runtime_rs::Message for NestedMessage_GetResult_Response {
 }
 
 #[link(name = "test_msgs__rosidl_typesupport_c")]
-extern "C" {
+unsafe extern "C" {
     fn rosidl_typesupport_c__get_service_type_support_handle__test_msgs__action__Fibonacci_SendGoal(
     ) -> *const std::ffi::c_void;
 }
@@ -2425,7 +2425,7 @@ impl rosidl_runtime_rs::Service for Fibonacci_SendGoal {
 }
 
 #[link(name = "test_msgs__rosidl_typesupport_c")]
-extern "C" {
+unsafe extern "C" {
     fn rosidl_typesupport_c__get_service_type_support_handle__test_msgs__action__Fibonacci_GetResult(
     ) -> *const std::ffi::c_void;
 }
@@ -2446,7 +2446,7 @@ impl rosidl_runtime_rs::Service for Fibonacci_GetResult {
 }
 
 #[link(name = "test_msgs__rosidl_typesupport_c")]
-extern "C" {
+unsafe extern "C" {
     fn rosidl_typesupport_c__get_service_type_support_handle__test_msgs__action__NestedMessage_SendGoal(
     ) -> *const std::ffi::c_void;
 }
@@ -2467,7 +2467,7 @@ impl rosidl_runtime_rs::Service for NestedMessage_SendGoal {
 }
 
 #[link(name = "test_msgs__rosidl_typesupport_c")]
-extern "C" {
+unsafe extern "C" {
     fn rosidl_typesupport_c__get_service_type_support_handle__test_msgs__action__NestedMessage_GetResult(
     ) -> *const std::ffi::c_void;
 }
@@ -2488,7 +2488,7 @@ impl rosidl_runtime_rs::Service for NestedMessage_GetResult {
 }
 
 #[link(name = "test_msgs__rosidl_typesupport_c")]
-extern "C" {
+unsafe extern "C" {
     fn rosidl_typesupport_c__get_action_type_support_handle__test_msgs__action__Fibonacci(
     ) -> *const std::ffi::c_void;
 }
@@ -2609,7 +2609,7 @@ impl rosidl_runtime_rs::Action for Fibonacci {
 }
 
 #[link(name = "test_msgs__rosidl_typesupport_c")]
-extern "C" {
+unsafe extern "C" {
     fn rosidl_typesupport_c__get_action_type_support_handle__test_msgs__action__NestedMessage(
     ) -> *const std::ffi::c_void;
 }
