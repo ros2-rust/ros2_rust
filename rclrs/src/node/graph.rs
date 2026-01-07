@@ -71,7 +71,7 @@ impl NodeState {
             node_name: *const ::std::os::raw::c_char,
             node_namespace: *const ::std::os::raw::c_char,
             topic_names_and_types: *mut rcl_names_and_types_t,
-        ) -> rcl_ret_t {
+        ) -> rcl_ret_t { unsafe {
             rcl_get_publisher_names_and_types_by_node(
                 node,
                 allocator,
@@ -80,7 +80,7 @@ impl NodeState {
                 node_namespace,
                 topic_names_and_types,
             )
-        }
+        }}
 
         self.get_names_and_types_by_node(node, namespace, wrapper)
     }
@@ -98,7 +98,7 @@ impl NodeState {
             node_name: *const ::std::os::raw::c_char,
             node_namespace: *const ::std::os::raw::c_char,
             topic_names_and_types: *mut rcl_names_and_types_t,
-        ) -> rcl_ret_t {
+        ) -> rcl_ret_t { unsafe {
             rcl_get_subscriber_names_and_types_by_node(
                 node,
                 allocator,
@@ -107,7 +107,7 @@ impl NodeState {
                 node_namespace,
                 topic_names_and_types,
             )
-        }
+        }}
 
         self.get_names_and_types_by_node(node, namespace, wrapper)
     }
