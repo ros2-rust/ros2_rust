@@ -54,7 +54,7 @@ In the [`Cargo.toml`](https://doc.rust-lang.org/book/ch01-03-hello-cargo.html) f
 [package]
 name = "rust_pubsub"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 [dependencies]
 rclrs = "*"
 std_msgs = "*"
@@ -247,7 +247,7 @@ Of course, you can write for each node you want to implement its own package, an
 [package]
 name = "rust_pubsub"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
