@@ -8,10 +8,10 @@ use std::{
 use rosidl_runtime_rs::{Message, RmwMessage};
 
 use crate::{
+    ENTITY_LIFECYCLE_MUTEX, IntoPrimitiveOptions, Node, Promise,
     error::{RclrsError, ToResult},
     qos::QoSProfile,
     rcl_bindings::*,
-    IntoPrimitiveOptions, Node, Promise, ENTITY_LIFECYCLE_MUTEX,
 };
 
 mod loaned_message;
@@ -344,7 +344,7 @@ mod tests {
 
     #[test]
     fn test_publishers() -> Result<(), RclrsError> {
-        use crate::{vendor::test_msgs::msg, TopicEndpointInfo};
+        use crate::{TopicEndpointInfo, vendor::test_msgs::msg};
 
         let namespace = "/test_publishers_graph";
         let graph = construct_test_graph(namespace)?;

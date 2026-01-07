@@ -1,6 +1,6 @@
 use futures::{
-    channel::mpsc::{UnboundedReceiver, UnboundedSender},
     StreamExt,
+    channel::mpsc::{UnboundedReceiver, UnboundedSender},
 };
 
 use crate::GuardCondition;

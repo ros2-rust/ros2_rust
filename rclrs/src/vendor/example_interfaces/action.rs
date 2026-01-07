@@ -4,8 +4,8 @@ pub mod rmw {
 
     #[link(name = "example_interfaces__rosidl_typesupport_c")]
     unsafe extern "C" {
-        fn rosidl_typesupport_c__get_message_type_support_handle__example_interfaces__action__Fibonacci_Goal(
-        ) -> *const std::ffi::c_void;
+        fn rosidl_typesupport_c__get_message_type_support_handle__example_interfaces__action__Fibonacci_Goal()
+        -> *const std::ffi::c_void;
     }
 
     #[link(name = "example_interfaces__rosidl_generator_c")]
@@ -96,8 +96,8 @@ pub mod rmw {
 
     #[link(name = "example_interfaces__rosidl_typesupport_c")]
     unsafe extern "C" {
-        fn rosidl_typesupport_c__get_message_type_support_handle__example_interfaces__action__Fibonacci_Result(
-        ) -> *const std::ffi::c_void;
+        fn rosidl_typesupport_c__get_message_type_support_handle__example_interfaces__action__Fibonacci_Result()
+        -> *const std::ffi::c_void;
     }
 
     #[link(name = "example_interfaces__rosidl_generator_c")]
@@ -188,8 +188,8 @@ pub mod rmw {
 
     #[link(name = "example_interfaces__rosidl_typesupport_c")]
     unsafe extern "C" {
-        fn rosidl_typesupport_c__get_message_type_support_handle__example_interfaces__action__Fibonacci_Feedback(
-        ) -> *const std::ffi::c_void;
+        fn rosidl_typesupport_c__get_message_type_support_handle__example_interfaces__action__Fibonacci_Feedback()
+        -> *const std::ffi::c_void;
     }
 
     #[link(name = "example_interfaces__rosidl_generator_c")]
@@ -282,8 +282,8 @@ pub mod rmw {
 
     #[link(name = "example_interfaces__rosidl_typesupport_c")]
     unsafe extern "C" {
-        fn rosidl_typesupport_c__get_message_type_support_handle__example_interfaces__action__Fibonacci_FeedbackMessage(
-        ) -> *const std::ffi::c_void;
+        fn rosidl_typesupport_c__get_message_type_support_handle__example_interfaces__action__Fibonacci_FeedbackMessage()
+        -> *const std::ffi::c_void;
     }
 
     #[link(name = "example_interfaces__rosidl_generator_c")]
@@ -319,7 +319,9 @@ pub mod rmw {
                 let mut msg = std::mem::zeroed();
                 if !example_interfaces__action__Fibonacci_FeedbackMessage__init(&mut msg as *mut _)
                 {
-                    panic!("Call to example_interfaces__action__Fibonacci_FeedbackMessage__init() failed");
+                    panic!(
+                        "Call to example_interfaces__action__Fibonacci_FeedbackMessage__init() failed"
+                    );
                 }
                 msg
             }
@@ -383,8 +385,8 @@ pub mod rmw {
 
     #[link(name = "example_interfaces__rosidl_typesupport_c")]
     unsafe extern "C" {
-        fn rosidl_typesupport_c__get_message_type_support_handle__example_interfaces__action__Fibonacci_SendGoal_Request(
-        ) -> *const std::ffi::c_void;
+        fn rosidl_typesupport_c__get_message_type_support_handle__example_interfaces__action__Fibonacci_SendGoal_Request()
+        -> *const std::ffi::c_void;
     }
 
     #[link(name = "example_interfaces__rosidl_generator_c")]
@@ -420,7 +422,9 @@ pub mod rmw {
                 let mut msg = std::mem::zeroed();
                 if !example_interfaces__action__Fibonacci_SendGoal_Request__init(&mut msg as *mut _)
                 {
-                    panic!("Call to example_interfaces__action__Fibonacci_SendGoal_Request__init() failed");
+                    panic!(
+                        "Call to example_interfaces__action__Fibonacci_SendGoal_Request__init() failed"
+                    );
                 }
                 msg
             }
@@ -486,8 +490,8 @@ pub mod rmw {
 
     #[link(name = "example_interfaces__rosidl_typesupport_c")]
     unsafe extern "C" {
-        fn rosidl_typesupport_c__get_message_type_support_handle__example_interfaces__action__Fibonacci_SendGoal_Response(
-        ) -> *const std::ffi::c_void;
+        fn rosidl_typesupport_c__get_message_type_support_handle__example_interfaces__action__Fibonacci_SendGoal_Response()
+        -> *const std::ffi::c_void;
     }
 
     #[link(name = "example_interfaces__rosidl_generator_c")]
@@ -524,7 +528,9 @@ pub mod rmw {
                 if !example_interfaces__action__Fibonacci_SendGoal_Response__init(
                     &mut msg as *mut _,
                 ) {
-                    panic!("Call to example_interfaces__action__Fibonacci_SendGoal_Response__init() failed");
+                    panic!(
+                        "Call to example_interfaces__action__Fibonacci_SendGoal_Response__init() failed"
+                    );
                 }
                 msg
             }
@@ -590,8 +596,8 @@ pub mod rmw {
 
     #[link(name = "example_interfaces__rosidl_typesupport_c")]
     unsafe extern "C" {
-        fn rosidl_typesupport_c__get_message_type_support_handle__example_interfaces__action__Fibonacci_GetResult_Request(
-        ) -> *const std::ffi::c_void;
+        fn rosidl_typesupport_c__get_message_type_support_handle__example_interfaces__action__Fibonacci_GetResult_Request()
+        -> *const std::ffi::c_void;
     }
 
     #[link(name = "example_interfaces__rosidl_generator_c")]
@@ -627,7 +633,9 @@ pub mod rmw {
                 if !example_interfaces__action__Fibonacci_GetResult_Request__init(
                     &mut msg as *mut _,
                 ) {
-                    panic!("Call to example_interfaces__action__Fibonacci_GetResult_Request__init() failed");
+                    panic!(
+                        "Call to example_interfaces__action__Fibonacci_GetResult_Request__init() failed"
+                    );
                 }
                 msg
             }
@@ -693,8 +701,8 @@ pub mod rmw {
 
     #[link(name = "example_interfaces__rosidl_typesupport_c")]
     unsafe extern "C" {
-        fn rosidl_typesupport_c__get_message_type_support_handle__example_interfaces__action__Fibonacci_GetResult_Response(
-        ) -> *const std::ffi::c_void;
+        fn rosidl_typesupport_c__get_message_type_support_handle__example_interfaces__action__Fibonacci_GetResult_Response()
+        -> *const std::ffi::c_void;
     }
 
     #[link(name = "example_interfaces__rosidl_generator_c")]
@@ -731,7 +739,9 @@ pub mod rmw {
                 if !example_interfaces__action__Fibonacci_GetResult_Response__init(
                     &mut msg as *mut _,
                 ) {
-                    panic!("Call to example_interfaces__action__Fibonacci_GetResult_Response__init() failed");
+                    panic!(
+                        "Call to example_interfaces__action__Fibonacci_GetResult_Response__init() failed"
+                    );
                 }
                 msg
             }
@@ -797,8 +807,8 @@ pub mod rmw {
 
     #[link(name = "example_interfaces__rosidl_typesupport_c")]
     unsafe extern "C" {
-        fn rosidl_typesupport_c__get_service_type_support_handle__example_interfaces__action__Fibonacci_SendGoal(
-        ) -> *const std::ffi::c_void;
+        fn rosidl_typesupport_c__get_service_type_support_handle__example_interfaces__action__Fibonacci_SendGoal()
+        -> *const std::ffi::c_void;
     }
 
     // Corresponds to example_interfaces__action__Fibonacci_SendGoal
@@ -818,8 +828,8 @@ pub mod rmw {
 
     #[link(name = "example_interfaces__rosidl_typesupport_c")]
     unsafe extern "C" {
-        fn rosidl_typesupport_c__get_service_type_support_handle__example_interfaces__action__Fibonacci_GetResult(
-        ) -> *const std::ffi::c_void;
+        fn rosidl_typesupport_c__get_service_type_support_handle__example_interfaces__action__Fibonacci_GetResult()
+        -> *const std::ffi::c_void;
     }
 
     // Corresponds to example_interfaces__action__Fibonacci_GetResult
@@ -1197,8 +1207,8 @@ impl rosidl_runtime_rs::Message for Fibonacci_GetResult_Response {
 
 #[link(name = "example_interfaces__rosidl_typesupport_c")]
 unsafe extern "C" {
-    fn rosidl_typesupport_c__get_service_type_support_handle__example_interfaces__action__Fibonacci_SendGoal(
-    ) -> *const std::ffi::c_void;
+    fn rosidl_typesupport_c__get_service_type_support_handle__example_interfaces__action__Fibonacci_SendGoal()
+    -> *const std::ffi::c_void;
 }
 
 // Corresponds to example_interfaces__action__Fibonacci_SendGoal
@@ -1218,8 +1228,8 @@ impl rosidl_runtime_rs::Service for Fibonacci_SendGoal {
 
 #[link(name = "example_interfaces__rosidl_typesupport_c")]
 unsafe extern "C" {
-    fn rosidl_typesupport_c__get_service_type_support_handle__example_interfaces__action__Fibonacci_GetResult(
-    ) -> *const std::ffi::c_void;
+    fn rosidl_typesupport_c__get_service_type_support_handle__example_interfaces__action__Fibonacci_GetResult()
+    -> *const std::ffi::c_void;
 }
 
 // Corresponds to example_interfaces__action__Fibonacci_GetResult
@@ -1239,8 +1249,8 @@ impl rosidl_runtime_rs::Service for Fibonacci_GetResult {
 
 #[link(name = "example_interfaces__rosidl_typesupport_c")]
 unsafe extern "C" {
-    fn rosidl_typesupport_c__get_action_type_support_handle__example_interfaces__action__Fibonacci(
-    ) -> *const std::ffi::c_void;
+    fn rosidl_typesupport_c__get_action_type_support_handle__example_interfaces__action__Fibonacci()
+    -> *const std::ffi::c_void;
 }
 
 // Corresponds to example_interfaces__action__Fibonacci

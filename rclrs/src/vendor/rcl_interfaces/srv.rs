@@ -791,8 +791,8 @@ impl rosidl_runtime_rs::Message for SetLoggerLevels_Response {
 
 #[link(name = "rcl_interfaces__rosidl_typesupport_c")]
 unsafe extern "C" {
-    fn rosidl_typesupport_c__get_service_type_support_handle__rcl_interfaces__srv__DescribeParameters(
-    ) -> *const std::ffi::c_void;
+    fn rosidl_typesupport_c__get_service_type_support_handle__rcl_interfaces__srv__DescribeParameters()
+    -> *const std::ffi::c_void;
 }
 
 // Corresponds to rcl_interfaces__srv__DescribeParameters
@@ -812,8 +812,8 @@ impl rosidl_runtime_rs::Service for DescribeParameters {
 
 #[link(name = "rcl_interfaces__rosidl_typesupport_c")]
 unsafe extern "C" {
-    fn rosidl_typesupport_c__get_service_type_support_handle__rcl_interfaces__srv__GetParameters(
-    ) -> *const std::ffi::c_void;
+    fn rosidl_typesupport_c__get_service_type_support_handle__rcl_interfaces__srv__GetParameters()
+    -> *const std::ffi::c_void;
 }
 
 // Corresponds to rcl_interfaces__srv__GetParameters
@@ -833,8 +833,8 @@ impl rosidl_runtime_rs::Service for GetParameters {
 
 #[link(name = "rcl_interfaces__rosidl_typesupport_c")]
 unsafe extern "C" {
-    fn rosidl_typesupport_c__get_service_type_support_handle__rcl_interfaces__srv__GetParameterTypes(
-    ) -> *const std::ffi::c_void;
+    fn rosidl_typesupport_c__get_service_type_support_handle__rcl_interfaces__srv__GetParameterTypes()
+    -> *const std::ffi::c_void;
 }
 
 // Corresponds to rcl_interfaces__srv__GetParameterTypes
@@ -854,8 +854,8 @@ impl rosidl_runtime_rs::Service for GetParameterTypes {
 
 #[link(name = "rcl_interfaces__rosidl_typesupport_c")]
 unsafe extern "C" {
-    fn rosidl_typesupport_c__get_service_type_support_handle__rcl_interfaces__srv__ListParameters(
-    ) -> *const std::ffi::c_void;
+    fn rosidl_typesupport_c__get_service_type_support_handle__rcl_interfaces__srv__ListParameters()
+    -> *const std::ffi::c_void;
 }
 
 // Corresponds to rcl_interfaces__srv__ListParameters
@@ -875,8 +875,8 @@ impl rosidl_runtime_rs::Service for ListParameters {
 
 #[link(name = "rcl_interfaces__rosidl_typesupport_c")]
 unsafe extern "C" {
-    fn rosidl_typesupport_c__get_service_type_support_handle__rcl_interfaces__srv__SetParametersAtomically(
-    ) -> *const std::ffi::c_void;
+    fn rosidl_typesupport_c__get_service_type_support_handle__rcl_interfaces__srv__SetParametersAtomically()
+    -> *const std::ffi::c_void;
 }
 
 // Corresponds to rcl_interfaces__srv__SetParametersAtomically
@@ -896,8 +896,8 @@ impl rosidl_runtime_rs::Service for SetParametersAtomically {
 
 #[link(name = "rcl_interfaces__rosidl_typesupport_c")]
 unsafe extern "C" {
-    fn rosidl_typesupport_c__get_service_type_support_handle__rcl_interfaces__srv__SetParameters(
-    ) -> *const std::ffi::c_void;
+    fn rosidl_typesupport_c__get_service_type_support_handle__rcl_interfaces__srv__SetParameters()
+    -> *const std::ffi::c_void;
 }
 
 // Corresponds to rcl_interfaces__srv__SetParameters
@@ -917,8 +917,8 @@ impl rosidl_runtime_rs::Service for SetParameters {
 
 #[link(name = "rcl_interfaces__rosidl_typesupport_c")]
 unsafe extern "C" {
-    fn rosidl_typesupport_c__get_service_type_support_handle__rcl_interfaces__srv__GetLoggerLevels(
-    ) -> *const std::ffi::c_void;
+    fn rosidl_typesupport_c__get_service_type_support_handle__rcl_interfaces__srv__GetLoggerLevels()
+    -> *const std::ffi::c_void;
 }
 
 // Corresponds to rcl_interfaces__srv__GetLoggerLevels
@@ -938,8 +938,8 @@ impl rosidl_runtime_rs::Service for GetLoggerLevels {
 
 #[link(name = "rcl_interfaces__rosidl_typesupport_c")]
 unsafe extern "C" {
-    fn rosidl_typesupport_c__get_service_type_support_handle__rcl_interfaces__srv__SetLoggerLevels(
-    ) -> *const std::ffi::c_void;
+    fn rosidl_typesupport_c__get_service_type_support_handle__rcl_interfaces__srv__SetLoggerLevels()
+    -> *const std::ffi::c_void;
 }
 
 // Corresponds to rcl_interfaces__srv__SetLoggerLevels
@@ -964,8 +964,8 @@ pub mod rmw {
 
     #[link(name = "rcl_interfaces__rosidl_typesupport_c")]
     unsafe extern "C" {
-        fn rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__srv__DescribeParameters_Request(
-        ) -> *const std::ffi::c_void;
+        fn rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__srv__DescribeParameters_Request()
+        -> *const std::ffi::c_void;
     }
 
     #[link(name = "rcl_interfaces__rosidl_generator_c")]
@@ -1062,8 +1062,8 @@ pub mod rmw {
 
     #[link(name = "rcl_interfaces__rosidl_typesupport_c")]
     unsafe extern "C" {
-        fn rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__srv__DescribeParameters_Response(
-        ) -> *const std::ffi::c_void;
+        fn rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__srv__DescribeParameters_Response()
+        -> *const std::ffi::c_void;
     }
 
     #[link(name = "rcl_interfaces__rosidl_generator_c")]
@@ -1165,8 +1165,8 @@ pub mod rmw {
 
     #[link(name = "rcl_interfaces__rosidl_typesupport_c")]
     unsafe extern "C" {
-        fn rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__srv__GetParameters_Request(
-        ) -> *const std::ffi::c_void;
+        fn rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__srv__GetParameters_Request()
+        -> *const std::ffi::c_void;
     }
 
     #[link(name = "rcl_interfaces__rosidl_generator_c")]
@@ -1259,8 +1259,8 @@ pub mod rmw {
 
     #[link(name = "rcl_interfaces__rosidl_typesupport_c")]
     unsafe extern "C" {
-        fn rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__srv__GetParameters_Response(
-        ) -> *const std::ffi::c_void;
+        fn rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__srv__GetParameters_Response()
+        -> *const std::ffi::c_void;
     }
 
     #[link(name = "rcl_interfaces__rosidl_generator_c")]
@@ -1354,8 +1354,8 @@ pub mod rmw {
 
     #[link(name = "rcl_interfaces__rosidl_typesupport_c")]
     unsafe extern "C" {
-        fn rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__srv__GetParameterTypes_Request(
-        ) -> *const std::ffi::c_void;
+        fn rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__srv__GetParameterTypes_Request()
+        -> *const std::ffi::c_void;
     }
 
     #[link(name = "rcl_interfaces__rosidl_generator_c")]
@@ -1448,8 +1448,8 @@ pub mod rmw {
 
     #[link(name = "rcl_interfaces__rosidl_typesupport_c")]
     unsafe extern "C" {
-        fn rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__srv__GetParameterTypes_Response(
-        ) -> *const std::ffi::c_void;
+        fn rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__srv__GetParameterTypes_Response()
+        -> *const std::ffi::c_void;
     }
 
     #[link(name = "rcl_interfaces__rosidl_generator_c")]
@@ -1546,8 +1546,8 @@ pub mod rmw {
 
     #[link(name = "rcl_interfaces__rosidl_typesupport_c")]
     unsafe extern "C" {
-        fn rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__srv__ListParameters_Request(
-        ) -> *const std::ffi::c_void;
+        fn rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__srv__ListParameters_Request()
+        -> *const std::ffi::c_void;
     }
 
     #[link(name = "rcl_interfaces__rosidl_generator_c")]
@@ -1645,8 +1645,8 @@ pub mod rmw {
 
     #[link(name = "rcl_interfaces__rosidl_typesupport_c")]
     unsafe extern "C" {
-        fn rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__srv__ListParameters_Response(
-        ) -> *const std::ffi::c_void;
+        fn rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__srv__ListParameters_Response()
+        -> *const std::ffi::c_void;
     }
 
     #[link(name = "rcl_interfaces__rosidl_generator_c")]
@@ -1739,8 +1739,8 @@ pub mod rmw {
 
     #[link(name = "rcl_interfaces__rosidl_typesupport_c")]
     unsafe extern "C" {
-        fn rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__srv__SetParametersAtomically_Request(
-        ) -> *const std::ffi::c_void;
+        fn rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__srv__SetParametersAtomically_Request()
+        -> *const std::ffi::c_void;
     }
 
     #[link(name = "rcl_interfaces__rosidl_generator_c")]
@@ -1775,7 +1775,9 @@ pub mod rmw {
             unsafe {
                 let mut msg = std::mem::zeroed();
                 if !rcl_interfaces__srv__SetParametersAtomically_Request__init(&mut msg as *mut _) {
-                    panic!("Call to rcl_interfaces__srv__SetParametersAtomically_Request__init() failed");
+                    panic!(
+                        "Call to rcl_interfaces__srv__SetParametersAtomically_Request__init() failed"
+                    );
                 }
                 msg
             }
@@ -1839,8 +1841,8 @@ pub mod rmw {
 
     #[link(name = "rcl_interfaces__rosidl_typesupport_c")]
     unsafe extern "C" {
-        fn rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__srv__SetParametersAtomically_Response(
-        ) -> *const std::ffi::c_void;
+        fn rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__srv__SetParametersAtomically_Response()
+        -> *const std::ffi::c_void;
     }
 
     #[link(name = "rcl_interfaces__rosidl_generator_c")]
@@ -1875,7 +1877,9 @@ pub mod rmw {
                 let mut msg = std::mem::zeroed();
                 if !rcl_interfaces__srv__SetParametersAtomically_Response__init(&mut msg as *mut _)
                 {
-                    panic!("Call to rcl_interfaces__srv__SetParametersAtomically_Response__init() failed");
+                    panic!(
+                        "Call to rcl_interfaces__srv__SetParametersAtomically_Response__init() failed"
+                    );
                 }
                 msg
             }
@@ -1939,8 +1943,8 @@ pub mod rmw {
 
     #[link(name = "rcl_interfaces__rosidl_typesupport_c")]
     unsafe extern "C" {
-        fn rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__srv__SetParameters_Request(
-        ) -> *const std::ffi::c_void;
+        fn rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__srv__SetParameters_Request()
+        -> *const std::ffi::c_void;
     }
 
     #[link(name = "rcl_interfaces__rosidl_generator_c")]
@@ -2034,8 +2038,8 @@ pub mod rmw {
 
     #[link(name = "rcl_interfaces__rosidl_typesupport_c")]
     unsafe extern "C" {
-        fn rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__srv__SetParameters_Response(
-        ) -> *const std::ffi::c_void;
+        fn rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__srv__SetParameters_Response()
+        -> *const std::ffi::c_void;
     }
 
     #[link(name = "rcl_interfaces__rosidl_generator_c")]
@@ -2130,8 +2134,8 @@ pub mod rmw {
 
     #[link(name = "rcl_interfaces__rosidl_typesupport_c")]
     unsafe extern "C" {
-        fn rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__srv__GetLoggerLevels_Request(
-        ) -> *const std::ffi::c_void;
+        fn rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__srv__GetLoggerLevels_Request()
+        -> *const std::ffi::c_void;
     }
 
     #[link(name = "rcl_interfaces__rosidl_generator_c")]
@@ -2224,8 +2228,8 @@ pub mod rmw {
 
     #[link(name = "rcl_interfaces__rosidl_typesupport_c")]
     unsafe extern "C" {
-        fn rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__srv__GetLoggerLevels_Response(
-        ) -> *const std::ffi::c_void;
+        fn rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__srv__GetLoggerLevels_Response()
+        -> *const std::ffi::c_void;
     }
 
     #[link(name = "rcl_interfaces__rosidl_generator_c")]
@@ -2319,8 +2323,8 @@ pub mod rmw {
 
     #[link(name = "rcl_interfaces__rosidl_typesupport_c")]
     unsafe extern "C" {
-        fn rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__srv__SetLoggerLevels_Request(
-        ) -> *const std::ffi::c_void;
+        fn rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__srv__SetLoggerLevels_Request()
+        -> *const std::ffi::c_void;
     }
 
     #[link(name = "rcl_interfaces__rosidl_generator_c")]
@@ -2414,8 +2418,8 @@ pub mod rmw {
 
     #[link(name = "rcl_interfaces__rosidl_typesupport_c")]
     unsafe extern "C" {
-        fn rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__srv__SetLoggerLevels_Response(
-        ) -> *const std::ffi::c_void;
+        fn rosidl_typesupport_c__get_message_type_support_handle__rcl_interfaces__srv__SetLoggerLevels_Response()
+        -> *const std::ffi::c_void;
     }
 
     #[link(name = "rcl_interfaces__rosidl_generator_c")]
@@ -2510,8 +2514,8 @@ pub mod rmw {
 
     #[link(name = "rcl_interfaces__rosidl_typesupport_c")]
     unsafe extern "C" {
-        fn rosidl_typesupport_c__get_service_type_support_handle__rcl_interfaces__srv__DescribeParameters(
-        ) -> *const std::ffi::c_void;
+        fn rosidl_typesupport_c__get_service_type_support_handle__rcl_interfaces__srv__DescribeParameters()
+        -> *const std::ffi::c_void;
     }
 
     // Corresponds to rcl_interfaces__srv__DescribeParameters
@@ -2531,8 +2535,8 @@ pub mod rmw {
 
     #[link(name = "rcl_interfaces__rosidl_typesupport_c")]
     unsafe extern "C" {
-        fn rosidl_typesupport_c__get_service_type_support_handle__rcl_interfaces__srv__GetParameters(
-        ) -> *const std::ffi::c_void;
+        fn rosidl_typesupport_c__get_service_type_support_handle__rcl_interfaces__srv__GetParameters()
+        -> *const std::ffi::c_void;
     }
 
     // Corresponds to rcl_interfaces__srv__GetParameters
@@ -2552,8 +2556,8 @@ pub mod rmw {
 
     #[link(name = "rcl_interfaces__rosidl_typesupport_c")]
     unsafe extern "C" {
-        fn rosidl_typesupport_c__get_service_type_support_handle__rcl_interfaces__srv__GetParameterTypes(
-        ) -> *const std::ffi::c_void;
+        fn rosidl_typesupport_c__get_service_type_support_handle__rcl_interfaces__srv__GetParameterTypes()
+        -> *const std::ffi::c_void;
     }
 
     // Corresponds to rcl_interfaces__srv__GetParameterTypes
@@ -2573,8 +2577,8 @@ pub mod rmw {
 
     #[link(name = "rcl_interfaces__rosidl_typesupport_c")]
     unsafe extern "C" {
-        fn rosidl_typesupport_c__get_service_type_support_handle__rcl_interfaces__srv__ListParameters(
-        ) -> *const std::ffi::c_void;
+        fn rosidl_typesupport_c__get_service_type_support_handle__rcl_interfaces__srv__ListParameters()
+        -> *const std::ffi::c_void;
     }
 
     // Corresponds to rcl_interfaces__srv__ListParameters
@@ -2594,8 +2598,8 @@ pub mod rmw {
 
     #[link(name = "rcl_interfaces__rosidl_typesupport_c")]
     unsafe extern "C" {
-        fn rosidl_typesupport_c__get_service_type_support_handle__rcl_interfaces__srv__SetParametersAtomically(
-        ) -> *const std::ffi::c_void;
+        fn rosidl_typesupport_c__get_service_type_support_handle__rcl_interfaces__srv__SetParametersAtomically()
+        -> *const std::ffi::c_void;
     }
 
     // Corresponds to rcl_interfaces__srv__SetParametersAtomically
@@ -2615,8 +2619,8 @@ pub mod rmw {
 
     #[link(name = "rcl_interfaces__rosidl_typesupport_c")]
     unsafe extern "C" {
-        fn rosidl_typesupport_c__get_service_type_support_handle__rcl_interfaces__srv__SetParameters(
-        ) -> *const std::ffi::c_void;
+        fn rosidl_typesupport_c__get_service_type_support_handle__rcl_interfaces__srv__SetParameters()
+        -> *const std::ffi::c_void;
     }
 
     // Corresponds to rcl_interfaces__srv__SetParameters
@@ -2636,8 +2640,8 @@ pub mod rmw {
 
     #[link(name = "rcl_interfaces__rosidl_typesupport_c")]
     unsafe extern "C" {
-        fn rosidl_typesupport_c__get_service_type_support_handle__rcl_interfaces__srv__GetLoggerLevels(
-        ) -> *const std::ffi::c_void;
+        fn rosidl_typesupport_c__get_service_type_support_handle__rcl_interfaces__srv__GetLoggerLevels()
+        -> *const std::ffi::c_void;
     }
 
     // Corresponds to rcl_interfaces__srv__GetLoggerLevels
@@ -2657,8 +2661,8 @@ pub mod rmw {
 
     #[link(name = "rcl_interfaces__rosidl_typesupport_c")]
     unsafe extern "C" {
-        fn rosidl_typesupport_c__get_service_type_support_handle__rcl_interfaces__srv__SetLoggerLevels(
-        ) -> *const std::ffi::c_void;
+        fn rosidl_typesupport_c__get_service_type_support_handle__rcl_interfaces__srv__SetLoggerLevels()
+        -> *const std::ffi::c_void;
     }
 
     // Corresponds to rcl_interfaces__srv__SetLoggerLevels

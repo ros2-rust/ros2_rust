@@ -4,8 +4,8 @@ pub mod rmw {
 
     #[link(name = "action_msgs__rosidl_typesupport_c")]
     unsafe extern "C" {
-        fn rosidl_typesupport_c__get_message_type_support_handle__action_msgs__msg__GoalInfo(
-        ) -> *const std::ffi::c_void;
+        fn rosidl_typesupport_c__get_message_type_support_handle__action_msgs__msg__GoalInfo()
+        -> *const std::ffi::c_void;
     }
 
     #[link(name = "action_msgs__rosidl_generator_c")]
@@ -90,8 +90,8 @@ pub mod rmw {
 
     #[link(name = "action_msgs__rosidl_typesupport_c")]
     unsafe extern "C" {
-        fn rosidl_typesupport_c__get_message_type_support_handle__action_msgs__msg__GoalStatus(
-        ) -> *const std::ffi::c_void;
+        fn rosidl_typesupport_c__get_message_type_support_handle__action_msgs__msg__GoalStatus()
+        -> *const std::ffi::c_void;
     }
 
     #[link(name = "action_msgs__rosidl_generator_c")]
@@ -195,8 +195,8 @@ pub mod rmw {
 
     #[link(name = "action_msgs__rosidl_typesupport_c")]
     unsafe extern "C" {
-        fn rosidl_typesupport_c__get_message_type_support_handle__action_msgs__msg__GoalStatusArray(
-        ) -> *const std::ffi::c_void;
+        fn rosidl_typesupport_c__get_message_type_support_handle__action_msgs__msg__GoalStatusArray()
+        -> *const std::ffi::c_void;
     }
 
     #[link(name = "action_msgs__rosidl_generator_c")]

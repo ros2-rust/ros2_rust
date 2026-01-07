@@ -4,8 +4,8 @@ pub mod rmw {
 
     #[link(name = "builtin_interfaces__rosidl_typesupport_c")]
     unsafe extern "C" {
-        fn rosidl_typesupport_c__get_message_type_support_handle__builtin_interfaces__msg__Duration(
-        ) -> *const std::ffi::c_void;
+        fn rosidl_typesupport_c__get_message_type_support_handle__builtin_interfaces__msg__Duration()
+        -> *const std::ffi::c_void;
     }
 
     #[link(name = "builtin_interfaces__rosidl_generator_c")]
@@ -90,8 +90,8 @@ pub mod rmw {
 
     #[link(name = "builtin_interfaces__rosidl_typesupport_c")]
     unsafe extern "C" {
-        fn rosidl_typesupport_c__get_message_type_support_handle__builtin_interfaces__msg__Time(
-        ) -> *const std::ffi::c_void;
+        fn rosidl_typesupport_c__get_message_type_support_handle__builtin_interfaces__msg__Time()
+        -> *const std::ffi::c_void;
     }
 
     #[link(name = "builtin_interfaces__rosidl_generator_c")]

@@ -1,7 +1,7 @@
 use crate::{
-    clock::Clock, context::ContextHandle, error::RclrsError, log_error, rcl_bindings::*, Node,
-    RclPrimitive, RclPrimitiveHandle, RclPrimitiveKind, ReadyKind, ToLogParams, ToResult, Waitable,
-    WaitableLifecycle, WorkScope, Worker, WorkerCommands, ENTITY_LIFECYCLE_MUTEX,
+    ENTITY_LIFECYCLE_MUTEX, Node, RclPrimitive, RclPrimitiveHandle, RclPrimitiveKind, ReadyKind,
+    ToLogParams, ToResult, Waitable, WaitableLifecycle, WorkScope, Worker, WorkerCommands,
+    clock::Clock, context::ContextHandle, error::RclrsError, log_error, rcl_bindings::*,
 };
 // TODO: fix me when the callback type is properly defined.
 // use std::fmt::Debug;
@@ -557,8 +557,8 @@ mod tests {
     use crate::*;
     use std::{
         sync::{
-            atomic::{AtomicBool, Ordering},
             Arc,
+            atomic::{AtomicBool, Ordering},
         },
         thread,
         time::Duration,
@@ -887,9 +887,10 @@ mod tests {
         executed: Arc<AtomicBool>,
     ) -> AnyTimerCallback<Node> {
         (move |t: Time| {
-            assert!(t
-                .compare_with(&initial_time, |t, initial| t >= initial)
-                .unwrap());
+            assert!(
+                t.compare_with(&initial_time, |t, initial| t >= initial)
+                    .unwrap()
+            );
             executed.store(true, Ordering::Release);
         })
         .into_node_timer_oneshot_callback()

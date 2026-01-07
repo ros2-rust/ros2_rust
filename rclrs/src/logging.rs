@@ -9,7 +9,7 @@ use std::{
     sync::{Mutex, OnceLock},
 };
 
-use crate::{rcl_bindings::*, ENTITY_LIFECYCLE_MUTEX};
+use crate::{ENTITY_LIFECYCLE_MUTEX, rcl_bindings::*};
 
 mod logging_configuration;
 pub(crate) use logging_configuration::*;

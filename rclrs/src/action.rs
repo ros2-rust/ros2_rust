@@ -9,7 +9,7 @@ pub use action_goal_receiver::*;
 pub(crate) mod action_server;
 pub use action_server::*;
 
-use crate::{log_error, rcl_bindings::*, vendor::builtin_interfaces::msg::Time, DropGuard};
+use crate::{DropGuard, log_error, rcl_bindings::*, vendor::builtin_interfaces::msg::Time};
 use std::fmt;
 
 #[cfg(feature = "serde")]
@@ -31,24 +31,26 @@ impl GoalUuid {
 
 impl fmt::Display for GoalUuid {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        write!(f, "{:02x}{:02x}{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}",
-               self.0[0],
-               self.0[1],
-               self.0[2],
-               self.0[3],
-               self.0[4],
-               self.0[5],
-               self.0[6],
-               self.0[7],
-               self.0[8],
-               self.0[9],
-               self.0[10],
-               self.0[11],
-               self.0[12],
-               self.0[13],
-               self.0[14],
-               self.0[15],
-               )
+        write!(
+            f,
+            "{:02x}{:02x}{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}",
+            self.0[0],
+            self.0[1],
+            self.0[2],
+            self.0[3],
+            self.0[4],
+            self.0[5],
+            self.0[6],
+            self.0[7],
+            self.0[8],
+            self.0[9],
+            self.0[10],
+            self.0[11],
+            self.0[12],
+            self.0[13],
+            self.0[14],
+            self.0[15],
+        )
     }
 }
 

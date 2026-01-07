@@ -1,11 +1,11 @@
 use std::sync::{
-    atomic::{AtomicBool, Ordering},
     Arc,
+    atomic::{AtomicBool, Ordering},
 };
 
 use crate::{
-    error::ToResult, log_error, rcl_bindings::*, ActionClientReady, ActionServerReady,
-    GuardCondition, RclPrimitive, RclPrimitiveHandle, RclPrimitiveKind, RclrsError, ReadyKind,
+    ActionClientReady, ActionServerReady, GuardCondition, RclPrimitive, RclPrimitiveHandle,
+    RclPrimitiveKind, RclrsError, ReadyKind, error::ToResult, log_error, rcl_bindings::*,
 };
 
 /// This struct manages the presence of an rcl primitive inside the wait set.

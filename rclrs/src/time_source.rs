@@ -1,8 +1,8 @@
 use crate::{
+    IntoPrimitiveOptions, Node, NodeState, QOS_PROFILE_CLOCK, QoSProfile, ReadOnlyParameter,
+    Subscription,
     clock::{Clock, ClockSource, ClockType},
     vendor::rosgraph_msgs::msg::Clock as ClockMsg,
-    IntoPrimitiveOptions, Node, NodeState, QoSProfile, ReadOnlyParameter, Subscription,
-    QOS_PROFILE_CLOCK,
 };
 use std::sync::{Arc, Mutex, RwLock, Weak};
 

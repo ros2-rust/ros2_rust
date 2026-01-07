@@ -1,8 +1,8 @@
 use rosidl_runtime_rs::Message;
 
 use crate::{
-    subscription::SubscriptionHandle, MessageInfo, RclrsError, RclrsErrorFilter,
-    ReadOnlyLoanedMessage,
+    MessageInfo, RclrsError, RclrsErrorFilter, ReadOnlyLoanedMessage,
+    subscription::SubscriptionHandle,
 };
 
 use std::{any::Any, sync::Arc};

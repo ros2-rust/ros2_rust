@@ -11,10 +11,10 @@ pub use value::*;
 use crate::vendor::rcl_interfaces::msg::rmw::{ParameterType, ParameterValue as RmwParameterValue};
 
 use crate::{
-    call_string_getter_with_rcl_node, rcl_bindings::*, Node, RclrsError, ENTITY_LIFECYCLE_MUTEX,
+    ENTITY_LIFECYCLE_MUTEX, Node, RclrsError, call_string_getter_with_rcl_node, rcl_bindings::*,
 };
 use std::{
-    collections::{btree_map::Entry, BTreeMap},
+    collections::{BTreeMap, btree_map::Entry},
     fmt::Debug,
     marker::PhantomData,
     sync::{Arc, Mutex, RwLock, Weak},
@@ -629,9 +629,16 @@ pub enum ParameterValueError {
 impl std::fmt::Display for ParameterValueError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ParameterValueError::OutOfRange => write!(f, "parameter value was out of the parameter's range"),
-            ParameterValueError::TypeMismatch => write!(f, "parameter was stored in a static type and an operation on a different type was attempted"),
-            ParameterValueError::ReadOnly => write!(f, "a write on a read-only parameter was attempted"),
+            ParameterValueError::OutOfRange => {
+                write!(f, "parameter value was out of the parameter's range")
+            }
+            ParameterValueError::TypeMismatch => write!(
+                f,
+                "parameter was stored in a static type and an operation on a different type was attempted"
+            ),
+            ParameterValueError::ReadOnly => {
+                write!(f, "a write on a read-only parameter was attempted")
+            }
         }
     }
 }
@@ -661,18 +668,32 @@ pub enum DeclarationError {
 impl std::fmt::Display for DeclarationError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            DeclarationError::AlreadyDeclared => write!(f, "parameter was already declared, but a new declaration was attempted"),
+            DeclarationError::AlreadyDeclared => write!(
+                f,
+                "parameter was already declared, but a new declaration was attempted"
+            ),
             DeclarationError::NoValueAvailable => {
-                write!(f, "parameter was declared as non-optional but no value was available, either through a user specified default, a command-line override, or a previously set value")
-            },
+                write!(
+                    f,
+                    "parameter was declared as non-optional but no value was available, either through a user specified default, a command-line override, or a previously set value"
+                )
+            }
             DeclarationError::OverrideValueTypeMismatch => {
                 write!(f, "the override value that was provided has the wrong type")
-            },
+            }
             DeclarationError::PriorValueTypeMismatch => {
-                write!(f, "the value that the parameter was already set to has the wrong type")
-            },
-            DeclarationError::InitialValueOutOfRange => write!(f, "the initial value that was selected is out of range"),
-            DeclarationError::InvalidRange => write!(f, "an invalid range was provided to a parameter declaration (i.e. lower bound > higher bound)"),
+                write!(
+                    f,
+                    "the value that the parameter was already set to has the wrong type"
+                )
+            }
+            DeclarationError::InitialValueOutOfRange => {
+                write!(f, "the initial value that was selected is out of range")
+            }
+            DeclarationError::InvalidRange => write!(
+                f,
+                "an invalid range was provided to a parameter declaration (i.e. lower bound > higher bound)"
+            ),
         }
     }
 }
@@ -904,12 +925,13 @@ mod tests {
         ));
 
         // The error should not happen if we ignore overrides
-        assert!(node
-            .declare_parameter("declared_int")
-            .default(1.0)
-            .ignore_override()
-            .mandatory()
-            .is_ok());
+        assert!(
+            node.declare_parameter("declared_int")
+                .default(1.0)
+                .ignore_override()
+                .mandatory()
+                .is_ok()
+        );
 
         // If the override does not respect the range, we should return an error
         let range = ParameterRange {
@@ -926,13 +948,14 @@ mod tests {
 
         // The override being out of range should not matter if we use
         // ignore_override
-        assert!(node
-            .declare_parameter("declared_int")
-            .default(1)
-            .range(range)
-            .ignore_override()
-            .mandatory()
-            .is_ok());
+        assert!(
+            node.declare_parameter("declared_int")
+                .default(1)
+                .range(range)
+                .ignore_override()
+                .mandatory()
+                .is_ok()
+        );
     }
 
     #[test]
@@ -980,10 +1003,11 @@ mod tests {
         );
 
         // Getting / Setting a parameter with the wrong type should not work
-        assert!(node
-            .use_undeclared_parameters()
-            .get::<i64>("new_param")
-            .is_none());
+        assert!(
+            node.use_undeclared_parameters()
+                .get::<i64>("new_param")
+                .is_none()
+        );
         assert!(matches!(
             node.use_undeclared_parameters().set("new_param", 42),
             Err(ParameterValueError::TypeMismatch)
@@ -991,10 +1015,11 @@ mod tests {
 
         // Setting a parameter should update both existing parameter objects and be reflected in
         // new node.use_undeclared_parameters().get() calls
-        assert!(node
-            .use_undeclared_parameters()
-            .set("new_param", 10.0)
-            .is_ok());
+        assert!(
+            node.use_undeclared_parameters()
+                .set("new_param", 10.0)
+                .is_ok()
+        );
         assert_eq!(
             node.use_undeclared_parameters().get("new_param"),
             Some(10.0)
@@ -1173,10 +1198,11 @@ mod tests {
         }
         // After a declared parameter went out of scope and was cleared, it should still be
         // possible to use it as an undeclared parameter, type can now be changed
-        assert!(node
-            .use_undeclared_parameters()
-            .get::<i64>("declared_int")
-            .is_none());
+        assert!(
+            node.use_undeclared_parameters()
+                .get::<i64>("declared_int")
+                .is_none()
+        );
         node.use_undeclared_parameters()
             .set("declared_int", 1.0)
             .unwrap();
@@ -1254,10 +1280,11 @@ mod tests {
             node.use_undeclared_parameters().set("int_param", -9),
             Err(ParameterValueError::OutOfRange)
         ));
-        assert!(node
-            .use_undeclared_parameters()
-            .set("int_param", -4)
-            .is_ok());
+        assert!(
+            node.use_undeclared_parameters()
+                .set("int_param", -4)
+                .is_ok()
+        );
 
         // Same for a double parameter
         let range = ParameterRange {
@@ -1310,10 +1337,11 @@ mod tests {
             node.use_undeclared_parameters().set("double_param", -9.0),
             Err(ParameterValueError::OutOfRange)
         ));
-        assert!(node
-            .use_undeclared_parameters()
-            .set("double_param", -4.0)
-            .is_ok());
+        assert!(
+            node.use_undeclared_parameters()
+                .set("double_param", -4.0)
+                .is_ok()
+        );
     }
 
     #[test]

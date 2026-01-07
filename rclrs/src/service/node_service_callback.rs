@@ -1,8 +1,8 @@
 use rosidl_runtime_rs::Service;
 
 use crate::{
-    log_error, rcl_bindings::rmw_request_id_t, RclrsError, RclrsErrorFilter, RequestId,
-    ServiceHandle, ServiceInfo, WorkerCommands,
+    RclrsError, RclrsErrorFilter, RequestId, ServiceHandle, ServiceInfo, WorkerCommands, log_error,
+    rcl_bindings::rmw_request_id_t,
 };
 
 use futures::future::BoxFuture;

@@ -128,8 +128,8 @@ impl rosidl_runtime_rs::Message for CancelGoal_Response {
 
 #[link(name = "action_msgs__rosidl_typesupport_c")]
 unsafe extern "C" {
-    fn rosidl_typesupport_c__get_service_type_support_handle__action_msgs__srv__CancelGoal(
-    ) -> *const std::ffi::c_void;
+    fn rosidl_typesupport_c__get_service_type_support_handle__action_msgs__srv__CancelGoal()
+    -> *const std::ffi::c_void;
 }
 
 // Corresponds to action_msgs__srv__CancelGoal
@@ -154,8 +154,8 @@ pub mod rmw {
 
     #[link(name = "action_msgs__rosidl_typesupport_c")]
     unsafe extern "C" {
-        fn rosidl_typesupport_c__get_message_type_support_handle__action_msgs__srv__CancelGoal_Request(
-        ) -> *const std::ffi::c_void;
+        fn rosidl_typesupport_c__get_message_type_support_handle__action_msgs__srv__CancelGoal_Request()
+        -> *const std::ffi::c_void;
     }
 
     #[link(name = "action_msgs__rosidl_generator_c")]
@@ -241,8 +241,8 @@ pub mod rmw {
 
     #[link(name = "action_msgs__rosidl_typesupport_c")]
     unsafe extern "C" {
-        fn rosidl_typesupport_c__get_message_type_support_handle__action_msgs__srv__CancelGoal_Response(
-        ) -> *const std::ffi::c_void;
+        fn rosidl_typesupport_c__get_message_type_support_handle__action_msgs__srv__CancelGoal_Response()
+        -> *const std::ffi::c_void;
     }
 
     #[link(name = "action_msgs__rosidl_generator_c")]
@@ -353,8 +353,8 @@ pub mod rmw {
 
     #[link(name = "action_msgs__rosidl_typesupport_c")]
     unsafe extern "C" {
-        fn rosidl_typesupport_c__get_service_type_support_handle__action_msgs__srv__CancelGoal(
-        ) -> *const std::ffi::c_void;
+        fn rosidl_typesupport_c__get_service_type_support_handle__action_msgs__srv__CancelGoal()
+        -> *const std::ffi::c_void;
     }
 
     // Corresponds to action_msgs__srv__CancelGoal

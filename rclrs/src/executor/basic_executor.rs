@@ -1,31 +1,30 @@
 use futures::{
+    StreamExt,
     channel::{
-        mpsc::{unbounded, UnboundedReceiver, UnboundedSender},
+        mpsc::{UnboundedReceiver, UnboundedSender, unbounded},
         oneshot,
     },
-    future::{select, select_all, BoxFuture, Either},
+    future::{BoxFuture, Either, select, select_all},
     stream::StreamFuture,
-    task::{waker_ref, ArcWake},
-    StreamExt,
+    task::{ArcWake, waker_ref},
 };
 use std::{
     sync::{
-        atomic::{AtomicBool, Ordering},
-        mpsc::{channel, Receiver, Sender},
         Arc, Mutex, Weak,
+        atomic::{AtomicBool, Ordering},
+        mpsc::{Receiver, Sender, channel},
     },
     task::Context as TaskContext,
     time::Instant,
 };
 
 use crate::{
-    log_debug, log_fatal, log_warn, ExecutorChannel, ExecutorRuntime, ExecutorWorkerOptions,
-    GuardCondition, PayloadTask, RclrsError, SpinConditions, WaitSetRunConditions, WaitSetRunner,
-    Waitable, WeakActivityListener, WorkerChannel,
+    ExecutorChannel, ExecutorRuntime, ExecutorWorkerOptions, GuardCondition, PayloadTask,
+    RclrsError, SpinConditions, WaitSetRunConditions, WaitSetRunner, Waitable,
+    WeakActivityListener, WorkerChannel, log_debug, log_fatal, log_warn,
 };
 
-static FAILED_TO_SEND_WORKER: &'static str =
-    "Failed to send the new runner. This should never happen. \
+static FAILED_TO_SEND_WORKER: &'static str = "Failed to send the new runner. This should never happen. \
     Please report this to the rclrs maintainers with a minimal reproducible example.";
 
 /// The implementation of this runtime is based off of the async Rust reference book:

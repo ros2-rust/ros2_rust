@@ -4,8 +4,8 @@ pub mod rmw {
 
     #[link(name = "unique_identifier_msgs__rosidl_typesupport_c")]
     unsafe extern "C" {
-        fn rosidl_typesupport_c__get_message_type_support_handle__unique_identifier_msgs__msg__UUID(
-        ) -> *const std::ffi::c_void;
+        fn rosidl_typesupport_c__get_message_type_support_handle__unique_identifier_msgs__msg__UUID()
+        -> *const std::ffi::c_void;
     }
 
     #[link(name = "unique_identifier_msgs__rosidl_generator_c")]

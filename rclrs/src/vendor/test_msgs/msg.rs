@@ -4,8 +4,8 @@ pub mod rmw {
 
     #[link(name = "test_msgs__rosidl_typesupport_c")]
     unsafe extern "C" {
-        fn rosidl_typesupport_c__get_message_type_support_handle__test_msgs__msg__KeyedLong(
-        ) -> *const std::ffi::c_void;
+        fn rosidl_typesupport_c__get_message_type_support_handle__test_msgs__msg__KeyedLong()
+        -> *const std::ffi::c_void;
     }
 
     #[link(name = "test_msgs__rosidl_generator_c")]
@@ -90,8 +90,8 @@ pub mod rmw {
 
     #[link(name = "test_msgs__rosidl_typesupport_c")]
     unsafe extern "C" {
-        fn rosidl_typesupport_c__get_message_type_support_handle__test_msgs__msg__KeyedString(
-        ) -> *const std::ffi::c_void;
+        fn rosidl_typesupport_c__get_message_type_support_handle__test_msgs__msg__KeyedString()
+        -> *const std::ffi::c_void;
     }
 
     #[link(name = "test_msgs__rosidl_generator_c")]
@@ -176,8 +176,8 @@ pub mod rmw {
 
     #[link(name = "test_msgs__rosidl_typesupport_c")]
     unsafe extern "C" {
-        fn rosidl_typesupport_c__get_message_type_support_handle__test_msgs__msg__NonKeyedWithNestedKey(
-        ) -> *const std::ffi::c_void;
+        fn rosidl_typesupport_c__get_message_type_support_handle__test_msgs__msg__NonKeyedWithNestedKey()
+        -> *const std::ffi::c_void;
     }
 
     #[link(name = "test_msgs__rosidl_generator_c")]
@@ -264,8 +264,8 @@ pub mod rmw {
 
     #[link(name = "test_msgs__rosidl_typesupport_c")]
     unsafe extern "C" {
-        fn rosidl_typesupport_c__get_message_type_support_handle__test_msgs__msg__ComplexNestedKey(
-        ) -> *const std::ffi::c_void;
+        fn rosidl_typesupport_c__get_message_type_support_handle__test_msgs__msg__ComplexNestedKey()
+        -> *const std::ffi::c_void;
     }
 
     #[link(name = "test_msgs__rosidl_generator_c")]
@@ -351,8 +351,8 @@ pub mod rmw {
 
     #[link(name = "test_msgs__rosidl_typesupport_c")]
     unsafe extern "C" {
-        fn rosidl_typesupport_c__get_message_type_support_handle__test_msgs__msg__Arrays(
-        ) -> *const std::ffi::c_void;
+        fn rosidl_typesupport_c__get_message_type_support_handle__test_msgs__msg__Arrays()
+        -> *const std::ffi::c_void;
     }
 
     #[link(name = "test_msgs__rosidl_generator_c")]
@@ -465,8 +465,8 @@ pub mod rmw {
 
     #[link(name = "test_msgs__rosidl_typesupport_c")]
     unsafe extern "C" {
-        fn rosidl_typesupport_c__get_message_type_support_handle__test_msgs__msg__BasicTypes(
-        ) -> *const std::ffi::c_void;
+        fn rosidl_typesupport_c__get_message_type_support_handle__test_msgs__msg__BasicTypes()
+        -> *const std::ffi::c_void;
     }
 
     #[link(name = "test_msgs__rosidl_generator_c")]
@@ -562,8 +562,8 @@ pub mod rmw {
 
     #[link(name = "test_msgs__rosidl_typesupport_c")]
     unsafe extern "C" {
-        fn rosidl_typesupport_c__get_message_type_support_handle__test_msgs__msg__BoundedPlainSequences(
-        ) -> *const std::ffi::c_void;
+        fn rosidl_typesupport_c__get_message_type_support_handle__test_msgs__msg__BoundedPlainSequences()
+        -> *const std::ffi::c_void;
     }
 
     #[link(name = "test_msgs__rosidl_generator_c")]
@@ -681,8 +681,8 @@ pub mod rmw {
 
     #[link(name = "test_msgs__rosidl_typesupport_c")]
     unsafe extern "C" {
-        fn rosidl_typesupport_c__get_message_type_support_handle__test_msgs__msg__BoundedSequences(
-        ) -> *const std::ffi::c_void;
+        fn rosidl_typesupport_c__get_message_type_support_handle__test_msgs__msg__BoundedSequences()
+        -> *const std::ffi::c_void;
     }
 
     #[link(name = "test_msgs__rosidl_generator_c")]
@@ -800,8 +800,8 @@ pub mod rmw {
 
     #[link(name = "test_msgs__rosidl_typesupport_c")]
     unsafe extern "C" {
-        fn rosidl_typesupport_c__get_message_type_support_handle__test_msgs__msg__Constants(
-        ) -> *const std::ffi::c_void;
+        fn rosidl_typesupport_c__get_message_type_support_handle__test_msgs__msg__Constants()
+        -> *const std::ffi::c_void;
     }
 
     #[link(name = "test_msgs__rosidl_generator_c")]
@@ -901,8 +901,8 @@ pub mod rmw {
 
     #[link(name = "test_msgs__rosidl_typesupport_c")]
     unsafe extern "C" {
-        fn rosidl_typesupport_c__get_message_type_support_handle__test_msgs__msg__Defaults(
-        ) -> *const std::ffi::c_void;
+        fn rosidl_typesupport_c__get_message_type_support_handle__test_msgs__msg__Defaults()
+        -> *const std::ffi::c_void;
     }
 
     #[link(name = "test_msgs__rosidl_generator_c")]
@@ -998,8 +998,8 @@ pub mod rmw {
 
     #[link(name = "test_msgs__rosidl_typesupport_c")]
     unsafe extern "C" {
-        fn rosidl_typesupport_c__get_message_type_support_handle__test_msgs__msg__Empty(
-        ) -> *const std::ffi::c_void;
+        fn rosidl_typesupport_c__get_message_type_support_handle__test_msgs__msg__Empty()
+        -> *const std::ffi::c_void;
     }
 
     #[link(name = "test_msgs__rosidl_generator_c")]
@@ -1081,8 +1081,8 @@ pub mod rmw {
 
     #[link(name = "test_msgs__rosidl_typesupport_c")]
     unsafe extern "C" {
-        fn rosidl_typesupport_c__get_message_type_support_handle__test_msgs__msg__MultiNested(
-        ) -> *const std::ffi::c_void;
+        fn rosidl_typesupport_c__get_message_type_support_handle__test_msgs__msg__MultiNested()
+        -> *const std::ffi::c_void;
     }
 
     #[link(name = "test_msgs__rosidl_generator_c")]
@@ -1185,8 +1185,8 @@ pub mod rmw {
 
     #[link(name = "test_msgs__rosidl_typesupport_c")]
     unsafe extern "C" {
-        fn rosidl_typesupport_c__get_message_type_support_handle__test_msgs__msg__Nested(
-        ) -> *const std::ffi::c_void;
+        fn rosidl_typesupport_c__get_message_type_support_handle__test_msgs__msg__Nested()
+        -> *const std::ffi::c_void;
     }
 
     #[link(name = "test_msgs__rosidl_generator_c")]
@@ -1268,8 +1268,8 @@ pub mod rmw {
 
     #[link(name = "test_msgs__rosidl_typesupport_c")]
     unsafe extern "C" {
-        fn rosidl_typesupport_c__get_message_type_support_handle__test_msgs__msg__Strings(
-        ) -> *const std::ffi::c_void;
+        fn rosidl_typesupport_c__get_message_type_support_handle__test_msgs__msg__Strings()
+        -> *const std::ffi::c_void;
     }
 
     #[link(name = "test_msgs__rosidl_generator_c")]
@@ -1366,8 +1366,8 @@ pub mod rmw {
 
     #[link(name = "test_msgs__rosidl_typesupport_c")]
     unsafe extern "C" {
-        fn rosidl_typesupport_c__get_message_type_support_handle__test_msgs__msg__UnboundedSequences(
-        ) -> *const std::ffi::c_void;
+        fn rosidl_typesupport_c__get_message_type_support_handle__test_msgs__msg__UnboundedSequences()
+        -> *const std::ffi::c_void;
     }
 
     #[link(name = "test_msgs__rosidl_generator_c")]
@@ -1485,8 +1485,8 @@ pub mod rmw {
 
     #[link(name = "test_msgs__rosidl_typesupport_c")]
     unsafe extern "C" {
-        fn rosidl_typesupport_c__get_message_type_support_handle__test_msgs__msg__WStrings(
-        ) -> *const std::ffi::c_void;
+        fn rosidl_typesupport_c__get_message_type_support_handle__test_msgs__msg__WStrings()
+        -> *const std::ffi::c_void;
     }
 
     #[link(name = "test_msgs__rosidl_generator_c")]
@@ -1577,8 +1577,8 @@ pub mod rmw {
 
     #[link(name = "test_msgs__rosidl_typesupport_c")]
     unsafe extern "C" {
-        fn rosidl_typesupport_c__get_message_type_support_handle__test_msgs__msg__Builtins(
-        ) -> *const std::ffi::c_void;
+        fn rosidl_typesupport_c__get_message_type_support_handle__test_msgs__msg__Builtins()
+        -> *const std::ffi::c_void;
     }
 
     #[link(name = "test_msgs__rosidl_generator_c")]

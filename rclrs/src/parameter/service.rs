@@ -8,8 +8,8 @@ use rosidl_runtime_rs::Sequence;
 
 use super::ParameterMap;
 use crate::{
-    parameter::{DeclaredValue, ParameterKind, ParameterStorage},
     IntoPrimitiveOptions, Node, QoSProfile, RclrsError, Service,
+    parameter::{DeclaredValue, ParameterKind, ParameterStorage},
 };
 
 // The variables only exist to keep a strong reference to the services and are technically unused.
@@ -315,11 +315,11 @@ mod tests {
         },
         *,
     };
-    use rosidl_runtime_rs::{seq, Sequence};
+    use rosidl_runtime_rs::{Sequence, seq};
     use std::{
         sync::{
-            atomic::{AtomicBool, Ordering},
             Arc,
+            atomic::{AtomicBool, Ordering},
         },
         time::Duration,
     };

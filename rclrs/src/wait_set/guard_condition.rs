@@ -4,8 +4,8 @@ use std::{
 };
 
 use crate::{
-    rcl_bindings::*, ContextHandle, RclPrimitive, RclPrimitiveHandle, RclPrimitiveKind, RclrsError,
-    ReadyKind, ToResult, Waitable, WaitableLifecycle,
+    ContextHandle, RclPrimitive, RclPrimitiveHandle, RclPrimitiveKind, RclrsError, ReadyKind,
+    ToResult, Waitable, WaitableLifecycle, rcl_bindings::*,
 };
 
 /// A waitable entity used for waking up a wait set manually.
