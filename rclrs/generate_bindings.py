@@ -20,7 +20,7 @@ def main():
     bindgen_command.append('--rust-edition')
     bindgen_command.append('2021')
     bindgen_command.append('--rust-target')
-    bindgen_command.append('1.75')
+    bindgen_command.append('1.85')
     bindgen_command.append('--no-derive-copy')
     bindgen_command.append('--allowlist-type')
     bindgen_command.append('rcl_.*')
