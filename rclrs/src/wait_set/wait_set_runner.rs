@@ -1,20 +1,20 @@
 use futures::channel::{
-    mpsc::{unbounded, UnboundedReceiver, UnboundedSender},
+    mpsc::{UnboundedReceiver, UnboundedSender, unbounded},
     oneshot::channel,
 };
 
 use std::{
     any::Any,
     sync::{
-        atomic::{AtomicBool, Ordering},
         Arc, Mutex,
+        atomic::{AtomicBool, Ordering},
     },
     time::{Duration, Instant},
 };
 
 use crate::{
-    log_debug, log_fatal, ActivityListenerCallback, Context, ExecutorWorkerOptions, GuardCondition,
-    PayloadTask, Promise, RclReturnCode, RclrsError, WaitSet, Waitable, WeakActivityListener,
+    ActivityListenerCallback, Context, ExecutorWorkerOptions, GuardCondition, PayloadTask, Promise,
+    RclReturnCode, RclrsError, WaitSet, Waitable, WeakActivityListener, log_debug, log_fatal,
 };
 
 /// This is a utility class that executors can use to easily run and manage

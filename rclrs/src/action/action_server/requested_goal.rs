@@ -2,7 +2,7 @@ use super::{
     AcceptedGoal, ActionServerGoalBoard, ActionServerGoalHandle, LiveActionServerGoal,
     TerminatedGoal,
 };
-use crate::{log_error, rcl_bindings::*, GoalUuid, RclrsError, RclrsErrorFilter, ToResult};
+use crate::{GoalUuid, RclrsError, RclrsErrorFilter, ToResult, log_error, rcl_bindings::*};
 use rosidl_runtime_rs::Action;
 use std::sync::Arc;
 

@@ -1,8 +1,8 @@
 use std::{borrow::Borrow, ffi::CString, sync::Arc};
 
 use crate::{
+    ENTITY_LIFECYCLE_MUTEX, LogParams, LogSeverity, LoggerName, RclrsError, ToLogParams, ToResult,
     rcl_bindings::{rcutils_logging_set_default_logger_level, rcutils_logging_set_logger_level},
-    LogParams, LogSeverity, LoggerName, RclrsError, ToLogParams, ToResult, ENTITY_LIFECYCLE_MUTEX,
 };
 
 /// Logger can be passed in as the first argument into one of the [logging][1]

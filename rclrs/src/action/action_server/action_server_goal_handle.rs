@@ -1,7 +1,7 @@
 use super::GoalStatusCode;
 use crate::{
-    log_error, rcl_bindings::*, ActionServerHandle, GoalUuid, RclErrorMsg, RclReturnCode,
-    RclrsError, ToResult,
+    ActionServerHandle, GoalUuid, RclErrorMsg, RclReturnCode, RclrsError, ToResult, log_error,
+    rcl_bindings::*,
 };
 use rosidl_runtime_rs::{Action, RmwResultResponse};
 use std::sync::{Mutex, MutexGuard};

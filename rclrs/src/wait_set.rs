@@ -1,10 +1,10 @@
 use std::{collections::HashMap, sync::Arc, time::Duration, vec::Vec};
 
 use crate::{
-    error::{to_rclrs_result, RclReturnCode, RclrsError, ToResult},
+    Context, ContextHandle,
+    error::{RclReturnCode, RclrsError, ToResult, to_rclrs_result},
     log_error,
     rcl_bindings::*,
-    Context, ContextHandle,
 };
 
 mod guard_condition;
@@ -111,7 +111,7 @@ impl WaitSet {
                 return Err(RclrsError::RclError {
                     code: RclReturnCode::InvalidArgument,
                     msg: None,
-                })
+                });
             }
         };
 

@@ -2,7 +2,7 @@ use super::{
     ActionServerGoalHandle, ActionServerHandle, CancellationRequest, CancellationState,
     GoalStatusCode, TerminalStatus,
 };
-use crate::{log_error, rcl_bindings::*, RclrsError, ToResult};
+use crate::{RclrsError, ToResult, log_error, rcl_bindings::*};
 use rosidl_runtime_rs::{Action, Message};
 use std::{borrow::Cow, ops::Deref, sync::Arc};
 

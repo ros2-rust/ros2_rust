@@ -5,7 +5,7 @@ use std::{
     sync::PoisonError,
 };
 
-use crate::{rcl_bindings::*, DeclarationError, ReadyKind};
+use crate::{DeclarationError, ReadyKind, rcl_bindings::*};
 
 /// The main error type.
 #[derive(Debug, PartialEq, Eq)]

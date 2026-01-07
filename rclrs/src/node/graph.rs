@@ -3,7 +3,7 @@ use std::{
     ffi::{CStr, CString},
 };
 
-use crate::{rcl_bindings::*, NodeState, RclrsError, ToResult};
+use crate::{NodeState, RclrsError, ToResult, rcl_bindings::*};
 
 impl Drop for rmw_names_and_types_t {
     fn drop(&mut self) {
@@ -72,14 +72,16 @@ impl NodeState {
             node_namespace: *const ::std::os::raw::c_char,
             topic_names_and_types: *mut rcl_names_and_types_t,
         ) -> rcl_ret_t {
-            rcl_get_publisher_names_and_types_by_node(
-                node,
-                allocator,
-                false,
-                node_name,
-                node_namespace,
-                topic_names_and_types,
-            )
+            unsafe {
+                rcl_get_publisher_names_and_types_by_node(
+                    node,
+                    allocator,
+                    false,
+                    node_name,
+                    node_namespace,
+                    topic_names_and_types,
+                )
+            }
         }
 
         self.get_names_and_types_by_node(node, namespace, wrapper)
@@ -99,14 +101,16 @@ impl NodeState {
             node_namespace: *const ::std::os::raw::c_char,
             topic_names_and_types: *mut rcl_names_and_types_t,
         ) -> rcl_ret_t {
-            rcl_get_subscriber_names_and_types_by_node(
-                node,
-                allocator,
-                false,
-                node_name,
-                node_namespace,
-                topic_names_and_types,
-            )
+            unsafe {
+                rcl_get_subscriber_names_and_types_by_node(
+                    node,
+                    allocator,
+                    false,
+                    node_name,
+                    node_namespace,
+                    topic_names_and_types,
+                )
+            }
         }
 
         self.get_names_and_types_by_node(node, namespace, wrapper)

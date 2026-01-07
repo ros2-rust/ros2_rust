@@ -1,6 +1,6 @@
 use super::GoalClientLifecycle;
 use crate::GoalStatusCode;
-use futures::{future::Shared, FutureExt};
+use futures::{FutureExt, future::Shared};
 use rosidl_runtime_rs::Action;
 use std::{
     future::Future,

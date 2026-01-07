@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex, OnceLock, Weak};
 
-use crate::{rcl_bindings::*, RclrsError, ToResult, ENTITY_LIFECYCLE_MUTEX};
+use crate::{ENTITY_LIFECYCLE_MUTEX, RclrsError, ToResult, rcl_bindings::*};
 
 struct LoggingConfiguration {
     lifecycle: Mutex<Weak<LoggingLifecycle>>,
@@ -63,12 +63,12 @@ pub(crate) mod log_handler {
         borrow::Cow,
         ffi::CStr,
         sync::{
-            atomic::{AtomicBool, Ordering},
             OnceLock,
+            atomic::{AtomicBool, Ordering},
         },
     };
 
-    use crate::{rcl_bindings::*, LogSeverity, ENTITY_LIFECYCLE_MUTEX};
+    use crate::{ENTITY_LIFECYCLE_MUTEX, LogSeverity, rcl_bindings::*};
 
     /// Global variable that allows a custom log handler to be set. This log
     /// handler will be applied throughout the entire application and cannot be
@@ -217,7 +217,7 @@ pub(crate) mod log_handler {
 
     /// This function exists so that we can give a raw function pointer to
     /// rcutils_logging_set_output_handler, which is needed by its API.
-    extern "C" fn rclrs_logging_output_handler(
+    unsafe extern "C" fn rclrs_logging_output_handler(
         location: *const rcutils_log_location_t,
         severity: std::os::raw::c_int,
         logger_name: *const std::os::raw::c_char,

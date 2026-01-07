@@ -1,17 +1,16 @@
 use std::{
     borrow::Borrow,
     ffi::{CStr, CString},
-    sync::{atomic::AtomicBool, Arc, Mutex},
+    sync::{Arc, Mutex, atomic::AtomicBool},
 };
 
 use futures::channel::mpsc::unbounded;
 
 use crate::{
-    node::node_graph_task::{node_graph_task, NodeGraphAction},
+    ClockType, ENTITY_LIFECYCLE_MUTEX, ExecutorCommands, GuardCondition, Logger, Node, NodeHandle,
+    NodeState, ParameterInterface, QOS_PROFILE_CLOCK, QoSProfile, RclrsError, TimeSource, ToResult,
+    node::node_graph_task::{NodeGraphAction, node_graph_task},
     rcl_bindings::*,
-    ClockType, ExecutorCommands, GuardCondition, Logger, Node, NodeHandle, NodeState,
-    ParameterInterface, QoSProfile, RclrsError, TimeSource, ToResult, ENTITY_LIFECYCLE_MUTEX,
-    QOS_PROFILE_CLOCK,
 };
 
 /// This trait helps to build [`NodeOptions`] which can be passed into

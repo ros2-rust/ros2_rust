@@ -1,6 +1,6 @@
 use std::{any::Any, sync::MutexGuard};
 
-use crate::{log_error, rcl_bindings::*, InnerGuardConditionHandle, RclrsError, ToResult};
+use crate::{InnerGuardConditionHandle, RclrsError, ToResult, log_error, rcl_bindings::*};
 
 /// This provides the public API for executing a waitable item.
 pub trait RclPrimitive: Send + Sync {
@@ -21,7 +21,7 @@ pub trait RclPrimitive: Send + Sync {
     /// [2]: crate::WorkerChannel
     /// [3]: crate::Worker
     unsafe fn execute(&mut self, ready: ReadyKind, payload: &mut dyn Any)
-        -> Result<(), RclrsError>;
+    -> Result<(), RclrsError>;
 
     /// Indicate what kind of primitive this is.
     fn kind(&self) -> RclPrimitiveKind;

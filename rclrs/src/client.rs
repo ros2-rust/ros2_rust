@@ -8,9 +8,9 @@ use std::{
 use rosidl_runtime_rs::Message;
 
 use crate::{
-    error::ToResult, log_fatal, rcl_bindings::*, IntoPrimitiveOptions, MessageCow, Node, Promise,
-    QoSProfile, RclPrimitive, RclPrimitiveHandle, RclPrimitiveKind, RclReturnCode, RclrsError,
-    ReadyKind, ServiceInfo, Waitable, WaitableLifecycle, ENTITY_LIFECYCLE_MUTEX,
+    ENTITY_LIFECYCLE_MUTEX, IntoPrimitiveOptions, MessageCow, Node, Promise, QoSProfile,
+    RclPrimitive, RclPrimitiveHandle, RclPrimitiveKind, RclReturnCode, RclrsError, ReadyKind,
+    ServiceInfo, Waitable, WaitableLifecycle, error::ToResult, log_fatal, rcl_bindings::*,
 };
 
 mod client_async_callback;

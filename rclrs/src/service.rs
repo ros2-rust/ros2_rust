@@ -8,9 +8,9 @@ use std::{
 use rosidl_runtime_rs::{Message, Service as ServiceIDL};
 
 use crate::{
-    error::ToResult, rcl_bindings::*, IntoPrimitiveOptions, MessageCow, Node, NodeHandle,
-    QoSProfile, RclPrimitive, RclPrimitiveHandle, RclPrimitiveKind, RclrsError, ReadyKind,
-    Waitable, WaitableLifecycle, WorkScope, Worker, WorkerCommands, ENTITY_LIFECYCLE_MUTEX,
+    ENTITY_LIFECYCLE_MUTEX, IntoPrimitiveOptions, MessageCow, Node, NodeHandle, QoSProfile,
+    RclPrimitive, RclPrimitiveHandle, RclPrimitiveKind, RclrsError, ReadyKind, Waitable,
+    WaitableLifecycle, WorkScope, Worker, WorkerCommands, error::ToResult, rcl_bindings::*,
 };
 
 mod any_service_callback;
@@ -405,7 +405,7 @@ mod tests {
 
     #[test]
     fn test_services() -> Result<(), RclrsError> {
-        use crate::{vendor::test_msgs::srv, TopicNamesAndTypes};
+        use crate::{TopicNamesAndTypes, vendor::test_msgs::srv};
 
         let namespace = "/test_services_graph";
         let graph = construct_test_graph(namespace)?;

@@ -7,9 +7,9 @@ use std::{
 use rosidl_runtime_rs::{Message, RmwMessage};
 
 use crate::{
-    error::ToResult, qos::QoSProfile, rcl_bindings::*, IntoPrimitiveOptions, Node, NodeHandle,
-    RclPrimitive, RclPrimitiveHandle, RclPrimitiveKind, RclrsError, ReadyKind, Waitable,
-    WaitableLifecycle, WorkScope, Worker, WorkerCommands, ENTITY_LIFECYCLE_MUTEX,
+    ENTITY_LIFECYCLE_MUTEX, IntoPrimitiveOptions, Node, NodeHandle, RclPrimitive,
+    RclPrimitiveHandle, RclPrimitiveKind, RclrsError, ReadyKind, Waitable, WaitableLifecycle,
+    WorkScope, Worker, WorkerCommands, error::ToResult, qos::QoSProfile, rcl_bindings::*,
 };
 
 mod any_subscription_callback;
@@ -529,8 +529,8 @@ mod tests {
     fn test_delayed_subscription() {
         use crate::{vendor::example_interfaces::msg::Empty, *};
         use futures::{
-            channel::{mpsc, oneshot},
             StreamExt,
+            channel::{mpsc, oneshot},
         };
         use std::sync::atomic::{AtomicBool, Ordering};
 

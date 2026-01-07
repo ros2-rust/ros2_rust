@@ -1,4 +1,4 @@
-use crate::{rcl_bindings::RCUTILS_LOG_SEVERITY, Clock};
+use crate::{Clock, rcl_bindings::RCUTILS_LOG_SEVERITY};
 use std::{borrow::Borrow, ffi::CString, time::Duration};
 
 /// These parameters determine the behavior of an instance of logging.

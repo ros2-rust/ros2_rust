@@ -1,12 +1,11 @@
 use super::empty_goal_status_array;
 use crate::{
-    log_warn,
+    CancelResponse, CancelResponseCode, DropGuard, ENTITY_LIFECYCLE_MUTEX, GoalStatus,
+    GoalStatusCode, GoalUuid, MultiCancelResponse, Node, NodeHandle, QoSProfile, RclPrimitive,
+    RclPrimitiveHandle, RclPrimitiveKind, RclrsError, ReadyKind, TakeFailedAsNone, ToResult,
+    Waitable, WaitableLifecycle, log_warn,
     rcl_bindings::*,
     vendor::{action_msgs::srv::CancelGoal_Response, builtin_interfaces::msg::Time},
-    CancelResponse, CancelResponseCode, DropGuard, GoalStatus, GoalStatusCode, GoalUuid,
-    MultiCancelResponse, Node, NodeHandle, QoSProfile, RclPrimitive, RclPrimitiveHandle,
-    RclPrimitiveKind, RclrsError, ReadyKind, TakeFailedAsNone, ToResult, Waitable,
-    WaitableLifecycle, ENTITY_LIFECYCLE_MUTEX,
 };
 use rosidl_runtime_rs::{Action, Message, RmwFeedbackMessage, RmwGoalResponse, RmwResultResponse};
 use std::{
@@ -17,8 +16,8 @@ use std::{
     sync::{Arc, Mutex, MutexGuard, Weak},
 };
 use tokio::sync::{
-    mpsc::{unbounded_channel, UnboundedSender},
-    oneshot::{channel as oneshot_channel, Sender},
+    mpsc::{UnboundedSender, unbounded_channel},
+    oneshot::{Sender, channel as oneshot_channel},
     watch::Sender as WatchSender,
 };
 

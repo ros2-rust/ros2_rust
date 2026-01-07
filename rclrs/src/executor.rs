@@ -8,14 +8,14 @@ use crate::{
 pub use futures::channel::oneshot::Receiver as Promise;
 use futures::{
     channel::oneshot,
-    future::{select, BoxFuture, Either},
+    future::{BoxFuture, Either, select},
 };
 use std::{
     any::Any,
     future::Future,
     sync::{
-        atomic::{AtomicBool, Ordering},
         Arc,
+        atomic::{AtomicBool, Ordering},
     },
     time::Duration,
 };

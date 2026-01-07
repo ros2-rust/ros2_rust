@@ -8,7 +8,7 @@ use std::{
     ops::{Deref, DerefMut},
     sync::Arc,
 };
-use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver};
+use tokio::sync::mpsc::{UnboundedReceiver, unbounded_channel};
 
 /// This is an alternative tool for implementing an [`ActionServer`]. Instead of
 /// specifying a callback to receive goal requests, you can use this receiver to

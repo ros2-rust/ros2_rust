@@ -1,15 +1,14 @@
 use super::ActionServerHandle;
 use crate::{
-    log_error,
+    CancelResponseCode, GoalUuid, Node, RclrsErrorFilter, ToResult, log_error,
     rcl_bindings::*,
     vendor::{
         action_msgs::{msg::GoalInfo, srv::CancelGoal_Response},
         unique_identifier_msgs::msg::UUID,
     },
-    CancelResponseCode, GoalUuid, Node, RclrsErrorFilter, ToResult,
 };
 use futures::{
-    future::{select, Either},
+    future::{Either, select},
     pin_mut,
 };
 use futures_lite::future::race;
@@ -20,7 +19,7 @@ use std::{
     future::Future,
     sync::{Arc, Mutex},
 };
-use tokio::sync::watch::{channel as watch_channel, Receiver, Sender};
+use tokio::sync::watch::{Receiver, Sender, channel as watch_channel};
 
 pub(super) struct CancellationState<A: Action> {
     receiver: Receiver<bool>,

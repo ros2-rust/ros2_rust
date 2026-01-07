@@ -1,8 +1,8 @@
 use rosidl_runtime_rs::Message;
 
-use futures::channel::oneshot::{channel, Sender};
+use futures::channel::oneshot::{Sender, channel};
 
-use crate::{rcl_bindings::rmw_service_info_t, Promise, RequestId, ServiceInfo};
+use crate::{Promise, RequestId, ServiceInfo, rcl_bindings::rmw_service_info_t};
 
 /// This trait allows us to deduce how much information a user wants to receive
 /// from a client call. A user can choose to receive only the response from the

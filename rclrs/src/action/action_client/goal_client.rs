@@ -1,6 +1,6 @@
 use crate::{
-    vendor::builtin_interfaces::msg::Time, CancellationClient, FeedbackClient, GoalStatus,
-    GoalStatusCode, ResultClient, StatusWatcher,
+    CancellationClient, FeedbackClient, GoalStatus, GoalStatusCode, ResultClient, StatusWatcher,
+    vendor::builtin_interfaces::msg::Time,
 };
 use rosidl_runtime_rs::Action;
 use std::{

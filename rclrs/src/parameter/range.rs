@@ -1,8 +1,8 @@
 use crate::{
-    vendor::rcl_interfaces::msg::rmw::{FloatingPointRange, IntegerRange},
     DeclarationError, ParameterValue, ParameterVariant,
+    vendor::rcl_interfaces::msg::rmw::{FloatingPointRange, IntegerRange},
 };
-use rosidl_runtime_rs::{seq, BoundedSequence};
+use rosidl_runtime_rs::{BoundedSequence, seq};
 
 impl From<ParameterRange<f64>> for ParameterRanges {
     fn from(params: ParameterRange<f64>) -> Self {

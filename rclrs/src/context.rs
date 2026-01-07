@@ -6,7 +6,7 @@ use std::{
     vec::Vec,
 };
 
-use crate::{rcl_bindings::*, Executor, ExecutorRuntime, LoggingLifecycle, RclrsError, ToResult};
+use crate::{Executor, ExecutorRuntime, LoggingLifecycle, RclrsError, ToResult, rcl_bindings::*};
 
 /// This is locked whenever initializing or dropping any middleware entity
 /// because we have found issues in RCL and some RMW implementations that
