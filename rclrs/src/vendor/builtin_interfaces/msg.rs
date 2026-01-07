@@ -3,13 +3,13 @@ pub mod rmw {
     use serde::{Deserialize, Serialize};
 
     #[link(name = "builtin_interfaces__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__builtin_interfaces__msg__Duration(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "builtin_interfaces__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn builtin_interfaces__msg__Duration__init(msg: *mut Duration) -> bool;
         fn builtin_interfaces__msg__Duration__Sequence__init(
             seq: *mut rosidl_runtime_rs::Sequence<Duration>,
@@ -89,13 +89,13 @@ pub mod rmw {
     }
 
     #[link(name = "builtin_interfaces__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__builtin_interfaces__msg__Time(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "builtin_interfaces__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn builtin_interfaces__msg__Time__init(msg: *mut Time) -> bool;
         fn builtin_interfaces__msg__Time__Sequence__init(
             seq: *mut rosidl_runtime_rs::Sequence<Time>,
