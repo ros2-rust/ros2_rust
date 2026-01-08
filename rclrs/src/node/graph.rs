@@ -490,7 +490,7 @@ mod tests {
 
         let check_rosout = |topics: HashMap<String, Vec<String>>| {
             // rosout shows up in humble and iron, even if the graph is empty
-            #[cfg(any(ros_distro = "humble"))]
+            #[cfg(ros_distro = "humble")]
             {
                 assert_eq!(topics.len(), 1);
                 assert_eq!(
