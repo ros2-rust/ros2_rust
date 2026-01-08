@@ -134,7 +134,7 @@ fn main() {
                 })
                 .collect();
 
-            format!("pub mod {package} {{ {internal_mods} }}")
+            format!("#[allow(unused_imports, missing_docs)]\npub mod {package} {{ {internal_mods} }}")
         })
         .collect();
 
