@@ -847,7 +847,7 @@ impl<A: Action> RclPrimitive for ActionClientExecutable<A> {
         RclPrimitiveKind::ActionClient
     }
 
-    fn handle(&self) -> crate::RclPrimitiveHandle {
+    fn handle(&self) -> crate::RclPrimitiveHandle<'_> {
         RclPrimitiveHandle::ActionClient(self.board.handle.lock())
     }
 }
@@ -863,7 +863,7 @@ pub struct ActionClientHandle {
 }
 
 impl ActionClientHandle {
-    fn lock(&self) -> MutexGuard<rcl_action_client_t> {
+    fn lock(&self) -> MutexGuard<'_, rcl_action_client_t> {
         self.rcl_action_client.lock().unwrap()
     }
 

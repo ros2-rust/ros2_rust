@@ -36,7 +36,7 @@ impl<'a> LogParams<'a> {
     }
 
     /// Get the logger name
-    pub fn get_logger_name(&self) -> &LoggerName {
+    pub fn get_logger_name(&self) -> &LoggerName<'_> {
         &self.logger_name
     }
 

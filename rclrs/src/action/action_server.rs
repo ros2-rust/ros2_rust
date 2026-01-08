@@ -662,7 +662,7 @@ impl<A: Action> RclPrimitive for ActionServerExecutable<A> {
         RclPrimitiveKind::ActionServer
     }
 
-    fn handle(&self) -> RclPrimitiveHandle {
+    fn handle(&self) -> RclPrimitiveHandle<'_> {
         RclPrimitiveHandle::ActionServer(self.board.handle.lock())
     }
 }
@@ -687,7 +687,7 @@ pub(crate) struct ActionServerHandle<A: Action> {
 unsafe impl Send for rcl_action_server_t {}
 
 impl<A: Action> ActionServerHandle<A> {
-    pub(super) fn lock(&self) -> MutexGuard<rcl_action_server_t> {
+    pub(super) fn lock(&self) -> MutexGuard<'_, rcl_action_server_t> {
         self.rcl_action_server.lock().unwrap()
     }
 
