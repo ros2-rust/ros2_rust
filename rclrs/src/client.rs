@@ -159,7 +159,7 @@ where
     /// signatures and which returns a `()` (a.k.a. nothing).
     /// ```
     /// # use rclrs::*;
-    /// # use crate::rclrs::vendor::test_msgs;
+    /// # use crate::rclrs::test_msgs;
     /// # let node = Context::default()
     /// #   .create_basic_executor()
     /// #   .create_node("test_node")?;
@@ -187,7 +187,7 @@ where
     ///
     /// ```
     /// # use rclrs::*;
-    /// # use crate::rclrs::vendor::test_msgs;
+    /// # use crate::rclrs::test_msgs;
     /// # use std::future::Future;
     /// # let node = Context::default()
     /// #   .create_basic_executor()
@@ -216,7 +216,7 @@ where
     ///
     /// ```
     /// # use rclrs::*;
-    /// # use crate::rclrs::vendor::test_msgs;
+    /// # use crate::rclrs::test_msgs;
     /// # let node = Context::default()
     /// #   .create_basic_executor()
     /// #   .create_node("test_node")?;
@@ -568,7 +568,7 @@ unsafe impl Send for rcl_client_t {}
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{test_helpers::*, vendor::test_msgs};
+    use crate::{test_helpers::*, test_msgs};
 
     #[test]
     fn traits() {

@@ -9,7 +9,7 @@ pub use action_goal_receiver::*;
 pub(crate) mod action_server;
 pub use action_server::*;
 
-use crate::{log_error, rcl_bindings::*, vendor::builtin_interfaces::msg::Time, DropGuard};
+use crate::{builtin_interfaces::msg::Time, log_error, rcl_bindings::*, DropGuard};
 use std::fmt;
 
 #[cfg(feature = "serde")]
@@ -256,7 +256,7 @@ fn empty_goal_status_array() -> DropGuard<rcl_action_goal_status_array_t> {
 #[cfg(test)]
 mod tests {
     use crate::{
-        vendor::example_interfaces::action::{
+        example_interfaces::action::{
             Fibonacci, Fibonacci_Feedback, Fibonacci_Goal, Fibonacci_Result,
         },
         *,

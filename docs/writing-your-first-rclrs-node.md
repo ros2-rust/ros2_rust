@@ -44,7 +44,7 @@ Instead, you can store the node as a regular member. Let's add a struct that con
 
 ```rust
 use std::sync::Arc;
-use std_msgs::msg::String as StringMsg;
+use rclrs::std_msgs::msg::String as StringMsg;
 
 struct RepublisherNode {
     node: Arc<rclrs::Node>,
@@ -111,7 +111,7 @@ So, to store the received data in the struct, the following things have to chang
 
 ```rust
 use std::sync::{Arc, Mutex};  // (1)
-use std_msgs::msg::String as StringMsg;
+use rclrs::std_msgs::msg::String as StringMsg;
 
 struct RepublisherNode {
     node: Arc<rclrs::Node>,

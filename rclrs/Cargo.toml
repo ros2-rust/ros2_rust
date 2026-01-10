@@ -31,6 +31,8 @@ futures-lite = { version = "2.6", features = ["std", "race"] }
 
 # Needed for the runtime-agnostic timeout feature
 async-std = "1.13"
+# NOTE(sam): needed to make sure we can compile with rustc 1.75
+async-lock = ">=3, <3.4.2"
 
 # Needed for dynamic messages
 libloading = { version = "0.8", optional = true }
@@ -54,6 +56,8 @@ tokio-stream = "0.1"
 # Needed by action clients to generate UUID values for their goals
 uuid = { version = "1", features = ["v4"] }
 
+paste = { version = "1", optional = true}
+
 [dev-dependencies]
 # Needed for e.g. writing yaml files in tests
 tempfile = "3.3.0"
@@ -65,13 +69,19 @@ tokio = { version = "1", features = ["rt", "time", "macros"] }
 cfg-if = "1.0.0"
 rustflags = "0.1"
 
+# Used to read Cargo.toml dependencies when re-exporting generated crates
+cargo_toml = "0.14"
+
+# Helper crate for working with AMENT_PREFIX_PATH
+ament_rs = "0.3"
+
 [features]
 default = []
 dyn_msg = ["ament_rs", "libloading"]
 serde = ["dep:serde", "dep:serde-big-array", "rosidl_runtime_rs/serde"]
 # This feature is solely for the purpose of being able to generate documetation without a ROS installation
 # The only intended usage of this feature is for docs.rs builders to work, and is not intended to be used by end users
-use_ros_shim = ["rosidl_runtime_rs/use_ros_shim"]
+use_ros_shim = ["paste", "rosidl_runtime_rs/use_ros_shim"]
 
 [package.metadata.docs.rs]
 features = ["use_ros_shim"]

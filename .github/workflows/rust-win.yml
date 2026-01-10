@@ -40,6 +40,8 @@ jobs:
         # prerequisites and fixes for windows build ros2_rust:
         #     * Libclang has to be added (from the ros2_rust instructions) and the dll has to be renamed
         #     * colcon-ros-cargo and colcon-cargo have to be added as PyPI packages
+        #     * cargo-ament-build is manually installed from github for now to include the change to skip
+        #         installing the marker file if the package should be reexported
         run: |
           pixi add libclang --manifest-path C:\pixi_ws\pixi.toml
           $src = "C:\pixi_ws\.pixi\envs\default\Library\bin\libclang-13.dll"
@@ -48,6 +50,7 @@ jobs:
           pixi add --pypi "colcon-ros-cargo@git+https://github.com/colcon/colcon-ros-cargo.git" --manifest-path C:\pixi_ws\pixi.toml
           pixi add --pypi "colcon-cargo@git+https://github.com/colcon/colcon-cargo.git" --manifest-path C:\pixi_ws\pixi.toml
           pixi upgrade colcon-core --manifest-path C:\pixi_ws\pixi.toml
+          cargo install --git https://git@github.com/maspe36/cargo-ament-build.git --branch feature/skip_reexport_marker_file
 
       - name: Get prebuild ROS files and unzip
         run: |

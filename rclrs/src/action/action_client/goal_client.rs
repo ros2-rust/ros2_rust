@@ -1,6 +1,6 @@
 use crate::{
-    vendor::builtin_interfaces::msg::Time, CancellationClient, FeedbackClient, GoalStatus,
-    GoalStatusCode, ResultClient, StatusWatcher,
+    builtin_interfaces::msg::Time, CancellationClient, FeedbackClient, GoalStatus, GoalStatusCode,
+    ResultClient, StatusWatcher,
 };
 use rosidl_runtime_rs::Action;
 use std::{
@@ -96,7 +96,7 @@ impl<A: Action> GoalClient<A> {
 ///
 /// ```
 /// use rclrs::*;
-/// use crate::rclrs::vendor::example_interfaces::action::Fibonacci;
+/// use crate::rclrs::example_interfaces::action::Fibonacci;
 /// use futures::StreamExt;
 ///
 /// async fn process_goal_client_stream(

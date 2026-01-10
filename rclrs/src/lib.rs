@@ -32,7 +32,7 @@
 //!
 //! ```no_run
 //! use rclrs::*;
-//! # use crate::rclrs::vendor::example_interfaces;
+//! # use crate::rclrs::example_interfaces;
 //!
 //! let context = Context::default_from_env()?;
 //! let mut executor = context.create_basic_executor();
@@ -59,7 +59,7 @@
 //! # let context = Context::default_from_env()?;
 //! # let mut executor = context.create_basic_executor();
 //! # let node = executor.create_node("example_node")?;
-//! # use crate::rclrs::vendor::example_interfaces;
+//! # use crate::rclrs::example_interfaces;
 //! #
 //! // This worker will manage the data for us.
 //! // The worker's data is called its payload.
@@ -99,7 +99,7 @@
 //! The following is a simple example of using a mandatory parameter:
 //! ```no_run
 //! use rclrs::*;
-//! # use crate::rclrs::vendor::example_interfaces;
+//! # use crate::rclrs::example_interfaces;
 //! use std::sync::Arc;
 //!
 //! let mut executor = Context::default_from_env()?.create_basic_executor();
@@ -129,7 +129,7 @@
 //!
 //! ```no_run
 //! use rclrs::*;
-//! # use crate::rclrs::vendor::example_interfaces;
+//! # use crate::rclrs::example_interfaces;
 //! use std::time::Duration;
 //!
 //! let mut executor = Context::default_from_env()?.create_basic_executor();
@@ -196,7 +196,6 @@ mod subscription;
 mod time;
 mod time_source;
 mod timer;
-pub mod vendor;
 mod wait_set;
 mod worker;
 
@@ -205,8 +204,17 @@ mod test_helpers;
 
 mod rcl_bindings;
 
+include!(concat!(env!("OUT_DIR"), "/interfaces.rs"));
+
 #[cfg(feature = "dyn_msg")]
 pub mod dynamic_message;
+
+#[cfg(feature="use_ros_shim")]
+#[allow(missing_docs)]
+pub mod vendor;
+
+#[cfg(feature="use_ros_shim")]
+pub use vendor::*;
 
 pub use action::*;
 pub use arguments::*;

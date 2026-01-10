@@ -94,7 +94,7 @@ To construct a node, replace the code in your `main.rs` file with the following:
 /// methods to publish a simple "Hello World" message on a loop in separate threads.
 use rclrs::{create_node, Context, Node, Publisher, RclrsError, QOS_PROFILE_DEFAULT};
 use std::{env, sync::Arc, thread, time::Duration};
-use std_msgs::msg::String as StringMsg;
+use rclrs::std_msgs::msg::String as StringMsg;
 /// SimplePublisherNode struct contains node and publisher members.
 /// Used to initialize a ROS 2 node and publisher, and publish messages.
 struct SimplePublisherNode {
@@ -138,7 +138,7 @@ handling, iteration, threading, ROS 2 communication, and string message publishi
 ```rust
 use rclrs::{create_node, Context, Node, Publisher, RclrsError, QOS_PROFILE_DEFAULT};
 use std::{env, sync::Arc, thread, time::Duration};
-use std_msgs::msg::String as StringMsg;
+use rclrs::std_msgs::msg::String as StringMsg;
 ```
 * `use std::{sync::Arc, time::Duration, iter, thread};`: Imports specific features from the standard library: 
     - `Arc` is for thread-safe shared ownership of data. 
@@ -149,7 +149,7 @@ use std_msgs::msg::String as StringMsg;
         - `RclrsError` for handling errors. 
         - `QOS_PROFILE_DEFAULT` for default Quality of Service settings. 
 - `Context, create_node, Node, Publisher` are for ROS 2 node creation and publishing.
-* `use std_msgs::msg::String as StringMsg;`: Imports the `StringMsg` type for publishing string messages.  
+* `use rclrs::std_msgs::msg::String as StringMsg;`: Imports the `StringMsg` type for publishing string messages.  
 
 #### `SimplePublisherNode`
 Next, this structure defines a `SimplePublisherNode` which holds references to a ROS 2 node and a publisher for string messages.
@@ -291,7 +291,7 @@ use std::{
     thread,
     time::Duration,
 };
-use std_msgs::msg::String as StringMsg;
+use rclrs::std_msgs::msg::String as StringMsg;
 pub struct SimpleSubscriptionNode {
     node: Arc<Node>,
     _subscriber: Arc<Subscription<StringMsg>>,
