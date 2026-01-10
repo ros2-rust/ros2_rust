@@ -209,6 +209,13 @@ include!(concat!(env!("OUT_DIR"), "/interfaces.rs"));
 #[cfg(feature = "dyn_msg")]
 pub mod dynamic_message;
 
+#[cfg(feature="use_ros_shim")]
+#[allow(missing_docs)]
+pub mod vendor;
+
+#[cfg(feature="use_ros_shim")]
+pub use vendor::*;
+
 pub use action::*;
 pub use arguments::*;
 pub use client::*;

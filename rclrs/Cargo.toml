@@ -56,6 +56,8 @@ tokio-stream = "0.1"
 # Needed by action clients to generate UUID values for their goals
 uuid = { version = "1", features = ["v4"] }
 
+paste = { version = "1", optional = true}
+
 [dev-dependencies]
 # Needed for e.g. writing yaml files in tests
 tempfile = "3.3.0"
@@ -79,7 +81,7 @@ dyn_msg = ["ament_rs", "libloading"]
 serde = ["dep:serde", "dep:serde-big-array", "rosidl_runtime_rs/serde"]
 # This feature is solely for the purpose of being able to generate documetation without a ROS installation
 # The only intended usage of this feature is for docs.rs builders to work, and is not intended to be used by end users
-use_ros_shim = ["rosidl_runtime_rs/use_ros_shim"]
+use_ros_shim = ["paste", "rosidl_runtime_rs/use_ros_shim"]
 
 [package.metadata.docs.rs]
 features = ["use_ros_shim"]
