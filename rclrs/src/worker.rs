@@ -1,9 +1,13 @@
 use crate::{
+    dynamic_message::{
+        DynamicMessage, DynamicSubscriptionState, MessageTypeName, WorkerDynamicSubscription,
+        WorkerDynamicSubscriptionCallback,
+    },
     log_fatal, AnyTimerCallback, IntoTimerOptions, IntoWorkerServiceCallback,
     IntoWorkerSubscriptionCallback, IntoWorkerTimerOneshotCallback,
-    IntoWorkerTimerRepeatingCallback, Node, Promise, RclrsError, ServiceOptions, ServiceState,
-    SubscriptionOptions, SubscriptionState, TimerState, WorkerCommands, WorkerService,
-    WorkerSubscription, WorkerTimer,
+    IntoWorkerTimerRepeatingCallback, MessageInfo, Node, Promise, RclrsError, ServiceOptions,
+    ServiceState, SubscriptionOptions, SubscriptionState, TimerState, WorkerCommands,
+    WorkerService, WorkerSubscription, WorkerTimer,
 };
 use futures::channel::oneshot;
 use rosidl_runtime_rs::{Message, Service as ServiceIDL};
@@ -262,6 +266,63 @@ impl<Payload: 'static + Send + Sync> WorkerState<Payload> {
         SubscriptionState::<T, Worker<Payload>>::create(
             options,
             callback.into_worker_subscription_callback(),
+            self.node.handle(),
+            &self.commands,
+        )
+    }
+
+    /// Creates a [`WorkerDynamicSubscription`], whose message type is only known at runtime.
+    ///
+    /// Refer to ['Worker::create_subscription`] for the API and behavior except two key
+    /// differences:
+    ///
+    ///   - The message type is determined at runtime through the `topic_type` function parameter.
+    ///   - Only one type of callback is supported (returning both [`crate::DynamicMessage`] and
+    ///   [`crate::MessageInfo`]).
+    ///
+    /// ```
+    /// # use rclrs::*;
+    /// # let executor = Context::default().create_basic_executor();
+    /// # let node = executor.create_node("my_node").unwrap();
+    /// // The worker's payload is data that we want to share with other callbacks.
+    /// let worker = node.create_worker::<Option<String>>(None);
+    ///
+    /// // This variable will be the mutable internal state of the subscription
+    /// // callback.
+    /// let mut count = 0_usize;
+    ///
+    /// let subscription = worker.create_dynamic_subscription(
+    ///     "example_interfaces/msg/String".try_into()?,
+    ///     "topic",
+    ///     move |data: &mut Option<String>, msg: DynamicMessage, _msg_info: MessageInfo| {
+    ///         count += 1;
+    ///         let value = msg.get("data").unwrap();
+    ///         let Value::Simple(value) = value else {
+    ///             panic!("Unexpected value type, expected Simple value");
+    ///         };
+    ///         let SimpleValue::String(value) = value else {
+    ///             panic!("Unexpected value type, expected String");
+    ///         };
+    ///         println!("#{count} | I heard: '{}'", value);
+    ///
+    ///         *data = Some(value.to_string());
+    ///     },
+    /// )?;
+    /// # Ok::<(), RclrsError>(())
+    /// ```
+    pub fn create_dynamic_subscription<'a, F>(
+        &self,
+        topic_type: MessageTypeName,
+        options: impl Into<SubscriptionOptions<'a>>,
+        callback: F,
+    ) -> Result<WorkerDynamicSubscription<Payload>, RclrsError>
+    where
+        F: FnMut(&mut Payload, DynamicMessage, MessageInfo) + Send + Sync + 'static,
+    {
+        DynamicSubscriptionState::<Worker<Payload>>::create(
+            topic_type,
+            options,
+            WorkerDynamicSubscriptionCallback::new(callback),
             self.node.handle(),
             &self.commands,
         )
@@ -710,6 +771,7 @@ mod tests {
     struct TestPayload {
         subscription_count: usize,
         service_count: usize,
+        dynamic_subscription_count: usize,
     }
 
     #[test]
@@ -724,6 +786,14 @@ mod tests {
             },
         );
 
+        let _count_dynamic_sub = worker.create_dynamic_subscription(
+            "test_msgs/msg/Empty".try_into().unwrap(),
+            "test_worker_topic",
+            |payload: &mut TestPayload, _, _| {
+                payload.dynamic_subscription_count += 1;
+            },
+        );
+
         let _count_srv = worker.create_service::<EmptySrv, _>(
             "test_worker_service",
             |payload: &mut TestPayload, _req: Empty_Request| {
@@ -733,7 +803,10 @@ mod tests {
         );
 
         let promise = worker.listen_until(move |payload| {
-            if payload.service_count > 0 && payload.subscription_count > 0 {
+            if payload.service_count > 0
+                && payload.subscription_count > 0
+                && payload.dynamic_subscription_count > 0
+            {
                 Some(*payload)
             } else {
                 None

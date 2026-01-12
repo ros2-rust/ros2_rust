@@ -100,14 +100,7 @@ where
     /// This returns the topic name after remapping, so it is not necessarily the
     /// topic name which was used when creating the subscription.
     pub fn topic_name(&self) -> String {
-        // SAFETY: The subscription handle is valid because its lifecycle is managed by an Arc.
-        // The unsafe variables get converted to safe types before being returned
-        unsafe {
-            let raw_topic_pointer = rcl_subscription_get_topic_name(&*self.handle.lock());
-            CStr::from_ptr(raw_topic_pointer)
-        }
-        .to_string_lossy()
-        .into_owned()
+        self.handle.topic_name()
     }
 
     /// Returns the QoS settings of the subscription.
@@ -312,14 +305,25 @@ unsafe impl Send for rcl_subscription_t {}
 /// [dropped after][1] the `rcl_subscription_t`.
 ///
 /// [1]: <https://doc.rust-lang.org/reference/destructors.html>
-struct SubscriptionHandle {
-    rcl_subscription: Mutex<rcl_subscription_t>,
-    node_handle: Arc<NodeHandle>,
+pub(crate) struct SubscriptionHandle {
+    pub(crate) rcl_subscription: Mutex<rcl_subscription_t>,
+    pub(crate) node_handle: Arc<NodeHandle>,
 }
 
 impl SubscriptionHandle {
-    fn lock(&self) -> MutexGuard<rcl_subscription_t> {
+    pub(crate) fn lock(&self) -> MutexGuard<rcl_subscription_t> {
         self.rcl_subscription.lock().unwrap()
+    }
+
+    pub(crate) fn topic_name(&self) -> String {
+        // SAFETY: The subscription handle is valid because its lifecycle is managed by an Arc.
+        // The unsafe variables get converted to safe types before being returned
+        unsafe {
+            let raw_topic_pointer = rcl_subscription_get_topic_name(&*self.lock());
+            CStr::from_ptr(raw_topic_pointer)
+        }
+        .to_string_lossy()
+        .into_owned()
     }
 
     /// Fetches a new message.
