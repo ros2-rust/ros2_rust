@@ -35,7 +35,7 @@ impl From<crate::ParameterValue> for DefaultForbidden {
     }
 }
 
-/// Types implementing this trait can delcare their parameters with[`NodeState::declare_parameters`].
+/// Types implementing this trait can declare their parameters with[`NodeState::declare_parameters`].
 /// The trait can be automatically derived using [`rclrs_proc_macros`] if:
 /// - if the type is a struct
 /// - all attributes implement [`StructuredParameters`]
@@ -85,11 +85,11 @@ pub trait StructuredParameters: Sized {
 /// - [`crate::OptionalParameter<T>`]
 /// - [`crate::ReadOnlyParameter<T>`]
 ///
-/// In these cases [`Self`] != [`T`] and forces the usage of a generic trait.
+/// In these cases the type of self [`Self`] is not equal to the [`T`] requires the trait to be generic.
 /// However, a generic trait also requires annotating this default value in the derive macro.
-/// For the container based structured parameters [`T`] is always [`DefaultForbidden`]
+/// For the container based structured parameters [`T`] is always [`DefaultForbidden`],
 /// and therefore we can hide this from the trait + macro by using this helper trait.
-/// The previously mentioned leaf types that actually hold parameters, are to be implemented manually anyway.
+/// The previously mentioned leaf types (that actually hold parameters) are to be implemented manually anyway.
 ///
 pub trait StructuredParametersMeta<T: ParameterVariant>: Sized {
     /// See [`StructuredParameters::declare_structured`]
