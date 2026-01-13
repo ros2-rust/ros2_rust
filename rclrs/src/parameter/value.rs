@@ -501,7 +501,8 @@ impl ParameterValue {
         } else if !var.string_array_value.is_null() {
             unsafe {
                 let rcutils_string_array = &*var.string_array_value;
-                let slice = rcl_from_raw_parts(rcutils_string_array.data, rcutils_string_array.size);
+                let slice =
+                    rcl_from_raw_parts(rcutils_string_array.data, rcutils_string_array.size);
                 let strings = slice
                     .iter()
                     .map(|&ptr| {

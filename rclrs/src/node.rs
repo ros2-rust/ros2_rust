@@ -1508,15 +1508,17 @@ impl<'a> ToLogParams<'a> for &'a NodeState {
 pub(crate) unsafe fn call_string_getter_with_rcl_node(
     rcl_node: &rcl_node_t,
     getter: unsafe extern "C" fn(*const rcl_node_t) -> *const c_char,
-) -> String { unsafe {
-    let char_ptr = getter(rcl_node);
-    debug_assert!(!char_ptr.is_null());
-    // SAFETY: The returned CStr is immediately converted to an owned string,
-    // so the lifetime is no issue. The ptr is valid as per the documentation
-    // of rcl_node_get_name.
-    let cstr = CStr::from_ptr(char_ptr);
-    cstr.to_string_lossy().into_owned()
-}}
+) -> String {
+    unsafe {
+        let char_ptr = getter(rcl_node);
+        debug_assert!(!char_ptr.is_null());
+        // SAFETY: The returned CStr is immediately converted to an owned string,
+        // so the lifetime is no issue. The ptr is valid as per the documentation
+        // of rcl_node_get_name.
+        let cstr = CStr::from_ptr(char_ptr);
+        cstr.to_string_lossy().into_owned()
+    }
+}
 
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
 // they are running in. Therefore, this type can be safely sent to another thread.
