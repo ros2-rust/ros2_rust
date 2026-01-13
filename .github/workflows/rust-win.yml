@@ -31,7 +31,7 @@ jobs:
       - name: Get pixi toml file
         run: irm https://raw.githubusercontent.com/ros2/ros2/refs/heads/rolling/pixi.toml -OutFile C:\pixi_ws\pixi.toml
 
-      - name: Setup Pixi environment woth ROS2 toml file
+      - name: Setup Pixi environment with ROS 2 toml file
         uses: prefix-dev/setup-pixi@v0.8.1
         with:
           manifest-path: C:/pixi_ws/pixi.toml
@@ -49,7 +49,7 @@ jobs:
           pixi add --pypi "colcon-cargo@git+https://github.com/colcon/colcon-cargo.git" --manifest-path C:\pixi_ws\pixi.toml
           pixi upgrade colcon-core --manifest-path C:\pixi_ws\pixi.toml
 
-      - name: Get prebuild ROS files and unzip
+      - name: Get prebuilt ROS files and unzip
         run: |
           irm https://github.com/knmcguire/ros2/releases/download/temp_win_v.0.0.1/ros2-package-windows-AMD64.zip -Outfile ros2-package-windows-AMD64.zip
           Expand-Archive -Path ros2-package-windows-AMD64.zip -DestinationPath C:/pixi_ws/
