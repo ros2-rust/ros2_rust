@@ -60,6 +60,8 @@ jobs:
           BINDGEN_EXTRA_CLANG_ARGS: -D_Check_return_= # to handle the clang error with the windows specific bindgen error
         run: |
           call C:\pixi_ws\ros2-windows\setup.bat
+          pixi remove rust  --manifest-path C:\pixi_ws\pixi.toml
+          pixi add "rust==1.85.0"  --manifest-path C:\pixi_ws\pixi.toml
           pixi run --manifest-path C:\pixi_ws\pixi.toml vcs import C:/workspace/src --input C:/workspace/src/ros2_rust/ros2_rust_rolling.repos
           pixi run --manifest-path C:\pixi_ws\pixi.toml colcon build 
         working-directory: C:/workspace
