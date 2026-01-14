@@ -213,7 +213,7 @@ impl rosidl_runtime_rs::Message for Trigger_Response {
 }
 
 #[link(name = "example_interfaces__rosidl_typesupport_c")]
-extern "C" {
+unsafe extern "C" {
     fn rosidl_typesupport_c__get_service_type_support_handle__example_interfaces__srv__AddTwoInts(
     ) -> *const std::ffi::c_void;
 }
@@ -234,7 +234,7 @@ impl rosidl_runtime_rs::Service for AddTwoInts {
 }
 
 #[link(name = "example_interfaces__rosidl_typesupport_c")]
-extern "C" {
+unsafe extern "C" {
     fn rosidl_typesupport_c__get_service_type_support_handle__example_interfaces__srv__SetBool(
     ) -> *const std::ffi::c_void;
 }
@@ -256,7 +256,7 @@ impl rosidl_runtime_rs::Service for SetBool {
 }
 
 #[link(name = "example_interfaces__rosidl_typesupport_c")]
-extern "C" {
+unsafe extern "C" {
     fn rosidl_typesupport_c__get_service_type_support_handle__example_interfaces__srv__Trigger(
     ) -> *const std::ffi::c_void;
 }
@@ -283,13 +283,13 @@ pub mod rmw {
     use serde::{Deserialize, Serialize};
 
     #[link(name = "example_interfaces__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__example_interfaces__srv__AddTwoInts_Request(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "example_interfaces__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn example_interfaces__srv__AddTwoInts_Request__init(msg: *mut AddTwoInts_Request) -> bool;
         fn example_interfaces__srv__AddTwoInts_Request__Sequence__init(
             seq: *mut rosidl_runtime_rs::Sequence<AddTwoInts_Request>,
@@ -376,13 +376,13 @@ pub mod rmw {
     }
 
     #[link(name = "example_interfaces__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__example_interfaces__srv__AddTwoInts_Response(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "example_interfaces__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn example_interfaces__srv__AddTwoInts_Response__init(
             msg: *mut AddTwoInts_Response,
         ) -> bool;
@@ -470,13 +470,13 @@ pub mod rmw {
     }
 
     #[link(name = "example_interfaces__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__example_interfaces__srv__SetBool_Request(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "example_interfaces__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn example_interfaces__srv__SetBool_Request__init(msg: *mut SetBool_Request) -> bool;
         fn example_interfaces__srv__SetBool_Request__Sequence__init(
             seq: *mut rosidl_runtime_rs::Sequence<SetBool_Request>,
@@ -557,13 +557,13 @@ pub mod rmw {
     }
 
     #[link(name = "example_interfaces__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__example_interfaces__srv__SetBool_Response(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "example_interfaces__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn example_interfaces__srv__SetBool_Response__init(msg: *mut SetBool_Response) -> bool;
         fn example_interfaces__srv__SetBool_Response__Sequence__init(
             seq: *mut rosidl_runtime_rs::Sequence<SetBool_Response>,
@@ -647,13 +647,13 @@ pub mod rmw {
     }
 
     #[link(name = "example_interfaces__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__example_interfaces__srv__Trigger_Request(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "example_interfaces__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn example_interfaces__srv__Trigger_Request__init(msg: *mut Trigger_Request) -> bool;
         fn example_interfaces__srv__Trigger_Request__Sequence__init(
             seq: *mut rosidl_runtime_rs::Sequence<Trigger_Request>,
@@ -734,13 +734,13 @@ pub mod rmw {
     }
 
     #[link(name = "example_interfaces__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__example_interfaces__srv__Trigger_Response(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "example_interfaces__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn example_interfaces__srv__Trigger_Response__init(msg: *mut Trigger_Response) -> bool;
         fn example_interfaces__srv__Trigger_Response__Sequence__init(
             seq: *mut rosidl_runtime_rs::Sequence<Trigger_Response>,
@@ -824,7 +824,7 @@ pub mod rmw {
     }
 
     #[link(name = "example_interfaces__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_service_type_support_handle__example_interfaces__srv__AddTwoInts(
         ) -> *const std::ffi::c_void;
     }
@@ -845,7 +845,7 @@ pub mod rmw {
     }
 
     #[link(name = "example_interfaces__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_service_type_support_handle__example_interfaces__srv__SetBool(
         ) -> *const std::ffi::c_void;
     }
@@ -866,7 +866,7 @@ pub mod rmw {
     }
 
     #[link(name = "example_interfaces__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_service_type_support_handle__example_interfaces__srv__Trigger(
         ) -> *const std::ffi::c_void;
     }

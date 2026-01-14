@@ -217,7 +217,7 @@ pub(crate) mod log_handler {
 
     /// This function exists so that we can give a raw function pointer to
     /// rcutils_logging_set_output_handler, which is needed by its API.
-    extern "C" fn rclrs_logging_output_handler(
+    unsafe extern "C" fn rclrs_logging_output_handler(
         location: *const rcutils_log_location_t,
         severity: std::os::raw::c_int,
         logger_name: *const std::os::raw::c_char,

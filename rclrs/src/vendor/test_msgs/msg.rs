@@ -3,13 +3,13 @@ pub mod rmw {
     use serde::{Deserialize, Serialize};
 
     #[link(name = "test_msgs__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__test_msgs__msg__KeyedLong(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "test_msgs__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn test_msgs__msg__KeyedLong__init(msg: *mut KeyedLong) -> bool;
         fn test_msgs__msg__KeyedLong__Sequence__init(
             seq: *mut rosidl_runtime_rs::Sequence<KeyedLong>,
@@ -89,13 +89,13 @@ pub mod rmw {
     }
 
     #[link(name = "test_msgs__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__test_msgs__msg__KeyedString(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "test_msgs__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn test_msgs__msg__KeyedString__init(msg: *mut KeyedString) -> bool;
         fn test_msgs__msg__KeyedString__Sequence__init(
             seq: *mut rosidl_runtime_rs::Sequence<KeyedString>,
@@ -175,13 +175,13 @@ pub mod rmw {
     }
 
     #[link(name = "test_msgs__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__test_msgs__msg__NonKeyedWithNestedKey(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "test_msgs__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn test_msgs__msg__NonKeyedWithNestedKey__init(msg: *mut NonKeyedWithNestedKey) -> bool;
         fn test_msgs__msg__NonKeyedWithNestedKey__Sequence__init(
             seq: *mut rosidl_runtime_rs::Sequence<NonKeyedWithNestedKey>,
@@ -263,13 +263,13 @@ pub mod rmw {
     }
 
     #[link(name = "test_msgs__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__test_msgs__msg__ComplexNestedKey(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "test_msgs__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn test_msgs__msg__ComplexNestedKey__init(msg: *mut ComplexNestedKey) -> bool;
         fn test_msgs__msg__ComplexNestedKey__Sequence__init(
             seq: *mut rosidl_runtime_rs::Sequence<ComplexNestedKey>,
@@ -350,13 +350,13 @@ pub mod rmw {
     }
 
     #[link(name = "test_msgs__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__test_msgs__msg__Arrays(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "test_msgs__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn test_msgs__msg__Arrays__init(msg: *mut Arrays) -> bool;
         fn test_msgs__msg__Arrays__Sequence__init(
             seq: *mut rosidl_runtime_rs::Sequence<Arrays>,
@@ -464,13 +464,13 @@ pub mod rmw {
     }
 
     #[link(name = "test_msgs__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__test_msgs__msg__BasicTypes(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "test_msgs__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn test_msgs__msg__BasicTypes__init(msg: *mut BasicTypes) -> bool;
         fn test_msgs__msg__BasicTypes__Sequence__init(
             seq: *mut rosidl_runtime_rs::Sequence<BasicTypes>,
@@ -561,13 +561,13 @@ pub mod rmw {
     }
 
     #[link(name = "test_msgs__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__test_msgs__msg__BoundedPlainSequences(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "test_msgs__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn test_msgs__msg__BoundedPlainSequences__init(msg: *mut BoundedPlainSequences) -> bool;
         fn test_msgs__msg__BoundedPlainSequences__Sequence__init(
             seq: *mut rosidl_runtime_rs::Sequence<BoundedPlainSequences>,
@@ -680,13 +680,13 @@ pub mod rmw {
     }
 
     #[link(name = "test_msgs__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__test_msgs__msg__BoundedSequences(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "test_msgs__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn test_msgs__msg__BoundedSequences__init(msg: *mut BoundedSequences) -> bool;
         fn test_msgs__msg__BoundedSequences__Sequence__init(
             seq: *mut rosidl_runtime_rs::Sequence<BoundedSequences>,
@@ -799,13 +799,13 @@ pub mod rmw {
     }
 
     #[link(name = "test_msgs__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__test_msgs__msg__Constants(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "test_msgs__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn test_msgs__msg__Constants__init(msg: *mut Constants) -> bool;
         fn test_msgs__msg__Constants__Sequence__init(
             seq: *mut rosidl_runtime_rs::Sequence<Constants>,
@@ -900,13 +900,13 @@ pub mod rmw {
     }
 
     #[link(name = "test_msgs__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__test_msgs__msg__Defaults(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "test_msgs__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn test_msgs__msg__Defaults__init(msg: *mut Defaults) -> bool;
         fn test_msgs__msg__Defaults__Sequence__init(
             seq: *mut rosidl_runtime_rs::Sequence<Defaults>,
@@ -997,13 +997,13 @@ pub mod rmw {
     }
 
     #[link(name = "test_msgs__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__test_msgs__msg__Empty(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "test_msgs__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn test_msgs__msg__Empty__init(msg: *mut Empty) -> bool;
         fn test_msgs__msg__Empty__Sequence__init(
             seq: *mut rosidl_runtime_rs::Sequence<Empty>,
@@ -1080,13 +1080,13 @@ pub mod rmw {
     }
 
     #[link(name = "test_msgs__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__test_msgs__msg__MultiNested(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "test_msgs__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn test_msgs__msg__MultiNested__init(msg: *mut MultiNested) -> bool;
         fn test_msgs__msg__MultiNested__Sequence__init(
             seq: *mut rosidl_runtime_rs::Sequence<MultiNested>,
@@ -1184,13 +1184,13 @@ pub mod rmw {
     }
 
     #[link(name = "test_msgs__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__test_msgs__msg__Nested(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "test_msgs__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn test_msgs__msg__Nested__init(msg: *mut Nested) -> bool;
         fn test_msgs__msg__Nested__Sequence__init(
             seq: *mut rosidl_runtime_rs::Sequence<Nested>,
@@ -1267,13 +1267,13 @@ pub mod rmw {
     }
 
     #[link(name = "test_msgs__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__test_msgs__msg__Strings(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "test_msgs__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn test_msgs__msg__Strings__init(msg: *mut Strings) -> bool;
         fn test_msgs__msg__Strings__Sequence__init(
             seq: *mut rosidl_runtime_rs::Sequence<Strings>,
@@ -1365,13 +1365,13 @@ pub mod rmw {
     }
 
     #[link(name = "test_msgs__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__test_msgs__msg__UnboundedSequences(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "test_msgs__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn test_msgs__msg__UnboundedSequences__init(msg: *mut UnboundedSequences) -> bool;
         fn test_msgs__msg__UnboundedSequences__Sequence__init(
             seq: *mut rosidl_runtime_rs::Sequence<UnboundedSequences>,
@@ -1484,13 +1484,13 @@ pub mod rmw {
     }
 
     #[link(name = "test_msgs__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__test_msgs__msg__WStrings(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "test_msgs__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn test_msgs__msg__WStrings__init(msg: *mut WStrings) -> bool;
         fn test_msgs__msg__WStrings__Sequence__init(
             seq: *mut rosidl_runtime_rs::Sequence<WStrings>,
@@ -1576,13 +1576,13 @@ pub mod rmw {
     }
 
     #[link(name = "test_msgs__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__test_msgs__msg__Builtins(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "test_msgs__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn test_msgs__msg__Builtins__init(msg: *mut Builtins) -> bool;
         fn test_msgs__msg__Builtins__Sequence__init(
             seq: *mut rosidl_runtime_rs::Sequence<Builtins>,

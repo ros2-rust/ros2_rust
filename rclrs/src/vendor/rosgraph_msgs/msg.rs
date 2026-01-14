@@ -3,13 +3,13 @@ pub mod rmw {
     use serde::{Deserialize, Serialize};
 
     #[link(name = "rosgraph_msgs__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__rosgraph_msgs__msg__Clock(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "rosgraph_msgs__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosgraph_msgs__msg__Clock__init(msg: *mut Clock) -> bool;
         fn rosgraph_msgs__msg__Clock__Sequence__init(
             seq: *mut rosidl_runtime_rs::Sequence<Clock>,

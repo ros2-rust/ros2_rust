@@ -3,13 +3,13 @@ pub mod rmw {
     use serde::{Deserialize, Serialize};
 
     #[link(name = "unique_identifier_msgs__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__unique_identifier_msgs__msg__UUID(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "unique_identifier_msgs__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn unique_identifier_msgs__msg__UUID__init(msg: *mut UUID) -> bool;
         fn unique_identifier_msgs__msg__UUID__Sequence__init(
             seq: *mut rosidl_runtime_rs::Sequence<UUID>,
