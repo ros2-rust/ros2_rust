@@ -420,7 +420,7 @@ where
         self.board.lock().unwrap().execute(&self.handle)
     }
 
-    fn handle(&self) -> RclPrimitiveHandle {
+    fn handle(&self) -> RclPrimitiveHandle<'_> {
         RclPrimitiveHandle::Client(self.handle.lock())
     }
 
@@ -543,7 +543,7 @@ struct ClientHandle {
 }
 
 impl ClientHandle {
-    fn lock(&self) -> MutexGuard<rcl_client_t> {
+    fn lock(&self) -> MutexGuard<'_, rcl_client_t> {
         self.rcl_client.lock().unwrap()
     }
 }

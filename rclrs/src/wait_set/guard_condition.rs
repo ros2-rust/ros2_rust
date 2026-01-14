@@ -218,7 +218,7 @@ impl RclPrimitive for GuardConditionExecutable {
         RclPrimitiveKind::GuardCondition
     }
 
-    fn handle(&self) -> RclPrimitiveHandle {
+    fn handle(&self) -> RclPrimitiveHandle<'_> {
         RclPrimitiveHandle::GuardCondition(self.handle.rcl_guard_condition.lock().unwrap())
     }
 }
