@@ -55,45 +55,63 @@ pip install git+https://github.com/colcon/colcon-cargo.git
 pip install git+https://github.com/colcon/colcon-ros-cargo.git
 ```
 
-### ROS 2 Lyrical Luth and Rolling
+### All ROS distributions
 
-For the latest ROS 2 distributions, you can use `rclrs` directly from [crates.io](https://crates.io/crates/rclrs):
+`rclrs` is released on [crates.io](https://crates.io/crates/rclrs), you can add it to your project directly:
 
 ```toml
 [dependencies]
 rclrs = "0.7"
 ```
 
-To run the examples, clone the examples repository to your workspace and build:
+Due to different ROS 2 distributions having different levels of integration with `rclrs`, if you'd like to
+build and run the examples, please follow the according section.
+
+### ROS 2 Lyrical Luth and Rolling
+
+To run the examples, install the `test_msgs` and `example_interfaces` packages,
+clone the examples repository to your workspace and build:
 
 ```shell
+sudo apt install -y ros-rolling-example-interfaces ros-rolling-test-msgs
 mkdir -p workspace/src && cd workspace
 git clone https://github.com/ros2-rust/examples.git src/examples
 . /opt/ros/rolling/setup.sh  # Or source your ROS 2 installation
 colcon build
 ```
 
-### ROS 2 Jazzy Jalisco
+### ROS 2 Kilted Kaiju
 
-For ROS 2 Jazzy, clone the ROS 2 message packages to your workspace:
+For ROS 2 Kilted, clone the ROS 2 message packages to your workspace:
 
 ```shell
 mkdir -p workspace/src && cd workspace
-git clone -b jazzy https://github.com/ros2/common_interfaces.git src/common_interfaces
-git clone -b jazzy https://github.com/ros2/rcl_interfaces.git src/rcl_interfaces
-git clone -b jazzy https://github.com/ros2/unique_identifier_msgs.git src/unique_identifier_msgs
+git clone -b kilted https://github.com/ros2/common_interfaces.git src/common_interfaces
+git clone -b kilted https://github.com/ros2/example_interfaces.git src/example_interfaces
+git clone -b kilted https://github.com/ros2/rcl_interfaces.git src/rcl_interfaces
+git clone -b kilted https://github.com/ros2/test_msgs.git src/test_msgs
+git clone -b kilted https://github.com/ros2/unique_identifier_msgs.git src/unique_identifier_msgs
 ```
 
-Then add `rclrs` to your `Cargo.toml`:
-
-```toml
-[dependencies]
-rclrs = "0.7"
-```
-
-Then clone the examples repository:
+Build the workspace:
 
 ```shell
+. /opt/ros/kilted/setup.sh
+colcon build
+```
+
+### ROS 2 Jazzy Jalisco
+
+For ROS 2 Jazzy, you need to clone the code generator and message packages to your workspace:
+
+```shell
+mkdir -p workspace/src && cd workspace
+git clone https://github.com/ros2-rust/rosidl_rust.git src/rosidl_rust
+git clone -b jazzy https://github.com/ros2/common_interfaces.git src/common_interfaces
+git clone -b jazzy https://github.com/ros2/example_interfaces.git src/example_interfaces
+git clone -b jazzy https://github.com/ros2/rcl_interfaces.git src/rcl_interfaces
+git clone -b jazzy https://github.com/ros2/test_msgs.git src/test_msgs
+git clone -b jazzy https://github.com/ros2/unique_identifier_msgs.git src/unique_identifier_msgs
 git clone https://github.com/ros2-rust/examples.git src/examples
 ```
 
@@ -104,6 +122,7 @@ Build the workspace:
 colcon build
 ```
 
+
 ### ROS 2 Humble Hawksbill
 
 For ROS 2 Humble, you need to clone the code generator and message packages to your workspace:
@@ -112,7 +131,9 @@ For ROS 2 Humble, you need to clone the code generator and message packages to y
 mkdir -p workspace/src && cd workspace
 git clone https://github.com/ros2-rust/rosidl_rust.git src/rosidl_rust
 git clone -b humble https://github.com/ros2/common_interfaces.git src/common_interfaces
+git clone -b humble https://github.com/ros2/example_interfaces.git src/example_interfaces
 git clone -b humble https://github.com/ros2/rcl_interfaces.git src/rcl_interfaces
+git clone -b humble https://github.com/ros2/test_msgs.git src/test_msgs
 git clone -b humble https://github.com/ros2/unique_identifier_msgs.git src/unique_identifier_msgs
 git clone https://github.com/ros2-rust/examples.git src/examples
 ```
