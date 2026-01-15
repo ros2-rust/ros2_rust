@@ -89,7 +89,6 @@ mkdir -p workspace/src && cd workspace
 git clone -b kilted https://github.com/ros2/common_interfaces.git src/common_interfaces
 git clone -b kilted https://github.com/ros2/example_interfaces.git src/example_interfaces
 git clone -b kilted https://github.com/ros2/rcl_interfaces.git src/rcl_interfaces
-git clone -b kilted https://github.com/ros2/test_msgs.git src/test_msgs
 git clone -b kilted https://github.com/ros2/unique_identifier_msgs.git src/unique_identifier_msgs
 ```
 
@@ -110,7 +109,6 @@ git clone https://github.com/ros2-rust/rosidl_rust.git src/rosidl_rust
 git clone -b jazzy https://github.com/ros2/common_interfaces.git src/common_interfaces
 git clone -b jazzy https://github.com/ros2/example_interfaces.git src/example_interfaces
 git clone -b jazzy https://github.com/ros2/rcl_interfaces.git src/rcl_interfaces
-git clone -b jazzy https://github.com/ros2/test_msgs.git src/test_msgs
 git clone -b jazzy https://github.com/ros2/unique_identifier_msgs.git src/unique_identifier_msgs
 git clone https://github.com/ros2-rust/examples.git src/examples
 ```
@@ -133,7 +131,6 @@ git clone https://github.com/ros2-rust/rosidl_rust.git src/rosidl_rust
 git clone -b humble https://github.com/ros2/common_interfaces.git src/common_interfaces
 git clone -b humble https://github.com/ros2/example_interfaces.git src/example_interfaces
 git clone -b humble https://github.com/ros2/rcl_interfaces.git src/rcl_interfaces
-git clone -b humble https://github.com/ros2/test_msgs.git src/test_msgs
 git clone -b humble https://github.com/ros2/unique_identifier_msgs.git src/unique_identifier_msgs
 git clone https://github.com/ros2-rust/examples.git src/examples
 ```
