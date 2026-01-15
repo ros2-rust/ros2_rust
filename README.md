@@ -51,8 +51,7 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 sudo apt install -y git libclang-dev python3-pip python3-vcstool
 
 # Install colcon plugins for Rust
-pip install git+https://github.com/colcon/colcon-cargo.git
-pip install git+https://github.com/colcon/colcon-ros-cargo.git
+pip install --break-system-packages colcon-cargo colcon-ros-cargo
 ```
 
 ### All ROS distributions
