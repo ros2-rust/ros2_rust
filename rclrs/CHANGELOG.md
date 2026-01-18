@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0](https://github.com/ros2-rust/ros2_rust/compare/v0.6.0...v0.7.0) - 2026-01-18
+
+### Added
+
+- dynamic message publishers and subscribers ([#492](https://github.com/ros2-rust/ros2_rust/pull/492))
+
+### Fixed
+
+- add explicit lifetimes to fix mismatched_lifetime_syntaxes warnings ([#564](https://github.com/ros2-rust/ros2_rust/pull/564))
+- blocklist duplicate typesupport extern declarations ([#565](https://github.com/ros2-rust/ros2_rust/pull/565))
+
+### Other
+
+- Regenerate bindings for rolling ([#580](https://github.com/ros2-rust/ros2_rust/pull/580))
+- Regenerate bindings for kilted ([#579](https://github.com/ros2-rust/ros2_rust/pull/579))
+- Regenerate bindings for humble ([#577](https://github.com/ros2-rust/ros2_rust/pull/577))
+- Regenerate bindings for jazzy ([#578](https://github.com/ros2-rust/ros2_rust/pull/578))
+- [**breaking**] bump rosidl_runtime_rs version ([#571](https://github.com/ros2-rust/ros2_rust/pull/571))
+- [**breaking**] require rustc 1.85 ([#566](https://github.com/ros2-rust/ros2_rust/pull/566))
+- Add support for best available QoS ([#555](https://github.com/ros2-rust/ros2_rust/pull/555))
+- Regenerate bindings for kilted ([#542](https://github.com/ros2-rust/ros2_rust/pull/542))
+- Regenerate bindings for rolling ([#543](https://github.com/ros2-rust/ros2_rust/pull/543))
+- Regenerate bindings for jazzy ([#529](https://github.com/ros2-rust/ros2_rust/pull/529))
+- Regenerate bindings for humble ([#534](https://github.com/ros2-rust/ros2_rust/pull/534))
+
 ## [0.6.0](https://github.com/ros2-rust/ros2_rust/compare/v0.5.1...v0.6.0) - 2025-10-27
 
 ### Added
