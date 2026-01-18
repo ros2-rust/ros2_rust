@@ -58,6 +58,9 @@ jobs:
         required-ros-distributions: ${{ matrix.ros_distribution }}
         use-ros2-testing: ${{ matrix.ros_distribution == 'rolling' }}
 
+    - name: Update environment
+      run: apt-get update && apt-get upgrade -y
+
     - name: Setup Rust
       uses: dtolnay/rust-toolchain@1.85
       with:
