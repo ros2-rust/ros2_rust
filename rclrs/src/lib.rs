@@ -204,7 +204,7 @@ mod worker;
 #[cfg(test)]
 mod test_helpers;
 
-mod rcl_bindings;
+pub mod rcl_bindings;
 
 pub use action::*;
 pub use arguments::*;
