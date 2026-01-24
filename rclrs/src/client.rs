@@ -10,9 +10,12 @@ use rosidl_runtime_rs::Message;
 use crate::{
     error::ToResult, log_fatal, rcl_bindings::*, IntoPrimitiveOptions, MessageCow, Node, Promise,
     QoSProfile, RclPrimitive, RclPrimitiveHandle, RclPrimitiveKind, RclReturnCode, RclrsError,
-    ReadyKind, ServiceInfo, ServiceIntrospectionState, Waitable, WaitableLifecycle,
-    ENTITY_LIFECYCLE_MUTEX,
+    ReadyKind, ServiceInfo, Waitable, WaitableLifecycle, ENTITY_LIFECYCLE_MUTEX,
 };
+
+// The API for service introspection was added in Jazzy.
+#[cfg(not(ros_distro = "humble"))]
+use crate::ServiceIntrospectionState;
 
 mod client_async_callback;
 pub use client_async_callback::*;
@@ -377,6 +380,8 @@ where
     ///     - Off: Disabled
     ///     - Metadata: Only metadata without any user data contents
     ///     - Contents: User data contents with metadata
+    // The API for service introspection was added in Jazzy.
+    #[cfg(not(ros_distro = "humble"))]
     pub fn configure_introspection(
         &self,
         introspection_state: ServiceIntrospectionState,
