@@ -172,6 +172,8 @@ where
     ///     - Off: Disabled
     ///     - Metadata: Only metadata without any user data contents
     ///     - Contents: User data contents with metadata
+    // The API for service introspection was added in Jazzy.
+    #[cfg(not(ros_distro = "humble"))]
     pub fn configure_introspection(
         &self,
         introspection_state: ServiceIntrospectionState,
@@ -428,6 +430,8 @@ impl Drop for ServiceHandle {
     }
 }
 
+// The API for service introspection was added in Jazzy.
+#[cfg(not(ros_distro = "humble"))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ServiceIntrospectionState {
     Off,
@@ -435,6 +439,8 @@ pub enum ServiceIntrospectionState {
     Contents,
 }
 
+// The API for service introspection was added in Jazzy.
+#[cfg(not(ros_distro = "humble"))]
 impl From<rcl_service_introspection_state_e> for ServiceIntrospectionState {
     fn from(value: rcl_service_introspection_state_e) -> Self {
         match value {
@@ -451,6 +457,8 @@ impl From<rcl_service_introspection_state_e> for ServiceIntrospectionState {
     }
 }
 
+// The API for service introspection was added in Jazzy.
+#[cfg(not(ros_distro = "humble"))]
 impl From<ServiceIntrospectionState> for rcl_service_introspection_state_e {
     fn from(value: ServiceIntrospectionState) -> Self {
         match value {
