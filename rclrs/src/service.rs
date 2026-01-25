@@ -430,12 +430,16 @@ impl Drop for ServiceHandle {
     }
 }
 
+/// The possible service introspection configurations
 // The API for service introspection was added in Jazzy.
 #[cfg(not(ros_distro = "humble"))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ServiceIntrospectionState {
+    /// Disable service introspection
     Off,
+    /// Enable service introspection with metadata only
     Metadata,
+    /// Enable service introspection with metadata and contents
     Contents,
 }
 
