@@ -44,10 +44,12 @@ use crate::{
     IntoNodeTimerOneshotCallback, IntoNodeTimerRepeatingCallback, IntoTimerOptions, LogParams,
     Logger, MessageInfo, ParameterBuilder, ParameterInterface, ParameterVariant, Parameters,
     Promise, Publisher, PublisherOptions, PublisherState, RclrsError, RequestedGoal, Service,
-    ServiceOptions, ServiceState, Subscription, SubscriptionOptions, SubscriptionState,
+    ServiceOptions, ServiceState, SerializedPublisher, SerializedSubscription, Subscription,
+    SubscriptionOptions, SubscriptionState,
     TerminatedGoal, TimeSource, Timer, TimerState, ToLogParams, Worker, WorkerOptions, WorkerState,
     ENTITY_LIFECYCLE_MUTEX,
 };
+use crate::ToResult;
 
 /// A processing unit that can communicate with other nodes. See the API of
 /// [`NodeState`] to find out what methods you can call on a [`Node`].
@@ -1510,6 +1512,82 @@ impl NodeState {
 
     pub(crate) fn handle(&self) -> &Arc<NodeHandle> {
         &self.handle
+    }
+
+    /// Creates a serialized subscription.
+    ///
+    /// This receives raw serialized (CDR) bytes, using `rcl_take_serialized_message`.
+    pub fn create_serialized_subscription<'a>(
+        &self,
+        topic_type: MessageTypeName,
+        options: impl Into<SubscriptionOptions<'a>>,
+    ) -> Result<SerializedSubscription, RclrsError> {
+        let SubscriptionOptions { topic, qos } = options.into();
+
+        // Use the same typesupport resolution as dynamic messages.
+        let metadata = crate::dynamic_message::DynamicMessageMetadata::new(topic_type)?;
+
+        let mut sub = unsafe { rcl_get_zero_initialized_subscription() };
+        let topic_c = std::ffi::CString::new(topic).unwrap();
+
+        let _context_lock = self.handle.context_handle.rcl_context.lock().unwrap();
+        let node = self.handle.rcl_node.lock().unwrap();
+        let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
+
+        unsafe {
+            let mut opts = rcl_subscription_get_default_options();
+            opts.qos = qos.into();
+            rcl_subscription_init(
+                &mut sub,
+                &*node,
+                metadata.type_support_ptr(),
+                topic_c.as_ptr(),
+                &opts,
+            )
+            .ok()?;
+        }
+
+        Ok(SerializedSubscription {
+            handle: Arc::clone(&self.handle),
+            sub,
+        })
+    }
+
+    /// Creates a serialized publisher.
+    ///
+    /// This publishes raw serialized (CDR) bytes, using `rcl_publish_serialized_message`.
+    pub fn create_serialized_publisher<'a>(
+        &self,
+        topic_type: MessageTypeName,
+        options: impl Into<crate::PublisherOptions<'a>>,
+    ) -> Result<SerializedPublisher, RclrsError> {
+        let crate::PublisherOptions { topic, qos } = options.into();
+
+        let metadata = crate::dynamic_message::DynamicMessageMetadata::new(topic_type)?;
+        let mut pub_ = unsafe { rcl_get_zero_initialized_publisher() };
+        let topic_c = std::ffi::CString::new(topic).unwrap();
+
+        let _context_lock = self.handle.context_handle.rcl_context.lock().unwrap();
+        let node = self.handle.rcl_node.lock().unwrap();
+        let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
+
+        unsafe {
+            let mut opts = rcl_publisher_get_default_options();
+            opts.qos = qos.into();
+            rcl_publisher_init(
+                &mut pub_,
+                &*node,
+                metadata.type_support_ptr(),
+                topic_c.as_ptr(),
+                &opts,
+            )
+            .ok()?;
+        }
+
+        Ok(SerializedPublisher {
+            handle: Arc::clone(&self.handle),
+            pub_,
+        })
     }
 }
 

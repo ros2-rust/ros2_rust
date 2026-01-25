@@ -324,6 +324,10 @@ impl DynamicMessageMetadata {
     pub fn structure(&self) -> &MessageStructure {
         &self.structure
     }
+
+    pub(crate) fn type_support_ptr(&self) -> *const rosidl_message_type_support_t {
+        self.type_support_ptr
+    }
 }
 
 // ========================= impl for DynamicMessage =========================
