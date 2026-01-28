@@ -667,4 +667,205 @@ mod tests {
     fn test_function_macro() {
         assert_eq!(function!(), "rclrs::logging::tests::test_function_macro");
     }
+
+    #[test]
+    fn test_rosout_publishing_default() -> Result<(), RclrsError> {
+        use crate::{
+            rcl_bindings::rcl_logging_rosout_enabled, vendor::rcl_interfaces::msg::rmw::Log,
+        };
+        use std::sync::{Arc, Mutex};
+
+        let namespace = format!("/test_rosout_publishing_default_{}", line!());
+        let mut executor = Context::default().create_basic_executor();
+        let node = executor
+            .create_node("rosout_default_node".namespace(&namespace))
+            .unwrap();
+
+        // Check if rosout is enabled at the rcl level
+        // SAFETY: This is a simple query function with no preconditions
+        let rosout_enabled = unsafe { rcl_logging_rosout_enabled() };
+        assert!(
+            rosout_enabled,
+            "rcl_logging_rosout should be enabled for this test"
+        );
+
+        // Verify rosout publisher exists immediately after node creation
+        // (when enable_rosout is true, which is the default)
+        let topics = node
+            .get_publisher_names_and_types_by_node("rosout_default_node", &namespace)
+            .unwrap();
+        assert!(
+            topics.contains_key("/rosout"),
+            "Node should have /rosout publisher immediately when enable_rosout is true"
+        );
+
+        let received_logs: Arc<Mutex<Vec<Log>>> = Arc::new(Mutex::new(Vec::new()));
+        let inner_received = Arc::clone(&received_logs);
+
+        // Subscribe to /rosout topic with QoS matching rosout publisher
+        // rosout uses: reliable, transient_local, keep_last(1000)
+        // Filter by logger name to avoid interference from parallel tests
+        let _subscription = node.create_subscription::<Log, _>(
+            "/rosout".reliable().transient_local().keep_all(),
+            move |msg: Log| {
+                // Only count messages from our node to avoid interference from parallel tests
+                if msg.name.to_string().contains("rosout_default_node") {
+                    inner_received.lock().unwrap().push(msg);
+                }
+            },
+        )?;
+
+        // Wait for /rosout subscription to be discovered by the publisher
+        spin_until_condition(
+            &mut executor,
+            || node.count_subscriptions("/rosout").unwrap_or(0) > 0,
+            Duration::from_millis(500),
+        );
+
+        // Log messages at all severity levels (except debug) with unique identifiers
+        let test_id = line!();
+        let info_msg = format!("Info rosout default test {}", test_id);
+        let warn_msg = format!("Warn rosout default test {}", test_id);
+        let error_msg = format!("Error rosout default test {}", test_id);
+        let fatal_msg = format!("Fatal rosout default test {}", test_id);
+
+        log!(node.info(), "{}", info_msg);
+        log!(node.warn(), "{}", warn_msg);
+        log!(node.error(), "{}", error_msg);
+        log!(node.fatal(), "{}", fatal_msg);
+
+        // Spin until all 4 messages are received (INFO, WARN, ERROR, FATAL)
+        spin_until_condition(
+            &mut executor,
+            || received_logs.lock().unwrap().len() >= 4,
+            Duration::from_secs(5),
+        );
+
+        // Verify all messages were received with correct severity levels
+        let logs = received_logs.lock().unwrap();
+
+        let find_log =
+            |msg: &str| -> Option<&Log> { logs.iter().find(|l| l.msg.to_string() == msg) };
+
+        // Verify INFO message
+        let info_log = find_log(&info_msg);
+        assert!(
+            info_log.is_some(),
+            "Info message not found on /rosout. Received {} messages: {:?}",
+            logs.len(),
+            logs.iter().map(|l| l.msg.to_string()).collect::<Vec<_>>()
+        );
+        assert_eq!(info_log.unwrap().level, Log::INFO);
+
+        // Verify WARN message
+        let warn_log = find_log(&warn_msg);
+        assert!(warn_log.is_some(), "Warn message not found on /rosout");
+        assert_eq!(warn_log.unwrap().level, Log::WARN);
+
+        // Verify ERROR message
+        let error_log = find_log(&error_msg);
+        assert!(error_log.is_some(), "Error message not found on /rosout");
+        assert_eq!(error_log.unwrap().level, Log::ERROR);
+
+        // Verify FATAL message
+        let fatal_log = find_log(&fatal_msg);
+        assert!(fatal_log.is_some(), "Fatal message not found on /rosout");
+        assert_eq!(fatal_log.unwrap().level, Log::FATAL);
+
+        // Verify logger name is correct for all messages
+        for log in logs.iter() {
+            assert!(
+                log.name.to_string().contains("rosout_default_node"),
+                "Logger name '{}' should contain 'rosout_default_node'",
+                log.name
+            );
+        }
+
+        // Verify rosout publisher still exists after logging
+        let topics = node
+            .get_publisher_names_and_types_by_node("rosout_default_node", &namespace)
+            .unwrap();
+        assert!(
+            topics.contains_key("/rosout"),
+            "Node should still have /rosout publisher after logging"
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_rosout_disabled() -> Result<(), RclrsError> {
+        use crate::vendor::rcl_interfaces::msg::rmw::Log;
+        use std::sync::{
+            atomic::{AtomicBool, Ordering},
+            Arc,
+        };
+
+        let namespace = format!("/test_rosout_disabled_{}", line!());
+        let mut executor = Context::default().create_basic_executor();
+
+        // Create node with rosout DISABLED
+        let node_disabled = executor
+            .create_node(
+                "rosout_disabled_node"
+                    .namespace(&namespace)
+                    .enable_rosout(false),
+            )
+            .unwrap();
+
+        // Create another node with rosout ENABLED to subscribe
+        let node_subscriber = executor
+            .create_node("rosout_subscriber_node".namespace(&namespace))
+            .unwrap();
+
+        let test_id = line!();
+        let disabled_msg = format!("This should NOT appear {}", test_id);
+        let disabled_msg_clone = disabled_msg.clone();
+
+        let received_from_disabled = Arc::new(AtomicBool::new(false));
+        let inner_received = Arc::clone(&received_from_disabled);
+
+        // Subscribe to /rosout topic with QoS matching rosout publisher
+        let _subscription = node_subscriber.create_subscription::<Log, _>(
+            "/rosout".reliable().transient_local().keep_all(),
+            move |msg: Log| {
+                if msg.msg.to_string() == disabled_msg_clone {
+                    inner_received.store(true, Ordering::Release);
+                }
+            },
+        )?;
+
+        // Log a message from the subscriber node to ensure rosout publisher exists
+        log!(node_subscriber.info(), "Subscriber node rosout init");
+
+        // Wait for discovery between subscriber's publisher and our subscription
+        spin_until_condition(
+            &mut executor,
+            || node_subscriber.count_subscriptions("/rosout").unwrap_or(0) > 0,
+            Duration::from_millis(500),
+        );
+
+        // Log a message from the node with rosout disabled
+        log!(node_disabled.info(), "{}", disabled_msg);
+
+        // Spin for a reasonable time to ensure message would have been received if published
+        spin_until_condition(&mut executor, || false, Duration::from_millis(500));
+
+        // Verify the message was NOT received
+        assert!(
+            !received_from_disabled.load(Ordering::Acquire),
+            "Message from node with rosout disabled should NOT appear on /rosout"
+        );
+
+        // Verify the disabled node does not have a /rosout publisher
+        let topics = node_disabled
+            .get_publisher_names_and_types_by_node("rosout_disabled_node", &namespace)
+            .unwrap();
+        assert!(
+            !topics.contains_key("/rosout"),
+            "Node with rosout disabled should not have /rosout publisher"
+        );
+
+        Ok(())
+    }
 }
