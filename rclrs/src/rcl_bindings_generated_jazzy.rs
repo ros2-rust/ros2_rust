@@ -9186,6 +9186,45 @@ unsafe extern "C" {
         args: *mut va_list,
     );
 }
+pub type rcl_error_state_t = rcutils_error_state_t;
+pub type rcl_error_string_t = rcutils_error_string_t;
+unsafe extern "C" {
+    pub static rcl_qos_profile_rosout_default: rmw_qos_profile_t;
+}
+unsafe extern "C" {
+    pub fn rcl_logging_rosout_init(allocator: *const rcl_allocator_t) -> rcl_ret_t;
+}
+unsafe extern "C" {
+    pub fn rcl_logging_rosout_fini() -> rcl_ret_t;
+}
+unsafe extern "C" {
+    pub fn rcl_logging_rosout_init_publisher_for_node(node: *mut rcl_node_t) -> rcl_ret_t;
+}
+unsafe extern "C" {
+    pub fn rcl_logging_rosout_fini_publisher_for_node(node: *mut rcl_node_t) -> rcl_ret_t;
+}
+unsafe extern "C" {
+    pub fn rcl_logging_rosout_output_handler(
+        location: *const rcutils_log_location_t,
+        severity: ::std::os::raw::c_int,
+        name: *const ::std::os::raw::c_char,
+        timestamp: rcutils_time_point_value_t,
+        format: *const ::std::os::raw::c_char,
+        args: *mut va_list,
+    );
+}
+unsafe extern "C" {
+    pub fn rcl_logging_rosout_add_sublogger(
+        logger_name: *const ::std::os::raw::c_char,
+        sublogger_name: *const ::std::os::raw::c_char,
+    ) -> rcl_ret_t;
+}
+unsafe extern "C" {
+    pub fn rcl_logging_rosout_remove_sublogger(
+        logger_name: *const ::std::os::raw::c_char,
+        sublogger_name: *const ::std::os::raw::c_char,
+    ) -> rcl_ret_t;
+}
 impl rosidl_typesupport_introspection_c_field_types {
     pub const rosidl_typesupport_introspection_c__ROS_TYPE_FLOAT32 : rosidl_typesupport_introspection_c_field_types = rosidl_typesupport_introspection_c_field_types :: rosidl_typesupport_introspection_c__ROS_TYPE_FLOAT ;
 }
