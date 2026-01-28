@@ -149,9 +149,7 @@ pub trait IntoNodeOptions<'a>: Sized {
     /// Enables or disables logging to rosout.
     ///
     /// When enabled, log messages are published to the `/rosout` topic in addition to
-    /// standard output.
-    ///
-    /// This option is currently unused in `rclrs`.
+    /// standard output. This is enabled by default.
     fn enable_rosout(self, enable: bool) -> NodeOptions<'a> {
         let mut options = self.into_node_options();
         options.enable_rosout = enable;
@@ -308,6 +306,8 @@ impl<'a> NodeOptions<'a> {
             rcl_node: Mutex::new(unsafe { rcl_get_zero_initialized_node() }),
             context_handle: Arc::clone(&commands.context().handle),
             initialized: AtomicBool::new(false),
+            #[cfg(not(ros_distro = "humble"))]
+            rosout_initialized: AtomicBool::new(false),
         });
 
         unsafe {
@@ -331,6 +331,29 @@ impl<'a> NodeOptions<'a> {
         handle
             .initialized
             .store(true, std::sync::atomic::Ordering::Release);
+
+        // Initialize the rosout publisher if rosout logging is enabled.
+        // This is required for log messages to be published to the /rosout topic.
+        // Note: On Humble, the rosout publisher is initialized automatically by rcl,
+        // so we only need to explicitly initialize it on newer distros.
+        #[cfg(not(ros_distro = "humble"))]
+        if self.enable_rosout {
+            // SAFETY: rcl_logging_rosout_enabled checks if rosout logging is globally enabled.
+            if unsafe { rcl_logging_rosout_enabled() } {
+                let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
+                // SAFETY: The node has been successfully initialized and the
+                // entity lifecycle mutex is locked.
+                unsafe {
+                    rcl_logging_rosout_init_publisher_for_node(
+                        &mut *handle.rcl_node.lock().unwrap(),
+                    )
+                }
+                .ok()?;
+                handle
+                    .rosout_initialized
+                    .store(true, std::sync::atomic::Ordering::Release);
+            }
+        }
 
         let parameter = {
             let rcl_node = handle.rcl_node.lock().unwrap();
