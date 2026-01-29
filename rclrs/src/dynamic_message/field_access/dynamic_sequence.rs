@@ -1,6 +1,8 @@
-use std::fmt::{self, Debug};
-use std::marker::PhantomData;
-use std::ops::{Deref, DerefMut};
+use std::{
+    fmt::{self, Debug},
+    marker::PhantomData,
+    ops::{Deref, DerefMut},
+};
 
 use rosidl_runtime_rs::{Sequence, SequenceAlloc, SequenceExceedsBoundsError};
 
@@ -298,6 +300,21 @@ where
     pub fn as_slice(&self) -> &[T] {
         &*self.elements
     }
+
+    /// Returns the number of elements in this sequence.
+    pub fn len(&self) -> usize {
+        self.elements.len()
+    }
+
+    /// Returns true if this sequence contains no elements.
+    pub fn is_empty(&self) -> bool {
+        self.elements.is_empty()
+    }
+
+    /// Iterate over the elements of this sequence.
+    pub fn iter(&self) -> std::slice::Iter<'_, T> {
+        self.elements.iter()
+    }
 }
 
 // ------------------------- impl for DynamicBoundedSequence -------------------------
@@ -369,6 +386,21 @@ impl<'msg, T: SequenceAlloc> DynamicBoundedSequence<'msg, T> {
     /// Returns the maximum length of this sequence.
     pub fn upper_bound(&self) -> usize {
         self.upper_bound
+    }
+
+    /// Returns the number of elements in this sequence.
+    pub fn len(&self) -> usize {
+        self.boo.as_slice().len()
+    }
+
+    /// Returns true if this sequence contains no elements.
+    pub fn is_empty(&self) -> bool {
+        self.boo.as_slice().is_empty()
+    }
+
+    /// Iterate over the elements of this sequence.
+    pub fn iter(&self) -> std::slice::Iter<'_, T> {
+        self.boo.as_slice().iter()
     }
 }
 
@@ -504,6 +536,16 @@ where
     pub fn reset(&mut self, len: usize) {
         self.sequence.resize_unchecked(self.resize_function, len)
     }
+
+    /// Returns the number of elements in this sequence.
+    pub fn len(&self) -> usize {
+        self.sequence.as_slice().len()
+    }
+
+    /// Returns true if this sequence contains no elements.
+    pub fn is_empty(&self) -> bool {
+        self.sequence.as_slice().is_empty()
+    }
 }
 
 // ------------------------- impl for DynamicBoundedSequenceMut -------------------------
@@ -584,6 +626,16 @@ impl<'msg, T: DynamicSequenceElementMut<'msg>> DynamicBoundedSequenceMut<'msg, T
     /// Resets this sequence to an empty sequence.
     pub fn clear(&mut self) {
         self.inner.clear();
+    }
+
+    /// Returns the number of elements in this sequence.
+    pub fn len(&self) -> usize {
+        self.inner.len()
+    }
+
+    /// Returns true if this sequence contains no elements.
+    pub fn is_empty(&self) -> bool {
+        self.inner.is_empty()
     }
 
     /// Tries to reset this sequence to a new sequence of `len` elements with default values.
