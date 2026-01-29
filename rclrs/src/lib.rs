@@ -193,6 +193,9 @@ mod parameter;
 mod publisher;
 mod qos;
 mod service;
+mod serialized_message;
+mod serialized_publisher;
+mod serialized_subscription;
 mod subscription;
 mod time;
 mod time_source;
@@ -204,7 +207,7 @@ mod worker;
 #[cfg(test)]
 mod test_helpers;
 
-mod rcl_bindings;
+pub mod rcl_bindings;
 
 pub use action::*;
 pub use arguments::*;
@@ -220,6 +223,9 @@ pub use node::*;
 pub use parameter::*;
 pub use publisher::*;
 pub use qos::*;
+pub use serialized_message::*;
+pub use serialized_publisher::*;
+pub use serialized_subscription::*;
 pub use rcl_bindings::rmw_request_id_t;
 pub use service::*;
 pub use subscription::*;
