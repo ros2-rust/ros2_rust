@@ -493,21 +493,12 @@ mod tests {
         let node = executor.create_node(node_name).unwrap();
 
         let check_rosout = |topics: HashMap<String, Vec<String>>| {
-            // rosout shows up in humble and iron, even if the graph is empty
-            #[cfg(any(ros_distro = "humble"))]
-            {
-                assert_eq!(topics.len(), 1);
-                assert_eq!(
-                    topics.get("/rosout").unwrap().first().unwrap(),
-                    "rcl_interfaces/msg/Log"
-                );
-            }
-
-            // rosout does not automatically show up in jazzy when the graph is empty
-            #[cfg(any(ros_distro = "jazzy", ros_distro = "rolling"))]
-            {
-                assert_eq!(topics.len(), 0);
-            }
+            // rosout shows up when a node is created (on all distros after enabling rosout)
+            assert_eq!(topics.len(), 1);
+            assert_eq!(
+                topics.get("/rosout").unwrap().first().unwrap(),
+                "rcl_interfaces/msg/Log"
+            );
         };
 
         let names_and_topics = node

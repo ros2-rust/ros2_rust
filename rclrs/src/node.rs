@@ -135,6 +135,11 @@ pub(crate) struct NodeHandle {
     /// We may be able to restructure this in the future when we no longer need
     /// to support Humble.
     pub(crate) initialized: AtomicBool,
+    /// Tracks whether the rosout publisher was initialized for this node.
+    /// If true, we need to call rcl_logging_rosout_fini_publisher_for_node
+    /// when dropping the NodeHandle.
+    #[cfg(not(ros_distro = "humble"))]
+    pub(crate) rosout_initialized: AtomicBool,
 }
 
 impl Drop for NodeHandle {
@@ -149,6 +154,19 @@ impl Drop for NodeHandle {
         let _context_lock = self.context_handle.rcl_context.lock().unwrap();
         let mut rcl_node = self.rcl_node.lock().unwrap();
         let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
+
+        // SAFETY: The entity lifecycle mutex is locked to protect against the risk of
+        // global variables in the rmw implementation being unsafely modified during cleanup.
+        // The rosout publisher must be finalized before the node is finalized.
+        // Note: On Humble, rosout is managed automatically by rcl, so we only need to
+        // explicitly finalize it on newer distros.
+        #[cfg(not(ros_distro = "humble"))]
+        if self
+            .rosout_initialized
+            .load(std::sync::atomic::Ordering::Acquire)
+        {
+            unsafe { rcl_logging_rosout_fini_publisher_for_node(&mut *rcl_node) };
+        }
 
         // SAFETY: The entity lifecycle mutex is locked to protect against the risk of
         // global variables in the rmw implementation being unsafely modified during cleanup.
