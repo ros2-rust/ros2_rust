@@ -51,7 +51,7 @@ jobs:
 
       - name: Get prebuilt ROS files and unzip
         run: |
-          irm https://github.com/knmcguire/ros2/releases/download/temp_win_v.0.0.1/ros2-package-windows-AMD64.zip -Outfile ros2-package-windows-AMD64.zip
+          irm https://github.com/ros2/ros2/releases/download/release-rolling-nightlies/ros2-rolling-nightly-windows-amd64.zip -Outfile ros2-package-windows-AMD64.zip
           Expand-Archive -Path ros2-package-windows-AMD64.zip -DestinationPath C:/pixi_ws/
 
       - name: Build the rust package
