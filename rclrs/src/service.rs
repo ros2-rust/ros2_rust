@@ -9,8 +9,9 @@ use rosidl_runtime_rs::{Message, Service as ServiceIDL};
 
 use crate::{
     error::ToResult, rcl_bindings::*, Clock, IntoPrimitiveOptions, MessageCow, Node, NodeHandle,
-    QoSProfile, RclPrimitive, RclPrimitiveHandle, RclPrimitiveKind, RclrsError, ReadyKind,
-    Waitable, WaitableLifecycle, WorkScope, Worker, WorkerCommands, ENTITY_LIFECYCLE_MUTEX,
+    NodeState, QoSProfile, RclPrimitive, RclPrimitiveHandle, RclPrimitiveKind, RclrsError,
+    ReadyKind, Waitable, WaitableLifecycle, WorkScope, Worker, WorkerCommands,
+    ENTITY_LIFECYCLE_MUTEX,
 };
 
 mod any_service_callback;
@@ -101,7 +102,7 @@ where
     pub(crate) fn create<'a>(
         options: impl Into<ServiceOptions<'a>>,
         callback: AnyServiceCallback<T, Scope::Payload>,
-        node: &Node,
+        node: &NodeState,
         commands: &Arc<WorkerCommands>,
     ) -> Result<Arc<Self>, RclrsError> {
         let ServiceOptions { name, qos } = options.into();
