@@ -4,3 +4,6 @@ members = [
   "rclrs-macros",
 ]
 resolver = "2"
+
+[patch.crates-io]
+rclrs-macros = { path = "rclrs-macros" }
