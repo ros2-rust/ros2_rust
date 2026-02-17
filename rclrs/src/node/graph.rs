@@ -72,14 +72,16 @@ impl NodeState {
             node_namespace: *const ::std::os::raw::c_char,
             topic_names_and_types: *mut rcl_names_and_types_t,
         ) -> rcl_ret_t {
-            rcl_get_publisher_names_and_types_by_node(
-                node,
-                allocator,
-                false,
-                node_name,
-                node_namespace,
-                topic_names_and_types,
-            )
+            unsafe {
+                rcl_get_publisher_names_and_types_by_node(
+                    node,
+                    allocator,
+                    false,
+                    node_name,
+                    node_namespace,
+                    topic_names_and_types,
+                )
+            }
         }
 
         self.get_names_and_types_by_node(node, namespace, wrapper)
@@ -99,14 +101,16 @@ impl NodeState {
             node_namespace: *const ::std::os::raw::c_char,
             topic_names_and_types: *mut rcl_names_and_types_t,
         ) -> rcl_ret_t {
-            rcl_get_subscriber_names_and_types_by_node(
-                node,
-                allocator,
-                false,
-                node_name,
-                node_namespace,
-                topic_names_and_types,
-            )
+            unsafe {
+                rcl_get_subscriber_names_and_types_by_node(
+                    node,
+                    allocator,
+                    false,
+                    node_name,
+                    node_namespace,
+                    topic_names_and_types,
+                )
+            }
         }
 
         self.get_names_and_types_by_node(node, namespace, wrapper)
@@ -489,21 +493,12 @@ mod tests {
         let node = executor.create_node(node_name).unwrap();
 
         let check_rosout = |topics: HashMap<String, Vec<String>>| {
-            // rosout shows up in humble and iron, even if the graph is empty
-            #[cfg(any(ros_distro = "humble"))]
-            {
-                assert_eq!(topics.len(), 1);
-                assert_eq!(
-                    topics.get("/rosout").unwrap().first().unwrap(),
-                    "rcl_interfaces/msg/Log"
-                );
-            }
-
-            // rosout does not automatically show up in jazzy when the graph is empty
-            #[cfg(any(ros_distro = "jazzy", ros_distro = "rolling"))]
-            {
-                assert_eq!(topics.len(), 0);
-            }
+            // rosout shows up when a node is created (on all distros after enabling rosout)
+            assert_eq!(topics.len(), 1);
+            assert_eq!(
+                topics.get("/rosout").unwrap().first().unwrap(),
+                "rcl_interfaces/msg/Log"
+            );
         };
 
         let names_and_topics = node

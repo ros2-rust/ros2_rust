@@ -453,7 +453,8 @@ impl ParameterValue {
         .map(u8::from)
         .sum();
         assert_eq!(num_active, 1);
-        // Note: This code has no unsafe blocks because it is inside an unsafe function.
+        // Note: Unsafe blocks below are necessary to dereference raw pointers
+        // and call unsafe functions like CStr::from_ptr.
         // In general, the following operations are as safe as they can be, because
         // only non-null pointers are dereferenced, and strings and arrays are copied immediately,
         // so there are no concerns about choosing the correct lifetime.
@@ -462,43 +463,56 @@ impl ParameterValue {
         // However, it cannot be checked that it points to a valid value. Similarly for array sizes.
         // This is why this function must be unsafe itself.
         if !var.bool_value.is_null() {
-            ParameterValue::Bool(*var.bool_value)
+            unsafe { ParameterValue::Bool(*var.bool_value) }
         } else if !var.integer_value.is_null() {
-            ParameterValue::Integer(*var.integer_value)
+            unsafe { ParameterValue::Integer(*var.integer_value) }
         } else if !var.double_value.is_null() {
-            ParameterValue::Double(*var.double_value)
+            unsafe { ParameterValue::Double(*var.double_value) }
         } else if !var.string_value.is_null() {
-            let cstr = CStr::from_ptr(var.string_value);
-            let s = cstr.to_string_lossy().into_owned();
-            ParameterValue::String(s.into())
+            unsafe {
+                let cstr = CStr::from_ptr(var.string_value);
+                let s = cstr.to_string_lossy().into_owned();
+                ParameterValue::String(s.into())
+            }
         } else if !var.byte_array_value.is_null() {
-            let rcl_byte_array = &*var.byte_array_value;
-            let slice = rcl_from_raw_parts(rcl_byte_array.values, rcl_byte_array.size);
-            ParameterValue::ByteArray(slice.into())
+            unsafe {
+                let rcl_byte_array = &*var.byte_array_value;
+                let slice = rcl_from_raw_parts(rcl_byte_array.values, rcl_byte_array.size);
+                ParameterValue::ByteArray(slice.into())
+            }
         } else if !var.bool_array_value.is_null() {
-            let rcl_bool_array = &*var.bool_array_value;
-            let slice = rcl_from_raw_parts(rcl_bool_array.values, rcl_bool_array.size);
-            ParameterValue::BoolArray(slice.into())
+            unsafe {
+                let rcl_bool_array = &*var.bool_array_value;
+                let slice = rcl_from_raw_parts(rcl_bool_array.values, rcl_bool_array.size);
+                ParameterValue::BoolArray(slice.into())
+            }
         } else if !var.integer_array_value.is_null() {
-            let rcl_integer_array = &*var.integer_array_value;
-            let slice = rcl_from_raw_parts(rcl_integer_array.values, rcl_integer_array.size);
-            ParameterValue::IntegerArray(slice.into())
+            unsafe {
+                let rcl_integer_array = &*var.integer_array_value;
+                let slice = rcl_from_raw_parts(rcl_integer_array.values, rcl_integer_array.size);
+                ParameterValue::IntegerArray(slice.into())
+            }
         } else if !var.double_array_value.is_null() {
-            let rcl_double_array = &*var.double_array_value;
-            let slice = rcl_from_raw_parts(rcl_double_array.values, rcl_double_array.size);
-            ParameterValue::DoubleArray(slice.into())
+            unsafe {
+                let rcl_double_array = &*var.double_array_value;
+                let slice = rcl_from_raw_parts(rcl_double_array.values, rcl_double_array.size);
+                ParameterValue::DoubleArray(slice.into())
+            }
         } else if !var.string_array_value.is_null() {
-            let rcutils_string_array = &*var.string_array_value;
-            let slice = rcl_from_raw_parts(rcutils_string_array.data, rcutils_string_array.size);
-            let strings = slice
-                .iter()
-                .map(|&ptr| {
-                    debug_assert!(!ptr.is_null());
-                    let cstr = CStr::from_ptr(ptr);
-                    Arc::from(cstr.to_string_lossy())
-                })
-                .collect::<Vec<_>>();
-            ParameterValue::StringArray(strings.into())
+            unsafe {
+                let rcutils_string_array = &*var.string_array_value;
+                let slice =
+                    rcl_from_raw_parts(rcutils_string_array.data, rcutils_string_array.size);
+                let strings = slice
+                    .iter()
+                    .map(|&ptr| {
+                        debug_assert!(!ptr.is_null());
+                        let cstr = CStr::from_ptr(ptr);
+                        Arc::from(cstr.to_string_lossy())
+                    })
+                    .collect::<Vec<_>>();
+                ParameterValue::StringArray(strings.into())
+            }
         } else {
             unreachable!()
         }

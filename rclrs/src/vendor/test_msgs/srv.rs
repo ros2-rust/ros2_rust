@@ -688,7 +688,7 @@ impl rosidl_runtime_rs::Message for Empty_Response {
 }
 
 #[link(name = "test_msgs__rosidl_typesupport_c")]
-extern "C" {
+unsafe extern "C" {
     fn rosidl_typesupport_c__get_service_type_support_handle__test_msgs__srv__Arrays(
     ) -> *const std::ffi::c_void;
 }
@@ -707,7 +707,7 @@ impl rosidl_runtime_rs::Service for Arrays {
 }
 
 #[link(name = "test_msgs__rosidl_typesupport_c")]
-extern "C" {
+unsafe extern "C" {
     fn rosidl_typesupport_c__get_service_type_support_handle__test_msgs__srv__BasicTypes(
     ) -> *const std::ffi::c_void;
 }
@@ -728,7 +728,7 @@ impl rosidl_runtime_rs::Service for BasicTypes {
 }
 
 #[link(name = "test_msgs__rosidl_typesupport_c")]
-extern "C" {
+unsafe extern "C" {
     fn rosidl_typesupport_c__get_service_type_support_handle__test_msgs__srv__Empty(
     ) -> *const std::ffi::c_void;
 }
@@ -752,13 +752,13 @@ pub mod rmw {
     use serde::{Deserialize, Serialize};
 
     #[link(name = "test_msgs__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__test_msgs__srv__Arrays_Request(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "test_msgs__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn test_msgs__srv__Arrays_Request__init(msg: *mut Arrays_Request) -> bool;
         fn test_msgs__srv__Arrays_Request__Sequence__init(
             seq: *mut rosidl_runtime_rs::Sequence<Arrays_Request>,
@@ -867,13 +867,13 @@ pub mod rmw {
     }
 
     #[link(name = "test_msgs__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__test_msgs__srv__Arrays_Response(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "test_msgs__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn test_msgs__srv__Arrays_Response__init(msg: *mut Arrays_Response) -> bool;
         fn test_msgs__srv__Arrays_Response__Sequence__init(
             seq: *mut rosidl_runtime_rs::Sequence<Arrays_Response>,
@@ -982,13 +982,13 @@ pub mod rmw {
     }
 
     #[link(name = "test_msgs__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__test_msgs__srv__BasicTypes_Request(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "test_msgs__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn test_msgs__srv__BasicTypes_Request__init(msg: *mut BasicTypes_Request) -> bool;
         fn test_msgs__srv__BasicTypes_Request__Sequence__init(
             seq: *mut rosidl_runtime_rs::Sequence<BasicTypes_Request>,
@@ -1080,13 +1080,13 @@ pub mod rmw {
     }
 
     #[link(name = "test_msgs__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__test_msgs__srv__BasicTypes_Response(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "test_msgs__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn test_msgs__srv__BasicTypes_Response__init(msg: *mut BasicTypes_Response) -> bool;
         fn test_msgs__srv__BasicTypes_Response__Sequence__init(
             seq: *mut rosidl_runtime_rs::Sequence<BasicTypes_Response>,
@@ -1180,13 +1180,13 @@ pub mod rmw {
     }
 
     #[link(name = "test_msgs__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__test_msgs__srv__Empty_Request(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "test_msgs__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn test_msgs__srv__Empty_Request__init(msg: *mut Empty_Request) -> bool;
         fn test_msgs__srv__Empty_Request__Sequence__init(
             seq: *mut rosidl_runtime_rs::Sequence<Empty_Request>,
@@ -1266,13 +1266,13 @@ pub mod rmw {
     }
 
     #[link(name = "test_msgs__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_message_type_support_handle__test_msgs__srv__Empty_Response(
         ) -> *const std::ffi::c_void;
     }
 
     #[link(name = "test_msgs__rosidl_generator_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn test_msgs__srv__Empty_Response__init(msg: *mut Empty_Response) -> bool;
         fn test_msgs__srv__Empty_Response__Sequence__init(
             seq: *mut rosidl_runtime_rs::Sequence<Empty_Response>,
@@ -1351,7 +1351,7 @@ pub mod rmw {
     }
 
     #[link(name = "test_msgs__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_service_type_support_handle__test_msgs__srv__Arrays(
         ) -> *const std::ffi::c_void;
     }
@@ -1372,7 +1372,7 @@ pub mod rmw {
     }
 
     #[link(name = "test_msgs__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_service_type_support_handle__test_msgs__srv__BasicTypes(
         ) -> *const std::ffi::c_void;
     }
@@ -1393,7 +1393,7 @@ pub mod rmw {
     }
 
     #[link(name = "test_msgs__rosidl_typesupport_c")]
-    extern "C" {
+    unsafe extern "C" {
         fn rosidl_typesupport_c__get_service_type_support_handle__test_msgs__srv__Empty(
         ) -> *const std::ffi::c_void;
     }

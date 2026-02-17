@@ -48,12 +48,15 @@ impl RclParamsIter<'_> {
                 rcl_node_params: &[],
             }
         } else {
-            let node_name_ptrs =
-                rcl_from_raw_parts((*rcl_params).node_names, (*rcl_params).num_nodes);
-            let rcl_node_params = rcl_from_raw_parts((*rcl_params).params, (*rcl_params).num_nodes);
-            Self {
-                node_name_ptrs,
-                rcl_node_params,
+            unsafe {
+                let node_name_ptrs =
+                    rcl_from_raw_parts((*rcl_params).node_names, (*rcl_params).num_nodes);
+                let rcl_node_params =
+                    rcl_from_raw_parts((*rcl_params).params, (*rcl_params).num_nodes);
+                Self {
+                    node_name_ptrs,
+                    rcl_node_params,
+                }
             }
         }
     }
@@ -81,10 +84,12 @@ impl<'a> RclNodeParamsIter<'a> {
     // This function is unsafe since the rcl_node_params argument might contain incorrect array
     // sizes or dangling pointers.
     pub unsafe fn new(rcl_node_params: &'a rcl_node_params_t) -> Self {
-        let param_name_ptrs =
-            rcl_from_raw_parts(rcl_node_params.parameter_names, rcl_node_params.num_params);
-        let rcl_variants =
-            rcl_from_raw_parts(rcl_node_params.parameter_values, rcl_node_params.num_params);
+        let param_name_ptrs = unsafe {
+            rcl_from_raw_parts(rcl_node_params.parameter_names, rcl_node_params.num_params)
+        };
+        let rcl_variants = unsafe {
+            rcl_from_raw_parts(rcl_node_params.parameter_values, rcl_node_params.num_params)
+        };
         Self {
             param_name_ptrs,
             rcl_variants,
@@ -109,25 +114,27 @@ pub(crate) unsafe fn resolve_parameter_overrides(
     rcl_node_arguments: &rcl_arguments_t,
     rcl_global_arguments: &rcl_arguments_t,
 ) -> Result<ParameterOverrideMap, RclrsError> {
-    let mut map = BTreeMap::new();
-    for rcl_arguments in [rcl_global_arguments, rcl_node_arguments] {
-        let mut rcl_params = std::ptr::null_mut();
-        rcl_arguments_get_param_overrides(rcl_arguments, &mut rcl_params).ok()?;
-        // Check for the /** node first, and later overwrite with the more specific node
-        // parameters, if they exist
-        for name_to_match in ["/**", node_fqn] {
-            for (node_name, node_params) in RclParamsIter::new(rcl_params) {
-                if node_name == name_to_match {
-                    for (param_name, variant) in RclNodeParamsIter::new(node_params) {
-                        let value = ParameterValue::from_rcl_variant(variant);
-                        map.insert(param_name, value);
+    unsafe {
+        let mut map = BTreeMap::new();
+        for rcl_arguments in [rcl_global_arguments, rcl_node_arguments] {
+            let mut rcl_params = std::ptr::null_mut();
+            rcl_arguments_get_param_overrides(rcl_arguments, &mut rcl_params).ok()?;
+            // Check for the /** node first, and later overwrite with the more specific node
+            // parameters, if they exist
+            for name_to_match in ["/**", node_fqn] {
+                for (node_name, node_params) in RclParamsIter::new(rcl_params) {
+                    if node_name == name_to_match {
+                        for (param_name, variant) in RclNodeParamsIter::new(node_params) {
+                            let value = ParameterValue::from_rcl_variant(variant);
+                            map.insert(param_name, value);
+                        }
                     }
                 }
             }
+            rcl_yaml_node_struct_fini(rcl_params);
         }
-        rcl_yaml_node_struct_fini(rcl_params);
+        Ok(map)
     }
-    Ok(map)
 }
 
 #[cfg(test)]
