@@ -62,9 +62,6 @@ jobs:
       run: |
         apt-get update
         apt-get dist-upgrade -y
-        sync
-        ldconfig
-        sleep 1
 
     - name: Setup Rust
       uses: dtolnay/rust-toolchain@1.85
