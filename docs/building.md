@@ -45,6 +45,7 @@ sudo apt install -y git libclang-dev python3-pip python3-vcstool # libclang-dev 
 # Install these plugins for cargo and colcon:
 pip install git+https://github.com/colcon/colcon-cargo.git
 pip install git+https://github.com/colcon/colcon-ros-cargo.git
+cargo install cargo-ament-build
 ```
 
 ### Option 2: Using the Docker image
