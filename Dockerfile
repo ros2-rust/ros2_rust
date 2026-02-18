@@ -22,9 +22,7 @@ COPY src/ros2_rust/docker/rosidl_rust_setup.sh /
 RUN ./rosidl_rust_setup.sh
 
 RUN mkdir -p /workspace && echo "Did you forget to mount the repository into the Docker container?" > /workspace/HELLO.txt
-RUN echo "\nsource /opt/ros/${ROS_DISTRO}/setup.sh" >> /root/.bashrc
 WORKDIR /workspace
-
 
 COPY src/ros2_rust/docker/rosidl_rust_entrypoint.sh /
 ENTRYPOINT ["/rosidl_rust_entrypoint.sh"]
