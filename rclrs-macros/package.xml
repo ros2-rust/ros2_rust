@@ -3,27 +3,15 @@
    href="http://download.ros.org/schema/package_format3.xsd"
    schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>rclrs</name>
+  <name>rclrs-macros</name>
   <version>0.5.0</version>
-  <description>Package containing the Rust client library.</description>
+  <description>Package containing procedural macros for the Rust client library.</description>
   <maintainer email="esteve@apache.org">Esteve Fernandez</maintainer>
   <maintainer email="nnmmgit@gmail.com">Nikolai Morin</maintainer>
   <!-- This project is not military-sponsored, Jacob's employment contract just requires him to use this email address -->
   <maintainer email="jacob.a.hassold.civ@army.mil">Jacob Hassold</maintainer>
   <license>Apache License 2.0</license>
-  <author email="esteve@apache.org">Esteve Fernandez</author>
-
-  <build_depend>libclang-dev</build_depend>
-  <build_depend>rosidl_runtime_rs</build_depend>
-  <depend>rcl</depend>
-  <depend>builtin_interfaces</depend>
-  <depend>rcl_interfaces</depend>
-  <depend>rosgraph_msgs</depend>
-  <depend>rclrs-macros</depend>
-
-  <test_depend>test_msgs</test_depend>
-  <test_depend>example_interfaces</test_depend>
-
+  <author email="esteve@apache.org">Balthasar Schüss</author>
   <export>
     <build_type>ament_cargo</build_type>
   </export>
