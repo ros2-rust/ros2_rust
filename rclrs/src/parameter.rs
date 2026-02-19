@@ -1,6 +1,7 @@
 mod override_map;
 mod range;
 mod service;
+pub mod structured;
 mod value;
 
 pub(crate) use override_map::*;

@@ -59,6 +59,7 @@ uuid = { version = "1", features = ["v4"] }
 tempfile = "3.3.0"
 # Needed for parameter service tests
 tokio = { version = "1", features = ["rt", "time", "macros"] }
+rclrs-macros = {path = "../rclrs-macros"}
 
 [build-dependencies]
 # Needed for uploading documentation to docs.rs

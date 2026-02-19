@@ -217,7 +217,10 @@ pub use error::*;
 pub use executor::*;
 pub use logging::*;
 pub use node::*;
-pub use parameter::*;
+pub use parameter::{
+    structured::{StructuredParameters, StructuredParametersMeta},
+    *,
+};
 pub use publisher::*;
 pub use qos::*;
 pub use rcl_bindings::rmw_request_id_t;
