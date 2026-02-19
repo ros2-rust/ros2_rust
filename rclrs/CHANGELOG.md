@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.1](https://github.com/ros2-rust/ros2_rust/compare/v0.7.0...v0.7.1) - 2026-02-19
+
+### Added
+
+- add logging_rosout.h to the list of headers to generate bindings for ([#594](https://github.com/ros2-rust/ros2_rust/pull/594))
+
+### Fixed
+
+- initialize rosout publisher on distros newer than Humble ([#593](https://github.com/ros2-rust/ros2_rust/pull/593))
+
+### Other
+
+- *(bindings)* regenerate bindings for humble ([#596](https://github.com/ros2-rust/ros2_rust/pull/596))
+- *(bindings)* regenerate bindings for kilted ([#597](https://github.com/ros2-rust/ros2_rust/pull/597))
+- *(bindings)* regenerate bindings for rolling ([#598](https://github.com/ros2-rust/ros2_rust/pull/598))
+- *(bindings)* regenerate bindings for jazzy ([#599](https://github.com/ros2-rust/ros2_rust/pull/599))
+
 ## [0.7.0](https://github.com/ros2-rust/ros2_rust/compare/v0.6.0...v0.7.0) - 2026-01-18
 
 ### Added
