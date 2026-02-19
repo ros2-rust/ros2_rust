@@ -49,6 +49,9 @@ sudo apt install -y git libclang-dev python3-pip python3-vcstool
 
 # Install colcon plugins for Rust
 pip install --break-system-packages colcon-cargo colcon-ros-cargo
+
+# Install cargo plugin for ament
+cargo install cargo-ament-build
 ```
 
 Because of an issue in `rclrs` (https://github.com/ros2-rust/ros2_rust/issues/557), as a workaround, the following two packages need to be installed:
