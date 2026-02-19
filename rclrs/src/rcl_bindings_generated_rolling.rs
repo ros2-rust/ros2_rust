@@ -1317,113 +1317,6 @@ unsafe extern "C" {
 }
 #[repr(C)]
 #[derive(Debug)]
-pub struct rmw_service_endpoint_info_s {
-    pub node_name: *const ::std::os::raw::c_char,
-    pub node_namespace: *const ::std::os::raw::c_char,
-    pub service_type: *const ::std::os::raw::c_char,
-    pub service_type_hash: rosidl_type_hash_t,
-    pub endpoint_type: rmw_endpoint_type_t,
-    pub endpoint_count: usize,
-    pub endpoint_gids: *mut [u8; 16usize],
-    pub qos_profiles: *mut rmw_qos_profile_t,
-}
-pub type rmw_service_endpoint_info_t = rmw_service_endpoint_info_s;
-unsafe extern "C" {
-    pub fn rmw_get_zero_initialized_service_endpoint_info() -> rmw_service_endpoint_info_t;
-}
-unsafe extern "C" {
-    pub fn rmw_service_endpoint_info_fini(
-        service_endpoint_info: *mut rmw_service_endpoint_info_t,
-        allocator: *mut rcutils_allocator_t,
-    ) -> rmw_ret_t;
-}
-unsafe extern "C" {
-    pub fn rmw_service_endpoint_info_set_service_type(
-        service_endpoint_info: *mut rmw_service_endpoint_info_t,
-        service_type: *const ::std::os::raw::c_char,
-        allocator: *mut rcutils_allocator_t,
-    ) -> rmw_ret_t;
-}
-unsafe extern "C" {
-    pub fn rmw_service_endpoint_info_set_service_type_hash(
-        service_endpoint_info: *mut rmw_service_endpoint_info_t,
-        type_hash: *const rosidl_type_hash_t,
-    ) -> rmw_ret_t;
-}
-unsafe extern "C" {
-    pub fn rmw_service_endpoint_info_set_node_name(
-        service_endpoint_info: *mut rmw_service_endpoint_info_t,
-        node_name: *const ::std::os::raw::c_char,
-        allocator: *mut rcutils_allocator_t,
-    ) -> rmw_ret_t;
-}
-unsafe extern "C" {
-    pub fn rmw_service_endpoint_info_set_node_namespace(
-        service_endpoint_info: *mut rmw_service_endpoint_info_t,
-        node_namespace: *const ::std::os::raw::c_char,
-        allocator: *mut rcutils_allocator_t,
-    ) -> rmw_ret_t;
-}
-unsafe extern "C" {
-    pub fn rmw_service_endpoint_info_set_endpoint_type(
-        service_endpoint_info: *mut rmw_service_endpoint_info_t,
-        type_: rmw_endpoint_type_t,
-    ) -> rmw_ret_t;
-}
-unsafe extern "C" {
-    pub fn rmw_service_endpoint_info_set_endpoint_count(
-        service_endpoint_info: *mut rmw_service_endpoint_info_t,
-        endpoint_count: usize,
-    ) -> rmw_ret_t;
-}
-unsafe extern "C" {
-    pub fn rmw_service_endpoint_info_set_gids(
-        service_endpoint_info: *mut rmw_service_endpoint_info_t,
-        gids: *const u8,
-        endpoint_count: usize,
-        size: usize,
-        allocator: *mut rcutils_allocator_t,
-    ) -> rmw_ret_t;
-}
-unsafe extern "C" {
-    pub fn rmw_service_endpoint_info_set_qos_profiles(
-        service_endpoint_info: *mut rmw_service_endpoint_info_t,
-        qos_profiles: *const rmw_qos_profile_t,
-        endpoint_count: usize,
-        allocator: *mut rcutils_allocator_t,
-    ) -> rmw_ret_t;
-}
-#[repr(C)]
-#[derive(Debug)]
-pub struct rmw_service_endpoint_info_array_s {
-    pub size: usize,
-    pub info_array: *mut rmw_service_endpoint_info_t,
-}
-pub type rmw_service_endpoint_info_array_t = rmw_service_endpoint_info_array_s;
-unsafe extern "C" {
-    pub fn rmw_get_zero_initialized_service_endpoint_info_array(
-    ) -> rmw_service_endpoint_info_array_t;
-}
-unsafe extern "C" {
-    pub fn rmw_service_endpoint_info_array_check_zero(
-        service_endpoint_info_array: *mut rmw_service_endpoint_info_array_t,
-    ) -> rmw_ret_t;
-}
-unsafe extern "C" {
-    pub fn rmw_service_endpoint_info_array_init_with_size(
-        service_endpoint_info_array: *mut rmw_service_endpoint_info_array_t,
-        size: usize,
-        allocator: *mut rcutils_allocator_t,
-    ) -> rmw_ret_t;
-}
-unsafe extern "C" {
-    pub fn rmw_service_endpoint_info_array_fini(
-        service_endpoint_info_array: *mut rmw_service_endpoint_info_array_t,
-        allocator: *mut rcutils_allocator_t,
-    ) -> rmw_ret_t;
-}
-#[repr(C)]
-#[derive(Debug)]
 pub struct rmw_topic_endpoint_info_s {
     pub node_name: *const ::std::os::raw::c_char,
     pub node_namespace: *const ::std::os::raw::c_char,
@@ -3403,8 +3296,6 @@ unsafe extern "C" {
 pub type rcl_names_and_types_t = rmw_names_and_types_t;
 pub type rcl_topic_endpoint_info_t = rmw_topic_endpoint_info_t;
 pub type rcl_topic_endpoint_info_array_t = rmw_topic_endpoint_info_array_t;
-pub type rcl_service_endpoint_info_t = rmw_service_endpoint_info_t;
-pub type rcl_service_endpoint_info_array_t = rmw_service_endpoint_info_array_t;
 unsafe extern "C" {
     pub fn rcl_get_publisher_names_and_types_by_node(
         node: *const rcl_node_t,
@@ -3534,26 +3425,6 @@ unsafe extern "C" {
     ) -> rcl_ret_t;
 }
 unsafe extern "C" {
-    pub fn rcl_wait_for_clients(
-        node: *const rcl_node_t,
-        allocator: *mut rcl_allocator_t,
-        service_name: *const ::std::os::raw::c_char,
-        count: usize,
-        timeout: rcutils_duration_value_t,
-        success: *mut bool,
-    ) -> rcl_ret_t;
-}
-unsafe extern "C" {
-    pub fn rcl_wait_for_servers(
-        node: *const rcl_node_t,
-        allocator: *mut rcl_allocator_t,
-        service_name: *const ::std::os::raw::c_char,
-        count: usize,
-        timeout: rcutils_duration_value_t,
-        success: *mut bool,
-    ) -> rcl_ret_t;
-}
-unsafe extern "C" {
     pub fn rcl_get_publishers_info_by_topic(
         node: *const rcl_node_t,
         allocator: *mut rcutils_allocator_t,
@@ -3569,24 +3440,6 @@ unsafe extern "C" {
         topic_name: *const ::std::os::raw::c_char,
         no_mangle: bool,
         subscriptions_info: *mut rcl_topic_endpoint_info_array_t,
-    ) -> rcl_ret_t;
-}
-unsafe extern "C" {
-    pub fn rcl_get_clients_info_by_service(
-        node: *const rcl_node_t,
-        allocator: *mut rcutils_allocator_t,
-        service_name: *const ::std::os::raw::c_char,
-        no_mangle: bool,
-        clients_info: *mut rcl_service_endpoint_info_array_t,
-    ) -> rcl_ret_t;
-}
-unsafe extern "C" {
-    pub fn rcl_get_servers_info_by_service(
-        node: *const rcl_node_t,
-        allocator: *mut rcutils_allocator_t,
-        service_name: *const ::std::os::raw::c_char,
-        no_mangle: bool,
-        servers_info: *mut rcl_service_endpoint_info_array_t,
     ) -> rcl_ret_t;
 }
 unsafe extern "C" {
