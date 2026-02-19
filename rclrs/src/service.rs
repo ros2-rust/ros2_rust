@@ -8,9 +8,10 @@ use std::{
 use rosidl_runtime_rs::{Message, Service as ServiceIDL};
 
 use crate::{
-    error::ToResult, rcl_bindings::*, IntoPrimitiveOptions, MessageCow, Node, NodeHandle,
-    QoSProfile, RclPrimitive, RclPrimitiveHandle, RclPrimitiveKind, RclrsError, ReadyKind,
-    Waitable, WaitableLifecycle, WorkScope, Worker, WorkerCommands, ENTITY_LIFECYCLE_MUTEX,
+    error::ToResult, rcl_bindings::*, Clock, IntoPrimitiveOptions, MessageCow, Node, NodeHandle,
+    NodeState, QoSProfile, RclPrimitive, RclPrimitiveHandle, RclPrimitiveKind, RclrsError,
+    ReadyKind, Waitable, WaitableLifecycle, WorkScope, Worker, WorkerCommands,
+    ENTITY_LIFECYCLE_MUTEX,
 };
 
 mod any_service_callback;
@@ -101,7 +102,7 @@ where
     pub(crate) fn create<'a>(
         options: impl Into<ServiceOptions<'a>>,
         callback: AnyServiceCallback<T, Scope::Payload>,
-        node_handle: &Arc<NodeHandle>,
+        node: &NodeState,
         commands: &Arc<WorkerCommands>,
     ) -> Result<Arc<Self>, RclrsError> {
         let ServiceOptions { name, qos } = options.into();
@@ -120,7 +121,7 @@ where
         service_options.qos = qos.into();
 
         {
-            let rcl_node = node_handle.rcl_node.lock().unwrap();
+            let rcl_node = node.handle().rcl_node.lock().unwrap();
             let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
             unsafe {
                 // SAFETY:
@@ -143,7 +144,8 @@ where
 
         let handle = Arc::new(ServiceHandle {
             rcl_service: Mutex::new(rcl_service),
-            node_handle: Arc::clone(&node_handle),
+            node_handle: Arc::clone(node.handle()),
+            clock: node.get_clock(),
         });
 
         let (waitable, lifecycle) = Waitable::new(
@@ -163,6 +165,43 @@ where
         commands.add_to_wait_set(waitable);
 
         Ok(service)
+    }
+
+    /// Configure service introspection for this service.
+    /// Service introspection allows tools to monitor service requests and responses.
+    /// Service introspection can be set to either
+    ///     - Off: Disabled
+    ///     - Metadata: Only metadata without any user data contents
+    ///     - Contents: User data contents with metadata
+    // The API for service introspection was added in Jazzy.
+    #[cfg(not(ros_distro = "humble"))]
+    pub fn configure_introspection(
+        &self,
+        introspection_state: ServiceIntrospectionState,
+    ) -> Result<(), RclrsError> {
+        let service = &mut *self.handle.rcl_service.lock().unwrap();
+        let node = &mut *self.handle.node_handle.rcl_node.lock().unwrap();
+        let clock = &self.handle.clock;
+        let rcl_clock = &mut *clock.get_rcl_clock().lock().unwrap();
+        let type_support = <T as rosidl_runtime_rs::Service>::get_type_support()
+            as *const rosidl_service_type_support_t;
+
+        // SAFETY: No preconditions for this function.
+        let publisher_options = unsafe { rcl_publisher_get_default_options() };
+
+        unsafe {
+            rcl_service_configure_service_introspection(
+                service,
+                node,
+                rcl_clock,
+                type_support,
+                publisher_options,
+                introspection_state.into(),
+            )
+            .ok()?;
+        }
+
+        Ok(())
     }
 }
 
@@ -282,6 +321,7 @@ unsafe impl Send for rcl_service_t {}
 pub struct ServiceHandle {
     rcl_service: Mutex<rcl_service_t>,
     node_handle: Arc<NodeHandle>,
+    clock: Clock,
 }
 
 impl ServiceHandle {
@@ -387,6 +427,55 @@ impl Drop for ServiceHandle {
         // global variables in the rmw implementation being unsafely modified during cleanup.
         unsafe {
             rcl_service_fini(rcl_service, &mut *rcl_node);
+        }
+    }
+}
+
+/// The possible service introspection configurations
+// The API for service introspection was added in Jazzy.
+#[cfg(not(ros_distro = "humble"))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ServiceIntrospectionState {
+    /// Disable service introspection
+    Off,
+    /// Enable service introspection with metadata only
+    Metadata,
+    /// Enable service introspection with metadata and contents
+    Contents,
+}
+
+// The API for service introspection was added in Jazzy.
+#[cfg(not(ros_distro = "humble"))]
+impl From<rcl_service_introspection_state_e> for ServiceIntrospectionState {
+    fn from(value: rcl_service_introspection_state_e) -> Self {
+        match value {
+            rcl_service_introspection_state_e::RCL_SERVICE_INTROSPECTION_OFF => {
+                ServiceIntrospectionState::Off
+            }
+            rcl_service_introspection_state_e::RCL_SERVICE_INTROSPECTION_METADATA => {
+                ServiceIntrospectionState::Metadata
+            }
+            rcl_service_introspection_state_e::RCL_SERVICE_INTROSPECTION_CONTENTS => {
+                ServiceIntrospectionState::Contents
+            }
+        }
+    }
+}
+
+// The API for service introspection was added in Jazzy.
+#[cfg(not(ros_distro = "humble"))]
+impl From<ServiceIntrospectionState> for rcl_service_introspection_state_e {
+    fn from(value: ServiceIntrospectionState) -> Self {
+        match value {
+            ServiceIntrospectionState::Off => {
+                rcl_service_introspection_state_e::RCL_SERVICE_INTROSPECTION_OFF
+            }
+            ServiceIntrospectionState::Metadata => {
+                rcl_service_introspection_state_e::RCL_SERVICE_INTROSPECTION_METADATA
+            }
+            ServiceIntrospectionState::Contents => {
+                rcl_service_introspection_state_e::RCL_SERVICE_INTROSPECTION_CONTENTS
+            }
         }
     }
 }

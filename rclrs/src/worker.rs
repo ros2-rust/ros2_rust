@@ -428,7 +428,7 @@ impl<Payload: 'static + Send + Sync> WorkerState<Payload> {
         ServiceState::<T, Worker<Payload>>::create(
             options,
             callback.into_worker_service_callback(),
-            self.node.handle(),
+            &self.node,
             &self.commands,
         )
     }
