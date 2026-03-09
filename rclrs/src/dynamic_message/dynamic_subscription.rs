@@ -1,8 +1,10 @@
-use std::any::Any;
-use std::boxed::Box;
-use std::ffi::CString;
-use std::ops::{Deref, DerefMut};
-use std::sync::{Arc, Mutex};
+use std::{
+    any::Any,
+    boxed::Box,
+    ffi::CString,
+    ops::{Deref, DerefMut},
+    sync::{Arc, Mutex},
+};
 
 use futures::future::BoxFuture;
 
@@ -10,11 +12,11 @@ use super::{
     get_type_support_handle, get_type_support_library, DynamicMessage, DynamicMessageMetadata,
     MessageStructure, MessageTypeName,
 };
-use crate::rcl_bindings::*;
 use crate::{
-    MessageInfo, Node, NodeHandle, RclPrimitive, RclPrimitiveHandle, RclPrimitiveKind, RclrsError,
-    RclrsErrorFilter, ReadyKind, SubscriptionHandle, SubscriptionOptions, ToResult, Waitable,
-    WaitableLifecycle, WorkScope, Worker, WorkerCommands, ENTITY_LIFECYCLE_MUTEX,
+    rcl_bindings::*, MessageInfo, Node, NodeHandle, RclPrimitive, RclPrimitiveHandle,
+    RclPrimitiveKind, RclrsError, RclrsErrorFilter, ReadyKind, SubscriptionHandle,
+    SubscriptionOptions, ToResult, Waitable, WaitableLifecycle, WorkScope, Worker, WorkerCommands,
+    ENTITY_LIFECYCLE_MUTEX,
 };
 
 /// Struct for receiving messages whose type is not known at compile time.
