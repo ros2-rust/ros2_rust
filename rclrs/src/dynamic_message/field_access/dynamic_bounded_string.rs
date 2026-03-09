@@ -1,7 +1,9 @@
-use std::convert::AsMut;
-use std::fmt::{self, Display};
-use std::num::NonZeroUsize;
-use std::ops::{Deref, DerefMut};
+use std::{
+    convert::AsMut,
+    fmt::{self, Display},
+    num::NonZeroUsize,
+    ops::{Deref, DerefMut},
+};
 
 use rosidl_runtime_rs::StringExceedsBoundsError;
 
