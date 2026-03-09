@@ -299,7 +299,7 @@ impl MessageStructure {
 mod tests {
     use super::*;
     use crate::dynamic_message::*;
-    use crate::vendor::test_msgs::msg;
+    use crate::test_msgs::msg;
 
     use std::num::NonZeroUsize;
 
