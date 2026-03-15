@@ -441,7 +441,8 @@ impl Drop for SubscriptionHandle {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{test_helpers::*, test_msgs::msg};
+    use crate::test_helpers::*;
+    use ros_env::test_msgs::msg;
 
     #[test]
     fn traits() {
@@ -552,11 +553,12 @@ mod tests {
 
     #[test]
     fn test_delayed_subscription() {
-        use crate::{example_interfaces::msg::Empty, *};
+        use crate::*;
         use futures::{
             channel::{mpsc, oneshot},
             StreamExt,
         };
+        use ros_env::example_interfaces::msg::Empty;
         use std::sync::atomic::{AtomicBool, Ordering};
 
         let mut executor = Context::default().create_basic_executor();
@@ -620,7 +622,8 @@ mod tests {
 
     #[test]
     fn test_subscription_qos_settings() {
-        use crate::{example_interfaces::msg::Empty, *};
+        use crate::*;
+        use ros_env::example_interfaces::msg::Empty;
 
         let executor = Context::default().create_basic_executor();
 
@@ -671,7 +674,8 @@ mod tests {
 
     #[test]
     fn test_setting_qos_from_parameters() {
-        use crate::{example_interfaces::msg::Empty, *};
+        use crate::*;
+        use ros_env::example_interfaces::msg::Empty;
 
         let args = ["--ros-args", "-p", "qos_reliability:=best_effort"].map(ToString::to_string);
 

@@ -3,7 +3,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use crate::rcl_interfaces::{msg::rmw::*, srv::rmw::*};
+use ros_env::rcl_interfaces::{msg::rmw::*, srv::rmw::*};
 use rosidl_runtime_rs::Sequence;
 
 use super::ParameterMap;
@@ -306,14 +306,10 @@ impl ParameterService {
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        rcl_interfaces::{
-            msg::rmw::{
-                Parameter as RmwParameter, ParameterType, ParameterValue as RmwParameterValue,
-            },
-            srv::rmw::*,
-        },
-        *,
+    use crate::*;
+    use ros_env::rcl_interfaces::{
+        msg::rmw::{Parameter as RmwParameter, ParameterType, ParameterValue as RmwParameterValue},
+        srv::rmw::*,
     };
     use rosidl_runtime_rs::{seq, Sequence};
     use std::{
