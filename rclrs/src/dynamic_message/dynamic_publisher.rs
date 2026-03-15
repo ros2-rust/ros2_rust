@@ -1,13 +1,17 @@
-use std::ffi::CString;
-use std::sync::{Arc, Mutex};
+use std::{
+    ffi::CString,
+    sync::{Arc, Mutex},
+};
 
 use super::{
     get_type_support_handle, get_type_support_library, DynamicMessage, DynamicMessageError,
     DynamicMessageMetadata, MessageTypeName,
 };
-use crate::error::{RclrsError, ToResult};
-use crate::rcl_bindings::*;
-use crate::{Node, PublisherHandle, PublisherOptions, ENTITY_LIFECYCLE_MUTEX};
+use crate::{
+    error::{RclrsError, ToResult},
+    rcl_bindings::*,
+    Node, PublisherHandle, PublisherOptions, ENTITY_LIFECYCLE_MUTEX,
+};
 
 /// Struct for sending dynamic messages.
 ///
@@ -150,8 +154,8 @@ mod tests {
 
     #[test]
     fn test_dynamic_publishers() -> Result<(), RclrsError> {
-        use crate::vendor::test_msgs::msg;
         use crate::TopicEndpointInfo;
+        use ros_env::test_msgs::msg;
 
         let namespace = "/test_dynamic_publishers_graph";
         let graph = construct_test_graph(namespace)?;
