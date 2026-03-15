@@ -298,7 +298,8 @@ impl MessageStructure {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{dynamic_message::*, test_msgs::msg};
+    use crate::dynamic_message::*;
+    use ros_env::test_msgs::msg;
 
     use std::num::NonZeroUsize;
 

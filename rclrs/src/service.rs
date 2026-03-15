@@ -487,14 +487,15 @@ mod tests {
 
     #[test]
     fn traits() {
-        use crate::test_msgs;
+        use ros_env::test_msgs;
         assert_send::<Service<test_msgs::srv::Arrays>>();
         assert_sync::<Service<test_msgs::srv::Arrays>>();
     }
 
     #[test]
     fn test_services() -> Result<(), RclrsError> {
-        use crate::{test_msgs::srv, TopicNamesAndTypes};
+        use crate::TopicNamesAndTypes;
+        use ros_env::test_msgs::srv;
 
         let namespace = "/test_services_graph";
         let graph = construct_test_graph(namespace)?;
