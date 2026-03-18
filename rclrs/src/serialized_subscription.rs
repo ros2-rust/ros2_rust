@@ -37,10 +37,13 @@ impl NodeSerializedSubscriptionCallback {
 }
 
 impl SerializedMessageBuffer {
-    fn new() -> Self {
-        Self {
-            inner: unsafe { rcutils_get_zero_initialized_uint8_array() },
+    fn new() -> Result<Self, RclrsError> {
+        let mut inner = unsafe { rcutils_get_zero_initialized_uint8_array() };
+        let allocator = unsafe { rcutils_get_default_allocator() };
+        unsafe {
+            rcutils_uint8_array_init(&mut inner, 0, &allocator).ok()?;
         }
+        Ok(Self { inner })
     }
 
     fn take_bytes(&self) -> Vec<u8> {
@@ -60,7 +63,7 @@ impl Drop for SerializedMessageBuffer {
 
 impl SerializedSubscriptionExecutable {
     fn take(&self) -> Result<(Vec<u8>, MessageInfo), RclrsError> {
-        let mut serialized_message = SerializedMessageBuffer::new();
+        let mut serialized_message = SerializedMessageBuffer::new()?;
         let mut message_info = unsafe { rmw_get_zero_initialized_message_info() };
         let rcl_subscription = &mut *self.handle.lock();
 
