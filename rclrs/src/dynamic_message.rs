@@ -120,7 +120,7 @@ pub struct DynamicMessage {
 }
 
 /// This is an analogue of rclcpp::get_typesupport_library.
-fn get_type_support_library(
+pub(crate) fn get_type_support_library(
     package_name: &str,
     type_support_identifier: &str,
 ) -> Result<Arc<libloading::Library>, DynamicMessageError> {
@@ -162,7 +162,7 @@ fn get_type_support_library(
 ///
 /// It is unsafe because it would be theoretically possible to pass in a library that has
 /// the expected symbol defined, but with an unexpected type.
-unsafe fn get_type_support_handle(
+pub(crate) unsafe fn get_type_support_handle(
     type_support_library: &libloading::Library,
     type_support_identifier: &str,
     message_type: &MessageTypeName,

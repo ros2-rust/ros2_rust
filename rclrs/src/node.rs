@@ -43,10 +43,10 @@ use crate::{
     IntoAsyncSubscriptionCallback, IntoNodeServiceCallback, IntoNodeSubscriptionCallback,
     IntoNodeTimerOneshotCallback, IntoNodeTimerRepeatingCallback, IntoTimerOptions, LogParams,
     Logger, MessageInfo, ParameterBuilder, ParameterInterface, ParameterVariant, Parameters,
-    Promise, Publisher, PublisherOptions, PublisherState, RclrsError, RequestedGoal, Service,
-    ServiceOptions, ServiceState, Subscription, SubscriptionOptions, SubscriptionState,
-    TerminatedGoal, TimeSource, Timer, TimerState, ToLogParams, Worker, WorkerOptions, WorkerState,
-    ENTITY_LIFECYCLE_MUTEX,
+    Promise, Publisher, PublisherOptions, PublisherState, RclrsError, RequestedGoal,
+    SerializedSubscription, SerializedSubscriptionState, Service, ServiceOptions, ServiceState,
+    Subscription, SubscriptionOptions, SubscriptionState, TerminatedGoal, TimeSource, Timer,
+    TimerState, ToLogParams, Worker, WorkerOptions, WorkerState, ENTITY_LIFECYCLE_MUTEX,
 };
 
 /// A processing unit that can communicate with other nodes. See the API of
@@ -939,6 +939,28 @@ impl NodeState {
             topic_type,
             options,
             NodeDynamicSubscriptionCallback::new(callback),
+            &self.handle,
+            self.commands.async_worker_commands(),
+        )
+    }
+
+    /// Creates a [`SerializedSubscription`] with an ordinary callback.
+    ///
+    /// The message type is determined at runtime, and the callback receives the serialized
+    /// ROS 2 payload bytes plus [`crate::MessageInfo`].
+    pub fn create_serialized_subscription<'a, F>(
+        &self,
+        topic_type: MessageTypeName,
+        options: impl Into<SubscriptionOptions<'a>>,
+        callback: F,
+    ) -> Result<SerializedSubscription, RclrsError>
+    where
+        F: Fn(Vec<u8>, MessageInfo) + Send + Sync + 'static,
+    {
+        SerializedSubscriptionState::create(
+            topic_type,
+            options,
+            crate::serialized_subscription::NodeSerializedSubscriptionCallback::new(callback),
             &self.handle,
             self.commands.async_worker_commands(),
         )
