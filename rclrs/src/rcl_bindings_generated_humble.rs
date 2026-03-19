@@ -817,7 +817,7 @@ pub struct rmw_context_impl_s {
     _unused: [u8; 0],
 }
 pub type rmw_context_impl_t = rmw_context_impl_s;
-#[repr(C)]
+#[repr(C, align(8))]
 #[derive(Debug)]
 pub struct rmw_context_s {
     pub instance_id: u64,
@@ -1538,7 +1538,7 @@ pub struct rcl_context_impl_s {
     _unused: [u8; 0],
 }
 pub type rcl_context_impl_t = rcl_context_impl_s;
-#[repr(C)]
+#[repr(C, align(8))]
 #[derive(Debug)]
 pub struct rcl_context_s {
     pub global_arguments: rcl_arguments_t,
