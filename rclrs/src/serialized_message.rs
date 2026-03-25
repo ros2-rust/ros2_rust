@@ -29,6 +29,18 @@ impl SerializedMessage {
     pub fn clear(&mut self) {
         self.msg.buffer_length = 0;
     }
+
+    /// Replace the serialized payload with the given bytes.
+    pub fn set_bytes(&mut self, bytes: &[u8]) -> Result<(), RclrsError> {
+        unsafe {
+            if self.msg.buffer_capacity < bytes.len() {
+                rcutils_uint8_array_resize(&mut self.msg, bytes.len()).ok()?;
+            }
+            std::ptr::copy_nonoverlapping(bytes.as_ptr(), self.msg.buffer, bytes.len());
+            self.msg.buffer_length = bytes.len();
+        }
+        Ok(())
+    }
 }
 
 impl Drop for SerializedMessage {
