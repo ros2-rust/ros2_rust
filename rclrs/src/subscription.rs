@@ -620,8 +620,7 @@ mod tests {
 
     #[test]
     fn test_subscription_qos_settings() {
-        use crate::vendor::example_interfaces::msg::Empty;
-        use crate::*;
+        use crate::{vendor::example_interfaces::msg::Empty, *};
 
         let executor = Context::default().create_basic_executor();
 
@@ -672,8 +671,7 @@ mod tests {
 
     #[test]
     fn test_setting_qos_from_parameters() {
-        use crate::vendor::example_interfaces::msg::Empty;
-        use crate::*;
+        use crate::{vendor::example_interfaces::msg::Empty, *};
 
         let args = ["--ros-args", "-p", "qos_reliability:=best_effort"].map(ToString::to_string);
 

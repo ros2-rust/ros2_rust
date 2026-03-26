@@ -1,8 +1,12 @@
-use std::fmt::{self, Debug};
-use std::ops::Deref;
+use std::{
+    fmt::{self, Debug},
+    ops::Deref,
+};
 
-use super::super::MessageStructure;
-use super::{DynamicSequenceElementMut, Proxy, ProxyMut, ProxySequence, Value, ValueMut};
+use super::{
+    super::MessageStructure, DynamicSequenceElementMut, Proxy, ProxyMut, ProxySequence, Value,
+    ValueMut,
+};
 
 /// A view of a single message. Used for nested messages.
 ///

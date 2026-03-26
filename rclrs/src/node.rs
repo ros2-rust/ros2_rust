@@ -43,13 +43,11 @@ use crate::{
     IntoAsyncSubscriptionCallback, IntoNodeServiceCallback, IntoNodeSubscriptionCallback,
     IntoNodeTimerOneshotCallback, IntoNodeTimerRepeatingCallback, IntoTimerOptions, LogParams,
     Logger, MessageInfo, ParameterBuilder, ParameterInterface, ParameterVariant, Parameters,
-    Promise, Publisher, PublisherOptions, PublisherState, RclrsError, RequestedGoal, Service,
-    ServiceOptions, ServiceState, SerializedPublisher, SerializedSubscription, Subscription,
-    SubscriptionOptions, SubscriptionState,
-    TerminatedGoal, TimeSource, Timer, TimerState, ToLogParams, Worker, WorkerOptions, WorkerState,
-    ENTITY_LIFECYCLE_MUTEX,
+    Promise, Publisher, PublisherOptions, PublisherState, RclrsError, RequestedGoal,
+    SerializedPublisher, SerializedSubscription, Service, ServiceOptions, ServiceState,
+    Subscription, SubscriptionOptions, SubscriptionState, TerminatedGoal, TimeSource, Timer,
+    TimerState, ToLogParams, ToResult, Worker, WorkerOptions, WorkerState, ENTITY_LIFECYCLE_MUTEX,
 };
-use crate::ToResult;
 
 /// A processing unit that can communicate with other nodes. See the API of
 /// [`NodeState`] to find out what methods you can call on a [`Node`].
