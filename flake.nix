@@ -2,7 +2,7 @@
   description = "ros flake";
 
   inputs = {
-    nix-ros-overlay.url = "github:lopsided98/nix-ros-overlay/master";
+    nix-ros-overlay.url = "github:lopsided98/nix-ros-overlay";
     nixpkgs.follows = "nix-ros-overlay/nixpkgs";
     rust-overlay.url = "github:oxalica/rust-overlay";
     flake-utils.url = "github:numtide/flake-utils";
@@ -10,17 +10,19 @@
 
   outputs =
     { self, nixpkgs, rust-overlay, flake-utils, nix-ros-overlay, ... }:
-    flake-utils.lib.eachDefaultSystem (
+    flake-utils.lib.eachSystem [ "x86_64-linux" "aarch64-linux" ] (
       system:
       let
         overlays = [ (import rust-overlay) nix-ros-overlay.overlays.default ];
 
         pkgs = import nixpkgs {
           inherit system overlays;
-          config.allowUnfree = true;
         };
 
         rosDistro = pkgs.rosPackages.jazzy;
+        rustToolchain = pkgs.rust-bin.stable.latest.default.override {
+          extensions = [ "rust-src" ];
+        };
 
         rosPrefixes = "${rosDistro.ament-cmake}:${rosDistro.ament-cmake-core}:${rosDistro.python-cmake-module}:${rosDistro.rmw}:${rosDistro.rosidl-default-generators}:${rosDistro.rosidl-runtime-c}:${rosDistro.rosidl-typesupport-c}:${rosDistro.rosidl-typesupport-interface}:${rosDistro.std-msgs}:${rosDistro.test-msgs}";
       in
@@ -28,9 +30,7 @@
         devShells.default = pkgs.mkShell {
           packages =
             [
-              (pkgs.rust-bin.stable.latest.default.override {
-                extensions = [ "rust-src" ];
-              })
+              rustToolchain
               pkgs.gcc
               pkgs.clang
               pkgs.cmake
@@ -40,24 +40,21 @@
               (with rosDistro; buildEnv {
                 paths = [
                   ros-core
-                  desktop-full
+                  ros-base
                   cyclonedds
                   rmw-cyclonedds-cpp
-                  ackermann-msgs
                   test-msgs
-                  moveit
                 ];
               })
             ];
 
-          RUST_SRC_PATH = "${pkgs.rust.packages.stable.rustPlatform.rustLibSrc}";
+          RUST_SRC_PATH = "${rustToolchain}/lib/rustlib/src/rust/library";
 
           shellHook = ''
             export LIBCLANG_PATH="${pkgs.llvmPackages.libclang.lib}/lib"
             export LD_LIBRARY_PATH="${pkgs.stdenv.cc.cc.lib}/lib''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
             export CC=clang
             export CXX=clang++
-            export CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER=clang
 
             dedup_flags() {
                 local var_name="$1"
@@ -139,6 +136,7 @@
             prepend_prefixes CMAKE_PREFIX_PATH
 
             setup_synthetic_ament_prefix() {
+                local base_dir
                 local synthetic_prefix
                 local source_prefixes
                 local old_ifs="$IFS"
@@ -148,18 +146,20 @@
                 local existing_value
                 local filtered=""
 
-                synthetic_prefix="$PWD/.nix-ament-prefix"
+                if [ -n "''${XDG_CACHE_HOME:-}" ]; then
+                    base_dir="$XDG_CACHE_HOME"
+                elif [ -n "''${TMPDIR:-}" ]; then
+                    base_dir="$TMPDIR"
+                else
+                    base_dir="/tmp"
+                fi
+
+                synthetic_prefix="$base_dir/ros2-rust-nix-ament-prefix-${system}"
                 mkdir -p "$synthetic_prefix/share/ament_index/resource_index/packages"
 
-                cat > "$synthetic_prefix/local_setup.sh" <<'SETUPEOF'
-            #!/usr/bin/env sh
-            SETUPEOF
-                cat > "$synthetic_prefix/local_setup.bash" <<'SETUPEOF'
-            #!/usr/bin/env bash
-            SETUPEOF
-                cat > "$synthetic_prefix/local_setup.zsh" <<'SETUPEOF'
-            #!/usr/bin/env zsh
-            SETUPEOF
+                printf '%s\n' '#!/usr/bin/env sh' > "$synthetic_prefix/local_setup.sh"
+                printf '%s\n' '#!/usr/bin/env bash' > "$synthetic_prefix/local_setup.bash"
+                printf '%s\n' '#!/usr/bin/env zsh' > "$synthetic_prefix/local_setup.zsh"
                 chmod +x \
                     "$synthetic_prefix/local_setup.sh" \
                     "$synthetic_prefix/local_setup.bash" \
