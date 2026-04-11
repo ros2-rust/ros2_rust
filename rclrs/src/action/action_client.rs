@@ -181,16 +181,12 @@ impl<A: Action> ActionClientState<A> {
     /// underlying `rcl` C layer.
     pub fn server_is_available(&self) -> Result<bool, RclrsError> {
         let mut is_available = false;
-        
+
         unsafe {
             let handle = self.board.handle.lock();
             let node_handle = self.board.handle.node_handle.rcl_node.lock().unwrap();
-            
-            rcl_action_server_is_available(
-                &*node_handle,
-                &*handle,
-                &mut is_available
-            )
+
+            rcl_action_server_is_available(&*node_handle, &*handle, &mut is_available)
         }
         .ok()?;
 
