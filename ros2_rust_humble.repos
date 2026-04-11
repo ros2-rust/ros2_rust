@@ -23,10 +23,6 @@ repositories:
     type: git
     url: https://github.com/ros2/unique_identifier_msgs.git
     version: humble
-  ros2/geometry2:
-    type: git
-    url: https://github.com/ros2/geometry2.git
-    version: humble
   ros2-rust/examples:
     type: git
     url: https://github.com/ros2-rust/examples.git
