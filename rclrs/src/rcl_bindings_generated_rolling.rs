@@ -1049,6 +1049,7 @@ pub struct rmw_subscription_options_s {
     pub ignore_local_publications: bool,
     pub require_unique_network_flow_endpoints: rmw_unique_network_flow_endpoints_requirement_t,
     pub content_filter_options: *mut rmw_subscription_content_filter_options_t,
+    pub acceptable_buffer_backends: *const ::std::os::raw::c_char,
 }
 pub type rmw_subscription_options_t = rmw_subscription_options_s;
 #[repr(C)]
@@ -1060,6 +1061,7 @@ pub struct rmw_subscription_s {
     pub options: rmw_subscription_options_t,
     pub can_loan_messages: bool,
     pub is_cft_enabled: bool,
+    pub is_cft_supported: bool,
 }
 pub type rmw_subscription_t = rmw_subscription_s;
 #[repr(C)]
@@ -1192,7 +1194,6 @@ pub use self::rmw_qos_durability_policy_e as rmw_qos_durability_policy_t;
 pub enum rmw_qos_liveliness_policy_e {
     RMW_QOS_POLICY_LIVELINESS_SYSTEM_DEFAULT = 0,
     RMW_QOS_POLICY_LIVELINESS_AUTOMATIC = 1,
-    RMW_QOS_POLICY_LIVELINESS_MANUAL_BY_NODE = 2,
     RMW_QOS_POLICY_LIVELINESS_MANUAL_BY_TOPIC = 3,
     RMW_QOS_POLICY_LIVELINESS_UNKNOWN = 4,
     RMW_QOS_POLICY_LIVELINESS_BEST_AVAILABLE = 5,
@@ -2414,6 +2415,16 @@ pub type rmw_event_callback_t = ::std::option::Option<
     unsafe extern "C" fn(user_data: *const ::std::os::raw::c_void, number_of_events: usize),
 >;
 pub type rcl_event_callback_t = rmw_event_callback_t;
+#[repr(C)]
+#[derive(Debug)]
+pub struct rcl_event_callback_with_data_s {
+    pub callback: rcl_event_callback_t,
+    pub user_data: *const ::std::os::raw::c_void,
+}
+pub type rcl_event_callback_with_data_t = rcl_event_callback_with_data_s;
+unsafe extern "C" {
+    pub fn rcl_get_zero_initialized_event_callback_with_data() -> rcl_event_callback_with_data_t;
+}
 pub type rcl_ret_t = rmw_ret_t;
 pub type rcl_serialized_message_t = rmw_serialized_message_t;
 pub use self::RCUTILS_LOG_SEVERITY as rcl_log_severity_t;
@@ -7555,6 +7566,9 @@ unsafe extern "C" {
         user_data: *const ::std::os::raw::c_void,
     ) -> rcl_ret_t;
 }
+unsafe extern "C" {
+    pub fn rcl_subscription_is_cft_supported(subscription: *const rcl_subscription_t) -> bool;
+}
 #[repr(C)]
 #[derive(Debug)]
 pub struct rcl_service_impl_s {
@@ -8243,7 +8257,7 @@ pub struct rcl_timer_call_info_s {
 }
 pub type rcl_timer_call_info_t = rcl_timer_call_info_s;
 pub type rcl_timer_callback_t =
-    ::std::option::Option<unsafe extern "C" fn(arg1: *mut rcl_timer_t, arg2: i64)>;
+    ::std::option::Option<unsafe extern "C" fn(arg1: *mut rcl_timer_t, arg2: i64, arg3: usize)>;
 unsafe extern "C" {
     pub fn rcl_get_zero_initialized_timer() -> rcl_timer_t;
 }
@@ -8308,10 +8322,16 @@ unsafe extern "C" {
     pub fn rcl_timer_get_callback(timer: *const rcl_timer_t) -> rcl_timer_callback_t;
 }
 unsafe extern "C" {
+    pub fn rcl_timer_get_callback_data(timer: *const rcl_timer_t) -> usize;
+}
+unsafe extern "C" {
     pub fn rcl_timer_exchange_callback(
         timer: *mut rcl_timer_t,
         new_callback: rcl_timer_callback_t,
     ) -> rcl_timer_callback_t;
+}
+unsafe extern "C" {
+    pub fn rcl_timer_exchange_callback_data(timer: *mut rcl_timer_t, data: usize) -> usize;
 }
 unsafe extern "C" {
     pub fn rcl_timer_cancel(timer: *mut rcl_timer_t) -> rcl_ret_t;
@@ -9060,6 +9080,13 @@ unsafe extern "C" {
     ) -> rcl_ret_t;
 }
 unsafe extern "C" {
+    pub fn rcl_action_server_set_expired_event_callback(
+        action_server: *const rcl_action_server_t,
+        callback: rcl_event_callback_t,
+        user_data: *const ::std::os::raw::c_void,
+    ) -> rcl_ret_t;
+}
+unsafe extern "C" {
     pub fn rcl_action_server_set_goal_service_callback(
         action_server: *const rcl_action_server_t,
         callback: rcl_event_callback_t,
@@ -9106,6 +9133,20 @@ unsafe extern "C" {
         node: *const rcl_node_t,
         allocator: *mut rcl_allocator_t,
         action_names_and_types: *mut rcl_names_and_types_t,
+    ) -> rcl_ret_t;
+}
+unsafe extern "C" {
+    pub fn rcl_action_count_clients(
+        node: *const rcl_node_t,
+        action_name: *const ::std::os::raw::c_char,
+        count: *mut usize,
+    ) -> rcl_ret_t;
+}
+unsafe extern "C" {
+    pub fn rcl_action_count_servers(
+        node: *const rcl_node_t,
+        action_name: *const ::std::os::raw::c_char,
+        count: *mut usize,
     ) -> rcl_ret_t;
 }
 unsafe extern "C" {
