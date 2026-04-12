@@ -19,6 +19,7 @@ use std::{
     marker::PhantomData,
     sync::{Arc, Mutex, RwLock, Weak},
 };
+use tokio::sync::watch;
 
 // This module implements the core logic of parameters in rclrs.
 // The implementation is fairly different from the existing ROS 2 client libraries. A detailed
@@ -94,6 +95,7 @@ pub struct ParameterBuilder<'a, T: ParameterVariant> {
     discriminator: DiscriminatorFunction<'a, T>,
     options: ParameterOptions<T>,
     interface: &'a ParameterInterface,
+    validate: Option<Arc<dyn Fn(&T) -> Result<(), String> + Send + Sync>>,
 }
 
 impl<'a, T: ParameterVariant> ParameterBuilder<'a, T> {
@@ -162,6 +164,21 @@ impl<'a, T: ParameterVariant> ParameterBuilder<'a, T> {
     /// and can be used by integrators to understand complex constraints.
     pub fn constraints(mut self, constraints: impl Into<Arc<str>>) -> Self {
         self.options.constraints = constraints.into();
+        self
+    }
+
+    /// Registers a validation callback that can reject parameter changes.
+    /// Called during declaration (for the initial value) and on every subsequent
+    /// set operation (both programmatic and via service calls).
+    /// For optional parameters, this is not called on `unset()`, use
+    /// `MandatoryParameter` to prevent clearing.
+    /// Must have no side effects — use [`MandatoryParameter::on_change`] or
+    /// [`OptionalParameter::on_change`] for reactions.
+    pub fn validate(
+        mut self,
+        callback: impl Fn(&T) -> Result<(), String> + Send + Sync + 'static,
+    ) -> Self {
+        self.validate = Some(Arc::new(callback));
         self
     }
 
@@ -259,6 +276,22 @@ pub fn default_initial_value_discriminator<T: ParameterVariant>(
 
 type DiscriminatorFunction<'a, T> = Box<dyn FnOnce(AvailableValues<T>) -> Option<T> + 'a>;
 
+/// Wraps a typed validate callback into a type-erased one that operates on `ParameterValue`.
+///
+/// The `expect` here is safe: this callback is only invoked from
+/// `validate_parameter_setting` which checks the type discriminant first,
+/// and from `Parameters::set()` which checks `T::kind() == param.kind`.
+fn wrap_validate_callback<T: ParameterVariant>(
+    callback: Arc<dyn Fn(&T) -> Result<(), String> + Send + Sync>,
+) -> ValidateCallback {
+    Arc::new(move |pv: &ParameterValue| {
+        let typed: T = pv.clone().try_into().ok().expect(
+            "type mismatch in validate callback wrapper — parameter type is fixed at declaration",
+        );
+        callback(&typed)
+    })
+}
+
 impl<T: ParameterVariant> TryFrom<ParameterBuilder<'_, T>> for OptionalParameter<T> {
     type Error = DeclarationError;
 
@@ -272,18 +305,39 @@ impl<T: ParameterVariant> TryFrom<ParameterBuilder<'_, T>> for OptionalParameter
             builder.discriminator,
             &ranges,
         )?;
+
+        // Run the validate callback on the initial value (if both exist)
+        if let (Some(validate), Some(value)) = (&builder.validate, &initial_value) {
+            validate(value).map_err(DeclarationError::InitialValueRejected)?;
+        }
+
+        // Create a type-erased validate callback that is stored in the parameter map and is used
+        // when the parameter is changed via service calls
+        let type_erased_validate = builder
+            .validate
+            .as_ref()
+            .map(|cb| wrap_validate_callback::<T>(Arc::clone(cb)));
+
         let value = Arc::new(RwLock::new(initial_value.map(|v| v.into())));
+
+        // The change_tx is used to notify async subscribers of changes to the parameter value.
+        let (change_tx, _) = watch::channel(());
+
         builder.interface.store_parameter(
             builder.name.clone(),
             T::kind(),
             DeclaredValue::Optional(value.clone()),
             builder.options.into(),
+            type_erased_validate,
+            Some(change_tx.clone()),
         );
         Ok(OptionalParameter {
             name: builder.name,
             value,
             ranges,
             map: Arc::downgrade(&builder.interface.parameter_map),
+            change_tx,
+            validate: builder.validate,
             _marker: Default::default(),
         })
     }
@@ -297,6 +351,8 @@ pub struct MandatoryParameter<T: ParameterVariant> {
     value: Arc<RwLock<ParameterValue>>,
     ranges: ParameterRanges,
     map: Weak<Mutex<ParameterMap>>,
+    change_tx: watch::Sender<()>,
+    validate: Option<Arc<dyn Fn(&T) -> Result<(), String> + Send + Sync>>,
     _marker: PhantomData<T>,
 }
 
@@ -320,7 +376,7 @@ impl<T: ParameterVariant> Drop for MandatoryParameter<T> {
     }
 }
 
-impl<'a, T: ParameterVariant + 'a> TryFrom<ParameterBuilder<'a, T>> for MandatoryParameter<T> {
+impl<T: ParameterVariant> TryFrom<ParameterBuilder<'_, T>> for MandatoryParameter<T> {
     type Error = DeclarationError;
 
     fn try_from(builder: ParameterBuilder<T>) -> Result<Self, Self::Error> {
@@ -336,18 +392,39 @@ impl<'a, T: ParameterVariant + 'a> TryFrom<ParameterBuilder<'a, T>> for Mandator
         let Some(initial_value) = initial_value else {
             return Err(DeclarationError::NoValueAvailable);
         };
+
+        // Run the validate callback on the initial value
+        if let Some(validate) = &builder.validate {
+            validate(&initial_value).map_err(DeclarationError::InitialValueRejected)?;
+        }
+
+        // Create a type-erased validate callback that is stored in the parameter map and is used
+        // when the parameter is changed via service calls
+        let type_erased_validate = builder
+            .validate
+            .as_ref()
+            .map(|cb| wrap_validate_callback::<T>(Arc::clone(cb)));
+
         let value = Arc::new(RwLock::new(initial_value.into()));
+
+        // The change_tx is used to notify async subscribers of changes to the parameter value.
+        let (change_tx, _) = watch::channel(());
+
         builder.interface.store_parameter(
             builder.name.clone(),
             T::kind(),
             DeclaredValue::Mandatory(value.clone()),
             builder.options.into(),
+            type_erased_validate,
+            Some(change_tx.clone()),
         );
         Ok(MandatoryParameter {
             name: builder.name,
             value,
             ranges,
             map: Arc::downgrade(&builder.interface.parameter_map),
+            change_tx,
+            validate: builder.validate,
             _marker: Default::default(),
         })
     }
@@ -361,6 +438,8 @@ pub struct OptionalParameter<T: ParameterVariant> {
     value: Arc<RwLock<Option<ParameterValue>>>,
     ranges: ParameterRanges,
     map: Weak<Mutex<ParameterMap>>,
+    change_tx: watch::Sender<()>,
+    validate: Option<Arc<dyn Fn(&T) -> Result<(), String> + Send + Sync>>,
     _marker: PhantomData<T>,
 }
 
@@ -413,7 +492,7 @@ impl<T: ParameterVariant> Drop for ReadOnlyParameter<T> {
     }
 }
 
-impl<'a, T: ParameterVariant + 'a> TryFrom<ParameterBuilder<'a, T>> for ReadOnlyParameter<T> {
+impl<T: ParameterVariant> TryFrom<ParameterBuilder<'_, T>> for ReadOnlyParameter<T> {
     type Error = DeclarationError;
 
     fn try_from(builder: ParameterBuilder<T>) -> Result<Self, Self::Error> {
@@ -429,12 +508,22 @@ impl<'a, T: ParameterVariant + 'a> TryFrom<ParameterBuilder<'a, T>> for ReadOnly
         let Some(initial_value) = initial_value else {
             return Err(DeclarationError::NoValueAvailable);
         };
+
+        // Run the validate callback on the initial value
+        // ReadOnly parameters can't change, so we don't store the validate callback like we do
+        // for the other parameter types
+        if let Some(validate) = &builder.validate {
+            validate(&initial_value).map_err(DeclarationError::InitialValueRejected)?;
+        }
+
         let value = initial_value.into();
         builder.interface.store_parameter(
             builder.name.clone(),
             T::kind(),
             DeclaredValue::ReadOnly(value.clone()),
             builder.options.into(),
+            None,
+            None,
         );
         Ok(ReadOnlyParameter {
             name: builder.name,
@@ -445,11 +534,29 @@ impl<'a, T: ParameterVariant + 'a> TryFrom<ParameterBuilder<'a, T>> for ReadOnly
     }
 }
 
-#[derive(Clone, Debug)]
+type ValidateCallback = Arc<dyn Fn(&ParameterValue) -> Result<(), String> + Send + Sync>;
+type OnChangeCallback = Arc<dyn Fn(Option<&ParameterValue>) + Send + Sync>;
+
 struct DeclaredStorage {
     value: DeclaredValue,
     kind: ParameterKind,
     options: ParameterOptionsStorage,
+    validate: Option<ValidateCallback>,
+    on_change: Option<OnChangeCallback>,
+    change_tx: Option<watch::Sender<()>>,
+}
+
+impl Debug for DeclaredStorage {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("DeclaredStorage")
+            .field("value", &self.value)
+            .field("kind", &self.kind)
+            .field("options", &self.options)
+            .field("validate", &self.validate.as_ref().map(|_| ".."))
+            .field("on_change", &self.on_change.as_ref().map(|_| ".."))
+            .field("change_tx", &"..")
+            .finish()
+    }
 }
 
 #[derive(Debug)]
@@ -498,14 +605,15 @@ pub(crate) struct ParameterMap {
 
 impl ParameterMap {
     /// Validates the requested parameter setting and returns an error if the requested value is
-    /// not valid.
+    /// not valid. Runs built-in checks (type, range, read-only) and then the custom validate
+    /// callback if one is registered.
     fn validate_parameter_setting(
         &self,
         name: &str,
         value: RmwParameterValue,
-    ) -> Result<ParameterValue, &str> {
+    ) -> Result<ParameterValue, String> {
         let Ok(value): Result<ParameterValue, _> = value.try_into() else {
-            return Err("Invalid parameter type");
+            return Err("Invalid parameter type".into());
         };
         match self.storage.get(name) {
             Some(entry) => {
@@ -515,14 +623,17 @@ impl ParameterMap {
                         || matches!(storage.kind, ParameterKind::Dynamic)
                     {
                         if !storage.options.ranges.in_range(&value) {
-                            return Err("Parameter value is out of range");
+                            return Err("Parameter value is out of range".into());
                         }
                         if matches!(&storage.value, DeclaredValue::ReadOnly(_)) {
-                            return Err("Parameter is read only");
+                            return Err("Parameter is read only".into());
+                        }
+                        if let Some(validate) = &storage.validate {
+                            validate(&value)?;
                         }
                     } else {
                         return Err(
-                            "Parameter set to different type and dynamic typing is disabled",
+                            "Parameter set to different type and dynamic typing is disabled".into(),
                         );
                     }
                 }
@@ -530,7 +641,8 @@ impl ParameterMap {
             None => {
                 if !self.allow_undeclared {
                     return Err(
-                        "Parameter was not declared and undeclared parameters are not allowed",
+                        "Parameter was not declared and undeclared parameters are not allowed"
+                            .into(),
                     );
                 }
             }
@@ -538,22 +650,53 @@ impl ParameterMap {
         Ok(value)
     }
 
-    /// Stores the requested parameter in the map.
-    fn store_parameter(&mut self, name: Arc<str>, value: ParameterValue) {
+    /// Stores the requested parameter in the map and returns the on_change callback (if any).
+    /// The callback is returned rather than invoked here so that callers can invoke it
+    /// after releasing the map lock, avoiding deadlocks if the callback accesses the map.
+    fn store_parameter(
+        &mut self,
+        name: Arc<str>,
+        value: ParameterValue,
+    ) -> Option<OnChangeCallback> {
         match self.storage.entry(name) {
             Entry::Occupied(mut entry) => match entry.get_mut() {
-                ParameterStorage::Declared(storage) => match &storage.value {
-                    DeclaredValue::Mandatory(p) => *p.write().unwrap() = value,
-                    DeclaredValue::Optional(p) => *p.write().unwrap() = Some(value),
-                    DeclaredValue::ReadOnly(_) => unreachable!(),
-                },
+                ParameterStorage::Declared(storage) => {
+                    let on_change = storage.on_change.clone();
+                    match &storage.value {
+                        DeclaredValue::Mandatory(p) => *p.write().unwrap() = value,
+                        DeclaredValue::Optional(p) => *p.write().unwrap() = Some(value),
+                        DeclaredValue::ReadOnly(_) => unreachable!(),
+                    }
+                    // Notify async subscribers
+                    if let Some(tx) = &storage.change_tx {
+                        let _ = tx.send(());
+                    }
+                    on_change
+                }
                 ParameterStorage::Undeclared(param) => {
                     *param = value;
+                    None
                 }
             },
             Entry::Vacant(entry) => {
                 entry.insert(ParameterStorage::Undeclared(value));
+                None
             }
+        }
+    }
+
+    /// Clones the on_change callback Arc for the named parameter.
+    fn get_on_change_callback(&self, name: &str) -> Option<OnChangeCallback> {
+        if let Some(ParameterStorage::Declared(storage)) = self.storage.get(name) {
+            return storage.on_change.clone();
+        }
+        None
+    }
+
+    /// Registers an on_change callback for the named parameter.
+    fn set_on_change_callback(&mut self, name: &str, cb: OnChangeCallback) {
+        if let Some(ParameterStorage::Declared(storage)) = self.storage.get_mut(name) {
+            storage.on_change = Some(cb);
         }
     }
 }
@@ -566,13 +709,70 @@ impl<T: ParameterVariant> MandatoryParameter<T> {
 
     /// Sets the parameter value.
     /// Returns [`ParameterValueError::OutOfRange`] if the value is out of the parameter's range.
+    /// Returns [`ParameterValueError::ValidationFailed`] if the validate callback rejects the value.
     pub fn set<U: Into<T>>(&self, value: U) -> Result<(), ParameterValueError> {
-        let value = value.into().into();
+        let typed_value: T = value.into();
+        let value: ParameterValue = typed_value.clone().into();
         if !self.ranges.in_range(&value) {
             return Err(ParameterValueError::OutOfRange);
         }
-        *self.value.write().unwrap() = value;
+        // Run validate callback
+        if let Some(validate) = &self.validate {
+            validate(&typed_value).map_err(ParameterValueError::ValidationFailed)?;
+        }
+        // Acquire map lock for write + on_change atomicity
+        let on_change = if let Some(map) = self.map.upgrade() {
+            let map = map.lock().unwrap();
+            *self.value.write().unwrap() = value.clone();
+            map.get_on_change_callback(&self.name)
+        } else {
+            *self.value.write().unwrap() = value.clone();
+            None
+        };
+        // Invoke on_change outside the map lock
+        if let Some(cb) = on_change {
+            cb(Some(&value));
+        }
+        // Notify async subscribers
+        let _ = self.change_tx.send(());
         Ok(())
+    }
+
+    /// Registers a callback invoked after a parameter value is successfully changed.
+    /// This is the correct place for side effects (reconfiguring algorithms, logging, etc.).
+    /// Replaces any previously registered on_change callback.
+    /// Called for changes from both `param.set()` and service calls.
+    pub fn on_change(&self, callback: impl Fn(&T) + Send + Sync + 'static) {
+        let Some(map) = self.map.upgrade() else {
+            return;
+        };
+        let type_erased: OnChangeCallback = Arc::new(move |opt_pv: Option<&ParameterValue>| {
+            // MandatoryParameter always has a value, so we always expect Some
+            if let Some(pv) = opt_pv {
+                let typed: T = pv.clone().try_into().ok()
+                    .expect("type mismatch in on_change callback wrapper — parameter type is fixed at declaration");
+                callback(&typed);
+            }
+        });
+        map.lock()
+            .unwrap()
+            .set_on_change_callback(&self.name, type_erased);
+    }
+
+    /// Returns an async subscription that yields the new value each time
+    /// the parameter changes. Returns `None` from [`ParameterSubscription::changed()`]
+    /// when the parameter is dropped.
+    ///
+    /// Rapid updates may be coalesced, subscribers always see the latest
+    /// value but may not observe every intermediate one.
+    ///
+    /// Multiple subscriptions can be created from the same parameter.
+    pub fn subscribe(&self) -> ParameterSubscription<T> {
+        let value = Arc::clone(&self.value);
+        ParameterSubscription {
+            rx: self.change_tx.subscribe(),
+            get_value: Arc::new(move || value.read().unwrap().clone().try_into().ok().unwrap()),
+        }
     }
 }
 
@@ -595,18 +795,142 @@ impl<T: ParameterVariant> OptionalParameter<T> {
 
     /// Assigns a value to the optional parameter, setting it to `Some(value)`.
     /// Returns [`ParameterValueError::OutOfRange`] if the value is out of the parameter's range.
+    /// Returns [`ParameterValueError::ValidationFailed`] if the validate callback rejects the value.
     pub fn set<U: Into<T>>(&self, value: U) -> Result<(), ParameterValueError> {
-        let value = value.into().into();
+        let typed_value: T = value.into();
+        let value: ParameterValue = typed_value.clone().into();
         if !self.ranges.in_range(&value) {
             return Err(ParameterValueError::OutOfRange);
         }
-        *self.value.write().unwrap() = Some(value);
+        // Run typed validate callback directly — no type erasure round-trip
+        if let Some(validate) = &self.validate {
+            validate(&typed_value).map_err(ParameterValueError::ValidationFailed)?;
+        }
+        // Acquire map lock for write + on_change atomicity
+        let on_change = if let Some(map) = self.map.upgrade() {
+            let map = map.lock().unwrap();
+            *self.value.write().unwrap() = Some(value.clone());
+            map.get_on_change_callback(&self.name)
+        } else {
+            *self.value.write().unwrap() = Some(value.clone());
+            None
+        };
+        // Invoke on_change outside the map lock
+        if let Some(cb) = on_change {
+            cb(Some(&value));
+        }
+        // Notify async subscribers
+        let _ = self.change_tx.send(());
         Ok(())
     }
 
     /// Unsets the optional parameter value to `None`.
     pub fn unset(&self) {
-        *self.value.write().unwrap() = None;
+        let on_change = if let Some(map) = self.map.upgrade() {
+            let map = map.lock().unwrap();
+            *self.value.write().unwrap() = None;
+            map.get_on_change_callback(&self.name)
+        } else {
+            *self.value.write().unwrap() = None;
+            None
+        };
+        // Invoke on_change outside the map lock
+        if let Some(cb) = on_change {
+            cb(None);
+        }
+        // Notify async subscribers
+        let _ = self.change_tx.send(());
+    }
+
+    /// Registers a callback invoked after a parameter value is successfully changed.
+    /// Receives `Some(&value)` when set, `None` when unset.
+    /// Replaces any previously registered on_change callback.
+    /// Called for changes from both `param.set()` / `param.unset()` and service calls.
+    pub fn on_change(&self, callback: impl Fn(Option<&T>) + Send + Sync + 'static) {
+        let Some(map) = self.map.upgrade() else {
+            return;
+        };
+        let type_erased: OnChangeCallback = Arc::new(move |opt_pv: Option<&ParameterValue>| {
+            match opt_pv {
+                Some(pv) => {
+                    let typed: T = pv.clone().try_into().ok()
+                        .expect("type mismatch in on_change callback wrapper — parameter type is fixed at declaration");
+                    callback(Some(&typed));
+                }
+                None => callback(None),
+            }
+        });
+        map.lock()
+            .unwrap()
+            .set_on_change_callback(&self.name, type_erased);
+    }
+
+    /// Returns an async subscription that yields the new value each time
+    /// the parameter changes. Returns `None` from [`ParameterSubscription::changed()`]
+    /// when the parameter is dropped.
+    ///
+    /// Rapid updates may be coalesced, subscribers always see the latest
+    /// value but may not observe every intermediate one.
+    ///
+    /// Multiple subscriptions can be created from the same parameter.
+    pub fn subscribe(&self) -> ParameterSubscription<Option<T>> {
+        let value = Arc::clone(&self.value);
+        ParameterSubscription {
+            rx: self.change_tx.subscribe(),
+            get_value: Arc::new(move || {
+                value
+                    .read()
+                    .unwrap()
+                    .clone()
+                    .map(|p| p.try_into().ok().unwrap())
+            }),
+        }
+    }
+}
+
+/// An async subscription to parameter changes.
+///
+/// Obtain by calling [`MandatoryParameter::subscribe()`] or
+/// [`OptionalParameter::subscribe()`]. Multiple subscriptions can be created
+/// from the same parameter.
+///
+/// Uses a `tokio::sync::watch` channel as a lightweight notification mechanism.
+/// The actual value is read from the parameter's existing `Arc<RwLock<_>>`,
+/// avoiding unnecessary clones into the channel.
+pub struct ParameterSubscription<T> {
+    rx: watch::Receiver<()>,
+    get_value: Arc<dyn Fn() -> T + Send + Sync>,
+}
+
+impl<T: Clone> ParameterSubscription<T> {
+    /// Wait for the parameter to change. Returns `Some(new_value)` on each
+    /// change, or `None` when the parameter handle is dropped.
+    pub async fn changed(&mut self) -> Option<T> {
+        self.rx.changed().await.ok()?;
+        Some((self.get_value)())
+    }
+
+    /// Get the current value without waiting.
+    pub fn get(&self) -> T {
+        (self.get_value)()
+    }
+
+    /// Wait until the value satisfies the predicate. Returns `Some(value)`
+    /// when the condition is met, or `None` if the parameter is dropped first.
+    pub async fn wait_for(&mut self, predicate: impl Fn(&T) -> bool) -> Option<T> {
+        // Check the current value first
+        let current = (self.get_value)();
+        if predicate(&current) {
+            return Some(current);
+        }
+        // Wait for changes
+        loop {
+            self.rx.changed().await.ok()?;
+            let value = (self.get_value)();
+            if predicate(&value) {
+                return Some(value);
+            }
+        }
     }
 }
 
@@ -624,6 +948,8 @@ pub enum ParameterValueError {
     TypeMismatch,
     /// A write on a read-only parameter was attempted.
     ReadOnly,
+    /// A custom validation callback rejected the value.
+    ValidationFailed(String),
 }
 
 impl std::fmt::Display for ParameterValueError {
@@ -632,6 +958,7 @@ impl std::fmt::Display for ParameterValueError {
             ParameterValueError::OutOfRange => write!(f, "parameter value was out of the parameter's range"),
             ParameterValueError::TypeMismatch => write!(f, "parameter was stored in a static type and an operation on a different type was attempted"),
             ParameterValueError::ReadOnly => write!(f, "a write on a read-only parameter was attempted"),
+            ParameterValueError::ValidationFailed(reason) => write!(f, "custom validation rejected the value: {reason}"),
         }
     }
 }
@@ -656,6 +983,8 @@ pub enum DeclarationError {
     InitialValueOutOfRange,
     /// An invalid range was provided to a parameter declaration (i.e. lower bound > higher bound).
     InvalidRange,
+    /// The custom validation callback rejected the initial value during declaration.
+    InitialValueRejected(String),
 }
 
 impl std::fmt::Display for DeclarationError {
@@ -673,6 +1002,7 @@ impl std::fmt::Display for DeclarationError {
             },
             DeclarationError::InitialValueOutOfRange => write!(f, "the initial value that was selected is out of range"),
             DeclarationError::InvalidRange => write!(f, "an invalid range was provided to a parameter declaration (i.e. lower bound > higher bound)"),
+            DeclarationError::InitialValueRejected(reason) => write!(f, "the custom validation callback rejected the initial value: {reason}"),
         }
     }
 }
@@ -702,11 +1032,12 @@ impl Parameters<'_> {
     ///
     /// Returns:
     /// * `Ok(())` if setting was successful.
-    /// * [`Err(DeclarationError::TypeMismatch)`] if the type of the requested value is different
+    /// * [`Err(ParameterValueError::TypeMismatch)`] if the type of the requested value is different
     ///   from the parameter's type.
-    /// * [`Err(DeclarationError::OutOfRange)`] if the requested value is out of the parameter's
+    /// * [`Err(ParameterValueError::OutOfRange)`] if the requested value is out of the parameter's
     ///   range.
-    /// * [`Err(DeclarationError::ReadOnly)`] if the parameter is read only.
+    /// * [`Err(ParameterValueError::ReadOnly)`] if the parameter is read only.
+    /// * [`Err(ParameterValueError::ValidationFailed)`] if the validate callback rejects the value.
     pub fn set<T: ParameterVariant>(
         &self,
         name: impl Into<Arc<str>>,
@@ -714,6 +1045,7 @@ impl Parameters<'_> {
     ) -> Result<(), ParameterValueError> {
         let mut map = self.interface.parameter_map.lock().unwrap();
         let name: Arc<str> = name.into();
+        let mut on_change_info: Option<(OnChangeCallback, ParameterValue)> = None;
         match map.storage.entry(name) {
             Entry::Occupied(mut entry) => {
                 // If it's declared, we can only set if it's the same variant.
@@ -725,13 +1057,23 @@ impl Parameters<'_> {
                             if !param.options.ranges.in_range(&value) {
                                 return Err(ParameterValueError::OutOfRange);
                             }
+                            if let Some(validate) = &param.validate {
+                                validate(&value).map_err(ParameterValueError::ValidationFailed)?;
+                            }
                             match &param.value {
-                                DeclaredValue::Mandatory(p) => *p.write().unwrap() = value,
-                                DeclaredValue::Optional(p) => *p.write().unwrap() = Some(value),
+                                DeclaredValue::Mandatory(p) => *p.write().unwrap() = value.clone(),
+                                DeclaredValue::Optional(p) => {
+                                    *p.write().unwrap() = Some(value.clone())
+                                }
                                 DeclaredValue::ReadOnly(_) => {
                                     return Err(ParameterValueError::ReadOnly);
                                 }
                             }
+                            // Notify async subscribers
+                            if let Some(tx) = &param.change_tx {
+                                let _ = tx.send(());
+                            }
+                            on_change_info = param.on_change.clone().map(|cb| (cb, value));
                         } else {
                             return Err(ParameterValueError::TypeMismatch);
                         }
@@ -744,6 +1086,11 @@ impl Parameters<'_> {
             Entry::Vacant(entry) => {
                 entry.insert(ParameterStorage::Undeclared(value.into()));
             }
+        }
+        // Release the map lock before invoking on_change
+        drop(map);
+        if let Some((cb, value)) = on_change_info {
+            cb(Some(&value));
         }
         Ok(())
     }
@@ -786,6 +1133,7 @@ impl ParameterInterface {
             discriminator: Box::new(default_initial_value_discriminator::<T>),
             options: Default::default(),
             interface: self,
+            validate: None,
         }
     }
 
@@ -855,6 +1203,8 @@ impl ParameterInterface {
         kind: ParameterKind,
         value: DeclaredValue,
         options: ParameterOptionsStorage,
+        validate: Option<ValidateCallback>,
+        change_tx: Option<watch::Sender<()>>,
     ) {
         self.parameter_map.lock().unwrap().storage.insert(
             name,
@@ -862,6 +1212,9 @@ impl ParameterInterface {
                 options,
                 value,
                 kind,
+                validate,
+                on_change: None,
+                change_tx,
             }),
         );
     }
@@ -875,6 +1228,14 @@ impl ParameterInterface {
 mod tests {
     use super::*;
     use crate::*;
+
+    fn validate_multiple_of_5(value: &i64) -> Result<(), String> {
+        if *value % 5 != 0 {
+            Err("Must be a multiple of 5".into())
+        } else {
+            Ok(())
+        }
+    }
 
     #[test]
     fn test_parameter_override_errors() {
@@ -1409,5 +1770,464 @@ mod tests {
         node.declare_parameter::<i64>("int_param")
             .optional()
             .unwrap();
+    }
+
+    #[test]
+    fn test_validate_rejects_set() {
+        let node = Context::default()
+            .create_basic_executor()
+            .create_node(&format!("param_test_node_{}", line!()))
+            .unwrap();
+        let param = node
+            .declare_parameter("speed")
+            .default(50i64)
+            .validate(validate_multiple_of_5)
+            .mandatory()
+            .unwrap();
+        assert_eq!(param.get(), 50);
+        // Valid value should succeed
+        assert!(param.set(25).is_ok());
+        assert_eq!(param.get(), 25);
+        // Invalid value should fail with ValidationFailed
+        let err = param.set(13).unwrap_err();
+        assert!(matches!(err, ParameterValueError::ValidationFailed(_)));
+        // Value should not have changed
+        assert_eq!(param.get(), 25);
+    }
+
+    #[test]
+    fn test_validate_rejects_initial_value() {
+        let node = Context::default()
+            .create_basic_executor()
+            .create_node(&format!("param_test_node_{}", line!()))
+            .unwrap();
+        // Validate rejects the default value during declaration
+        let result = node
+            .declare_parameter("speed")
+            .default(13i64)
+            .validate(validate_multiple_of_5)
+            .mandatory();
+        assert!(matches!(
+            result,
+            Err(DeclarationError::InitialValueRejected(_))
+        ));
+    }
+
+    #[test]
+    fn test_on_change_fires_after_set() {
+        use std::sync::atomic::{AtomicI64, Ordering};
+
+        let node = Context::default()
+            .create_basic_executor()
+            .create_node(&format!("param_test_node_{}", line!()))
+            .unwrap();
+        let param = node
+            .declare_parameter("speed")
+            .default(50i64)
+            .mandatory()
+            .unwrap();
+
+        let observed = Arc::new(AtomicI64::new(0));
+        let observed_clone = Arc::clone(&observed);
+        param.on_change(move |value: &i64| {
+            observed_clone.store(*value, Ordering::SeqCst);
+        });
+
+        param.set(75).unwrap();
+        assert_eq!(observed.load(Ordering::SeqCst), 75);
+    }
+
+    #[test]
+    fn test_on_change_optional_fires_with_none_on_unset() {
+        use std::sync::atomic::{AtomicBool, AtomicI64, Ordering};
+
+        let node = Context::default()
+            .create_basic_executor()
+            .create_node(&format!("param_test_node_{}", line!()))
+            .unwrap();
+        let param = node
+            .declare_parameter("speed")
+            .default(50i64)
+            .optional()
+            .unwrap();
+
+        let last_value = Arc::new(AtomicI64::new(0));
+        let was_none = Arc::new(AtomicBool::new(false));
+        let last_value_clone = Arc::clone(&last_value);
+        let was_none_clone = Arc::clone(&was_none);
+        param.on_change(move |value: Option<&i64>| match value {
+            Some(v) => last_value_clone.store(*v, Ordering::SeqCst),
+            None => was_none_clone.store(true, Ordering::SeqCst),
+        });
+
+        param.set(75).unwrap();
+        assert_eq!(last_value.load(Ordering::SeqCst), 75);
+        assert!(!was_none.load(Ordering::SeqCst));
+
+        param.unset();
+        assert!(was_none.load(Ordering::SeqCst));
+    }
+
+    #[test]
+    fn test_on_change_not_fired_when_validate_rejects() {
+        use std::sync::atomic::{AtomicBool, Ordering};
+
+        let node = Context::default()
+            .create_basic_executor()
+            .create_node(&format!("param_test_node_{}", line!()))
+            .unwrap();
+        let param = node
+            .declare_parameter("speed")
+            .default(50i64)
+            .validate(validate_multiple_of_5)
+            .mandatory()
+            .unwrap();
+
+        let on_change_called = Arc::new(AtomicBool::new(false));
+        let on_change_called_clone = Arc::clone(&on_change_called);
+        param.on_change(move |_: &i64| {
+            on_change_called_clone.store(true, Ordering::SeqCst);
+        });
+
+        // This should fail validation and NOT trigger on_change
+        assert!(param.set(13).is_err());
+        assert!(!on_change_called.load(Ordering::SeqCst));
+
+        // This should succeed and trigger on_change
+        assert!(param.set(25).is_ok());
+        assert!(on_change_called.load(Ordering::SeqCst));
+    }
+
+    #[test]
+    fn test_on_change_replacement() {
+        use std::sync::atomic::{AtomicI64, Ordering};
+
+        let node = Context::default()
+            .create_basic_executor()
+            .create_node(&format!("param_test_node_{}", line!()))
+            .unwrap();
+        let param = node
+            .declare_parameter("speed")
+            .default(50i64)
+            .mandatory()
+            .unwrap();
+
+        let first_called = Arc::new(AtomicI64::new(0));
+        let first_called_clone = Arc::clone(&first_called);
+        param.on_change(move |value: &i64| {
+            first_called_clone.store(*value, Ordering::SeqCst);
+        });
+
+        param.set(75).unwrap();
+        assert_eq!(first_called.load(Ordering::SeqCst), 75);
+
+        // Replace callback
+        let second_called = Arc::new(AtomicI64::new(0));
+        let second_called_clone = Arc::clone(&second_called);
+        param.on_change(move |value: &i64| {
+            second_called_clone.store(*value, Ordering::SeqCst);
+        });
+
+        // Reset first to detect if it fires again
+        first_called.store(0, Ordering::SeqCst);
+        param.set(100).unwrap();
+
+        // Only the second callback should have fired
+        assert_eq!(first_called.load(Ordering::SeqCst), 0);
+        assert_eq!(second_called.load(Ordering::SeqCst), 100);
+    }
+
+    #[test]
+    fn test_validate_with_range() {
+        let node = Context::default()
+            .create_basic_executor()
+            .create_node(&format!("param_test_node_{}", line!()))
+            .unwrap();
+        let range = ParameterRange {
+            lower: Some(0),
+            upper: Some(100),
+            step: None,
+        };
+        let param = node
+            .declare_parameter("speed")
+            .default(50i64)
+            .range(range)
+            .validate(validate_multiple_of_5)
+            .mandatory()
+            .unwrap();
+
+        // Out of range (checked before validate)
+        assert!(matches!(
+            param.set(200),
+            Err(ParameterValueError::OutOfRange)
+        ));
+        // In range but fails validate
+        assert!(matches!(
+            param.set(13),
+            Err(ParameterValueError::ValidationFailed(_))
+        ));
+        // Both range and validate pass
+        assert!(param.set(25).is_ok());
+        assert_eq!(param.get(), 25);
+    }
+
+    #[test]
+    fn test_validate_optional_parameter() {
+        let node = Context::default()
+            .create_basic_executor()
+            .create_node(&format!("param_test_node_{}", line!()))
+            .unwrap();
+        let param = node
+            .declare_parameter("mode")
+            .default(10i64)
+            .validate(|value: &i64| {
+                if *value < 0 {
+                    Err("Must be non-negative".into())
+                } else {
+                    Ok(())
+                }
+            })
+            .optional()
+            .unwrap();
+
+        assert_eq!(param.get(), Some(10));
+        // Valid set
+        assert!(param.set(20).is_ok());
+        assert_eq!(param.get(), Some(20));
+        // Invalid set
+        assert!(matches!(
+            param.set(-5),
+            Err(ParameterValueError::ValidationFailed(_))
+        ));
+        assert_eq!(param.get(), Some(20));
+        // Unset is always valid
+        param.unset();
+        assert_eq!(param.get(), None);
+    }
+
+    #[test]
+    fn test_validate_initial_value_optional_no_default() {
+        let node = Context::default()
+            .create_basic_executor()
+            .create_node(&format!("param_test_node_{}", line!()))
+            .unwrap();
+        // Optional parameter with no default — validate not called (no initial value)
+        let param = node
+            .declare_parameter::<i64>("mode")
+            .validate(|value: &i64| {
+                if *value < 0 {
+                    Err("Must be non-negative".into())
+                } else {
+                    Ok(())
+                }
+            })
+            .optional()
+            .unwrap();
+        assert_eq!(param.get(), None);
+        // But validate still runs on set
+        assert!(matches!(
+            param.set(-5),
+            Err(ParameterValueError::ValidationFailed(_))
+        ));
+    }
+
+    #[test]
+    fn test_validate_via_undeclared_parameters_api() {
+        let node = Context::default()
+            .create_basic_executor()
+            .create_node(&format!("param_test_node_{}", line!()))
+            .unwrap();
+        let _param = node
+            .declare_parameter("speed")
+            .default(50i64)
+            .validate(validate_multiple_of_5)
+            .mandatory()
+            .unwrap();
+
+        // Setting via undeclared parameters API should also run validate
+        assert!(matches!(
+            node.use_undeclared_parameters().set("speed", 13i64),
+            Err(ParameterValueError::ValidationFailed(_))
+        ));
+        assert!(node.use_undeclared_parameters().set("speed", 25i64).is_ok());
+    }
+
+    #[test]
+    fn test_on_change_fires_via_undeclared_parameters_api() {
+        use std::sync::atomic::{AtomicI64, Ordering};
+
+        let node = Context::default()
+            .create_basic_executor()
+            .create_node(&format!("param_test_node_{}", line!()))
+            .unwrap();
+        let param = node
+            .declare_parameter("speed")
+            .default(50i64)
+            .mandatory()
+            .unwrap();
+
+        let observed = Arc::new(AtomicI64::new(0));
+        let observed_clone = Arc::clone(&observed);
+        param.on_change(move |value: &i64| {
+            observed_clone.store(*value, Ordering::SeqCst);
+        });
+
+        node.use_undeclared_parameters()
+            .set("speed", 75i64)
+            .unwrap();
+        assert_eq!(observed.load(Ordering::SeqCst), 75);
+    }
+
+    #[tokio::test]
+    async fn test_subscribe_mandatory_receives_changes() {
+        let node = Context::default()
+            .create_basic_executor()
+            .create_node(&format!("param_test_node_{}", line!()))
+            .unwrap();
+        let param = node
+            .declare_parameter("speed")
+            .default(50i64)
+            .mandatory()
+            .unwrap();
+
+        let mut sub = param.subscribe();
+        param.set(75).unwrap();
+        let value = sub.changed().await;
+        assert_eq!(value, Some(75));
+    }
+
+    #[tokio::test]
+    async fn test_subscribe_optional_receives_set_and_unset() {
+        let node = Context::default()
+            .create_basic_executor()
+            .create_node(&format!("param_test_node_{}", line!()))
+            .unwrap();
+        let param = node
+            .declare_parameter("mode")
+            .default(10i64)
+            .optional()
+            .unwrap();
+
+        let mut sub = param.subscribe();
+
+        // Set a value
+        param.set(42).unwrap();
+        let value = sub.changed().await;
+        assert_eq!(value, Some(Some(42)));
+
+        // Unset the value
+        param.unset();
+        let value = sub.changed().await;
+        assert_eq!(value, Some(None));
+    }
+
+    #[tokio::test]
+    async fn test_subscribe_multiple_subscribers() {
+        let node = Context::default()
+            .create_basic_executor()
+            .create_node(&format!("param_test_node_{}", line!()))
+            .unwrap();
+        let param = node
+            .declare_parameter("speed")
+            .default(50i64)
+            .mandatory()
+            .unwrap();
+
+        let mut sub1 = param.subscribe();
+        let mut sub2 = param.subscribe();
+
+        param.set(99).unwrap();
+
+        let v1 = sub1.changed().await;
+        let v2 = sub2.changed().await;
+        assert_eq!(v1, Some(99));
+        assert_eq!(v2, Some(99));
+    }
+
+    #[tokio::test]
+    async fn test_subscribe_returns_none_on_drop() {
+        let node = Context::default()
+            .create_basic_executor()
+            .create_node(&format!("param_test_node_{}", line!()))
+            .unwrap();
+        let param = node
+            .declare_parameter("speed")
+            .default(50i64)
+            .mandatory()
+            .unwrap();
+
+        let mut sub = param.subscribe();
+        // Drop the parameter handle — this drops the watch::Sender
+        drop(param);
+
+        let value = sub.changed().await;
+        assert_eq!(value, None);
+    }
+
+    #[tokio::test]
+    async fn test_subscribe_wait_for() {
+        let node = Context::default()
+            .create_basic_executor()
+            .create_node(&format!("param_test_node_{}", line!()))
+            .unwrap();
+        let param = node
+            .declare_parameter("speed")
+            .default(10i64)
+            .mandatory()
+            .unwrap();
+
+        let mut sub = param.subscribe();
+
+        // This relies on #[tokio::test] using a single-threaded runtime,
+        // so yield_now() gives deterministic interleaving.
+        tokio::spawn(async move {
+            tokio::task::yield_now().await;
+            // Set to 20 (doesn't satisfy predicate >= 50)
+            param.set(20).unwrap();
+            tokio::task::yield_now().await;
+            // Set to 50 (satisfies predicate)
+            param.set(50).unwrap();
+        });
+
+        let value = sub.wait_for(|v| *v >= 50).await;
+        assert_eq!(value, Some(50));
+    }
+
+    #[tokio::test]
+    async fn test_subscribe_wait_for_already_satisfied() {
+        let node = Context::default()
+            .create_basic_executor()
+            .create_node(&format!("param_test_node_{}", line!()))
+            .unwrap();
+        let param = node
+            .declare_parameter("speed")
+            .default(100i64)
+            .mandatory()
+            .unwrap();
+
+        let mut sub = param.subscribe();
+
+        // Current value already satisfies the predicate
+        let value = sub.wait_for(|v| *v >= 50).await;
+        assert_eq!(value, Some(100));
+    }
+
+    #[tokio::test]
+    async fn test_subscribe_get_current_value() {
+        let node = Context::default()
+            .create_basic_executor()
+            .create_node(&format!("param_test_node_{}", line!()))
+            .unwrap();
+        let param = node
+            .declare_parameter("speed")
+            .default(50i64)
+            .mandatory()
+            .unwrap();
+
+        let sub = param.subscribe();
+        assert_eq!(sub.get(), 50);
+
+        param.set(75).unwrap();
+        assert_eq!(sub.get(), 75);
     }
 }

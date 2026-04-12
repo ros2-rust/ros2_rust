@@ -13,6 +13,10 @@ use crate::{
     ReadyKind, ServiceInfo, Waitable, WaitableLifecycle, ENTITY_LIFECYCLE_MUTEX,
 };
 
+// The API for service introspection was added in Jazzy.
+#[cfg(not(ros_distro = "humble"))]
+use crate::ServiceIntrospectionState;
+
 mod client_async_callback;
 pub use client_async_callback::*;
 
@@ -368,6 +372,43 @@ where
             board,
             lifecycle,
         }))
+    }
+
+    /// Configure service introspection for this client.
+    /// Service introspection allows tools to monitor service requests and responses.
+    /// Service introspection can be set to either
+    ///     - Off: Disabled
+    ///     - Metadata: Only metadata without any user data contents
+    ///     - Contents: User data contents with metadata
+    // The API for service introspection was added in Jazzy.
+    #[cfg(not(ros_distro = "humble"))]
+    pub fn configure_introspection(
+        &self,
+        introspection_state: ServiceIntrospectionState,
+    ) -> Result<(), RclrsError> {
+        let client = &mut *self.handle.rcl_client.lock().unwrap();
+        let node = &mut *self.handle.node.handle().rcl_node.lock().unwrap();
+        let clock = self.handle.node.get_clock();
+        let rcl_clock = &mut *clock.get_rcl_clock().lock().unwrap();
+        let type_support = <T as rosidl_runtime_rs::Service>::get_type_support()
+            as *const rosidl_service_type_support_t;
+
+        // SAFETY: No preconditions for this function.
+        let publisher_options = unsafe { rcl_publisher_get_default_options() };
+
+        unsafe {
+            rcl_client_configure_service_introspection(
+                client,
+                node,
+                rcl_clock,
+                type_support,
+                publisher_options,
+                introspection_state.into(),
+            )
+            .ok()?;
+        }
+
+        Ok(())
     }
 }
 
