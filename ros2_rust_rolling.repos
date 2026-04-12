@@ -38,4 +38,4 @@ repositories:
   ros-env:
     type: git
     url: https://github.com/ros2-rust/ros-env.git
-    version: windows_support
+    version: main
