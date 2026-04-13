@@ -173,6 +173,29 @@ Build the workspace:
 colcon build
 ```
 
+### Known build issue (missing test_interface_files)
+
+If you encounter the following error during `colcon build`:
+
+You can fix it by cloning the missing dependency:
+
+```shell
+git clone -b humble https://github.com/ros2/test_interface_files.git src/test_interface_files
+```
+
+Build the workspace:
+
+```shell
+. /opt/ros/humble/setup.sh
+colcon build
+```
+
+Alternatively, you can skip building the problematic package:
+
+```shell
+colcon build --packages-skip test_msgs
+```
+
 ### Running the examples
 
 After building, source your workspace and run the examples:
