@@ -169,6 +169,30 @@ pub struct ActionClientState<A: Action> {
 }
 
 impl<A: Action> ActionClientState<A> {
+    /// Checks if the action server is available and ready to receive requests.
+    ///
+    /// This method polls the underlying DDS network to determine if the action
+    /// server associated with this client is currently active. This is particularly
+    /// useful for implementing a `wait_for_server` timeout loop before dispatching goals.
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`RclrsError`] if there is an issue communicating with the
+    /// underlying `rcl` C layer.
+    pub fn server_is_available(&self) -> Result<bool, RclrsError> {
+        let mut is_available = false;
+
+        unsafe {
+            let handle = self.board.handle.lock();
+            let node_handle = self.board.handle.node_handle.rcl_node.lock().unwrap();
+
+            rcl_action_server_is_available(&*node_handle, &*handle, &mut is_available)
+        }
+        .ok()?;
+
+        Ok(is_available)
+    }
+
     /// Request the action server to execute a goal. You will receive a
     /// [`RequestedGoalClient`] which you can use to wait for the reply from the
     /// action server that indicates whether the goal was accepted.
