@@ -6,11 +6,17 @@ use std::{
 use crate::vendor::rcl_interfaces::{msg::rmw::*, srv::rmw::*};
 use rosidl_runtime_rs::Sequence;
 
-use super::ParameterMap;
+use super::{OnChangeCallback, ParameterMap};
 use crate::{
     parameter::{DeclaredValue, ParameterKind, ParameterStorage},
     IntoPrimitiveOptions, Node, QoSProfile, RclrsError, Service,
 };
+
+/// A pending on_change callback to be invoked outside the map lock.
+struct PendingOnChange {
+    callback: OnChangeCallback,
+    value: Option<crate::ParameterValue>,
+}
 
 // The variables only exist to keep a strong reference to the services and are technically unused.
 // What is used is the Weak that is stored in the node, and is upgraded when spinning.
@@ -174,7 +180,11 @@ fn list_parameters(req: ListParameters_Request, map: &ParameterMap) -> ListParam
     }
 }
 
-fn set_parameters(req: SetParameters_Request, map: &mut ParameterMap) -> SetParameters_Response {
+fn set_parameters(
+    req: SetParameters_Request,
+    map: &mut ParameterMap,
+) -> (SetParameters_Response, Vec<PendingOnChange>) {
+    let mut pending = Vec::new();
     let results = req
         .parameters
         .into_iter()
@@ -187,7 +197,12 @@ fn set_parameters(req: SetParameters_Request, map: &mut ParameterMap) -> SetPara
             };
             match map.validate_parameter_setting(name, param.value) {
                 Ok(value) => {
-                    map.store_parameter(name.into(), value);
+                    if let Some(cb) = map.store_parameter(name.into(), value.clone()) {
+                        pending.push(PendingOnChange {
+                            callback: cb,
+                            value: Some(value),
+                        });
+                    }
                     SetParametersResult {
                         successful: true,
                         reason: Default::default(),
@@ -200,13 +215,13 @@ fn set_parameters(req: SetParameters_Request, map: &mut ParameterMap) -> SetPara
             }
         })
         .collect();
-    SetParameters_Response { results }
+    (SetParameters_Response { results }, pending)
 }
 
 fn set_parameters_atomically(
     req: SetParametersAtomically_Request,
     map: &mut ParameterMap,
-) -> SetParametersAtomically_Response {
+) -> (SetParametersAtomically_Response, Vec<PendingOnChange>) {
     let results = req
         .parameters
         .into_iter()
@@ -219,10 +234,16 @@ fn set_parameters_atomically(
         })
         .collect::<Result<Vec<_>, _>>();
     // Check if there was any error and update parameters accordingly
+    let mut pending = Vec::new();
     let result = match results {
         Ok(results) => {
             for (name, value) in results.into_iter() {
-                map.store_parameter(name, value);
+                if let Some(cb) = map.store_parameter(name, value.clone()) {
+                    pending.push(PendingOnChange {
+                        callback: cb,
+                        value: Some(value),
+                    });
+                }
             }
             SetParametersResult {
                 successful: true,
@@ -234,7 +255,7 @@ fn set_parameters_atomically(
             reason,
         },
     };
-    SetParametersAtomically_Response { result }
+    (SetParametersAtomically_Response { result }, pending)
 }
 
 impl ParameterService {
@@ -281,16 +302,30 @@ impl ParameterService {
         let set_parameters_service = node.create_service(
             (fqn.clone() + "/set_parameters").qos(QoSProfile::parameter_services_default()),
             move |req: SetParameters_Request| {
-                let mut map = map.lock().unwrap();
-                set_parameters(req, &mut map)
+                let (response, pending) = {
+                    let mut map = map.lock().unwrap();
+                    set_parameters(req, &mut map)
+                };
+                // Invoke on_change callbacks outside the map lock
+                for p in pending {
+                    (p.callback)(p.value.as_ref());
+                }
+                response
             },
         )?;
         let set_parameters_atomically_service = node.create_service(
             (fqn.clone() + "/set_parameters_atomically")
                 .qos(QoSProfile::parameter_services_default()),
             move |req: SetParametersAtomically_Request| {
-                let mut map = parameter_map.lock().unwrap();
-                set_parameters_atomically(req, &mut map)
+                let (response, pending) = {
+                    let mut map = parameter_map.lock().unwrap();
+                    set_parameters_atomically(req, &mut map)
+                };
+                // Invoke on_change callbacks outside the map lock
+                for p in pending {
+                    (p.callback)(p.value.as_ref());
+                }
+                response
             },
         )?;
         Ok(Self {
@@ -315,6 +350,14 @@ mod tests {
         },
         *,
     };
+
+    fn validate_multiple_of_5(value: &i64) -> Result<(), String> {
+        if *value % 5 != 0 {
+            Err("Must be a multiple of 5".into())
+        } else {
+            Ok(())
+        }
+    }
     use rosidl_runtime_rs::{seq, Sequence};
     use std::{
         sync::{
@@ -921,6 +964,305 @@ mod tests {
             .spin(SpinOptions::default().until_promise_resolved(promise))
             .first_error()?;
         assert!(callback_ran.load(Ordering::Acquire));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_set_parameters_service_triggers_on_change() -> Result<(), RclrsError> {
+        let (mut executor, test, client_node) = construct_test_nodes("on_change_svc");
+        let set_client =
+            client_node.create_client::<SetParameters>("/on_change_svc/node/set_parameters")?;
+
+        let set_client_inner = Arc::clone(&set_client);
+        let clients_ready = client_node
+            .notify_on_graph_change_with_period(Duration::from_millis(1), move || {
+                set_client_inner.service_is_ready().unwrap()
+            });
+        executor
+            .spin(SpinOptions::default().until_promise_resolved(clients_ready))
+            .first_error()?;
+
+        // Register on_change callback
+        let on_change_value = Arc::new(std::sync::atomic::AtomicBool::new(true));
+        let on_change_value_clone = Arc::clone(&on_change_value);
+        test.bool_param.on_change(move |value: &bool| {
+            on_change_value_clone.store(*value, Ordering::Release);
+        });
+
+        // Set via service
+        let bool_parameter = RmwParameter {
+            name: "bool".into(),
+            value: RmwParameterValue {
+                type_: ParameterType::PARAMETER_BOOL,
+                bool_value: false,
+                ..Default::default()
+            },
+        };
+        let request = SetParameters_Request {
+            parameters: seq![bool_parameter],
+        };
+
+        let callback_ran = Arc::new(AtomicBool::new(false));
+        let callback_ran_inner = Arc::clone(&callback_ran);
+        let promise = set_client
+            .call_then(&request, move |response: SetParameters_Response| {
+                assert_eq!(response.results.len(), 1);
+                assert!(response.results[0].successful);
+                callback_ran_inner.store(true, Ordering::Release);
+            })
+            .unwrap();
+
+        executor
+            .spin(SpinOptions::default().until_promise_resolved(promise))
+            .first_error()?;
+        assert!(callback_ran.load(Ordering::Acquire));
+        // on_change should have been invoked with false
+        assert!(!on_change_value.load(Ordering::Acquire));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_set_parameters_service_respects_validate() -> Result<(), RclrsError> {
+        let mut executor = Context::default().create_basic_executor();
+        let node = executor
+            .create_node(NodeOptions::new("node").namespace("validate_svc"))
+            .unwrap();
+        let _param = node
+            .declare_parameter("speed")
+            .default(50i64)
+            .validate(validate_multiple_of_5)
+            .mandatory()
+            .unwrap();
+
+        let client_node = executor
+            .create_node(NodeOptions::new("client").namespace("validate_svc"))
+            .unwrap();
+        let set_client =
+            client_node.create_client::<SetParameters>("/validate_svc/node/set_parameters")?;
+
+        let set_client_inner = Arc::clone(&set_client);
+        let clients_ready = client_node
+            .notify_on_graph_change_with_period(Duration::from_millis(1), move || {
+                set_client_inner.service_is_ready().unwrap()
+            });
+        executor
+            .spin(SpinOptions::default().until_promise_resolved(clients_ready))
+            .first_error()?;
+
+        // Try to set invalid value (not a multiple of 5)
+        let invalid_param = RmwParameter {
+            name: "speed".into(),
+            value: RmwParameterValue {
+                type_: ParameterType::PARAMETER_INTEGER,
+                integer_value: 13,
+                ..Default::default()
+            },
+        };
+        let request = SetParameters_Request {
+            parameters: seq![invalid_param],
+        };
+
+        let callback_ran = Arc::new(AtomicBool::new(false));
+        let callback_ran_inner = Arc::clone(&callback_ran);
+        let promise = set_client
+            .call_then(&request, move |response: SetParameters_Response| {
+                assert_eq!(response.results.len(), 1);
+                assert!(!response.results[0].successful);
+                // The reason should contain the validate error message
+                assert!(
+                    response.results[0]
+                        .reason
+                        .to_string()
+                        .contains("multiple of 5"),
+                    "Expected failure reason to contain 'multiple of 5', got: {}",
+                    response.results[0].reason
+                );
+                callback_ran_inner.store(true, Ordering::Release);
+            })
+            .unwrap();
+
+        executor
+            .spin(SpinOptions::default().until_promise_resolved(promise))
+            .first_error()?;
+        assert!(callback_ran.load(Ordering::Acquire));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_set_parameters_atomically_respects_validate() -> Result<(), RclrsError> {
+        let mut executor = Context::default().create_basic_executor();
+        let node = executor
+            .create_node(NodeOptions::new("node").namespace("atomic_validate_svc"))
+            .unwrap();
+        let bool_param = node
+            .declare_parameter("bool")
+            .default(true)
+            .mandatory()
+            .unwrap();
+        let _speed_param = node
+            .declare_parameter("speed")
+            .default(50i64)
+            .validate(validate_multiple_of_5)
+            .mandatory()
+            .unwrap();
+
+        // Register on_change on bool_param to verify it's NOT called on atomic failure
+        let bool_on_change_called = Arc::new(AtomicBool::new(false));
+        let bool_on_change_called_clone = Arc::clone(&bool_on_change_called);
+        bool_param.on_change(move |_: &bool| {
+            bool_on_change_called_clone.store(true, Ordering::Release);
+        });
+
+        let client_node = executor
+            .create_node(NodeOptions::new("client").namespace("atomic_validate_svc"))
+            .unwrap();
+        let set_atomically_client = client_node.create_client::<SetParametersAtomically>(
+            "/atomic_validate_svc/node/set_parameters_atomically",
+        )?;
+
+        let set_atomically_client_inner = Arc::clone(&set_atomically_client);
+        let clients_ready = client_node
+            .notify_on_graph_change_with_period(Duration::from_millis(1), move || {
+                set_atomically_client_inner.service_is_ready().unwrap()
+            });
+        executor
+            .spin(SpinOptions::default().until_promise_resolved(clients_ready))
+            .first_error()?;
+
+        // Try atomic set: bool is valid, speed is invalid — both should fail
+        let valid_bool = RmwParameter {
+            name: "bool".into(),
+            value: RmwParameterValue {
+                type_: ParameterType::PARAMETER_BOOL,
+                bool_value: false,
+                ..Default::default()
+            },
+        };
+        let invalid_speed = RmwParameter {
+            name: "speed".into(),
+            value: RmwParameterValue {
+                type_: ParameterType::PARAMETER_INTEGER,
+                integer_value: 13,
+                ..Default::default()
+            },
+        };
+        let request = SetParametersAtomically_Request {
+            parameters: seq![valid_bool, invalid_speed],
+        };
+
+        let callback_ran = Arc::new(AtomicBool::new(false));
+        let callback_ran_inner = Arc::clone(&callback_ran);
+        let promise = set_atomically_client
+            .call_then(
+                &request,
+                move |response: SetParametersAtomically_Response| {
+                    // The atomic set should fail because one parameter fails validation
+                    assert!(!response.result.successful);
+                    callback_ran_inner.store(true, Ordering::Release);
+                },
+            )
+            .unwrap();
+
+        executor
+            .spin(SpinOptions::default().until_promise_resolved(promise))
+            .first_error()?;
+        assert!(callback_ran.load(Ordering::Acquire));
+        // bool_param should not have changed since it was an atomic set
+        assert!(bool_param.get());
+        // on_change should not have been called either
+        assert!(!bool_on_change_called.load(Ordering::Acquire));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_set_parameters_atomically_triggers_on_change_when_all_succeed() -> Result<(), RclrsError>
+    {
+        let mut executor = Context::default().create_basic_executor();
+        let node = executor
+            .create_node(NodeOptions::new("node").namespace("atomic_on_change_svc"))
+            .unwrap();
+        let bool_param = node
+            .declare_parameter("bool")
+            .default(true)
+            .mandatory()
+            .unwrap();
+        let speed_param = node
+            .declare_parameter("speed")
+            .default(50i64)
+            .mandatory()
+            .unwrap();
+
+        let bool_changed = Arc::new(AtomicBool::new(false));
+        let bool_changed_clone = Arc::clone(&bool_changed);
+        bool_param.on_change(move |_: &bool| {
+            bool_changed_clone.store(true, Ordering::Release);
+        });
+
+        let speed_changed = Arc::new(std::sync::atomic::AtomicI64::new(0));
+        let speed_changed_clone = Arc::clone(&speed_changed);
+        speed_param.on_change(move |value: &i64| {
+            speed_changed_clone.store(*value, Ordering::Release);
+        });
+
+        let client_node = executor
+            .create_node(NodeOptions::new("client").namespace("atomic_on_change_svc"))
+            .unwrap();
+        let set_atomically_client = client_node.create_client::<SetParametersAtomically>(
+            "/atomic_on_change_svc/node/set_parameters_atomically",
+        )?;
+
+        let set_atomically_client_inner = Arc::clone(&set_atomically_client);
+        let clients_ready = client_node
+            .notify_on_graph_change_with_period(Duration::from_millis(1), move || {
+                set_atomically_client_inner.service_is_ready().unwrap()
+            });
+        executor
+            .spin(SpinOptions::default().until_promise_resolved(clients_ready))
+            .first_error()?;
+
+        let valid_bool = RmwParameter {
+            name: "bool".into(),
+            value: RmwParameterValue {
+                type_: ParameterType::PARAMETER_BOOL,
+                bool_value: false,
+                ..Default::default()
+            },
+        };
+        let valid_speed = RmwParameter {
+            name: "speed".into(),
+            value: RmwParameterValue {
+                type_: ParameterType::PARAMETER_INTEGER,
+                integer_value: 75,
+                ..Default::default()
+            },
+        };
+        let request = SetParametersAtomically_Request {
+            parameters: seq![valid_bool, valid_speed],
+        };
+
+        let callback_ran = Arc::new(AtomicBool::new(false));
+        let callback_ran_inner = Arc::clone(&callback_ran);
+        let promise = set_atomically_client
+            .call_then(
+                &request,
+                move |response: SetParametersAtomically_Response| {
+                    assert!(response.result.successful);
+                    callback_ran_inner.store(true, Ordering::Release);
+                },
+            )
+            .unwrap();
+
+        executor
+            .spin(SpinOptions::default().until_promise_resolved(promise))
+            .first_error()?;
+        assert!(callback_ran.load(Ordering::Acquire));
+        // Both on_change callbacks should have fired
+        assert!(bool_changed.load(Ordering::Acquire));
+        assert_eq!(speed_changed.load(Ordering::Acquire), 75);
 
         Ok(())
     }
