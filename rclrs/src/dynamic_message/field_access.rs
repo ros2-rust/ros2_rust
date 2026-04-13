@@ -889,10 +889,7 @@ mod immutable {
     define_value_types!(select_immutable);
 }
 
-pub use immutable::ArrayValue;
-pub use immutable::BoundedSequenceValue;
-pub use immutable::SequenceValue;
-pub use immutable::SimpleValue;
+pub use immutable::{ArrayValue, BoundedSequenceValue, SequenceValue, SimpleValue};
 
 /// The value of a field in a [`DynamicMessage`][1].
 ///
@@ -944,10 +941,10 @@ mod mutable {
     define_value_types!(select_mutable);
 }
 
-pub use mutable::ArrayValue as ArrayValueMut;
-pub use mutable::BoundedSequenceValue as BoundedSequenceValueMut;
-pub use mutable::SequenceValue as SequenceValueMut;
-pub use mutable::SimpleValue as SimpleValueMut;
+pub use mutable::{
+    ArrayValue as ArrayValueMut, BoundedSequenceValue as BoundedSequenceValueMut,
+    SequenceValue as SequenceValueMut, SimpleValue as SimpleValueMut,
+};
 
 /// The value of a field in a [`DynamicMessage`][1].
 ///
