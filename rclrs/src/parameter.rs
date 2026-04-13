@@ -3,6 +3,9 @@ mod range;
 mod service;
 mod value;
 
+mod parameter_set;
+pub use parameter_set::*;
+
 pub(crate) use override_map::*;
 pub use range::*;
 use service::*;
