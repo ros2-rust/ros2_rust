@@ -134,7 +134,7 @@ impl DynamicPublisherState {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "vendored_test_interfaces"))]
 mod tests {
     use super::*;
     use crate::test_helpers::*;

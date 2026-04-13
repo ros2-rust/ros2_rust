@@ -253,7 +253,7 @@ fn empty_goal_status_array() -> DropGuard<rcl_action_goal_status_array_t> {
     )
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "vendored_test_interfaces"))]
 mod tests {
     use crate::{
         vendor::example_interfaces::action::{

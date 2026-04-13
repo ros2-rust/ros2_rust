@@ -52,7 +52,7 @@ unsafe impl<T> Send for ReadOnlyLoanedMessage<T> where T: Message {}
 // SAFETY: This type has no interior mutability, in fact it has no mutability at all.
 unsafe impl<T> Sync for ReadOnlyLoanedMessage<T> where T: Message {}
 
-#[cfg(test)]
+#[cfg(all(test, feature = "vendored_test_interfaces"))]
 mod tests {
     use super::*;
 

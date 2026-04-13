@@ -342,7 +342,7 @@ impl<'a, T: Message> MessageCow<'a, T> for &'a T {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "vendored_test_interfaces"))]
 mod tests {
     use super::*;
     use crate::test_helpers::*;

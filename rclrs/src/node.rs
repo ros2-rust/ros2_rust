@@ -273,6 +273,8 @@ impl NodeState {
     ///
     /// In some cases the payload type can be inferred by Rust:
     /// ```
+    /// # #[cfg(feature = "vendored_test_interfaces")]
+    /// # {
     /// # use rclrs::*;
     /// # use crate::rclrs::vendor::example_interfaces;
     /// let executor = Context::default().create_basic_executor();
@@ -300,7 +302,6 @@ impl NodeState {
     ///
     /// ```
     /// # use rclrs::*;
-    /// # use crate::rclrs::vendor::example_interfaces;
     /// # let executor = Context::default().create_basic_executor();
     /// # let node = executor.create_node("my_node").unwrap();
     /// let worker = node.create_worker::<String>(String::new());
@@ -308,6 +309,8 @@ impl NodeState {
     ///
     /// The data given to the worker can be any custom data type:
     /// ```
+    /// # #[cfg(feature = "vendored_test_interfaces")]
+    /// # {
     /// # use rclrs::*;
     /// # use crate::rclrs::vendor::example_interfaces;
     /// # let executor = Context::default().create_basic_executor();
@@ -342,6 +345,8 @@ impl NodeState {
     ///
     /// Pass in only the service name for the `options` argument to use all default client options:
     /// ```
+    /// # #[cfg(feature = "vendored_test_interfaces")]
+    /// # {
     /// # use rclrs::*;
     /// # let executor = Context::default().create_basic_executor();
     /// # let node = executor.create_node("my_node").unwrap();
@@ -356,6 +361,8 @@ impl NodeState {
     /// client options:
     ///
     /// ```
+    /// # #[cfg(feature = "vendored_test_interfaces")]
+    /// # {
     /// # use rclrs::*;
     /// # let executor = Context::default().create_basic_executor();
     /// # let node = executor.create_node("my_node").unwrap();
@@ -423,6 +430,8 @@ impl NodeState {
     ///
     /// Pass in only the topic name for the `options` argument to use all default publisher options:
     /// ```
+    /// # #[cfg(feature = "vendored_test_interfaces")]
+    /// # {
     /// # use rclrs::*;
     /// # let executor = Context::default().create_basic_executor();
     /// # let node = executor.create_node("my_node").unwrap();
@@ -437,6 +446,8 @@ impl NodeState {
     /// publisher options:
     ///
     /// ```
+    /// # #[cfg(feature = "vendored_test_interfaces")]
+    /// # {
     /// # use rclrs::*;
     /// # use crate::rclrs::vendor::test_msgs;
     /// # let executor = Context::default().create_basic_executor();
@@ -453,6 +464,7 @@ impl NodeState {
     ///     .reliable()
     /// )
     /// .unwrap();
+    /// # }
     /// ```
     ///
     pub fn create_publisher<'a, T>(
@@ -483,6 +495,7 @@ impl NodeState {
     ///     .keep_last(100)
     /// )
     /// .unwrap();
+    /// ```
     pub fn create_dynamic_publisher<'a>(
         self: &Arc<Self>,
         topic_type: MessageTypeName,
@@ -510,6 +523,8 @@ impl NodeState {
     ///
     /// Pass in only the service name for the `options` argument to use all default service options:
     /// ```
+    /// # #[cfg(feature = "vendored_test_interfaces")]
+    /// # {
     /// # use rclrs::*;
     /// # use crate::rclrs::vendor::test_msgs;
     /// # let executor = Context::default().create_basic_executor();
@@ -527,6 +542,8 @@ impl NodeState {
     /// service options:
     ///
     /// ```
+    /// # #[cfg(feature = "vendored_test_interfaces")]
+    /// # {
     /// # use rclrs::*;
     /// # use crate::rclrs::vendor::test_msgs;
     /// # let executor = Context::default().create_basic_executor();
@@ -566,6 +583,8 @@ impl NodeState {
     /// multiple simultaneous runs of the callback. For example:
     ///
     /// ```
+    /// # #[cfg(feature = "vendored_test_interfaces")]
+    /// # {
     /// # use rclrs::*;
     /// # use crate::rclrs::vendor::example_interfaces;
     /// # let executor = Context::default().create_basic_executor();
@@ -586,12 +605,15 @@ impl NodeState {
     ///     }
     /// )?;
     /// # Ok::<(), RclrsError>(())
+    /// # }
     /// ```
     /// To share the internal state outside of the callback you will need to
     /// wrap it in [`Arc`] or `Arc<Mutex<S>>` and then clone the [`Arc`] before
     /// capturing it in the closure:
     ///
     /// ```
+    /// # #[cfg(feature = "vendored_test_interfaces")]
+    /// # {
     /// # use rclrs::*;
     /// # use crate::rclrs::vendor::example_interfaces;
     /// # let executor = Context::default().create_basic_executor();
@@ -622,6 +644,7 @@ impl NodeState {
     ///     }
     /// });
     /// # Ok::<(), RclrsError>(())
+    /// # }
     /// ```
     ///
     /// In general, when you need to manage some state within a blocking service,
@@ -686,6 +709,8 @@ impl NodeState {
     /// This allows one async service to share state data across multiple workers.
     ///
     /// ```
+    /// # #[cfg(feature = "vendored_test_interfaces")]
+    /// # {
     /// # use rclrs::*;
     /// # use crate::rclrs::vendor::example_interfaces;
     /// # let executor = Context::default().create_basic_executor();
@@ -721,6 +746,7 @@ impl NodeState {
     ///     }
     /// )?;
     /// # Ok::<(), RclrsError>(())
+    /// # }
     /// ```
     pub fn create_async_service<'a, T, Args>(
         self: &Arc<Self>,
@@ -758,6 +784,8 @@ impl NodeState {
     ///
     /// Pass in only the topic name for the `options` argument to use all default subscription options:
     /// ```
+    /// # #[cfg(feature = "vendored_test_interfaces")]
+    /// # {
     /// # use rclrs::*;
     /// # use crate::rclrs::vendor::test_msgs;
     /// # let executor = Context::default().create_basic_executor();
@@ -774,6 +802,8 @@ impl NodeState {
     /// subscription options:
     ///
     /// ```
+    /// # #[cfg(feature = "vendored_test_interfaces")]
+    /// # {
     /// # use rclrs::*;
     /// # use crate::rclrs::vendor::test_msgs;
     /// # let executor = Context::default().create_basic_executor();
@@ -794,6 +824,7 @@ impl NodeState {
     ///         println!("Received message!");
     ///     },
     /// );
+    /// # }
     /// ```
     ///
     /// # Subscription Callbacks
@@ -817,6 +848,8 @@ impl NodeState {
     /// simultaneous runs of the callback. For example:
     ///
     /// ```
+    /// # #[cfg(feature = "vendored_test_interfaces")]
+    /// # {
     /// # use rclrs::*;
     /// # use crate::rclrs::vendor::example_interfaces;
     /// # let executor = Context::default().create_basic_executor();
@@ -833,6 +866,7 @@ impl NodeState {
     ///     },
     /// )?;
     /// # Ok::<(), RclrsError>(())
+    /// # }
     /// ```
     ///
     /// To share the internal state outside of the callback you will need to
@@ -840,6 +874,8 @@ impl NodeState {
     /// the [`Arc`] before capturing it in the closure:
     ///
     /// ```
+    /// # #[cfg(feature = "vendored_test_interfaces")]
+    /// # {
     /// # use rclrs::*;
     /// # use crate::rclrs::vendor::example_interfaces;
     /// # let executor = Context::default().create_basic_executor();
@@ -865,6 +901,7 @@ impl NodeState {
     ///     }
     /// });
     /// # Ok::<(), RclrsError>(())
+    /// # }
     /// ```
     ///
     /// You can change the subscription at any time by calling
@@ -1071,6 +1108,8 @@ impl NodeState {
     /// multiple workers.
     ///
     /// ```
+    /// # #[cfg(feature = "vendored_test_interfaces")]
+    /// # {
     /// # use rclrs::*;
     /// # use crate::rclrs::vendor::example_interfaces;
     /// # let executor = Context::default().create_basic_executor();
@@ -1105,6 +1144,7 @@ impl NodeState {
     ///     }
     /// )?;
     /// # Ok::<(), RclrsError>(())
+    /// # }
     /// ```
     ///
     /// You can change the subscription at any time by calling
@@ -1542,7 +1582,7 @@ pub(crate) unsafe fn call_string_getter_with_rcl_node(
 // they are running in. Therefore, this type can be safely sent to another thread.
 unsafe impl Send for rcl_node_t {}
 
-#[cfg(test)]
+#[cfg(all(test, feature = "vendored_test_interfaces"))]
 mod tests {
     use crate::{test_helpers::*, *};
 

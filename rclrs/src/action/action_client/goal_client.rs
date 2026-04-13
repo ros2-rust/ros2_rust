@@ -95,6 +95,8 @@ impl<A: Action> GoalClient<A> {
 /// # Example
 ///
 /// ```
+/// # #[cfg(feature = "vendored_test_interfaces")]
+/// # {
 /// use rclrs::*;
 /// use crate::rclrs::vendor::example_interfaces::action::Fibonacci;
 /// use futures::StreamExt;
@@ -118,6 +120,7 @@ impl<A: Action> GoalClient<A> {
 ///         }
 ///     }
 /// }
+/// # }
 /// ```
 pub struct GoalClientStream<A: Action> {
     stream_map: StreamMap<i32, Pin<Box<dyn Stream<Item = GoalEvent<A>> + Send>>>,

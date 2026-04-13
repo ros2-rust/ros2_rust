@@ -162,6 +162,8 @@ where
     /// Define an `async fn` whose arguments are compatible with one of the above
     /// signatures and which returns a `()` (a.k.a. nothing).
     /// ```
+    /// # #[cfg(feature = "vendored_test_interfaces")]
+    /// # {
     /// # use rclrs::*;
     /// # use crate::rclrs::vendor::test_msgs;
     /// # let node = Context::default()
@@ -176,6 +178,7 @@ where
     /// let request = test_msgs::srv::Empty_Request::default();
     /// let promise = client.call_then_async(&request, print_hello)?;
     /// # Ok::<(), RclrsError>(())
+    /// # }
     /// ```
     ///
     /// ## 2. Function that returns an `async { ... }`
@@ -190,6 +193,8 @@ where
     /// ### `fn`
     ///
     /// ```
+    /// # #[cfg(feature = "vendored_test_interfaces")]
+    /// # {
     /// # use rclrs::*;
     /// # use crate::rclrs::vendor::test_msgs;
     /// # use std::future::Future;
@@ -210,6 +215,7 @@ where
     ///     &request,
     ///     print_greeting)?;
     /// # Ok::<(), RclrsError>(())
+    /// # }
     /// ```
     ///
     /// ### Closure
@@ -219,6 +225,8 @@ where
     /// is also the most powerful option.
     ///
     /// ```
+    /// # #[cfg(feature = "vendored_test_interfaces")]
+    /// # {
     /// # use rclrs::*;
     /// # use crate::rclrs::vendor::test_msgs;
     /// # let node = Context::default()
@@ -236,6 +244,7 @@ where
     ///         }
     ///     })?;
     /// # Ok::<(), RclrsError>(())
+    /// # }
     /// ```
     pub fn call_then_async<'a, Req, Args>(
         &self,
@@ -606,7 +615,7 @@ impl Drop for ClientHandle {
 // they are running in. Therefore, this type can be safely sent to another thread.
 unsafe impl Send for rcl_client_t {}
 
-#[cfg(test)]
+#[cfg(all(test, feature = "vendored_test_interfaces"))]
 mod tests {
     use super::*;
     use crate::{test_helpers::*, vendor::test_msgs};
