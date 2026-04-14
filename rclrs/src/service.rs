@@ -480,7 +480,7 @@ impl From<ServiceIntrospectionState> for rcl_service_introspection_state_e {
     }
 }
 
-#[cfg(all(test, feature = "vendored_test_interfaces"))]
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::test_helpers::*;

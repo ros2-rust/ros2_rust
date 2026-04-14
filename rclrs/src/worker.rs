@@ -233,7 +233,7 @@ impl<Payload: 'static + Send + Sync> WorkerState<Payload> {
     /// payload by setting the first argument of the callback to `&mut Payload`.
     ///
     /// ```
-    /// # #[cfg(feature = "vendored_test_interfaces")]
+    /// # #[cfg(doctest)]
     /// # {
     /// # use rclrs::*;
     /// # use crate::rclrs::vendor::example_interfaces;
@@ -386,7 +386,7 @@ impl<Payload: 'static + Send + Sync> WorkerState<Payload> {
     /// payload by setting the first argument of the callback to `&mut Payload`.
     ///
     /// ```
-    /// # #[cfg(feature = "vendored_test_interfaces")]
+    /// # #[cfg(doctest)]
     /// # {
     /// # use rclrs::*;
     /// # use crate::rclrs::vendor::example_interfaces;
@@ -762,7 +762,7 @@ impl<Payload: 'static + Send + Sync> WorkScope for Worker<Payload> {
     type Payload = Payload;
 }
 
-#[cfg(all(test, feature = "vendored_test_interfaces"))]
+#[cfg(test)]
 mod tests {
     use crate::{
         vendor::test_msgs::{

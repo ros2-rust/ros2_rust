@@ -92,7 +92,7 @@ where
     }
 }
 
-#[cfg(all(test, feature = "vendored_test_interfaces"))]
+#[cfg(test)]
 mod tests {
     use super::*;
 

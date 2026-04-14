@@ -31,7 +31,7 @@
 //! then tell the [`Executor`] to spin:
 //!
 //! ```
-//! # #[cfg(feature = "vendored_test_interfaces")]
+//! # #[cfg(doctest)]
 //! # {
 //! use rclrs::*;
 //! # use crate::rclrs::vendor::example_interfaces;
@@ -57,7 +57,7 @@
 //! callbacks:
 //!
 //! ```
-//! # #[cfg(feature = "vendored_test_interfaces")]
+//! # #[cfg(doctest)]
 //! # {
 //! # use rclrs::*;
 //! #
@@ -104,7 +104,7 @@
 //!
 //! The following is a simple example of using a mandatory parameter:
 //! ```
-//! # #[cfg(feature = "vendored_test_interfaces")]
+//! # #[cfg(doctest)]
 //! # {
 //! use rclrs::*;
 //! # use crate::rclrs::vendor::example_interfaces;
@@ -137,7 +137,7 @@
 //! performed.
 //!
 //! ```
-//! # #[cfg(feature = "vendored_test_interfaces")]
+//! # #[cfg(doctest)]
 //! # {
 //! use rclrs::*;
 //! # use crate::rclrs::vendor::example_interfaces;

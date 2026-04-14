@@ -95,7 +95,7 @@ impl<A: Action> GoalClient<A> {
 /// # Example
 ///
 /// ```
-/// # #[cfg(feature = "vendored_test_interfaces")]
+/// # #[cfg(doctest)]
 /// # {
 /// use rclrs::*;
 /// use crate::rclrs::vendor::example_interfaces::action::Fibonacci;

@@ -162,7 +162,7 @@ where
     /// Define an `async fn` whose arguments are compatible with one of the above
     /// signatures and which returns a `()` (a.k.a. nothing).
     /// ```
-    /// # #[cfg(feature = "vendored_test_interfaces")]
+    /// # #[cfg(doctest)]
     /// # {
     /// # use rclrs::*;
     /// # use crate::rclrs::vendor::test_msgs;
@@ -193,7 +193,7 @@ where
     /// ### `fn`
     ///
     /// ```
-    /// # #[cfg(feature = "vendored_test_interfaces")]
+    /// # #[cfg(doctest)]
     /// # {
     /// # use rclrs::*;
     /// # use crate::rclrs::vendor::test_msgs;
@@ -225,7 +225,7 @@ where
     /// is also the most powerful option.
     ///
     /// ```
-    /// # #[cfg(feature = "vendored_test_interfaces")]
+    /// # #[cfg(doctest)]
     /// # {
     /// # use rclrs::*;
     /// # use crate::rclrs::vendor::test_msgs;
@@ -615,7 +615,7 @@ impl Drop for ClientHandle {
 // they are running in. Therefore, this type can be safely sent to another thread.
 unsafe impl Send for rcl_client_t {}
 
-#[cfg(all(test, feature = "vendored_test_interfaces"))]
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::{test_helpers::*, vendor::test_msgs};

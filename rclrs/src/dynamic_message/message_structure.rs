@@ -295,7 +295,7 @@ impl MessageStructure {
     }
 }
 
-#[cfg(all(test, feature = "vendored_test_interfaces"))]
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::dynamic_message::*;

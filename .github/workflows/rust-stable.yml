@@ -117,7 +117,7 @@ jobs:
         echo "Running cargo test in $path"
         # Run cargo test for all features except use_ros_shim (needed for docs.rs)
         if [ "$(basename $path)" = "rclrs" ]; then
-          cargo test -F default,serde,vendored_test_interfaces
+          cargo test -F default,serde
         else
           cargo test --all-features
         fi
@@ -131,10 +131,6 @@ jobs:
         for path in $(colcon list | awk '$3 == "(ament_cargo)" && $1 != "examples_rclrs_minimal_pub_sub" && $1 != "examples_rclrs_minimal_client_service" && $1 != "rust_pubsub" { print $2 }'); do
         cd $path
         echo "Running rustdoc check in $path"
-        if [ "$(basename $path)" = "rclrs" ]; then
-          cargo rustdoc -F vendored_test_interfaces -- -D warnings
-        else
-          cargo rustdoc -- -D warnings
-        fi
+        cargo rustdoc -- -D warnings
         cd -
         done

@@ -45,8 +45,7 @@ def main():
   args = get_args()
   assert args.install_base.is_dir(), "Install base does not exist"
   for pkg, _ in vendored_packages:
-    assert (args.install_base / pkg).is_dir(),
-      f"Install base does not contain {pkg}"
+    assert (args.install_base / pkg).is_dir(), f"Install base does not contain {pkg}"
   rclrs_root = Path(__file__).parent
   vendor_dir = rclrs_root / 'src' / 'vendor'
   if vendor_dir.exists():
@@ -68,7 +67,7 @@ def main():
   mod_contents += "\n"
   for pkg, test_only in vendored_packages:
     if test_only:
-      mod_contents += "#[cfg(feature = \"vendored_test_interfaces\")]\n"
+      mod_contents += "#[cfg(any(test, doctest))]\n"
     mod_contents += f"pub mod {pkg};\n"
   (vendor_dir / 'mod.rs').write_text(mod_contents)
 

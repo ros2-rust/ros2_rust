@@ -438,7 +438,7 @@ impl Drop for SubscriptionHandle {
     }
 }
 
-#[cfg(all(test, feature = "vendored_test_interfaces"))]
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::{test_helpers::*, vendor::test_msgs::msg};

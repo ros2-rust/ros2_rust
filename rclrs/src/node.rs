@@ -273,7 +273,7 @@ impl NodeState {
     ///
     /// In some cases the payload type can be inferred by Rust:
     /// ```
-    /// # #[cfg(feature = "vendored_test_interfaces")]
+    /// # #[cfg(doctest)]
     /// # {
     /// # use rclrs::*;
     /// # use crate::rclrs::vendor::example_interfaces;
@@ -289,6 +289,7 @@ impl NodeState {
     ///     }
     /// )?;
     /// # Ok::<(), RclrsError>(())
+    /// # }
     /// ```
     ///
     /// If the compiler complains about not knowing the payload type, you can
@@ -309,7 +310,7 @@ impl NodeState {
     ///
     /// The data given to the worker can be any custom data type:
     /// ```
-    /// # #[cfg(feature = "vendored_test_interfaces")]
+    /// # #[cfg(doctest)]
     /// # {
     /// # use rclrs::*;
     /// # use crate::rclrs::vendor::example_interfaces;
@@ -323,6 +324,7 @@ impl NodeState {
     /// }
     ///
     /// let worker = node.create_worker(MyNodeData::default());
+    /// # }
     /// ```
     ///
     /// In the above example, `addition_client` and `result_publisher` can be
@@ -345,7 +347,7 @@ impl NodeState {
     ///
     /// Pass in only the service name for the `options` argument to use all default client options:
     /// ```
-    /// # #[cfg(feature = "vendored_test_interfaces")]
+    /// # #[cfg(doctest)]
     /// # {
     /// # use rclrs::*;
     /// # let executor = Context::default().create_basic_executor();
@@ -355,13 +357,14 @@ impl NodeState {
     ///     "my_service"
     /// )
     /// .unwrap();
+    /// # }
     /// ```
     ///
     /// Take advantage of the [`IntoPrimitiveOptions`] API to easily build up the
     /// client options:
     ///
     /// ```
-    /// # #[cfg(feature = "vendored_test_interfaces")]
+    /// # #[cfg(doctest)]
     /// # {
     /// # use rclrs::*;
     /// # let executor = Context::default().create_basic_executor();
@@ -373,6 +376,7 @@ impl NodeState {
     ///     .transient_local()
     /// )
     /// .unwrap();
+    /// # }
     /// ```
     ///
     /// Any quality of service options that you explicitly specify will override
@@ -430,7 +434,7 @@ impl NodeState {
     ///
     /// Pass in only the topic name for the `options` argument to use all default publisher options:
     /// ```
-    /// # #[cfg(feature = "vendored_test_interfaces")]
+    /// # #[cfg(doctest)]
     /// # {
     /// # use rclrs::*;
     /// # let executor = Context::default().create_basic_executor();
@@ -440,13 +444,14 @@ impl NodeState {
     ///     "my_topic"
     /// )
     /// .unwrap();
+    /// # }
     /// ```
     ///
     /// Take advantage of the [`IntoPrimitiveOptions`] API to easily build up the
     /// publisher options:
     ///
     /// ```
-    /// # #[cfg(feature = "vendored_test_interfaces")]
+    /// # #[cfg(doctest)]
     /// # {
     /// # use rclrs::*;
     /// # use crate::rclrs::vendor::test_msgs;
@@ -523,7 +528,7 @@ impl NodeState {
     ///
     /// Pass in only the service name for the `options` argument to use all default service options:
     /// ```
-    /// # #[cfg(feature = "vendored_test_interfaces")]
+    /// # #[cfg(doctest)]
     /// # {
     /// # use rclrs::*;
     /// # use crate::rclrs::vendor::test_msgs;
@@ -536,13 +541,14 @@ impl NodeState {
     ///         test_msgs::srv::Empty_Response::default()
     ///     },
     /// );
+    /// # }
     /// ```
     ///
     /// Take advantage of the [`IntoPrimitiveOptions`] API to easily build up the
     /// service options:
     ///
     /// ```
-    /// # #[cfg(feature = "vendored_test_interfaces")]
+    /// # #[cfg(doctest)]
     /// # {
     /// # use rclrs::*;
     /// # use crate::rclrs::vendor::test_msgs;
@@ -557,6 +563,7 @@ impl NodeState {
     ///         test_msgs::srv::Empty_Response::default()
     ///     },
     /// );
+    /// # }
     /// ```
     ///
     /// Any quality of service options that you explicitly specify will override
@@ -583,7 +590,7 @@ impl NodeState {
     /// multiple simultaneous runs of the callback. For example:
     ///
     /// ```
-    /// # #[cfg(feature = "vendored_test_interfaces")]
+    /// # #[cfg(doctest)]
     /// # {
     /// # use rclrs::*;
     /// # use crate::rclrs::vendor::example_interfaces;
@@ -612,7 +619,7 @@ impl NodeState {
     /// capturing it in the closure:
     ///
     /// ```
-    /// # #[cfg(feature = "vendored_test_interfaces")]
+    /// # #[cfg(doctest)]
     /// # {
     /// # use rclrs::*;
     /// # use crate::rclrs::vendor::example_interfaces;
@@ -709,7 +716,7 @@ impl NodeState {
     /// This allows one async service to share state data across multiple workers.
     ///
     /// ```
-    /// # #[cfg(feature = "vendored_test_interfaces")]
+    /// # #[cfg(doctest)]
     /// # {
     /// # use rclrs::*;
     /// # use crate::rclrs::vendor::example_interfaces;
@@ -784,7 +791,7 @@ impl NodeState {
     ///
     /// Pass in only the topic name for the `options` argument to use all default subscription options:
     /// ```
-    /// # #[cfg(feature = "vendored_test_interfaces")]
+    /// # #[cfg(doctest)]
     /// # {
     /// # use rclrs::*;
     /// # use crate::rclrs::vendor::test_msgs;
@@ -796,13 +803,14 @@ impl NodeState {
     ///         println!("Received message!");
     ///     },
     /// );
+    /// # }
     /// ```
     ///
     /// Take advantage of the [`IntoPrimitiveOptions`] API to easily build up the
     /// subscription options:
     ///
     /// ```
-    /// # #[cfg(feature = "vendored_test_interfaces")]
+    /// # #[cfg(doctest)]
     /// # {
     /// # use rclrs::*;
     /// # use crate::rclrs::vendor::test_msgs;
@@ -848,7 +856,7 @@ impl NodeState {
     /// simultaneous runs of the callback. For example:
     ///
     /// ```
-    /// # #[cfg(feature = "vendored_test_interfaces")]
+    /// # #[cfg(doctest)]
     /// # {
     /// # use rclrs::*;
     /// # use crate::rclrs::vendor::example_interfaces;
@@ -874,7 +882,7 @@ impl NodeState {
     /// the [`Arc`] before capturing it in the closure:
     ///
     /// ```
-    /// # #[cfg(feature = "vendored_test_interfaces")]
+    /// # #[cfg(doctest)]
     /// # {
     /// # use rclrs::*;
     /// # use crate::rclrs::vendor::example_interfaces;
@@ -1108,7 +1116,7 @@ impl NodeState {
     /// multiple workers.
     ///
     /// ```
-    /// # #[cfg(feature = "vendored_test_interfaces")]
+    /// # #[cfg(doctest)]
     /// # {
     /// # use rclrs::*;
     /// # use crate::rclrs::vendor::example_interfaces;
@@ -1582,7 +1590,7 @@ pub(crate) unsafe fn call_string_getter_with_rcl_node(
 // they are running in. Therefore, this type can be safely sent to another thread.
 unsafe impl Send for rcl_node_t {}
 
-#[cfg(all(test, feature = "vendored_test_interfaces"))]
+#[cfg(test)]
 mod tests {
     use crate::{test_helpers::*, *};
 
