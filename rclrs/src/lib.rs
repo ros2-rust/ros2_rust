@@ -30,7 +30,9 @@
 //! [`Executor`], and then a [`Node`]. Create whatever primitives you need, and
 //! then tell the [`Executor`] to spin:
 //!
-//! ```no_run
+//! ```
+//! # #[cfg(doctest)]
+//! # {
 //! use rclrs::*;
 //! # use crate::rclrs::vendor::example_interfaces;
 //!
@@ -47,13 +49,16 @@
 //!
 //! executor.spin(SpinOptions::default()).first_error()?;
 //! # Ok::<(), RclrsError>(())
+//! # }
 //! ```
 //!
 //! If your callback needs to interact with some state data, consider using a
 //! [`Worker`], especially if that state data needs to be shared with other
 //! callbacks:
 //!
-//! ```no_run
+//! ```
+//! # #[cfg(doctest)]
+//! # {
 //! # use rclrs::*;
 //! #
 //! # let context = Context::default_from_env()?;
@@ -84,6 +89,7 @@
 //!
 //! # executor.spin(SpinOptions::default()).first_error()?;
 //! # Ok::<(), RclrsError>(())
+//! # }
 //! ```
 //!
 //! # Parameters
@@ -97,7 +103,9 @@
 //! - Read-only parameters do not allow you to modify them after they have been declared.
 //!
 //! The following is a simple example of using a mandatory parameter:
-//! ```no_run
+//! ```
+//! # #[cfg(doctest)]
+//! # {
 //! use rclrs::*;
 //! # use crate::rclrs::vendor::example_interfaces;
 //! use std::sync::Arc;
@@ -119,6 +127,7 @@
 //!
 //! executor.spin(SpinOptions::default()).first_error()?;
 //! # Ok::<(), RclrsError>(())
+//! # }
 //! ```
 //!
 //! # Logging
@@ -127,7 +136,9 @@
 //! ergonomic Rust API. [`ToLogParams`] can be used to dictate how logging is
 //! performed.
 //!
-//! ```no_run
+//! ```
+//! # #[cfg(doctest)]
+//! # {
 //! use rclrs::*;
 //! # use crate::rclrs::vendor::example_interfaces;
 //! use std::time::Duration;
@@ -176,6 +187,7 @@
 //! );
 //! executor.spin(SpinOptions::default()).first_error()?;
 //! # Ok::<(), RclrsError>(())
+//! # }
 //! ```
 
 mod action;

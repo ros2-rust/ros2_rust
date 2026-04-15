@@ -14,13 +14,13 @@ import shutil
 import subprocess
 
 vendored_packages = [
-  "action_msgs",
-  "builtin_interfaces",
-  "example_interfaces",
-  "rcl_interfaces",
-  "rosgraph_msgs",
-  "test_msgs",
-  "unique_identifier_msgs",
+  ("action_msgs", False),
+  ("builtin_interfaces", False),
+  ("example_interfaces", True),
+  ("rcl_interfaces", False),
+  ("rosgraph_msgs", False),
+  ("test_msgs", True),
+  ("unique_identifier_msgs", False),
 ]
 
 def get_args():
@@ -30,7 +30,7 @@ def get_args():
   return parser.parse_args()
 
 def adjust(current_package, text):
-  for pkg in vendored_packages:
+  for pkg, _ in vendored_packages:
     text = text.replace(f'{pkg}::', f'crate::vendor::{pkg}::')
   text = text.replace('crate::msg', f'crate::vendor::{current_package}::msg')
   text = text.replace('crate::srv', f'crate::vendor::{current_package}::srv')
@@ -44,13 +44,13 @@ def copy_adjusted(pkg, src, dst):
 def main():
   args = get_args()
   assert args.install_base.is_dir(), "Install base does not exist"
-  for pkg in vendored_packages:
+  for pkg, _ in vendored_packages:
     assert (args.install_base / pkg).is_dir(), f"Install base does not contain {pkg}"
   rclrs_root = Path(__file__).parent
   vendor_dir = rclrs_root / 'src' / 'vendor'
   if vendor_dir.exists():
     shutil.rmtree(vendor_dir)
-  for pkg in vendored_packages:
+  for pkg, test_only in vendored_packages:
     src = args.install_base / pkg / 'share' / pkg / 'rust' / 'src'
     dst = vendor_dir / pkg
     dst.mkdir(parents=True)
@@ -65,7 +65,9 @@ def main():
   mod_contents += "#![allow(dead_code)]\n"
   mod_contents += "#![allow(missing_docs)]\n"
   mod_contents += "\n"
-  for pkg in vendored_packages:
+  for pkg, test_only in vendored_packages:
+    if test_only:
+      mod_contents += "#[cfg(any(test, doctest))]\n"
     mod_contents += f"pub mod {pkg};\n"
   (vendor_dir / 'mod.rs').write_text(mod_contents)
 

@@ -273,6 +273,8 @@ impl NodeState {
     ///
     /// In some cases the payload type can be inferred by Rust:
     /// ```
+    /// # #[cfg(doctest)]
+    /// # {
     /// # use rclrs::*;
     /// # use crate::rclrs::vendor::example_interfaces;
     /// let executor = Context::default().create_basic_executor();
@@ -287,6 +289,7 @@ impl NodeState {
     ///     }
     /// )?;
     /// # Ok::<(), RclrsError>(())
+    /// # }
     /// ```
     ///
     /// If the compiler complains about not knowing the payload type, you can
@@ -300,7 +303,6 @@ impl NodeState {
     ///
     /// ```
     /// # use rclrs::*;
-    /// # use crate::rclrs::vendor::example_interfaces;
     /// # let executor = Context::default().create_basic_executor();
     /// # let node = executor.create_node("my_node").unwrap();
     /// let worker = node.create_worker::<String>(String::new());
@@ -308,6 +310,8 @@ impl NodeState {
     ///
     /// The data given to the worker can be any custom data type:
     /// ```
+    /// # #[cfg(doctest)]
+    /// # {
     /// # use rclrs::*;
     /// # use crate::rclrs::vendor::example_interfaces;
     /// # let executor = Context::default().create_basic_executor();
@@ -320,6 +324,7 @@ impl NodeState {
     /// }
     ///
     /// let worker = node.create_worker(MyNodeData::default());
+    /// # }
     /// ```
     ///
     /// In the above example, `addition_client` and `result_publisher` can be
@@ -342,6 +347,8 @@ impl NodeState {
     ///
     /// Pass in only the service name for the `options` argument to use all default client options:
     /// ```
+    /// # #[cfg(doctest)]
+    /// # {
     /// # use rclrs::*;
     /// # let executor = Context::default().create_basic_executor();
     /// # let node = executor.create_node("my_node").unwrap();
@@ -350,12 +357,15 @@ impl NodeState {
     ///     "my_service"
     /// )
     /// .unwrap();
+    /// # }
     /// ```
     ///
     /// Take advantage of the [`IntoPrimitiveOptions`] API to easily build up the
     /// client options:
     ///
     /// ```
+    /// # #[cfg(doctest)]
+    /// # {
     /// # use rclrs::*;
     /// # let executor = Context::default().create_basic_executor();
     /// # let node = executor.create_node("my_node").unwrap();
@@ -366,6 +376,7 @@ impl NodeState {
     ///     .transient_local()
     /// )
     /// .unwrap();
+    /// # }
     /// ```
     ///
     /// Any quality of service options that you explicitly specify will override
@@ -423,6 +434,8 @@ impl NodeState {
     ///
     /// Pass in only the topic name for the `options` argument to use all default publisher options:
     /// ```
+    /// # #[cfg(doctest)]
+    /// # {
     /// # use rclrs::*;
     /// # let executor = Context::default().create_basic_executor();
     /// # let node = executor.create_node("my_node").unwrap();
@@ -431,12 +444,15 @@ impl NodeState {
     ///     "my_topic"
     /// )
     /// .unwrap();
+    /// # }
     /// ```
     ///
     /// Take advantage of the [`IntoPrimitiveOptions`] API to easily build up the
     /// publisher options:
     ///
     /// ```
+    /// # #[cfg(doctest)]
+    /// # {
     /// # use rclrs::*;
     /// # use crate::rclrs::vendor::test_msgs;
     /// # let executor = Context::default().create_basic_executor();
@@ -453,6 +469,7 @@ impl NodeState {
     ///     .reliable()
     /// )
     /// .unwrap();
+    /// # }
     /// ```
     ///
     pub fn create_publisher<'a, T>(
@@ -483,6 +500,7 @@ impl NodeState {
     ///     .keep_last(100)
     /// )
     /// .unwrap();
+    /// ```
     pub fn create_dynamic_publisher<'a>(
         self: &Arc<Self>,
         topic_type: MessageTypeName,
@@ -510,6 +528,8 @@ impl NodeState {
     ///
     /// Pass in only the service name for the `options` argument to use all default service options:
     /// ```
+    /// # #[cfg(doctest)]
+    /// # {
     /// # use rclrs::*;
     /// # use crate::rclrs::vendor::test_msgs;
     /// # let executor = Context::default().create_basic_executor();
@@ -521,12 +541,15 @@ impl NodeState {
     ///         test_msgs::srv::Empty_Response::default()
     ///     },
     /// );
+    /// # }
     /// ```
     ///
     /// Take advantage of the [`IntoPrimitiveOptions`] API to easily build up the
     /// service options:
     ///
     /// ```
+    /// # #[cfg(doctest)]
+    /// # {
     /// # use rclrs::*;
     /// # use crate::rclrs::vendor::test_msgs;
     /// # let executor = Context::default().create_basic_executor();
@@ -540,6 +563,7 @@ impl NodeState {
     ///         test_msgs::srv::Empty_Response::default()
     ///     },
     /// );
+    /// # }
     /// ```
     ///
     /// Any quality of service options that you explicitly specify will override
@@ -566,6 +590,8 @@ impl NodeState {
     /// multiple simultaneous runs of the callback. For example:
     ///
     /// ```
+    /// # #[cfg(doctest)]
+    /// # {
     /// # use rclrs::*;
     /// # use crate::rclrs::vendor::example_interfaces;
     /// # let executor = Context::default().create_basic_executor();
@@ -586,12 +612,15 @@ impl NodeState {
     ///     }
     /// )?;
     /// # Ok::<(), RclrsError>(())
+    /// # }
     /// ```
     /// To share the internal state outside of the callback you will need to
     /// wrap it in [`Arc`] or `Arc<Mutex<S>>` and then clone the [`Arc`] before
     /// capturing it in the closure:
     ///
     /// ```
+    /// # #[cfg(doctest)]
+    /// # {
     /// # use rclrs::*;
     /// # use crate::rclrs::vendor::example_interfaces;
     /// # let executor = Context::default().create_basic_executor();
@@ -622,6 +651,7 @@ impl NodeState {
     ///     }
     /// });
     /// # Ok::<(), RclrsError>(())
+    /// # }
     /// ```
     ///
     /// In general, when you need to manage some state within a blocking service,
@@ -686,6 +716,8 @@ impl NodeState {
     /// This allows one async service to share state data across multiple workers.
     ///
     /// ```
+    /// # #[cfg(doctest)]
+    /// # {
     /// # use rclrs::*;
     /// # use crate::rclrs::vendor::example_interfaces;
     /// # let executor = Context::default().create_basic_executor();
@@ -721,6 +753,7 @@ impl NodeState {
     ///     }
     /// )?;
     /// # Ok::<(), RclrsError>(())
+    /// # }
     /// ```
     pub fn create_async_service<'a, T, Args>(
         self: &Arc<Self>,
@@ -758,6 +791,8 @@ impl NodeState {
     ///
     /// Pass in only the topic name for the `options` argument to use all default subscription options:
     /// ```
+    /// # #[cfg(doctest)]
+    /// # {
     /// # use rclrs::*;
     /// # use crate::rclrs::vendor::test_msgs;
     /// # let executor = Context::default().create_basic_executor();
@@ -768,12 +803,15 @@ impl NodeState {
     ///         println!("Received message!");
     ///     },
     /// );
+    /// # }
     /// ```
     ///
     /// Take advantage of the [`IntoPrimitiveOptions`] API to easily build up the
     /// subscription options:
     ///
     /// ```
+    /// # #[cfg(doctest)]
+    /// # {
     /// # use rclrs::*;
     /// # use crate::rclrs::vendor::test_msgs;
     /// # let executor = Context::default().create_basic_executor();
@@ -794,6 +832,7 @@ impl NodeState {
     ///         println!("Received message!");
     ///     },
     /// );
+    /// # }
     /// ```
     ///
     /// # Subscription Callbacks
@@ -817,6 +856,8 @@ impl NodeState {
     /// simultaneous runs of the callback. For example:
     ///
     /// ```
+    /// # #[cfg(doctest)]
+    /// # {
     /// # use rclrs::*;
     /// # use crate::rclrs::vendor::example_interfaces;
     /// # let executor = Context::default().create_basic_executor();
@@ -833,6 +874,7 @@ impl NodeState {
     ///     },
     /// )?;
     /// # Ok::<(), RclrsError>(())
+    /// # }
     /// ```
     ///
     /// To share the internal state outside of the callback you will need to
@@ -840,6 +882,8 @@ impl NodeState {
     /// the [`Arc`] before capturing it in the closure:
     ///
     /// ```
+    /// # #[cfg(doctest)]
+    /// # {
     /// # use rclrs::*;
     /// # use crate::rclrs::vendor::example_interfaces;
     /// # let executor = Context::default().create_basic_executor();
@@ -865,6 +909,7 @@ impl NodeState {
     ///     }
     /// });
     /// # Ok::<(), RclrsError>(())
+    /// # }
     /// ```
     ///
     /// You can change the subscription at any time by calling
@@ -1071,6 +1116,8 @@ impl NodeState {
     /// multiple workers.
     ///
     /// ```
+    /// # #[cfg(doctest)]
+    /// # {
     /// # use rclrs::*;
     /// # use crate::rclrs::vendor::example_interfaces;
     /// # let executor = Context::default().create_basic_executor();
@@ -1105,6 +1152,7 @@ impl NodeState {
     ///     }
     /// )?;
     /// # Ok::<(), RclrsError>(())
+    /// # }
     /// ```
     ///
     /// You can change the subscription at any time by calling
