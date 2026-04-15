@@ -55,6 +55,8 @@ tokio-stream = "0.1"
 uuid = { version = "1", features = ["v4"] }
 
 [dev-dependencies]
+# Needed for running logging tests serialized
+serial_test = "3.4.0"
 # Needed for e.g. writing yaml files in tests
 tempfile = "3.3.0"
 # Needed for parameter service tests
