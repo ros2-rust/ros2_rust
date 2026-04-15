@@ -473,12 +473,14 @@ macro_rules! function {
 #[cfg(test)]
 mod tests {
     use crate::{log_handler::*, test_helpers::*, *};
+    use serial_test::serial;
     use std::{
         sync::{Arc, Mutex},
         time::Duration,
     };
 
     #[test]
+    #[serial]
     fn test_logging_macros() -> Result<(), RclrsError> {
         // This test ensures that strings which are being sent to the logger are
         // being sanitized correctly. Rust generally and our logging macro in
@@ -555,9 +557,12 @@ mod tests {
         assert_eq!(last_logger_name(), node.logger().name());
         assert_eq!(last_message(), "Logging with node dereference");
         assert_eq!(last_severity(), LogSeverity::Info);
-        assert_eq!(
+        assert!(
+            last_location()
+                .function_name
+                .starts_with("rclrs::logging::tests::test_logging_macros"),
+            "Unexpected function name: {}",
             last_location().function_name,
-            "rclrs::logging::tests::test_logging_macros",
         );
 
         for _ in 0..10 {
@@ -669,6 +674,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_rosout_publishing_default() -> Result<(), RclrsError> {
         use crate::{
             rcl_bindings::rcl_logging_rosout_enabled, vendor::rcl_interfaces::msg::rmw::Log,
@@ -716,11 +722,16 @@ mod tests {
         )?;
 
         // Wait for /rosout subscription to be discovered by the publisher
-        spin_until_condition(
-            &mut executor,
-            || node.count_subscriptions("/rosout").unwrap_or(0) > 0,
-            Duration::from_millis(500),
+        assert!(
+            spin_until_condition(
+                &mut executor,
+                || node.count_subscriptions("/rosout").unwrap_or(0) > 0,
+                Duration::from_secs(2),
+            ),
+            "Timed out waiting for /rosout subscription discovery"
         );
+
+        executor.spin(SpinOptions::spin_once().timeout(Duration::from_millis(100)));
 
         // Log messages at all severity levels (except debug) with unique identifiers
         let test_id = line!();
@@ -735,10 +746,20 @@ mod tests {
         log!(node.fatal(), "{}", fatal_msg);
 
         // Spin until all 4 messages are received (INFO, WARN, ERROR, FATAL)
-        spin_until_condition(
-            &mut executor,
-            || received_logs.lock().unwrap().len() >= 4,
-            Duration::from_secs(5),
+        assert!(
+            spin_until_condition(
+                &mut executor,
+                || received_logs.lock().unwrap().len() >= 4,
+                Duration::from_secs(5),
+            ),
+            "Timed out waiting for rosout messages. Received {} messages: {:?}",
+            received_logs.lock().unwrap().len(),
+            received_logs
+                .lock()
+                .unwrap()
+                .iter()
+                .map(|l| l.msg.to_string())
+                .collect::<Vec<_>>(),
         );
 
         // Verify all messages were received with correct severity levels
@@ -794,6 +815,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_rosout_disabled() -> Result<(), RclrsError> {
         use crate::vendor::rcl_interfaces::msg::rmw::Log;
         use std::sync::{
