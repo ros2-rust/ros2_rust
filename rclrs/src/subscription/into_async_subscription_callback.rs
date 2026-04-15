@@ -31,7 +31,7 @@ where
     Out: Future<Output = ()> + Send + 'static,
 {
     fn into_async_subscription_callback(mut self) -> AnySubscriptionCallback<T, ()> {
-        NodeSubscriptionCallback::Regular(Box::new(move |message| Box::pin(self(message)))).into()
+        NodeSubscriptionCallback::AsyncRegular(Box::new(move |message| Box::pin(self(message)))).into()
     }
 }
 
@@ -42,7 +42,7 @@ where
     Out: Future<Output = ()> + Send + 'static,
 {
     fn into_async_subscription_callback(mut self) -> AnySubscriptionCallback<T, ()> {
-        NodeSubscriptionCallback::RegularWithMessageInfo(Box::new(move |message, info| {
+        NodeSubscriptionCallback::AsyncRegularWithMessageInfo(Box::new(move |message, info| {
             Box::pin(self(message, info))
         }))
         .into()
@@ -56,7 +56,7 @@ where
     Out: Future<Output = ()> + Send + 'static,
 {
     fn into_async_subscription_callback(mut self) -> AnySubscriptionCallback<T, ()> {
-        NodeSubscriptionCallback::Boxed(Box::new(move |message| Box::pin(self(message)))).into()
+        NodeSubscriptionCallback::AsyncBoxed(Box::new(move |message| Box::pin(self(message)))).into()
     }
 }
 
@@ -67,7 +67,7 @@ where
     F: Future<Output = ()> + Send + 'static,
 {
     fn into_async_subscription_callback(mut self) -> AnySubscriptionCallback<T, ()> {
-        NodeSubscriptionCallback::BoxedWithMessageInfo(Box::new(move |message, info| {
+        NodeSubscriptionCallback::AsyncBoxedWithMessageInfo(Box::new(move |message, info| {
             Box::pin(self(message, info))
         }))
         .into()
@@ -81,7 +81,7 @@ where
     F: Future<Output = ()> + Send + 'static,
 {
     fn into_async_subscription_callback(mut self) -> AnySubscriptionCallback<T, ()> {
-        NodeSubscriptionCallback::Loaned(Box::new(move |message| Box::pin(self(message)))).into()
+        NodeSubscriptionCallback::AsyncLoaned(Box::new(move |message| Box::pin(self(message)))).into()
     }
 }
 
@@ -92,7 +92,7 @@ where
     F: Future<Output = ()> + Send + 'static,
 {
     fn into_async_subscription_callback(mut self) -> AnySubscriptionCallback<T, ()> {
-        NodeSubscriptionCallback::LoanedWithMessageInfo(Box::new(move |message, info| {
+        NodeSubscriptionCallback::AsyncLoanedWithMessageInfo(Box::new(move |message, info| {
             Box::pin(self(message, info))
         }))
         .into()
@@ -110,68 +110,68 @@ mod tests {
         let cb = |_msg: TestMessage| async {};
         assert!(matches!(
             cb.into_async_subscription_callback(),
-            AnySubscriptionCallback::Node(NodeSubscriptionCallback::<TestMessage>::Regular(_)),
+            AnySubscriptionCallback::Node(NodeSubscriptionCallback::<TestMessage>::AsyncRegular(_)),
         ));
         let cb = |_msg: TestMessage, _info: MessageInfo| async {};
         assert!(matches!(
             cb.into_async_subscription_callback(),
             AnySubscriptionCallback::Node(
-                NodeSubscriptionCallback::<TestMessage>::RegularWithMessageInfo(_)
+                NodeSubscriptionCallback::<TestMessage>::AsyncRegularWithMessageInfo(_)
             ),
         ));
         let cb = |_msg: Box<TestMessage>| async {};
         assert!(matches!(
             cb.into_async_subscription_callback(),
-            AnySubscriptionCallback::Node(NodeSubscriptionCallback::<TestMessage>::Boxed(_)),
+            AnySubscriptionCallback::Node(NodeSubscriptionCallback::<TestMessage>::AsyncBoxed(_)),
         ));
         let cb = |_msg: Box<TestMessage>, _info: MessageInfo| async {};
         assert!(matches!(
             cb.into_async_subscription_callback(),
             AnySubscriptionCallback::Node(
-                NodeSubscriptionCallback::<TestMessage>::BoxedWithMessageInfo(_)
+                NodeSubscriptionCallback::<TestMessage>::AsyncBoxedWithMessageInfo(_)
             ),
         ));
         let cb = |_msg: ReadOnlyLoanedMessage<TestMessage>| async {};
         assert!(matches!(
             cb.into_async_subscription_callback(),
-            AnySubscriptionCallback::Node(NodeSubscriptionCallback::<TestMessage>::Loaned(_)),
+            AnySubscriptionCallback::Node(NodeSubscriptionCallback::<TestMessage>::AsyncLoaned(_)),
         ));
         let cb = |_msg: ReadOnlyLoanedMessage<TestMessage>, _info: MessageInfo| async {};
         assert!(matches!(
             cb.into_async_subscription_callback(),
             AnySubscriptionCallback::Node(
-                NodeSubscriptionCallback::<TestMessage>::LoanedWithMessageInfo(_)
+                NodeSubscriptionCallback::<TestMessage>::AsyncLoanedWithMessageInfo(_)
             ),
         ));
 
         assert!(matches!(
             test_regular.into_async_subscription_callback(),
-            AnySubscriptionCallback::Node(NodeSubscriptionCallback::<TestMessage>::Regular(_)),
+            AnySubscriptionCallback::Node(NodeSubscriptionCallback::<TestMessage>::AsyncRegular(_)),
         ));
         assert!(matches!(
             test_regular_with_info.into_async_subscription_callback(),
             AnySubscriptionCallback::Node(
-                NodeSubscriptionCallback::<TestMessage>::RegularWithMessageInfo(_)
+                NodeSubscriptionCallback::<TestMessage>::AsyncRegularWithMessageInfo(_)
             ),
         ));
         assert!(matches!(
             test_boxed.into_async_subscription_callback(),
-            AnySubscriptionCallback::Node(NodeSubscriptionCallback::<TestMessage>::Boxed(_)),
+            AnySubscriptionCallback::Node(NodeSubscriptionCallback::<TestMessage>::AsyncBoxed(_)),
         ));
         assert!(matches!(
             test_boxed_with_info.into_async_subscription_callback(),
             AnySubscriptionCallback::Node(
-                NodeSubscriptionCallback::<TestMessage>::BoxedWithMessageInfo(_)
+                NodeSubscriptionCallback::<TestMessage>::AsyncBoxedWithMessageInfo(_)
             ),
         ));
         assert!(matches!(
             test_loaned.into_async_subscription_callback(),
-            AnySubscriptionCallback::Node(NodeSubscriptionCallback::<TestMessage>::Loaned(_)),
+            AnySubscriptionCallback::Node(NodeSubscriptionCallback::<TestMessage>::AsyncLoaned(_)),
         ));
         assert!(matches!(
             test_loaned_with_info.into_async_subscription_callback(),
             AnySubscriptionCallback::Node(
-                NodeSubscriptionCallback::<TestMessage>::LoanedWithMessageInfo(_)
+                NodeSubscriptionCallback::<TestMessage>::AsyncLoanedWithMessageInfo(_)
             ),
         ));
     }
