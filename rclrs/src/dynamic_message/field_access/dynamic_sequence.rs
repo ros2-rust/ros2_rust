@@ -149,7 +149,7 @@ where
 
     /// This will fini all messages in the sequence and re-initialize it from scratch.
     fn resize_unchecked(&mut self, resize_function: ResizeFunction, len: usize) {
-        let is_ok = unsafe { resize_function(self as *mut _ as *mut std::os::raw::c_void, len) };
+        let is_ok = unsafe { resize_function(*self as *mut _ as *mut std::os::raw::c_void, len) };
         assert!(is_ok);
     }
 }
