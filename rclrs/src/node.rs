@@ -1339,12 +1339,12 @@ impl NodeState {
     /// # Example
     /// ```
     /// # use rclrs::*;
+    /// # use std::time::Duration;
     ///
     /// # let executor = Context::default().create_basic_executor();
     /// # let node = executor.create_node("my_node").unwrap();
-    /// # use std::time::Duration;
     /// let jump_handle = node.register_time_jump_callback(
-    ///     ClockTimeJumpConditions::on_min_forwards(Duration::from_secs_f32(1.5),
+    ///     ClockTimeJumpConditions::on_min_forward(Duration::from_secs_f32(1.5)),
     ///     {
     ///      let node = node.clone();
     ///      move |delta| {log!(node.info(), "Delta {:?}", delta);}

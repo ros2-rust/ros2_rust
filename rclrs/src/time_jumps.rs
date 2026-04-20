@@ -37,11 +37,12 @@ unsafe impl Sync for ClockTimeJumpCallbackHandle {}
 /// Condition for typed clock time jump callbacks.
 /// ```
 /// # use rclrs::*;
+/// # use std::time::Duration;
 ///
-/// # ClockTimeJumpConditions::on_min_forward(Duration::as_secs(1))
-/// # ClockTimeJumpConditions::on_min_backward(Duration::as_secs(1))
-/// # ClockTimeJumpConditions::on_min_forward_or_backward(Duration::as_secs(1), Duration::as_secs(1))
-/// # ClockTimeJumpConditions::on_clock_change()
+/// ClockTimeJumpConditions::on_min_forward(Duration::from_secs(1));
+/// ClockTimeJumpConditions::on_min_backward(Duration::from_secs(1));
+/// ClockTimeJumpConditions::on_min_forward_or_backward(Duration::from_secs(1), Duration::from_secs(1));
+/// ClockTimeJumpConditions::on_clock_change();
 /// ```
 /// See [`crate::ClockTimeCondition`]
 pub trait ClockTimeJumpCondition: Send + Sync + 'static + std::fmt::Debug {
