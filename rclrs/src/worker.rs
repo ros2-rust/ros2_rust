@@ -1,13 +1,15 @@
+use crate::ClockTimeJumpCondition;
 use crate::{
     dynamic_message::{
         DynamicMessage, DynamicSubscriptionState, MessageTypeName, WorkerDynamicSubscription,
         WorkerDynamicSubscriptionCallback,
     },
-    log_fatal, AnyTimerCallback, IntoTimerOptions, IntoWorkerServiceCallback,
-    IntoWorkerSubscriptionCallback, IntoWorkerTimerOneshotCallback,
-    IntoWorkerTimerRepeatingCallback, MessageInfo, Node, Promise, RclrsError, ServiceOptions,
-    ServiceState, SubscriptionOptions, SubscriptionState, TimerState, WorkerCommands,
-    WorkerService, WorkerSubscription, WorkerTimer,
+    log_fatal,
+    time_jumps::ClockTimeJumpCallbackHandle,
+    AnyTimerCallback, IntoTimerOptions, IntoWorkerServiceCallback, IntoWorkerSubscriptionCallback,
+    IntoWorkerTimerOneshotCallback, IntoWorkerTimerRepeatingCallback, MessageInfo, Node, Promise,
+    RclrsError, ServiceOptions, ServiceState, SubscriptionOptions, SubscriptionState, TimerState,
+    WorkerCommands, WorkerService, WorkerSubscription, WorkerTimer,
 };
 use futures::channel::oneshot;
 use rosidl_runtime_rs::{Message, Service as ServiceIDL};
@@ -529,7 +531,7 @@ impl<Payload: 'static + Send + Sync> WorkerState<Payload> {
     /// Since the callback of this timer may block other callbacks from being
     /// able to run, it is strongly recommended to ensure that the callback
     /// returns quickly. If the callback needs to trigger long-running behavior
-    /// then you can condier using `std::thread::spawn`, or for async behaviors
+    /// then you can consider using `std::thread::spawn`, or for async behaviors
     /// you can capture an [`ExecutorCommands`][1] in your callback and use
     /// [`ExecutorCommands::run`][2] to issue a task for the executor to run in
     /// its async task pool.
@@ -624,6 +626,54 @@ impl<Payload: 'static + Send + Sync> WorkerState<Payload> {
             &self.commands,
             &self.node.handle().context_handle,
             node,
+        )
+    }
+
+    /// Registers time jump callback that is scheduled on the executor with synchronized payload access.
+    ///
+    /// # Example
+    /// ```
+    /// # use rclrs::*;
+    /// # use std::time::Duration;
+    ///
+    /// # let executor = Context::default().create_basic_executor();
+    /// # let node = executor.create_node("my_node").unwrap();
+    /// # let payload = "my data".to_string();
+    /// let worker = node.create_worker::<String>(payload);
+    /// let jump_handle = worker.register_time_jump_callback(
+    ///     ClockTimeJumpConditions::on_min_forward(Duration::from_secs_f32(1.5)),
+    ///     {
+    ///       let node = node.clone();
+    ///       move |payload, time_jump| {
+    ///             payload.push_str(" modified");
+    ///             log!(node.info(), "Delta: {:?} with payload {:?}", time_jump, payload);
+    ///       }
+    ///     }
+    /// ).unwrap();
+    /// ```
+    /// The callback remains active as long as the jump handle is not dropped.
+    pub fn register_time_jump_callback<T: ClockTimeJumpCondition>(
+        &self,
+        jump_condition: T,
+        callback: impl Fn(&mut Payload, T::CallbackParameter) + Send + Sync + 'static,
+    ) -> Result<ClockTimeJumpCallbackHandle, RclrsError> {
+        let callback = Arc::new(callback);
+        let commands = Arc::downgrade(&self.commands);
+        let schedule_jump_time_callback = move |time_jump: T::CallbackParameter| {
+            if let Some(commands) = commands.upgrade() {
+                let callback = Arc::clone(&callback);
+                let payload_task = move |any_payload: &mut dyn Any| {
+                    // SAFETY: This should be safe, because the WorkerCommands should have the correct Payload.
+                    let payload = any_payload.downcast_mut::<Payload>().unwrap();
+                    callback(payload, time_jump);
+                };
+                commands.run_on_payload(Box::new(payload_task));
+            }
+        };
+        ClockTimeJumpCallbackHandle::new(
+            self.node.get_clock(),
+            jump_condition,
+            Box::new(schedule_jump_time_callback),
         )
     }
 
