@@ -221,6 +221,7 @@ pub use parameter::*;
 pub use publisher::*;
 pub use qos::*;
 pub use rcl_bindings::rmw_request_id_t;
+pub use rclrs_macros::ParameterSet;
 pub use service::*;
 pub use subscription::*;
 pub use time::*;

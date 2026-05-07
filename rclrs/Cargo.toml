@@ -54,6 +54,8 @@ tokio-stream = "0.1"
 # Needed by action clients to generate UUID values for their goals
 uuid = { version = "1", features = ["v4"] }
 
+rclrs-macros = { path = "../rclrs-macros" }
+
 [dev-dependencies]
 # Needed for e.g. writing yaml files in tests
 tempfile = "3.3.0"

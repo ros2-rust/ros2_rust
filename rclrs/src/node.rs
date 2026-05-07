@@ -38,13 +38,13 @@ use crate::{
     },
     rcl_bindings::*,
     ActionClient, ActionClientState, ActionGoalReceiver, ActionServer, ActionServerState,
-    AnyTimerCallback, Client, ClientOptions, ClientState, Clock, ContextHandle, ExecutorCommands,
-    IntoActionClientOptions, IntoActionServerOptions, IntoAsyncServiceCallback,
+    AnyTimerCallback, Client, ClientOptions, ClientState, Clock, ContextHandle, DeclarationError,
+    ExecutorCommands, IntoActionClientOptions, IntoActionServerOptions, IntoAsyncServiceCallback,
     IntoAsyncSubscriptionCallback, IntoNodeServiceCallback, IntoNodeSubscriptionCallback,
     IntoNodeTimerOneshotCallback, IntoNodeTimerRepeatingCallback, IntoTimerOptions, LogParams,
-    Logger, MessageInfo, ParameterBuilder, ParameterInterface, ParameterVariant, Parameters,
-    Promise, Publisher, PublisherOptions, PublisherState, RclrsError, RequestedGoal, Service,
-    ServiceOptions, ServiceState, Subscription, SubscriptionOptions, SubscriptionState,
+    Logger, MessageInfo, ParameterBuilder, ParameterInterface, ParameterSet, ParameterVariant,
+    Parameters, Promise, Publisher, PublisherOptions, PublisherState, RclrsError, RequestedGoal,
+    Service, ServiceOptions, ServiceState, Subscription, SubscriptionOptions, SubscriptionState,
     TerminatedGoal, TimeSource, Timer, TimerState, ToLogParams, Worker, WorkerOptions, WorkerState,
     ENTITY_LIFECYCLE_MUTEX,
 };
@@ -1428,6 +1428,69 @@ impl NodeState {
         Parameters {
             interface: &self.parameter,
         }
+    }
+
+    /// Declares a set of parameters from a struct that derives [`ParameterSet`].
+    ///
+    /// Uses the struct's default namespace (derived from the struct name in
+    /// snake_case) as the parameter prefix.
+    ///
+    /// # Example
+    /// ```no_run
+    /// use rclrs::*;
+    ///
+    /// #[derive(ParameterSet)]
+    /// struct DriveConfig {
+    ///     #[param(default = 50.0)]
+    ///     speed: MandatoryParameter<f64>,
+    /// }
+    ///
+    /// # let executor = Context::default_from_env()?.create_basic_executor();
+    /// # let node = executor.create_node("my_node")?;
+    /// // Declares "drive_config.speed"
+    /// let config: DriveConfig = node.declare_parameter_set()?;
+    /// # Ok::<(), RclrsError>(())
+    /// ```
+    pub fn declare_parameter_set<T: ParameterSet>(&self) -> Result<T, DeclarationError> {
+        T::declare(self, T::default_namespace())
+    }
+
+    /// Declares a set of parameters with an additional prefix prepended to the
+    /// struct's default namespace.
+    ///
+    /// For a struct `DriveConfig` (default namespace `"drive_config"`), calling
+    /// `declare_parameter_set_with_prefix("robot")` declares parameters under
+    /// `"robot.drive_config.*"`.
+    ///
+    /// # Example
+    /// ```no_run
+    /// use rclrs::*;
+    ///
+    /// #[derive(ParameterSet)]
+    /// struct DriveConfig {
+    ///     #[param(default = 50.0)]
+    ///     speed: MandatoryParameter<f64>,
+    /// }
+    ///
+    /// # let executor = Context::default_from_env()?.create_basic_executor();
+    /// # let node = executor.create_node("my_node")?;
+    /// // Declares "robot.drive_config.speed"
+    /// let config: DriveConfig = node.declare_parameter_set_with_prefix("robot")?;
+    /// # Ok::<(), RclrsError>(())
+    /// ```
+    pub fn declare_parameter_set_with_prefix<T: ParameterSet>(
+        &self,
+        prefix: &str,
+    ) -> Result<T, DeclarationError> {
+        let ns = T::default_namespace();
+        let full_prefix = if prefix.is_empty() {
+            ns.to_string()
+        } else if ns.is_empty() {
+            prefix.to_string()
+        } else {
+            format!("{prefix}.{ns}")
+        };
+        T::declare(self, &full_prefix)
     }
 
     /// Same as [`Self::notify_on_graph_change_with_period`] but uses a

@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<?xml-model
+   href="http://download.ros.org/schema/package_format3.xsd"
+   schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>rclrs-macros</name>
+  <version>0.5.0</version>
+  <description>Procedural macros for the rclrs ROS 2 client library.</description>
+  <maintainer email="esteve@apache.org">Esteve Fernandez</maintainer>
+  <license>Apache License 2.0</license>
+  <export>
+    <build_type>ament_cargo</build_type>
+  </export>
+</package>
