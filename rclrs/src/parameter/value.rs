@@ -3,9 +3,10 @@ use std::{ffi::CStr, sync::Arc};
 use crate::{
     parameter::{ParameterRange, ParameterRanges},
     rcl_bindings::*,
-    vendor::rcl_interfaces::msg::rmw::{ParameterType, ParameterValue as RmwParameterValue},
     ParameterValueError,
 };
+
+use ros_env::rcl_interfaces::msg::rmw::{ParameterType, ParameterValue as RmwParameterValue};
 
 /// A parameter value.
 ///

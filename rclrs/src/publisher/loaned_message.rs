@@ -98,7 +98,8 @@ mod tests {
 
     #[test]
     fn traits() {
-        use crate::{test_helpers::*, vendor::test_msgs};
+        use crate::test_helpers::*;
+        use ros_env::test_msgs;
 
         assert_send::<LoanedMessage<test_msgs::msg::rmw::BoundedSequences>>();
         assert_sync::<LoanedMessage<test_msgs::msg::rmw::BoundedSequences>>();
