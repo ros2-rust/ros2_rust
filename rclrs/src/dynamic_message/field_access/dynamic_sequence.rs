@@ -1,6 +1,8 @@
-use std::fmt::{self, Debug};
-use std::marker::PhantomData;
-use std::ops::{Deref, DerefMut};
+use std::{
+    fmt::{self, Debug},
+    marker::PhantomData,
+    ops::{Deref, DerefMut},
+};
 
 use rosidl_runtime_rs::{Sequence, SequenceAlloc, SequenceExceedsBoundsError};
 
