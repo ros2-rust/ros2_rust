@@ -125,8 +125,13 @@ pub(crate) unsafe fn resolve_parameter_overrides(
                 for (node_name, node_params) in RclParamsIter::new(rcl_params) {
                     if node_name == name_to_match {
                         for (param_name, variant) in RclNodeParamsIter::new(node_params) {
-                            let value = ParameterValue::from_rcl_variant(variant);
-                            map.insert(param_name, value);
+                            // Skip ambiguous variants (e.g. empty arrays whose element type the
+                            // rcl YAML parser could not infer). The user will get a clearer
+                            // error later if they actually require this parameter via
+                            // `declare_parameter`.
+                            if let Some(value) = ParameterValue::from_rcl_variant(variant) {
+                                map.insert(param_name, value);
+                            }
                         }
                     }
                 }
@@ -255,6 +260,52 @@ mod tests {
                 ("n", ParameterValue::Integer(3)),
                 ("o", ParameterValue::Integer(4)),
             ]
+        );
+        Ok(())
+    }
+
+    // Regression test for https://github.com/ros2-rust/ros2_rust/issues/636:
+    // a parameter declared as an empty YAML array (e.g. `my_param: []`) made the
+    // rcl YAML parser emit an `rcl_variant_t` with no type-specific pointer set,
+    // which used to trigger `assert_eq!(num_active, 1)` inside
+    // `ParameterValue::from_rcl_variant` and panic during `executor.create_node`.
+    // The expected behavior is now: the ambiguous override is silently dropped
+    // (so the node can still start) while well-formed overrides in the same file
+    // are loaded normally.
+    const EMPTY_ARRAY_PARAMS_FILE: &str = r#"
+/my_ns/my_node:
+    ros__parameters:
+        good_int: 7
+        empty_array: []
+"#;
+
+    // A minimal but well-formed YAML used wherever this test only cares about node-scoped
+    // overrides and just needs a valid `rcl_arguments_t` for the unused global slot.
+    const NOOP_GLOBAL_PARAMS_FILE: &str = r#"
+/**:
+    ros__parameters:
+        unused: 0
+"#;
+
+    #[test]
+    fn test_resolve_parameter_overrides_skips_empty_array() -> Result<(), Box<dyn Error>> {
+        let node_fqn = "/my_ns/my_node";
+        let mut rcl_node_arguments = convert_to_rcl_arguments(EMPTY_ARRAY_PARAMS_FILE)?;
+        let mut rcl_global_arguments = convert_to_rcl_arguments(NOOP_GLOBAL_PARAMS_FILE)?;
+        let overrides_map = unsafe {
+            resolve_parameter_overrides(node_fqn, &rcl_node_arguments, &rcl_global_arguments)?
+        };
+        unsafe {
+            rcl_arguments_fini(&mut rcl_node_arguments);
+            rcl_arguments_fini(&mut rcl_global_arguments);
+        }
+        assert_eq!(
+            overrides_map.get("good_int"),
+            Some(&ParameterValue::Integer(7))
+        );
+        assert!(
+            overrides_map.get("empty_array").is_none(),
+            "empty-array override should have been dropped instead of being kept or panicking"
         );
         Ok(())
     }

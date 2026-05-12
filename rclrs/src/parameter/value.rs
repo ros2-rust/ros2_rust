@@ -436,11 +436,18 @@ impl TryFrom<RmwParameterValue> for ParameterValue {
 }
 
 impl ParameterValue {
-    // Panics if the rcl_variant_t does not have exactly one field set.
+    // Returns `None` if the `rcl_variant_t` does not have exactly one field set.
+    //
+    // This typically happens when the rcl YAML parser cannot infer the element type
+    // of an empty array parameter (e.g. `my_param: []`), in which case all 9 of the
+    // type-specific pointers in the variant are null. Returning `None` here lets the
+    // caller drop the ambiguous parameter override instead of panicking, allowing the
+    // node to continue startup and surface a more meaningful error (such as
+    // `DeclarationError::NoValueAvailable`) at the point of `declare_parameter`.
     //
     // This function is unsafe because it is possible to pass in an rcl_variant_t
     // containing dangling pointers, or incorrect array sizes.
-    pub(crate) unsafe fn from_rcl_variant(var: &rcl_variant_t) -> Self {
+    pub(crate) unsafe fn from_rcl_variant(var: &rcl_variant_t) -> Option<Self> {
         let num_active: u8 = [
             !var.bool_value.is_null(),
             !var.integer_value.is_null(),
@@ -455,7 +462,9 @@ impl ParameterValue {
         .into_iter()
         .map(u8::from)
         .sum();
-        assert_eq!(num_active, 1);
+        if num_active != 1 {
+            return None;
+        }
         // Note: Unsafe blocks below are necessary to dereference raw pointers
         // and call unsafe functions like CStr::from_ptr.
         // In general, the following operations are as safe as they can be, because
@@ -465,7 +474,7 @@ impl ParameterValue {
         // Of course, a pointer being not null is not a guarantee that it points to a valid value.
         // However, it cannot be checked that it points to a valid value. Similarly for array sizes.
         // This is why this function must be unsafe itself.
-        if !var.bool_value.is_null() {
+        Some(if !var.bool_value.is_null() {
             unsafe { ParameterValue::Bool(*var.bool_value) }
         } else if !var.integer_value.is_null() {
             unsafe { ParameterValue::Integer(*var.integer_value) }
@@ -518,7 +527,7 @@ impl ParameterValue {
             }
         } else {
             unreachable!()
-        }
+        })
     }
 
     pub(crate) fn rcl_parameter_type(&self) -> u8 {
@@ -603,7 +612,8 @@ mod tests {
             let rcl_node_params = unsafe { &(*(*rcl_params).params) };
             assert_eq!(rcl_node_params.num_params, 1);
             let rcl_variant = unsafe { &(*rcl_node_params.parameter_values) };
-            let param_value = unsafe { ParameterValue::from_rcl_variant(rcl_variant) };
+            let param_value = unsafe { ParameterValue::from_rcl_variant(rcl_variant) }
+                .expect("valid YAML parameter variant should be convertible to a ParameterValue");
             assert_eq!(param_value, pair.1);
             unsafe { rcl_yaml_node_struct_fini(rcl_params) };
         }
