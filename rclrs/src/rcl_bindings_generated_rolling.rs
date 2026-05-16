@@ -1524,6 +1524,8 @@ pub struct rosidl_runtime_c__float__Sequence {
     pub data: *mut f32,
     pub size: usize,
     pub capacity: usize,
+    pub is_rosidl_buffer: bool,
+    pub owns_rosidl_buffer: bool,
 }
 #[repr(C)]
 #[derive(Debug)]
@@ -1531,6 +1533,8 @@ pub struct rosidl_runtime_c__double__Sequence {
     pub data: *mut f64,
     pub size: usize,
     pub capacity: usize,
+    pub is_rosidl_buffer: bool,
+    pub owns_rosidl_buffer: bool,
 }
 #[repr(C)]
 #[derive(Debug)]
@@ -1538,6 +1542,8 @@ pub struct rosidl_runtime_c__long_double__Sequence {
     pub data: *mut u128,
     pub size: usize,
     pub capacity: usize,
+    pub is_rosidl_buffer: bool,
+    pub owns_rosidl_buffer: bool,
 }
 #[repr(C)]
 #[derive(Debug)]
@@ -1545,6 +1551,8 @@ pub struct rosidl_runtime_c__char__Sequence {
     pub data: *mut ::std::os::raw::c_schar,
     pub size: usize,
     pub capacity: usize,
+    pub is_rosidl_buffer: bool,
+    pub owns_rosidl_buffer: bool,
 }
 #[repr(C)]
 #[derive(Debug)]
@@ -1552,6 +1560,8 @@ pub struct rosidl_runtime_c__wchar__Sequence {
     pub data: *mut u16,
     pub size: usize,
     pub capacity: usize,
+    pub is_rosidl_buffer: bool,
+    pub owns_rosidl_buffer: bool,
 }
 #[repr(C)]
 #[derive(Debug)]
@@ -1559,6 +1569,8 @@ pub struct rosidl_runtime_c__boolean__Sequence {
     pub data: *mut bool,
     pub size: usize,
     pub capacity: usize,
+    pub is_rosidl_buffer: bool,
+    pub owns_rosidl_buffer: bool,
 }
 #[repr(C)]
 #[derive(Debug)]
@@ -1566,6 +1578,8 @@ pub struct rosidl_runtime_c__octet__Sequence {
     pub data: *mut u8,
     pub size: usize,
     pub capacity: usize,
+    pub is_rosidl_buffer: bool,
+    pub owns_rosidl_buffer: bool,
 }
 #[repr(C)]
 #[derive(Debug)]
@@ -1573,6 +1587,8 @@ pub struct rosidl_runtime_c__uint8__Sequence {
     pub data: *mut u8,
     pub size: usize,
     pub capacity: usize,
+    pub is_rosidl_buffer: bool,
+    pub owns_rosidl_buffer: bool,
 }
 #[repr(C)]
 #[derive(Debug)]
@@ -1580,6 +1596,8 @@ pub struct rosidl_runtime_c__int8__Sequence {
     pub data: *mut i8,
     pub size: usize,
     pub capacity: usize,
+    pub is_rosidl_buffer: bool,
+    pub owns_rosidl_buffer: bool,
 }
 #[repr(C)]
 #[derive(Debug)]
@@ -1587,6 +1605,8 @@ pub struct rosidl_runtime_c__uint16__Sequence {
     pub data: *mut u16,
     pub size: usize,
     pub capacity: usize,
+    pub is_rosidl_buffer: bool,
+    pub owns_rosidl_buffer: bool,
 }
 #[repr(C)]
 #[derive(Debug)]
@@ -1594,6 +1614,8 @@ pub struct rosidl_runtime_c__int16__Sequence {
     pub data: *mut i16,
     pub size: usize,
     pub capacity: usize,
+    pub is_rosidl_buffer: bool,
+    pub owns_rosidl_buffer: bool,
 }
 #[repr(C)]
 #[derive(Debug)]
@@ -1601,6 +1623,8 @@ pub struct rosidl_runtime_c__uint32__Sequence {
     pub data: *mut u32,
     pub size: usize,
     pub capacity: usize,
+    pub is_rosidl_buffer: bool,
+    pub owns_rosidl_buffer: bool,
 }
 #[repr(C)]
 #[derive(Debug)]
@@ -1608,6 +1632,8 @@ pub struct rosidl_runtime_c__int32__Sequence {
     pub data: *mut i32,
     pub size: usize,
     pub capacity: usize,
+    pub is_rosidl_buffer: bool,
+    pub owns_rosidl_buffer: bool,
 }
 #[repr(C)]
 #[derive(Debug)]
@@ -1615,6 +1641,8 @@ pub struct rosidl_runtime_c__uint64__Sequence {
     pub data: *mut u64,
     pub size: usize,
     pub capacity: usize,
+    pub is_rosidl_buffer: bool,
+    pub owns_rosidl_buffer: bool,
 }
 #[repr(C)]
 #[derive(Debug)]
@@ -1622,6 +1650,8 @@ pub struct rosidl_runtime_c__int64__Sequence {
     pub data: *mut i64,
     pub size: usize,
     pub capacity: usize,
+    pub is_rosidl_buffer: bool,
+    pub owns_rosidl_buffer: bool,
 }
 pub type rosidl_runtime_c__bool__Sequence = rosidl_runtime_c__boolean__Sequence;
 pub type rosidl_runtime_c__byte__Sequence = rosidl_runtime_c__octet__Sequence;
@@ -1640,6 +1670,8 @@ pub struct rosidl_runtime_c__String__Sequence {
     pub data: *mut rosidl_runtime_c__String,
     pub size: usize,
     pub capacity: usize,
+    pub is_rosidl_buffer: bool,
+    pub owns_rosidl_buffer: bool,
 }
 pub const rosidl_runtime_c__type_description__FieldType__FIELD_TYPE_NOT_SET: _bindgen_ty_2 =
     _bindgen_ty_2::rosidl_runtime_c__type_description__FieldType__FIELD_TYPE_NOT_SET;
@@ -7438,6 +7470,12 @@ unsafe extern "C" {
     ) -> rcl_ret_t;
 }
 unsafe extern "C" {
+    pub fn rcl_subscription_options_set_acceptable_buffer_backends(
+        acceptable_buffer_backends: *const ::std::os::raw::c_char,
+        options: *mut rcl_subscription_options_t,
+    ) -> rcl_ret_t;
+}
+unsafe extern "C" {
     pub fn rcl_get_zero_initialized_subscription_content_filter_options(
     ) -> rcl_subscription_content_filter_options_t;
 }
@@ -8793,6 +8831,20 @@ unsafe extern "C" {
     ) -> rcl_ret_t;
 }
 unsafe extern "C" {
+    pub fn rcl_action_client_configure_feedback_subscription_filter_add_goal_id(
+        action_client: *const rcl_action_client_t,
+        goal_id_array: *const u8,
+        array_size: usize,
+    ) -> rcl_ret_t;
+}
+unsafe extern "C" {
+    pub fn rcl_action_client_configure_feedback_subscription_filter_remove_goal_id(
+        action_client: *const rcl_action_client_t,
+        goal_id_array: *const u8,
+        array_size: usize,
+    ) -> rcl_ret_t;
+}
+unsafe extern "C" {
     pub fn rcl_action_client_set_goal_client_callback(
         action_client: *const rcl_action_client_t,
         callback: rcl_event_callback_t,
@@ -9403,6 +9455,7 @@ pub struct rosidl_typesupport_introspection_c__MessageMember_s {
     pub resize_function: ::std::option::Option<
         unsafe extern "C" fn(arg1: *mut ::std::os::raw::c_void, size: usize) -> bool,
     >,
+    pub is_rosidl_buffer_: bool,
 }
 pub type rosidl_typesupport_introspection_c__MessageMember =
     rosidl_typesupport_introspection_c__MessageMember_s;
