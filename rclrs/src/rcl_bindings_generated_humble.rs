@@ -3162,6 +3162,12 @@ unsafe extern "C" {
     ) -> rcl_ret_t;
 }
 unsafe extern "C" {
+    pub fn rcl_timer_get_next_call_time(
+        timer: *const rcl_timer_t,
+        next_call_time: *mut i64,
+    ) -> rcl_ret_t;
+}
+unsafe extern "C" {
     pub fn rcl_timer_get_time_since_last_call(
         timer: *const rcl_timer_t,
         time_since_last_call: *mut i64,
