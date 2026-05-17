@@ -19,6 +19,7 @@ jobs:
           - humble
           - jazzy
           - kilted
+          - lyrical
           - rolling
         include:
           # Humble Hawksbill (May 2022 - May 2027)
@@ -32,6 +33,10 @@ jobs:
           # Kilted Kaiju (May 2025 - Dec 2026)
           - docker_image: rostooling/setup-ros-docker:ubuntu-noble-ros-kilted-ros-base-latest
             ros_distribution: kilted
+            ros_version: 2
+          # Lyrical Luth (May 2026 - May 2031)
+          - docker_image: rostooling/setup-ros-docker:ubuntu-resolute-ros-lyrical-ros-base-latest
+            ros_distribution: lyrical
             ros_version: 2
           # Rolling Ridley  (June 2020 - Present)
           - docker_image: rostooling/setup-ros-docker:ubuntu-noble-ros-rolling-ros-base-latest
