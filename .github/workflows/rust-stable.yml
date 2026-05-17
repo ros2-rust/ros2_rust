@@ -76,6 +76,7 @@ jobs:
     - name: Install colcon-cargo and colcon-ros-cargo
       run: |
         sudo rm -f /usr/lib/python3.12/EXTERNALLY-MANAGED
+        sudo rm -f /usr/lib/python3.14/EXTERNALLY-MANAGED
         sudo pip3 install git+https://github.com/colcon/colcon-cargo.git
         sudo pip3 install git+https://github.com/colcon/colcon-ros-cargo.git
 
