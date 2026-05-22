@@ -20,6 +20,11 @@ pub use log_params::*;
 mod logger;
 pub use logger::*;
 
+#[cfg(not(ros_distro = "humble"))]
+mod service;
+#[cfg(not(ros_distro = "humble"))]
+pub(crate) use service::LoggingService;
+
 /// log a message to rosout
 ///
 /// # Examples

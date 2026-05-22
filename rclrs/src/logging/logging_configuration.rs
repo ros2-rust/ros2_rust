@@ -200,7 +200,8 @@ pub(crate) mod log_handler {
                         ),
                         line_number: (*raw_location).line_number,
                     };
-                    let severity = LogSeverity::from_native(raw_severity);
+                    let severity = LogSeverity::try_from(raw_severity)
+                        .expect("log record should carry a valid rcutils severity");
                     let logger_name =
                         Cow::Borrowed(CStr::from_ptr(raw_logger_name).to_str().unwrap());
                     let timestamp: i64 = raw_timestamp;
