@@ -218,23 +218,42 @@ impl LogSeverity {
             LogSeverity::Fatal => RCUTILS_LOG_SEVERITY_FATAL,
         }
     }
+}
 
-    /// This is only used by the log output handler during testing, so it will
-    /// not be compiled when testing is not configured
-    #[cfg(test)]
-    pub(crate) fn from_native(native: i32) -> Self {
+impl TryFrom<i32> for LogSeverity {
+    type Error = InvalidLogSeverity;
+
+    fn try_from(value: i32) -> Result<Self, InvalidLogSeverity> {
         use crate::rcl_bindings::rcl_log_severity_t::*;
-        match native {
-            _ if native == RCUTILS_LOG_SEVERITY_UNSET as i32 => LogSeverity::Unset,
-            _ if native == RCUTILS_LOG_SEVERITY_DEBUG as i32 => LogSeverity::Debug,
-            _ if native == RCUTILS_LOG_SEVERITY_INFO as i32 => LogSeverity::Info,
-            _ if native == RCUTILS_LOG_SEVERITY_WARN as i32 => LogSeverity::Warn,
-            _ if native == RCUTILS_LOG_SEVERITY_ERROR as i32 => LogSeverity::Error,
-            _ if native == RCUTILS_LOG_SEVERITY_FATAL as i32 => LogSeverity::Fatal,
-            _ => panic!("Invalid native severity received: {}", native),
-        }
+        Ok(match value {
+            v if v == RCUTILS_LOG_SEVERITY_UNSET as i32 => LogSeverity::Unset,
+            v if v == RCUTILS_LOG_SEVERITY_DEBUG as i32 => LogSeverity::Debug,
+            v if v == RCUTILS_LOG_SEVERITY_INFO as i32 => LogSeverity::Info,
+            v if v == RCUTILS_LOG_SEVERITY_WARN as i32 => LogSeverity::Warn,
+            v if v == RCUTILS_LOG_SEVERITY_ERROR as i32 => LogSeverity::Error,
+            v if v == RCUTILS_LOG_SEVERITY_FATAL as i32 => LogSeverity::Fatal,
+            _ => return Err(InvalidLogSeverity { value }),
+        })
     }
 }
+
+/// The error returned when an integer value does not correspond to a defined
+/// [`LogSeverity`] variant.
+#[doc(hidden)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct InvalidLogSeverity {
+    /// The offending raw value, as received from rcutils or from a
+    /// `LoggerLevel` message.
+    pub value: i32,
+}
+
+impl std::fmt::Display for InvalidLogSeverity {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Invalid logger severity value {}", self.value)
+    }
+}
+
+impl std::error::Error for InvalidLogSeverity {}
 
 impl Default for LogSeverity {
     fn default() -> Self {
@@ -289,5 +308,49 @@ impl<'a> ToLogParams<'a> for &'a str {
 impl<'a> ToLogParams<'a> for LogParams<'a> {
     fn to_log_params(self) -> LogParams<'a> {
         self
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn log_severity_try_from_accepts_all_variants() {
+        assert_eq!(LogSeverity::try_from(0), Ok(LogSeverity::Unset));
+        assert_eq!(LogSeverity::try_from(10), Ok(LogSeverity::Debug));
+        assert_eq!(LogSeverity::try_from(20), Ok(LogSeverity::Info));
+        assert_eq!(LogSeverity::try_from(30), Ok(LogSeverity::Warn));
+        assert_eq!(LogSeverity::try_from(40), Ok(LogSeverity::Error));
+        assert_eq!(LogSeverity::try_from(50), Ok(LogSeverity::Fatal));
+    }
+
+    #[test]
+    fn log_severity_try_from_rejects_unknown_values() {
+        assert_eq!(
+            LogSeverity::try_from(99),
+            Err(InvalidLogSeverity { value: 99 })
+        );
+        assert_eq!(
+            LogSeverity::try_from(-1),
+            Err(InvalidLogSeverity { value: -1 })
+        );
+    }
+
+    #[test]
+    fn log_severity_try_from_round_trips_through_as_native() {
+        for severity in [
+            LogSeverity::Unset,
+            LogSeverity::Debug,
+            LogSeverity::Info,
+            LogSeverity::Warn,
+            LogSeverity::Error,
+            LogSeverity::Fatal,
+        ] {
+            assert_eq!(
+                LogSeverity::try_from(severity.as_native() as i32),
+                Ok(severity)
+            );
+        }
     }
 }
