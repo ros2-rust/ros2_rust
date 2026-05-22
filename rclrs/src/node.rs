@@ -30,6 +30,8 @@ use async_std::future::timeout;
 
 use rosidl_runtime_rs::{Action, Message};
 
+#[cfg(not(ros_distro = "humble"))]
+use crate::LoggingService;
 use crate::{
     dynamic_message::{
         DynamicMessage, DynamicPublisher, DynamicPublisherState, DynamicSubscription,
@@ -106,6 +108,8 @@ pub struct NodeState {
     time_source: TimeSource,
     parameter: ParameterInterface,
     logger: Logger,
+    #[cfg(not(ros_distro = "humble"))]
+    logger_service: Mutex<Option<LoggingService>>,
     commands: Arc<ExecutorCommands>,
     graph_change_action: UnboundedSender<NodeGraphAction>,
     handle: Arc<NodeHandle>,
@@ -1510,6 +1514,16 @@ impl NodeState {
 
     pub(crate) fn handle(&self) -> &Arc<NodeHandle> {
         &self.handle
+    }
+
+    /// Creates the logger configuration services associated with this Node.
+    ///
+    /// Called at most once from [`NodeOptions::build`] when
+    /// [`IntoNodeOptions::enable_logger_service`] is set to `true`.
+    #[cfg(not(ros_distro = "humble"))]
+    pub(crate) fn create_logger_service(self: &Arc<Self>) -> Result<(), RclrsError> {
+        *self.logger_service.lock().unwrap() = Some(LoggingService::new(self)?);
+        Ok(())
     }
 }
 
