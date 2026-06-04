@@ -1,13 +1,11 @@
 use super::empty_goal_status_array;
 use crate::{
-    log_warn,
-    rcl_bindings::*,
-    vendor::{action_msgs::srv::CancelGoal_Response, builtin_interfaces::msg::Time},
-    CancelResponse, CancelResponseCode, DropGuard, GoalStatus, GoalStatusCode, GoalUuid,
-    MultiCancelResponse, Node, NodeHandle, QoSProfile, RclPrimitive, RclPrimitiveHandle,
-    RclPrimitiveKind, RclrsError, ReadyKind, TakeFailedAsNone, ToResult, Waitable,
-    WaitableLifecycle, ENTITY_LIFECYCLE_MUTEX,
+    log_warn, rcl_bindings::*, CancelResponse, CancelResponseCode, DropGuard, GoalStatus,
+    GoalStatusCode, GoalUuid, MultiCancelResponse, Node, NodeHandle, QoSProfile, RclPrimitive,
+    RclPrimitiveHandle, RclPrimitiveKind, RclrsError, ReadyKind, TakeFailedAsNone, ToResult,
+    Waitable, WaitableLifecycle, ENTITY_LIFECYCLE_MUTEX,
 };
+use ros_env::{action_msgs::srv::CancelGoal_Response, builtin_interfaces::msg::Time};
 use rosidl_runtime_rs::{Action, Message, RmwFeedbackMessage, RmwGoalResponse, RmwResultResponse};
 use std::{
     any::Any,
@@ -169,6 +167,30 @@ pub struct ActionClientState<A: Action> {
 }
 
 impl<A: Action> ActionClientState<A> {
+    /// Checks if the action server is available and ready to receive requests.
+    ///
+    /// This method polls the underlying DDS network to determine if the action
+    /// server associated with this client is currently active. This is particularly
+    /// useful for implementing a `wait_for_server` timeout loop before dispatching goals.
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`RclrsError`] if there is an issue communicating with the
+    /// underlying `rcl` C layer.
+    pub fn server_is_available(&self) -> Result<bool, RclrsError> {
+        let mut is_available = false;
+
+        unsafe {
+            let handle = self.board.handle.lock();
+            let node_handle = self.board.handle.node_handle.rcl_node.lock().unwrap();
+
+            rcl_action_server_is_available(&*node_handle, &*handle, &mut is_available)
+        }
+        .ok()?;
+
+        Ok(is_available)
+    }
+
     /// Request the action server to execute a goal. You will receive a
     /// [`RequestedGoalClient`] which you can use to wait for the reply from the
     /// action server that indicates whether the goal was accepted.

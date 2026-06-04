@@ -9,7 +9,8 @@ pub use action_goal_receiver::*;
 pub(crate) mod action_server;
 pub use action_server::*;
 
-use crate::{log_error, rcl_bindings::*, vendor::builtin_interfaces::msg::Time, DropGuard};
+use crate::{log_error, rcl_bindings::*, DropGuard};
+use ros_env::builtin_interfaces::msg::Time;
 use std::fmt;
 
 #[cfg(feature = "serde")]
@@ -255,15 +256,57 @@ fn empty_goal_status_array() -> DropGuard<rcl_action_goal_status_array_t> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        vendor::example_interfaces::action::{
-            Fibonacci, Fibonacci_Feedback, Fibonacci_Goal, Fibonacci_Result,
-        },
-        *,
-    };
+    use crate::*;
     use futures::StreamExt;
+    use ros_env::example_interfaces::action::{
+        Fibonacci, Fibonacci_Feedback, Fibonacci_Goal, Fibonacci_Result,
+    };
     use std::time::Duration;
     use tokio::sync::mpsc::unbounded_channel;
+
+    #[test]
+    fn test_action_server_availability() {
+        let mut executor = Context::default().create_basic_executor();
+
+        let node = executor
+            .create_node(&format!("test_action_discovery_{}", line!()))
+            .unwrap();
+        let action_name = format!("test_action_discovery_{}_action", line!());
+
+        let client = node
+            .create_action_client::<Fibonacci>(&action_name)
+            .unwrap();
+
+        assert!(!client.server_is_available().unwrap());
+
+        let _action_server = node
+            .create_action_server(&action_name, |handle| {
+                fibonacci_action(handle, TestActionSettings::default())
+            })
+            .unwrap();
+
+        let promise = executor.commands().run(async move {
+            let timeout = Duration::from_secs(1);
+            let start = std::time::Instant::now();
+            let mut is_available = false;
+
+            while start.elapsed() < timeout {
+                if client.server_is_available().unwrap() {
+                    is_available = true;
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(50)).await;
+            }
+
+            assert!(
+                is_available,
+                "Server is not available after {} seconds",
+                timeout.as_secs()
+            );
+        });
+
+        executor.spin(SpinOptions::default().until_promise_resolved(promise));
+    }
 
     #[test]
     fn test_action_success_streaming() {

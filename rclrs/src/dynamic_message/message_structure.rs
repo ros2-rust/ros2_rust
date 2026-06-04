@@ -1,10 +1,10 @@
-use std::ffi::CStr;
-use std::num::NonZeroUsize;
+use std::{ffi::CStr, num::NonZeroUsize};
 
 use super::TypeErasedSequence;
-use crate::rcl_bindings::rosidl_typesupport_introspection_c__MessageMember as rosidl_message_member_t;
-use crate::rcl_bindings::rosidl_typesupport_introspection_c__MessageMembers as rosidl_message_members_t;
-use crate::rcl_bindings::*;
+use crate::rcl_bindings::{
+    rosidl_typesupport_introspection_c__MessageMember as rosidl_message_member_t,
+    rosidl_typesupport_introspection_c__MessageMembers as rosidl_message_members_t, *,
+};
 
 /// Possible base types for fields in a message.
 // The field variants are self-explaining, no need to add redundant documentation.
@@ -299,7 +299,7 @@ impl MessageStructure {
 mod tests {
     use super::*;
     use crate::dynamic_message::*;
-    use crate::vendor::test_msgs::msg;
+    use ros_env::test_msgs::msg;
 
     use std::num::NonZeroUsize;
 

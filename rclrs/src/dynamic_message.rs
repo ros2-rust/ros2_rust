@@ -585,4 +585,237 @@ mod tests {
         // Now the library should be unloaded and the reference should not be upgradeable
         assert!(lib.upgrade().is_none());
     }
+
+    fn make_message(package_name: &str, type_name: &str) -> DynamicMessage {
+        DynamicMessage::new(MessageTypeName {
+            package_name: package_name.to_owned(),
+            type_name: type_name.to_owned(),
+        })
+        .unwrap()
+    }
+
+    #[test]
+    fn unbounded_sequence_of_messages_resize_and_edit() {
+        // For message sequences, DynamicSequenceMut exposes reset() to add elements.
+        let mut message = make_message("test_msgs", "UnboundedSequences");
+
+        // Sequence starts empty
+        {
+            let value = message.get("basic_types_values").unwrap();
+            let Value::Sequence(SequenceValue::MessageSequence(seq)) = value else {
+                panic!("Expected MessageSequence");
+            };
+            assert_eq!(seq.len(), 0);
+        }
+
+        // Resize to 2 elements (initialized to defaults) and edit int32_value in element [0]
+        {
+            let value = message.get_mut("basic_types_values").unwrap();
+            let ValueMut::Sequence(SequenceValueMut::MessageSequence(mut seq)) = value else {
+                panic!("Expected MessageSequence");
+            };
+            seq.reset(2);
+            let elem = &mut seq.as_mut_slice()[0];
+            let field = elem.get_mut("int32_value").unwrap();
+            let ValueMut::Simple(SimpleValueMut::Int32(v)) = field else {
+                panic!("Expected Int32");
+            };
+            *v = 77;
+        }
+
+        // Read back: element [0] was edited, element [1] is still the default (zero)
+        {
+            let value = message.get("basic_types_values").unwrap();
+            let Value::Sequence(SequenceValue::MessageSequence(seq)) = value else {
+                panic!("Expected MessageSequence");
+            };
+            assert_eq!(seq.len(), 2);
+            let Value::Simple(SimpleValue::Int32(v0)) = seq[0].get("int32_value").unwrap() else {
+                panic!("Expected Int32");
+            };
+            assert_eq!(*v0, 77);
+            let Value::Simple(SimpleValue::Int32(v1)) = seq[1].get("int32_value").unwrap() else {
+                panic!("Expected Int32");
+            };
+            assert_eq!(*v1, 0);
+        }
+
+        // Reset to 0 (clear) and verify empty
+        {
+            let value = message.get_mut("basic_types_values").unwrap();
+            let ValueMut::Sequence(SequenceValueMut::MessageSequence(mut seq)) = value else {
+                panic!("Expected MessageSequence");
+            };
+            seq.clear();
+        }
+        {
+            let value = message.get("basic_types_values").unwrap();
+            let Value::Sequence(SequenceValue::MessageSequence(seq)) = value else {
+                panic!("Expected MessageSequence");
+            };
+            assert_eq!(seq.len(), 0);
+        }
+    }
+
+    #[test]
+    fn bounded_sequence_of_primitives_resize_and_edit() {
+        // DynamicBoundedSequenceMut wraps the resize function for all types,
+        // including primitives, so try_reset() is available here.
+        let mut message = make_message("test_msgs", "BoundedSequences");
+
+        // Check initial state: sequence is empty, upper bound is 3
+        {
+            let value = message.get("int32_values").unwrap();
+            let Value::BoundedSequence(BoundedSequenceValue::Int32BoundedSequence(seq)) = value
+            else {
+                panic!("Expected Int32BoundedSequence");
+            };
+            assert_eq!(seq.upper_bound(), 3);
+            assert_eq!(seq.len(), 0);
+        }
+
+        // Resize to 2 elements and edit them
+        {
+            let value = message.get_mut("int32_values").unwrap();
+            let ValueMut::BoundedSequence(BoundedSequenceValueMut::Int32BoundedSequence(mut seq)) =
+                value
+            else {
+                panic!("Expected Int32BoundedSequence");
+            };
+            match seq.try_reset(2) {
+                Ok(()) => (),
+                Err(err) => panic!("Failed to resize bounded sequence: {err}"),
+            }
+            seq.as_mut_slice()[0] = 100;
+            seq.as_mut_slice()[1] = 200;
+        }
+
+        // Read back
+        {
+            let value = message.get("int32_values").unwrap();
+            let Value::BoundedSequence(BoundedSequenceValue::Int32BoundedSequence(seq)) = value
+            else {
+                panic!("Expected Int32BoundedSequence");
+            };
+            assert_eq!(&*seq, &[100, 200]);
+        }
+
+        // Trying to exceed the bound must fail and leave the sequence unchanged
+        {
+            let value = message.get_mut("int32_values").unwrap();
+            let ValueMut::BoundedSequence(BoundedSequenceValueMut::Int32BoundedSequence(mut seq)) =
+                value
+            else {
+                panic!("Expected Int32BoundedSequence");
+            };
+            assert!(seq.try_reset(4).is_err());
+            // still has 2 elements from before
+            assert_eq!(seq.len(), 2);
+        }
+
+        // Clear and verify empty
+        {
+            let value = message.get_mut("int32_values").unwrap();
+            let ValueMut::BoundedSequence(BoundedSequenceValueMut::Int32BoundedSequence(mut seq)) =
+                value
+            else {
+                panic!("Expected Int32BoundedSequence");
+            };
+            seq.clear();
+        }
+        {
+            let value = message.get("int32_values").unwrap();
+            let Value::BoundedSequence(BoundedSequenceValue::Int32BoundedSequence(seq)) = value
+            else {
+                panic!("Expected Int32BoundedSequence");
+            };
+            assert_eq!(seq.len(), 0);
+        }
+    }
+
+    #[test]
+    fn bounded_sequence_of_messages_resize_and_edit() {
+        let mut message = make_message("test_msgs", "BoundedSequences");
+
+        // Resize to 2 and edit uint8_value in element [1]
+        {
+            let value = message.get_mut("basic_types_values").unwrap();
+            let ValueMut::BoundedSequence(BoundedSequenceValueMut::MessageBoundedSequence(mut seq)) =
+                value
+            else {
+                panic!("Expected MessageBoundedSequence");
+            };
+            assert_eq!(seq.upper_bound(), 3);
+            seq.try_reset(2).unwrap();
+            let field = seq.as_mut_slice()[1].get_mut("uint8_value").unwrap();
+            let ValueMut::Simple(SimpleValueMut::Uint8(v)) = field else {
+                panic!("Expected Uint8");
+            };
+            *v = 42;
+        }
+
+        // Read back: element [0] is default (0), element [1] was set to 42
+        {
+            let value = message.get("basic_types_values").unwrap();
+            let Value::BoundedSequence(BoundedSequenceValue::MessageBoundedSequence(seq)) = value
+            else {
+                panic!("Expected MessageBoundedSequence");
+            };
+            assert_eq!(seq.len(), 2);
+            let Value::Simple(SimpleValue::Uint8(v0)) = seq[0].get("uint8_value").unwrap() else {
+                panic!("Expected Uint8");
+            };
+            assert_eq!(*v0, 0);
+            let Value::Simple(SimpleValue::Uint8(v1)) = seq[1].get("uint8_value").unwrap() else {
+                panic!("Expected Uint8");
+            };
+            assert_eq!(*v1, 42);
+        }
+
+        // Exceeding the bound must fail
+        {
+            let value = message.get_mut("basic_types_values").unwrap();
+            let ValueMut::BoundedSequence(BoundedSequenceValueMut::MessageBoundedSequence(mut seq)) =
+                value
+            else {
+                panic!("Expected MessageBoundedSequence");
+            };
+            assert!(seq.try_reset(4).is_err());
+            assert_eq!(seq.len(), 2);
+        }
+    }
+
+    #[test]
+    fn array_of_messages_edit_element() {
+        let mut message = make_message("test_msgs", "Arrays");
+
+        // Set int32_value in element [1] of the basic_types_values array
+        {
+            let value = message.get_mut("basic_types_values").unwrap();
+            let ValueMut::Array(ArrayValueMut::MessageArray(mut views)) = value else {
+                panic!("Expected MessageArray");
+            };
+            assert_eq!(views.len(), 3);
+            let field = views[1].get_mut("int32_value").unwrap();
+            let ValueMut::Simple(SimpleValueMut::Int32(v)) = field else {
+                panic!("Expected Int32");
+            };
+            *v = 99;
+        }
+
+        // Read back: only element [1] is changed; [0] and [2] are still default (0)
+        {
+            let value = message.get("basic_types_values").unwrap();
+            let Value::Array(ArrayValue::MessageArray(views)) = value else {
+                panic!("Expected MessageArray");
+            };
+            for (idx, expected) in [(0, 0i32), (1, 99), (2, 0)] {
+                let Value::Simple(SimpleValue::Int32(v)) = views[idx].get("int32_value").unwrap()
+                else {
+                    panic!("Expected Int32 at index {idx}");
+                };
+                assert_eq!(*v, expected, "mismatch at index {idx}");
+            }
+        }
+    }
 }

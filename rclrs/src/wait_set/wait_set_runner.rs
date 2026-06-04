@@ -140,7 +140,7 @@ impl WaitSetRunner {
             // TODO(@mxgrey): SmallVec would be better suited here if we are
             // okay with adding that as a dependency.
             let mut new_waitables = Vec::new();
-            while let Ok(Some(new_waitable)) = self.waitable_receiver.try_next() {
+            while let Ok(new_waitable) = self.waitable_receiver.try_recv() {
                 new_waitables.push(new_waitable);
             }
             if !new_waitables.is_empty() {
@@ -152,7 +152,7 @@ impl WaitSetRunner {
                 }
             }
 
-            while let Ok(Some(task)) = self.task_receiver.try_next() {
+            while let Ok(task) = self.task_receiver.try_recv() {
                 task(&mut *self.payload);
             }
 

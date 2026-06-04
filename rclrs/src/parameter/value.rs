@@ -3,9 +3,10 @@ use std::{ffi::CStr, sync::Arc};
 use crate::{
     parameter::{ParameterRange, ParameterRanges},
     rcl_bindings::*,
-    vendor::rcl_interfaces::msg::rmw::{ParameterType, ParameterValue as RmwParameterValue},
     ParameterValueError,
 };
+
+use ros_env::rcl_interfaces::msg::rmw::{ParameterType, ParameterValue as RmwParameterValue};
 
 /// A parameter value.
 ///
@@ -135,7 +136,9 @@ impl From<Arc<[Arc<str>]>> for ParameterValue {
 }
 
 /// A trait that describes a value that can be converted into a parameter.
-pub trait ParameterVariant: Into<ParameterValue> + Clone + TryFrom<ParameterValue> {
+pub trait ParameterVariant:
+    Into<ParameterValue> + Clone + TryFrom<ParameterValue> + 'static
+{
     /// The type used to describe the range of this parameter.
     type Range: Into<ParameterRanges> + Default + Clone;
 

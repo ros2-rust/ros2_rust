@@ -75,6 +75,14 @@ jobs:
         sudo pip3 install git+https://github.com/colcon/colcon-cargo.git
         sudo pip3 install git+https://github.com/colcon/colcon-ros-cargo.git
 
+    # test_msgs recently added ament_mypy as a test dependency, but rosdep
+    # may fail to install it when building from source on rolling
+    - name: Install ament_cmake_mypy for rolling
+      if: matrix.ros_distribution == 'rolling'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y ros-rolling-ament-cmake-mypy
+
     - name: Check formatting of Rust packages
       run: |
         for path in $(colcon list | awk '$3 == "(ament_cargo)" { print $2 }'); do
