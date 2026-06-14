@@ -1,4 +1,4 @@
-use std::{ffi::CStr, num::NonZeroUsize};
+use std::{ffi::CStr, mem, num::NonZeroUsize, os::raw::c_char, os::raw::c_void};
 
 use super::TypeErasedSequence;
 use crate::rcl_bindings::{
@@ -59,6 +59,44 @@ pub struct MessageFieldInfo {
     pub(crate) resize_function:
         Option<unsafe extern "C" fn(arg1: *mut std::os::raw::c_void, size: usize) -> bool>,
     pub(crate) offset: usize,
+}
+
+type ResizeFunction = Option<unsafe extern "C" fn(arg1: *mut c_void, size: usize) -> bool>;
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+struct MessageMemberPrefix {
+    name_: *const c_char,
+    type_id_: u8,
+    string_upper_bound_: usize,
+    members_: *const rosidl_message_type_support_t,
+    is_key_: u8,
+    is_array_: u8,
+    array_size_: usize,
+    is_upper_bound_: u8,
+    offset_: u32,
+    default_value_: *const c_void,
+    size_function: *const c_void,
+    get_const_function: *const c_void,
+    get_function: *const c_void,
+    fetch_function: *const c_void,
+    assign_function: *const c_void,
+    resize_function: *const c_void,
+}
+
+impl MessageMemberPrefix {
+    fn is_valid_for_message(&self, message_size: usize) -> bool {
+        use rosidl_typesupport_introspection_c_field_types::*;
+
+        !self.name_.is_null()
+            && (rosidl_typesupport_introspection_c__ROS_TYPE_FLOAT as u8
+                ..=rosidl_typesupport_introspection_c__ROS_TYPE_MESSAGE as u8)
+                .contains(&self.type_id_)
+            && [self.is_key_, self.is_array_, self.is_upper_bound_]
+                .iter()
+                .all(|value| *value <= 1)
+            && usize::try_from(self.offset_).is_ok_and(|offset| offset < message_size)
+    }
 }
 
 /// A description of the structure of a message.
@@ -196,38 +234,75 @@ impl MessageFieldInfo {
     // That function must be unsafe, since it is possible to safely create a garbage non-null
     // pointer and store it in a rosidl_message_member_t.
     unsafe fn from(rosidl_message_member: &rosidl_message_member_t) -> Self {
-        debug_assert!(!rosidl_message_member.name_.is_null());
-        let name = /*unsafe*/ { CStr::from_ptr(rosidl_message_member.name_) }
-                    .to_string_lossy()
-                    .into_owned();
-        let value_kind = match (
+        Self::from_parts(
+            rosidl_message_member.name_,
+            rosidl_message_member.type_id_,
+            rosidl_message_member.string_upper_bound_,
+            rosidl_message_member.members_,
             rosidl_message_member.is_array_,
-            rosidl_message_member.resize_function.is_some(),
+            rosidl_message_member.array_size_,
             rosidl_message_member.is_upper_bound_,
-        ) {
+            rosidl_message_member.resize_function,
+            rosidl_message_member.offset_,
+        )
+    }
+
+    unsafe fn from_prefix(rosidl_message_member: &MessageMemberPrefix) -> Self {
+        let resize_function: ResizeFunction = if rosidl_message_member.resize_function.is_null() {
+            None
+        } else {
+            Some(mem::transmute::<
+                *const c_void,
+                unsafe extern "C" fn(*mut c_void, usize) -> bool,
+            >(rosidl_message_member.resize_function))
+        };
+
+        Self::from_parts(
+            rosidl_message_member.name_,
+            rosidl_message_member.type_id_,
+            rosidl_message_member.string_upper_bound_,
+            rosidl_message_member.members_,
+            rosidl_message_member.is_array_ != 0,
+            rosidl_message_member.array_size_,
+            rosidl_message_member.is_upper_bound_ != 0,
+            resize_function,
+            rosidl_message_member.offset_,
+        )
+    }
+
+    unsafe fn from_parts(
+        name: *const c_char,
+        type_id: u8,
+        string_upper_bound: usize,
+        members: *const rosidl_message_type_support_t,
+        is_array: bool,
+        array_size: usize,
+        is_upper_bound: bool,
+        resize_function: ResizeFunction,
+        offset: u32,
+    ) -> Self {
+        debug_assert!(!name.is_null());
+        let name = /*unsafe*/ { CStr::from_ptr(name) }
+            .to_string_lossy()
+            .into_owned();
+        let value_kind = match (is_array, resize_function.is_some(), is_upper_bound) {
             (false, _, _) => ValueKind::Simple,
-            (true, false, _) => ValueKind::Array {
-                length: rosidl_message_member.array_size_,
-            },
+            (true, false, _) => ValueKind::Array { length: array_size },
             (true, true, false) => {
-                assert_eq!(rosidl_message_member.array_size_, 0);
+                assert_eq!(array_size, 0);
                 ValueKind::Sequence
             }
             (true, true, true) => ValueKind::BoundedSequence {
-                upper_bound: rosidl_message_member.array_size_,
+                upper_bound: array_size,
             },
         };
         Self {
             name,
-            base_type: BaseType::new(
-                rosidl_message_member.type_id_,
-                NonZeroUsize::new(rosidl_message_member.string_upper_bound_),
-                rosidl_message_member.members_,
-            ),
+            base_type: BaseType::new(type_id, NonZeroUsize::new(string_upper_bound), members),
             value_kind,
-            string_upper_bound: rosidl_message_member.string_upper_bound_,
-            resize_function: rosidl_message_member.resize_function,
-            offset: usize::try_from(rosidl_message_member.offset_).unwrap(),
+            string_upper_bound,
+            resize_function,
+            offset: usize::try_from(offset).unwrap(),
         }
     }
 }
@@ -251,6 +326,61 @@ impl MessageFieldInfo {
 // ========================= impl for MessageStructure =========================
 
 impl MessageStructure {
+    unsafe fn message_member_stride(message_members: &rosidl_message_members_t) -> usize {
+        let current_stride = mem::size_of::<rosidl_message_member_t>();
+        let prefix_stride = mem::size_of::<MessageMemberPrefix>();
+        if message_members.member_count_ < 2 {
+            return current_stride;
+        }
+
+        let base = message_members.members_ as *const u8;
+        for stride in [current_stride, prefix_stride] {
+            let candidate = &*(base.add(stride) as *const MessageMemberPrefix);
+            if candidate.is_valid_for_message(message_members.size_of_) {
+                return stride;
+            }
+        }
+
+        current_stride
+    }
+
+    cfg_if::cfg_if! {
+        if #[cfg(any(ros_distro = "humble", ros_distro = "jazzy", ros_distro = "kilted"))] {
+            unsafe fn message_fields_from_rosidl_message_members(
+                message_members: &rosidl_message_members_t,
+                num_fields: usize,
+            ) -> Vec<MessageFieldInfo> {
+                (0..num_fields)
+                    .map(|i| {
+                        // SAFETY: This is an array as per the documentation
+                        let rosidl_message_member: &rosidl_message_member_t =
+                            /*unsafe*/ { &*message_members.members_.add(i) };
+                        // SAFETY: This is a valid string pointer
+                        MessageFieldInfo::from(rosidl_message_member)
+                    })
+                    .collect()
+            }
+        } else {
+            unsafe fn message_fields_from_rosidl_message_members(
+                message_members: &rosidl_message_members_t,
+                num_fields: usize,
+            ) -> Vec<MessageFieldInfo> {
+                // Rolling and newer distros may be built with bindings whose `MessageMember`
+                // trailing fields differ from the runtime introspection layout, so use the stable
+                // prefix and detect the runtime array stride before reading field names.
+                let stride = Self::message_member_stride(message_members);
+                let base = message_members.members_ as *const u8;
+                (0..num_fields)
+                    .map(|i| {
+                        let rosidl_message_member =
+                            &*(base.add(i * stride) as *const MessageMemberPrefix);
+                        MessageFieldInfo::from_prefix(rosidl_message_member)
+                    })
+                    .collect()
+            }
+        }
+    }
+
     /// Parses the C struct containing a list of fields.
     // That function must be unsafe, since it is possible to safely create a garbage non-null
     // pointer and store it in a rosidl_message_members_t.
@@ -259,15 +389,8 @@ impl MessageStructure {
     ) -> Self {
         debug_assert!(!message_members.members_.is_null());
         let num_fields: usize = usize::try_from(message_members.member_count_).unwrap();
-        let mut fields: Vec<_> = (0..num_fields)
-            .map(|i| {
-                // SAFETY: This is an array as per the documentation
-                let rosidl_message_member: &rosidl_message_member_t =
-                    /*unsafe*/ { &*message_members.members_.add(i) };
-                // SAFETY: This is a valid string pointer
-                MessageFieldInfo::from(rosidl_message_member)
-            })
-            .collect();
+        let mut fields =
+            Self::message_fields_from_rosidl_message_members(message_members, num_fields);
         fields.sort_by_key(|field_info| field_info.offset);
         // SAFETY: Immediate conversion into owned string.
         let namespace = /*unsafe*/ {
@@ -1152,5 +1275,113 @@ mod tests {
 
         let _ = msg.get("basic_types_values");
         let _ = msg.get_mut("basic_types_values");
+    }
+
+    #[test]
+    fn message_member_stride_prefers_prefix_layout_when_needed() {
+        use rosidl_typesupport_introspection_c_field_types::*;
+        use std::{alloc::Layout, mem::size_of, ptr};
+
+        let namespace = c"test_msgs/msg";
+        let message_name = c"Compat";
+        let first_name = c"first";
+        let second_name = c"second";
+
+        let prefix_stride = size_of::<MessageMemberPrefix>();
+        let runtime_stride = size_of::<rosidl_message_member_t>();
+        if runtime_stride <= prefix_stride {
+            return;
+        }
+
+        let layout = Layout::from_size_align(
+            runtime_stride + prefix_stride,
+            std::mem::align_of::<MessageMemberPrefix>(),
+        )
+        .unwrap();
+        // SAFETY: The allocation is large enough and properly aligned for MessageMemberPrefix.
+        let bytes = unsafe { std::alloc::alloc_zeroed(layout) };
+        assert!(!bytes.is_null());
+        let members_ptr = bytes as *mut MessageMemberPrefix;
+
+        let first = MessageMemberPrefix {
+            name_: first_name.as_ptr(),
+            type_id_: rosidl_typesupport_introspection_c__ROS_TYPE_BOOLEAN as u8,
+            string_upper_bound_: 0,
+            members_: ptr::null(),
+            is_key_: 0,
+            is_array_: 0,
+            array_size_: 0,
+            is_upper_bound_: 0,
+            offset_: 0,
+            default_value_: ptr::null(),
+            size_function: ptr::null(),
+            get_const_function: ptr::null(),
+            get_function: ptr::null(),
+            fetch_function: ptr::null(),
+            assign_function: ptr::null(),
+            resize_function: ptr::null(),
+        };
+        let second = MessageMemberPrefix {
+            name_: second_name.as_ptr(),
+            type_id_: rosidl_typesupport_introspection_c__ROS_TYPE_UINT8 as u8,
+            string_upper_bound_: 0,
+            members_: ptr::null(),
+            is_key_: 0,
+            is_array_: 0,
+            array_size_: 0,
+            is_upper_bound_: 0,
+            offset_: 1,
+            default_value_: ptr::null(),
+            size_function: ptr::null(),
+            get_const_function: ptr::null(),
+            get_function: ptr::null(),
+            fetch_function: ptr::null(),
+            assign_function: ptr::null(),
+            resize_function: ptr::null(),
+        };
+        unsafe {
+            ptr::write(members_ptr, first);
+            // Leave the bytes at `runtime_stride` zeroed. Writing a fake runtime-stride member
+            // there would overlap this prefix-stride member and corrupt the candidate that the
+            // test expects to be selected.
+            ptr::write(bytes.add(prefix_stride) as *mut MessageMemberPrefix, second);
+        }
+
+        cfg_if::cfg_if! {
+            if #[cfg(ros_distro = "humble")] {
+                let message_members = crate::rcl_bindings::rosidl_typesupport_introspection_c__MessageMembers_s {
+                    message_namespace_: namespace.as_ptr(),
+                    message_name_: message_name.as_ptr(),
+                    member_count_: 2,
+                    size_of_: 2,
+                    members_: members_ptr as *const rosidl_message_member_t,
+                    init_function: None,
+                    fini_function: None,
+                };
+            } else {
+                let message_members = crate::rcl_bindings::rosidl_typesupport_introspection_c__MessageMembers_s {
+                    message_namespace_: namespace.as_ptr(),
+                    message_name_: message_name.as_ptr(),
+                    member_count_: 2,
+                    size_of_: 2,
+                    has_any_key_member_: false,
+                    members_: members_ptr as *const rosidl_message_member_t,
+                    init_function: None,
+                    fini_function: None,
+                };
+            }
+        };
+
+        assert_eq!(
+            unsafe { MessageStructure::message_member_stride(&message_members) },
+            size_of::<MessageMemberPrefix>()
+        );
+
+        let second_prefix = unsafe { &*(bytes.add(prefix_stride) as *const MessageMemberPrefix) };
+        let field_info = unsafe { MessageFieldInfo::from_prefix(second_prefix) };
+        assert_eq!(field_info.name, "second");
+        assert_eq!(field_info.base_type, BaseType::Uint8);
+
+        unsafe { std::alloc::dealloc(bytes, layout) };
     }
 }
