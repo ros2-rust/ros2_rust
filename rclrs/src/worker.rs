@@ -232,7 +232,9 @@ impl<Payload: 'static + Send + Sync> WorkerState<Payload> {
     /// Additionally your callback can get mutable access to the worker's
     /// payload by setting the first argument of the callback to `&mut Payload`.
     ///
-    /// ```
+    /// ```no_run
+    /// # #[cfg(doctest)]
+    /// # {
     /// # use rclrs::*;
     /// # use ros_env::example_interfaces;
     /// # let executor = Context::default().create_basic_executor();
@@ -254,6 +256,7 @@ impl<Payload: 'static + Send + Sync> WorkerState<Payload> {
     ///     },
     /// )?;
     /// # Ok::<(), RclrsError>(())
+    /// # }
     /// ```
     pub fn create_subscription<'a, T, Args>(
         &self,
@@ -382,7 +385,9 @@ impl<Payload: 'static + Send + Sync> WorkerState<Payload> {
     /// Additionally your callback can get mutable access to the worker's
     /// payload by setting the first argument of the callback to `&mut Payload`.
     ///
-    /// ```
+    /// ```no_run
+    /// # #[cfg(doctest)]
+    /// # {
     /// # use rclrs::*;
     /// # use ros_env::example_interfaces;
     /// # let executor = Context::default().create_basic_executor();
@@ -416,6 +421,7 @@ impl<Payload: 'static + Send + Sync> WorkerState<Payload> {
     ///     }
     /// )?;
     /// # Ok::<(), RclrsError>(())
+    /// # }
     /// ```
     pub fn create_service<'a, T, Args>(
         &self,

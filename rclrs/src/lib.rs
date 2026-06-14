@@ -31,6 +31,8 @@
 //! then tell the [`Executor`] to spin:
 //!
 //! ```no_run
+//! # #[cfg(doctest)]
+//! # {
 //! use rclrs::*;
 //! # use ros_env::example_interfaces;
 //!
@@ -47,6 +49,7 @@
 //!
 //! executor.spin(SpinOptions::default()).first_error()?;
 //! # Ok::<(), RclrsError>(())
+//! # }
 //! ```
 //!
 //! If your callback needs to interact with some state data, consider using a
@@ -54,6 +57,8 @@
 //! callbacks:
 //!
 //! ```no_run
+//! # #[cfg(doctest)]
+//! # {
 //! # use rclrs::*;
 //! #
 //! # let context = Context::default_from_env()?;
@@ -84,6 +89,7 @@
 //!
 //! # executor.spin(SpinOptions::default()).first_error()?;
 //! # Ok::<(), RclrsError>(())
+//! # }
 //! ```
 //!
 //! # Parameters
@@ -98,6 +104,8 @@
 //!
 //! The following is a simple example of using a mandatory parameter:
 //! ```no_run
+//! # #[cfg(doctest)]
+//! # {
 //! use rclrs::*;
 //! # use ros_env::example_interfaces;
 //! use std::sync::Arc;
@@ -119,6 +127,7 @@
 //!
 //! executor.spin(SpinOptions::default()).first_error()?;
 //! # Ok::<(), RclrsError>(())
+//! # }
 //! ```
 //!
 //! # Logging
@@ -128,6 +137,8 @@
 //! performed.
 //!
 //! ```no_run
+//! # #[cfg(doctest)]
+//! # {
 //! use rclrs::*;
 //! # use ros_env::example_interfaces;
 //! use std::time::Duration;
@@ -176,6 +187,7 @@
 //! );
 //! executor.spin(SpinOptions::default()).first_error()?;
 //! # Ok::<(), RclrsError>(())
+//! # }
 //! ```
 
 mod action;
