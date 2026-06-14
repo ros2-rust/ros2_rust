@@ -335,56 +335,36 @@ pub unsafe fn impl_log(
         static FORMAT_STRING: OnceLock<CString> = OnceLock::new();
         let format_string = FORMAT_STRING.get_or_init(|| CString::new("%s").unwrap());
 
-        let severity = severity.as_native();
+        let severity = severity.as_native() as i32;
 
         let _lifecycle = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
 
         #[cfg(test)]
-        {
-            // If we are compiling for testing purposes, when the default log
-            // output handler is being used we need to use the format_string,
-            // but when our custom log output handler is being used we need to
-            // pass the raw message string so that it can be viewed by the
-            // custom log output handler, allowing us to use it for test assertions.
-            if log_handler::is_using_custom_handler() {
-                // We are using the custom log handler that is only used during
-                // logging tests, so pass the raw message as the format string.
-                unsafe {
-                    // SAFETY: The global mutex is locked as _lifecycle
-                    rcutils_log(
-                        &location,
-                        severity as i32,
-                        logger_name.as_ptr(),
-                        message.as_ptr(),
-                    );
-                }
-            } else {
-                // We are using the normal log handler so call rcutils_log the normal way.
-                unsafe {
-                    // SAFETY: The global mutex is locked as _lifecycle
-                    rcutils_log(
-                        &location,
-                        severity as i32,
-                        logger_name.as_ptr(),
-                        format_string.as_ptr(),
-                        message.as_ptr(),
-                    );
-                }
-            }
-        }
-
-        #[cfg(not(test))]
+        if log_handler::is_using_custom_handler()
+            && unsafe { rcutils_logging_logger_is_enabled_for(logger_name.as_ptr(), severity) }
         {
             unsafe {
-                // SAFETY: The global mutex is locked as _lifecycle
-                rcutils_log(
+                // SAFETY: The global mutex is locked as _lifecycle and the pointers are valid for
+                // the duration of this call.
+                log_handler::dispatch_logging_output_handler(
                     &location,
-                    severity as i32,
+                    severity,
                     logger_name.as_ptr(),
-                    format_string.as_ptr(),
+                    log_handler::null_timestamp(),
                     message.as_ptr(),
                 );
             }
+        }
+
+        unsafe {
+            // SAFETY: The global mutex is locked as _lifecycle
+            rcutils_log(
+                &location,
+                severity,
+                logger_name.as_ptr(),
+                format_string.as_ptr(),
+                message.as_ptr(),
+            );
         }
     };
 

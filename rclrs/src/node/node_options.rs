@@ -338,9 +338,10 @@ impl<'a> NodeOptions<'a> {
         // so we only need to explicitly initialize it on newer distros.
         #[cfg(not(ros_distro = "humble"))]
         if self.enable_rosout {
-            // SAFETY: rcl_logging_rosout_enabled checks if rosout logging is globally enabled.
+            let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
+            // SAFETY: The entity lifecycle mutex is locked and rcl_logging_rosout_enabled checks
+            // if rosout logging is globally enabled.
             if unsafe { rcl_logging_rosout_enabled() } {
-                let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
                 // SAFETY: The node has been successfully initialized and the
                 // entity lifecycle mutex is locked.
                 unsafe {
