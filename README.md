@@ -106,6 +106,7 @@ mkdir -p workspace/src && cd workspace
 git clone -b kilted https://github.com/ros2/common_interfaces.git src/common_interfaces
 git clone -b kilted https://github.com/ros2/example_interfaces.git src/example_interfaces
 git clone -b kilted https://github.com/ros2/rcl_interfaces.git src/rcl_interfaces
+git clone -b kilted https://github.com/ros2/test_interface_files.git src/test_interface_files
 git clone -b kilted https://github.com/ros2/rosidl_core.git src/rosidl_core
 git clone -b kilted https://github.com/ros2/rosidl_defaults.git src/rosidl_defaults
 git clone -b kilted https://github.com/ros2/unique_identifier_msgs.git src/unique_identifier_msgs
@@ -135,6 +136,7 @@ mkdir -p workspace/src && cd workspace
 git clone -b jazzy https://github.com/ros2/common_interfaces.git src/common_interfaces
 git clone -b jazzy https://github.com/ros2/example_interfaces.git src/example_interfaces
 git clone -b jazzy https://github.com/ros2/rcl_interfaces.git src/rcl_interfaces
+git clone -b jazzy https://github.com/ros2/test_interface_files.git src/test_interface_files
 git clone -b jazzy https://github.com/ros2/rosidl_core.git src/rosidl_core
 git clone -b jazzy https://github.com/ros2/rosidl_defaults.git src/rosidl_defaults
 git clone -b jazzy https://github.com/ros2/unique_identifier_msgs.git src/unique_identifier_msgs
@@ -159,6 +161,7 @@ mkdir -p workspace/src && cd workspace
 git clone -b humble https://github.com/ros2/common_interfaces.git src/common_interfaces
 git clone -b humble https://github.com/ros2/example_interfaces.git src/example_interfaces
 git clone -b humble https://github.com/ros2/rcl_interfaces.git src/rcl_interfaces
+git clone -b humble https://github.com/ros2/test_interface_files.git src/test_interface_files
 git clone -b humble https://github.com/ros2/rosidl_core.git src/rosidl_core
 git clone -b humble https://github.com/ros2/rosidl_defaults.git src/rosidl_defaults
 git clone -b humble https://github.com/ros2/unique_identifier_msgs.git src/unique_identifier_msgs
