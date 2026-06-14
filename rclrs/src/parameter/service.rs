@@ -3,7 +3,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use ros_env::rcl_interfaces::{msg::rmw::*, srv::rmw::*};
+use crate::rcl_interfaces::{msg::rmw::*, srv::rmw::*};
 use rosidl_runtime_rs::Sequence;
 
 use super::{OnChangeCallback, ParameterMap};
@@ -341,11 +341,11 @@ impl ParameterService {
 
 #[cfg(test)]
 mod tests {
-    use crate::*;
-    use ros_env::rcl_interfaces::{
+    use crate::rcl_interfaces::{
         msg::rmw::{Parameter as RmwParameter, ParameterType, ParameterValue as RmwParameterValue},
         srv::rmw::*,
     };
+    use crate::*;
 
     fn validate_multiple_of_5(value: &i64) -> Result<(), String> {
         if *value % 5 != 0 {

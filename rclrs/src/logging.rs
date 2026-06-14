@@ -671,7 +671,7 @@ mod tests {
     #[test]
     fn test_rosout_publishing_default() -> Result<(), RclrsError> {
         use crate::rcl_bindings::rcl_logging_rosout_enabled;
-        use ros_env::rcl_interfaces::msg::rmw::Log;
+        use crate::rcl_interfaces::msg::rmw::Log;
         use std::sync::{Arc, Mutex};
 
         let namespace = format!("/test_rosout_publishing_default_{}", line!());
@@ -794,7 +794,7 @@ mod tests {
 
     #[test]
     fn test_rosout_disabled() -> Result<(), RclrsError> {
-        use ros_env::rcl_interfaces::msg::rmw::Log;
+        use crate::rcl_interfaces::msg::rmw::Log;
         use std::sync::{
             atomic::{AtomicBool, Ordering},
             Arc,

@@ -6,7 +6,7 @@ use crate::{
     ParameterValueError,
 };
 
-use ros_env::rcl_interfaces::msg::rmw::{ParameterType, ParameterValue as RmwParameterValue};
+use crate::rcl_interfaces::msg::rmw::{ParameterType, ParameterValue as RmwParameterValue};
 
 /// A parameter value.
 ///

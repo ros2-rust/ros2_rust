@@ -217,12 +217,18 @@ mod test_helpers;
 
 mod rcl_bindings;
 
-#[cfg(feature = "use_ros_shim")]
-#[allow(missing_docs)]
-pub mod vendor;
+cfg_if::cfg_if! {
+    if #[cfg(feature = "use_ros_shim")] {
+        #[allow(missing_docs)]
+        pub mod vendor;
 
-#[cfg(feature = "use_ros_shim")]
-pub use vendor::*;
+        pub use vendor::*;
+    } else {
+        pub use ros_env::{
+            action_msgs, builtin_interfaces, rcl_interfaces, rosgraph_msgs, unique_identifier_msgs,
+        };
+    }
+}
 
 pub use action::*;
 pub use arguments::*;
