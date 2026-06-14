@@ -16,7 +16,8 @@ env:
 
 jobs:
   build:
-    runs-on: windows-latest
+    # NOTE(esteve): Pin to the VS 2022 image until the Windows ROS build tooling supports VS 18.
+    runs-on: windows-2022
     steps:
       - uses: actions/checkout@v4
 
