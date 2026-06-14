@@ -35,7 +35,7 @@ async-std = "1.13"
 # Needed for dynamic messages
 libloading = "0.8"
 
-ros-env = "0.1"
+ros-env = "0.2"
 
 # Needed for the Message trait, among others
 rosidl_runtime_rs = "0.6"
@@ -77,7 +77,7 @@ default = []
 serde = ["dep:serde", "dep:serde-big-array", "rosidl_runtime_rs/serde", "ros-env/serde"]
 # This feature is solely for the purpose of being able to generate documetation without a ROS installation
 # The only intended usage of this feature is for docs.rs builders to work, and is not intended to be used by end users
-use_ros_shim = ["paste", "rosidl_runtime_rs/use_ros_shim"]
+use_ros_shim = ["paste", "ros-env/use_ros_shim", "rosidl_runtime_rs/use_ros_shim"]
 
 [package.metadata.docs.rs]
 features = ["use_ros_shim"]
