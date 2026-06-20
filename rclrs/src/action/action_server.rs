@@ -698,6 +698,23 @@ pub(crate) struct ActionServerHandle<A: Action> {
 // they are running in. Therefore, this type can be safely sent to another thread.
 unsafe impl Send for rcl_action_server_t {}
 
+impl<A: Action> Drop for ActionServerHandle<A> {
+    fn drop(&mut self) {
+        // Finalize the rcl action server (mirrors `ActionClientHandle`'s Drop).
+        // This runs before the struct's fields are dropped, so `_clock` is still
+        // alive — `rcl_action_server_fini` touches the expired-goals timer, which
+        // borrows that clock.
+        let rcl_action_server = self.rcl_action_server.get_mut().unwrap();
+        let mut rcl_node = self.node_handle.rcl_node.lock().unwrap();
+        let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
+        // SAFETY: The entity lifecycle mutex is locked to protect against the risk of
+        // global variables in the rmw implementation being unsafely modified during cleanup.
+        unsafe {
+            rcl_action_server_fini(rcl_action_server, &mut *rcl_node);
+        }
+    }
+}
+
 impl<A: Action> ActionServerHandle<A> {
     pub(super) fn lock(&self) -> MutexGuard<'_, rcl_action_server_t> {
         self.rcl_action_server.lock().unwrap()
