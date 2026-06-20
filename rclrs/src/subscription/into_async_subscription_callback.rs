@@ -31,7 +31,8 @@ where
     Out: Future<Output = ()> + Send + 'static,
 {
     fn into_async_subscription_callback(mut self) -> AnySubscriptionCallback<T, ()> {
-        NodeSubscriptionCallback::AsyncRegular(Box::new(move |message| Box::pin(self(message)))).into()
+        NodeSubscriptionCallback::AsyncRegular(Box::new(move |message| Box::pin(self(message))))
+            .into()
     }
 }
 
@@ -56,7 +57,8 @@ where
     Out: Future<Output = ()> + Send + 'static,
 {
     fn into_async_subscription_callback(mut self) -> AnySubscriptionCallback<T, ()> {
-        NodeSubscriptionCallback::AsyncBoxed(Box::new(move |message| Box::pin(self(message)))).into()
+        NodeSubscriptionCallback::AsyncBoxed(Box::new(move |message| Box::pin(self(message))))
+            .into()
     }
 }
 
@@ -81,7 +83,8 @@ where
     F: Future<Output = ()> + Send + 'static,
 {
     fn into_async_subscription_callback(mut self) -> AnySubscriptionCallback<T, ()> {
-        NodeSubscriptionCallback::AsyncLoaned(Box::new(move |message| Box::pin(self(message)))).into()
+        NodeSubscriptionCallback::AsyncLoaned(Box::new(move |message| Box::pin(self(message))))
+            .into()
     }
 }
 

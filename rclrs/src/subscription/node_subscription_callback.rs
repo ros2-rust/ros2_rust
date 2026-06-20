@@ -37,9 +37,7 @@ pub enum NodeSubscriptionCallback<T: Message> {
     /// An async callback with only the boxed message as an argument.
     AsyncBoxed(Box<dyn FnMut(Box<T>) -> BoxFuture<'static, ()> + Send>),
     /// An async callback with the boxed message and the message info as arguments.
-    AsyncBoxedWithMessageInfo(
-        Box<dyn FnMut(Box<T>, MessageInfo) -> BoxFuture<'static, ()> + Send>,
-    ),
+    AsyncBoxedWithMessageInfo(Box<dyn FnMut(Box<T>, MessageInfo) -> BoxFuture<'static, ()> + Send>),
     /// An async callback with only the loaned message as an argument.
     #[allow(clippy::type_complexity)]
     AsyncLoaned(Box<dyn FnMut(ReadOnlyLoanedMessage<T>) -> BoxFuture<'static, ()> + Send>),
