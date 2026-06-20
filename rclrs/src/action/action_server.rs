@@ -1,9 +1,9 @@
 use super::empty_goal_status_array;
 use crate::{
     action::GoalUuid, error::ToResult, rcl_bindings::*, ActionGoalReceiver, CancelResponseCode,
-    DropGuard, GoalStatusCode, Node, NodeHandle, QoSProfile, RclPrimitive, RclPrimitiveHandle,
-    RclPrimitiveKind, RclrsError, ReadyKind, TakeFailedAsNone, Waitable, WaitableLifecycle,
-    ENTITY_LIFECYCLE_MUTEX,
+    Clock, DropGuard, GoalStatusCode, Node, NodeHandle, QoSProfile, RclPrimitive,
+    RclPrimitiveHandle, RclPrimitiveKind, RclrsError, ReadyKind, TakeFailedAsNone, Waitable,
+    WaitableLifecycle, ENTITY_LIFECYCLE_MUTEX,
 };
 use futures::future::BoxFuture;
 use ros_env::action_msgs::srv::CancelGoal_Response;
@@ -286,9 +286,12 @@ impl<A: Action> ActionServerState<A> {
 
         let action_server_options = (&options).into();
 
+        // The rcl_action_server borrows this clock by raw pointer for its
+        // expired-goals timer (see `rcl_action_server_init` below), so the handle
+        // must keep it alive — kept past this block for that reason.
+        let clock = node.get_clock();
         {
             let mut rcl_node = node.handle().rcl_node.lock().unwrap();
-            let clock = node.get_clock();
             let rcl_clock = clock.get_rcl_clock();
             let mut rcl_clock = rcl_clock.lock().unwrap();
             let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
@@ -316,6 +319,7 @@ impl<A: Action> ActionServerState<A> {
         let handle = Arc::new(ActionServerHandle {
             rcl_action_server: Mutex::new(rcl_action_server),
             node_handle: Arc::clone(&node.handle()),
+            _clock: clock,
             goals: Default::default(),
         });
 
@@ -677,6 +681,14 @@ pub(crate) struct ActionServerHandle<A: Action> {
     /// Ensure the node remains active while the action server is running.
     #[allow(unused)]
     node_handle: Arc<NodeHandle>,
+    /// The clock the `rcl_action_server` borrows by raw pointer for its
+    /// expired-goals timer. We must keep it alive for the lifetime of the server,
+    /// including for any goal handle that outlives the node: a goal holds an
+    /// `Arc<ActionServerHandle>` and, on drop, calls `rcl_action_notify_goal_done`
+    /// (which touches this clock). Without holding it here, a goal dropped after
+    /// the node has been torn down would dereference a freed clock.
+    #[allow(dead_code)]
+    _clock: Clock,
     /// Ensure the `impl_*` of the action server goals remain valid until they
     /// have expired or until the rcl_action_server_t gets fini-ed.
     goals: Mutex<HashMap<GoalUuid, Arc<ActionServerGoalHandle<A>>>>,
