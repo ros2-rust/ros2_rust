@@ -1,4 +1,7 @@
-use std::{any::Any, sync::MutexGuard};
+use std::{
+    any::Any,
+    sync::{Arc, Mutex, MutexGuard},
+};
 
 use crate::{log_error, rcl_bindings::*, InnerGuardConditionHandle, RclrsError, ToResult};
 
@@ -51,6 +54,14 @@ pub trait RclPrimitive: Send + Sync {
         // Default: no push-callback support. Suppress the unused parameter.
         let _ = on_ready;
         Ok(None)
+    }
+
+    /// For timer primitives, returns a clone of the underlying rcl timer handle
+    /// so an event-driven executor can drive it from its own clock (timers are
+    /// not message-driven and have no rcl push-callback API). Returns `None` for
+    /// every other primitive kind.
+    fn timer_handle(&self) -> Option<Arc<Mutex<rcl_timer_t>>> {
+        None
     }
 }
 
