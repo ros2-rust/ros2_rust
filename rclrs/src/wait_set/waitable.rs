@@ -63,6 +63,13 @@ impl Waitable {
         self.primitive.register_on_ready(on_ready)
     }
 
+    /// The kind of primitive this waitable wraps, so an event-driven executor can
+    /// special-case composite primitives (action servers/clients).
+    #[cfg(feature = "tokio-executor")]
+    pub(crate) fn kind(&self) -> RclPrimitiveKind {
+        self.primitive.kind()
+    }
+
     /// Execute the wrapped primitive once for an event-driven executor with the
     /// given readiness, taking a single item (e.g. one message) and running its
     /// callback. For most primitives `ready` is [`ReadyKind::Basic`]; for action

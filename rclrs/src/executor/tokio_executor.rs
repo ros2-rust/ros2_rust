@@ -41,9 +41,9 @@ use tokio::sync::{
 use crate::{
     log_error,
     rcl_bindings::{rcl_timer_get_time_until_next_call, rcl_timer_is_ready, rcl_timer_t},
-    Context, ExecutorChannel, ExecutorRuntime, ExecutorWorkerOptions, OnReadyHandle, PayloadTask,
-    RclReturnCode, RclrsError, ReadyKind, SpinConditions, ToResult, Waitable, WeakActivityListener,
-    WorkerChannel,
+    ActionClientReady, ActionServerReady, Context, ExecutorChannel, ExecutorRuntime,
+    ExecutorWorkerOptions, OnReadyHandle, PayloadTask, RclPrimitiveKind, RclReturnCode, RclrsError,
+    ReadyKind, SpinConditions, ToResult, Waitable, WeakActivityListener, WorkerChannel,
 };
 
 use super::Executor;
@@ -465,8 +465,14 @@ impl TokioWorkerChannel {
     fn make_on_ready(
         &self,
         dispatch: Arc<EntityDispatch>,
+        ready: Option<Arc<Mutex<ReadyKind>>>,
     ) -> Box<dyn Fn(ReadyKind, usize) + Send + Sync> {
-        Box::new(move |_kind, count| {
+        Box::new(move |kind, count| {
+            // Composite primitives merge their per-sub-entity readiness; simple
+            // ones have no accumulator and stay lock-free.
+            if let Some(acc) = &ready {
+                merge_ready(&mut acc.lock().unwrap(), kind);
+            }
             dispatch.notify(count.max(1));
         })
     }
@@ -496,15 +502,30 @@ impl WorkerChannel for TokioWorkerChannel {
     /// Lower-latency graph-change handling is left as future work.
     fn add_to_wait_set(&self, new_entity: Waitable) {
         let id = self.next_entity_id.fetch_add(1, Ordering::Relaxed);
+        let kind = new_entity.kind();
+
+        // Composite primitives (action servers/clients) report different readiness
+        // per sub-entity through the same entity; accumulate the merged readiness
+        // here. Simple primitives are always `Basic` and skip this (lock-free).
+        let ready: Option<Arc<Mutex<ReadyKind>>> = match kind {
+            RclPrimitiveKind::ActionServer => Some(Arc::new(Mutex::new(ReadyKind::ActionServer(
+                ActionServerReady::default(),
+            )))),
+            RclPrimitiveKind::ActionClient => Some(Arc::new(Mutex::new(ReadyKind::ActionClient(
+                ActionClientReady::default(),
+            )))),
+            _ => None,
+        };
 
         // Shared readiness dispatch: combines repeated notifications into at most
-        // one pending `Ready` per entity, with the event count accumulated.
+        // one pending `Ready` per entity, with the event count accumulated (and,
+        // for composite primitives, readiness flags merged in `ready`).
         let dispatch = Arc::new(EntityDispatch::new(
             id,
             self.mailbox.clone(),
             Arc::clone(&self.outstanding),
         ));
-        let on_ready = self.make_on_ready(Arc::clone(&dispatch));
+        let on_ready = self.make_on_ready(Arc::clone(&dispatch), ready.clone());
 
         // Grab the timer-driver inputs before `new_entity` is moved into the
         // registry below.
@@ -522,6 +543,7 @@ impl WorkerChannel for TokioWorkerChannel {
         let entry = Arc::new(WorkerEntity {
             waitable: Mutex::new(new_entity),
             dispatch: Arc::clone(&dispatch),
+            ready: ready.clone(),
             _on_ready: Mutex::new(None),
         });
         self.entities.lock().unwrap().insert(id, Arc::clone(&entry));
@@ -556,6 +578,15 @@ impl WorkerChannel for TokioWorkerChannel {
                 }
                 .run(),
             );
+        }
+
+        // Action-server goal expiration has no rcl push callback (rcl uses an
+        // internal timer); poll it periodically so completed goals are cleaned up.
+        if kind == RclPrimitiveKind::ActionServer {
+            if let Some(acc) = ready {
+                self.handle
+                    .spawn(action_expire_driver(in_use, Arc::clone(&dispatch), acc));
+            }
         }
     }
 
@@ -743,6 +774,15 @@ impl WorkerLoop {
         // races this re-arms and queues a fresh `Ready`, so no wakeup is lost
         // (see [`EntityDispatch::take_pending`]).
         let count = entry.dispatch.take_pending();
+        let ready = match &entry.ready {
+            None => ReadyKind::Basic,
+            Some(acc) => {
+                let mut acc = acc.lock().unwrap();
+                let taken = *acc;
+                *acc = neutral_ready(&taken);
+                taken
+            }
+        };
 
         let mut waitable = entry.waitable.lock().unwrap();
         if !waitable.in_use() {
@@ -753,7 +793,7 @@ impl WorkerLoop {
             return Vec::new();
         }
 
-        let (ran, errors) = Self::execute_ready(&mut waitable, count, &mut *self.payload);
+        let (ran, errors) = Self::execute_ready(&mut waitable, ready, count, &mut *self.payload);
         drop(waitable);
 
         if ran {
@@ -772,6 +812,7 @@ impl WorkerLoop {
     /// the callback unwinds. Returns whether any callback ran and any errors.
     fn execute_ready(
         waitable: &mut Waitable,
+        ready: ReadyKind,
         count: usize,
         payload: &mut dyn Any,
     ) -> (bool, Vec<RclrsError>) {
@@ -779,13 +820,10 @@ impl WorkerLoop {
             let mut ran = false;
             let mut errors = Vec::new();
             for _ in 0..count.max(1) {
-                // Every primitive this executor handles has a single readiness
-                // path, so it always runs with `Basic`.
-                //
                 // SAFETY: `payload` is this worker's payload and `waitable` was
                 // registered on this worker, so its primitive expects exactly
                 // this payload type.
-                match unsafe { waitable.execute_with(ReadyKind::Basic, payload) } {
+                match unsafe { waitable.execute_with(ready, payload) } {
                     Ok(()) => ran = true,
                     Err(err) if err.is_take_failed() => break,
                     Err(err) => {
@@ -889,6 +927,18 @@ impl EntityDispatch {
         }
     }
 
+    /// Like [`notify`][Self::notify] but counts at most one pending event: for
+    /// idempotent readiness (e.g. action-goal expiry) where a single run clears
+    /// everything, so a queued-but-unhandled `Ready` must not accumulate more.
+    pub(crate) fn notify_once(&self) -> bool {
+        if self.scheduled.swap(true, Ordering::AcqRel) {
+            true
+        } else {
+            self.pending.fetch_add(1, Ordering::AcqRel);
+            self.enqueue_ready()
+        }
+    }
+
     /// Worker side: clear the queued flag and take all pending events. Clearing
     /// *before* the take lets a notification that races the drain queue a fresh
     /// `Ready`, so no wakeup is lost.
@@ -915,6 +965,14 @@ struct WorkerEntity {
     /// notifications into at most one pending `Ready` (see [`EntityDispatch`]).
     /// Shared with the entity's push callback and, for timers, its driver.
     dispatch: Arc<EntityDispatch>,
+
+    /// Merged readiness for composite primitives (action servers/clients) whose
+    /// sub-entities report *different* [`ReadyKind`]s through the same entity.
+    /// Notifications OR their flags in; the worker swaps it out (resetting to the
+    /// kind's neutral value) and runs the primitive with it. `None` for primitives
+    /// with a single readiness path (subscriptions/services/clients/timers), which
+    /// are always [`ReadyKind::Basic`] — keeping their hot path lock-free.
+    ready: Option<Arc<Mutex<ReadyKind>>>,
 
     /// Keeps the push callback registered; dropping it deregisters. `None` for
     /// passive entities (e.g. guard conditions) or timers (driven separately).
@@ -1021,6 +1079,76 @@ impl TimerDriver {
         // SAFETY: handle valid and locked; out-pointer valid.
         let ret = unsafe { rcl_timer_is_ready(&*timer, &mut ready) };
         ret.ok().map(|()| ready).unwrap_or(false)
+    }
+}
+
+/// OR the readiness flags of `new` into `acc`. Used to merge the
+/// per-sub-entity readiness of an action server/client into one value before the
+/// worker runs the primitive. Basic and mismatched variants leave `acc` as-is.
+fn merge_ready(acc: &mut ReadyKind, new: ReadyKind) {
+    match (acc, new) {
+        (ReadyKind::ActionServer(a), ReadyKind::ActionServer(b)) => {
+            a.goal_request |= b.goal_request;
+            a.cancel_request |= b.cancel_request;
+            a.result_request |= b.result_request;
+            a.goal_expired |= b.goal_expired;
+        }
+        (ReadyKind::ActionClient(a), ReadyKind::ActionClient(b)) => {
+            a.feedback |= b.feedback;
+            a.status |= b.status;
+            a.goal_response |= b.goal_response;
+            a.cancel_response |= b.cancel_response;
+            a.result_response |= b.result_response;
+        }
+        _ => {}
+    }
+}
+
+/// The "no readiness" value for `kind`'s variant, used to reset an accumulator
+/// after the worker has taken its merged readiness.
+fn neutral_ready(kind: &ReadyKind) -> ReadyKind {
+    match kind {
+        ReadyKind::Basic => ReadyKind::Basic,
+        ReadyKind::ActionServer(_) => ReadyKind::ActionServer(ActionServerReady::default()),
+        ReadyKind::ActionClient(_) => ReadyKind::ActionClient(ActionClientReady::default()),
+    }
+}
+
+/// How often to poll an action server for expired goals. Goal expiration is
+/// driven by an rcl-internal timer with no push callback, so we poll instead.
+/// The interval only bounds how promptly a *completed* goal is cleaned up
+/// (typically well after its multi-second result timeout), so it can be coarse.
+const ACTION_EXPIRE_POLL: Duration = Duration::from_millis(100);
+
+/// Periodically nudge an action server to expire completed goals (there is no
+/// rcl push callback for expiration). Enqueues a `goal_expired` readiness through
+/// the same coalescing path as other events; the worker runs
+/// `rcl_action_expire_goals`, which is a cheap no-op when nothing has expired.
+/// Stops once the action server's owning entity is dropped.
+async fn action_expire_driver(
+    in_use: Arc<AtomicBool>,
+    dispatch: Arc<EntityDispatch>,
+    ready: Arc<Mutex<ReadyKind>>,
+) {
+    loop {
+        tokio::time::sleep(ACTION_EXPIRE_POLL).await;
+        if !in_use.load(Ordering::Acquire) {
+            return;
+        }
+        // Flag expiry as ready and deliver it through the dispatch. Expiry is
+        // idempotent (one run clears all expired goals), so `notify_once` keeps
+        // at most one pending take even while spinning is paused — otherwise the
+        // 100ms poll would accumulate redundant work for the whole pause.
+        merge_ready(
+            &mut ready.lock().unwrap(),
+            ReadyKind::ActionServer(ActionServerReady {
+                goal_expired: true,
+                ..Default::default()
+            }),
+        );
+        if !dispatch.notify_once() {
+            return; // worker gone
+        }
     }
 }
 

@@ -404,6 +404,122 @@ mod tests {
         executor.spin(SpinOptions::default().until_promise_resolved(promise));
     }
 
+    /// A full goal round-trip (feedback streaming + result) driven by the
+    /// event-driven Tokio executor, exercising the action push-callback path
+    /// (`rcl_action_{server,client}_set_*_callback`). The completion flag makes a
+    /// timeout fail the test rather than pass silently.
+    #[cfg(feature = "tokio-executor")]
+    #[test]
+    fn test_action_success_streaming_tokio() {
+        use std::sync::{
+            atomic::{AtomicBool, Ordering},
+            Arc,
+        };
+
+        let mut executor = Context::default().create_tokio_executor();
+
+        let node = executor
+            .create_node(&format!("test_action_success_tokio_{}", line!()))
+            .unwrap();
+        let action_name = format!("test_action_success_tokio_{}_action", line!());
+        let _action_server = node
+            .create_action_server(&action_name, |handle| {
+                fibonacci_action(handle, TestActionSettings::default())
+            })
+            .unwrap();
+
+        let client = node
+            .create_action_client::<Fibonacci>(&action_name)
+            .unwrap();
+
+        let order_10_sequence = [1, 1, 2, 3, 5, 8, 13, 21, 34, 55];
+        let request = client.request_goal(Fibonacci_Goal { order: 10 });
+
+        let done = Arc::new(AtomicBool::new(false));
+        let done_cb = Arc::clone(&done);
+        let promise = executor.commands().run(async move {
+            let mut goal_client_stream = request.await.unwrap().stream();
+            let mut expected_feedback_len = 0;
+            while let Some(event) = goal_client_stream.next().await {
+                match event {
+                    GoalEvent::Feedback(feedback) => {
+                        expected_feedback_len += 1;
+                        assert_eq!(feedback.sequence.len(), expected_feedback_len);
+                    }
+                    GoalEvent::Status(_) => {}
+                    GoalEvent::Result((status, result)) => {
+                        assert_eq!(status, GoalStatusCode::Succeeded);
+                        assert_eq!(result.sequence, order_10_sequence);
+                        done_cb.store(true, Ordering::Relaxed);
+                        return;
+                    }
+                }
+            }
+        });
+
+        executor.spin(
+            SpinOptions::default()
+                .until_promise_resolved(promise)
+                .timeout(Duration::from_secs(15)),
+        );
+
+        assert!(
+            done.load(Ordering::Relaxed),
+            "action goal round-trip did not complete on the Tokio executor",
+        );
+    }
+
+    /// A goal cancellation driven by the Tokio executor, exercising the action
+    /// client's cancel-client and the server's cancel-service push callbacks.
+    #[cfg(feature = "tokio-executor")]
+    #[test]
+    fn test_action_cancel_tokio() {
+        use std::sync::{
+            atomic::{AtomicBool, Ordering},
+            Arc,
+        };
+
+        let mut executor = Context::default().create_tokio_executor();
+
+        let node = executor
+            .create_node(&format!("test_action_cancel_tokio_{}", line!()))
+            .unwrap();
+        let action_name = format!("test_action_cancel_tokio_{}_action", line!());
+        let _action_server = node
+            .create_action_server(&action_name, |handle| {
+                fibonacci_action(handle, TestActionSettings::slow())
+            })
+            .unwrap();
+
+        let client = node
+            .create_action_client::<Fibonacci>(&action_name)
+            .unwrap();
+
+        let request = client.request_goal(Fibonacci_Goal { order: 10 });
+
+        let done = Arc::new(AtomicBool::new(false));
+        let done_cb = Arc::clone(&done);
+        let promise = executor.commands().run(async move {
+            let goal_client = request.await.unwrap();
+            let cancellation = goal_client.cancellation.cancel().await;
+            assert!(cancellation.is_accepted());
+            let (status, _) = goal_client.result.await;
+            assert_eq!(status, GoalStatusCode::Cancelled);
+            done_cb.store(true, Ordering::Relaxed);
+        });
+
+        executor.spin(
+            SpinOptions::default()
+                .until_promise_resolved(promise)
+                .timeout(Duration::from_secs(15)),
+        );
+
+        assert!(
+            done.load(Ordering::Relaxed),
+            "action cancellation did not complete on the Tokio executor",
+        );
+    }
+
     #[test]
     fn test_action_cancel_rejection() {
         let mut executor = Context::default().create_basic_executor();

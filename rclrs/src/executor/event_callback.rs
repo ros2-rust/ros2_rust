@@ -76,6 +76,15 @@ pub(crate) struct OnReadyRegistration<H: Send + Sync + 'static> {
 
 impl<H: Send + Sync + 'static> OnReadyHandle for OnReadyRegistration<H> {}
 
+/// Bundles several [`OnReadyHandle`]s into one, for composite primitives (action
+/// servers/clients) that register a push callback per internal source. Dropping
+/// it drops every contained registration, deregistering each callback.
+// The Vec is never read — dropping it drops (and thus deregisters) every
+// contained registration, which is the entire purpose of holding them.
+pub(crate) struct CompositeOnReady(#[allow(dead_code)] pub(crate) Vec<Box<dyn OnReadyHandle>>);
+
+impl OnReadyHandle for CompositeOnReady {}
+
 impl<H: Send + Sync + 'static> OnReadyRegistration<H> {
     /// Register `on_ready` to be called by the middleware whenever the entity
     /// becomes ready. `set_callback` locks `handle` and installs the trampoline.
