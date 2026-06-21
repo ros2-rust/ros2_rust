@@ -1,0 +1,24 @@
+<package format="3">
+  <name>turtlesim_rs</name>
+  <version>0.1.0</version>
+  <description>
+      turtlesim_rs is a ROS2 package implemented in Rust, designed to teach ROS concepts and serve as 
+      an educational tool for developing ROS packages in Rust.
+  </description>
+    
+  <maintainer email="user@todo.todo">user</maintainer>
+  <license>Apache License 2.0</license>
+  <author>Abdelrahman osama</author>
+
+  <depend>rclrs</depend>
+  <depend>std_msgs</depend>
+  <depend>std_srvs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>turtlesim_rs_msgs</depend>
+
+  <exec_depend>rosidl_runtime_rs</exec_depend>
+
+  <export>
+    <build_type>ament_cargo</build_type>
+  </export>
+</package>
