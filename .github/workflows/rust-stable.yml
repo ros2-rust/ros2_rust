@@ -36,6 +36,10 @@ jobs:
           - docker_image: rostooling/setup-ros-docker:ubuntu-noble-ros-kilted-ros-base-latest
             ros_distribution: kilted
             ros_version: 2
+          # Lyrical Luth (May 2026 - May 2031)
+          - docker_image: rostooling/setup-ros-docker:ubuntu-resolute-ros-lyrical-ros-base-latest
+            ros_distribution: lyrical
+            ros_version: 2
           # Rolling Ridley  (June 2020 - Present)
           - docker_image: rostooling/setup-ros-docker:ubuntu-noble-ros-rolling-ros-base-latest
             ros_distribution: rolling
@@ -72,6 +76,7 @@ jobs:
     - name: Install colcon-cargo and colcon-ros-cargo
       run: |
         sudo rm -f /usr/lib/python3.12/EXTERNALLY-MANAGED
+        sudo rm -f /usr/lib/python3.14/EXTERNALLY-MANAGED
         sudo pip3 install git+https://github.com/colcon/colcon-cargo.git
         sudo pip3 install git+https://github.com/colcon/colcon-ros-cargo.git
 

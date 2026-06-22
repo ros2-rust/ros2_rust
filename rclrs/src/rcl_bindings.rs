@@ -33,6 +33,13 @@ cfg_if::cfg_if! {
                 "/src/rcl_bindings_generated_kilted.rs",
                 )
             );
+    } else if #[cfg(ros_distro="lyrical")] {
+        include!(
+            concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/src/rcl_bindings_generated_lyrical.rs",
+                )
+            );
     } else if #[cfg(ros_distro="rolling")] {
         include!(
             concat!(
