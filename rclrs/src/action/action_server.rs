@@ -319,7 +319,7 @@ impl<A: Action> ActionServerState<A> {
         let handle = Arc::new(ActionServerHandle {
             rcl_action_server: Mutex::new(rcl_action_server),
             node_handle: Arc::clone(&node.handle()),
-            _clock: clock,
+            clock: clock,
             goals: Default::default(),
         });
 
@@ -687,8 +687,8 @@ pub(crate) struct ActionServerHandle<A: Action> {
     /// `Arc<ActionServerHandle>` and, on drop, calls `rcl_action_notify_goal_done`
     /// (which touches this clock). Without holding it here, a goal dropped after
     /// the node has been torn down would dereference a freed clock.
-    #[allow(dead_code)]
-    _clock: Clock,
+    #[allow(unused)]
+    clock: Clock,
     /// Ensure the `impl_*` of the action server goals remain valid until they
     /// have expired or until the rcl_action_server_t gets fini-ed.
     goals: Mutex<HashMap<GoalUuid, Arc<ActionServerGoalHandle<A>>>>,
