@@ -59,39 +59,17 @@ pub(crate) mod log_handler {
     //! we need to figure out a way to process C-style formatting strings with
     //! a [`va_list`] from inside of Rust, which seems to be very messy.
 
-    use std::{
-        borrow::Cow,
-        ffi::CStr,
-        sync::{
-            atomic::{AtomicBool, Ordering},
-            OnceLock,
-        },
-    };
+    use std::{borrow::Cow, cell::RefCell, ffi::CStr, sync::Arc};
 
-    use crate::{rcl_bindings::*, LogSeverity, ENTITY_LIFECYCLE_MUTEX};
+    use crate::{rcl_bindings::*, LogSeverity};
 
-    /// Global variable that allows a custom log handler to be set. This log
-    /// handler will be applied throughout the entire application and cannot be
-    /// replaced with a different custom log handler. If you want to be able to
-    /// change the log handler over the lifetime of your application, you should
-    /// design your own custom handler with an Arc<Mutex<T>> inside that allows
-    /// its own behavior to be modified.
-    static LOGGING_OUTPUT_HANDLER: OnceLock<RawLogHandler> = OnceLock::new();
+    thread_local! {
+        /// Thread-local variable that allows tests to observe log entries.
+        static LOG_OBSERVER: RefCell<Option<LogObserver>> = RefCell::new(None);
+    }
 
-    /// Alias for an arbitrary log handler that is compatible with raw rcl types
-    pub(crate) type RawLogHandler = Box<
-        dyn Fn(
-                *const rcutils_log_location_t, // location
-                std::os::raw::c_int,           // severity
-                *const std::os::raw::c_char,   // logger name
-                rcutils_time_point_value_t,    // timestamp
-                *const std::os::raw::c_char,   // format
-                *mut va_list,                  // formatting arguments
-            )
-            + 'static
-            + Send
-            + Sync,
-    >;
+    /// Alias for a test observer of log entries emitted through rclrs logging macros.
+    pub(crate) type LogObserver = Arc<dyn Fn(LogEntry) + 'static + Send + Sync>;
 
     /// This is an idiomatic representation of all the information for a log entry
     #[derive(Clone)]
@@ -137,115 +115,84 @@ pub(crate) mod log_handler {
     #[derive(Debug)]
     pub(crate) struct OutputHandlerAlreadySet;
 
-    static USING_CUSTOM_HANDLER: OnceLock<AtomicBool> = OnceLock::new();
-
     /// Set an idiomatic log hander
     pub(crate) fn set_logging_output_handler(
         handler: impl Fn(LogEntry) + 'static + Send + Sync,
     ) -> Result<(), OutputHandlerAlreadySet> {
-        let raw_handler = Box::new(
-            move |raw_location: *const rcutils_log_location_t,
-                  raw_severity: std::os::raw::c_int,
-                  raw_logger_name: *const std::os::raw::c_char,
-                  raw_timestamp: rcutils_time_point_value_t,
-                  raw_format: *const std::os::raw::c_char,
-                  // NOTE: In the rclrs logging test we are choosing to format
-                  // the full message in advance when using the custom handler,
-                  // so the format field always contains the finished formatted
-                  // message. Therefore we can just ignore the raw formatting
-                  // arguments.
-                  _raw_formatting_arguments: *mut va_list| {
-                unsafe {
-                    // NOTE: We use .unwrap() extensively inside this function because
-                    // it only gets used during tests. We should reconsider this if
-                    // we ever make this public.
-                    let location = LogLocation {
-                        function_name: Cow::Borrowed(
-                            CStr::from_ptr((*raw_location).function_name)
-                                .to_str()
-                                .unwrap(),
-                        ),
-                        file_name: Cow::Borrowed(
-                            CStr::from_ptr((*raw_location).file_name).to_str().unwrap(),
-                        ),
-                        line_number: (*raw_location).line_number,
-                    };
-                    let severity = LogSeverity::from_native(raw_severity);
-                    let logger_name =
-                        Cow::Borrowed(CStr::from_ptr(raw_logger_name).to_str().unwrap());
-                    let timestamp: i64 = raw_timestamp;
-                    let message = Cow::Borrowed(CStr::from_ptr(raw_format).to_str().unwrap());
-                    handler(LogEntry {
-                        location,
-                        severity,
-                        logger_name,
-                        timestamp,
-                        message,
-                    });
-                }
-            },
-        );
-
-        set_raw_logging_output_handler(raw_handler)
-    }
-
-    /// Set the logging output handler directly
-    pub(crate) fn set_raw_logging_output_handler(
-        handler: RawLogHandler,
-    ) -> Result<(), OutputHandlerAlreadySet> {
-        LOGGING_OUTPUT_HANDLER
-            .set(handler)
-            .map_err(|_| OutputHandlerAlreadySet)?;
-        let _lifecycle = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
-        unsafe {
-            // SAFETY:
-            // - We have locked the global mutex
-            rcutils_logging_set_output_handler(Some(rclrs_logging_output_handler));
-        }
-
-        USING_CUSTOM_HANDLER
-            .get_or_init(|| AtomicBool::new(false))
-            .store(true, Ordering::Release);
-        Ok(())
+        let observer: LogObserver = Arc::new(handler);
+        LOG_OBSERVER.with(|handler_slot| {
+            let mut handler_slot = handler_slot.borrow_mut();
+            if handler_slot.is_some() {
+                return Err(OutputHandlerAlreadySet);
+            }
+            *handler_slot = Some(observer);
+            Ok(())
+        })
     }
 
     pub(crate) fn is_using_custom_handler() -> bool {
-        USING_CUSTOM_HANDLER
-            .get_or_init(|| AtomicBool::new(false))
-            .load(Ordering::Acquire)
+        LOG_OBSERVER.with(|handler_slot| handler_slot.borrow().is_some())
     }
 
-    /// This function exists so that we can give a raw function pointer to
-    /// rcutils_logging_set_output_handler, which is needed by its API.
-    unsafe extern "C" fn rclrs_logging_output_handler(
+    /// Dispatch a log entry to the active test handler, if one is set.
+    ///
+    /// SAFETY: The raw pointers must be valid for the duration of the call.
+    pub(crate) unsafe fn dispatch_logging_output_handler(
         location: *const rcutils_log_location_t,
         severity: std::os::raw::c_int,
         logger_name: *const std::os::raw::c_char,
         timestamp: rcutils_time_point_value_t,
         message: *const std::os::raw::c_char,
-        logging_output: *mut va_list,
     ) {
-        let handler = LOGGING_OUTPUT_HANDLER.get().unwrap();
-        (*handler)(
+        let handler = LOG_OBSERVER.with(|handler_slot| handler_slot.borrow().as_ref().cloned());
+        let Some(handler) = handler else {
+            return;
+        };
+
+        let location = if location.is_null() {
+            LogLocation {
+                function_name: Cow::Borrowed(""),
+                file_name: Cow::Borrowed(""),
+                line_number: 0,
+            }
+        } else {
+            LogLocation {
+                function_name: Cow::Borrowed(
+                    CStr::from_ptr((*location).function_name).to_str().unwrap(),
+                ),
+                file_name: Cow::Borrowed(CStr::from_ptr((*location).file_name).to_str().unwrap()),
+                line_number: (*location).line_number,
+            }
+        };
+        let severity = LogSeverity::from_native(severity);
+        let logger_name = if logger_name.is_null() {
+            Cow::Borrowed("")
+        } else {
+            Cow::Borrowed(CStr::from_ptr(logger_name).to_str().unwrap())
+        };
+        let message = if message.is_null() {
+            Cow::Borrowed("")
+        } else {
+            Cow::Borrowed(CStr::from_ptr(message).to_str().unwrap())
+        };
+
+        handler(LogEntry {
             location,
             severity,
             logger_name,
             timestamp,
             message,
-            logging_output,
-        );
+        });
     }
 
     /// Reset the logging output handler to the default one
     pub(crate) fn reset_logging_output_handler() {
-        let _lifecycle = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
-        unsafe {
-            // SAFETY: The global mutex is locked. No other precondition is
-            // required.
-            rcutils_logging_set_output_handler(Some(rcl_logging_multiple_output_handler));
-        }
-        USING_CUSTOM_HANDLER
-            .get_or_init(|| AtomicBool::new(false))
-            .store(false, Ordering::Release);
+        LOG_OBSERVER.with(|handler_slot| *handler_slot.borrow_mut() = None);
+    }
+
+    pub(crate) fn null_timestamp() -> rcutils_time_point_value_t {
+        // This value is only used by the Rust-side test hook. The real rcutils
+        // output handler still receives the timestamp produced by rcutils_log.
+        0
     }
 }
