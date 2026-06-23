@@ -1,7 +1,7 @@
+use crate::builtin_interfaces::msg::Time;
 use crate::{
     CancellationClient, FeedbackClient, GoalStatus, GoalStatusCode, ResultClient, StatusWatcher,
 };
-use ros_env::builtin_interfaces::msg::Time;
 use rosidl_runtime_rs::Action;
 use std::{
     pin::Pin,
@@ -95,6 +95,8 @@ impl<A: Action> GoalClient<A> {
 /// # Example
 ///
 /// ```
+/// # #[cfg(doctest)]
+/// # {
 /// use rclrs::*;
 /// use ros_env::example_interfaces::action::Fibonacci;
 /// use futures::StreamExt;
@@ -118,6 +120,7 @@ impl<A: Action> GoalClient<A> {
 ///         }
 ///     }
 /// }
+/// # }
 /// ```
 pub struct GoalClientStream<A: Action> {
     stream_map: StreamMap<i32, Pin<Box<dyn Stream<Item = GoalEvent<A>> + Send>>>,

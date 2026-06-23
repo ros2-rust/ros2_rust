@@ -35,7 +35,7 @@ async-std = "1.13"
 # Needed for dynamic messages
 libloading = "0.8"
 
-ros-env = "0.2"
+ros-env = { version = "0.2", default-features = false, features = ["rclrs_core"] }
 
 # Needed for the Message trait, among others
 rosidl_runtime_rs = "0.6"
@@ -63,6 +63,8 @@ paste = { version = "1", optional = true}
 tempfile = "3.3.0"
 # Needed for parameter service tests
 tokio = { version = "1", features = ["rt", "time", "macros"] }
+# Needed for docs/tests that exercise generated interfaces without enabling them in normal builds
+ros-env = { version = "0.2", default-features = false, features = ["rclrs_core", "example_interfaces", "test_msgs"] }
 
 [build-dependencies]
 # Needed for uploading documentation to docs.rs
