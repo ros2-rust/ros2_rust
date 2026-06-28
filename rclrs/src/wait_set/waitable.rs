@@ -2,6 +2,9 @@ use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
 };
+// Only the feature-gated `timer_handle` accessor below uses `Mutex`.
+#[cfg(feature = "tokio-executor")]
+use std::sync::Mutex;
 
 use crate::{
     error::ToResult, log_error, rcl_bindings::*, ActionClientReady, ActionServerReady,
@@ -43,8 +46,65 @@ impl Waitable {
         self.index_in_wait_set.is_some()
     }
 
-    pub(super) fn in_use(&self) -> bool {
+    /// Whether this waitable is still in use (its owning entity has not been
+    /// dropped). Used by the wait set to drop finished entries, and by an
+    /// event-driven executor to know when to deregister.
+    pub(crate) fn in_use(&self) -> bool {
         self.in_use.load(Ordering::Relaxed)
+    }
+
+    /// Register a push "on ready" callback for an event-driven executor.
+    /// Delegates to the wrapped primitive. See [`RclPrimitive::register_on_ready`].
+    #[cfg(feature = "tokio-executor")]
+    pub(crate) fn register_on_ready(
+        &self,
+        on_ready: Box<dyn Fn(ReadyKind, usize) + Send + Sync>,
+    ) -> Result<Option<Box<dyn crate::OnReadyHandle>>, RclrsError> {
+        self.primitive.register_on_ready(on_ready)
+    }
+
+    /// The kind of primitive this waitable wraps, so an event-driven executor can
+    /// special-case composite primitives (action servers/clients).
+    #[cfg(feature = "tokio-executor")]
+    pub(crate) fn kind(&self) -> RclPrimitiveKind {
+        self.primitive.kind()
+    }
+
+    /// Execute the wrapped primitive once for an event-driven executor with the
+    /// given readiness, taking a single item (e.g. one message) and running its
+    /// callback. For most primitives `ready` is [`ReadyKind::Basic`]; for action
+    /// servers/clients it identifies which sub-entity became ready.
+    ///
+    /// # Safety
+    ///
+    /// `payload` must have the type the wrapped primitive expects (the type of
+    /// the [`Worker`][crate::Worker] that owns it). Passing a mismatched payload
+    /// is undefined behavior, since the primitive downcasts it. An event-driven
+    /// executor upholds this by only ever executing an entity against the payload
+    /// of the worker it was registered on.
+    #[cfg(feature = "tokio-executor")]
+    pub(crate) unsafe fn execute_with(
+        &mut self,
+        ready: ReadyKind,
+        payload: &mut dyn std::any::Any,
+    ) -> Result<(), RclrsError> {
+        // SAFETY: the payload-type obligation is forwarded to our caller via this
+        // function being `unsafe`.
+        unsafe { self.primitive.execute(ready, payload) }
+    }
+
+    /// If this waitable wraps a timer, returns a clone of its rcl timer handle so
+    /// an event-driven executor can drive it from its own clock. `None` otherwise.
+    #[cfg(feature = "tokio-executor")]
+    pub(crate) fn timer_handle(&self) -> Option<Arc<Mutex<rcl_timer_t>>> {
+        self.primitive.timer_handle()
+    }
+
+    /// A clone of the "in use" flag, so an event-driven executor's timer driver
+    /// can stop once the owning entity has been dropped.
+    #[cfg(feature = "tokio-executor")]
+    pub(crate) fn in_use_handle(&self) -> Arc<AtomicBool> {
+        Arc::clone(&self.in_use)
     }
 
     pub(super) fn is_ready(&self, wait_set: &rcl_wait_set_t) -> Option<ReadyKind> {

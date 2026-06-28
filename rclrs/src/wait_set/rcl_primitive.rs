@@ -1,4 +1,7 @@
-use std::{any::Any, sync::MutexGuard};
+use std::{
+    any::Any,
+    sync::{Arc, Mutex, MutexGuard},
+};
 
 use crate::{log_error, rcl_bindings::*, InnerGuardConditionHandle, RclrsError, ToResult};
 
@@ -28,7 +31,45 @@ pub trait RclPrimitive: Send + Sync {
 
     /// Provide the handle for this primitive
     fn handle(&self) -> RclPrimitiveHandle<'_>;
+
+    /// Register a push "on ready" callback so an event-driven executor can learn
+    /// this primitive has become ready without polling a wait set. The
+    /// middleware invokes `on_ready` with the [`ReadyKind`] describing *which*
+    /// part of the primitive became ready and the number of new events.
+    ///
+    /// Most primitives have a single readiness path and call `on_ready` with
+    /// [`ReadyKind::Basic`]. Composite primitives (action servers and clients)
+    /// register one callback per internal source and call `on_ready` with a
+    /// [`ReadyKind::ActionServer`]/[`ReadyKind::ActionClient`] value whose single
+    /// matching flag is set, so the executor knows which sub-entity to run.
+    ///
+    /// Returns `Ok(None)` for primitive kinds that have no rcl push-callback API
+    /// (e.g. timers and guard conditions); an event-driven executor drives those
+    /// by other means. The returned [`OnReadyHandle`] keeps the callback(s)
+    /// registered; dropping it detaches them.
+    fn register_on_ready(
+        &self,
+        on_ready: Box<dyn Fn(ReadyKind, usize) + Send + Sync>,
+    ) -> Result<Option<Box<dyn OnReadyHandle>>, RclrsError> {
+        // Default: no push-callback support. Suppress the unused parameter.
+        let _ = on_ready;
+        Ok(None)
+    }
+
+    /// For timer primitives, returns a clone of the underlying rcl timer handle
+    /// so an event-driven executor can drive it from its own clock (timers are
+    /// not message-driven and have no rcl push-callback API). Returns `None` for
+    /// every other primitive kind.
+    fn timer_handle(&self) -> Option<Arc<Mutex<rcl_timer_t>>> {
+        None
+    }
 }
+
+/// RAII handle that keeps a push "on ready" callback registered with the
+/// middleware (see [`RclPrimitive::register_on_ready`]). Dropping it
+/// unregisters the callback, before freeing the callback's context, so an
+/// event-driven executor can detach an entity simply by dropping this handle.
+pub trait OnReadyHandle: Send + Sync {}
 
 /// Enum to describe the kind of an executable.
 #[derive(Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
