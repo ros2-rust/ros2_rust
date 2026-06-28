@@ -1,6 +1,12 @@
-use std::{any::Any, sync::MutexGuard};
+use std::{
+    any::Any,
+    sync::{Arc, Mutex, MutexGuard},
+};
 
-use crate::{log_error, rcl_bindings::*, InnerGuardConditionHandle, RclrsError, ToResult};
+use crate::{
+    executor::TimerSchedulerNotify, log_error, rcl_bindings::*, InnerGuardConditionHandle,
+    RclrsError, ToResult,
+};
 
 /// This provides the public API for executing a waitable item.
 pub trait RclPrimitive: Send + Sync {
@@ -28,7 +34,47 @@ pub trait RclPrimitive: Send + Sync {
 
     /// Provide the handle for this primitive
     fn handle(&self) -> RclPrimitiveHandle<'_>;
+
+    /// Register a push "on ready" callback so an event-driven executor can learn
+    /// this primitive has become ready without polling a wait set. The
+    /// middleware invokes `on_ready` with the [`ReadyKind`] describing *which*
+    /// part of the primitive became ready and the number of new events.
+    ///
+    /// Most primitives have a single readiness path and call `on_ready` with
+    /// [`ReadyKind::Basic`]. Composite primitives (action servers and clients)
+    /// register one callback per internal source and call `on_ready` with a
+    /// [`ReadyKind::ActionServer`]/[`ReadyKind::ActionClient`] value whose single
+    /// matching flag is set, so the executor knows which sub-entity to run.
+    ///
+    /// Returns `Ok(None)` for primitive kinds that have no rcl push-callback API
+    /// (e.g. timers and guard conditions); an event-driven executor drives those
+    /// by other means. The returned [`OnReadyHandle`] keeps the callback(s)
+    /// registered; dropping it detaches them.
+    fn register_on_ready(
+        &self,
+        on_ready: Box<dyn Fn(ReadyKind, usize) + Send + Sync>,
+    ) -> Result<Option<Box<dyn OnReadyHandle>>, RclrsError> {
+        // Default: no push-callback support. Suppress the unused parameter.
+        let _ = on_ready;
+        Ok(None)
+    }
+
+    /// For a timer primitive, the handles the Tokio timer scheduler needs to
+    /// drive it: the rcl timer and the slot for its notify handle (see
+    /// [`TimerSchedulerHandles`]). Timers have no rcl push-callback API, so the
+    /// scheduler drives them instead. Returns `None` for every other primitive
+    /// kind.
+    #[cfg(feature = "tokio-executor")]
+    fn timer_scheduler_handles(&self) -> Option<TimerSchedulerHandles> {
+        None
+    }
 }
+
+/// RAII handle that keeps a push "on ready" callback registered with the
+/// middleware (see [`RclPrimitive::register_on_ready`]). Dropping it
+/// unregisters the callback, before freeing the callback's context, so an
+/// event-driven executor can detach an entity simply by dropping this handle.
+pub trait OnReadyHandle: Send + Sync {}
 
 /// Enum to describe the kind of an executable.
 #[derive(Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
@@ -287,4 +333,18 @@ impl Default for ActionClientReady {
             result_response: false,
         }
     }
+}
+
+/// The handles the Tokio timer scheduler needs to drive a timer: the rcl timer
+/// (to read deadlines from) and the slot where the timer keeps the
+/// [`TimerSchedulerNotify`] it receives at registration, so its `reset`/`cancel`
+/// and drop can reach the scheduler. Returned by
+/// [`RclPrimitive::timer_scheduler_handles`]; `None` for non-timer primitives.
+#[cfg(feature = "tokio-executor")]
+pub(crate) struct TimerSchedulerHandles {
+    /// The rcl timer the scheduler reads deadlines from.
+    pub rcl_timer: Arc<Mutex<rcl_timer_t>>,
+    /// Slot where the timer stores the [`TimerSchedulerNotify`] it gets back from
+    /// registration, so reset/cancel/drop can notify the scheduler.
+    pub notify_slot: Arc<Mutex<Option<TimerSchedulerNotify>>>,
 }

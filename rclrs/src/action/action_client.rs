@@ -1,9 +1,9 @@
 use super::empty_goal_status_array;
 use crate::{
-    log_warn, rcl_bindings::*, CancelResponse, CancelResponseCode, DropGuard, GoalStatus,
-    GoalStatusCode, GoalUuid, MultiCancelResponse, Node, NodeHandle, QoSProfile, RclPrimitive,
-    RclPrimitiveHandle, RclPrimitiveKind, RclrsError, ReadyKind, TakeFailedAsNone, ToResult,
-    Waitable, WaitableLifecycle, ENTITY_LIFECYCLE_MUTEX,
+    log_warn, rcl_bindings::*, ActionClientReady, CancelResponse, CancelResponseCode, DropGuard,
+    GoalStatus, GoalStatusCode, GoalUuid, MultiCancelResponse, Node, NodeHandle, QoSProfile,
+    RclPrimitive, RclPrimitiveHandle, RclPrimitiveKind, RclrsError, ReadyKind, TakeFailedAsNone,
+    ToResult, Waitable, WaitableLifecycle, ENTITY_LIFECYCLE_MUTEX,
 };
 use ros_env::{action_msgs::srv::CancelGoal_Response, builtin_interfaces::msg::Time};
 use rosidl_runtime_rs::{Action, Message, RmwFeedbackMessage, RmwGoalResponse, RmwResultResponse};
@@ -872,6 +872,115 @@ impl<A: Action> RclPrimitive for ActionClientExecutable<A> {
     fn handle(&self) -> crate::RclPrimitiveHandle<'_> {
         RclPrimitiveHandle::ActionClient(self.board.handle.lock())
     }
+
+    fn register_on_ready(
+        &self,
+        on_ready: Box<dyn Fn(ReadyKind, usize) + Send + Sync>,
+    ) -> Result<Option<Box<dyn crate::OnReadyHandle>>, RclrsError> {
+        use crate::executor::event_callback::{CompositeOnReady, OnReadyRegistration};
+
+        // An action client bundles two subscriptions (feedback/status) and three
+        // service clients (goal/cancel/result). Register a push callback on each,
+        // tagging events with the matching readiness flag so the executor runs the
+        // right handler.
+        let on_ready = Arc::new(on_ready);
+        let handle = &self.board.handle;
+        let mk = |bits: ActionClientReady| -> Box<dyn Fn(usize) + Send + Sync> {
+            let on_ready = Arc::clone(&on_ready);
+            Box::new(move |n| on_ready(ReadyKind::ActionClient(bits), n))
+        };
+
+        let regs: Vec<Box<dyn crate::OnReadyHandle>> = vec![
+            Box::new(OnReadyRegistration::new(
+                Arc::clone(handle),
+                set_action_client_feedback_callback,
+                mk(ActionClientReady {
+                    feedback: true,
+                    ..Default::default()
+                }),
+            )?),
+            Box::new(OnReadyRegistration::new(
+                Arc::clone(handle),
+                set_action_client_status_callback,
+                mk(ActionClientReady {
+                    status: true,
+                    ..Default::default()
+                }),
+            )?),
+            Box::new(OnReadyRegistration::new(
+                Arc::clone(handle),
+                set_action_client_goal_callback,
+                mk(ActionClientReady {
+                    goal_response: true,
+                    ..Default::default()
+                }),
+            )?),
+            Box::new(OnReadyRegistration::new(
+                Arc::clone(handle),
+                set_action_client_cancel_callback,
+                mk(ActionClientReady {
+                    cancel_response: true,
+                    ..Default::default()
+                }),
+            )?),
+            Box::new(OnReadyRegistration::new(
+                Arc::clone(handle),
+                set_action_client_result_callback,
+                mk(ActionClientReady {
+                    result_response: true,
+                    ..Default::default()
+                }),
+            )?),
+        ];
+
+        Ok(Some(Box::new(CompositeOnReady(regs))))
+    }
+}
+
+/// Install (or, with a null callback/user_data, clear) the "on new feedback"
+/// push callback on an action client. Encapsulates the handle lock and rcl call.
+unsafe fn set_action_client_feedback_callback(
+    handle: &ActionClientHandle,
+    callback: rcl_event_callback_t,
+    user_data: *const std::os::raw::c_void,
+) -> rcl_ret_t {
+    rcl_action_client_set_feedback_subscription_callback(&*handle.lock(), callback, user_data)
+}
+
+/// As [`set_action_client_feedback_callback`], for the status subscription.
+unsafe fn set_action_client_status_callback(
+    handle: &ActionClientHandle,
+    callback: rcl_event_callback_t,
+    user_data: *const std::os::raw::c_void,
+) -> rcl_ret_t {
+    rcl_action_client_set_status_subscription_callback(&*handle.lock(), callback, user_data)
+}
+
+/// As [`set_action_client_feedback_callback`], for the goal service client.
+unsafe fn set_action_client_goal_callback(
+    handle: &ActionClientHandle,
+    callback: rcl_event_callback_t,
+    user_data: *const std::os::raw::c_void,
+) -> rcl_ret_t {
+    rcl_action_client_set_goal_client_callback(&*handle.lock(), callback, user_data)
+}
+
+/// As [`set_action_client_feedback_callback`], for the cancel service client.
+unsafe fn set_action_client_cancel_callback(
+    handle: &ActionClientHandle,
+    callback: rcl_event_callback_t,
+    user_data: *const std::os::raw::c_void,
+) -> rcl_ret_t {
+    rcl_action_client_set_cancel_client_callback(&*handle.lock(), callback, user_data)
+}
+
+/// As [`set_action_client_feedback_callback`], for the result service client.
+unsafe fn set_action_client_result_callback(
+    handle: &ActionClientHandle,
+    callback: rcl_event_callback_t,
+    user_data: *const std::os::raw::c_void,
+) -> rcl_ret_t {
+    rcl_action_client_set_result_client_callback(&*handle.lock(), callback, user_data)
 }
 
 /// Manage the lifecycle of an `rcl_action_client_t`, including managing its dependencies

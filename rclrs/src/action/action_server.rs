@@ -1,9 +1,9 @@
 use super::empty_goal_status_array;
 use crate::{
-    action::GoalUuid, error::ToResult, rcl_bindings::*, ActionGoalReceiver, CancelResponseCode,
-    DropGuard, GoalStatusCode, Node, NodeHandle, QoSProfile, RclPrimitive, RclPrimitiveHandle,
-    RclPrimitiveKind, RclrsError, ReadyKind, TakeFailedAsNone, Waitable, WaitableLifecycle,
-    ENTITY_LIFECYCLE_MUTEX,
+    action::GoalUuid, error::ToResult, rcl_bindings::*, ActionGoalReceiver, ActionServerReady,
+    CancelResponseCode, DropGuard, GoalStatusCode, Node, NodeHandle, QoSProfile, RclPrimitive,
+    RclPrimitiveHandle, RclPrimitiveKind, RclrsError, ReadyKind, TakeFailedAsNone, Waitable,
+    WaitableLifecycle, ENTITY_LIFECYCLE_MUTEX,
 };
 use futures::future::BoxFuture;
 use ros_env::action_msgs::srv::CancelGoal_Response;
@@ -665,6 +665,81 @@ impl<A: Action> RclPrimitive for ActionServerExecutable<A> {
     fn handle(&self) -> RclPrimitiveHandle<'_> {
         RclPrimitiveHandle::ActionServer(self.board.handle.lock())
     }
+
+    fn register_on_ready(
+        &self,
+        on_ready: Box<dyn Fn(ReadyKind, usize) + Send + Sync>,
+    ) -> Result<Option<Box<dyn crate::OnReadyHandle>>, RclrsError> {
+        use crate::executor::event_callback::{CompositeOnReady, OnReadyRegistration};
+
+        // An action server bundles three services (goal/cancel/result). Register
+        // a push callback on each, tagging events with the matching readiness
+        // flag so the executor runs the right handler. Goal expiration has no rcl
+        // push callback and is driven separately (a periodic poll in the executor).
+        let on_ready = Arc::new(on_ready);
+        let handle = &self.board.handle;
+        let mk = |bits: ActionServerReady| -> Box<dyn Fn(usize) + Send + Sync> {
+            let on_ready = Arc::clone(&on_ready);
+            Box::new(move |n| on_ready(ReadyKind::ActionServer(bits), n))
+        };
+
+        let regs: Vec<Box<dyn crate::OnReadyHandle>> = vec![
+            Box::new(OnReadyRegistration::new(
+                Arc::clone(handle),
+                set_action_server_goal_callback::<A>,
+                mk(ActionServerReady {
+                    goal_request: true,
+                    ..Default::default()
+                }),
+            )?),
+            Box::new(OnReadyRegistration::new(
+                Arc::clone(handle),
+                set_action_server_cancel_callback::<A>,
+                mk(ActionServerReady {
+                    cancel_request: true,
+                    ..Default::default()
+                }),
+            )?),
+            Box::new(OnReadyRegistration::new(
+                Arc::clone(handle),
+                set_action_server_result_callback::<A>,
+                mk(ActionServerReady {
+                    result_request: true,
+                    ..Default::default()
+                }),
+            )?),
+        ];
+
+        Ok(Some(Box::new(CompositeOnReady(regs))))
+    }
+}
+
+/// Install (or, with a null callback/user_data, clear) the "on new goal request"
+/// push callback on an action server. Encapsulates the handle lock and rcl call.
+unsafe fn set_action_server_goal_callback<A: Action>(
+    handle: &ActionServerHandle<A>,
+    callback: rcl_event_callback_t,
+    user_data: *const std::os::raw::c_void,
+) -> rcl_ret_t {
+    rcl_action_server_set_goal_service_callback(&*handle.lock(), callback, user_data)
+}
+
+/// As [`set_action_server_goal_callback`], for the cancel service.
+unsafe fn set_action_server_cancel_callback<A: Action>(
+    handle: &ActionServerHandle<A>,
+    callback: rcl_event_callback_t,
+    user_data: *const std::os::raw::c_void,
+) -> rcl_ret_t {
+    rcl_action_server_set_cancel_service_callback(&*handle.lock(), callback, user_data)
+}
+
+/// As [`set_action_server_goal_callback`], for the result service.
+unsafe fn set_action_server_result_callback<A: Action>(
+    handle: &ActionServerHandle<A>,
+    callback: rcl_event_callback_t,
+    user_data: *const std::os::raw::c_void,
+) -> rcl_ret_t {
+    rcl_action_server_set_result_service_callback(&*handle.lock(), callback, user_data)
 }
 
 /// Manage the lifecycle of an `rcl_action_server_t`, including managing its dependencies

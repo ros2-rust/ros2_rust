@@ -73,8 +73,10 @@ rustflags = "0.1"
 ament_rs = "0.3"
 
 [features]
-default = []
+default = ["tokio-executor"]
 serde = ["dep:serde", "dep:serde-big-array", "rosidl_runtime_rs/serde", "ros-env/serde"]
+# Enables the event-driven, Tokio-based multi-threaded executor
+tokio-executor = ["tokio/rt-multi-thread", "tokio/macros", "tokio/time"]
 # This feature is solely for the purpose of being able to generate documetation without a ROS installation
 # The only intended usage of this feature is for docs.rs builders to work, and is not intended to be used by end users
 use_ros_shim = ["paste", "ros-env/use_ros_shim", "rosidl_runtime_rs/use_ros_shim"]
