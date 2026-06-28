@@ -120,6 +120,12 @@ impl<Scope: WorkScope> TimerState<Scope> {
             rcl_timer_cancel(&mut *rcl_timer)
         }
         .ok()?;
+
+        #[cfg(feature = "tokio-executor")]
+        if let Some(notify) = self.handle.scheduler.lock().unwrap().as_ref() {
+            notify.unschedule();
+        }
+
         Ok(cancel_result)
     }
 
@@ -193,17 +199,29 @@ impl<Scope: WorkScope> TimerState<Scope> {
     /// For all timers it will reset the last call time to now. For cancelled
     /// timers it will revert the timer to no longer being cancelled.
     pub fn reset(&self) -> Result<(), RclrsError> {
-        // SAFETY: The unwrap is safe here since we never use the rcl_timer
-        // in a way that could panic while the mutex is locked.
-        let mut rcl_timer = self.handle.rcl_timer.lock().unwrap();
+        // Scope the rcl_timer lock so it is released before notifying the
+        // scheduler below: `reschedule` re-locks this same timer to read its
+        // next deadline, which would otherwise self-deadlock.
+        {
+            // SAFETY: The unwrap is safe here since we never use the rcl_timer
+            // in a way that could panic while the mutex is locked.
+            let mut rcl_timer = self.handle.rcl_timer.lock().unwrap();
 
-        unsafe {
-            // SAFETY: The rcl_timer is kept valid by the TimerState. This C
-            // function call is thread-safe and only requires a valid rcl_timer
-            // to be passed in.
-            rcl_timer_reset(&mut *rcl_timer)
+            unsafe {
+                // SAFETY: The rcl_timer is kept valid by the TimerState. This C
+                // function call is thread-safe and only requires a valid rcl_timer
+                // to be passed in.
+                rcl_timer_reset(&mut *rcl_timer)
+            }
+            .ok()?;
         }
-        .ok()
+
+        #[cfg(feature = "tokio-executor")]
+        if let Some(notify) = self.handle.scheduler.lock().unwrap().as_ref() {
+            notify.reschedule();
+        }
+
+        Ok(())
     }
 
     /// Checks if the timer is ready (not canceled)
@@ -321,7 +339,12 @@ impl<Scope: WorkScope> TimerState<Scope> {
         .ok()?;
 
         let timer = Arc::new(TimerState {
-            handle: Arc::new(TimerHandle { rcl_timer, clock }),
+            handle: Arc::new(TimerHandle {
+                rcl_timer,
+                clock,
+                #[cfg(feature = "tokio-executor")]
+                scheduler: Arc::new(Mutex::new(None)),
+            }),
             callback: Mutex::new(Some(callback)),
             last_elapse: Mutex::new(Duration::ZERO),
             lifecycle: Mutex::default(),
@@ -510,8 +533,12 @@ impl<Scope: WorkScope> RclPrimitive for TimerExecutable<Scope> {
         RclPrimitiveHandle::Timer(self.handle.rcl_timer.lock().unwrap())
     }
 
-    fn timer_handle(&self) -> Option<Arc<Mutex<rcl_timer_t>>> {
-        Some(Arc::clone(&self.handle.rcl_timer))
+    #[cfg(feature = "tokio-executor")]
+    fn timer_scheduler_handles(&self) -> Option<crate::TimerSchedulerHandles> {
+        Some(crate::TimerSchedulerHandles {
+            rcl_timer: Arc::clone(&self.handle.rcl_timer),
+            notify_slot: Arc::clone(&self.handle.scheduler),
+        })
     }
 }
 
@@ -537,11 +564,20 @@ fn rcl_duration(duration_value_ns: i64) -> Result<Duration, RclrsError> {
 pub(crate) struct TimerHandle {
     pub(crate) rcl_timer: Arc<Mutex<rcl_timer_t>>,
     clock: Clock,
+    #[cfg(feature = "tokio-executor")]
+    pub(crate) scheduler: Arc<Mutex<Option<crate::executor::TimerSchedulerNotify>>>,
 }
 
 /// 'Drop' trait implementation to be able to release the resources
 impl Drop for TimerHandle {
     fn drop(&mut self) {
+        // Drop the scheduler entry first (idempotent) so the scheduler thread
+        // can no longer touch this rcl_timer before we finalize it below.
+        #[cfg(feature = "tokio-executor")]
+        if let Some(notify) = self.scheduler.lock().unwrap().take() {
+            notify.remove();
+        }
+
         let _lifecycle = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
         unsafe {
             // SAFETY: The lifecycle mutex is locked and the clock for the timer

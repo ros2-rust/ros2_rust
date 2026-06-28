@@ -3,7 +3,10 @@ use std::{
     sync::{Arc, Mutex, MutexGuard},
 };
 
-use crate::{log_error, rcl_bindings::*, InnerGuardConditionHandle, RclrsError, ToResult};
+use crate::{
+    executor::TimerSchedulerNotify, log_error, rcl_bindings::*, InnerGuardConditionHandle,
+    RclrsError, ToResult,
+};
 
 /// This provides the public API for executing a waitable item.
 pub trait RclPrimitive: Send + Sync {
@@ -56,11 +59,13 @@ pub trait RclPrimitive: Send + Sync {
         Ok(None)
     }
 
-    /// For timer primitives, returns a clone of the underlying rcl timer handle
-    /// so an event-driven executor can drive it from its own clock (timers are
-    /// not message-driven and have no rcl push-callback API). Returns `None` for
-    /// every other primitive kind.
-    fn timer_handle(&self) -> Option<Arc<Mutex<rcl_timer_t>>> {
+    /// For a timer primitive, the handles the Tokio timer scheduler needs to
+    /// drive it: the rcl timer and the slot for its notify handle (see
+    /// [`TimerSchedulerHandles`]). Timers have no rcl push-callback API, so the
+    /// scheduler drives them instead. Returns `None` for every other primitive
+    /// kind.
+    #[cfg(feature = "tokio-executor")]
+    fn timer_scheduler_handles(&self) -> Option<TimerSchedulerHandles> {
         None
     }
 }
@@ -328,4 +333,18 @@ impl Default for ActionClientReady {
             result_response: false,
         }
     }
+}
+
+/// The handles the Tokio timer scheduler needs to drive a timer: the rcl timer
+/// (to read deadlines from) and the slot where the timer keeps the
+/// [`TimerSchedulerNotify`] it receives at registration, so its `reset`/`cancel`
+/// and drop can reach the scheduler. Returned by
+/// [`RclPrimitive::timer_scheduler_handles`]; `None` for non-timer primitives.
+#[cfg(feature = "tokio-executor")]
+pub(crate) struct TimerSchedulerHandles {
+    /// The rcl timer the scheduler reads deadlines from.
+    pub rcl_timer: Arc<Mutex<rcl_timer_t>>,
+    /// Slot where the timer stores the [`TimerSchedulerNotify`] it gets back from
+    /// registration, so reset/cancel/drop can notify the scheduler.
+    pub notify_slot: Arc<Mutex<Option<TimerSchedulerNotify>>>,
 }

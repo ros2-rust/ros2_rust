@@ -21,6 +21,8 @@
 //! Code that needs work confined to spinning should put it in an entity callback
 //! rather than a spawned task.
 
+mod timer_scheduler;
+
 use std::{
     any::Any,
     collections::HashMap,
@@ -39,12 +41,15 @@ use tokio::sync::{
 };
 
 use crate::{
-    log_error,
-    rcl_bindings::{rcl_timer_get_time_until_next_call, rcl_timer_is_ready, rcl_timer_t},
-    ActionClientReady, ActionServerReady, Context, ExecutorChannel, ExecutorRuntime,
+    log_error, ActionClientReady, ActionServerReady, Context, ExecutorChannel, ExecutorRuntime,
     ExecutorWorkerOptions, OnReadyHandle, PayloadTask, RclPrimitiveKind, RclReturnCode, RclrsError,
-    ReadyKind, SpinConditions, ToResult, Waitable, WeakActivityListener, WorkerChannel,
+    ReadyKind, SpinConditions, TimerSchedulerHandles, Waitable, WeakActivityListener,
+    WorkerChannel,
 };
+
+use timer_scheduler::{TimerRegistration, TimerScheduler};
+
+pub(crate) use timer_scheduler::TimerSchedulerNotify;
 
 use super::Executor;
 
@@ -90,6 +95,7 @@ impl TokioExecutorRuntime {
 
     fn from_host(host: RuntimeHost) -> Self {
         let (spin, _) = watch::channel(false);
+        let timer_scheduler = Arc::new(TimerScheduler::new());
         Self {
             host,
             shared: Arc::new(ExecutorShared {
@@ -99,6 +105,7 @@ impl TokioExecutorRuntime {
                 outstanding: Arc::new(AtomicUsize::new(0)),
                 errors: Arc::new(Mutex::new(Vec::new())),
                 next_entity_id: Arc::new(AtomicU64::new(0)),
+                timer_scheduler,
             }),
         }
     }
@@ -438,6 +445,7 @@ impl ExecutorChannel for TokioExecutorChannel {
             errors: Arc::clone(&self.shared.errors),
             next_entity_id: Arc::clone(&self.shared.next_entity_id),
             outstanding: Arc::clone(&self.shared.outstanding),
+            timer_scheduler: Arc::clone(&self.shared.timer_scheduler),
         })
     }
 
@@ -455,6 +463,7 @@ struct TokioWorkerChannel {
     errors: Arc<Mutex<Vec<RclrsError>>>,
     next_entity_id: Arc<AtomicU64>,
     outstanding: Arc<AtomicUsize>,
+    timer_scheduler: Arc<TimerScheduler>,
 }
 
 impl TokioWorkerChannel {
@@ -484,9 +493,9 @@ impl WorkerChannel for TokioWorkerChannel {
     }
 
     /// Register a worker entity with the executor: insert it into the registry,
-    /// then install its push callback (for message-driven primitives) or spawn a
-    /// timer driver (for timers), so the entity's readiness reaches this worker's
-    /// mailbox.
+    /// then install its push callback (for message-driven primitives) or register
+    /// it with the shared timer scheduler (for timers), so the entity's readiness
+    /// reaches this worker's mailbox.
     ///
     /// Guard conditions have no rcl push-callback API, so `register_on_ready`
     /// returns `None` and they sit inert here. That is correct for the per-worker
@@ -527,14 +536,14 @@ impl WorkerChannel for TokioWorkerChannel {
         ));
         let on_ready = self.make_on_ready(Arc::clone(&dispatch), ready.clone());
 
-        // Grab the timer-driver inputs before `new_entity` is moved into the
+        // Grab the timer-scheduler inputs before `new_entity` is moved into the
         // registry below.
-        let timer = new_entity.timer_handle();
+        let timer_handles = new_entity.timer_scheduler_handles();
         let in_use = new_entity.in_use_handle();
 
-        // Insert into the registry BEFORE registering the push callback (or
-        // spawning the timer driver), so the entity is always resolvable by the
-        // time any readiness can enqueue a `Ready` for it.
+        // Insert into the registry BEFORE registering the push callback (or the
+        // timer), so the entity is always resolvable by the time any readiness
+        // can enqueue a `Ready` for it.
         //
         // Registering first would race: an early middleware callback could fire,
         // enqueue a `Ready`, and have the worker drop it (entity not found yet),
@@ -566,18 +575,21 @@ impl WorkerChannel for TokioWorkerChannel {
         };
         *entry._on_ready.lock().unwrap() = registration;
 
-        // Timers have no rcl push callback. Drive them from the Tokio clock. The
-        // driver delivers through the same `dispatch` as push callbacks, so a
-        // timer fire is one bounded take like any other event.
-        if let Some(rcl_timer) = timer {
-            self.handle.spawn(
-                TimerDriver {
-                    rcl_timer,
-                    in_use: Arc::clone(&in_use),
-                    dispatch: Arc::clone(&dispatch),
-                }
-                .run(),
-            );
+        // Timers have no rcl push callback. Register them with the shared timer
+        // scheduler, which paces all timers from one thread and delivers each fire
+        // through the same `dispatch` as push callbacks, so a tick is one bounded
+        // take like any other event.
+        if let Some(TimerSchedulerHandles {
+            rcl_timer,
+            notify_slot,
+        }) = timer_handles
+        {
+            let notify = self.timer_scheduler.register(TimerRegistration {
+                rcl_timer,
+                dispatch: Arc::clone(&dispatch),
+                in_use: Arc::clone(&in_use),
+            });
+            *notify_slot.lock().unwrap() = Some(notify);
         }
 
         // Action-server goal expiration has no rcl push callback (rcl uses an
@@ -625,6 +637,9 @@ struct ExecutorShared {
 
     /// Allocates entity ids across all workers.
     next_entity_id: Arc<AtomicU64>,
+
+    /// Shared timer scheduler (one heap, one waiter) for all workers' timers.
+    timer_scheduler: Arc<TimerScheduler>,
 }
 
 /// The per-worker event loop. Spawned once per worker (see
@@ -887,7 +902,7 @@ enum WorkerMsg {
 /// in-flight counter `spin()` uses for quiescence.
 ///
 /// Shared (behind an `Arc`) by every path that can make an entity ready — the
-/// push callback, the timer driver, and the worker that drains it.
+/// push callback, the timer scheduler, and the worker that drains it.
 pub(crate) struct EntityDispatch {
     /// Identifies the entity in `Ready` messages.
     id: EntityId,
@@ -939,6 +954,11 @@ impl EntityDispatch {
         }
     }
 
+    /// Whether a `Ready` is currently queued and not yet handled.
+    pub(crate) fn is_scheduled(&self) -> bool {
+        self.scheduled.load(Ordering::Acquire)
+    }
+
     /// Worker side: clear the queued flag and take all pending events. Clearing
     /// *before* the take lets a notification that races the drain queue a fresh
     /// `Ready`, so no wakeup is lost.
@@ -963,7 +983,7 @@ struct WorkerEntity {
 
     /// Delivers this entity's readiness to the worker, combining repeated
     /// notifications into at most one pending `Ready` (see [`EntityDispatch`]).
-    /// Shared with the entity's push callback and, for timers, its driver.
+    /// Shared with the entity's push callback and, for timers, the scheduler.
     dispatch: Arc<EntityDispatch>,
 
     /// Merged readiness for composite primitives (action servers/clients) whose
@@ -981,105 +1001,6 @@ struct WorkerEntity {
     /// middleware callback enqueue a `Ready` the worker can't resolve, which it
     /// would drop, wedging the entity with its dispatch flag stuck set.
     _on_ready: Mutex<Option<Box<dyn OnReadyHandle>>>,
-}
-
-/// When a timer will next fire, as reported by rcl.
-enum NextFire {
-    /// Fires after this much time.
-    In(Duration),
-    /// Due now.
-    Now,
-    /// rcl could not report a time (the timer was canceled or errored).
-    Unavailable,
-}
-
-/// Drives a single timer from the Tokio clock. Timers have no rcl push callback,
-/// so one of these is spawned per timer: it sleeps until the timer's next
-/// deadline, queues a ready message on the worker's mailbox, waits until the
-/// worker has run the timer, and repeats. It exits when the timer's owning entity
-/// is dropped (or the worker is gone).
-struct TimerDriver {
-    rcl_timer: Arc<Mutex<rcl_timer_t>>,
-    /// Cleared when the timer's owning entity is dropped; the driver then exits.
-    in_use: Arc<AtomicBool>,
-    /// Shared with the timer entity: a fire is delivered through it, so it's
-    /// handled as one bounded take like any other event (see [`EntityDispatch`]).
-    dispatch: Arc<EntityDispatch>,
-}
-
-impl TimerDriver {
-    async fn run(self) {
-        loop {
-            if !self.in_use.load(Ordering::Acquire) {
-                return;
-            }
-
-            match self.time_until_next_fire() {
-                NextFire::In(delay) => tokio::time::sleep(delay).await,
-                NextFire::Now => tokio::task::yield_now().await,
-                NextFire::Unavailable => {
-                    // Canceled or errored: don't busy-loop. Back off and re-check;
-                    // the driver exits once the timer is dropped.
-                    tokio::time::sleep(Duration::from_millis(50)).await;
-                    continue;
-                }
-            }
-
-            if !self.in_use.load(Ordering::Acquire) {
-                return;
-            }
-
-            if !self.dispatch.notify(1) {
-                return; // worker gone
-            }
-
-            if !self.wait_until_handled().await {
-                return; // entity dropped while waiting
-            }
-        }
-    }
-
-    /// Ask rcl how long until this timer next fires.
-    fn time_until_next_fire(&self) -> NextFire {
-        let timer = self.rcl_timer.lock().unwrap();
-        let mut value: i64 = 0;
-
-        // SAFETY: handle valid and locked
-        let ret = unsafe { rcl_timer_get_time_until_next_call(&*timer, &mut value) };
-
-        match ret.ok() {
-            Ok(()) if value > 0 => NextFire::In(Duration::from_nanos(value as u64)),
-            Ok(()) => NextFire::Now,
-            Err(_) => NextFire::Unavailable,
-        }
-    }
-
-    /// Wait until the worker has actually run the timer (it no longer reports
-    /// ready) before computing the next deadline, so we don't re-fire for the
-    /// same deadline. Returns `false` if the timer's entity was dropped while
-    /// waiting, in which case the driver should exit.
-    async fn wait_until_handled(&self) -> bool {
-        loop {
-            if !self.in_use.load(Ordering::Acquire) {
-                return false;
-            }
-            if !self.is_ready() {
-                return true;
-            }
-            tokio::time::sleep(Duration::from_millis(1)).await;
-        }
-    }
-
-    /// Whether the rcl timer currently reports ready. An error (e.g. the timer was
-    /// canceled) is treated as not ready, letting the outer loop's time query
-    /// handle the canceled state.
-    fn is_ready(&self) -> bool {
-        let timer = self.rcl_timer.lock().unwrap();
-        let mut ready = false;
-        // SAFETY: handle valid and locked; out-pointer valid.
-        let ret = unsafe { rcl_timer_is_ready(&*timer, &mut ready) };
-        ret.ok().map(|()| ready).unwrap_or(false)
-    }
 }
 
 /// OR the readiness flags of `new` into `acc`. Used to merge the
@@ -1788,5 +1709,261 @@ mod tests {
             .unwrap();
 
         assert!(done.load(Ordering::Acquire));
+    }
+
+    /// A 1 kHz timer should fire close to its ideal rate with the shared scheduler.
+    #[test]
+    fn tokio_high_rate_timer() -> Result<(), RclrsError> {
+        let mut executor = Context::default().create_tokio_executor();
+        let node = executor.create_node(
+            format!("test_tokio_high_rate_{}", line!()).start_parameter_services(false),
+        )?;
+
+        let count = Arc::new(AtomicUsize::new(0));
+        let count_cb = Arc::clone(&count);
+        let _timer = node.create_timer_repeating(Duration::from_millis(1), move || {
+            count_cb.fetch_add(1, Ordering::Relaxed);
+        })?;
+
+        executor.spin(SpinOptions::new().timeout(Duration::from_secs(1)));
+
+        let fired = count.load(Ordering::Relaxed);
+        assert!(
+            fired >= 800,
+            "1 kHz timer fired only {fired} times in ~1s (expected >= 800)"
+        );
+        Ok(())
+    }
+
+    /// Several timers at different rates each fire from one shared scheduler.
+    #[test]
+    fn tokio_multi_rate_timers() -> Result<(), RclrsError> {
+        let mut executor = Context::default().create_tokio_executor();
+        let node = executor.create_node(
+            format!("test_tokio_multi_rate_{}", line!()).start_parameter_services(false),
+        )?;
+
+        let fast = Arc::new(AtomicUsize::new(0));
+        let slow = Arc::new(AtomicUsize::new(0));
+        let fast_cb = Arc::clone(&fast);
+        let slow_cb = Arc::clone(&slow);
+
+        let _t1 = node.create_timer_repeating(Duration::from_millis(5), move || {
+            fast_cb.fetch_add(1, Ordering::Relaxed);
+        })?;
+        let _t2 = node.create_timer_repeating(Duration::from_millis(20), move || {
+            slow_cb.fetch_add(1, Ordering::Relaxed);
+        })?;
+
+        executor.spin(SpinOptions::new().timeout(Duration::from_millis(500)));
+
+        let fast_fired = fast.load(Ordering::Relaxed);
+        let slow_fired = slow.load(Ordering::Relaxed);
+        assert!(
+            fast_fired >= 60,
+            "fast timer fired only {fast_fired} times in ~500ms (expected ~100)"
+        );
+        assert!(
+            slow_fired >= 15,
+            "slow timer fired only {slow_fired} times in ~500ms (expected ~25)"
+        );
+        assert!(
+            fast_fired > slow_fired * 2,
+            "fast timer ({fast_fired}) did not outpace slow ({slow_fired})"
+        );
+        Ok(())
+    }
+
+    /// Cancelled timers stop firing.
+    #[test]
+    fn tokio_timer_cancel_stops() -> Result<(), RclrsError> {
+        let mut executor = Context::default().create_tokio_executor();
+        let node = executor.create_node(
+            format!("test_tokio_timer_cancel_{}", line!()).start_parameter_services(false),
+        )?;
+
+        let count = Arc::new(AtomicUsize::new(0));
+        let count_cb = Arc::clone(&count);
+        let timer = node.create_timer_repeating(Duration::from_millis(5), move || {
+            count_cb.fetch_add(1, Ordering::Relaxed);
+        })?;
+
+        executor.spin(SpinOptions::new().timeout(Duration::from_millis(100)));
+        assert!(
+            count.load(Ordering::Relaxed) > 0,
+            "timer never fired before cancel"
+        );
+
+        timer.cancel()?;
+        let after_cancel = count.load(Ordering::Relaxed);
+        executor.spin(SpinOptions::new().timeout(Duration::from_millis(100)));
+        assert_eq!(
+            count.load(Ordering::Relaxed),
+            after_cancel,
+            "timer kept firing after cancel"
+        );
+        Ok(())
+    }
+
+    /// A slow callback causes dropped ticks, not unbounded pending growth.
+    #[test]
+    fn tokio_slow_timer_callback_drops_ticks() -> Result<(), RclrsError> {
+        let mut executor = Context::default().create_tokio_executor();
+        let node = executor.create_node(
+            format!("test_tokio_slow_timer_{}", line!()).start_parameter_services(false),
+        )?;
+
+        let count = Arc::new(AtomicUsize::new(0));
+        let count_cb = Arc::clone(&count);
+        let _timer = node.create_timer_repeating(Duration::from_millis(1), move || {
+            count_cb.fetch_add(1, Ordering::Relaxed);
+            std::thread::sleep(Duration::from_millis(10));
+        })?;
+
+        executor.spin(SpinOptions::new().timeout(Duration::from_millis(200)));
+
+        let fired = count.load(Ordering::Relaxed);
+        assert!(
+            fired < 150,
+            "slow callback allowed {fired} fires in 200ms (pending burst?)"
+        );
+        assert!(fired >= 5, "timer never fired at all ({fired})");
+        Ok(())
+    }
+
+    /// Steady- and system-clock timers both fire on the shared scheduler.
+    #[test]
+    fn tokio_timer_steady_and_system_clocks() -> Result<(), RclrsError> {
+        use crate::IntoTimerOptions;
+
+        let mut executor = Context::default().create_tokio_executor();
+        let node = executor.create_node(
+            format!("test_tokio_timer_clocks_{}", line!()).start_parameter_services(false),
+        )?;
+
+        let steady_count = Arc::new(AtomicUsize::new(0));
+        let system_count = Arc::new(AtomicUsize::new(0));
+        let steady_cb = Arc::clone(&steady_count);
+        let system_cb = Arc::clone(&system_count);
+
+        let _steady =
+            node.create_timer_repeating(Duration::from_millis(10).steady_time(), move || {
+                steady_cb.fetch_add(1, Ordering::Relaxed);
+            })?;
+        let _system =
+            node.create_timer_repeating(Duration::from_millis(10).system_time(), move || {
+                system_cb.fetch_add(1, Ordering::Relaxed);
+            })?;
+
+        executor.spin(SpinOptions::new().timeout(Duration::from_millis(200)));
+
+        assert!(
+            steady_count.load(Ordering::Relaxed) >= 5,
+            "steady-clock timer did not fire"
+        );
+        assert!(
+            system_count.load(Ordering::Relaxed) >= 5,
+            "system-clock timer did not fire"
+        );
+        Ok(())
+    }
+
+    /// A cancelled timer fires again after reset().
+    #[test]
+    fn tokio_timer_reset_after_cancel() -> Result<(), RclrsError> {
+        let mut executor = Context::default().create_tokio_executor();
+        let node = executor.create_node(
+            format!("test_tokio_timer_reset_cancel_{}", line!()).start_parameter_services(false),
+        )?;
+
+        let count = Arc::new(AtomicUsize::new(0));
+        let count_cb = Arc::clone(&count);
+        let timer = node.create_timer_repeating(Duration::from_millis(5), move || {
+            count_cb.fetch_add(1, Ordering::Relaxed);
+        })?;
+
+        executor.spin(SpinOptions::new().timeout(Duration::from_millis(100)));
+        assert!(
+            count.load(Ordering::Relaxed) > 0,
+            "timer never fired before cancel"
+        );
+
+        timer.cancel()?;
+        let after_cancel = count.load(Ordering::Relaxed);
+        executor.spin(SpinOptions::new().timeout(Duration::from_millis(100)));
+        assert_eq!(
+            count.load(Ordering::Relaxed),
+            after_cancel,
+            "timer kept firing after cancel"
+        );
+
+        timer.reset()?;
+        executor.spin(SpinOptions::new().timeout(Duration::from_millis(100)));
+        assert!(
+            count.load(Ordering::Relaxed) > after_cancel,
+            "timer did not fire again after reset"
+        );
+        Ok(())
+    }
+
+    /// reset() on an active timer keeps it firing without stopping it or
+    /// double-scheduling a burst.
+    #[test]
+    fn tokio_timer_reset_keeps_firing() -> Result<(), RclrsError> {
+        let mut executor = Context::default().create_tokio_executor();
+        let node = executor.create_node(
+            format!("test_tokio_timer_reset_reseed_{}", line!()).start_parameter_services(false),
+        )?;
+
+        let count = Arc::new(AtomicUsize::new(0));
+        let count_cb = Arc::clone(&count);
+        let timer = node.create_timer_repeating(Duration::from_millis(20), move || {
+            count_cb.fetch_add(1, Ordering::Relaxed);
+        })?;
+
+        executor.spin(SpinOptions::new().timeout(Duration::from_millis(100)));
+        let before_reset = count.load(Ordering::Relaxed);
+        assert!(before_reset > 0, "timer never fired before reset");
+
+        timer.reset()?;
+        executor.spin(SpinOptions::new().timeout(Duration::from_millis(200)));
+        let after = count.load(Ordering::Relaxed) - before_reset;
+        assert!(
+            after >= 4,
+            "timer stopped firing after reset ({after} in ~200ms, expected ~10)"
+        );
+        assert!(
+            after <= 20,
+            "reset() caused a burst ({after} in ~200ms, expected ~10)"
+        );
+        Ok(())
+    }
+
+    /// Repeating timers stay near their ideal rate over several seconds.
+    #[test]
+    fn tokio_timer_no_drift() -> Result<(), RclrsError> {
+        let mut executor = Context::default().create_tokio_executor();
+        let node = executor.create_node(
+            format!("test_tokio_timer_no_drift_{}", line!()).start_parameter_services(false),
+        )?;
+
+        let count = Arc::new(AtomicUsize::new(0));
+        let count_cb = Arc::clone(&count);
+        let _timer = node.create_timer_repeating(Duration::from_millis(10), move || {
+            count_cb.fetch_add(1, Ordering::Relaxed);
+        })?;
+
+        executor.spin(SpinOptions::new().timeout(Duration::from_secs(2)));
+
+        let fired = count.load(Ordering::Relaxed);
+        assert!(
+            fired >= 160,
+            "10 ms timer drifted low: {fired} fires in ~2s (expected ~200)"
+        );
+        assert!(
+            fired <= 240,
+            "10 ms timer drifted high: {fired} fires in ~2s (expected ~200)"
+        );
+        Ok(())
     }
 }

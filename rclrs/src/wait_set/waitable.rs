@@ -2,9 +2,6 @@ use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
 };
-// Only the feature-gated `timer_handle` accessor below uses `Mutex`.
-#[cfg(feature = "tokio-executor")]
-use std::sync::Mutex;
 
 use crate::{
     error::ToResult, log_error, rcl_bindings::*, ActionClientReady, ActionServerReady,
@@ -93,11 +90,11 @@ impl Waitable {
         unsafe { self.primitive.execute(ready, payload) }
     }
 
-    /// If this waitable wraps a timer, returns a clone of its rcl timer handle so
-    /// an event-driven executor can drive it from its own clock. `None` otherwise.
+    /// If this waitable wraps a timer, the handles the Tokio timer scheduler
+    /// needs to drive it (rcl timer + notify slot). `None` otherwise.
     #[cfg(feature = "tokio-executor")]
-    pub(crate) fn timer_handle(&self) -> Option<Arc<Mutex<rcl_timer_t>>> {
-        self.primitive.timer_handle()
+    pub(crate) fn timer_scheduler_handles(&self) -> Option<crate::TimerSchedulerHandles> {
+        self.primitive.timer_scheduler_handles()
     }
 
     /// A clone of the "in use" flag, so an event-driven executor's timer driver
