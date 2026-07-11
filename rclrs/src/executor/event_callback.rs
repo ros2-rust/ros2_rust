@@ -24,27 +24,92 @@
 //!
 //! Getting that ordering wrong is a use-after-free, since the middleware may be
 //! calling the trampoline from another thread at the moment of teardown.
+//!
+//! # Panic containment
+//!
+//! The trampoline is an `extern "C"` entry point. A Rust panic must not unwind
+//! across that boundary. User closures are therefore invoked inside
+//! [`std::panic::catch_unwind`]; on panic the registration is disabled and a
+//! fatal log is emitted once. An optional [`OnReadyPanicHook`] lets an executor
+//! record the failure and wake its spin driver without panicking or allocating
+//! in the reporter itself.
 
-use std::{os::raw::c_void, sync::Arc};
+use std::{
+    os::raw::c_void,
+    panic::AssertUnwindSafe,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+};
 
-use crate::{rcl_bindings::*, OnReadyHandle, RclrsError, ToResult};
+use crate::{log_fatal, rcl_bindings::*, OnReadyHandle, RclrsError, ToResult};
+
+/// Optional hook invoked once when a push callback panics. Must not panic or
+/// allocate unboundedly; an executor uses this to record a fatal spin error and
+/// wake its driver.
+pub(crate) type OnReadyPanicHook = Arc<dyn Fn() + Send + Sync>;
 
 /// The context carried through rcl as `user_data`. Boxed so its address is
 /// stable for the lifetime of the registration.
 struct EventCallbackCtx {
+    /// When false, the trampoline returns without invoking the closure.
+    enabled: AtomicBool,
+    /// Set after the first panic so we log and notify at most once.
+    panic_reported: AtomicBool,
     on_ready: Box<dyn Fn(usize) + Send + Sync>,
+    on_panic: Option<OnReadyPanicHook>,
+}
+
+impl EventCallbackCtx {
+    fn new(on_ready: Box<dyn Fn(usize) + Send + Sync>, on_panic: Option<OnReadyPanicHook>) -> Self {
+        Self {
+            enabled: AtomicBool::new(true),
+            panic_reported: AtomicBool::new(false),
+            on_ready,
+            on_panic,
+        }
+    }
+
+    /// Record the first panic, disable this registration, and notify an executor
+    /// if one was wired in. Must not panic or allocate unboundedly.
+    fn report_panic(&self) {
+        if self.panic_reported.swap(true, Ordering::AcqRel) {
+            return;
+        }
+        self.enabled.store(false, Ordering::Release);
+        log_fatal!(
+            "rclrs.executor.event_callback",
+            "A push on-ready callback panicked; the registration has been disabled \
+             and will not be invoked again.",
+        );
+        if let Some(on_panic) = &self.on_panic {
+            on_panic();
+        }
+    }
 }
 
 /// The C trampoline that rcl/rmw invokes when an entity becomes ready. It may be
 /// called from a middleware thread, so it does nothing but forward to the Rust
 /// closure. It must not run user code or take locks that could deadlock the
-/// middleware.
+/// middleware, and it must not let a Rust panic unwind across the C ABI.
 unsafe extern "C" fn on_ready_trampoline(user_data: *const c_void, number_of_events: usize) {
     // SAFETY: `user_data` is the pointer to the `EventCallbackCtx` we passed to
     // the rcl setter. It stays valid until the owning registration's `Drop`
     // clears the callback, which always happens before the box is freed.
     let ctx = unsafe { &*(user_data as *const EventCallbackCtx) };
-    (ctx.on_ready)(number_of_events);
+    if !ctx.enabled.load(Ordering::Acquire) {
+        return;
+    }
+
+    let panicked = std::panic::catch_unwind(AssertUnwindSafe(|| {
+        (ctx.on_ready)(number_of_events);
+    }))
+    .is_err();
+
+    if panicked {
+        ctx.report_panic();
+    }
 }
 
 /// A function that registers (or, with a null callback/user_data, clears) the
@@ -84,7 +149,18 @@ impl<H: Send + Sync + 'static> OnReadyRegistration<H> {
         set_callback: SetOnReadyFn<H>,
         on_ready: Box<dyn Fn(usize) + Send + Sync>,
     ) -> Result<Self, RclrsError> {
-        let ctx = Box::into_raw(Box::new(EventCallbackCtx { on_ready }));
+        Self::new_with_panic_hook(handle, set_callback, on_ready, None)
+    }
+
+    /// Like [`Self::new`], but invokes `on_panic` once if the user closure
+    /// panics so an executor can surface the failure to `spin()`.
+    pub(crate) fn new_with_panic_hook(
+        handle: Arc<H>,
+        set_callback: SetOnReadyFn<H>,
+        on_ready: Box<dyn Fn(usize) + Send + Sync>,
+        on_panic: Option<OnReadyPanicHook>,
+    ) -> Result<Self, RclrsError> {
+        let ctx = Box::into_raw(Box::new(EventCallbackCtx::new(on_ready, on_panic)));
 
         // SAFETY: `ctx` points to a live, heap-stable context that outlives the
         // registration (only freed once, when the `CtxBox` field is dropped).
@@ -153,7 +229,7 @@ mod tests {
     use crate::{subscription::set_subscription_on_new_message, *};
     use ros_env::test_msgs::msg;
     use std::{
-        sync::atomic::{AtomicUsize, Ordering},
+        sync::atomic::{AtomicBool, AtomicUsize, Ordering},
         time::{Duration, Instant},
     };
 
@@ -238,6 +314,68 @@ mod tests {
 
         stop.store(true, Ordering::Release);
         flood.join().unwrap();
+        Ok(())
+    }
+
+    /// A panicking push callback must not unwind across the C trampoline or
+    /// wedge later invocations. After the first panic the registration is
+    /// disabled and the optional hook fires once.
+    #[test]
+    fn push_callback_panic_is_contained() -> Result<(), RclrsError> {
+        let executor = Context::default().create_basic_executor();
+        let node = executor.create_node(&format!("test_push_panic_{}", line!()))?;
+        let qos = QoSProfile::default().reliable().keep_last(10);
+
+        let publisher = node.create_publisher::<msg::Empty>("test_push_panic_topic".qos(qos))?;
+        let subscription = node.create_subscription::<msg::Empty, _>(
+            "test_push_panic_topic".qos(qos),
+            |_: msg::Empty| {},
+        )?;
+
+        let invocations = Arc::new(AtomicUsize::new(0));
+        let invocations_cb = Arc::clone(&invocations);
+        let hook_fired = Arc::new(AtomicBool::new(false));
+        let hook_fired_cb = Arc::clone(&hook_fired);
+        let _registration = OnReadyRegistration::new_with_panic_hook(
+            Arc::clone(subscription.handle()),
+            set_subscription_on_new_message,
+            Box::new(move |_| {
+                invocations_cb.fetch_add(1, Ordering::Relaxed);
+                panic!("push callback panic");
+            }),
+            Some(Arc::new(move || {
+                hook_fired_cb.store(true, Ordering::Release);
+            })),
+        )?;
+
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while invocations.load(Ordering::Relaxed) == 0 && Instant::now() < deadline {
+            publisher.publish(msg::Empty::default())?;
+            std::thread::sleep(Duration::from_millis(20));
+        }
+
+        assert_eq!(
+            invocations.load(Ordering::Relaxed),
+            1,
+            "expected exactly one invocation before the registration was disabled",
+        );
+        assert!(
+            hook_fired.load(Ordering::Acquire),
+            "panic hook should fire once",
+        );
+
+        let invocations_after = invocations.load(Ordering::Relaxed);
+        let deadline = Instant::now() + Duration::from_secs(2);
+        while Instant::now() < deadline {
+            publisher.publish(msg::Empty::default())?;
+            std::thread::sleep(Duration::from_millis(20));
+        }
+
+        assert_eq!(
+            invocations.load(Ordering::Relaxed),
+            invocations_after,
+            "registration should stay disabled after panic",
+        );
         Ok(())
     }
 }
