@@ -1,7 +1,7 @@
 use std::{
     any::Any,
     ffi::{CStr, CString},
-    sync::{Arc, Mutex, MutexGuard},
+    sync::{atomic::AtomicBool, Arc, Mutex, MutexGuard},
 };
 
 use rosidl_runtime_rs::{Message, RmwMessage};
@@ -181,6 +181,7 @@ where
         let handle = Arc::new(SubscriptionHandle {
             rcl_subscription: Mutex::new(rcl_subscription),
             node_handle: Arc::clone(node_handle),
+            on_ready_slot: AtomicBool::new(false),
         });
 
         let (waitable, lifecycle) = Waitable::new(
@@ -314,6 +315,7 @@ where
         let registration = crate::executor::event_callback::OnReadyRegistration::new(
             Arc::clone(&self.handle),
             set_subscription_on_new_message,
+            subscription_on_ready_slot,
             Box::new(on_ready),
         )?;
         Ok(Some(Box::new(registration)))
@@ -331,6 +333,13 @@ pub(crate) unsafe fn set_subscription_on_new_message(
     rcl_subscription_set_on_new_message_callback(&*handle.lock(), callback, user_data)
 }
 
+/// The guard for the subscription's single "on new message" callback slot,
+/// paired with [`set_subscription_on_new_message`] so a push registration can
+/// enforce that only one callback owns the slot at a time.
+pub(crate) fn subscription_on_ready_slot(handle: &SubscriptionHandle) -> &AtomicBool {
+    &handle.on_ready_slot
+}
+
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
 // they are running in. Therefore, this type can be safely sent to another thread.
 unsafe impl Send for rcl_subscription_t {}
@@ -343,6 +352,12 @@ unsafe impl Send for rcl_subscription_t {}
 pub(crate) struct SubscriptionHandle {
     pub(crate) rcl_subscription: Mutex<rcl_subscription_t>,
     pub(crate) node_handle: Arc<NodeHandle>,
+    /// Guards the single rcl "on new message" callback slot so only one push
+    /// registration can own it at a time. Selected via
+    /// [`subscription_on_ready_slot`]; see [`OnReadySlotFn`].
+    ///
+    /// [`OnReadySlotFn`]: crate::executor::event_callback::OnReadySlotFn
+    pub(crate) on_ready_slot: AtomicBool,
 }
 
 impl SubscriptionHandle {

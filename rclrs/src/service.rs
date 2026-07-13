@@ -2,7 +2,7 @@ use std::{
     any::Any,
     boxed::Box,
     ffi::{CStr, CString},
-    sync::{Arc, Mutex, MutexGuard},
+    sync::{atomic::AtomicBool, Arc, Mutex, MutexGuard},
 };
 
 use rosidl_runtime_rs::{Message, Service as ServiceIDL};
@@ -146,6 +146,7 @@ where
             rcl_service: Mutex::new(rcl_service),
             node_handle: Arc::clone(node.handle()),
             clock: node.get_clock(),
+            on_ready_slot: AtomicBool::new(false),
         });
 
         let (waitable, lifecycle) = Waitable::new(
@@ -317,6 +318,7 @@ where
         let registration = crate::executor::event_callback::OnReadyRegistration::new(
             Arc::clone(&self.handle),
             set_service_on_new_request,
+            service_on_ready_slot,
             Box::new(on_ready),
         )?;
         Ok(Some(Box::new(registration)))
@@ -334,6 +336,13 @@ pub(crate) unsafe fn set_service_on_new_request(
     rcl_service_set_on_new_request_callback(&*handle.lock(), callback, user_data)
 }
 
+/// The guard for the service's single "on new request" callback slot, paired
+/// with [`set_service_on_new_request`] so a push registration can enforce that
+/// only one callback owns the slot at a time.
+fn service_on_ready_slot(handle: &ServiceHandle) -> &AtomicBool {
+    &handle.on_ready_slot
+}
+
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
 // they are running in. Therefore, this type can be safely sent to another thread.
 unsafe impl Send for rcl_service_t {}
@@ -347,6 +356,12 @@ pub struct ServiceHandle {
     rcl_service: Mutex<rcl_service_t>,
     node_handle: Arc<NodeHandle>,
     clock: Clock,
+    /// Guards the single rcl "on new request" callback slot so only one push
+    /// registration can own it at a time. Selected via [`service_on_ready_slot`];
+    /// see [`OnReadySlotFn`].
+    ///
+    /// [`OnReadySlotFn`]: crate::executor::event_callback::OnReadySlotFn
+    on_ready_slot: AtomicBool,
 }
 
 impl ServiceHandle {

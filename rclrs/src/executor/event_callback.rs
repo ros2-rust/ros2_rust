@@ -118,6 +118,27 @@ unsafe extern "C" fn on_ready_trampoline(user_data: *const c_void, number_of_eve
 /// `rcl_*_set_on_new_*_callback` stay encapsulated there.
 pub(crate) type SetOnReadyFn<H> = unsafe fn(&H, rcl_event_callback_t, *const c_void) -> rcl_ret_t;
 
+/// Selects the registration guard for the specific rcl callback *slot* that a
+/// [`SetOnReadyFn`] installs into.
+///
+/// rcl stores exactly one callback per entity slot. Registering a second
+/// callback into a slot silently replaces the first, and later clearing the
+/// first would then clear the *second* one, leaving that registration's
+/// [`OnReadyHandle`] alive while its callback is no longer installed. rclrs
+/// entities register a given slot exactly once and never replace it, so rather
+/// than track generations to make replacement safe we simply reject a second,
+/// overlapping registration on the same slot (see
+/// [`RclrsError::OnReadyAlreadyRegistered`]).
+///
+/// Most primitives expose a single slot, but composite primitives (action
+/// servers and clients) expose several distinct slots on one handle
+/// (goal/cancel/result, feedback/status, ...). Pairing each registration with
+/// the accessor for *its* slot lets independent slots on the same handle coexist
+/// while still rejecting a true overlap on any one slot. The guard is an
+/// `AtomicBool` owned by the entity handle and shared by every `Arc` clone of
+/// it: `false` while the slot is free, `true` while a registration owns it.
+pub(crate) type OnReadySlotFn<H> = fn(&H) -> &AtomicBool;
+
 /// RAII registration of a push "on ready" callback on an rcl entity.
 ///
 /// While alive, `on_ready(number_of_events)` is invoked by the middleware
@@ -126,6 +147,9 @@ pub(crate) type SetOnReadyFn<H> = unsafe fn(&H, rcl_event_callback_t, *const c_v
 /// memory.
 pub(crate) struct OnReadyRegistration<H: Send + Sync + 'static> {
     set_callback: SetOnReadyFn<H>,
+    // Selects the guard for the slot this registration owns, so `Drop` releases
+    // the same slot it claimed in `new`.
+    slot: OnReadySlotFn<H>,
     // Field order is important for teardown safety: `handle` is declared
     // (and therefore dropped) before `ctx`. Dropping the last `Arc<handle>`
     // finalizes the rcl entity (destroying the middleware reader), so by the
@@ -143,13 +167,15 @@ impl<H: Send + Sync + 'static> OnReadyHandle for OnReadyRegistration<H> {}
 
 impl<H: Send + Sync + 'static> OnReadyRegistration<H> {
     /// Register `on_ready` to be called by the middleware whenever the entity
-    /// becomes ready. `set_callback` locks `handle` and installs the trampoline.
+    /// becomes ready. `set_callback` locks `handle` and installs the trampoline;
+    /// `slot` selects the guard for the rcl callback slot `set_callback` targets.
     pub(crate) fn new(
         handle: Arc<H>,
         set_callback: SetOnReadyFn<H>,
+        slot: OnReadySlotFn<H>,
         on_ready: Box<dyn Fn(usize) + Send + Sync>,
     ) -> Result<Self, RclrsError> {
-        Self::new_with_panic_hook(handle, set_callback, on_ready, None)
+        Self::new_with_panic_hook(handle, set_callback, slot, on_ready, None)
     }
 
     /// Like [`Self::new`], but invokes `on_panic` once if the user closure
@@ -157,9 +183,23 @@ impl<H: Send + Sync + 'static> OnReadyRegistration<H> {
     pub(crate) fn new_with_panic_hook(
         handle: Arc<H>,
         set_callback: SetOnReadyFn<H>,
+        slot: OnReadySlotFn<H>,
         on_ready: Box<dyn Fn(usize) + Send + Sync>,
         on_panic: Option<OnReadyPanicHook>,
     ) -> Result<Self, RclrsError> {
+        // Claim this registration's callback slot. rcl stores one callback per
+        // slot, so allowing an overlapping registration would let this one
+        // silently clobber the existing callback (and dropping the earlier
+        // registration would later clear ours). Reject the overlap instead of
+        // corrupting the RAII semantics.
+        let slot_taken = slot(&handle)
+            .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+            .is_err();
+
+        if slot_taken {
+            return Err(RclrsError::OnReadyAlreadyRegistered);
+        }
+
         let ctx = Box::into_raw(Box::new(EventCallbackCtx::new(on_ready, on_panic)));
 
         // SAFETY: `ctx` points to a live, heap-stable context that outlives the
@@ -174,11 +214,14 @@ impl<H: Send + Sync + 'static> OnReadyRegistration<H> {
             unsafe {
                 drop(Box::from_raw(ctx));
             }
+            // Release the slot we claimed so a later registration can succeed.
+            slot(&handle).store(false, Ordering::Release);
             return Err(err);
         }
 
         Ok(Self {
             set_callback,
+            slot,
             handle,
             ctx: CtxBox(ctx),
         })
@@ -198,6 +241,9 @@ impl<H: Send + Sync + 'static> Drop for OnReadyRegistration<H> {
         unsafe {
             let _ = (self.set_callback)(&self.handle, None, std::ptr::null());
         }
+
+        // Release this registration's callback slot so a new registration can be made.
+        (self.slot)(&self.handle).store(false, Ordering::Release);
     }
 }
 
@@ -226,7 +272,10 @@ impl Drop for CtxBox {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{subscription::set_subscription_on_new_message, *};
+    use crate::{
+        subscription::{set_subscription_on_new_message, subscription_on_ready_slot},
+        *,
+    };
     use ros_env::test_msgs::msg;
     use std::{
         sync::atomic::{AtomicBool, AtomicUsize, Ordering},
@@ -250,6 +299,7 @@ mod tests {
         let _registration = OnReadyRegistration::new(
             Arc::clone(subscription.handle()),
             set_subscription_on_new_message,
+            subscription_on_ready_slot,
             Box::new(move |n| {
                 count_cb.fetch_add(n, Ordering::Relaxed);
             }),
@@ -302,6 +352,7 @@ mod tests {
             let registration = OnReadyRegistration::new(
                 Arc::clone(subscription.handle()),
                 set_subscription_on_new_message,
+                subscription_on_ready_slot,
                 Box::new(move |n| {
                     count_cb.fetch_add(n, Ordering::Relaxed);
                 }),
@@ -339,6 +390,7 @@ mod tests {
         let _registration = OnReadyRegistration::new_with_panic_hook(
             Arc::clone(subscription.handle()),
             set_subscription_on_new_message,
+            subscription_on_ready_slot,
             Box::new(move |_| {
                 invocations_cb.fetch_add(1, Ordering::Relaxed);
                 panic!("push callback panic");
@@ -377,5 +429,144 @@ mod tests {
             "registration should stay disabled after panic",
         );
         Ok(())
+    }
+
+    /// Only one push registration may own an entity's callback slot at a time.
+    /// A second overlapping registration is rejected instead of silently
+    /// clobbering the first, and once the first is dropped the slot is free for
+    /// a fresh registration (which then fires normally). This guards against the
+    /// RAII hazard where dropping the earlier handle would clear the later
+    /// callback.
+    #[test]
+    fn overlapping_registration_is_rejected() -> Result<(), RclrsError> {
+        let executor = Context::default().create_basic_executor();
+        let node = executor.create_node("test_overlapping_registration_is_rejected")?;
+        let qos = QoSProfile::default().reliable().keep_last(10);
+
+        let publisher = node.create_publisher::<msg::Empty>("test_push_overlap_topic".qos(qos))?;
+        let subscription = node.create_subscription::<msg::Empty, _>(
+            "test_push_overlap_topic".qos(qos),
+            |_: msg::Empty| {},
+        )?;
+
+        let first = OnReadyRegistration::new(
+            Arc::clone(subscription.handle()),
+            set_subscription_on_new_message,
+            subscription_on_ready_slot,
+            Box::new(|_| {}),
+        )?;
+
+        // A second registration against the same slot must be rejected while
+        // the first is still alive.
+        let second = OnReadyRegistration::new(
+            Arc::clone(subscription.handle()),
+            set_subscription_on_new_message,
+            subscription_on_ready_slot,
+            Box::new(|_| {}),
+        );
+        assert!(
+            matches!(second, Err(RclrsError::OnReadyAlreadyRegistered)),
+            "second overlapping registration should be rejected",
+        );
+
+        // Dropping the first releases the slot, so a new registration succeeds
+        // and receives events.
+        drop(first);
+        let count = Arc::new(AtomicUsize::new(0));
+        let count_cb = Arc::clone(&count);
+        let _third = OnReadyRegistration::new(
+            Arc::clone(subscription.handle()),
+            set_subscription_on_new_message,
+            subscription_on_ready_slot,
+            Box::new(move |n| {
+                count_cb.fetch_add(n, Ordering::Relaxed);
+            }),
+        )?;
+
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while count.load(Ordering::Relaxed) == 0 && Instant::now() < deadline {
+            publisher.publish(msg::Empty::default())?;
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        assert!(
+            count.load(Ordering::Relaxed) > 0,
+            "re-registration after drop never fired",
+        );
+        Ok(())
+    }
+
+    /// Models the composite-primitive (action server/client) case: several
+    /// distinct rcl callback *slots* live on one handle. Each slot enforces its
+    /// own single-registration invariant independently, so registrations on
+    /// different slots of the same handle coexist, while a repeat registration
+    /// on an already-owned slot is rejected. Uses a fake handle whose setters are
+    /// no-ops so the test needs no middleware.
+    #[test]
+    fn independent_slots_on_one_handle_coexist() {
+        struct MultiSlotHandle {
+            slot_a: AtomicBool,
+            slot_b: AtomicBool,
+        }
+
+        fn slot_a(handle: &MultiSlotHandle) -> &AtomicBool {
+            &handle.slot_a
+        }
+        fn slot_b(handle: &MultiSlotHandle) -> &AtomicBool {
+            &handle.slot_b
+        }
+
+        // The rcl setters are replaced with no-ops that report success, so the
+        // registration logic runs without touching a real entity.
+        unsafe fn set_noop(
+            _handle: &MultiSlotHandle,
+            _callback: rcl_event_callback_t,
+            _user_data: *const c_void,
+        ) -> rcl_ret_t {
+            0 // RCL_RET_OK
+        }
+
+        let handle = Arc::new(MultiSlotHandle {
+            slot_a: AtomicBool::new(false),
+            slot_b: AtomicBool::new(false),
+        });
+
+        let reg_a =
+            OnReadyRegistration::new(Arc::clone(&handle), set_noop, slot_a, Box::new(|_| {}))
+                .expect("slot A should be free");
+        // A different slot on the same handle is independent and must succeed.
+        let reg_b =
+            OnReadyRegistration::new(Arc::clone(&handle), set_noop, slot_b, Box::new(|_| {}))
+                .expect("slot B is independent of slot A");
+
+        // Re-registering either owned slot is rejected.
+        assert!(
+            matches!(
+                OnReadyRegistration::new(Arc::clone(&handle), set_noop, slot_a, Box::new(|_| {})),
+                Err(RclrsError::OnReadyAlreadyRegistered),
+            ),
+            "slot A is already owned",
+        );
+        assert!(
+            matches!(
+                OnReadyRegistration::new(Arc::clone(&handle), set_noop, slot_b, Box::new(|_| {})),
+                Err(RclrsError::OnReadyAlreadyRegistered),
+            ),
+            "slot B is already owned",
+        );
+
+        // Dropping one registration frees only its own slot.
+        drop(reg_a);
+        assert!(
+            !handle.slot_a.load(Ordering::Acquire),
+            "slot A should be freed",
+        );
+        assert!(
+            handle.slot_b.load(Ordering::Acquire),
+            "slot B should still be owned by reg_b",
+        );
+        OnReadyRegistration::new(Arc::clone(&handle), set_noop, slot_a, Box::new(|_| {}))
+            .expect("slot A should be reusable after its registration dropped");
+
+        drop(reg_b);
     }
 }
