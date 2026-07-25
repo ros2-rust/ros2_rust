@@ -21,7 +21,7 @@ use std::{
 use crate::{
     log_debug, log_fatal, log_warn, ExecutorChannel, ExecutorRuntime, ExecutorWorkerOptions,
     GuardCondition, PayloadTask, RclrsError, SpinConditions, WaitSetRunConditions, WaitSetRunner,
-    Waitable, WeakActivityListener, WorkerChannel,
+    WaitSetRunnerOutcome, Waitable, WeakActivityListener, WorkerChannel,
 };
 
 static FAILED_TO_SEND_WORKER: &'static str =
@@ -392,7 +392,7 @@ async fn manage_workers(
     StreamFuture<UnboundedReceiver<WaitSetRunner>>,
     Vec<RclrsError>,
 ) {
-    let mut active_runners: Vec<oneshot::Receiver<(WaitSetRunner, Result<(), RclrsError>)>> =
+    let mut active_runners: Vec<oneshot::Receiver<(WaitSetRunner, WaitSetRunnerOutcome)>> =
         Vec::new();
     let mut finished_runners: Vec<WaitSetRunner> = Vec::new();
     let mut errors: Vec<RclrsError> = Vec::new();
@@ -421,12 +421,17 @@ async fn manage_workers(
         match next_event.await {
             Either::Left(((finished_worker, _, remaining_workers), new_worker_stream)) => {
                 match finished_worker {
-                    Ok((runner, result)) => {
-                        finished_runners.push(runner);
-                        if let Err(err) = result {
-                            errors.push(err);
+                    Ok((runner, outcome)) => match outcome {
+                        WaitSetRunnerOutcome::Completed(result) => {
+                            finished_runners.push(runner);
+                            if let Err(err) = result {
+                                errors.push(err);
+                            }
                         }
-                    }
+                        WaitSetRunnerOutcome::Panicked(panic_payload) => {
+                            std::panic::resume_unwind(panic_payload);
+                        }
+                    },
                     Err(_) => {
                         log_fatal!(
                             "rclrs.basic_executor",
