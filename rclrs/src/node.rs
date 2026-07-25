@@ -11,6 +11,7 @@ mod node_graph_task;
 use node_graph_task::*;
 
 use std::{
+    any::Any,
     cmp::PartialEq,
     ffi::CStr,
     fmt,
@@ -36,17 +37,18 @@ use crate::{
         DynamicSubscriptionState, MessageTypeName, NodeAsyncDynamicSubscriptionCallback,
         NodeDynamicSubscriptionCallback,
     },
+    parameter::join_parameter_name,
     rcl_bindings::*,
     ActionClient, ActionClientState, ActionGoalReceiver, ActionServer, ActionServerState,
     AnyTimerCallback, Client, ClientOptions, ClientState, Clock, ContextHandle, ExecutorCommands,
     IntoActionClientOptions, IntoActionServerOptions, IntoAsyncServiceCallback,
     IntoAsyncSubscriptionCallback, IntoNodeServiceCallback, IntoNodeSubscriptionCallback,
     IntoNodeTimerOneshotCallback, IntoNodeTimerRepeatingCallback, IntoTimerOptions, LogParams,
-    Logger, MessageInfo, ParameterBuilder, ParameterConversion, ParameterInterface,
-    ParameterVariant, Parameters, Promise, Publisher, PublisherOptions, PublisherState, RclrsError,
-    RequestedGoal, Service, ServiceOptions, ServiceState, Subscription, SubscriptionOptions,
-    SubscriptionState, TerminatedGoal, TimeSource, Timer, TimerState, ToLogParams, Worker,
-    WorkerOptions, WorkerState, ENTITY_LIFECYCLE_MUTEX,
+    Logger, MessageInfo, ParameterBuilder, ParameterConversion, ParameterInterface, ParameterSet,
+    ParameterSetError, ParameterSetHandles, ParameterVariant, Parameters, Promise, Publisher,
+    PublisherOptions, PublisherState, RclrsError, RequestedGoal, Service, ServiceOptions,
+    ServiceState, Subscription, SubscriptionOptions, SubscriptionState, TerminatedGoal, TimeSource,
+    Timer, TimerState, ToLogParams, Worker, WorkerOptions, WorkerState, ENTITY_LIFECYCLE_MUTEX,
 };
 
 /// A processing unit that can communicate with other nodes. See the API of
@@ -104,6 +106,12 @@ pub type Node = Arc<NodeState>;
 /// [1]: std::sync::Weak
 pub struct NodeState {
     time_source: TimeSource,
+    /// Parameter handles that the node has taken responsibility for keeping declared, from
+    /// [`Self::retain_parameters`] and [`Self::load_parameters`].
+    ///
+    /// Declared before `parameter` so that the handles are dropped, and their parameters
+    /// undeclared, while the parameter interface they refer to is still alive.
+    retained_parameters: Mutex<Vec<Box<dyn Any + Send + Sync>>>,
     parameter: ParameterInterface,
     logger: Logger,
     commands: Arc<ExecutorCommands>,
@@ -1459,6 +1467,94 @@ impl NodeState {
     #[cfg(test)]
     pub(crate) fn parameter_interface(&self) -> &ParameterInterface {
         &self.parameter
+    }
+
+    /// Declares every parameter of a [`ParameterSet`] and returns the live handles for them.
+    ///
+    /// The returned handles own the declarations: when they are dropped, the parameters are
+    /// undeclared. Use [`Self::retain_parameters`] if you would rather the node keep them
+    /// declared for its own lifetime.
+    ///
+    /// Parameters are declared under the set's [`NAMESPACE`](ParameterSet::NAMESPACE), which is
+    /// the node's root unless the set says otherwise.
+    ///
+    pub fn declare_parameters<T: ParameterSet>(&self) -> Result<T::Handles, ParameterSetError> {
+        T::declare(self, T::NAMESPACE, None)
+    }
+
+    /// Same as [`Self::declare_parameters`], with `prefix` prepended to the set's namespace.
+    ///
+    /// For a set whose namespace is `"drive"`, a prefix of `"front"` declares the parameters
+    /// under `front.drive`.
+    pub fn declare_parameters_with_prefix<T: ParameterSet>(
+        &self,
+        prefix: &str,
+    ) -> Result<T::Handles, ParameterSetError> {
+        T::declare(self, &join_parameter_name(prefix, T::NAMESPACE), None)
+    }
+
+    /// Declares every parameter of a [`ParameterSet`], keeps the declarations alive for as long
+    /// as the node exists, and returns shared handles to them.
+    ///
+    /// Use this when the parameters should simply exist for the lifetime of the node and you do
+    /// not want to thread ownership of the handles through your own types. The returned
+    /// [`Arc`] can be cloned into callbacks and timers, and
+    /// [`snapshot`](ParameterSetHandles::snapshot) can be called on it at any time to read the
+    /// current values.
+    ///
+    pub fn retain_parameters<T: ParameterSet>(&self) -> Result<Arc<T::Handles>, ParameterSetError>
+    where
+        T::Handles: Send + Sync + 'static,
+    {
+        self.retain_parameters_with_prefix::<T>("")
+    }
+
+    /// Same as [`Self::retain_parameters`], with `prefix` prepended to the set's namespace.
+    pub fn retain_parameters_with_prefix<T: ParameterSet>(
+        &self,
+        prefix: &str,
+    ) -> Result<Arc<T::Handles>, ParameterSetError>
+    where
+        T::Handles: Send + Sync + 'static,
+    {
+        let handles = Arc::new(T::declare(
+            self,
+            &join_parameter_name(prefix, T::NAMESPACE),
+            None,
+        )?);
+        self.retained_parameters
+            .lock()
+            .unwrap()
+            .push(Box::new(Arc::clone(&handles)));
+        Ok(handles)
+    }
+
+    /// Declares every parameter of a [`ParameterSet`] and returns their values.
+    ///
+    /// This is the shortest way to read a static configuration at startup: the node keeps the
+    /// declarations alive, so the parameters remain visible to `ros2 param` and to the parameter
+    /// services, and the caller is handed plain Rust values with no rclrs types in them.
+    ///
+    /// The values are a snapshot, and will not reflect any later change to the parameters. Use
+    /// [`Self::retain_parameters`] if you need to read them again, or
+    /// [`Self::declare_parameters`] to watch individual parameters for changes.
+    ///
+    pub fn load_parameters<T: ParameterSet>(&self) -> Result<T, ParameterSetError>
+    where
+        T::Handles: Send + Sync + 'static,
+    {
+        Ok(self.retain_parameters::<T>()?.snapshot())
+    }
+
+    /// Same as [`Self::load_parameters`], with `prefix` prepended to the set's namespace.
+    pub fn load_parameters_with_prefix<T: ParameterSet>(
+        &self,
+        prefix: &str,
+    ) -> Result<T, ParameterSetError>
+    where
+        T::Handles: Send + Sync + 'static,
+    {
+        Ok(self.retain_parameters_with_prefix::<T>(prefix)?.snapshot())
     }
 
     /// Enables usage of undeclared parameters for this node.

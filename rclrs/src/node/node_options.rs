@@ -416,6 +416,7 @@ impl<'a> NodeOptions<'a> {
             time_source: TimeSource::builder(self.clock_type)
                 .clock_qos(self.clock_qos)
                 .build(),
+            retained_parameters: Default::default(),
             parameter,
             logger: Logger::new(logger_name)?,
             graph_change_action,
