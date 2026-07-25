@@ -1388,6 +1388,10 @@ impl ParameterInterface {
     }
 }
 
+#[cfg(test)]
+#[path = "parameter/variant_tests.rs"]
+mod variant_tests;
+
 /// Shared support for the parameter tests in this module and its children.
 #[cfg(test)]
 pub(crate) mod test_support {

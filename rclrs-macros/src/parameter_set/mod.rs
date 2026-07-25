@@ -22,14 +22,13 @@
 
 mod attrs;
 mod codegen;
-mod errors;
 mod known_types;
 
 use proc_macro2::TokenStream;
 use syn::{spanned::Spanned, Data, DeriveInput, Fields, Ident};
 
+use crate::errors::Errors;
 use attrs::{FieldAttrs, SetAttrs};
-use errors::Errors;
 use known_types::{shape_of, TypeShape};
 
 /// One field of the struct, with everything needed to generate its declaration.
