@@ -40,6 +40,45 @@ pub struct ParameterRanges {
 }
 
 impl ParameterRanges {
+    /// Narrows these ranges by everything `outer` also requires.
+    ///
+    /// A value has to satisfy both sets of bounds, so the result is the tighter of the two at
+    /// each end.
+    pub(crate) fn narrowed_by(&self, outer: &ParameterRanges) -> ParameterRanges {
+        fn tighter<T: PartialOrd>(
+            inner: Option<T>,
+            outer: Option<T>,
+            keep_greater: bool,
+        ) -> Option<T> {
+            match (inner, outer) {
+                (Some(a), Some(b)) => {
+                    let a_wins = if keep_greater { a >= b } else { a <= b };
+                    Some(if a_wins { a } else { b })
+                }
+                (some, None) | (None, some) => some,
+            }
+        }
+
+        ParameterRanges {
+            integer: match (self.integer.clone(), outer.integer.clone()) {
+                (Some(a), Some(b)) => Some(ParameterRange {
+                    lower: tighter(a.lower, b.lower, true),
+                    upper: tighter(a.upper, b.upper, false),
+                    step: a.step.or(b.step),
+                }),
+                (some, None) | (None, some) => some,
+            },
+            float: match (self.float.clone(), outer.float.clone()) {
+                (Some(a), Some(b)) => Some(ParameterRange {
+                    lower: tighter(a.lower, b.lower, true),
+                    upper: tighter(a.upper, b.upper, false),
+                    step: a.step.or(b.step),
+                }),
+                (some, None) | (None, some) => some,
+            },
+        }
+    }
+
     pub(crate) fn to_descriptor_ranges(
         &self,
     ) -> (
