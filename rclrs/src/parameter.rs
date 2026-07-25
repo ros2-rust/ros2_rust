@@ -305,9 +305,9 @@ type DiscriminatorFunction<'a, T> = Box<dyn FnOnce(AvailableValues<T>) -> Option
 
 /// Wraps a typed validate callback into a type-erased one that operates on `ParameterValue`.
 ///
-/// The `expect` here is safe: this callback is only invoked from
-/// `validate_parameter_setting` which checks the type discriminant first,
-/// and from `Parameters::set()` which checks `T::kind() == param.kind`.
+/// The `expect` here is safe: this callback is only invoked from `validate_parameter_setting`
+/// and `Parameters::set()`. Both of them run the declaration's `type_check`, which is this same
+/// conversion, before reaching it.
 fn wrap_validate_callback<T: 'static>(
     callback: Arc<dyn Fn(&T) -> Result<(), String> + Send + Sync>,
     conversion: ParameterConversion<T>,
@@ -356,11 +356,15 @@ impl<T: 'static> TryFrom<ParameterBuilder<'_, T>> for OptionalParameter<T> {
 
         builder.interface.store_parameter(
             builder.name.clone(),
-            builder.conversion.kind(),
-            DeclaredValue::Optional(value.clone()),
-            builder.options,
-            type_erased_validate,
-            Some(change_tx.clone()),
+            DeclaredStorage {
+                value: DeclaredValue::Optional(value.clone()),
+                kind: builder.conversion.kind(),
+                options: builder.options,
+                type_check: type_check_of(builder.conversion.clone()),
+                validate: type_erased_validate,
+                on_change: None,
+                change_tx: Some(change_tx.clone()),
+            },
         );
         Ok(OptionalParameter {
             name: builder.name,
@@ -445,11 +449,15 @@ impl<T: 'static> TryFrom<ParameterBuilder<'_, T>> for MandatoryParameter<T> {
 
         builder.interface.store_parameter(
             builder.name.clone(),
-            builder.conversion.kind(),
-            DeclaredValue::Mandatory(value.clone()),
-            builder.options,
-            type_erased_validate,
-            Some(change_tx.clone()),
+            DeclaredStorage {
+                value: DeclaredValue::Mandatory(value.clone()),
+                kind: builder.conversion.kind(),
+                options: builder.options,
+                type_check: type_check_of(builder.conversion.clone()),
+                validate: type_erased_validate,
+                on_change: None,
+                change_tx: Some(change_tx.clone()),
+            },
         );
         Ok(MandatoryParameter {
             name: builder.name,
@@ -555,11 +563,17 @@ impl<T: 'static> TryFrom<ParameterBuilder<'_, T>> for ReadOnlyParameter<T> {
         let value = builder.conversion.to_value(&initial_value);
         builder.interface.store_parameter(
             builder.name.clone(),
-            builder.conversion.kind(),
-            DeclaredValue::ReadOnly(value.clone()),
-            builder.options,
-            None,
-            None,
+            DeclaredStorage {
+                value: DeclaredValue::ReadOnly(value.clone()),
+                kind: builder.conversion.kind(),
+                options: builder.options,
+                type_check: type_check_of(builder.conversion.clone()),
+                // A read-only parameter never changes, so it needs neither the validate
+                // callback nor a change notification channel.
+                validate: None,
+                on_change: None,
+                change_tx: None,
+            },
         );
         Ok(ReadOnlyParameter {
             name: builder.name,
@@ -573,10 +587,29 @@ impl<T: 'static> TryFrom<ParameterBuilder<'_, T>> for ReadOnlyParameter<T> {
 type ValidateCallback = Arc<dyn Fn(&ParameterValue) -> Result<(), String> + Send + Sync>;
 type OnChangeCallback = Arc<dyn Fn(Option<&ParameterValue>) + Send + Sync>;
 
+/// Checks that a value is usable for a parameter declared as `T`.
+///
+/// A [`ParameterKind`] does not uniquely identify a Rust type: several types can share one, and a
+/// value of the right kind can still be unrepresentable (an integer that does not fit a [`u16`], a
+/// string that is not a known enum variant). Parameters are declared with a fixed type, so such a
+/// value has to be rejected when it arrives, or reading the parameter back would panic.
+///
+/// Captured at declaration time so that the parameter map can enforce the declared Rust type
+/// without knowing what it is. The declaration's own [`ParameterConversion`] *is* the check, so
+/// there is nothing extra for a type to implement and no way for the check to accept a value that
+/// a later read would then reject.
+fn type_check_of<T: 'static>(conversion: ParameterConversion<T>) -> ValidateCallback {
+    Arc::new(move |value: &ParameterValue| conversion.from_value(value.clone()).map(|_| ()))
+}
+
 struct DeclaredStorage {
     value: DeclaredValue,
     kind: ParameterKind,
     options: ParameterOptions,
+    /// Enforces the Rust type the parameter was declared with. The [`kind`](Self::kind) alone is
+    /// not enough: a value can have the right kind and still be unrepresentable in the declared
+    /// type. See [`type_check_of`].
+    type_check: ValidateCallback,
     validate: Option<ValidateCallback>,
     on_change: Option<OnChangeCallback>,
     change_tx: Option<watch::Sender<()>>,
@@ -588,6 +621,7 @@ impl Debug for DeclaredStorage {
             .field("value", &self.value)
             .field("kind", &self.kind)
             .field("options", &self.options)
+            .field("type_check", &"..")
             .field("validate", &self.validate.as_ref().map(|_| ".."))
             .field("on_change", &self.on_change.as_ref().map(|_| ".."))
             .field("change_tx", &"..")
@@ -658,6 +692,15 @@ impl ParameterMap {
                         == std::mem::discriminant(&value.kind())
                         || matches!(storage.kind, ParameterKind::Dynamic)
                     {
+                        // The kind matching is not sufficient. The parameter was declared with a
+                        // concrete Rust type, and a value of the right kind can still be
+                        // unrepresentable in it. Reject those here rather than letting a later
+                        // read of the parameter fail.
+                        if let Err(reason) = (storage.type_check)(&value) {
+                            return Err(format!(
+                                "Parameter value is not valid for this parameter's type: {reason}"
+                            ));
+                        }
                         if !storage.options.ranges.in_range(&value) {
                             return Err("Parameter value is out of range".into());
                         }
@@ -994,6 +1037,10 @@ pub enum ParameterValueError {
     OutOfRange,
     /// Parameter was stored in a static type and an operation on a different type was attempted.
     TypeMismatch,
+    /// The value had the right [`ParameterKind`] for this parameter but was not valid for the
+    /// Rust type it was declared with, e.g. an integer that does not fit the declared integer
+    /// type or a string that is not a known enum variant.
+    Invalid(String),
     /// A write on a read-only parameter was attempted.
     ReadOnly,
     /// A custom validation callback rejected the value.
@@ -1005,6 +1052,10 @@ impl std::fmt::Display for ParameterValueError {
         match self {
             ParameterValueError::OutOfRange => write!(f, "parameter value was out of the parameter's range"),
             ParameterValueError::TypeMismatch => write!(f, "parameter was stored in a static type and an operation on a different type was attempted"),
+            // The reason is a whole sentence written by the type's own conversion, which reports
+            // this variant as its error. Callers that go on to add their own context, such as the
+            // parameter service, would repeat a prefix added here.
+            ParameterValueError::Invalid(reason) => write!(f, "{reason}"),
             ParameterValueError::ReadOnly => write!(f, "a write on a read-only parameter was attempted"),
             ParameterValueError::ValidationFailed(reason) => write!(f, "custom validation rejected the value: {reason}"),
         }
@@ -1095,6 +1146,9 @@ impl Parameters<'_> {
     /// * `Ok(())` if setting was successful.
     /// * [`Err(ParameterValueError::TypeMismatch)`] if the type of the requested value is different
     ///   from the parameter's type.
+    /// * [`Err(ParameterValueError::Invalid)`] if the requested value shares its
+    ///   [`ParameterKind`] with the parameter's type but cannot be represented in it, e.g.
+    ///   setting an `i64` of `70000` on a parameter declared as [`u16`].
     /// * [`Err(ParameterValueError::OutOfRange)`] if the requested value is out of the parameter's
     ///   range.
     /// * [`Err(ParameterValueError::ReadOnly)`] if the parameter is read only.
@@ -1129,6 +1183,10 @@ impl Parameters<'_> {
                     ParameterStorage::Declared(param) => {
                         if conversion.kind() == param.kind {
                             let value = conversion.to_value(&value);
+                            // This conversion is the caller's, which is not necessarily the one
+                            // the parameter was declared with. The two only have to agree on a
+                            // kind, so enforce the declared type as well.
+                            (param.type_check)(&value).map_err(ParameterValueError::Invalid)?;
                             if !param.options.ranges.in_range(&value) {
                                 return Err(ParameterValueError::OutOfRange);
                             }
@@ -1288,26 +1346,12 @@ impl ParameterInterface {
         Ok(selection)
     }
 
-    fn store_parameter(
-        &self,
-        name: Arc<str>,
-        kind: ParameterKind,
-        value: DeclaredValue,
-        options: ParameterOptions,
-        validate: Option<ValidateCallback>,
-        change_tx: Option<watch::Sender<()>>,
-    ) {
-        self.parameter_map.lock().unwrap().storage.insert(
-            name,
-            ParameterStorage::Declared(DeclaredStorage {
-                options,
-                value,
-                kind,
-                validate,
-                on_change: None,
-                change_tx,
-            }),
-        );
+    fn store_parameter(&self, name: Arc<str>, storage: DeclaredStorage) {
+        self.parameter_map
+            .lock()
+            .unwrap()
+            .storage
+            .insert(name, ParameterStorage::Declared(storage));
     }
 
     pub(crate) fn allow_undeclared(&self) {
@@ -2320,5 +2364,150 @@ mod tests {
 
         param.set(75).unwrap();
         assert_eq!(sub.get(), 75);
+    }
+
+    /// A string-backed parameter type, of the kind a user can define today by implementing the
+    /// public `ParameterVariant` trait. Its conversion from `ParameterValue` is *partial*: a
+    /// value can be a `String`, and so pass any check based on `ParameterKind`, and still not
+    /// be a valid `Switch`.
+    #[derive(Clone, Debug, PartialEq)]
+    enum Switch {
+        On,
+        Off,
+    }
+
+    impl From<Switch> for ParameterValue {
+        fn from(value: Switch) -> Self {
+            ParameterValue::String(
+                match value {
+                    Switch::On => "on",
+                    Switch::Off => "off",
+                }
+                .into(),
+            )
+        }
+    }
+
+    impl TryFrom<ParameterValue> for Switch {
+        type Error = ParameterValueError;
+
+        fn try_from(value: ParameterValue) -> Result<Self, Self::Error> {
+            match value {
+                ParameterValue::String(s) => match s.as_ref() {
+                    "on" => Ok(Switch::On),
+                    "off" => Ok(Switch::Off),
+                    other => Err(ParameterValueError::Invalid(format!(
+                        "unknown Switch '{other}', expected one of: on, off"
+                    ))),
+                },
+                _ => Err(ParameterValueError::TypeMismatch),
+            }
+        }
+    }
+
+    impl ParameterVariant for Switch {
+        type Range = ();
+
+        fn kind() -> ParameterKind {
+            ParameterKind::String
+        }
+    }
+
+    fn rmw_string(value: &str) -> RmwParameterValue {
+        RmwParameterValue {
+            type_: ParameterType::PARAMETER_STRING,
+            string_value: value.into(),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn test_service_path_rejects_value_of_right_kind_but_wrong_type() {
+        let node = Context::default()
+            .create_basic_executor()
+            .create_node(&format!("param_test_node_{}", line!()))
+            .unwrap();
+        let param: MandatoryParameter<Switch> = node
+            .declare_parameter("switch")
+            .default(Switch::On)
+            .mandatory()
+            .unwrap();
+
+        let map = node.parameter_interface().parameter_map.lock().unwrap();
+
+        // A valid value is accepted.
+        assert!(map
+            .validate_parameter_setting("switch", rmw_string("off"))
+            .is_ok());
+
+        // "banana" is a perfectly good string, so the parameter kind matches. It is not a
+        // Switch, though, and accepting it would make the next `get()` panic.
+        //
+        // Asserted in full because this string is what an operator sees come back from
+        // `ros2 param set`, and because the reason travels through a `Display` that used to
+        // prepend a duplicate of the context added here.
+        let err = map
+            .validate_parameter_setting("switch", rmw_string("banana"))
+            .unwrap_err();
+        assert_eq!(
+            err,
+            "Parameter value is not valid for this parameter's type: \
+             unknown Switch 'banana', expected one of: on, off"
+        );
+
+        // A genuine kind mismatch still reports as one.
+        let err = map
+            .validate_parameter_setting(
+                "switch",
+                RmwParameterValue {
+                    type_: ParameterType::PARAMETER_INTEGER,
+                    integer_value: 42,
+                    ..Default::default()
+                },
+            )
+            .unwrap_err();
+        assert!(err.contains("different type"), "unexpected reason: {err}");
+
+        drop(map);
+
+        // Nothing was applied, and reading the parameter still works.
+        assert_eq!(param.get(), Switch::On);
+    }
+
+    #[test]
+    fn test_undeclared_set_rejects_value_of_right_kind_but_wrong_type() {
+        let node = Context::default()
+            .create_basic_executor()
+            .create_node(&format!("param_test_node_{}", line!()))
+            .unwrap();
+        let param: MandatoryParameter<Switch> = node
+            .declare_parameter("switch")
+            .default(Switch::On)
+            .mandatory()
+            .unwrap();
+
+        // `Parameters::set` only requires the value's kind to match the parameter's, so this
+        // `Arc<str>` is accepted as far as the kind check goes even though the parameter was
+        // declared as a `Switch`.
+        let err = node
+            .use_undeclared_parameters()
+            .set::<Arc<str>>("switch", "banana".into())
+            .unwrap_err();
+        assert!(
+            matches!(err, ParameterValueError::Invalid(_)),
+            "expected Invalid, got {err:?}"
+        );
+        // The reason reaches the caller once, not wrapped in a restatement of itself.
+        assert_eq!(
+            err.to_string(),
+            "unknown Switch 'banana', expected one of: on, off"
+        );
+        assert_eq!(param.get(), Switch::On);
+
+        // A value that is valid for the declared type goes through.
+        node.use_undeclared_parameters()
+            .set::<Arc<str>>("switch", "off".into())
+            .unwrap();
+        assert_eq!(param.get(), Switch::Off);
     }
 }
