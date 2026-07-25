@@ -8,7 +8,8 @@ mod errors;
 mod parameter_set;
 mod parameter_variant;
 
-/// Declares a struct's fields as a group of ROS 2 parameters.
+/// Declares a group of ROS 2 parameters: a struct whose fields are the parameters, or an enum
+/// whose variants are the shapes the group can take.
 ///
 /// See the `rclrs::ParameterSet` trait for the full description, and
 /// `rclrs::NodeState::declare_parameters` for how to declare the result on a node.
@@ -22,7 +23,18 @@ mod parameter_variant;
 ///   must evaluate to `Self`, e.g. `Self::default()`. A field with its own
 ///   `#[param(default = ...)]` keeps that default.
 /// * `#[parameters(handles = MyHandles)]`: name of the generated handles struct. Defaults to
-///   the struct's own name with `Params` appended.
+///   the type's own name with `Params` appended.
+///
+/// # Enum attributes
+///
+/// An enum set declares a read-only string parameter saying which variant is in use, and then
+/// that variant's parameters.
+///
+/// * `#[parameters(tag = "type")]`: the name of that parameter. Defaults to `type`.
+/// * `#[parameters(rename_all = "snake_case")]`: the naming convention for its values, one of
+///   `snake_case`, `kebab-case`, `lowercase`, `UPPERCASE` or `SCREAMING_SNAKE_CASE`. Without it,
+///   variant names are used as written. `#[param(rename = "...")]` on a variant sets its value
+///   exactly.
 ///
 /// # Field attributes
 ///

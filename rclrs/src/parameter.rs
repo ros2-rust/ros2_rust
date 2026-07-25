@@ -1389,6 +1389,10 @@ impl ParameterInterface {
 }
 
 #[cfg(test)]
+#[path = "parameter/enum_set_tests.rs"]
+mod enum_set_tests;
+
+#[cfg(test)]
 #[path = "parameter/variant_tests.rs"]
 mod variant_tests;
 
