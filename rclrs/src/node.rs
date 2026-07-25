@@ -1478,6 +1478,25 @@ impl NodeState {
     /// Parameters are declared under the set's [`NAMESPACE`](ParameterSet::NAMESPACE), which is
     /// the node's root unless the set says otherwise.
     ///
+    /// # Example
+    /// ```
+    /// # use rclrs::*;
+    /// #[derive(ParameterSet)]
+    /// struct DriveConfig {
+    ///     /// Maximum forward speed in m/s.
+    ///     #[param(default = 1.5, range = 0.0..=10.0)]
+    ///     max_speed: f64,
+    /// }
+    ///
+    /// let executor = Context::default().create_basic_executor();
+    /// let node = executor.create_node("drive_controller")?;
+    ///
+    /// let params = node.declare_parameters::<DriveConfig>()?;
+    /// assert_eq!(params.max_speed.get(), 1.5);
+    /// params.max_speed.set(2.0)?;
+    /// assert_eq!(params.max_speed.get(), 2.0);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
     pub fn declare_parameters<T: ParameterSet>(&self) -> Result<T::Handles, ParameterSetError> {
         T::declare(self, T::NAMESPACE, None)
     }
@@ -1502,6 +1521,45 @@ impl NodeState {
     /// [`snapshot`](ParameterSetHandles::snapshot) can be called on it at any time to read the
     /// current values.
     ///
+    /// The handles are also the only place `on_change` can be registered, and a callback
+    /// registered there outlives them, because it lives with the declaration rather than with the
+    /// handle. So the handles can be used to set callbacks up and then dropped, which is the
+    /// reason to reach for this over [`Self::load_parameters`]. Unlike the `on_change` attribute,
+    /// a callback registered here is a closure and can capture whatever it needs to do its work.
+    ///
+    /// The contrast with [`Self::declare_parameters`] is that there, dropping the handles
+    /// undeclares the parameters and the callbacks go with them.
+    ///
+    /// # Example
+    /// ```
+    /// # use rclrs::*;
+    /// # use std::sync::{Arc, Mutex};
+    /// #[derive(ParameterSet, Debug)]
+    /// struct DriveConfig {
+    ///     /// Maximum forward speed in m/s.
+    ///     #[param(default = 1.5)]
+    ///     max_speed: f64,
+    /// }
+    ///
+    /// let executor = Context::default().create_basic_executor();
+    /// let node = executor.create_node("drive_controller")?;
+    ///
+    /// // Stands in for whatever the callback drives: a publisher, a controller, a limiter.
+    /// let commanded = Arc::new(Mutex::new(1.5));
+    ///
+    /// let params = node.retain_parameters::<DriveConfig>()?;
+    /// let target = Arc::clone(&commanded);
+    /// params.max_speed.on_change(move |speed| *target.lock().unwrap() = *speed);
+    ///
+    /// // Nothing needs the handles once the callbacks are registered.
+    /// drop(params);
+    ///
+    /// // The node still holds the declaration, so the parameter can still be set, over the
+    /// // parameter services or as here, and the callback still runs.
+    /// node.use_undeclared_parameters().set::<f64>("max_speed", 3.0)?;
+    /// assert_eq!(*commanded.lock().unwrap(), 3.0);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
     pub fn retain_parameters<T: ParameterSet>(&self) -> Result<Arc<T::Handles>, ParameterSetError>
     where
         T::Handles: Send + Sync + 'static,
@@ -1539,6 +1597,23 @@ impl NodeState {
     /// [`Self::retain_parameters`] if you need to read them again, or
     /// [`Self::declare_parameters`] to watch individual parameters for changes.
     ///
+    /// # Example
+    /// ```
+    /// # use rclrs::*;
+    /// #[derive(ParameterSet, Debug)]
+    /// struct DriveConfig {
+    ///     /// Maximum forward speed in m/s.
+    ///     #[param(default = 1.5)]
+    ///     max_speed: f64,
+    /// }
+    ///
+    /// let executor = Context::default().create_basic_executor();
+    /// let node = executor.create_node("drive_controller")?;
+    ///
+    /// let config: DriveConfig = node.load_parameters()?;
+    /// assert_eq!(config.max_speed, 1.5);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
     pub fn load_parameters<T: ParameterSet>(&self) -> Result<T, ParameterSetError>
     where
         T::Handles: Send + Sync + 'static,
