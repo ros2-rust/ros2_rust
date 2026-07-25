@@ -1,11 +1,13 @@
 mod override_map;
 mod range;
 mod service;
+mod std_types;
 mod value;
 
 pub(crate) use override_map::*;
 pub use range::*;
 use service::*;
+pub use std_types::*;
 pub use value::*;
 
 use ros_env::rcl_interfaces::msg::rmw::{ParameterType, ParameterValue as RmwParameterValue};
