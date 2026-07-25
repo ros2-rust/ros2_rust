@@ -1420,6 +1420,12 @@ impl NodeState {
         self.parameter.declare(name.into())
     }
 
+    /// Access to this node's parameter interface, for the parameter implementation itself.
+    #[cfg(test)]
+    pub(crate) fn parameter_interface(&self) -> &ParameterInterface {
+        &self.parameter
+    }
+
     /// Enables usage of undeclared parameters for this node.
     ///
     /// Returns a [`Parameters`] struct that can be used to get and set all parameters.
