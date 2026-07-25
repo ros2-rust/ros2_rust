@@ -56,6 +56,9 @@ pub enum RclrsError {
     },
     /// An error happened while declaring a parameter.
     ParameterDeclarationError(crate::DeclarationError),
+    /// An error happened while declaring one parameter of a
+    /// [`ParameterSet`][crate::ParameterSet], which the error names.
+    ParameterSetError(crate::ParameterSetError),
     /// A mutex used internally has been [poisoned][std::sync::PoisonError].
     PoisonedMutex,
     /// An [`crate::RclPrimitive`] received ready information that is not
@@ -147,6 +150,7 @@ impl Display for RclrsError {
                     "Received invalid payload: expected {expected:?}, received {received:?}",
                 )
             }
+            RclrsError::ParameterSetError(err) => write!(f, "{err}"),
             RclrsError::ParameterDeclarationError(err) => {
                 write!(f, "An error occurred while declaring a parameter: {err}",)
             }
@@ -213,6 +217,7 @@ impl Error for RclrsError {
             RclrsError::UnownedGuardCondition => None,
             RclrsError::InvalidPayload { .. } => None,
             RclrsError::ParameterDeclarationError(_) => None,
+            RclrsError::ParameterSetError(err) => Some(err),
             RclrsError::PoisonedMutex => None,
             RclrsError::InvalidReadyInformation { .. } => None,
             RclrsError::GoalAcceptanceError => None,
@@ -340,6 +345,12 @@ pub enum RclReturnCode {
 impl From<DeclarationError> for RclrsError {
     fn from(value: DeclarationError) -> Self {
         RclrsError::ParameterDeclarationError(value)
+    }
+}
+
+impl From<crate::ParameterSetError> for RclrsError {
+    fn from(value: crate::ParameterSetError) -> Self {
+        RclrsError::ParameterSetError(value)
     }
 }
 
