@@ -36,10 +36,17 @@ fn rejected_with(input: &str, expected: &[&str]) {
     }
 }
 
+/// Asserts that `input` is accepted, and returns the code generated from it.
 #[track_caller]
-fn accepted(input: &str) {
-    let errors = errors(input);
-    assert!(errors.is_empty(), "should have been accepted: {errors:#?}");
+fn accepted(input: &str) -> String {
+    let parsed: DeriveInput = syn::parse_str(input).expect("test input should parse");
+    match expand(&parsed) {
+        Ok(tokens) => tokens.to_string(),
+        Err(error) => panic!(
+            "should have been accepted: {:#?}",
+            error.into_iter().map(|e| e.to_string()).collect::<Vec<_>>()
+        ),
+    }
 }
 
 #[test]
@@ -336,11 +343,10 @@ fn test_reports_unknown_options() {
 fn test_rejects_shapes_that_cannot_describe_parameters() {
     rejected_with("struct C(f64);", &["requires named fields"]);
     rejected_with("struct C;", &["at least one field"]);
-    rejected_with("enum C { A }", &["cannot yet be derived for an enum"]);
     rejected_with("union C { a: f64 }", &["cannot be derived for a union"]);
     rejected_with(
         "struct C<T> { speed: T }",
-        &["generic", "known when the struct is defined"],
+        &["generic", "known when the type is defined"],
     );
 }
 
@@ -358,4 +364,138 @@ fn test_reports_every_problem_at_once() {
         "#,
     );
     assert_eq!(errors.len(), 3, "{errors:#?}");
+}
+
+// -------------------------------------------------------------------------------------------
+// Enum sets
+// -------------------------------------------------------------------------------------------
+
+#[test]
+fn test_accepts_an_enum_of_variants_carrying_parameters() {
+    let generated = accepted(
+        r#"
+        #[parameters(rename_all = "snake_case")]
+        enum SensorConfig {
+            Lidar {
+                #[param(default = 30, range = 1..=100)]
+                rate: i64,
+            },
+            Camera(CameraConfig),
+            Disabled,
+        }
+        "#,
+    );
+    // A struct for the tag plus an enum for the variants' handles.
+    assert!(
+        generated.contains("struct SensorConfigParams"),
+        "{generated}"
+    );
+    assert!(
+        generated.contains("enum SensorConfigVariantParams"),
+        "{generated}"
+    );
+    // The tag is a read-only string, and its valid values are reported.
+    assert!(generated.contains("ReadOnly"), "{generated}");
+    assert!(
+        generated.contains("one of: lidar, camera, disabled"),
+        "{generated}"
+    );
+    assert!(generated.contains("\"type\""), "{generated}");
+}
+
+#[test]
+fn test_the_tag_parameter_can_be_named() {
+    let generated = accepted(
+        r#"
+        #[parameters(tag = "kind")]
+        enum SensorConfig { Lidar { rate: i64 }, Disabled }
+        "#,
+    );
+    assert!(generated.contains("\"kind\""), "{generated}");
+}
+
+#[test]
+fn test_a_variant_can_set_its_own_tag_value() {
+    let generated = accepted(
+        r#"
+        enum SensorConfig {
+            #[param(rename = "2d_lidar")]
+            Lidar { rate: i64 },
+            Disabled,
+        }
+        "#,
+    );
+    assert!(generated.contains("2d_lidar"), "{generated}");
+}
+
+/// An enum whose variants carry nothing is a single value, and there is a derive for that.
+#[test]
+fn test_redirects_a_plain_enum_to_parameter_variant() {
+    rejected_with(
+        "enum ControlMode { Velocity, Position }",
+        &["single value", "Derive `ParameterVariant`"],
+    );
+}
+
+#[test]
+fn test_rejects_a_variant_holding_a_single_value() {
+    rejected_with(
+        "enum SensorConfig { Timeout(f64), Disabled }",
+        &["no name to declare it under", "struct variant"],
+    );
+}
+
+#[test]
+fn test_rejects_a_variant_holding_several_values() {
+    rejected_with(
+        "enum SensorConfig { Lidar(f64, f64), Disabled }",
+        &["named fields", "a single parameter set to delegate to"],
+    );
+}
+
+#[test]
+fn test_rejects_a_field_colliding_with_the_tag() {
+    rejected_with(
+        "enum SensorConfig { Lidar { r#type: i64 }, Disabled }",
+        &["already the name of the parameter that says which variant"],
+    );
+}
+
+#[test]
+fn test_rejects_two_variants_with_the_same_tag_value() {
+    rejected_with(
+        r#"
+        enum SensorConfig {
+            Lidar { rate: i64 },
+            #[param(rename = "Lidar")]
+            Laser { rate: i64 },
+        }
+        "#,
+        &["already the tag value of variant `Lidar`"],
+    );
+}
+
+#[test]
+fn test_rejects_parameter_options_on_a_variant() {
+    rejected_with(
+        "enum SensorConfig { #[param(default = 1.0)] Lidar { rate: i64 }, Disabled }",
+        &["no meaning on the `Lidar` variant", "variant's fields"],
+    );
+}
+
+#[test]
+fn test_rejects_enum_only_options_on_a_struct() {
+    rejected_with(
+        r#"#[parameters(tag = "type")] struct C { speed: f64 }"#,
+        &["`tag`", "no meaning for a struct"],
+    );
+    rejected_with(
+        r#"#[parameters(rename_all = "snake_case")] struct C { speed: f64 }"#,
+        &["`rename_all`", "no meaning for a struct"],
+    );
+}
+
+#[test]
+fn test_rejects_an_empty_enum() {
+    rejected_with("enum C {}", &["no variants"]);
 }

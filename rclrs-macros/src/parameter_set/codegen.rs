@@ -6,6 +6,7 @@ use syn::{spanned::Spanned, DeriveInput, Expr, Ident};
 
 use super::{
     attrs::{range_bounds, SetAttrs},
+    enum_set::{Variant, VariantShape},
     Field,
 };
 
@@ -483,4 +484,364 @@ fn snapshot_field(field: &Field) -> TokenStream {
     quote_spanned! { field.span() =>
         #ident: <#ty as ::rclrs::DeclareField<#mode>>::snapshot(&self.#ident)
     }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Enum sets
+// ---------------------------------------------------------------------------------------------
+
+/// Generates the handles and trait implementations for an enum parameter set.
+///
+/// Two types are generated: a struct holding the tag parameter's handle and the variant's
+/// handles, and an enum mirroring the user's for the latter. The tag has to be kept somewhere so
+/// that the parameter stays declared, and an enum cannot have a field common to all its variants.
+pub(crate) fn generate_enum(
+    input: &DeriveInput,
+    set: &SetAttrs,
+    tag: &str,
+    variants: &[Variant],
+) -> TokenStream {
+    let values = &input.ident;
+    let handles = handles_ident(input, set);
+    let variant_handles = format_ident!("{}VariantParams", values, span = values.span());
+    let visibility = &input.vis;
+
+    let handle_variants = variants.iter().map(|variant| {
+        let ident = variant.ident;
+        
+        match &variant.shape {
+            VariantShape::Fields(fields) => {
+                let handles = fields.iter().map(|field| {
+                    let field_ident = field.ident;
+                    let ty = field.ty;
+                    let mode = field.mode();
+                    let doc = handle_field_doc(field);
+                    
+                    quote_spanned! { field.span() =>
+                        #[doc = #doc]
+                        #field_ident: <#ty as ::rclrs::DeclareField<#mode>>::Handle
+                    }
+                });
+
+                quote!(#ident { #(#handles,)* })
+            }
+            VariantShape::Delegate(ty) => {
+                quote!(#ident(<#ty as ::rclrs::DeclareField<::rclrs::Writable>>::Handle))
+            }
+            VariantShape::Unit => quote!(#ident),
+        }
+    });
+
+    let tag_values: Vec<&str> = variants.iter().map(|v| v.tag.as_str()).collect();
+    let constraints = format!("one of: {}", tag_values.join(", "));
+    let unknown_tag = format!(
+        "unknown {values} '{{}}', expected one of: {}",
+        tag_values.join(", ")
+    );
+    let tag_description = set_doc(input);
+
+    // Which tag value a supplied default value corresponds to.
+    let tag_defaults = variants.iter().map(|variant| {
+        let ident = variant.ident;
+        let tag = &variant.tag;
+        
+        let pattern = match &variant.shape {
+            VariantShape::Fields(_) => quote!(#values::#ident { .. }),
+            VariantShape::Delegate(_) => quote!(#values::#ident(..)),
+            VariantShape::Unit => quote!(#values::#ident),
+        };
+        
+        quote! {
+            ::core::option::Option::Some(#pattern) => {
+                ::core::option::Option::Some(::std::string::String::from(#tag))
+            }
+        }
+    });
+
+    let declare_arms = variants.iter().map(|variant| {
+        let ident = variant.ident;
+        let tag = &variant.tag;
+        
+        let body = match &variant.shape {
+            VariantShape::Fields(fields) => {
+                let declared: Vec<&Field> = fields.iter().filter(|f| f.is_declared()).collect();
+                let defaults = destructure_variant_defaults(values, ident, &declared);
+                let inits = declared.iter().map(|field| declare_field(field, false));
+                
+                quote! {{
+                    #defaults
+                    #variant_handles::#ident { #(#inits,)* }
+                }}
+            }
+            VariantShape::Delegate(ty) => quote! {{
+                let __inner_default = match __default {
+                    ::core::option::Option::Some(#values::#ident(__inner)) => {
+                        ::core::option::Option::Some(__inner)
+                    }
+                    _ => ::core::option::Option::None,
+                };
+                
+                // Declared under this set's own namespace: the variant is identified by the tag,
+                // so it does not add a namespace of its own.
+                #variant_handles::#ident(
+                    <#ty as ::rclrs::DeclareField<::rclrs::Writable>>::declare(
+                        node,
+                        prefix,
+                        ::rclrs::FieldSpec {
+                            default: __inner_default,
+                            ..::core::default::Default::default()
+                        },
+                    )?,
+                )
+            }},
+            VariantShape::Unit => quote!(#variant_handles::#ident),
+        };
+
+        quote!(#tag => #body)
+    });
+
+    let snapshot_arms = variants.iter().map(|variant| {
+        let ident = variant.ident;
+        
+        match &variant.shape {
+            VariantShape::Fields(fields) => {
+                let declared: Vec<&Field> = fields.iter().filter(|f| f.is_declared()).collect();
+                let bindings = declared.iter().map(|field| field.ident);
+                
+                let reads = fields.iter().map(|field| {
+                    let field_ident = field.ident;
+                    
+                    if !field.is_declared() {
+                        return quote!(#field_ident: ::core::default::Default::default());
+                    }
+                    
+                    let ty = field.ty;
+                    let mode = field.mode();
+                    
+                    quote!(#field_ident: <#ty as ::rclrs::DeclareField<#mode>>::snapshot(#field_ident))
+                });
+
+                quote! {
+                    #variant_handles::#ident { #(#bindings,)* } => #values::#ident { #(#reads,)* }
+                }
+            }
+            VariantShape::Delegate(ty) => quote! {
+                #variant_handles::#ident(__inner) => #values::#ident(
+                    <#ty as ::rclrs::DeclareField<::rclrs::Writable>>::snapshot(__inner),
+                )
+            },
+            VariantShape::Unit => quote!(#variant_handles::#ident => #values::#ident),
+        }
+    });
+
+    let namespace = set
+        .namespace
+        .as_ref()
+        .map(|ns| ns.value())
+        .unwrap_or_default();
+
+    let default_source = match &set.default {
+        Some(expr) => quote! {
+            let __default = ::core::option::Option::or_else(
+                default,
+                || ::core::option::Option::Some(#expr),
+            );
+        },
+        None => quote!(let __default = default;),
+    };
+
+    let handles_doc = format!(
+        "Live parameter handles for [`{values}`].\n\n\
+         Generated by `#[derive(ParameterSet)]`. `variant` holds the handles for whichever \
+         variant the `{tag}` parameter selected.",
+    );
+
+    let variant_handles_doc = format!(
+        "Live parameter handles for the variants of [`{values}`], generated by \
+         `#[derive(ParameterSet)]`.",
+    );
+
+    quote! {
+        #[doc = #handles_doc]
+        #visibility struct #handles {
+            #[doc = "Handles for the variant that is in use."]
+            pub variant: #variant_handles,
+            // Holds the tag parameter open for as long as these handles live. It is read-only,
+            // so there is nothing to expose beyond the value it resolved to.
+            tag: ::rclrs::ReadOnlyParameter<::std::string::String>,
+        }
+
+        impl #handles {
+            #[doc = "The value of the tag parameter that selected this variant."]
+            pub fn tag(&self) -> ::std::string::String {
+                ::rclrs::ReadOnlyParameter::get(&self.tag)
+            }
+        }
+
+        #[doc = #variant_handles_doc]
+        #visibility enum #variant_handles {
+            #(#handle_variants,)*
+        }
+
+        impl ::rclrs::ParameterSet for #values {
+            type Handles = #handles;
+
+            const NAMESPACE: &'static str = #namespace;
+
+            fn declare(
+                node: &::rclrs::NodeState,
+                prefix: &str,
+                default: ::core::option::Option<Self>,
+            ) -> ::core::result::Result<Self::Handles, ::rclrs::ParameterSetError> {
+                #default_source
+
+                // The tag is declared first, because what else there is to declare depends on it.
+                let __tag_name = ::rclrs::join_parameter_name(prefix, #tag);
+                let __tag_default = match &__default {
+                    #(#tag_defaults,)*
+                    ::core::option::Option::None => ::core::option::Option::None,
+                };
+                let __tag = <::std::string::String as ::rclrs::DeclareField<::rclrs::ReadOnly>>::declare(
+                    node,
+                    &__tag_name,
+                    ::rclrs::FieldSpec {
+                        default: __tag_default,
+                        description: #tag_description,
+                        constraints: #constraints,
+                        validate: ::core::option::Option::Some(::std::boxed::Box::new(
+                            |__value: &::std::string::String| {
+                                match ::core::convert::AsRef::<str>::as_ref(__value) {
+                                    #(#tag_values)|* => ::core::result::Result::Ok(()),
+                                    __other => ::core::result::Result::Err(
+                                        ::std::format!(#unknown_tag, __other),
+                                    ),
+                                }
+                            },
+                        )),
+                        ..::core::default::Default::default()
+                    },
+                )?;
+
+                let __variant = match ::core::convert::AsRef::<str>::as_ref(
+                    &::rclrs::ReadOnlyParameter::get(&__tag),
+                ) {
+                    #(#declare_arms,)*
+                    // Unreachable: the validate callback above rejects anything else, which fails
+                    // the declaration of the tag before this point.
+                    __other => ::core::unreachable!(
+                        "the tag parameter accepted a value that is not a known variant: {}",
+                        __other,
+                    ),
+                };
+
+                ::core::result::Result::Ok(#handles {
+                    variant: __variant,
+                    tag: __tag,
+                })
+            }
+        }
+
+        impl ::rclrs::ParameterSetHandles for #handles {
+            type Values = #values;
+
+            fn snapshot(&self) -> #values {
+                match &self.variant {
+                    #(#snapshot_arms,)*
+                }
+            }
+        }
+
+        impl ::rclrs::DeclareField<::rclrs::Writable> for #values {
+            type Value = Self;
+            type Handle = #handles;
+            type Range = ();
+
+            fn declare(
+                node: &::rclrs::NodeState,
+                name: &str,
+                spec: ::rclrs::FieldSpec<Self::Value, Self::Range>,
+            ) -> ::core::result::Result<Self::Handle, ::rclrs::ParameterSetError> {
+                <Self as ::rclrs::ParameterSet>::declare(node, name, spec.default)
+            }
+
+            fn snapshot(handle: &Self::Handle) -> Self {
+                <#handles as ::rclrs::ParameterSetHandles>::snapshot(handle)
+            }
+
+            fn into_default(self) -> ::core::option::Option<Self::Value> {
+                ::core::option::Option::Some(self)
+            }
+        }
+
+        impl ::rclrs::DeclareFlattened<::rclrs::Writable> for #values {}
+    }
+}
+
+/// Takes a variant's default value apart, so that each of its fields can be given a default.
+fn destructure_variant_defaults(
+    values: &Ident,
+    variant: &Ident,
+    declared: &[&Field],
+) -> TokenStream {
+    if declared.is_empty() {
+        return quote!(let _ = &__default;);
+    }
+    
+    let bindings = declared.iter().map(|field| {
+        let binding = default_binding(field, DefaultSource::Supplied);
+        quote!(#binding)
+    });
+    
+    let field_idents = declared.iter().map(|field| field.ident);
+    
+    let somes = declared
+        .iter()
+        .map(|field| {
+            let ident = field.ident;
+            quote!(::core::option::Option::Some(#ident))
+        })
+        .collect::<Vec<_>>();
+    
+    let nones = declared
+        .iter()
+        .map(|_| quote!(::core::option::Option::None));
+
+    quote! {
+        let (#(#bindings,)*) = match __default {
+            ::core::option::Option::Some(#values::#variant { #(#field_idents,)* .. }) => {
+                (#(#somes,)*)
+            }
+            _ => (#(#nones,)*),
+        };
+    }
+}
+
+/// The doc comment on the type itself, used to describe the tag parameter.
+fn set_doc(input: &DeriveInput) -> String {
+    input
+        .attrs
+        .iter()
+        .filter_map(|attr| {
+            if !attr.path().is_ident("doc") {
+                return None;
+            }
+            
+            let syn::Meta::NameValue(name_value) = &attr.meta else {
+                return None;
+            };
+            
+            let Expr::Lit(syn::ExprLit {
+                lit: syn::Lit::Str(text),
+                ..
+            }) = &name_value.value
+            else {
+                return None;
+            };
+            
+            let line = text.value();
+            
+            Some(line.strip_prefix(' ').unwrap_or(&line).to_string())
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
 }
