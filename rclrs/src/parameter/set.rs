@@ -81,6 +81,40 @@ impl std::error::Error for ParameterSetError {
 ///
 /// Implemented by `#[derive(ParameterSet)]`. The struct holds plain values, and the corresponding
 /// live parameter handles are [`Self::Handles`], which the derive macro generates alongside it.
+///
+/// # Example
+///
+/// ```no_run
+/// use rclrs::*;
+///
+/// /// Configuration for a differential drive controller.
+/// #[derive(ParameterSet, Debug)]
+/// struct DriveConfig {
+///     /// Maximum forward speed in m/s.
+///     #[param(default = 1.5, range = 0.0..=10.0)]
+///     max_speed: f64,
+///     /// Names of the wheel joints.
+///     #[param(default = ["left_wheel", "right_wheel"])]
+///     wheels: Vec<String>,
+///     /// Safety limits. Nested sets need no annotation.
+///     limits: Limits,
+/// }
+///
+/// #[derive(ParameterSet, Debug)]
+/// struct Limits {
+///     /// Maximum motor force in N.
+///     #[param(default = 100.0)]
+///     max_force: f64,
+/// }
+///
+/// let executor = Context::default_from_env()?.create_basic_executor();
+/// let node = executor.create_node("drive_controller")?;
+///
+/// // Declares max_speed, wheels and limits.max_force.
+/// let config: DriveConfig = node.load_parameters()?;
+/// println!("{config:?}");
+/// # Ok::<(), RclrsError>(())
+/// ```
 pub trait ParameterSet: Sized {
     /// The live handles for the parameters of this set, one field per parameter.
     type Handles: ParameterSetHandles<Values = Self>;
@@ -386,10 +420,13 @@ impl<T: ParameterVariant> DeclareField<Writable> for Option<T> {
 ///
 /// declare_parameter_field!(Hostname);
 ///
-/// // `Hostname` is now usable as the type of a parameter set field, including as an `Option`.
-/// fn usable_as_a_field<T: DeclareField<Writable>>() {}
-/// usable_as_a_field::<Hostname>();
-/// usable_as_a_field::<Option<Hostname>>();
+/// // `Hostname` is now usable as a parameter set field, including as an `Option`.
+/// #[derive(ParameterSet)]
+/// struct Config {
+///     #[param(default = Hostname("localhost".into()))]
+///     host: Hostname,
+///     fallback: Option<Hostname>,
+/// }
 /// ```
 #[macro_export]
 macro_rules! declare_parameter_field {
@@ -482,3 +519,7 @@ declare_parameter_field!(
     Vec<u16>,
     Vec<u32>,
 );
+
+#[cfg(test)]
+#[path = "set_tests.rs"]
+mod tests;
