@@ -129,11 +129,26 @@ fn test_rejects_sequences_of_things_ros_has_no_array_type_for() {
 }
 
 #[test]
-fn test_rejects_maps() {
+fn test_rejects_a_map_of_plain_values() {
     rejected_with(
         "struct C { extra: HashMap<String, String> }",
-        &["no map parameter type"],
+        &["no map parameter type", "#[derive(ParameterSet)]"],
     );
+}
+
+#[test]
+fn test_rejects_a_map_whose_keys_are_not_names() {
+    rejected_with(
+        "struct C { sensors: HashMap<i64, SensorConfig> }",
+        &["have to be `String`"],
+    );
+}
+
+/// A map of parameter sets is how entries named by whoever configures the node are declared.
+#[test]
+fn test_accepts_a_map_of_parameter_sets() {
+    accepted("struct C { sensors: HashMap<String, SensorConfig> }");
+    accepted("struct C { sensors: BTreeMap<String, SensorConfig> }");
 }
 
 #[test]

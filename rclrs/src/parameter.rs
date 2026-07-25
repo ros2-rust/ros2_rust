@@ -20,7 +20,7 @@ use crate::{
     call_string_getter_with_rcl_node, rcl_bindings::*, Node, RclrsError, ENTITY_LIFECYCLE_MUTEX,
 };
 use std::{
-    collections::{btree_map::Entry, BTreeMap},
+    collections::{btree_map::Entry, BTreeMap, BTreeSet},
     fmt::Debug,
     sync::{Arc, Mutex, RwLock, Weak},
 };
@@ -1383,6 +1383,32 @@ impl ParameterInterface {
             .insert(name, ParameterStorage::Declared(storage));
     }
 
+    /// The distinct names that appear directly under `prefix` in the parameter overrides.
+    ///
+    /// For overrides `sensors.front.rate` and `sensors.rear.rate`, the names under `sensors` are
+    /// `front` and `rear`. This is how a map field, whose entries are named by whoever configures
+    /// the node, finds out what those names are. ROS 2 has no map parameter type, and overrides
+    /// are not otherwise visible until the parameter they name is declared.
+    pub(crate) fn override_names_under(&self, prefix: &str) -> BTreeSet<String> {
+        let scope = if prefix.is_empty() {
+            String::new()
+        } else {
+            format!("{prefix}.")
+        };
+
+        self.override_map
+            .range(scope.clone()..)
+            .take_while(|(name, _)| name.starts_with(&scope))
+            .filter_map(|(name, _)| {
+                let rest = &name[scope.len()..];
+                // Only a name with something after it is a namespace, and so an entry of the map.
+                // `sensors: 3` alongside `sensors.front.rate` is a different parameter entirely.
+                let (entry, _) = rest.split_once('.')?;
+                (!entry.is_empty()).then(|| entry.to_string())
+            })
+            .collect()
+    }
+
     pub(crate) fn allow_undeclared(&self) {
         self.parameter_map.lock().unwrap().allow_undeclared = true;
     }
@@ -1391,6 +1417,10 @@ impl ParameterInterface {
 #[cfg(test)]
 #[path = "parameter/enum_set_tests.rs"]
 mod enum_set_tests;
+
+#[cfg(test)]
+#[path = "parameter/map_tests.rs"]
+mod map_tests;
 
 #[cfg(test)]
 #[path = "parameter/variant_tests.rs"]

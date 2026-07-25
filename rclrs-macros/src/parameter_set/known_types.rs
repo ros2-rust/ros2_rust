@@ -227,12 +227,30 @@ pub(crate) fn shape_of(ty: &Type) -> TypeShape {
         }
     }
 
-    // A map is a recognised mistake rather than an unrecognised type, since no `DeclareField`
-    // implementation could ever make one work.
-    if key.starts_with("HashMap<") || key.starts_with("BTreeMap<") {
-        return TypeShape::Rejected(format!(
-            "`{key}` cannot be a ROS 2 parameter: ROS 2 has no map parameter type"
-        ));
+    // A map is a parameter set per entry, with the entry names coming from the parameters the
+    // node was configured with. The values therefore have to be sets, and the keys have to be
+    // the names of those entries.
+    if let Some(arguments) = key
+        .strip_prefix("HashMap<")
+        .or_else(|| key.strip_prefix("BTreeMap<"))
+        .and_then(|k| k.strip_suffix('>'))
+    {
+        let (map_key, map_value) = arguments.split_once(',').unwrap_or((arguments, ""));
+
+        if map_key != "String" {
+            return TypeShape::Rejected(format!(
+                "the keys of a parameter map are the names its entries are declared under, so \
+                 they have to be `String`, not `{map_key}`"
+            ));
+        }
+
+        if NUMERIC_LEAVES.contains(&map_value) || OTHER_LEAVES.contains(&map_value) {
+            return TypeShape::Rejected(format!(
+                "`{key}` cannot be a ROS 2 parameter: ROS 2 has no map parameter type. A map \
+                 field declares a parameter set for each of its entries, so its values have to \
+                 be types with `#[derive(ParameterSet)]`"
+            ));
+        }
     }
 
     // `Option<T>` is an optional parameter when `T` is a parameter type. `Option` of anything
