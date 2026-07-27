@@ -24,6 +24,8 @@ use crate::{
     WaitSetRunnerOutcome, Waitable, WeakActivityListener, WorkerChannel,
 };
 
+use std::any::Any;
+
 static FAILED_TO_SEND_WORKER: &'static str =
     "Failed to send the new runner. This should never happen. \
     Please report this to the rclrs maintainers with a minimal reproducible example.";
@@ -152,7 +154,7 @@ impl ExecutorRuntime for BasicExecutorRuntime {
             }
         }
 
-        let (runners, new_worker_receiver, errors) = worker_result_receiver.recv().expect(
+        let (runners, new_worker_receiver, errors, pending_panic) = worker_result_receiver.recv().expect(
             "Basic executor failed to receive the WaitSetRunner at the end of its spinning. \
             This is a critical bug in rclrs. \
             Please report this bug to the maintainers of rclrs by providing a minimum reproduction of the problem."
@@ -160,6 +162,10 @@ impl ExecutorRuntime for BasicExecutorRuntime {
 
         self.wait_set_runners = runners;
         self.new_worker_receiver = Some(new_worker_receiver);
+
+        if let Some(panic_payload) = pending_panic {
+            std::panic::resume_unwind(panic_payload);
+        }
 
         errors
     }
@@ -391,11 +397,13 @@ async fn manage_workers(
     Vec<WaitSetRunner>,
     StreamFuture<UnboundedReceiver<WaitSetRunner>>,
     Vec<RclrsError>,
+    Option<Box<dyn Any + Send + 'static>>,
 ) {
     let mut active_runners: Vec<oneshot::Receiver<(WaitSetRunner, WaitSetRunnerOutcome)>> =
         Vec::new();
     let mut finished_runners: Vec<WaitSetRunner> = Vec::new();
     let mut errors: Vec<RclrsError> = Vec::new();
+    let mut pending_panic: Option<Box<dyn Any + Send + 'static>> = None;
 
     let add_runner = |new_runner: Option<WaitSetRunner>,
                       active_runners: &mut Vec<_>,
@@ -429,7 +437,12 @@ async fn manage_workers(
                             }
                         }
                         WaitSetRunnerOutcome::Panicked(panic_payload) => {
-                            std::panic::resume_unwind(panic_payload);
+                            finished_runners.push(runner);
+                            if pending_panic.is_none() {
+                                pending_panic = Some(panic_payload);
+                                conditions.halt_spinning.store(true, Ordering::Release);
+                                all_guard_conditions.trigger();
+                            }
                         }
                     },
                     Err(_) => {
@@ -453,5 +466,5 @@ async fn manage_workers(
         }
     }
 
-    (finished_runners, new_workers, errors)
+    (finished_runners, new_workers, errors, pending_panic)
 }
