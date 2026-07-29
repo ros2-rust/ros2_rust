@@ -587,6 +587,7 @@ mod tests {
 
             let _ = commands.run(async move {
                 let (sender, mut receiver) = mpsc::unbounded();
+                let sender = std::panic::AssertUnwindSafe(sender);
                 let _subscription = node
                     .create_subscription("test_delayed_subscription", move |_: Empty| {
                         let _ = sender.unbounded_send(());

@@ -14,6 +14,7 @@ use std::{
     collections::HashMap,
     ffi::CString,
     future::Future,
+    panic::UnwindSafe,
     sync::{Arc, Mutex, MutexGuard, Weak},
     time::Duration,
 };
@@ -204,7 +205,7 @@ impl<A: Action> ActionServerState<A> {
     /// Change the callback for this action server.
     pub fn set_callback<Task>(
         &self,
-        mut callback: impl FnMut(RequestedGoal<A>) -> Task + Send + Sync + 'static,
+        mut callback: impl FnMut(RequestedGoal<A>) -> Task + Send + Sync + UnwindSafe + 'static,
     ) where
         Task: Future<Output = TerminatedGoal> + Send + Sync + 'static,
     {
@@ -242,7 +243,7 @@ impl<A: Action> ActionServerState<A> {
     pub(crate) fn create<'a, Task>(
         node: &Node,
         options: impl IntoActionServerOptions<'a>,
-        mut callback: impl FnMut(RequestedGoal<A>) -> Task + Send + Sync + 'static,
+        mut callback: impl FnMut(RequestedGoal<A>) -> Task + Send + Sync + UnwindSafe + 'static,
     ) -> Result<ActionServer<A>, RclrsError>
     where
         Task: Future<Output = TerminatedGoal> + Send + Sync + 'static,
@@ -348,7 +349,7 @@ impl<A: Action> ActionServerState<A> {
     pub(super) fn drain_receiver_into_callback<Task>(
         &self,
         mut receiver: UnboundedReceiver<RequestedGoal<A>>,
-        mut callback: impl FnMut(RequestedGoal<A>) -> Task + Send + Sync + 'static,
+        mut callback: impl FnMut(RequestedGoal<A>) -> Task + Send + Sync + UnwindSafe + 'static,
     ) where
         Task: Future<Output = TerminatedGoal> + Send + Sync + 'static,
     {
@@ -784,7 +785,14 @@ impl<A: Action> ActionServerHandle<A> {
 }
 
 enum GoalDispatch<A: Action> {
-    Callback(Box<dyn FnMut(RequestedGoal<A>) -> BoxFuture<'static, TerminatedGoal> + Send + Sync>),
+    Callback(
+        Box<
+            dyn FnMut(RequestedGoal<A>) -> BoxFuture<'static, TerminatedGoal>
+                + Send
+                + Sync
+                + UnwindSafe,
+        >,
+    ),
     Sender(UnboundedSender<RequestedGoal<A>>),
 }
 
