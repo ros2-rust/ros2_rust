@@ -136,20 +136,7 @@ impl ExecutorRuntime for BasicExecutorRuntime {
         }));
 
         while let Ok(task) = self.next_task(&workers_finished) {
-            // SAFETY: If the mutex is poisoned then we have unrecoverable situation.
-            let mut future_slot = task.future.lock().unwrap();
-            if let Some(mut future) = future_slot.take() {
-                let waker = waker_ref(&task);
-                let task_context = &mut TaskContext::from_waker(&waker);
-                // Poll the future inside the task so it can do some work and
-                // tell us its state.
-                if future.as_mut().poll(task_context).is_pending() {
-                    // The task is still pending, so return the future to its
-                    // task so it can be processed again when it's ready to
-                    // continue.
-                    *future_slot = Some(future);
-                }
-            }
+            task.poll();
         }
 
         let (runners, new_worker_receiver, errors) = worker_result_receiver.recv().expect(
@@ -349,6 +336,7 @@ impl TaskSender {
         let task = Arc::new(Task {
             future: Mutex::new(Some(f)),
             task_sender: self.task_sender.clone(),
+            queued: AtomicBool::new(true),
         });
 
         if let Err(_) = self.task_sender.send(task) {
@@ -372,14 +360,44 @@ struct Task {
     /// shared borrow that comes from the Arc.
     future: Mutex<Option<BoxFuture<'static, ()>>>,
     task_sender: Sender<Arc<Task>>,
+    /// Whether this task already has an entry in the ready queue.
+    queued: AtomicBool,
 }
 
 /// Implementing this trait gives us a very easy implementation of waking
 /// behavior for Task on our BasicExecutorRuntime.
 impl ArcWake for Task {
     fn wake_by_ref(arc_self: &Arc<Self>) {
-        let cloned = Arc::clone(arc_self);
-        arc_self.task_sender.send(cloned).ok();
+        // Multiple wake-ups may be coalesced into one poll. Avoiding duplicate
+        // queue entries prevents a burst of wake-ups from causing redundant
+        // polls after the task has already observed the latest state.
+        if !arc_self.queued.swap(true, Ordering::AcqRel) {
+            if arc_self.task_sender.send(Arc::clone(arc_self)).is_err() {
+                arc_self.queued.store(false, Ordering::Release);
+            }
+        }
+    }
+}
+
+impl Task {
+    fn poll(self: &Arc<Self>) {
+        // The queue entry has now been consumed, so a wake that happens while
+        // polling must schedule another poll.
+        self.queued.store(false, Ordering::Release);
+
+        // SAFETY: If the mutex is poisoned then we have an unrecoverable situation.
+        let mut future_slot = self.future.lock().unwrap();
+        if let Some(mut future) = future_slot.take() {
+            let waker = waker_ref(self);
+            let task_context = &mut TaskContext::from_waker(&waker);
+            // Poll the future inside the task so it can do some work and tell
+            // us its state.
+            if future.as_mut().poll(task_context).is_pending() {
+                // The task is still pending, so return the future to its task
+                // so it can be processed again when it's ready to continue.
+                *future_slot = Some(future);
+            }
+        }
     }
 }
 
@@ -449,4 +467,69 @@ async fn manage_workers(
     }
 
     (finished_runners, new_workers, errors)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use futures::future::poll_fn;
+    use std::{
+        sync::atomic::AtomicUsize,
+        task::{Poll, Waker},
+    };
+
+    #[test]
+    fn repeated_wakes_are_coalesced() {
+        let (task_sender, ready_queue) = channel();
+        let task_sender = TaskSender { task_sender };
+        let poll_count = Arc::new(AtomicUsize::new(0));
+        let saved_waker = Arc::new(Mutex::new(None::<Waker>));
+
+        let poll_count_clone = Arc::clone(&poll_count);
+        let saved_waker_clone = Arc::clone(&saved_waker);
+        task_sender.add_async_task(Box::pin(poll_fn(move |context| {
+            poll_count_clone.fetch_add(1, Ordering::Relaxed);
+            *saved_waker_clone.lock().unwrap() = Some(context.waker().clone());
+            Poll::Pending
+        })));
+
+        ready_queue.try_recv().unwrap().poll();
+        let waker = saved_waker.lock().unwrap().as_ref().unwrap().clone();
+        for _ in 0..1_000 {
+            waker.wake_by_ref();
+        }
+
+        ready_queue.try_recv().unwrap().poll();
+        assert_eq!(poll_count.load(Ordering::Relaxed), 2);
+        assert!(
+            ready_queue.try_recv().is_err(),
+            "A task should only have one outstanding queue entry"
+        );
+
+        // Break the cycle between the stored Waker and its Task.
+        saved_waker.lock().unwrap().take();
+    }
+
+    #[test]
+    fn wake_while_polling_schedules_another_poll() {
+        let (task_sender, ready_queue) = channel();
+        let task_sender = TaskSender { task_sender };
+        let poll_count = Arc::new(AtomicUsize::new(0));
+
+        let poll_count_clone = Arc::clone(&poll_count);
+        task_sender.add_async_task(Box::pin(poll_fn(move |context| {
+            if poll_count_clone.fetch_add(1, Ordering::Relaxed) == 0 {
+                context.waker().wake_by_ref();
+                Poll::Pending
+            } else {
+                Poll::Ready(())
+            }
+        })));
+
+        ready_queue.try_recv().unwrap().poll();
+        ready_queue.try_recv().unwrap().poll();
+
+        assert_eq!(poll_count.load(Ordering::Relaxed), 2);
+        assert!(ready_queue.try_recv().is_err());
+    }
 }
