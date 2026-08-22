@@ -5,6 +5,8 @@ Work is coordinated in via GitHub issues, and there also exists a [Matrix chat](
 
 There are also occasional ROS 2 Rust WG meetings that are announced on the [ROS discourse forum](https://discourse.ros.org/).
 
+## AI Policy
+The ros2_rust project follows the [OSRF Policy on the Use of Generative Tools (“Generative AI”) in Contributions]([https://github.com/osrf/ros2_rust/blob/main/docs/AI_POLICY.md](https://github.com/openrobotics/osra-policies-and-procedures/blob/main/OSRF%20Policy%20on%20the%20Use%20of%20Generative%20Tools%20(%E2%80%9CGenerative%20AI%E2%80%9D)%20in%20Contributions.md)).
 
 ## Coding guidelines
 This section is not comprehensive, and conventions from the broader Rust community should be followed.
