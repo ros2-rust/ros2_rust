@@ -480,7 +480,7 @@ impl<A: Action> ActionClientGoalBoard<A> {
         let accepted = A::get_goal_response_accepted(&response_rmw);
         let stamp = A::get_goal_response_stamp(&response_rmw);
 
-        let Some(pending) = self
+        let Some(mut pending) = self
             .pending_goal_clients
             .lock()
             .unwrap()
@@ -491,6 +491,31 @@ impl<A: Action> ActionClientGoalBoard<A> {
         };
 
         if accepted {
+            let status = GoalStatus {
+                code: GoalStatusCode::Accepted,
+                goal_id: pending.goal_id,
+                stamp: Time {
+                    sec: stamp.0,
+                    nanosec: stamp.1,
+                },
+            };
+
+            {
+                let all_status_senders = self.status_senders.lock().unwrap();
+                if let Some(senders) = all_status_senders.get(&pending.goal_id) {
+                    for sender in senders {
+                        let _ = sender.send(status.clone());
+                    }
+                }
+            }
+
+            {
+                let all_status_posters = self.status_posters.lock().unwrap();
+                if let Some(watcher) = all_status_posters.get(&pending.goal_id) {
+                    watcher.send_modify(|watched_status| *watched_status = status);
+                }
+            }
+
             let _ = pending.sender.send(Some(GoalClient {
                 feedback: pending.feedback,
                 status: pending.status,
