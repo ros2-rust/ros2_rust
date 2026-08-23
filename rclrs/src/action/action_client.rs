@@ -1,9 +1,9 @@
 use super::empty_goal_status_array;
 use crate::{
     log_warn, rcl_bindings::*, CancelResponse, CancelResponseCode, DropGuard, GoalStatus,
-    GoalStatusCode, GoalUuid, MultiCancelResponse, Node, NodeHandle, QoSProfile, RclPrimitive,
-    RclPrimitiveHandle, RclPrimitiveKind, RclrsError, ReadyKind, TakeFailedAsNone, ToResult,
-    Waitable, WaitableLifecycle, ENTITY_LIFECYCLE_MUTEX,
+    GoalStatusCode, GoalUuid, MultiCancelResponse, Node, NodeHandle, Promise, QoSProfile,
+    RclPrimitive, RclPrimitiveHandle, RclPrimitiveKind, RclrsError, ReadyKind, TakeFailedAsNone,
+    ToResult, Waitable, WaitableLifecycle, ENTITY_LIFECYCLE_MUTEX,
 };
 use ros_env::{action_msgs::srv::CancelGoal_Response, builtin_interfaces::msg::Time};
 use rosidl_runtime_rs::{Action, Message, RmwFeedbackMessage, RmwGoalResponse, RmwResultResponse};
@@ -189,6 +189,16 @@ impl<A: Action> ActionClientState<A> {
         .ok()?;
 
         Ok(is_available)
+    }
+
+    /// Get a promise that will be fulfilled when an action server is ready for
+    /// this client. You can `.await` the promise in an async function or use it
+    /// for `until_promise_resolved` in [`SpinOptions`][crate::SpinOptions].
+    pub fn notify_on_server_ready(self: &Arc<Self>) -> Promise<()> {
+        let client = Arc::clone(self);
+        self.board
+            .node
+            .notify_on_graph_change(move || client.server_is_available().is_ok_and(|r| r))
     }
 
     /// Request the action server to execute a goal. You will receive a
