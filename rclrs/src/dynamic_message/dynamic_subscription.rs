@@ -278,7 +278,9 @@ where
     ) -> Result<Arc<Self>, RclrsError> {
         // This loads the introspection type support library.
         let metadata = DynamicMessageMetadata::new(topic_type)?;
-        let SubscriptionOptions { topic, qos } = options.into();
+        let options = options.into();
+        let topic = options.topic;
+        let qos = options.qos;
         // However, we also need the regular type support library –
         // the rosidl_typesupport_c one.
         let message_type = &metadata.message_type;
@@ -303,9 +305,30 @@ where
         // SAFETY: No preconditions for this function.
         let mut rcl_subscription_options = unsafe { rcl_subscription_get_default_options() };
         rcl_subscription_options.qos = qos.into();
+        #[cfg(ros_distro = "rolling")]
+        if let Some(backends) = options.acceptable_buffer_backends {
+            let backends_c_string =
+                CString::new(backends).map_err(|err| RclrsError::StringContainsNul {
+                    err,
+                    s: backends.into(),
+                })?;
+            let set_result = unsafe {
+                rcl_subscription_options_set_acceptable_buffer_backends(
+                    backends_c_string.as_ptr(),
+                    &mut rcl_subscription_options,
+                )
+                .ok()
+            };
+            if let Err(error) = set_result {
+                unsafe {
+                    rcl_subscription_options_fini(&mut rcl_subscription_options);
+                }
+                return Err(error);
+            }
+        }
         // SAFETY: Getting a zero-initialized value is always safe.
         let mut rcl_subscription = unsafe { rcl_get_zero_initialized_subscription() };
-        {
+        let init_result = {
             let rcl_node = node_handle.rcl_node.lock().unwrap();
             let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
             unsafe {
@@ -322,9 +345,13 @@ where
                     topic_c_string.as_ptr(),
                     &rcl_subscription_options,
                 )
-                .ok()?;
+                .ok()
             }
-        }
+        };
+        let options_fini_result =
+            unsafe { rcl_subscription_options_fini(&mut rcl_subscription_options).ok() };
+        init_result?;
+        options_fini_result?;
 
         let handle = Arc::new(SubscriptionHandle {
             rcl_subscription: Mutex::new(rcl_subscription),
