@@ -131,7 +131,9 @@ where
         node_handle: &Arc<NodeHandle>,
         commands: &Arc<WorkerCommands>,
     ) -> Result<Arc<Self>, RclrsError> {
-        let SubscriptionOptions { topic, qos } = options.into();
+        let options = options.into();
+        let topic = options.topic;
+        let qos = options.qos;
         let callback = Arc::new(Mutex::new(callback));
 
         // SAFETY: Getting a zero-initialized value is always safe.
@@ -146,8 +148,29 @@ where
         // SAFETY: No preconditions for this function.
         let mut rcl_subscription_options = unsafe { rcl_subscription_get_default_options() };
         rcl_subscription_options.qos = qos.into();
+        #[cfg(ros_distro = "rolling")]
+        if let Some(backends) = options.acceptable_buffer_backends {
+            let backends_c_string =
+                CString::new(backends).map_err(|err| RclrsError::StringContainsNul {
+                    err,
+                    s: backends.into(),
+                })?;
+            let set_result = unsafe {
+                rcl_subscription_options_set_acceptable_buffer_backends(
+                    backends_c_string.as_ptr(),
+                    &mut rcl_subscription_options,
+                )
+                .ok()
+            };
+            if let Err(error) = set_result {
+                unsafe {
+                    rcl_subscription_options_fini(&mut rcl_subscription_options);
+                }
+                return Err(error);
+            }
+        }
 
-        {
+        let init_result = {
             let rcl_node = node_handle.rcl_node.lock().unwrap();
             let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
             unsafe {
@@ -164,9 +187,13 @@ where
                     topic_c_string.as_ptr(),
                     &rcl_subscription_options,
                 )
-                .ok()?;
+                .ok()
             }
-        }
+        };
+        let options_fini_result =
+            unsafe { rcl_subscription_options_fini(&mut rcl_subscription_options).ok() };
+        init_result?;
+        options_fini_result?;
 
         let handle = Arc::new(SubscriptionHandle {
             rcl_subscription: Mutex::new(rcl_subscription),
@@ -244,6 +271,12 @@ pub struct SubscriptionOptions<'a> {
     pub topic: &'a str,
     /// The quality of service settings for the subscription.
     pub qos: QoSProfile,
+    /// Buffer backends accepted by the subscription.
+    ///
+    /// `None`, an empty string, or `"cpu"` selects CPU buffers. `"any"` accepts
+    /// every installed backend. A comma-separated list selects specific backends.
+    #[cfg(ros_distro = "rolling")]
+    pub acceptable_buffer_backends: Option<&'a str>,
 }
 
 impl<'a> SubscriptionOptions<'a> {
@@ -252,7 +285,16 @@ impl<'a> SubscriptionOptions<'a> {
         Self {
             topic,
             qos: QoSProfile::topics_default(),
+            #[cfg(ros_distro = "rolling")]
+            acceptable_buffer_backends: None,
         }
+    }
+
+    /// Sets the Buffer backends accepted by this subscription.
+    #[cfg(ros_distro = "rolling")]
+    pub fn acceptable_buffer_backends(mut self, backends: &'a str) -> Self {
+        self.acceptable_buffer_backends = Some(backends);
+        self
     }
 }
 
@@ -660,6 +702,8 @@ mod tests {
                 SubscriptionOptions {
                     topic: "test_subscription_qos_topic_3",
                     qos: expected_qos,
+                    #[cfg(ros_distro = "rolling")]
+                    acceptable_buffer_backends: None,
                 },
                 |_: Empty| {
                     // Do nothing
@@ -670,6 +714,17 @@ mod tests {
         let qos = subscription.qos();
         assert_eq!(expected_qos.reliability, qos.reliability);
         assert_eq!(qos.reliability, QoSReliabilityPolicy::BestEffort);
+
+        #[cfg(ros_distro = "rolling")]
+        node.create_subscription(
+            SubscriptionOptions {
+                topic: "test_subscription_cuda_buffer_backend",
+                qos: QoSProfile::topics_default(),
+                acceptable_buffer_backends: Some("cuda"),
+            },
+            |_: Empty| {},
+        )
+        .unwrap();
     }
 
     #[test]

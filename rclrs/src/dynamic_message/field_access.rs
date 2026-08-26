@@ -1,4 +1,4 @@
-use rosidl_runtime_rs::Sequence;
+use rosidl_runtime_rs::{PrimitiveSequence, Sequence};
 
 use super::{BaseType, MessageFieldInfo, ValueKind};
 
@@ -122,8 +122,8 @@ macro_rules! define_value_types {
         #[allow(missing_docs)]
         #[derive(Debug, PartialEq)]
         pub enum SequenceValue<'msg> {
-            FloatSequence(make_ref!('msg, Sequence<f32>)),
-            DoubleSequence(make_ref!('msg, Sequence<f64>)),
+            FloatSequence(make_ref!('msg, PrimitiveSequence<f32>)),
+            DoubleSequence(make_ref!('msg, PrimitiveSequence<f64>)),
             /// It's platform-dependent what the size of long double is.
             /// Here's a pointer to the [`Sequence`][1] struct.
             ///
@@ -132,18 +132,18 @@ macro_rules! define_value_types {
                 immutable => *const u8,
                 mutable => *mut u8
             )),
-            CharSequence(make_ref!('msg, Sequence<u8>)),
-            WCharSequence(make_ref!('msg, Sequence<u16>)),
-            BooleanSequence(make_ref!('msg, Sequence<bool>)),
-            OctetSequence(make_ref!('msg, Sequence<u8>)),
-            Uint8Sequence(make_ref!('msg, Sequence<u8>)),
-            Int8Sequence(make_ref!('msg, Sequence<i8>)),
-            Uint16Sequence(make_ref!('msg, Sequence<u16>)),
-            Int16Sequence(make_ref!('msg, Sequence<i16>)),
-            Uint32Sequence(make_ref!('msg, Sequence<u32>)),
-            Int32Sequence(make_ref!('msg, Sequence<i32>)),
-            Uint64Sequence(make_ref!('msg, Sequence<u64>)),
-            Int64Sequence(make_ref!('msg, Sequence<i64>)),
+            CharSequence(make_ref!('msg, PrimitiveSequence<u8>)),
+            WCharSequence(make_ref!('msg, PrimitiveSequence<u16>)),
+            BooleanSequence(make_ref!('msg, PrimitiveSequence<bool>)),
+            OctetSequence(make_ref!('msg, PrimitiveSequence<u8>)),
+            Uint8Sequence(make_ref!('msg, PrimitiveSequence<u8>)),
+            Int8Sequence(make_ref!('msg, PrimitiveSequence<i8>)),
+            Uint16Sequence(make_ref!('msg, PrimitiveSequence<u16>)),
+            Int16Sequence(make_ref!('msg, PrimitiveSequence<i16>)),
+            Uint32Sequence(make_ref!('msg, PrimitiveSequence<u32>)),
+            Int32Sequence(make_ref!('msg, PrimitiveSequence<i32>)),
+            Uint64Sequence(make_ref!('msg, PrimitiveSequence<u64>)),
+            Int64Sequence(make_ref!('msg, PrimitiveSequence<i64>)),
             StringSequence(make_ref!('msg, Sequence<rosidl_runtime_rs::String>)),
             /// This variant is not a [`Sequence`][1], since there is no suitable element type
             /// that both matches the underlying struct layout and includes information about
@@ -180,6 +180,10 @@ macro_rules! define_value_types {
             immutable => DynamicBoundedSequence<'msg, T>,
             mutable => DynamicBoundedSequenceMut<'msg, T>
         );
+        type BoundedPrimitiveSequence<'msg, T> = $select!(
+            immutable => DynamicBoundedSequence<'msg, T>,
+            mutable => DynamicBoundedPrimitiveSequenceMut<'msg, T>
+        );
 
         /// A sequence of bounded length.
         // The field variants are for the most part self-explaining.
@@ -187,8 +191,8 @@ macro_rules! define_value_types {
         #[allow(missing_docs)]
         #[derive(Debug, PartialEq)]
         pub enum BoundedSequenceValue<'msg> {
-            FloatBoundedSequence(BoundedSequence<'msg, f32>),
-            DoubleBoundedSequence(BoundedSequence<'msg, f64>),
+            FloatBoundedSequence(BoundedPrimitiveSequence<'msg, f32>),
+            DoubleBoundedSequence(BoundedPrimitiveSequence<'msg, f64>),
             /// It's platform-dependent what the size of long double is.
             /// Here's a pointer to the [`BoundedSequence`][1] struct and the upper bound.
             ///
@@ -197,18 +201,18 @@ macro_rules! define_value_types {
                 immutable => *const u8,
                 mutable => *mut u8
             ), usize),
-            CharBoundedSequence(BoundedSequence<'msg, u8>),
-            WCharBoundedSequence(BoundedSequence<'msg, u16>),
-            BooleanBoundedSequence(BoundedSequence<'msg, bool>),
-            OctetBoundedSequence(BoundedSequence<'msg, u8>),
-            Uint8BoundedSequence(BoundedSequence<'msg, u8>),
-            Int8BoundedSequence(BoundedSequence<'msg, i8>),
-            Uint16BoundedSequence(BoundedSequence<'msg, u16>),
-            Int16BoundedSequence(BoundedSequence<'msg, i16>),
-            Uint32BoundedSequence(BoundedSequence<'msg, u32>),
-            Int32BoundedSequence(BoundedSequence<'msg, i32>),
-            Uint64BoundedSequence(BoundedSequence<'msg, u64>),
-            Int64BoundedSequence(BoundedSequence<'msg, i64>),
+            CharBoundedSequence(BoundedPrimitiveSequence<'msg, u8>),
+            WCharBoundedSequence(BoundedPrimitiveSequence<'msg, u16>),
+            BooleanBoundedSequence(BoundedPrimitiveSequence<'msg, bool>),
+            OctetBoundedSequence(BoundedPrimitiveSequence<'msg, u8>),
+            Uint8BoundedSequence(BoundedPrimitiveSequence<'msg, u8>),
+            Int8BoundedSequence(BoundedPrimitiveSequence<'msg, i8>),
+            Uint16BoundedSequence(BoundedPrimitiveSequence<'msg, u16>),
+            Int16BoundedSequence(BoundedPrimitiveSequence<'msg, i16>),
+            Uint32BoundedSequence(BoundedPrimitiveSequence<'msg, u32>),
+            Int32BoundedSequence(BoundedPrimitiveSequence<'msg, i32>),
+            Uint64BoundedSequence(BoundedPrimitiveSequence<'msg, u64>),
+            Int64BoundedSequence(BoundedPrimitiveSequence<'msg, i64>),
             StringBoundedSequence(BoundedSequence<'msg, rosidl_runtime_rs::String>),
             BoundedStringBoundedSequence($select!(
                 immutable => DynamicBoundedSequence<'msg, DynamicBoundedString<'msg>>,
@@ -473,50 +477,50 @@ macro_rules! define_value_types {
             ) -> Self {
                 match &field_info.base_type {
                     BaseType::Float => {
-                        SequenceValue::FloatSequence(reinterpret::<Sequence<f32>>(bytes))
+                        SequenceValue::FloatSequence(reinterpret::<PrimitiveSequence<f32>>(bytes))
                     }
                     BaseType::Double => {
-                        SequenceValue::DoubleSequence(reinterpret::<Sequence<f64>>(bytes))
+                        SequenceValue::DoubleSequence(reinterpret::<PrimitiveSequence<f64>>(bytes))
                     }
                     BaseType::LongDouble => SequenceValue::LongDoubleSequence($select!(
                         immutable => bytes.as_ptr(),
                         mutable => bytes.as_mut_ptr()
                     )),
                     BaseType::Char => {
-                        SequenceValue::CharSequence(reinterpret::<Sequence<u8>>(bytes))
+                        SequenceValue::CharSequence(reinterpret::<PrimitiveSequence<u8>>(bytes))
                     }
                     BaseType::WChar => {
-                        SequenceValue::WCharSequence(reinterpret::<Sequence<u16>>(bytes))
+                        SequenceValue::WCharSequence(reinterpret::<PrimitiveSequence<u16>>(bytes))
                     }
                     BaseType::Boolean => {
-                        SequenceValue::BooleanSequence(reinterpret::<Sequence<bool>>(bytes))
+                        SequenceValue::BooleanSequence(reinterpret::<PrimitiveSequence<bool>>(bytes))
                     }
                     BaseType::Octet => {
-                        SequenceValue::OctetSequence(reinterpret::<Sequence<u8>>(bytes))
+                        SequenceValue::OctetSequence(reinterpret::<PrimitiveSequence<u8>>(bytes))
                     }
                     BaseType::Uint8 => {
-                        SequenceValue::Uint8Sequence(reinterpret::<Sequence<u8>>(bytes))
+                        SequenceValue::Uint8Sequence(reinterpret::<PrimitiveSequence<u8>>(bytes))
                     }
                     BaseType::Int8 => {
-                        SequenceValue::Int8Sequence(reinterpret::<Sequence<i8>>(bytes))
+                        SequenceValue::Int8Sequence(reinterpret::<PrimitiveSequence<i8>>(bytes))
                     }
                     BaseType::Uint16 => {
-                        SequenceValue::Uint16Sequence(reinterpret::<Sequence<u16>>(bytes))
+                        SequenceValue::Uint16Sequence(reinterpret::<PrimitiveSequence<u16>>(bytes))
                     }
                     BaseType::Int16 => {
-                        SequenceValue::Int16Sequence(reinterpret::<Sequence<i16>>(bytes))
+                        SequenceValue::Int16Sequence(reinterpret::<PrimitiveSequence<i16>>(bytes))
                     }
                     BaseType::Uint32 => {
-                        SequenceValue::Uint32Sequence(reinterpret::<Sequence<u32>>(bytes))
+                        SequenceValue::Uint32Sequence(reinterpret::<PrimitiveSequence<u32>>(bytes))
                     }
                     BaseType::Int32 => {
-                        SequenceValue::Int32Sequence(reinterpret::<Sequence<i32>>(bytes))
+                        SequenceValue::Int32Sequence(reinterpret::<PrimitiveSequence<i32>>(bytes))
                     }
                     BaseType::Uint64 => {
-                        SequenceValue::Uint64Sequence(reinterpret::<Sequence<u64>>(bytes))
+                        SequenceValue::Uint64Sequence(reinterpret::<PrimitiveSequence<u64>>(bytes))
                     }
                     BaseType::Int64 => {
-                        SequenceValue::Int64Sequence(reinterpret::<Sequence<i64>>(bytes))
+                        SequenceValue::Int64Sequence(reinterpret::<PrimitiveSequence<i64>>(bytes))
                     }
                     BaseType::String => {
                         SequenceValue::StringSequence(reinterpret::<
@@ -596,7 +600,7 @@ macro_rules! define_value_types {
                                     sequence_upper_bound
                                 )
                             },
-                            mutable => DynamicBoundedSequenceMut::new_primitive(
+                            mutable => DynamicBoundedPrimitiveSequenceMut::new_primitive(
                                 bytes,
                                 sequence_upper_bound,
                                 field_info.resize_function.unwrap(),
@@ -611,7 +615,7 @@ macro_rules! define_value_types {
                                     sequence_upper_bound
                                 )
                             },
-                            mutable => DynamicBoundedSequenceMut::new_primitive(
+                            mutable => DynamicBoundedPrimitiveSequenceMut::new_primitive(
                                 bytes,
                                 sequence_upper_bound,
                                 field_info.resize_function.unwrap(),
@@ -633,7 +637,7 @@ macro_rules! define_value_types {
                                     sequence_upper_bound
                                 )
                             },
-                            mutable => DynamicBoundedSequenceMut::new_primitive(
+                            mutable => DynamicBoundedPrimitiveSequenceMut::new_primitive(
                                 bytes,
                                 sequence_upper_bound,
                                 field_info.resize_function.unwrap(),
@@ -648,7 +652,7 @@ macro_rules! define_value_types {
                                     sequence_upper_bound
                                 )
                             },
-                            mutable => DynamicBoundedSequenceMut::new_primitive(
+                            mutable => DynamicBoundedPrimitiveSequenceMut::new_primitive(
                                 bytes,
                                 sequence_upper_bound,
                                 field_info.resize_function.unwrap(),
@@ -663,7 +667,7 @@ macro_rules! define_value_types {
                                     sequence_upper_bound
                                 )
                             },
-                            mutable => DynamicBoundedSequenceMut::new_primitive(
+                            mutable => DynamicBoundedPrimitiveSequenceMut::new_primitive(
                                 bytes,
                                 sequence_upper_bound,
                                 field_info.resize_function.unwrap(),
@@ -678,7 +682,7 @@ macro_rules! define_value_types {
                                     sequence_upper_bound
                                 )
                             },
-                            mutable => DynamicBoundedSequenceMut::new_primitive(
+                            mutable => DynamicBoundedPrimitiveSequenceMut::new_primitive(
                                 bytes,
                                 sequence_upper_bound,
                                 field_info.resize_function.unwrap(),
@@ -693,7 +697,7 @@ macro_rules! define_value_types {
                                     sequence_upper_bound
                                 )
                             },
-                            mutable => DynamicBoundedSequenceMut::new_primitive(
+                            mutable => DynamicBoundedPrimitiveSequenceMut::new_primitive(
                                 bytes,
                                 sequence_upper_bound,
                                 field_info.resize_function.unwrap(),
@@ -708,7 +712,7 @@ macro_rules! define_value_types {
                                     sequence_upper_bound
                                 )
                             },
-                            mutable => DynamicBoundedSequenceMut::new_primitive(
+                            mutable => DynamicBoundedPrimitiveSequenceMut::new_primitive(
                                 bytes,
                                 sequence_upper_bound,
                                 field_info.resize_function.unwrap(),
@@ -723,7 +727,7 @@ macro_rules! define_value_types {
                                     sequence_upper_bound
                                 )
                             },
-                            mutable => DynamicBoundedSequenceMut::new_primitive(
+                            mutable => DynamicBoundedPrimitiveSequenceMut::new_primitive(
                                 bytes,
                                 sequence_upper_bound,
                                 field_info.resize_function.unwrap(),
@@ -738,7 +742,7 @@ macro_rules! define_value_types {
                                     sequence_upper_bound
                                 )
                             },
-                            mutable => DynamicBoundedSequenceMut::new_primitive(
+                            mutable => DynamicBoundedPrimitiveSequenceMut::new_primitive(
                                 bytes,
                                 sequence_upper_bound,
                                 field_info.resize_function.unwrap(),
@@ -753,7 +757,7 @@ macro_rules! define_value_types {
                                     sequence_upper_bound
                                 )
                             },
-                            mutable => DynamicBoundedSequenceMut::new_primitive(
+                            mutable => DynamicBoundedPrimitiveSequenceMut::new_primitive(
                                 bytes,
                                 sequence_upper_bound,
                                 field_info.resize_function.unwrap(),
@@ -768,7 +772,7 @@ macro_rules! define_value_types {
                                     sequence_upper_bound
                                 )
                             },
-                            mutable => DynamicBoundedSequenceMut::new_primitive(
+                            mutable => DynamicBoundedPrimitiveSequenceMut::new_primitive(
                                 bytes,
                                 sequence_upper_bound,
                                 field_info.resize_function.unwrap(),
@@ -783,7 +787,7 @@ macro_rules! define_value_types {
                                     sequence_upper_bound
                                 )
                             },
-                            mutable => DynamicBoundedSequenceMut::new_primitive(
+                            mutable => DynamicBoundedPrimitiveSequenceMut::new_primitive(
                                 bytes,
                                 sequence_upper_bound,
                                 field_info.resize_function.unwrap(),
@@ -798,7 +802,7 @@ macro_rules! define_value_types {
                                     sequence_upper_bound
                                 )
                             },
-                            mutable => DynamicBoundedSequenceMut::new_primitive(
+                            mutable => DynamicBoundedPrimitiveSequenceMut::new_primitive(
                                 bytes,
                                 sequence_upper_bound,
                                 field_info.resize_function.unwrap(),
@@ -808,12 +812,12 @@ macro_rules! define_value_types {
                     BaseType::String => {
                         BoundedSequenceValue::StringBoundedSequence($select!(
                             immutable => {
-                                DynamicBoundedSequence::new_primitive(
+                                DynamicBoundedSequence::new_native(
                                     bytes,
                                     sequence_upper_bound
                                 )
                             },
-                            mutable => DynamicBoundedSequenceMut::new_primitive(
+                            mutable => DynamicBoundedSequenceMut::new_native(
                                 bytes,
                                 sequence_upper_bound,
                                 field_info.resize_function.unwrap()
@@ -834,12 +838,12 @@ macro_rules! define_value_types {
                     BaseType::WString => {
                         BoundedSequenceValue::WStringBoundedSequence($select!(
                             immutable => {
-                                DynamicBoundedSequence::new_primitive(
+                                DynamicBoundedSequence::new_native(
                                     bytes,
                                     sequence_upper_bound
                                 )
                             },
-                            mutable => DynamicBoundedSequenceMut::new_primitive(
+                            mutable => DynamicBoundedSequenceMut::new_native(
                                 bytes,
                                 sequence_upper_bound,
                                 field_info.resize_function.unwrap()
