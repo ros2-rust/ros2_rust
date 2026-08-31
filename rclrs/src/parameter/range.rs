@@ -1,3 +1,5 @@
+use std::ops::{Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive};
+
 use crate::{DeclarationError, ParameterValue, ParameterVariant};
 use ros_env::rcl_interfaces::msg::rmw::{FloatingPointRange, IntegerRange};
 use rosidl_runtime_rs::{seq, BoundedSequence};
@@ -129,6 +131,59 @@ pub struct ParameterRange<T: ParameterVariant + PartialOrd> {
     pub step: Option<T>,
 }
 
+impl<T: ParameterVariant + PartialOrd> From<RangeInclusive<T>> for ParameterRange<T> {
+    fn from(range: RangeInclusive<T>) -> Self {
+        let (lower, upper) = range.into_inner();
+        Self {
+            lower: Some(lower),
+            upper: Some(upper),
+            step: None,
+        }
+    }
+}
+
+impl<T: ParameterVariant + PartialOrd> From<RangeFrom<T>> for ParameterRange<T> {
+    fn from(range: RangeFrom<T>) -> Self {
+        Self {
+            lower: Some(range.start),
+            upper: None,
+            step: None,
+        }
+    }
+}
+
+impl<T: ParameterVariant + PartialOrd> From<RangeToInclusive<T>> for ParameterRange<T> {
+    fn from(range: RangeToInclusive<T>) -> Self {
+        Self {
+            lower: None,
+            upper: Some(range.end),
+            step: None,
+        }
+    }
+}
+
+impl<T: ParameterVariant + PartialOrd> From<RangeFull> for ParameterRange<T> {
+    fn from(_range: RangeFull) -> Self {
+        Self {
+            lower: None,
+            upper: None,
+            step: None,
+        }
+    }
+}
+
+impl From<Range<i64>> for ParameterRange<i64> {
+    fn from(range: Range<i64>) -> Self {
+        Self::from_exclusive_bounds(Some(range.start), range.end)
+    }
+}
+
+impl From<RangeTo<i64>> for ParameterRange<i64> {
+    fn from(range: RangeTo<i64>) -> Self {
+        Self::from_exclusive_bounds(None, range.end)
+    }
+}
+
 impl<T: ParameterVariant + PartialOrd + Default> ParameterRange<T> {
     fn is_default(&self) -> bool {
         self.lower.is_none() && self.upper.is_none() && self.step.is_none()
@@ -161,6 +216,21 @@ impl<T: ParameterVariant + PartialOrd + Default> ParameterRange<T> {
 }
 
 impl ParameterRange<i64> {
+    fn from_exclusive_bounds(lower: Option<i64>, end: i64) -> Self {
+        match end.checked_sub(1) {
+            Some(upper) => Self {
+                lower,
+                upper: Some(upper),
+                step: None,
+            },
+            None => Self {
+                lower: Some(i64::MAX),
+                upper: Some(i64::MIN),
+                step: None,
+            },
+        }
+    }
+
     fn in_range(&self, value: i64) -> bool {
         if !self.inside_boundary(&value) {
             return false;
@@ -199,5 +269,48 @@ impl ParameterRange<f64> {
             }
         }
         true
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn standard_ranges_convert_to_parameter_ranges() {
+        let inclusive = ParameterRange::from(1_i64..=3);
+        assert_eq!(inclusive.lower, Some(1));
+        assert_eq!(inclusive.upper, Some(3));
+
+        let from = ParameterRange::from(1.0_f64..);
+        assert_eq!(from.lower, Some(1.0));
+        assert_eq!(from.upper, None);
+
+        let to_inclusive = ParameterRange::from(..=3.0_f64);
+        assert_eq!(to_inclusive.lower, None);
+        assert_eq!(to_inclusive.upper, Some(3.0));
+
+        let full: ParameterRange<i64> = ParameterRange::from(..);
+        assert!(full.is_default());
+    }
+
+    #[test]
+    fn exclusive_integer_ranges_adjust_the_upper_bound() {
+        let bounded = ParameterRange::from(1_i64..3);
+        assert_eq!(bounded.lower, Some(1));
+        assert_eq!(bounded.upper, Some(2));
+
+        let to = ParameterRange::from(..3_i64);
+        assert_eq!(to.lower, None);
+        assert_eq!(to.upper, Some(2));
+    }
+
+    #[test]
+    fn exclusive_integer_range_without_a_predecessor_is_invalid() {
+        let range = ParameterRange::from(..i64::MIN);
+        assert!(matches!(
+            range.validate(),
+            Err(DeclarationError::InvalidRange)
+        ));
     }
 }
