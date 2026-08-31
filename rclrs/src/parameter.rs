@@ -148,8 +148,12 @@ impl<'a, T: ParameterVariant> ParameterBuilder<'a, T> {
     }
 
     /// Sets the range for the parameter.
-    pub fn range(mut self, range: T::Range) -> Self {
-        self.options.ranges = range;
+    ///
+    /// Standard Rust ranges can be used for integer parameters. Floating-point
+    /// ranges must use inclusive bounds because no single value immediately
+    /// precedes an exclusive floating-point bound.
+    pub fn range(mut self, range: impl Into<T::Range>) -> Self {
+        self.options.ranges = range.into();
         self
     }
 
@@ -1675,6 +1679,26 @@ mod tests {
             .use_undeclared_parameters()
             .set("double_param", -4.0)
             .is_ok());
+    }
+
+    #[test]
+    fn test_parameter_builder_accepts_standard_ranges() {
+        let node = Context::default()
+            .create_basic_executor()
+            .create_node(&format!("param_test_node_{}", line!()))
+            .unwrap();
+        let parameter = node
+            .declare_parameter("int_param")
+            .default(5)
+            .range(0..10)
+            .mandatory()
+            .unwrap();
+
+        assert!(parameter.set(9).is_ok());
+        assert!(matches!(
+            parameter.set(10),
+            Err(ParameterValueError::OutOfRange)
+        ));
     }
 
     #[test]
