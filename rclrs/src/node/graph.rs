@@ -3,7 +3,7 @@ use std::{
     ffi::{CStr, CString},
 };
 
-use crate::{rcl_bindings::*, NodeState, RclrsError, ToResult};
+use crate::{rcl_bindings::*, NodeState, QoSProfile, RclrsError, ToResult};
 
 impl Drop for rmw_names_and_types_t {
     fn drop(&mut self) {
@@ -55,6 +55,8 @@ pub struct TopicEndpointInfo {
     pub node_namespace: String,
     /// The type of the topic
     pub topic_type: String,
+    /// The QoS profile offered (publisher) or requested (subscription) by the endpoint
+    pub qos_profile: QoSProfile,
 }
 
 impl NodeState {
@@ -408,6 +410,7 @@ impl NodeState {
                     node_name,
                     node_namespace,
                     topic_type,
+                    qos_profile: QoSProfile::from(&info.qos_profile),
                 }
             })
             .collect();
