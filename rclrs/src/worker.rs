@@ -740,6 +740,53 @@ pub enum ActivityListenerCallback {
     Inert,
 }
 
+/// Run every activity listener against the worker `payload`. Executor runtimes
+/// call this after a worker primitive has run, so listeners (e.g. those backing
+/// [`WorkerState::listen_until`]) observe the possibly-updated payload.
+///
+/// The listeners are drained, run, and re-inserted so that a listener which
+/// mutates the listener set (by adding another listener while it runs) cannot
+/// deadlock on the listener-set mutex; likewise each callback is taken out of
+/// its own mutex before running.
+pub(crate) fn run_activity_listeners(
+    activity_listeners: &Mutex<Vec<WeakActivityListener>>,
+    payload: &mut dyn Any,
+) {
+    // We drain all listeners from activity_listeners so that we don't get a
+    // deadlock from double-locking the activity_listeners mutex while executing
+    // one of the listeners. If the listener has access to the Worker<T> then it
+    // could attempt to add another listener while we have the vector locked,
+    // which would cause a deadlock.
+    let mut listeners: Vec<Arc<Mutex<Option<ActivityListenerCallback>>>> = activity_listeners
+        .lock()
+        .unwrap()
+        .drain(..)
+        .filter_map(|listener| listener.upgrade())
+        .collect();
+
+    for arc_listener in &listeners {
+        // We pull the callback out of its mutex entirely and release the lock on
+        // the mutex before executing the callback. Otherwise, if the callback
+        // triggers its own WorkerActivity to change the callback, then we would
+        // get a deadlock from double-locking the mutex.
+        let listener = { arc_listener.lock().unwrap().take() };
+        if let Some(mut listener) = listener {
+            match &mut listener {
+                ActivityListenerCallback::Listen(listen) => listen(payload),
+                ActivityListenerCallback::Inert => {}
+            }
+            // Replace instead of assigning, in case the callback inserted its own.
+            arc_listener.lock().unwrap().replace(listener);
+        }
+    }
+
+    activity_listeners.lock().unwrap().extend(
+        listeners
+            .drain(..)
+            .map(|listener| Arc::downgrade(&listener)),
+    );
+}
+
 /// This is used to determine what kind of payload a callback can accept, as
 /// well as what kind of callbacks can be used with it. Users should not implement
 /// this trait.
