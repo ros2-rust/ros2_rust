@@ -11,6 +11,7 @@ mod node_graph_task;
 use node_graph_task::*;
 
 use std::{
+    any::Any,
     cmp::PartialEq,
     ffi::CStr,
     fmt,
@@ -37,16 +38,17 @@ use crate::{
         NodeDynamicSubscriptionCallback,
     },
     rcl_bindings::*,
+    time_jumps::ClockTimeJumpCallbackHandle,
     ActionClient, ActionClientState, ActionGoalReceiver, ActionServer, ActionServerState,
-    AnyTimerCallback, Client, ClientOptions, ClientState, Clock, ContextHandle, ExecutorCommands,
-    IntoActionClientOptions, IntoActionServerOptions, IntoAsyncServiceCallback,
-    IntoAsyncSubscriptionCallback, IntoNodeServiceCallback, IntoNodeSubscriptionCallback,
-    IntoNodeTimerOneshotCallback, IntoNodeTimerRepeatingCallback, IntoTimerOptions, LogParams,
-    Logger, MessageInfo, ParameterBuilder, ParameterInterface, ParameterVariant, Parameters,
-    Promise, Publisher, PublisherOptions, PublisherState, RclrsError, RequestedGoal, Service,
-    ServiceOptions, ServiceState, Subscription, SubscriptionOptions, SubscriptionState,
-    TerminatedGoal, TimeSource, Timer, TimerState, ToLogParams, Worker, WorkerOptions, WorkerState,
-    ENTITY_LIFECYCLE_MUTEX,
+    AnyTimerCallback, Client, ClientOptions, ClientState, Clock, ClockTimeJumpCondition,
+    ContextHandle, ExecutorCommands, IntoActionClientOptions, IntoActionServerOptions,
+    IntoAsyncServiceCallback, IntoAsyncSubscriptionCallback, IntoNodeServiceCallback,
+    IntoNodeSubscriptionCallback, IntoNodeTimerOneshotCallback, IntoNodeTimerRepeatingCallback,
+    IntoTimerOptions, LogParams, Logger, MessageInfo, ParameterBuilder, ParameterInterface,
+    ParameterVariant, Parameters, Promise, Publisher, PublisherOptions, PublisherState, RclrsError,
+    RequestedGoal, Service, ServiceOptions, ServiceState, Subscription, SubscriptionOptions,
+    SubscriptionState, TerminatedGoal, TimeSource, Timer, TimerState, ToLogParams, Worker,
+    WorkerOptions, WorkerState, ENTITY_LIFECYCLE_MUTEX,
 };
 
 /// A processing unit that can communicate with other nodes. See the API of
@@ -1348,6 +1350,49 @@ impl NodeState {
             self.commands.async_worker_commands(),
             &self.handle.context_handle,
             node,
+        )
+    }
+    /// Registers time jump callback that is scheduled on the executor.
+    ///
+    /// # Example
+    /// ```
+    /// # use rclrs::*;
+    /// # use std::time::Duration;
+    ///
+    /// # let executor = Context::default().create_basic_executor();
+    /// # let node = executor.create_node("my_node").unwrap();
+    /// let jump_handle = node.register_time_jump_callback(
+    ///     ClockTimeJumpConditions::on_min_forward(Duration::from_secs_f32(1.5)),
+    ///     {
+    ///      let node = node.clone();
+    ///      move |delta| {log!(node.info(), "Delta {:?}", delta);}
+    ///     }
+    ///
+    /// ).unwrap();
+    /// ```
+    /// The callback remains active as long as the jump handle is not dropped.
+    pub fn register_time_jump_callback<T: ClockTimeJumpCondition>(
+        &self,
+        jump_condition: T,
+        callback: impl Fn(T::CallbackParameter) + Send + Sync + 'static,
+    ) -> Result<ClockTimeJumpCallbackHandle, RclrsError> {
+        let callback = Arc::new(callback);
+        let commands = Arc::downgrade(self.commands().async_worker_commands());
+
+        let schedule_jump_time_callback = move |time_jump: T::CallbackParameter| {
+            if let Some(commands) = commands.upgrade() {
+                let callback = Arc::clone(&callback);
+                let payload_task = move |_: &mut dyn Any| {
+                    callback(time_jump);
+                };
+                commands.run_on_payload(Box::new(payload_task));
+            }
+        };
+
+        ClockTimeJumpCallbackHandle::new(
+            self.get_clock(),
+            jump_condition,
+            Box::new(schedule_jump_time_callback),
         )
     }
 
