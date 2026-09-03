@@ -1,0 +1,44 @@
+[package]
+name = "turtlesim_rs"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+eframe = "0.27.0"
+egui_extras = { version = "0.27.0", features = ["all_loaders"]}
+tiny-skia = "0.11.4"
+rand = "0.8.5"
+termion = "1.5" 
+
+[[bin]]
+name = "turtlesim_node"
+path = "src/turtlesim.rs"
+
+[[bin]]
+name = "turtle_teleop_key"
+path = "tutorials/turtle_teleop_key.rs"
+
+[[bin]]
+name = "mimic"
+path = "tutorials/mimic.rs"
+
+[dependencies.rclrs]
+version = "0.4"
+
+[dependencies.std_msgs]
+version = "*"
+
+[dependencies.std_srvs]
+version = "*"
+
+[dependencies.geometry_msgs]
+version = "*"
+
+[dependencies.turtlesim_rs_msgs]
+version = "0.1.0"
+
+[dependencies.rosidl_runtime_rs]
+version = "0.4"
+
+
+
