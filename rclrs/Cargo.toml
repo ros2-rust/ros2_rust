@@ -15,7 +15,7 @@ path = "src/lib.rs"
 # and also state why each dependency is needed.
 [dependencies]
 # Needed for dynamically finding type support libraries
-ament_rs = "0.2"
+ament_rs = "0.3"
 
 # Needed to create the GoalClientStream
 async-stream = "0.3.6"
