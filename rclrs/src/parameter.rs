@@ -1,6 +1,9 @@
+mod conversion;
 mod override_map;
 mod range;
 mod service;
+pub use conversion::*;
+
 mod value;
 
 pub(crate) use override_map::*;
@@ -16,7 +19,6 @@ use crate::{
 use std::{
     collections::{btree_map::Entry, BTreeMap},
     fmt::Debug,
-    marker::PhantomData,
     sync::{Arc, Mutex, RwLock, Weak},
 };
 use tokio::sync::watch;
@@ -74,9 +76,12 @@ enum DeclaredValue {
 /// Builder used to declare a parameter. Obtain this by calling
 /// [`crate::NodeState::declare_parameter`].
 #[must_use]
-pub struct ParameterBuilder<'a, T: ParameterVariant> {
+pub struct ParameterBuilder<'a, T> {
     name: Arc<str>,
     default_value: Option<T>,
+    /// How the value is represented as a parameter value. Chosen at declaration and carried by
+    /// every handle the declaration hands out.
+    conversion: ParameterConversion<T>,
     ignore_override: bool,
     discard_mismatching_prior_value: bool,
     discriminator: DiscriminatorFunction<'a, T>,
@@ -85,7 +90,7 @@ pub struct ParameterBuilder<'a, T: ParameterVariant> {
     validate: Option<Arc<dyn Fn(&T) -> Result<(), String> + Send + Sync>>,
 }
 
-impl<'a, T: ParameterVariant> ParameterBuilder<'a, T> {
+impl<'a, T: 'static> ParameterBuilder<'a, T> {
     /// Sets the default value for the parameter. The parameter value will be
     /// initialized to this if no command line override was given for this
     /// parameter and if the parameter also had no value prior to being
@@ -134,21 +139,13 @@ impl<'a, T: ParameterVariant> ParameterBuilder<'a, T> {
         self
     }
 
-    /// Sets the range for the parameter, in the terms of its own type.
+    /// Sets the bounds on the value as it is stored, in the terms the conversion stores it in.
     ///
-    /// Takes the parameter type's own range, which for a numeric parameter is a
-    /// [`ParameterRange`], or anything that converts into one. Every standard Rust range does, so
-    /// a bound can be written the way it is anywhere else in the language: `a..=b`, `a..`, `..=b`,
-    /// `a..b` and `..` are all accepted.
-    ///
-    /// A ROS 2 range is inclusive of both ends, so an exclusive Rust range converts by naming the
-    /// value just below its end. Writing a [`ParameterRange`] out is what a `step` needs, since no
-    /// Rust range carries one.
-    pub fn range(mut self, range: impl Into<T::Range>) -> Self {
-        // Through the parameter type's own range, which is what keeps the bounds in the units the
-        // parameter is read back in, and then into the erased form that is stored.
-        let range: T::Range = range.into();
-        self.options.ranges = range.into();
+    /// [`Self::range`] is the one to reach for when the parameter's type describes a range of its
+    /// own. This is for a parameter declared with a [`ParameterConversion`], whose type need not
+    /// implement [`ParameterVariant`] and so has no `Range` to name.
+    pub fn stored_ranges(mut self, ranges: ParameterRanges) -> Self {
+        self.options.ranges = ranges;
         self
     }
 
@@ -211,6 +208,28 @@ impl<'a, T: ParameterVariant> ParameterBuilder<'a, T> {
     }
 }
 
+impl<'a, T: ParameterVariant> ParameterBuilder<'a, T> {
+    /// Sets the range for the parameter, in the terms of its own type.
+    ///
+    /// Takes the parameter type's own range, which for a numeric parameter is a
+    /// [`ParameterRange`], or anything that converts into one. Every standard Rust range does, so
+    /// a bound can be written the way it is anywhere else in the language: `a..=b`, `a..`, `..=b`,
+    /// `a..b` and `..` are all accepted.
+    ///
+    /// A ROS 2 range is inclusive of both ends, so an exclusive Rust range converts by naming the
+    /// value just below its end. Writing a [`ParameterRange`] out is what a `step` needs, since no
+    /// Rust range carries one.
+    ///
+    /// Only available where the type describes a range of its own, which is what keeps the bounds
+    /// in the units the parameter is read back in and makes a literal that does not fit a compile
+    /// error. A parameter declared with a [`ParameterConversion`] has no `Range` to name and uses
+    /// [`Self::stored_ranges`] instead.
+    pub fn range(self, range: impl Into<T::Range>) -> Self {
+        let range: T::Range = range.into();
+        self.stored_ranges(range.into())
+    }
+}
+
 impl<T> ParameterBuilder<'_, Arc<[T]>>
 where
     Arc<[T]>: ParameterVariant,
@@ -262,8 +281,17 @@ pub struct AvailableValues<'a, T> {
 pub fn default_initial_value_discriminator<T: ParameterVariant>(
     available: AvailableValues<T>,
 ) -> Option<T> {
+    discriminate_by_preference(available, &ParameterConversion::<T>::of_variant())
+}
+
+/// The body of [`default_initial_value_discriminator`], for a parameter whose conversion is not
+/// the one its type describes for itself and so cannot be reached through [`ParameterVariant`].
+fn discriminate_by_preference<T: 'static>(
+    available: AvailableValues<T>,
+    conversion: &ParameterConversion<T>,
+) -> Option<T> {
     if let Some(prior) = available.prior_value {
-        if available.ranges.in_range(&prior.clone().into()) {
+        if available.ranges.in_range(&conversion.to_value(&prior)) {
             return Some(prior);
         }
     }
@@ -280,18 +308,19 @@ type DiscriminatorFunction<'a, T> = Box<dyn FnOnce(AvailableValues<T>) -> Option
 /// The `expect` here is safe: this callback is only invoked from
 /// `validate_parameter_setting` which checks the type discriminant first,
 /// and from `Parameters::set()` which checks `T::kind() == param.kind`.
-fn wrap_validate_callback<T: ParameterVariant>(
+fn wrap_validate_callback<T: 'static>(
     callback: Arc<dyn Fn(&T) -> Result<(), String> + Send + Sync>,
+    conversion: ParameterConversion<T>,
 ) -> ValidateCallback {
     Arc::new(move |pv: &ParameterValue| {
-        let typed: T = pv.clone().try_into().ok().expect(
+        let typed: T = conversion.from_value(pv.clone()).expect(
             "type mismatch in validate callback wrapper — parameter type is fixed at declaration",
         );
         callback(&typed)
     })
 }
 
-impl<T: ParameterVariant> TryFrom<ParameterBuilder<'_, T>> for OptionalParameter<T> {
+impl<T: 'static> TryFrom<ParameterBuilder<'_, T>> for OptionalParameter<T> {
     type Error = DeclarationError;
 
     fn try_from(builder: ParameterBuilder<T>) -> Result<Self, Self::Error> {
@@ -303,6 +332,7 @@ impl<T: ParameterVariant> TryFrom<ParameterBuilder<'_, T>> for OptionalParameter
             builder.discard_mismatching_prior_value,
             builder.discriminator,
             &ranges,
+            &builder.conversion,
         )?;
 
         // Run the validate callback on the initial value (if both exist)
@@ -315,16 +345,18 @@ impl<T: ParameterVariant> TryFrom<ParameterBuilder<'_, T>> for OptionalParameter
         let type_erased_validate = builder
             .validate
             .as_ref()
-            .map(|cb| wrap_validate_callback::<T>(Arc::clone(cb)));
+            .map(|cb| wrap_validate_callback::<T>(Arc::clone(cb), builder.conversion.clone()));
 
-        let value = Arc::new(RwLock::new(initial_value.map(|v| v.into())));
+        let value = Arc::new(RwLock::new(
+            initial_value.map(|v| builder.conversion.to_value(&v)),
+        ));
 
         // The change_tx is used to notify async subscribers of changes to the parameter value.
         let (change_tx, _) = watch::channel(());
 
         builder.interface.store_parameter(
             builder.name.clone(),
-            T::kind(),
+            builder.conversion.kind(),
             DeclaredValue::Optional(value.clone()),
             builder.options,
             type_erased_validate,
@@ -337,7 +369,7 @@ impl<T: ParameterVariant> TryFrom<ParameterBuilder<'_, T>> for OptionalParameter
             map: Arc::downgrade(&builder.interface.parameter_map),
             change_tx,
             validate: builder.validate,
-            _marker: Default::default(),
+            conversion: builder.conversion,
         })
     }
 }
@@ -345,17 +377,18 @@ impl<T: ParameterVariant> TryFrom<ParameterBuilder<'_, T>> for OptionalParameter
 /// A parameter that must have a value
 /// This struct has ownership of the declared parameter. Additional parameter declaration will fail
 /// while this struct exists and the parameter will be undeclared when it is dropped.
-pub struct MandatoryParameter<T: ParameterVariant> {
+pub struct MandatoryParameter<T> {
     name: Arc<str>,
     value: Arc<RwLock<ParameterValue>>,
     ranges: ParameterRanges,
     map: Weak<Mutex<ParameterMap>>,
     change_tx: watch::Sender<()>,
     validate: Option<Arc<dyn Fn(&T) -> Result<(), String> + Send + Sync>>,
-    _marker: PhantomData<T>,
+    /// The conversion the parameter was declared with.
+    conversion: ParameterConversion<T>,
 }
 
-impl<T: ParameterVariant + Debug> Debug for MandatoryParameter<T> {
+impl<T: Debug + 'static> Debug for MandatoryParameter<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("MandatoryParameter")
             .field("name", &self.name)
@@ -365,7 +398,7 @@ impl<T: ParameterVariant + Debug> Debug for MandatoryParameter<T> {
     }
 }
 
-impl<T: ParameterVariant> Drop for MandatoryParameter<T> {
+impl<T> Drop for MandatoryParameter<T> {
     fn drop(&mut self) {
         // Clear the entry from the parameter map
         if let Some(map) = self.map.upgrade() {
@@ -375,7 +408,7 @@ impl<T: ParameterVariant> Drop for MandatoryParameter<T> {
     }
 }
 
-impl<T: ParameterVariant> TryFrom<ParameterBuilder<'_, T>> for MandatoryParameter<T> {
+impl<T: 'static> TryFrom<ParameterBuilder<'_, T>> for MandatoryParameter<T> {
     type Error = DeclarationError;
 
     fn try_from(builder: ParameterBuilder<T>) -> Result<Self, Self::Error> {
@@ -387,6 +420,7 @@ impl<T: ParameterVariant> TryFrom<ParameterBuilder<'_, T>> for MandatoryParamete
             builder.discard_mismatching_prior_value,
             builder.discriminator,
             &ranges,
+            &builder.conversion,
         )?;
         let Some(initial_value) = initial_value else {
             return Err(DeclarationError::NoValueAvailable);
@@ -402,16 +436,16 @@ impl<T: ParameterVariant> TryFrom<ParameterBuilder<'_, T>> for MandatoryParamete
         let type_erased_validate = builder
             .validate
             .as_ref()
-            .map(|cb| wrap_validate_callback::<T>(Arc::clone(cb)));
+            .map(|cb| wrap_validate_callback::<T>(Arc::clone(cb), builder.conversion.clone()));
 
-        let value = Arc::new(RwLock::new(initial_value.into()));
+        let value = Arc::new(RwLock::new(builder.conversion.to_value(&initial_value)));
 
         // The change_tx is used to notify async subscribers of changes to the parameter value.
         let (change_tx, _) = watch::channel(());
 
         builder.interface.store_parameter(
             builder.name.clone(),
-            T::kind(),
+            builder.conversion.kind(),
             DeclaredValue::Mandatory(value.clone()),
             builder.options,
             type_erased_validate,
@@ -424,7 +458,7 @@ impl<T: ParameterVariant> TryFrom<ParameterBuilder<'_, T>> for MandatoryParamete
             map: Arc::downgrade(&builder.interface.parameter_map),
             change_tx,
             validate: builder.validate,
-            _marker: Default::default(),
+            conversion: builder.conversion,
         })
     }
 }
@@ -432,17 +466,18 @@ impl<T: ParameterVariant> TryFrom<ParameterBuilder<'_, T>> for MandatoryParamete
 /// A parameter that might not have a value, represented by `Option<T>`.
 /// This struct has ownership of the declared parameter. Additional parameter declaration will fail
 /// while this struct exists and the parameter will be undeclared when it is dropped.
-pub struct OptionalParameter<T: ParameterVariant> {
+pub struct OptionalParameter<T> {
     name: Arc<str>,
     value: Arc<RwLock<Option<ParameterValue>>>,
     ranges: ParameterRanges,
     map: Weak<Mutex<ParameterMap>>,
     change_tx: watch::Sender<()>,
     validate: Option<Arc<dyn Fn(&T) -> Result<(), String> + Send + Sync>>,
-    _marker: PhantomData<T>,
+    /// The conversion the parameter was declared with.
+    conversion: ParameterConversion<T>,
 }
 
-impl<T: ParameterVariant + Debug> Debug for OptionalParameter<T> {
+impl<T: Debug + 'static> Debug for OptionalParameter<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("OptionalParameter")
             .field("name", &self.name)
@@ -452,7 +487,7 @@ impl<T: ParameterVariant + Debug> Debug for OptionalParameter<T> {
     }
 }
 
-impl<T: ParameterVariant> Drop for OptionalParameter<T> {
+impl<T> Drop for OptionalParameter<T> {
     fn drop(&mut self) {
         // Clear the entry from the parameter map
         if let Some(map) = self.map.upgrade() {
@@ -465,14 +500,15 @@ impl<T: ParameterVariant> Drop for OptionalParameter<T> {
 /// A parameter that must have a value and cannot be written to
 /// This struct has ownership of the declared parameter. Additional parameter declaration will fail
 /// while this struct exists and the parameter will be undeclared when it is dropped.
-pub struct ReadOnlyParameter<T: ParameterVariant> {
+pub struct ReadOnlyParameter<T> {
     name: Arc<str>,
     value: ParameterValue,
     map: Weak<Mutex<ParameterMap>>,
-    _marker: PhantomData<T>,
+    /// The conversion the parameter was declared with.
+    conversion: ParameterConversion<T>,
 }
 
-impl<T: ParameterVariant + Debug> Debug for ReadOnlyParameter<T> {
+impl<T: Debug + 'static> Debug for ReadOnlyParameter<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ReadOnlyParameter")
             .field("name", &self.name)
@@ -481,7 +517,7 @@ impl<T: ParameterVariant + Debug> Debug for ReadOnlyParameter<T> {
     }
 }
 
-impl<T: ParameterVariant> Drop for ReadOnlyParameter<T> {
+impl<T> Drop for ReadOnlyParameter<T> {
     fn drop(&mut self) {
         // Clear the entry from the parameter map
         if let Some(map) = self.map.upgrade() {
@@ -491,7 +527,7 @@ impl<T: ParameterVariant> Drop for ReadOnlyParameter<T> {
     }
 }
 
-impl<T: ParameterVariant> TryFrom<ParameterBuilder<'_, T>> for ReadOnlyParameter<T> {
+impl<T: 'static> TryFrom<ParameterBuilder<'_, T>> for ReadOnlyParameter<T> {
     type Error = DeclarationError;
 
     fn try_from(builder: ParameterBuilder<T>) -> Result<Self, Self::Error> {
@@ -503,6 +539,7 @@ impl<T: ParameterVariant> TryFrom<ParameterBuilder<'_, T>> for ReadOnlyParameter
             builder.discard_mismatching_prior_value,
             builder.discriminator,
             &ranges,
+            &builder.conversion,
         )?;
         let Some(initial_value) = initial_value else {
             return Err(DeclarationError::NoValueAvailable);
@@ -515,10 +552,10 @@ impl<T: ParameterVariant> TryFrom<ParameterBuilder<'_, T>> for ReadOnlyParameter
             validate(&initial_value).map_err(DeclarationError::InitialValueRejected)?;
         }
 
-        let value = initial_value.into();
+        let value = builder.conversion.to_value(&initial_value);
         builder.interface.store_parameter(
             builder.name.clone(),
-            T::kind(),
+            builder.conversion.kind(),
             DeclaredValue::ReadOnly(value.clone()),
             builder.options,
             None,
@@ -528,7 +565,7 @@ impl<T: ParameterVariant> TryFrom<ParameterBuilder<'_, T>> for ReadOnlyParameter
             name: builder.name,
             value,
             map: Arc::downgrade(&builder.interface.parameter_map),
-            _marker: Default::default(),
+            conversion: builder.conversion,
         })
     }
 }
@@ -700,10 +737,13 @@ impl ParameterMap {
     }
 }
 
-impl<T: ParameterVariant> MandatoryParameter<T> {
+impl<T: 'static> MandatoryParameter<T> {
     /// Returns a clone of the most recent value of the parameter.
     pub fn get(&self) -> T {
-        self.value.read().unwrap().clone().try_into().ok().unwrap()
+        self.conversion
+            .from_value(self.value.read().unwrap().clone())
+            .ok()
+            .unwrap()
     }
 
     /// Sets the parameter value.
@@ -711,7 +751,7 @@ impl<T: ParameterVariant> MandatoryParameter<T> {
     /// Returns [`ParameterValueError::ValidationFailed`] if the validate callback rejects the value.
     pub fn set<U: Into<T>>(&self, value: U) -> Result<(), ParameterValueError> {
         let typed_value: T = value.into();
-        let value: ParameterValue = typed_value.clone().into();
+        let value = self.conversion.to_value(&typed_value);
         if !self.ranges.in_range(&value) {
             return Err(ParameterValueError::OutOfRange);
         }
@@ -745,10 +785,11 @@ impl<T: ParameterVariant> MandatoryParameter<T> {
         let Some(map) = self.map.upgrade() else {
             return;
         };
+        let conversion = self.conversion.clone();
         let type_erased: OnChangeCallback = Arc::new(move |opt_pv: Option<&ParameterValue>| {
             // MandatoryParameter always has a value, so we always expect Some
             if let Some(pv) = opt_pv {
-                let typed: T = pv.clone().try_into().ok()
+                let typed: T = conversion.from_value(pv.clone())
                     .expect("type mismatch in on_change callback wrapper — parameter type is fixed at declaration");
                 callback(&typed);
             }
@@ -768,28 +809,34 @@ impl<T: ParameterVariant> MandatoryParameter<T> {
     /// Multiple subscriptions can be created from the same parameter.
     pub fn subscribe(&self) -> ParameterSubscription<T> {
         let value = Arc::clone(&self.value);
+        let conversion = self.conversion.clone();
         ParameterSubscription {
             rx: self.change_tx.subscribe(),
-            get_value: Arc::new(move || value.read().unwrap().clone().try_into().ok().unwrap()),
+            get_value: Arc::new(move || {
+                conversion
+                    .from_value(value.read().unwrap().clone())
+                    .ok()
+                    .unwrap()
+            }),
         }
     }
 }
 
-impl<T: ParameterVariant> ReadOnlyParameter<T> {
+impl<T: 'static> ReadOnlyParameter<T> {
     /// Returns a clone of the most recent value of the parameter.
     pub fn get(&self) -> T {
-        self.value.clone().try_into().ok().unwrap()
+        self.conversion.from_value(self.value.clone()).ok().unwrap()
     }
 }
 
-impl<T: ParameterVariant> OptionalParameter<T> {
+impl<T: 'static> OptionalParameter<T> {
     /// Returns a clone of the most recent value of the parameter.
     pub fn get(&self) -> Option<T> {
         self.value
             .read()
             .unwrap()
             .clone()
-            .map(|p| p.try_into().ok().unwrap())
+            .map(|p| self.conversion.from_value(p).ok().unwrap())
     }
 
     /// Assigns a value to the optional parameter, setting it to `Some(value)`.
@@ -797,7 +844,7 @@ impl<T: ParameterVariant> OptionalParameter<T> {
     /// Returns [`ParameterValueError::ValidationFailed`] if the validate callback rejects the value.
     pub fn set<U: Into<T>>(&self, value: U) -> Result<(), ParameterValueError> {
         let typed_value: T = value.into();
-        let value: ParameterValue = typed_value.clone().into();
+        let value = self.conversion.to_value(&typed_value);
         if !self.ranges.in_range(&value) {
             return Err(ParameterValueError::OutOfRange);
         }
@@ -849,10 +896,11 @@ impl<T: ParameterVariant> OptionalParameter<T> {
         let Some(map) = self.map.upgrade() else {
             return;
         };
+        let conversion = self.conversion.clone();
         let type_erased: OnChangeCallback = Arc::new(move |opt_pv: Option<&ParameterValue>| {
             match opt_pv {
                 Some(pv) => {
-                    let typed: T = pv.clone().try_into().ok()
+                    let typed: T = conversion.from_value(pv.clone())
                         .expect("type mismatch in on_change callback wrapper — parameter type is fixed at declaration");
                     callback(Some(&typed));
                 }
@@ -874,6 +922,7 @@ impl<T: ParameterVariant> OptionalParameter<T> {
     /// Multiple subscriptions can be created from the same parameter.
     pub fn subscribe(&self) -> ParameterSubscription<Option<T>> {
         let value = Arc::clone(&self.value);
+        let conversion = self.conversion.clone();
         ParameterSubscription {
             rx: self.change_tx.subscribe(),
             get_value: Arc::new(move || {
@@ -881,7 +930,7 @@ impl<T: ParameterVariant> OptionalParameter<T> {
                     .read()
                     .unwrap()
                     .clone()
-                    .map(|p| p.try_into().ok().unwrap())
+                    .map(|p| conversion.from_value(p).ok().unwrap())
             }),
         }
     }
@@ -1013,18 +1062,31 @@ impl Parameters<'_> {
     ///
     /// Returns `Some(T)` if a parameter of the requested type exists, `None` otherwise.
     pub fn get<T: ParameterVariant>(&self, name: &str) -> Option<T> {
+        self.get_with(name, &ParameterConversion::<T>::of_variant())
+    }
+
+    /// Tries to read a parameter, converting it with `conversion` rather than through the type.
+    ///
+    /// A parameter declared with a conversion of its own is reachable only this way, since its
+    /// type need not implement [`ParameterVariant`] at all. The conversion given here does not
+    /// have to be the one the parameter was declared with: this reads whatever is stored and
+    /// interprets it, which is the same freedom [`Self::get`] has over a type.
+    pub fn get_with<T: 'static>(
+        &self,
+        name: &str,
+        conversion: &ParameterConversion<T>,
+    ) -> Option<T> {
         let storage = &self.interface.parameter_map.lock().unwrap().storage;
         let storage = storage.get(name)?;
-        match storage {
+        let value = match storage {
             ParameterStorage::Declared(storage) => match &storage.value {
-                DeclaredValue::Mandatory(p) => p.read().unwrap().clone().try_into().ok(),
-                DeclaredValue::Optional(p) => {
-                    p.read().unwrap().clone().and_then(|p| p.try_into().ok())
-                }
-                DeclaredValue::ReadOnly(p) => p.clone().try_into().ok(),
+                DeclaredValue::Mandatory(p) => p.read().unwrap().clone(),
+                DeclaredValue::Optional(p) => p.read().unwrap().clone()?,
+                DeclaredValue::ReadOnly(p) => p.clone(),
             },
-            ParameterStorage::Undeclared(value) => value.clone().try_into().ok(),
-        }
+            ParameterStorage::Undeclared(value) => value.clone(),
+        };
+        conversion.from_value(value).ok()
     }
 
     /// Tries to set a parameter with the requested value.
@@ -1042,6 +1104,20 @@ impl Parameters<'_> {
         name: impl Into<Arc<str>>,
         value: T,
     ) -> Result<(), ParameterValueError> {
+        self.set_with(name, value, &ParameterConversion::<T>::of_variant())
+    }
+
+    /// Tries to set a parameter, converting the value with `conversion` rather than through the
+    /// type.
+    ///
+    /// The counterpart of [`Self::get_with`], and the only way to write a parameter whose type
+    /// does not implement [`ParameterVariant`].
+    pub fn set_with<T: 'static>(
+        &self,
+        name: impl Into<Arc<str>>,
+        value: T,
+        conversion: &ParameterConversion<T>,
+    ) -> Result<(), ParameterValueError> {
         let mut map = self.interface.parameter_map.lock().unwrap();
         let name: Arc<str> = name.into();
         let mut on_change_info: Option<(OnChangeCallback, ParameterValue)> = None;
@@ -1051,8 +1127,8 @@ impl Parameters<'_> {
                 // Undeclared parameters are dynamic by default
                 match entry.get_mut() {
                     ParameterStorage::Declared(param) => {
-                        if T::kind() == param.kind {
-                            let value = value.into();
+                        if conversion.kind() == param.kind {
+                            let value = conversion.to_value(&value);
                             if !param.options.ranges.in_range(&value) {
                                 return Err(ParameterValueError::OutOfRange);
                             }
@@ -1078,12 +1154,12 @@ impl Parameters<'_> {
                         }
                     }
                     ParameterStorage::Undeclared(param) => {
-                        *param = value.into();
+                        *param = conversion.to_value(&value);
                     }
                 }
             }
             Entry::Vacant(entry) => {
-                entry.insert(ParameterStorage::Undeclared(value.into()));
+                entry.insert(ParameterStorage::Undeclared(conversion.to_value(&value)));
             }
         }
         // Release the map lock before invoking on_change
@@ -1124,12 +1200,26 @@ impl ParameterInterface {
         &'a self,
         name: Arc<str>,
     ) -> ParameterBuilder<'a, T> {
+        self.declare_with(name, ParameterConversion::<T>::of_variant())
+    }
+
+    pub(crate) fn declare_with<'a, T: 'static>(
+        &'a self,
+        name: Arc<str>,
+        conversion: ParameterConversion<T>,
+    ) -> ParameterBuilder<'a, T> {
+        // The default discriminator range-checks the prior value, which it can only do through
+        // the conversion, so it captures one rather than reaching for the type's own.
+        let for_discriminator = conversion.clone();
         ParameterBuilder {
             name,
             default_value: None,
             ignore_override: false,
             discard_mismatching_prior_value: false,
-            discriminator: Box::new(default_initial_value_discriminator::<T>),
+            discriminator: Box::new(move |available| {
+                discriminate_by_preference(available, &for_discriminator)
+            }),
+            conversion,
             options: Default::default(),
             interface: self,
             validate: None,
@@ -1142,7 +1232,7 @@ impl ParameterInterface {
         Ok(())
     }
 
-    fn get_declaration_initial_value<'a, T: ParameterVariant + 'a>(
+    fn get_declaration_initial_value<'a, T: 'static>(
         &self,
         name: &str,
         default_value: Option<T>,
@@ -1150,37 +1240,39 @@ impl ParameterInterface {
         discard_mismatching_prior: bool,
         discriminator: DiscriminatorFunction<T>,
         ranges: &ParameterRanges,
+        conversion: &ParameterConversion<T>,
     ) -> Result<Option<T>, DeclarationError> {
         ranges.validate()?;
         let override_value: Option<T> = if ignore_override {
             None
         } else if let Some(override_value) = self.override_map.get(name).cloned() {
             Some(
-                override_value
-                    .try_into()
+                conversion
+                    .from_value(override_value)
                     .map_err(|_| DeclarationError::OverrideValueTypeMismatch)?,
             )
         } else {
             None
         };
 
-        let prior_value =
-            if let Some(prior_value) = self.parameter_map.lock().unwrap().storage.get(name) {
-                match prior_value {
-                    ParameterStorage::Declared(_) => return Err(DeclarationError::AlreadyDeclared),
-                    ParameterStorage::Undeclared(param) => match param.clone().try_into() {
-                        Ok(prior) => Some(prior),
-                        Err(_) => {
-                            if !discard_mismatching_prior {
-                                return Err(DeclarationError::PriorValueTypeMismatch);
-                            }
-                            None
+        let prior_value = if let Some(prior_value) =
+            self.parameter_map.lock().unwrap().storage.get(name)
+        {
+            match prior_value {
+                ParameterStorage::Declared(_) => return Err(DeclarationError::AlreadyDeclared),
+                ParameterStorage::Undeclared(param) => match conversion.from_value(param.clone()) {
+                    Ok(prior) => Some(prior),
+                    Err(_) => {
+                        if !discard_mismatching_prior {
+                            return Err(DeclarationError::PriorValueTypeMismatch);
                         }
-                    },
-                }
-            } else {
-                None
-            };
+                        None
+                    }
+                },
+            }
+        } else {
+            None
+        };
 
         let selection = discriminator(AvailableValues {
             default_value,
@@ -1189,7 +1281,7 @@ impl ParameterInterface {
             ranges,
         });
         if let Some(initial_value) = &selection {
-            if !ranges.in_range(&initial_value.clone().into()) {
+            if !ranges.in_range(&conversion.to_value(initial_value)) {
                 return Err(DeclarationError::InitialValueOutOfRange);
             }
         }
