@@ -41,33 +41,20 @@ use tokio::sync::watch;
 // * Explicit API for access to undeclared parameters by having a
 //   `node.use_undeclared_parameters()` API that allows access to all parameters.
 
+/// Options that can be attached to a parameter, such as description, ranges.
+/// Some of this data will be used to populate the ParameterDescriptor
+///
+/// The range is held in the erased [`ParameterRanges`] form that the descriptor and every range
+/// check use, because a range constrains the stored value rather than the Rust type it is read
+/// back as.
 #[derive(Clone, Debug)]
-struct ParameterOptionsStorage {
+pub(crate) struct ParameterOptions {
     description: Arc<str>,
     constraints: Arc<str>,
     ranges: ParameterRanges,
 }
 
-impl<T: ParameterVariant> From<ParameterOptions<T>> for ParameterOptionsStorage {
-    fn from(opts: ParameterOptions<T>) -> Self {
-        Self {
-            description: opts.description,
-            constraints: opts.constraints,
-            ranges: opts.ranges.into(),
-        }
-    }
-}
-
-/// Options that can be attached to a parameter, such as description, ranges.
-/// Some of this data will be used to populate the ParameterDescriptor
-#[derive(Clone, Debug)]
-pub struct ParameterOptions<T: ParameterVariant> {
-    description: Arc<str>,
-    constraints: Arc<str>,
-    ranges: T::Range,
-}
-
-impl<T: ParameterVariant> Default for ParameterOptions<T> {
+impl Default for ParameterOptions {
     fn default() -> Self {
         Self {
             description: Arc::from(""),
@@ -93,7 +80,7 @@ pub struct ParameterBuilder<'a, T: ParameterVariant> {
     ignore_override: bool,
     discard_mismatching_prior_value: bool,
     discriminator: DiscriminatorFunction<'a, T>,
-    options: ParameterOptions<T>,
+    options: ParameterOptions,
     interface: &'a ParameterInterface,
     validate: Option<Arc<dyn Fn(&T) -> Result<(), String> + Send + Sync>>,
 }
@@ -149,7 +136,9 @@ impl<'a, T: ParameterVariant> ParameterBuilder<'a, T> {
 
     /// Sets the range for the parameter.
     pub fn range(mut self, range: T::Range) -> Self {
-        self.options.ranges = range;
+        // Through the parameter type's own range, which is what keeps the bounds in the units the
+        // parameter is read back in, and then into the erased form that is stored.
+        self.options.ranges = range.into();
         self
     }
 
@@ -296,7 +285,7 @@ impl<T: ParameterVariant> TryFrom<ParameterBuilder<'_, T>> for OptionalParameter
     type Error = DeclarationError;
 
     fn try_from(builder: ParameterBuilder<T>) -> Result<Self, Self::Error> {
-        let ranges = builder.options.ranges.clone().into();
+        let ranges = builder.options.ranges.clone();
         let initial_value = builder.interface.get_declaration_initial_value::<T>(
             &builder.name,
             builder.default_value,
@@ -327,7 +316,7 @@ impl<T: ParameterVariant> TryFrom<ParameterBuilder<'_, T>> for OptionalParameter
             builder.name.clone(),
             T::kind(),
             DeclaredValue::Optional(value.clone()),
-            builder.options.into(),
+            builder.options,
             type_erased_validate,
             Some(change_tx.clone()),
         );
@@ -380,7 +369,7 @@ impl<T: ParameterVariant> TryFrom<ParameterBuilder<'_, T>> for MandatoryParamete
     type Error = DeclarationError;
 
     fn try_from(builder: ParameterBuilder<T>) -> Result<Self, Self::Error> {
-        let ranges = builder.options.ranges.clone().into();
+        let ranges = builder.options.ranges.clone();
         let initial_value = builder.interface.get_declaration_initial_value::<T>(
             &builder.name,
             builder.default_value,
@@ -414,7 +403,7 @@ impl<T: ParameterVariant> TryFrom<ParameterBuilder<'_, T>> for MandatoryParamete
             builder.name.clone(),
             T::kind(),
             DeclaredValue::Mandatory(value.clone()),
-            builder.options.into(),
+            builder.options,
             type_erased_validate,
             Some(change_tx.clone()),
         );
@@ -496,7 +485,7 @@ impl<T: ParameterVariant> TryFrom<ParameterBuilder<'_, T>> for ReadOnlyParameter
     type Error = DeclarationError;
 
     fn try_from(builder: ParameterBuilder<T>) -> Result<Self, Self::Error> {
-        let ranges = builder.options.ranges.clone().into();
+        let ranges = builder.options.ranges.clone();
         let initial_value = builder.interface.get_declaration_initial_value::<T>(
             &builder.name,
             builder.default_value,
@@ -521,7 +510,7 @@ impl<T: ParameterVariant> TryFrom<ParameterBuilder<'_, T>> for ReadOnlyParameter
             builder.name.clone(),
             T::kind(),
             DeclaredValue::ReadOnly(value.clone()),
-            builder.options.into(),
+            builder.options,
             None,
             None,
         );
@@ -540,7 +529,7 @@ type OnChangeCallback = Arc<dyn Fn(Option<&ParameterValue>) + Send + Sync>;
 struct DeclaredStorage {
     value: DeclaredValue,
     kind: ParameterKind,
-    options: ParameterOptionsStorage,
+    options: ParameterOptions,
     validate: Option<ValidateCallback>,
     on_change: Option<OnChangeCallback>,
     change_tx: Option<watch::Sender<()>>,
@@ -1202,7 +1191,7 @@ impl ParameterInterface {
         name: Arc<str>,
         kind: ParameterKind,
         value: DeclaredValue,
-        options: ParameterOptionsStorage,
+        options: ParameterOptions,
         validate: Option<ValidateCallback>,
         change_tx: Option<watch::Sender<()>>,
     ) {
