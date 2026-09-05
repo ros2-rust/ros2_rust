@@ -4,7 +4,9 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
-use rosidl_runtime_rs::{Sequence, SequenceAlloc, SequenceExceedsBoundsError};
+use rosidl_runtime_rs::{
+    PrimitiveSequence, PrimitiveSequenceAlloc, Sequence, SequenceAlloc, SequenceExceedsBoundsError,
+};
 
 use super::check;
 
@@ -150,6 +152,24 @@ where
     }
 
     /// This will fini all messages in the sequence and re-initialize it from scratch.
+    fn resize_unchecked(&mut self, resize_function: ResizeFunction, len: usize) {
+        let is_ok = unsafe { resize_function(*self as *mut _ as *mut std::os::raw::c_void, len) };
+        assert!(is_ok);
+    }
+}
+
+impl<'msg, T> InnerSequence<T> for &'msg mut PrimitiveSequence<T>
+where
+    T: PartialEq + PrimitiveSequenceAlloc,
+{
+    fn as_slice(&self) -> &[T] {
+        PrimitiveSequence::as_slice(self)
+    }
+
+    fn as_mut_slice(&mut self) -> &mut [T] {
+        PrimitiveSequence::as_mut_slice(self)
+    }
+
     fn resize_unchecked(&mut self, resize_function: ResizeFunction, len: usize) {
         let is_ok = unsafe { resize_function(*self as *mut _ as *mut std::os::raw::c_void, len) };
         assert!(is_ok);
@@ -331,9 +351,23 @@ impl<'msg, T> Deref for DynamicBoundedSequence<'msg, T> {
 
 impl<'msg, T> DynamicBoundedSequence<'msg, T>
 where
-    T: SequenceAlloc,
+    T: PrimitiveSequenceAlloc,
 {
     pub(super) unsafe fn new_primitive(bytes: &'msg [u8], upper_bound: usize) -> Self {
+        let sequence = &*(bytes.as_ptr() as *const PrimitiveSequence<T>);
+        let slice = sequence.as_slice();
+        Self {
+            boo: BooSlice::Borrowed(slice),
+            upper_bound,
+        }
+    }
+}
+
+impl<'msg, T> DynamicBoundedSequence<'msg, T>
+where
+    T: SequenceAlloc,
+{
+    pub(super) unsafe fn new_native(bytes: &'msg [u8], upper_bound: usize) -> Self {
         let sequence = &*(bytes.as_ptr() as *const Sequence<T>);
         let slice = sequence.as_slice();
         Self {
@@ -360,7 +394,7 @@ where
     }
 }
 
-impl<'msg, T: SequenceAlloc> DynamicBoundedSequence<'msg, T> {
+impl<'msg, T> DynamicBoundedSequence<'msg, T> {
     /// See [`Sequence::as_slice()`][1].
     ///
     /// [1]: rosidl_runtime_rs::Sequence::as_slice
@@ -406,6 +440,86 @@ pub struct DynamicBoundedSequenceMut<'msg, T: DynamicSequenceElementMut<'msg>> {
     upper_bound: usize,
 }
 
+/// A mutable bounded primitive sequence whose bound is known at runtime.
+#[derive(PartialEq)]
+pub struct DynamicBoundedPrimitiveSequenceMut<'msg, T: PrimitiveSequenceAlloc> {
+    sequence: &'msg mut PrimitiveSequence<T>,
+    resize_function: ResizeFunction,
+    upper_bound: usize,
+}
+
+impl<T> Debug for DynamicBoundedPrimitiveSequenceMut<'_, T>
+where
+    T: Debug + PrimitiveSequenceAlloc,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+        self.sequence.as_slice().fmt(f)
+    }
+}
+
+impl<T: PrimitiveSequenceAlloc> Deref for DynamicBoundedPrimitiveSequenceMut<'_, T> {
+    type Target = [T];
+
+    fn deref(&self) -> &Self::Target {
+        self.sequence.as_slice()
+    }
+}
+
+impl<T: PrimitiveSequenceAlloc> DerefMut for DynamicBoundedPrimitiveSequenceMut<'_, T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.sequence.as_mut_slice()
+    }
+}
+
+impl<'msg, T: PrimitiveSequenceAlloc> DynamicBoundedPrimitiveSequenceMut<'msg, T> {
+    pub(super) unsafe fn new_primitive(
+        bytes: &'msg mut [u8],
+        upper_bound: usize,
+        resize_function: ResizeFunction,
+    ) -> Self {
+        Self {
+            sequence: &mut *(bytes.as_mut_ptr() as *mut PrimitiveSequence<T>),
+            resize_function,
+            upper_bound,
+        }
+    }
+
+    /// Returns the maximum length of this sequence.
+    pub fn upper_bound(&self) -> usize {
+        self.upper_bound
+    }
+
+    /// Returns the sequence elements as a slice.
+    pub fn as_slice(&self) -> &[T] {
+        self.sequence.as_slice()
+    }
+
+    /// Returns the sequence elements as a mutable slice.
+    pub fn as_mut_slice(&mut self) -> &mut [T] {
+        self.sequence.as_mut_slice()
+    }
+
+    /// Tries to reset this sequence to `len` zero-initialized elements.
+    pub fn try_reset(&mut self, len: usize) -> Result<(), SequenceExceedsBoundsError> {
+        if len > self.upper_bound {
+            return Err(SequenceExceedsBoundsError {
+                len,
+                upper_bound: self.upper_bound,
+            });
+        }
+        let is_ok = unsafe {
+            (self.resize_function)(self.sequence as *mut _ as *mut std::os::raw::c_void, len)
+        };
+        assert!(is_ok);
+        Ok(())
+    }
+
+    /// Resets this sequence to empty.
+    pub fn clear(&mut self) {
+        self.try_reset(0).unwrap();
+    }
+}
+
 // ------------------------- impl for DynamicSequenceMut -------------------------
 
 impl<'msg, T> Debug for DynamicSequenceMut<'msg, T>
@@ -442,7 +556,7 @@ where
         + DynamicSequenceElementMut<'msg, InnerSequence = &'msg mut Sequence<T>>
         + 'static,
 {
-    pub(super) unsafe fn new_primitive(
+    pub(super) unsafe fn new_native(
         bytes: &'msg mut [u8],
         resize_function: ResizeFunction,
     ) -> Self {
@@ -538,12 +652,12 @@ where
         + DynamicSequenceElementMut<'msg, InnerSequence = &'msg mut Sequence<T>>
         + 'static,
 {
-    pub(super) unsafe fn new_primitive(
+    pub(super) unsafe fn new_native(
         bytes: &'msg mut [u8],
         upper_bound: usize,
         resize_function: ResizeFunction,
     ) -> Self {
-        let inner = DynamicSequenceMut::new_primitive(bytes, resize_function);
+        let inner = DynamicSequenceMut::new_native(bytes, resize_function);
         Self { inner, upper_bound }
     }
 }
