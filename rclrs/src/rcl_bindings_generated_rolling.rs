@@ -8459,6 +8459,14 @@ unsafe extern "C" {
     pub fn rcl_event_is_valid(event: *const rcl_event_t) -> bool;
 }
 unsafe extern "C" {
+    pub fn rcl_publisher_event_type_is_supported(event_type: rcl_publisher_event_type_t) -> bool;
+}
+unsafe extern "C" {
+    pub fn rcl_subscription_event_type_is_supported(
+        event_type: rcl_subscription_event_type_t,
+    ) -> bool;
+}
+unsafe extern "C" {
     pub fn rcl_event_set_callback(
         event: *const rcl_event_t,
         callback: rcl_event_callback_t,
