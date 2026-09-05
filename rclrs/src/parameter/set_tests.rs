@@ -3,6 +3,7 @@
 use std::{
     path::PathBuf,
     sync::{Arc, Mutex},
+    time::Duration,
 };
 
 use crate::{
@@ -34,6 +35,10 @@ struct DriveConfig {
     #[param(default = ["left_wheel", "right_wheel"])]
     wheels: Vec<String>,
 
+    /// Watchdog timeout. Unset disables the watchdog.
+    #[param(convert = seconds())]
+    watchdog: Option<Duration>,
+
     /// Serial device the motor controller is on.
     #[param(read_only, default = "/dev/ttyUSB0")]
     device: PathBuf,
@@ -59,6 +64,7 @@ fn test_declares_every_field_as_a_parameter() {
 
     assert_eq!(params.max_speed.get(), 1.5);
     assert_eq!(params.wheels.get(), vec!["left_wheel", "right_wheel"]);
+    assert_eq!(params.watchdog.get(), None);
     assert_eq!(params.device.get(), PathBuf::from("/dev/ttyUSB0"));
     assert_eq!(params.limits.max_force.get(), 100.0);
 
@@ -67,6 +73,7 @@ fn test_declares_every_field_as_a_parameter() {
         DriveConfig {
             max_speed: 1.5,
             wheels: vec!["left_wheel".to_string(), "right_wheel".to_string()],
+            watchdog: None,
             device: PathBuf::from("/dev/ttyUSB0"),
             limits: Limits { max_force: 100.0 },
         }
@@ -106,6 +113,7 @@ fn test_nested_yaml_maps_onto_nested_structs() {
   ros__parameters:
     max_speed: 2.0
     wheels: ["fl", "fr"]
+    watchdog: 0.5
     device: /dev/ttyACM0
     limits:
       max_force: 180.0
@@ -118,6 +126,7 @@ fn test_nested_yaml_maps_onto_nested_structs() {
         DriveConfig {
             max_speed: 2.0,
             wheels: vec!["fl".to_string(), "fr".to_string()],
+            watchdog: Some(Duration::from_millis(500)),
             device: PathBuf::from("/dev/ttyACM0"),
             limits: Limits { max_force: 180.0 },
         }
@@ -734,6 +743,8 @@ struct ManyTypes {
     ports: Vec<u16>,
     #[param(default = ["a", "b"])]
     names: Vec<String>,
+    #[param(convert = seconds(), default = Duration::from_millis(250))]
+    timeout: Duration,
     maybe: Option<i64>,
 }
 
@@ -754,6 +765,7 @@ fn test_a_set_of_many_value_types() {
             numbers: vec![1, 2, 3],
             ports: vec![8080, 9090],
             names: vec!["a".to_string(), "b".to_string()],
+            timeout: Duration::from_millis(250),
             maybe: None,
         }
     );
@@ -810,6 +822,74 @@ fn test_range_on_a_user_defined_type() {
     let descriptor = parameter_descriptor(&node, "depth");
     assert_eq!(descriptor.floating_point_range[0].from_value, 0.0);
     assert_eq!(descriptor.floating_point_range[0].to_value, 10.0);
+}
+
+/// A field whose type cannot implement `ParameterVariant`, because both the trait and the type
+/// belong to other crates. Saying how it is represented is enough, and the handle and the
+/// snapshot are in the field's own type.
+fn seconds() -> ParameterConversion<Duration> {
+    ParameterConversion::double(Duration::as_secs_f64, Duration::try_from_secs_f64)
+}
+
+#[derive(ParameterSet, Debug, PartialEq)]
+struct ConvertedConfig {
+    #[param(convert = seconds(), default = Duration::from_millis(500))]
+    timeout: Duration,
+    #[param(convert = seconds())]
+    grace: Option<Duration>,
+    #[param(convert = seconds(), read_only, default = Duration::from_secs(30))]
+    lifetime: Duration,
+}
+
+#[test]
+fn test_a_field_can_carry_its_own_conversion() {
+    let node = node("converted");
+    let params = node.declare_parameters::<ConvertedConfig>().unwrap();
+
+    assert_eq!(params.timeout.get(), Duration::from_millis(500));
+    assert_eq!(params.grace.get(), None);
+    assert_eq!(params.lifetime.get(), Duration::from_secs(30));
+
+    params.timeout.set(Duration::from_secs(2)).unwrap();
+    assert_eq!(
+        params.snapshot(),
+        ConvertedConfig {
+            timeout: Duration::from_secs(2),
+            grace: None,
+            lifetime: Duration::from_secs(30),
+        }
+    );
+
+    // What is stored is the representation, so a parameter file writes seconds as a double.
+    assert_eq!(
+        node.use_undeclared_parameters().get::<f64>("timeout"),
+        Some(2.0)
+    );
+}
+
+/// A parameter file configures a converted field in the units the conversion stores, and a range
+/// on such a field is in those units too.
+#[derive(ParameterSet, Debug, PartialEq)]
+struct BoundedConverted {
+    #[param(convert = seconds(), default = Duration::from_secs(1), range = 0.0..=5.0)]
+    timeout: Duration,
+}
+
+#[test]
+fn test_a_converted_field_takes_a_range_and_an_override() {
+    let (node, _file) = node_with_params(
+        "converted_override",
+        r#"
+/converted_override:
+  ros__parameters:
+    timeout: 3.5
+"#,
+    );
+    let params = node.declare_parameters::<BoundedConverted>().unwrap();
+    assert_eq!(params.timeout.get(), Duration::from_millis(3500));
+
+    assert!(params.timeout.set(Duration::from_secs(4)).is_ok());
+    assert!(params.timeout.set(Duration::from_secs(6)).is_err());
 }
 
 /// A type alias hides the field's type from the macro, so trait resolution decides what the

@@ -96,17 +96,7 @@ fn type_key(ty: &Type) -> Option<String> {
 }
 
 /// Parameter types a range applies to.
-const NUMERIC_LEAVES: &[&str] = &[
-    "i64",
-    "f64",
-    "f32",
-    "i8",
-    "i16",
-    "i32",
-    "u8",
-    "u16",
-    "u32",
-];
+const NUMERIC_LEAVES: &[&str] = &["i64", "f64", "f32", "i8", "i16", "i32", "u8", "u16", "u32"];
 
 /// Parameter types a range does not apply to.
 /// The array forms are not listed here: they are recognised by [`is_array`], so that every
@@ -116,18 +106,7 @@ const OTHER_LEAVES: &[&str] = &["bool", "String", "PathBuf", "ParameterValue"];
 /// The item types that `Vec<_>` is a parameter type for, which is every scalar parameter type
 /// except the dynamically typed one.
 const VEC_ITEMS: &[&str] = &[
-    "bool",
-    "i64",
-    "f64",
-    "f32",
-    "i8",
-    "i16",
-    "i32",
-    "u8",
-    "u16",
-    "u32",
-    "String",
-    "PathBuf",
+    "bool", "i64", "f64", "f32", "i8", "i16", "i32", "u8", "u16", "u32", "String", "PathBuf",
 ];
 
 /// Whether `key` names one of the sequence parameter types.
@@ -164,7 +143,8 @@ fn rejection(key: &str) -> Option<String> {
                     platform-dependent. Use `i64`"
             .to_string(),
         "Duration" => "`Duration` is not a ROS 2 parameter type, because the unit it would be \
-                       stored in would be left implicit"
+                       stored in would be left implicit. Say which unit with \
+                       `#[param(convert = ...)]`"
             .to_string(),
         "char" => "`char` cannot be a ROS 2 parameter. Use `String`".to_string(),
         "Path" | "str" => {

@@ -102,6 +102,10 @@ pub(crate) struct FieldAttrs {
     /// Not a parameter at all. The field gets `Default::default()` when the set is read back.
     pub skip: Option<Ident>,
 
+    /// How the value is represented, for a field whose type does not describe that itself.
+    /// A `ParameterConversion<T>` expression, evaluated where the parameter is declared.
+    pub convert: Option<Expr>,
+
     /// The field's doc comment, used as the description when none is given explicitly.
     pub doc: Option<String>,
 }
@@ -156,6 +160,7 @@ impl FieldAttrs {
                         "rename" => parsed.rename = Some(meta.value()?.parse()?),
                         "flatten" => parsed.flatten = Some(flag()),
                         "skip" => parsed.skip = Some(flag()),
+                        "convert" => parsed.convert = Some(meta.value()?.parse()?),
                         "mandatory" | "optional" => {
                             return Err(meta.error(format!(
                             "`{name}` is not needed: a field is an optional parameter when its \
@@ -173,7 +178,8 @@ impl FieldAttrs {
                                 "unknown `param` option `{name}`; expected one of `default`, \
                              `description`, `constraints`, `range`, `step`, `read_only`, \
                              `ignore_override`, `discard_mismatching_prior_value`, `validate`, \
-                             `on_change`, `discriminate`, `rename`, `flatten`, `skip`"
+                             `on_change`, `discriminate`, `rename`, `flatten`, `skip`, \
+                             `convert`"
                             )))
                         }
                     }
@@ -217,7 +223,8 @@ impl FieldAttrs {
             on_change,
             discriminate,
             rename,
-            flatten
+            flatten,
+            convert
         );
         None
     }
