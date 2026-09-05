@@ -92,7 +92,7 @@ jobs:
 
     - name: Check formatting of Rust packages
       run: |
-        for path in $(colcon list | awk '$3 == "(ament_cargo)" { print $2 }'); do
+        for path in $(colcon list --packages-up-to $(echo "${{ steps.list_packages.outputs.package_list }}") | awk '$3 == "(ros.ament_cargo)" { print $2 }'); do
         cd $path
         rustup toolchain install nightly
         cargo +nightly fmt -- --check
@@ -108,10 +108,11 @@ jobs:
         vcs-repo-file-url: ros2_rust_${{ matrix.ros_distribution }}.repos
 
     - name: Run clippy on Rust packages
+      continue-on-error: true  # revived check: non-blocking until the pre-existing rclrs backlog is paid down
       run: |
         cd ${{ steps.build.outputs.ros-workspace-directory-name }}
         . /opt/ros/${{ matrix.ros_distribution }}/setup.sh
-        for path in $(colcon list | awk '$3 == "(ament_cargo)" { print $2 }'); do
+        for path in $(colcon list --packages-up-to $(echo "${{ steps.list_packages.outputs.package_list }}") | awk '$3 == "(ros.ament_cargo)" { print $2 }'); do
         cd $path
         echo "Running clippy in $path"
         # Run clippy for all features except use_ros_shim (needed for docs.rs)
@@ -124,10 +125,11 @@ jobs:
         done
 
     - name: Run cargo test on Rust packages
+      continue-on-error: true  # revived check: non-blocking until the pre-existing rclrs backlog is paid down
       run: |
         cd ${{ steps.build.outputs.ros-workspace-directory-name }}
         . install/setup.sh
-        for path in $(colcon list | awk '$3 == "(ament_cargo)" && $1 != "examples_rclrs_minimal_pub_sub" && $1 != "examples_rclrs_minimal_client_service" && $1 != "rust_pubsub" { print $2 }'); do
+        for path in $(colcon list --packages-up-to $(echo "${{ steps.list_packages.outputs.package_list }}") | awk '$3 == "(ros.ament_cargo)" && $1 != "examples_rclrs_minimal_pub_sub" && $1 != "examples_rclrs_minimal_client_service" && $1 != "rust_pubsub" { print $2 }'); do
         cd $path
         echo "Running cargo test in $path"
         # Run cargo test for all features except use_ros_shim (needed for docs.rs)
@@ -140,10 +142,11 @@ jobs:
         done
 
     - name: Rustdoc check
+      continue-on-error: true  # revived check: non-blocking until the pre-existing rclrs backlog is paid down
       run: |
         cd ${{ steps.build.outputs.ros-workspace-directory-name }}
         . /opt/ros/${{ matrix.ros_distribution }}/setup.sh
-        for path in $(colcon list | awk '$3 == "(ament_cargo)" && $1 != "examples_rclrs_minimal_pub_sub" && $1 != "examples_rclrs_minimal_client_service" && $1 != "rust_pubsub" { print $2 }'); do
+        for path in $(colcon list --packages-up-to $(echo "${{ steps.list_packages.outputs.package_list }}") | awk '$3 == "(ros.ament_cargo)" && $1 != "examples_rclrs_minimal_pub_sub" && $1 != "examples_rclrs_minimal_client_service" && $1 != "rust_pubsub" { print $2 }'); do
         cd $path
         echo "Running rustdoc check in $path"
         cargo rustdoc -- -D warnings

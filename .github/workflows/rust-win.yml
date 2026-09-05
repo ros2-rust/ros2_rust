@@ -76,7 +76,7 @@ jobs:
           call C:\pixi_ws\ros2-windows\setup.bat
           cd C:\workspace
           for /f "tokens=1,2,3" %%A in ('pixi run --manifest-path C:\pixi_ws\pixi.toml colcon list') do (
-            if "%%C"=="(ament_cargo)" (
+            if "%%C"=="(ros.ament_cargo)" (
               if /I not "%%A"=="examples_rclrs_minimal_pub_sub" if /I not "%%A"=="examples_rclrs_minimal_client_service" if /I not "%%A"=="rust_pubsub" (
                 cd %%B
                 echo Running cargo test in %%B
