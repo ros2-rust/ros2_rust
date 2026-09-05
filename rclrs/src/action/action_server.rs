@@ -29,7 +29,7 @@ mod cancellation_state;
 use cancellation_state::*;
 
 mod cancelling_goal;
-use cancelling_goal::*;
+pub use cancelling_goal::*;
 
 mod executing_goal;
 pub use executing_goal::*;

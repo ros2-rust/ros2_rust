@@ -23,6 +23,12 @@ impl<A: Action> RequestedGoal<A> {
         &self.goal_request
     }
 
+    /// Get the unique ID of this goal
+    #[must_use]
+    pub fn goal_id(&self) -> &GoalUuid {
+        &self.uuid
+    }
+
     /// Accept the requested goal. The action client will be notified that the
     /// goal was accepted, and you will be able to begin executing.
     ///
