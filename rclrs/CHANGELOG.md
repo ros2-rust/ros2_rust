@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0](https://github.com/ros2-rust/ros2_rust/compare/v0.7.0...v0.8.0) - 2026-09-05
+
+### Added
+
+- add support for lyrical. ([#658](https://github.com/ros2-rust/ros2_rust/pull/658))
+- [**breaking**] expose the QoS profile in TopicEndpointInfo ([#685](https://github.com/ros2-rust/ros2_rust/pull/685))
+- re-export rosidl_runtime_rs from rclrs ([#649](https://github.com/ros2-rust/ros2_rust/pull/649))
+- [**breaking**] Re-Export Generated Messages in rclrs ([#556](https://github.com/ros2-rust/ros2_rust/pull/556))
+- add server_is_available to ActionClientState ([#622](https://github.com/ros2-rust/ros2_rust/pull/622))
+- [**breaking**] add parameter callbacks ([#611](https://github.com/ros2-rust/ros2_rust/pull/611))
+- add logging_rosout.h to the list of headers to generate bindings for ([#594](https://github.com/ros2-rust/ros2_rust/pull/594))
+
+### Fixed
+
+- *(logging)* make the test log handler coexist with rosout ([#656](https://github.com/ros2-rust/ros2_rust/pull/656))
+- Same version of ament_rs for the build script and crate ([#686](https://github.com/ros2-rust/ros2_rust/pull/686))
+- action server clock use-after-free ([#651](https://github.com/ros2-rust/ros2_rust/pull/651))
+- handle rolling introspection member layout ([#641](https://github.com/ros2-rust/ros2_rust/pull/641))
+- correct pointer dereference in resize_unchecked function ([#630](https://github.com/ros2-rust/ros2_rust/pull/630))
+- gate deprecated liveliness variant by distro (https://github.com/ros2/rmw/pull/414) ([#624](https://github.com/ros2-rust/ros2_rust/pull/624))
+- replace try_next with try_recv ([#609](https://github.com/ros2-rust/ros2_rust/pull/609))
+- initialize rosout publisher on distros newer than Humble ([#593](https://github.com/ros2-rust/ros2_rust/pull/593))
+
+### Other
+
+- *(bindings)* regenerate bindings for rolling ([#673](https://github.com/ros2-rust/ros2_rust/pull/673))
+- update ros-env dependency to 0.2 ([#648](https://github.com/ros2-rust/ros2_rust/pull/648))
+- *(bindings)* regenerate bindings for rolling ([#633](https://github.com/ros2-rust/ros2_rust/pull/633))
+- *(bindings)* regenerate bindings for humble ([#639](https://github.com/ros2-rust/ros2_rust/pull/639))
+- *(bindings)* regenerate bindings for rolling ([#621](https://github.com/ros2-rust/ros2_rust/pull/621))
+- Add service introspection ([#560](https://github.com/ros2-rust/ros2_rust/pull/560))
+- *(bindings)* regenerate bindings for humble ([#596](https://github.com/ros2-rust/ros2_rust/pull/596))
+- *(bindings)* regenerate bindings for kilted ([#597](https://github.com/ros2-rust/ros2_rust/pull/597))
+- *(bindings)* regenerate bindings for rolling ([#598](https://github.com/ros2-rust/ros2_rust/pull/598))
+- *(bindings)* regenerate bindings for jazzy ([#599](https://github.com/ros2-rust/ros2_rust/pull/599))
+
 ## [0.7.0](https://github.com/ros2-rust/ros2_rust/compare/v0.6.0...v0.7.0) - 2026-01-18
 
 ### Added
