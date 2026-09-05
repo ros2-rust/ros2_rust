@@ -5,11 +5,16 @@
 //! [`NodeState::declare_parameters`], [`NodeState::retain_parameters`] or
 //! [`NodeState::load_parameters`].
 //!
-//! Each field of the struct is declared through [`DeclareField`], which is what decides whether
-//! the field is a single parameter, a nested set of parameters, or something else entirely. The
-//! derive macro emits the same code for every field and lets the type system pick the
-//! implementation, so a nested set needs no annotation to be recognised as one. Any type with a
-//! `DeclareField` implementation can be used as a field, including types defined outside rclrs.
+//! A field is declared through [`DeclareField`], which is what decides whether the field is a
+//! single parameter, a nested set of parameters, or something else entirely. The derive macro
+//! emits the same code for those fields and lets the type system pick the implementation, so a
+//! nested set needs no annotation to be recognised as one. Any type with a `DeclareField`
+//! implementation can be used as a field, including types defined outside rclrs.
+//!
+//! A field with `#[param(convert = ...)]` is the exception. Its conversion is a value rather than
+//! a type, so no implementation can be selected by it, and the macro calls [`declare_converted`]
+//! and its siblings directly. That is what lets a field be a type whose crate could never
+//! implement a trait from rclrs.
 //!
 //! [`NodeState::declare_parameters`]: crate::NodeState::declare_parameters
 //! [`NodeState::retain_parameters`]: crate::NodeState::retain_parameters
@@ -236,10 +241,12 @@ pub struct ReadOnly;
 
 /// A type that can be a field of a [`ParameterSet`].
 ///
-/// This is the extension point of the parameter set machinery. `#[derive(ParameterSet)]` emits
-/// the same code for every field and calls this trait to declare it. What a field *is*, whether a
+/// This is the extension point of the parameter set machinery. What a field *is*, whether a
 /// single parameter, a nested set or a map of sets, is decided entirely by which implementation
 /// applies to its type. Implement it for your own types to use them as parameters.
+///
+/// A field with `#[param(convert = ...)]` does not come through here, because a conversion is a
+/// value and no implementation can be selected by one. See [`declare_converted`].
 ///
 /// `M` selects the mode the field was declared in: [`Writable`] or [`ReadOnly`]. A type that
 /// cannot sensibly be read-only simply does not implement `DeclareField<ReadOnly>`.
@@ -247,8 +254,10 @@ pub struct ReadOnly;
     message = "`{Self}` cannot be used as a ROS 2 parameter",
     label = "not a parameter type",
     note = "if this is a group of parameters, add `#[derive(ParameterSet)]` to it",
-    note = "if this is a single value, implement `ParameterVariant` for it and then call \
-            `declare_parameter_field!` on it",
+    note = "if this is a single value whose type you own, implement `ParameterVariant` for it \
+            and then call `declare_parameter_field!` on it",
+    note = "if the type belongs to another crate, give the field a conversion instead: \
+            `#[param(convert = ...)]`",
     note = "built-in parameter types are bool, i64, f64, f32, i8, i16, i32, u8, u16, u32, \
             String, PathBuf, ParameterValue, a Vec of any of those, the Arc<[..]> forms of the \
             ROS 2 array types, and `Option<T>` of any of them",
@@ -316,9 +325,20 @@ pub trait DeclareFlattened<M = Writable>: DeclareField<M> {
 #[doc(hidden)]
 pub fn apply_spec<'a, T: ParameterVariant>(
     builder: ParameterBuilder<'a, T>,
-    spec: FieldSpec<T, T::Range>,
+    mut spec: FieldSpec<T, T::Range>,
 ) -> ParameterBuilder<'a, T> {
-    let mut builder = builder.range(spec.range);
+    // Taken rather than cloned: `apply_rest` does not read the range.
+    let builder = builder.range(std::mem::take(&mut spec.range));
+    apply_rest(builder, spec)
+}
+
+/// Applies everything in a spec except the range, which is set in the terms of whichever of the
+/// two range setters applies.
+fn apply_rest<'a, T: 'static, R>(
+    builder: ParameterBuilder<'a, T>,
+    spec: FieldSpec<T, R>,
+) -> ParameterBuilder<'a, T> {
+    let mut builder = builder;
     if let Some(default) = spec.default {
         builder = builder.default(default);
     }
@@ -373,6 +393,59 @@ impl<T: ParameterVariant> DeclareField<Writable> for Option<T> {
     fn into_default(self) -> Option<Self::Value> {
         self
     }
+}
+
+/// Declares a field whose representation the declaration gives, rather than its type.
+///
+/// `#[param(convert = ...)]` calls this instead of going through [`DeclareField`]. A type with no
+/// [`ParameterVariant`] implementation cannot have one, since both the trait and often the type
+/// belong to other crates, so the conversion arrives as a value alongside the spec. The range
+/// comes in erased for the same reason: there is no type to name a `Range` on.
+///
+/// Public because the derive expands to a call to it, but not part of the stable surface of the
+/// crate.
+pub fn declare_converted<T: 'static>(
+    node: &NodeState,
+    name: &str,
+    mut spec: FieldSpec<T, crate::ParameterRanges>,
+    conversion: crate::ParameterConversion<T>,
+) -> Result<crate::MandatoryParameter<T>, ParameterSetError> {
+    let builder = node.declare_parameter_with(name, conversion);
+    apply_rest(builder.stored_ranges(std::mem::take(&mut spec.range)), spec)
+        .mandatory()
+        .map_err(|e| ParameterSetError::new(name, e))
+}
+
+/// [`declare_converted`] for an `Option` field, which is an optional parameter.
+///
+/// Public because the derive expands to a call to it, but not part of the stable surface of the
+/// crate.
+pub fn declare_converted_optional<T: 'static>(
+    node: &NodeState,
+    name: &str,
+    mut spec: FieldSpec<T, crate::ParameterRanges>,
+    conversion: crate::ParameterConversion<T>,
+) -> Result<crate::OptionalParameter<T>, ParameterSetError> {
+    let builder = node.declare_parameter_with(name, conversion);
+    apply_rest(builder.stored_ranges(std::mem::take(&mut spec.range)), spec)
+        .optional()
+        .map_err(|e| ParameterSetError::new(name, e))
+}
+
+/// [`declare_converted`] for a `#[param(read_only)]` field.
+///
+/// Public because the derive expands to a call to it, but not part of the stable surface of the
+/// crate.
+pub fn declare_converted_read_only<T: 'static>(
+    node: &NodeState,
+    name: &str,
+    mut spec: FieldSpec<T, crate::ParameterRanges>,
+    conversion: crate::ParameterConversion<T>,
+) -> Result<crate::ReadOnlyParameter<T>, ParameterSetError> {
+    let builder = node.declare_parameter_with(name, conversion);
+    apply_rest(builder.stored_ranges(std::mem::take(&mut spec.range)), spec)
+        .read_only()
+        .map_err(|e| ParameterSetError::new(name, e))
 }
 
 /// Implements [`DeclareField`] for a [`ParameterVariant`], so that it can be used as the type of

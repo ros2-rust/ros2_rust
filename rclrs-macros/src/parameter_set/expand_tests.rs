@@ -52,6 +52,8 @@ fn test_accepts_a_well_formed_set() {
             max_speed: f64,
             #[param(default = ["a", "b"])]
             wheels: Vec<String>,
+            #[param(convert = seconds())]
+            watchdog: Option<Duration>,
             #[param(read_only)]
             device: PathBuf,
             limits: Limits,
@@ -98,14 +100,8 @@ fn test_rejects_integers_wider_than_a_parameter() {
 
 #[test]
 fn test_rejects_duration_because_the_unit_would_be_implicit() {
-    rejected_with(
-        "struct C { timeout: Duration }",
-        &["unit"],
-    );
-    rejected_with(
-        "struct C { timeout: std::time::Duration }",
-        &["unit"],
-    );
+    rejected_with("struct C { timeout: Duration }", &["unit", "convert"]);
+    rejected_with("struct C { timeout: std::time::Duration }", &["convert"]);
 }
 
 #[test]
@@ -198,8 +194,17 @@ fn test_rejects_a_range_on_a_non_numeric_parameter() {
 
 /// A ROS 2 range constrains one value, so it cannot be given for an array. The elements are still
 /// held to the range of their own type, which is what makes `Vec<u16>` worth having.
+/// A `convert`ed field's range is in the units the conversion stores, which the field's type says
+/// nothing about, so the macro has no grounds to judge it.
+#[test]
+fn test_accepts_a_range_on_a_converted_field_of_any_type() {
+    accepted(r#"struct C { #[param(convert = c(), range = 0..=10)] name: String }"#);
+    accepted("struct C { #[param(convert = c(), range = 0..=10)] raw: Vec<u8> }");
+}
+
 /// Every sequence gets the message about a range constraining one value, not the one about the
-/// type not being numeric. These are recognised by different routes and used to disagree.
+/// type not being numeric. `Vec<i64>` and `Vec<u16>` are recognised by different routes and used
+/// to disagree.
 #[test]
 fn test_rejects_a_range_on_an_array() {
     for item in ["u16", "i64", "f64", "bool", "String", "u8"] {
@@ -218,18 +223,7 @@ fn test_rejects_a_range_on_an_array() {
 #[test]
 fn test_accepts_arrays_of_every_scalar_type() {
     for item in [
-        "bool",
-        "i64",
-        "f64",
-        "f32",
-        "i8",
-        "i16",
-        "i32",
-        "u8",
-        "u16",
-        "u32",
-        "String",
-        "PathBuf",
+        "bool", "i64", "f64", "f32", "i8", "i16", "i32", "u8", "u16", "u32", "String", "PathBuf",
     ] {
         accepted(&format!("struct C {{ field: Vec<{item}> }}"));
         accepted(&format!("struct C {{ field: Option<Vec<{item}>> }}"));

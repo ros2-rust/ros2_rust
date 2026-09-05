@@ -5,7 +5,7 @@ use quote::{format_ident, quote, quote_spanned};
 use syn::{spanned::Spanned, DeriveInput, Expr, Ident};
 
 use super::{
-    attrs::{range_bounds, FieldAttrs, SetAttrs},
+    attrs::{range_bounds, SetAttrs},
     Field,
 };
 
@@ -20,12 +20,11 @@ pub(crate) fn generate(input: &DeriveInput, set: &SetAttrs, fields: &[Field]) ->
 
     let handle_fields = declared.iter().map(|field| {
         let ident = field.ident;
-        let ty = field.ty;
-        let mode = field.mode();
         let doc = handle_field_doc(field);
+        let handle = handle_type(field);
         quote_spanned! { field.span() =>
             #[doc = #doc]
-            pub #ident: <#ty as ::rclrs::DeclareField<#mode>>::Handle
+            pub #ident: #handle
         }
     });
 
@@ -108,6 +107,37 @@ pub(crate) fn generate(input: &DeriveInput, set: &SetAttrs, fields: &[Field]) ->
         }
 
         impl ::rclrs::DeclareFlattened<::rclrs::Writable> for #values {}
+    }
+}
+
+/// The handle a field's declaration produces.
+fn handle_type(field: &Field) -> TokenStream {
+    if field.is_converted() {
+        let handle = format_ident!("{}", converted_kind(field).0);
+        let value = field.converted_value_ty();
+        return quote!(::rclrs::#handle<#value>);
+    }
+    let ty = field.ty;
+    let mode = field.mode();
+    quote!(<#ty as ::rclrs::DeclareField<#mode>>::Handle)
+}
+
+/// Which of the converted declaration entry points a field needs.
+fn converted_declare_fn(field: &Field) -> Ident {
+    format_ident!("{}", converted_kind(field).1)
+}
+
+/// The handle a converted field produces and the entry point that declares it.
+///
+/// One classification rather than two, because the two have to agree for the generated code to
+/// compile and nothing else would enforce that.
+fn converted_kind(field: &Field) -> (&'static str, &'static str) {
+    if field.is_optional() {
+        ("OptionalParameter", "declare_converted_optional")
+    } else if field.attrs.read_only.is_some() {
+        ("ReadOnlyParameter", "declare_converted_read_only")
+    } else {
+        ("MandatoryParameter", "declare_converted")
     }
 }
 
@@ -209,12 +239,25 @@ fn declare_field(field: &Field, has_own_default: bool) -> TokenStream {
     let spec = field_spec(field, has_own_default);
     let span = field.span();
 
-    let declare = if field.attrs.flatten.is_some() {
+    let name = &field.name;
+    let declare = if let Some(conversion) = &field.attrs.convert {
+        // A converted field cannot go through `DeclareField`: its type may belong to another
+        // crate, so no implementation for it could exist. The conversion travels alongside the
+        // spec instead.
+        let declare_fn = converted_declare_fn(field);
+        quote_spanned! { conversion.span() =>
+            ::rclrs::#declare_fn(
+                node,
+                &::rclrs::join_parameter_name(prefix, #name),
+                #spec,
+                #conversion,
+            )?
+        }
+    } else if field.attrs.flatten.is_some() {
         quote_spanned! { span =>
             <#ty as ::rclrs::DeclareFlattened<#mode>>::declare_flattened(node, prefix, #spec)?
         }
     } else {
-        let name = &field.name;
         quote_spanned! { span =>
             <#ty as ::rclrs::DeclareField<#mode>>::declare(
                 node,
@@ -249,7 +292,7 @@ fn field_spec(field: &Field, has_own_default: bool) -> TokenStream {
         .as_ref()
         .map(|c| c.value())
         .unwrap_or_default();
-    let range = range_value(attrs);
+    let range = range_value(field);
     let ignore_override = attrs.ignore_override.is_some();
     let discard = attrs.discard_mismatching_prior_value.is_some();
     let validate = boxed_callback(attrs.validate.as_ref());
@@ -288,6 +331,18 @@ fn default_value(field: &Field, has_own: bool) -> TokenStream {
         let ty = field.ty;
         let mode = field.mode();
         let binding = default_binding(field, source);
+        if field.is_converted() {
+            // The value is already what the parameter takes, so an optional field's default is
+            // itself and any other field's is present by construction.
+            return if field.is_optional() {
+                quote!(::core::option::Option::and_then(#binding, ::core::convert::identity))
+            } else {
+                quote!(::core::option::Option::and_then(
+                    #binding,
+                    ::core::option::Option::Some
+                ))
+            };
+        }
         quote! {
             ::core::option::Option::and_then(
                 #binding,
@@ -336,7 +391,8 @@ fn convert_literal(expr: &Expr) -> TokenStream {
     }
 }
 
-fn range_value(attrs: &FieldAttrs) -> TokenStream {
+fn range_value(field: &Field) -> TokenStream {
+    let attrs = &field.attrs;
     let Some(range) = &attrs.range else {
         return quote!(::core::default::Default::default());
     };
@@ -351,13 +407,19 @@ fn range_value(attrs: &FieldAttrs) -> TokenStream {
     let upper = optional(bounds.upper);
     let step = optional(attrs.step.as_ref());
 
-    quote_spanned! { range.span() =>
+    let literal = quote_spanned! { range.span() =>
         ::rclrs::ParameterRange {
             lower: #lower,
             upper: #upper,
             step: #step,
         }
+    };
+    if field.is_converted() {
+        // A converted field's spec carries the erased form, in the terms the conversion stores
+        // the value in, because there is no type to name a `Range` on.
+        return quote_spanned!(range.span() => ::core::convert::Into::into(#literal));
     }
+    literal
 }
 
 fn optional(expr: Option<&Expr>) -> TokenStream {
@@ -383,6 +445,13 @@ fn snapshot_field(field: &Field) -> TokenStream {
     if !field.is_declared() {
         return quote_spanned! { field.span() =>
             #ident: ::core::default::Default::default()
+        };
+    }
+
+    if field.is_converted() {
+        // The handle already yields the field's type, `T` or `Option<T>` as declared.
+        return quote_spanned! { field.span() =>
+            #ident: self.#ident.get()
         };
     }
 

@@ -1,16 +1,21 @@
 //! Implementation of `#[derive(ParameterSet)]`.
 //!
-//! The macro emits the same shape of code for every field of the struct:
+//! Most fields emit the same shape of code:
 //!
 //! ```ignore
 //! field: <FieldType as DeclareField<Mode>>::declare(node, &name, spec)?
 //! ```
 //!
-//! It therefore does not need to know what kind of parameter a field is. Whether a field is a
+//! so the macro does not need to know what kind of parameter such a field is. Whether it is a
 //! single parameter, an optional one, or a whole nested set of parameters is decided by which
 //! `DeclareField` implementation applies to its type, which is what allows a nested set to be
 //! written without any annotation and a user-defined type to be used as a parameter without the
 //! macro knowing about it.
+//!
+//! A field with `#[param(convert = ...)]` is the exception, and calls `declare_converted` and
+//! its siblings instead. A conversion is a value, so no implementation can be selected by one,
+//! which means the macro has to name the handle type itself. That is the cost of letting a field
+//! be a type whose crate could never implement a trait from rclrs.
 //!
 //! The macro does inspect field types, but only to produce better diagnostics. See
 //! [`known_types`].
@@ -137,6 +142,24 @@ pub(crate) fn expand(input: &DeriveInput) -> syn::Result<TokenStream> {
     Ok(codegen::generate(input, &set_attrs, &fields))
 }
 
+/// The `T` of an `Option<T>`, by syntax alone.
+fn option_inner(ty: &syn::Type) -> Option<&syn::Type> {
+    let syn::Type::Path(path) = ty else {
+        return None;
+    };
+    let segment = path.path.segments.last()?;
+    if segment.ident != "Option" {
+        return None;
+    }
+    let syn::PathArguments::AngleBracketed(args) = &segment.arguments else {
+        return None;
+    };
+    match args.args.first()? {
+        syn::GenericArgument::Type(inner) => Some(inner),
+        _ => None,
+    }
+}
+
 /// Reports the mistakes the macro can recognise from the field's type and attributes.
 fn check_field(field: &syn::Field, attrs: &FieldAttrs, errors: &mut Errors) {
     let shape = shape_of(&field.ty);
@@ -155,8 +178,9 @@ fn check_field(field: &syn::Field, attrs: &FieldAttrs, errors: &mut Errors) {
     }
 
     // Report a type the macro recognises as a mistake, and stop. The message names the type to
-    // use instead if possible.
-    if let TypeShape::Rejected(message) = &shape {
+    // use instead if possible. A `convert`ed field is exempt, because what its type may be is
+    // decided by the conversion rather than by anything the macro knows about the type.
+    if let (TypeShape::Rejected(message), None) = (&shape, &attrs.convert) {
         errors.at(&field.ty, message);
         return;
     }
@@ -185,8 +209,10 @@ fn check_field(field: &syn::Field, attrs: &FieldAttrs, errors: &mut Errors) {
 
     if let Some(range) = &attrs.range {
         // Reject a range where the macro can see that it cannot mean anything e.g. a recognised
-        // type that is not numeric. An unrecognised type is let through.
-        if !shape.accepts_range() {
+        // type that is not numeric. An unrecognised type is let through, and so is a `convert`ed
+        // one: its range is in the units the conversion stores, which the field's type does not
+        // describe.
+        if attrs.convert.is_none() && !shape.accepts_range() {
             errors.at(range, shape.range_rejection());
         }
         // A range that ROS 2 cannot express, being exclusive of its end or bounded at neither end.
@@ -198,6 +224,15 @@ fn check_field(field: &syn::Field, attrs: &FieldAttrs, errors: &mut Errors) {
         errors.at(
             step,
             "`step` describes the values within a range, so it needs a `range` to go with it",
+        );
+    }
+
+    // A conversion says how one value is represented, which is not a thing a nested set has.
+    if let (Some(convert), Some(_)) = (&attrs.convert, &attrs.flatten) {
+        errors.at(
+            convert,
+            "`convert` gives the representation of a single value, so it cannot be combined with \
+             `flatten`, which declares the fields of a nested set",
         );
     }
 
@@ -220,6 +255,26 @@ fn duplicate_parameter_name<'a>(fields: &'a [Field<'a>]) -> Option<&'a Field<'a>
 }
 
 impl Field<'_> {
+    /// The type a converted field's handle and value are in, which is the field's own type unless
+    /// it is an `Option`, where the parameter is of the type inside.
+    ///
+    /// Only the syntax is inspected, so `Option` has to be written as `Option<..>` for a field to
+    /// be optional. That is already true of every other field, since the macro chooses which
+    /// `DeclareField` implementation applies by the type as written.
+    pub fn converted_value_ty(&self) -> &syn::Type {
+        option_inner(self.ty).unwrap_or(self.ty)
+    }
+
+    /// Whether the field is an `Option`, as written.
+    pub fn is_optional(&self) -> bool {
+        option_inner(self.ty).is_some()
+    }
+
+    /// Whether the declaration gives the representation instead of the type.
+    pub fn is_converted(&self) -> bool {
+        self.attrs.convert.is_some()
+    }
+
     /// Whether this field declares a parameter at all.
     pub fn is_declared(&self) -> bool {
         self.attrs.skip.is_none()
