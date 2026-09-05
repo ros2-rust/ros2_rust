@@ -42,11 +42,11 @@ use crate::{
     IntoActionClientOptions, IntoActionServerOptions, IntoAsyncServiceCallback,
     IntoAsyncSubscriptionCallback, IntoNodeServiceCallback, IntoNodeSubscriptionCallback,
     IntoNodeTimerOneshotCallback, IntoNodeTimerRepeatingCallback, IntoTimerOptions, LogParams,
-    Logger, MessageInfo, ParameterBuilder, ParameterInterface, ParameterVariant, Parameters,
-    Promise, Publisher, PublisherOptions, PublisherState, RclrsError, RequestedGoal, Service,
-    ServiceOptions, ServiceState, Subscription, SubscriptionOptions, SubscriptionState,
-    TerminatedGoal, TimeSource, Timer, TimerState, ToLogParams, Worker, WorkerOptions, WorkerState,
-    ENTITY_LIFECYCLE_MUTEX,
+    Logger, MessageInfo, ParameterBuilder, ParameterConversion, ParameterInterface,
+    ParameterVariant, Parameters, Promise, Publisher, PublisherOptions, PublisherState, RclrsError,
+    RequestedGoal, Service, ServiceOptions, ServiceState, Subscription, SubscriptionOptions,
+    SubscriptionState, TerminatedGoal, TimeSource, Timer, TimerState, ToLogParams, Worker,
+    WorkerOptions, WorkerState, ENTITY_LIFECYCLE_MUTEX,
 };
 
 /// A processing unit that can communicate with other nodes. See the API of
@@ -1418,6 +1418,47 @@ impl NodeState {
         name: impl Into<Arc<str>>,
     ) -> ParameterBuilder<'a, T> {
         self.parameter.declare(name.into())
+    }
+
+    /// Declares a parameter of a type that does not implement [`ParameterVariant`], or one that
+    /// does but should be represented differently here.
+    ///
+    /// [`Self::declare_parameter`] is this called with the conversion the type describes for
+    /// itself. Nothing after the call differs: the builder, the handles, the range checks and the
+    /// parameter services do not care where the conversion came from.
+    ///
+    /// # Example
+    /// ```
+    /// # use rclrs::*;
+    /// # use std::time::Duration;
+    /// let executor = Context::default().create_basic_executor();
+    /// let node = executor.create_node("drive_controller")?;
+    ///
+    /// // `Duration` belongs to `std` and cannot implement a trait from rclrs, but saying how it
+    /// // is represented is enough.
+    /// let timeout = node
+    ///     .declare_parameter_with(
+    ///         "timeout",
+    ///         ParameterConversion::double(Duration::as_secs_f64, Duration::try_from_secs_f64),
+    ///     )
+    ///     .default(Duration::from_millis(500))
+    ///     .mandatory()?;
+    ///
+    /// assert_eq!(timeout.get(), Duration::from_millis(500));
+    /// # Ok::<(), RclrsError>(())
+    /// ```
+    pub fn declare_parameter_with<'a, T: 'static>(
+        &'a self,
+        name: impl Into<Arc<str>>,
+        conversion: ParameterConversion<T>,
+    ) -> ParameterBuilder<'a, T> {
+        self.parameter.declare_with(name.into(), conversion)
+    }
+
+    /// Access to this node's parameter interface, for the parameter implementation itself.
+    #[cfg(test)]
+    pub(crate) fn parameter_interface(&self) -> &ParameterInterface {
+        &self.parameter
     }
 
     /// Enables usage of undeclared parameters for this node.
