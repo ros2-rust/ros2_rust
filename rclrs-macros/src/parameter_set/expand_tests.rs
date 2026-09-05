@@ -230,15 +230,30 @@ fn test_accepts_arrays_of_every_scalar_type() {
     }
 }
 
+/// A range the macro hands over as written is the builder's business, so what a range may be is
+/// decided in one place. An exclusive integer range is usable; an exclusive floating point one is
+/// refused by the absent conversion rather than here.
 #[test]
-fn test_rejects_an_exclusive_range() {
+fn test_a_range_is_passed_through() {
+    accepted("struct C { #[param(range = 0..10)] count: i64 }");
+    accepted("struct C { #[param(range = 0.0..10.0)] speed: f64 }");
+    accepted("struct C { #[param(range = ..)] speed: f64 }");
+}
+
+/// A step is added after the conversion, so it puts no restriction on how the range is written.
+#[test]
+fn test_a_range_with_a_step_is_passed_through() {
+    accepted("struct C { #[param(range = 0..10, step = 2)] count: i64 }");
+    accepted("struct C { #[param(range = 0..=10, step = 2)] count: i64 }");
+}
+
+/// A converted field's spec holds the erased range, which no Rust range converts into, so there
+/// the macro still reads the ends off and still says what it can take.
+#[test]
+fn test_rejects_an_exclusive_range_on_a_converted_field() {
     rejected_with(
-        "struct C { #[param(range = 0.0..10.0)] speed: f64 }",
+        "struct C { #[param(convert = seconds(), range = 0.0..10.0)] timeout: Duration }",
         &["inclusive", "`..=`"],
-    );
-    rejected_with(
-        "struct C { #[param(range = ..)] speed: f64 }",
-        &["places no bounds"],
     );
 }
 

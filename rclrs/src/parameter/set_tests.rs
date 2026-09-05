@@ -260,7 +260,11 @@ fn test_skip_leaves_a_field_out_of_the_parameters() {
 
 #[derive(ParameterSet)]
 struct RangedConfig {
-    #[param(default = 50, range = 0..=100, step = 5)]
+    /// An exclusive range, which the builder's own conversions accept for an integer.
+    #[param(default = 5, range = 0..10)]
+    exclusive: i64,
+    /// An exclusive range with a step, which the macro converts and then adds the step to.
+    #[param(default = 50, range = 0..101, step = 5)]
     stepped: i64,
     #[param(default = 8080, range = 1024..)]
     open_ended: u16,
@@ -285,6 +289,10 @@ fn test_ranges() {
     // Open lower bound.
     assert!(params.upper_bounded.set(-100.0).is_ok());
     assert!(params.upper_bounded.set(1.5).is_err());
+
+    // Exclusive of its end, so the last value it admits is one below.
+    assert!(params.exclusive.set(9).is_ok());
+    assert!(params.exclusive.set(10).is_err());
 }
 
 fn must_be_even(value: &i64) -> Result<(), String> {
