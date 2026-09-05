@@ -122,11 +122,6 @@ fn handle_type(field: &Field) -> TokenStream {
     quote!(<#ty as ::rclrs::DeclareField<#mode>>::Handle)
 }
 
-/// Which of the converted declaration entry points a field needs.
-fn converted_declare_fn(field: &Field) -> Ident {
-    format_ident!("{}", converted_kind(field).1)
-}
-
 /// The handle a converted field produces and the entry point that declares it.
 ///
 /// One classification rather than two, because the two have to agree for the generated code to
@@ -139,6 +134,11 @@ fn converted_kind(field: &Field) -> (&'static str, &'static str) {
     } else {
         ("MandatoryParameter", "declare_converted")
     }
+}
+
+/// Which of the converted declaration entry points a field needs.
+fn converted_declare_fn(field: &Field) -> Ident {
+    format_ident!("{}", converted_kind(field).1)
 }
 
 /// The name of the generated handles struct.
@@ -396,6 +396,28 @@ fn range_value(field: &Field) -> TokenStream {
     let Some(range) = &attrs.range else {
         return quote!(::core::default::Default::default());
     };
+
+    // The range is handed over as written wherever it can be, so the builder's own conversions
+    // decide what a range may be and the answer is the same in a set as anywhere else. A step is
+    // part of no Rust range, so it is added afterwards.
+    if !field.is_converted() {
+        let converted = quote_spanned!(range.span() => ::core::convert::Into::into(#range));
+        return match &attrs.step {
+            // Named before the step is added, because a method call cannot drive the inference
+            // that decides which range the conversion produces.
+            Some(step) => {
+                let ty = field.ty;
+                let mode = field.mode();
+                quote_spanned! { step.span() =>
+                    {
+                        let range: <#ty as ::rclrs::DeclareField<#mode>>::Range = #converted;
+                        range.with_step(#step)
+                    }
+                }
+            }
+            None => converted,
+        };
+    }
 
     // Already reported by `check_field`. Emit something that compiles so that the rest of the
     // errors are reported too.

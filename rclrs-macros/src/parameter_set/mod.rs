@@ -215,9 +215,12 @@ fn check_field(field: &syn::Field, attrs: &FieldAttrs, errors: &mut Errors) {
         if attrs.convert.is_none() && !shape.accepts_range() {
             errors.at(range, shape.range_rejection());
         }
-        // A range that ROS 2 cannot express, being exclusive of its end or bounded at neither end.
-        if let Err(error) = attrs::range_bounds(range) {
-            errors.push(error);
+        // Only where the macro takes the range apart does its shape matter here. Otherwise the
+        // builder's conversions decide, and an exclusive integer range is as good as any.
+        if attrs.convert.is_some() {
+            if let Err(error) = attrs::range_bounds(range) {
+                errors.push(error);
+            }
         }
     // `step` describes the values inside a range, so on its own it has nothing to describe.
     } else if let Some(step) = &attrs.step {

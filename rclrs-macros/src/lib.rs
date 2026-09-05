@@ -30,7 +30,7 @@ mod parameter_set;
 /// * `#[param(constraints = "...")]`: descriptor constraints. Defaults to whatever the field's
 ///   type says about itself.
 /// * `#[param(range = 0.0..=10.0, step = 0.5)]`: valid range, in the field's own units, or in
-///   the units the conversion stores when `convert` is given.
+///   the units the conversion stores when `convert` is given. Any Rust range works.
 /// * `#[param(convert = expr)]`: a `ParameterConversion<T>` saying how the field is represented,
 ///   for a type that does not implement `ParameterVariant` and cannot, such as one belonging to
 ///   another crate.
