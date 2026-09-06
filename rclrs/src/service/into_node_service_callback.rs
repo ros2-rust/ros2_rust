@@ -2,7 +2,10 @@ use rosidl_runtime_rs::Service;
 
 use crate::{AnyServiceCallback, NodeServiceCallback, RequestId, ServiceInfo};
 
-use std::sync::Arc;
+use std::{
+    panic::{RefUnwindSafe, UnwindSafe},
+    sync::Arc,
+};
 
 /// A trait to deduce regular callbacks of services.
 ///
@@ -12,7 +15,7 @@ use std::sync::Arc;
 /// - [`Fn`] ( `Request` ) -> `Response`
 /// - [`Fn`] ( `Request`, [`RequestId`] ) -> `Response`
 /// - [`Fn`] ( `Request`, [`ServiceInfo`] ) -> `Response`
-pub trait IntoNodeServiceCallback<T, Args>: Send + 'static
+pub trait IntoNodeServiceCallback<T, Args>: Send + UnwindSafe + 'static
 where
     T: Service,
 {
@@ -25,7 +28,7 @@ where
 impl<T, Func> IntoNodeServiceCallback<T, ()> for Func
 where
     T: Service,
-    Func: Fn(T::Request) -> T::Response + Send + Sync + 'static,
+    Func: Fn(T::Request) -> T::Response + Send + Sync + UnwindSafe + RefUnwindSafe + 'static,
 {
     fn into_node_service_callback(self) -> AnyServiceCallback<T, ()> {
         let func = Arc::new(self);
@@ -40,7 +43,12 @@ where
 impl<T, Func> IntoNodeServiceCallback<T, RequestId> for Func
 where
     T: Service,
-    Func: Fn(T::Request, RequestId) -> T::Response + Send + Sync + 'static,
+    Func: Fn(T::Request, RequestId) -> T::Response
+        + Send
+        + Sync
+        + UnwindSafe
+        + RefUnwindSafe
+        + 'static,
 {
     fn into_node_service_callback(self) -> AnyServiceCallback<T, ()> {
         let func = Arc::new(self);
@@ -55,7 +63,12 @@ where
 impl<T, Func> IntoNodeServiceCallback<T, ServiceInfo> for Func
 where
     T: Service,
-    Func: Fn(T::Request, ServiceInfo) -> T::Response + Send + Sync + 'static,
+    Func: Fn(T::Request, ServiceInfo) -> T::Response
+        + Send
+        + Sync
+        + UnwindSafe
+        + RefUnwindSafe
+        + 'static,
 {
     fn into_node_service_callback(self) -> AnyServiceCallback<T, ()> {
         let func = Arc::new(self);

@@ -1,15 +1,17 @@
 use crate::{AnyTimerCallback, Time, TimerState, WorkScope};
-use std::sync::Arc;
+use std::{panic::UnwindSafe, sync::Arc};
 
 /// This trait is used to create timer callbacks for repeating timers in a Worker.
-pub trait IntoWorkerTimerRepeatingCallback<Scope: WorkScope, Args>: 'static + Send {
+pub trait IntoWorkerTimerRepeatingCallback<Scope: WorkScope, Args>:
+    'static + Send + UnwindSafe
+{
     /// Convert a suitable object into a repeating timer callback for a worker scope
     fn into_worker_timer_repeating_callback(self) -> AnyTimerCallback<Scope>;
 }
 
 impl<Scope: WorkScope, Func> IntoWorkerTimerRepeatingCallback<Scope, ()> for Func
 where
-    Func: FnMut() + 'static + Send,
+    Func: FnMut() + 'static + Send + UnwindSafe,
 {
     fn into_worker_timer_repeating_callback(mut self) -> AnyTimerCallback<Scope> {
         AnyTimerCallback::Repeating(Box::new(move |_, _| self())).into()
@@ -18,7 +20,7 @@ where
 
 impl<Scope: WorkScope, Func> IntoWorkerTimerRepeatingCallback<Scope, (Scope::Payload,)> for Func
 where
-    Func: FnMut(&mut Scope::Payload) + 'static + Send,
+    Func: FnMut(&mut Scope::Payload) + 'static + Send + UnwindSafe,
 {
     fn into_worker_timer_repeating_callback(mut self) -> AnyTimerCallback<Scope> {
         AnyTimerCallback::Repeating(Box::new(move |payload, _| self(payload))).into()
@@ -28,7 +30,7 @@ where
 impl<Scope: WorkScope, Func>
     IntoWorkerTimerRepeatingCallback<Scope, (Scope::Payload, Arc<TimerState<Scope>>)> for Func
 where
-    Func: FnMut(&mut Scope::Payload, &Arc<TimerState<Scope>>) + 'static + Send,
+    Func: FnMut(&mut Scope::Payload, &Arc<TimerState<Scope>>) + 'static + Send + UnwindSafe,
 {
     fn into_worker_timer_repeating_callback(self) -> AnyTimerCallback<Scope> {
         AnyTimerCallback::Repeating(Box::new(self)).into()
@@ -38,7 +40,7 @@ where
 impl<Scope: WorkScope, Func> IntoWorkerTimerRepeatingCallback<Scope, (Scope::Payload, Time)>
     for Func
 where
-    Func: FnMut(&mut Scope::Payload, Time) + 'static + Send,
+    Func: FnMut(&mut Scope::Payload, Time) + 'static + Send + UnwindSafe,
 {
     fn into_worker_timer_repeating_callback(mut self) -> AnyTimerCallback<Scope> {
         AnyTimerCallback::Repeating(Box::new(move |payload, t| {
@@ -49,14 +51,16 @@ where
 }
 
 /// This trait is used to create timer callbacks for one-shot timers in a Worker.
-pub trait IntoWorkerTimerOneshotCallback<Scope: WorkScope, Args>: 'static + Send {
+pub trait IntoWorkerTimerOneshotCallback<Scope: WorkScope, Args>:
+    'static + Send + UnwindSafe
+{
     /// Convert a suitable object into a one-shot timer callback for a worker scope
     fn into_worker_timer_oneshot_callback(self) -> AnyTimerCallback<Scope>;
 }
 
 impl<Scope: WorkScope, Func> IntoWorkerTimerOneshotCallback<Scope, ()> for Func
 where
-    Func: FnOnce() + 'static + Send,
+    Func: FnOnce() + 'static + Send + UnwindSafe,
 {
     fn into_worker_timer_oneshot_callback(self) -> AnyTimerCallback<Scope> {
         AnyTimerCallback::OneShot(Box::new(move |_, _| self())).into()
@@ -65,7 +69,7 @@ where
 
 impl<Scope: WorkScope, Func> IntoWorkerTimerOneshotCallback<Scope, (Scope::Payload,)> for Func
 where
-    Func: FnOnce(&mut Scope::Payload) + 'static + Send,
+    Func: FnOnce(&mut Scope::Payload) + 'static + Send + UnwindSafe,
 {
     fn into_worker_timer_oneshot_callback(self) -> AnyTimerCallback<Scope> {
         AnyTimerCallback::OneShot(Box::new(move |payload, _| self(payload))).into()
@@ -75,7 +79,7 @@ where
 impl<Scope: WorkScope, Func>
     IntoWorkerTimerOneshotCallback<Scope, (Scope::Payload, Arc<TimerState<Scope>>)> for Func
 where
-    Func: FnOnce(&mut Scope::Payload, &Arc<TimerState<Scope>>) + 'static + Send,
+    Func: FnOnce(&mut Scope::Payload, &Arc<TimerState<Scope>>) + 'static + Send + UnwindSafe,
 {
     fn into_worker_timer_oneshot_callback(self) -> AnyTimerCallback<Scope> {
         AnyTimerCallback::OneShot(Box::new(self)).into()
@@ -84,7 +88,7 @@ where
 
 impl<Scope: WorkScope, Func> IntoWorkerTimerOneshotCallback<Scope, (Scope::Payload, Time)> for Func
 where
-    Func: FnMut(&mut Scope::Payload, Time) + 'static + Send,
+    Func: FnMut(&mut Scope::Payload, Time) + 'static + Send + UnwindSafe,
 {
     fn into_worker_timer_oneshot_callback(mut self) -> AnyTimerCallback<Scope> {
         AnyTimerCallback::OneShot(Box::new(move |payload, t| {

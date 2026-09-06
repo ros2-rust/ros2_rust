@@ -16,6 +16,7 @@ use std::{
     fmt,
     future::Future,
     os::raw::c_char,
+    panic::{RefUnwindSafe, UnwindSafe},
     sync::{atomic::AtomicBool, Arc, Mutex},
     time::Duration,
 };
@@ -401,7 +402,7 @@ impl NodeState {
     pub fn create_action_server<'a, A: Action, Task>(
         self: &Arc<Self>,
         options: impl IntoActionServerOptions<'a>,
-        callback: impl FnMut(RequestedGoal<A>) -> Task + Send + Sync + 'static,
+        callback: impl FnMut(RequestedGoal<A>) -> Task + Send + Sync + UnwindSafe + 'static,
     ) -> Result<ActionServer<A>, RclrsError>
     where
         Task: Future<Output = TerminatedGoal> + Send + Sync + 'static,
@@ -933,7 +934,7 @@ impl NodeState {
         callback: F,
     ) -> Result<DynamicSubscription, RclrsError>
     where
-        F: Fn(DynamicMessage, MessageInfo) + Send + Sync + 'static,
+        F: Fn(DynamicMessage, MessageInfo) + Send + Sync + UnwindSafe + RefUnwindSafe + 'static,
     {
         DynamicSubscriptionState::<Node>::create(
             topic_type,
@@ -1007,7 +1008,11 @@ impl NodeState {
         callback: F,
     ) -> Result<DynamicSubscription, RclrsError>
     where
-        F: FnMut(DynamicMessage, MessageInfo) -> BoxFuture<'static, ()> + Send + Sync + 'static,
+        F: FnMut(DynamicMessage, MessageInfo) -> BoxFuture<'static, ()>
+            + Send
+            + Sync
+            + UnwindSafe
+            + 'static,
     {
         DynamicSubscriptionState::<Node>::create(
             topic_type,
