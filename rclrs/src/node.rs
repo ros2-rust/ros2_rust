@@ -11,6 +11,7 @@ mod node_graph_task;
 use node_graph_task::*;
 
 use std::{
+    any::Any,
     cmp::PartialEq,
     ffi::CStr,
     fmt,
@@ -36,17 +37,18 @@ use crate::{
         DynamicSubscriptionState, MessageTypeName, NodeAsyncDynamicSubscriptionCallback,
         NodeDynamicSubscriptionCallback,
     },
+    parameter::join_parameter_name,
     rcl_bindings::*,
     ActionClient, ActionClientState, ActionGoalReceiver, ActionServer, ActionServerState,
     AnyTimerCallback, Client, ClientOptions, ClientState, Clock, ContextHandle, ExecutorCommands,
     IntoActionClientOptions, IntoActionServerOptions, IntoAsyncServiceCallback,
     IntoAsyncSubscriptionCallback, IntoNodeServiceCallback, IntoNodeSubscriptionCallback,
     IntoNodeTimerOneshotCallback, IntoNodeTimerRepeatingCallback, IntoTimerOptions, LogParams,
-    Logger, MessageInfo, ParameterBuilder, ParameterConversion, ParameterInterface,
-    ParameterVariant, Parameters, Promise, Publisher, PublisherOptions, PublisherState, RclrsError,
-    RequestedGoal, Service, ServiceOptions, ServiceState, Subscription, SubscriptionOptions,
-    SubscriptionState, TerminatedGoal, TimeSource, Timer, TimerState, ToLogParams, Worker,
-    WorkerOptions, WorkerState, ENTITY_LIFECYCLE_MUTEX,
+    Logger, MessageInfo, ParameterBuilder, ParameterConversion, ParameterInterface, ParameterSet,
+    ParameterSetError, ParameterSetHandles, ParameterVariant, Parameters, Promise, Publisher,
+    PublisherOptions, PublisherState, RclrsError, RequestedGoal, Service, ServiceOptions,
+    ServiceState, Subscription, SubscriptionOptions, SubscriptionState, TerminatedGoal, TimeSource,
+    Timer, TimerState, ToLogParams, Worker, WorkerOptions, WorkerState, ENTITY_LIFECYCLE_MUTEX,
 };
 
 /// A processing unit that can communicate with other nodes. See the API of
@@ -104,6 +106,12 @@ pub type Node = Arc<NodeState>;
 /// [1]: std::sync::Weak
 pub struct NodeState {
     time_source: TimeSource,
+    /// Parameter handles that the node has taken responsibility for keeping declared, from
+    /// [`Self::retain_parameters`] and [`Self::load_parameters`].
+    ///
+    /// Declared before `parameter` so that the handles are dropped, and their parameters
+    /// undeclared, while the parameter interface they refer to is still alive.
+    retained_parameters: Mutex<Vec<Box<dyn Any + Send + Sync>>>,
     parameter: ParameterInterface,
     logger: Logger,
     commands: Arc<ExecutorCommands>,
@@ -1459,6 +1467,169 @@ impl NodeState {
     #[cfg(test)]
     pub(crate) fn parameter_interface(&self) -> &ParameterInterface {
         &self.parameter
+    }
+
+    /// Declares every parameter of a [`ParameterSet`] and returns the live handles for them.
+    ///
+    /// The returned handles own the declarations: when they are dropped, the parameters are
+    /// undeclared. Use [`Self::retain_parameters`] if you would rather the node keep them
+    /// declared for its own lifetime.
+    ///
+    /// Parameters are declared under the set's [`NAMESPACE`](ParameterSet::NAMESPACE), which is
+    /// the node's root unless the set says otherwise.
+    ///
+    /// # Example
+    /// ```
+    /// # use rclrs::*;
+    /// #[derive(ParameterSet)]
+    /// struct DriveConfig {
+    ///     /// Maximum forward speed in m/s.
+    ///     #[param(default = 1.5, range = 0.0..=10.0)]
+    ///     max_speed: f64,
+    /// }
+    ///
+    /// let executor = Context::default().create_basic_executor();
+    /// let node = executor.create_node("drive_controller")?;
+    ///
+    /// let params = node.declare_parameters::<DriveConfig>()?;
+    /// assert_eq!(params.max_speed.get(), 1.5);
+    /// params.max_speed.set(2.0)?;
+    /// assert_eq!(params.max_speed.get(), 2.0);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn declare_parameters<T: ParameterSet>(&self) -> Result<T::Handles, ParameterSetError> {
+        T::declare(self, T::NAMESPACE, None)
+    }
+
+    /// Same as [`Self::declare_parameters`], with `prefix` prepended to the set's namespace.
+    ///
+    /// For a set whose namespace is `"drive"`, a prefix of `"front"` declares the parameters
+    /// under `front.drive`.
+    pub fn declare_parameters_with_prefix<T: ParameterSet>(
+        &self,
+        prefix: &str,
+    ) -> Result<T::Handles, ParameterSetError> {
+        T::declare(self, &join_parameter_name(prefix, T::NAMESPACE), None)
+    }
+
+    /// Declares every parameter of a [`ParameterSet`], keeps the declarations alive for as long
+    /// as the node exists, and returns shared handles to them.
+    ///
+    /// Use this when the parameters should simply exist for the lifetime of the node and you do
+    /// not want to thread ownership of the handles through your own types. The returned
+    /// [`Arc`] can be cloned into callbacks and timers, and
+    /// [`snapshot`](ParameterSetHandles::snapshot) can be called on it at any time to read the
+    /// current values.
+    ///
+    /// The handles are also the only place `on_change` can be registered, and a callback
+    /// registered there outlives them, because it lives with the declaration rather than with the
+    /// handle. So the handles can be used to set callbacks up and then dropped, which is the
+    /// reason to reach for this over [`Self::load_parameters`]. Unlike the `on_change` attribute,
+    /// a callback registered here is a closure and can capture whatever it needs to do its work.
+    ///
+    /// The contrast with [`Self::declare_parameters`] is that there, dropping the handles
+    /// undeclares the parameters and the callbacks go with them.
+    ///
+    /// # Example
+    /// ```
+    /// # use rclrs::*;
+    /// # use std::sync::{Arc, Mutex};
+    /// #[derive(ParameterSet, Debug)]
+    /// struct DriveConfig {
+    ///     /// Maximum forward speed in m/s.
+    ///     #[param(default = 1.5)]
+    ///     max_speed: f64,
+    /// }
+    ///
+    /// let executor = Context::default().create_basic_executor();
+    /// let node = executor.create_node("drive_controller")?;
+    ///
+    /// // Stands in for whatever the callback drives: a publisher, a controller, a limiter.
+    /// let commanded = Arc::new(Mutex::new(1.5));
+    ///
+    /// let params = node.retain_parameters::<DriveConfig>()?;
+    /// let target = Arc::clone(&commanded);
+    /// params.max_speed.on_change(move |speed| *target.lock().unwrap() = *speed);
+    ///
+    /// // Nothing needs the handles once the callbacks are registered.
+    /// drop(params);
+    ///
+    /// // The node still holds the declaration, so the parameter can still be set, over the
+    /// // parameter services or as here, and the callback still runs.
+    /// node.use_undeclared_parameters().set::<f64>("max_speed", 3.0)?;
+    /// assert_eq!(*commanded.lock().unwrap(), 3.0);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn retain_parameters<T: ParameterSet>(&self) -> Result<Arc<T::Handles>, ParameterSetError>
+    where
+        T::Handles: Send + Sync + 'static,
+    {
+        self.retain_parameters_with_prefix::<T>("")
+    }
+
+    /// Same as [`Self::retain_parameters`], with `prefix` prepended to the set's namespace.
+    pub fn retain_parameters_with_prefix<T: ParameterSet>(
+        &self,
+        prefix: &str,
+    ) -> Result<Arc<T::Handles>, ParameterSetError>
+    where
+        T::Handles: Send + Sync + 'static,
+    {
+        let handles = Arc::new(T::declare(
+            self,
+            &join_parameter_name(prefix, T::NAMESPACE),
+            None,
+        )?);
+        self.retained_parameters
+            .lock()
+            .unwrap()
+            .push(Box::new(Arc::clone(&handles)));
+        Ok(handles)
+    }
+
+    /// Declares every parameter of a [`ParameterSet`] and returns their values.
+    ///
+    /// This is the shortest way to read a static configuration at startup: the node keeps the
+    /// declarations alive, so the parameters remain visible to `ros2 param` and to the parameter
+    /// services, and the caller is handed plain Rust values with no rclrs types in them.
+    ///
+    /// The values are a snapshot, and will not reflect any later change to the parameters. Use
+    /// [`Self::retain_parameters`] if you need to read them again, or
+    /// [`Self::declare_parameters`] to watch individual parameters for changes.
+    ///
+    /// # Example
+    /// ```
+    /// # use rclrs::*;
+    /// #[derive(ParameterSet, Debug)]
+    /// struct DriveConfig {
+    ///     /// Maximum forward speed in m/s.
+    ///     #[param(default = 1.5)]
+    ///     max_speed: f64,
+    /// }
+    ///
+    /// let executor = Context::default().create_basic_executor();
+    /// let node = executor.create_node("drive_controller")?;
+    ///
+    /// let config: DriveConfig = node.load_parameters()?;
+    /// assert_eq!(config.max_speed, 1.5);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn load_parameters<T: ParameterSet>(&self) -> Result<T, ParameterSetError>
+    where
+        T::Handles: Send + Sync + 'static,
+    {
+        Ok(self.retain_parameters::<T>()?.snapshot())
+    }
+
+    /// Same as [`Self::load_parameters`], with `prefix` prepended to the set's namespace.
+    pub fn load_parameters_with_prefix<T: ParameterSet>(
+        &self,
+        prefix: &str,
+    ) -> Result<T, ParameterSetError>
+    where
+        T::Handles: Send + Sync + 'static,
+    {
+        Ok(self.retain_parameters_with_prefix::<T>(prefix)?.snapshot())
     }
 
     /// Enables usage of undeclared parameters for this node.

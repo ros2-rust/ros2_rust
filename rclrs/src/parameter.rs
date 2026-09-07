@@ -4,12 +4,14 @@ mod range;
 mod service;
 pub use conversion::*;
 
+mod set;
 mod std_types;
 mod value;
 
 pub(crate) use override_map::*;
 pub use range::*;
 use service::*;
+pub use set::*;
 pub use value::*;
 
 use ros_env::rcl_interfaces::msg::rmw::{ParameterType, ParameterValue as RmwParameterValue};
@@ -1390,11 +1392,35 @@ impl ParameterInterface {
 #[cfg(test)]
 pub(crate) mod test_support {
     use super::*;
-    use crate::Node;
+    use crate::CreateBasicExecutor;
+    use crate::{IntoNodeOptions, Node};
     use ros_env::rcl_interfaces::{
         msg::rmw::ParameterDescriptor, srv::rmw::DescribeParameters_Request,
     };
     use rosidl_runtime_rs::{seq, Sequence};
+
+    /// Creates a node whose parameter overrides come from `yaml`, as a launch file or a
+    /// `--params-file` argument would supply them.
+    ///
+    /// The temporary file is returned because it has to outlive the node's construction.
+    pub(crate) fn node_with_parameter_overrides(
+        name: &str,
+        yaml: &str,
+    ) -> (Node, tempfile::NamedTempFile) {
+        use std::io::Write;
+
+        let mut file = tempfile::NamedTempFile::new().unwrap();
+        write!(file, "{yaml}").unwrap();
+        let node = crate::Context::default()
+            .create_basic_executor()
+            .create_node(crate::NodeOptions::new(name).arguments([
+                "--ros-args",
+                "--params-file",
+                &file.path().display().to_string(),
+            ]))
+            .unwrap();
+        (node, file)
+    }
 
     /// The descriptor a node reports for one of its parameters, as `ros2 param describe` gets it.
     pub(crate) fn parameter_descriptor(node: &Node, name: &str) -> ParameterDescriptor {
