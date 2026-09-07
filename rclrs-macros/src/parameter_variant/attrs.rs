@@ -91,6 +91,8 @@ impl VariantAttrs {
 }
 
 /// How to turn a variant's name into the string it is stored as.
+///
+/// Shared with the `ParameterSet` derive, whose enum sets name their variants the same way.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum RenameAll {
     /// Exactly as written.
@@ -111,7 +113,7 @@ impl RenameAll {
         "\"SCREAMING_SNAKE_CASE\"",
     ];
 
-    fn parse(value: &str) -> Option<Self> {
+    pub fn parse(value: &str) -> Option<Self> {
         Some(match value {
             "snake_case" => Self::SnakeCase,
             "kebab-case" => Self::KebabCase,

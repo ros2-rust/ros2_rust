@@ -2,7 +2,7 @@
 
 use syn::{spanned::Spanned, Attribute, Expr, ExprRange, Ident, LitStr, RangeLimits};
 
-use crate::errors::Errors;
+use crate::{errors::Errors, parameter_variant::attrs::RenameAll};
 
 /// Struct-level configuration from `#[parameters(...)]`.
 #[derive(Default)]
@@ -15,6 +15,10 @@ pub(crate) struct SetAttrs {
     pub default: Option<Expr>,
     /// Name for the generated handles struct.
     pub handles: Option<Ident>,
+    /// Enum sets only: the name of the parameter that says which variant is in use.
+    pub tag: Option<LitStr>,
+    /// Enum sets only: the naming convention for tag values.
+    pub rename_all: Option<(RenameAll, LitStr)>,
 }
 
 impl SetAttrs {
@@ -32,10 +36,27 @@ impl SetAttrs {
                     parsed.default = Some(meta.value()?.parse()?);
                 } else if meta.path.is_ident("handles") {
                     parsed.handles = Some(meta.value()?.parse()?);
+                } else if meta.path.is_ident("tag") {
+                    parsed.tag = Some(meta.value()?.parse()?);
+                } else if meta.path.is_ident("rename_all") {
+                    let value: LitStr = meta.value()?.parse()?;
+                    match RenameAll::parse(&value.value()) {
+                        Some(convention) => parsed.rename_all = Some((convention, value)),
+                        None => {
+                            return Err(syn::Error::new(
+                                value.span(),
+                                format!(
+                                    "unknown naming convention {:?}; expected one of {}",
+                                    value.value(),
+                                    RenameAll::NAMES.join(", "),
+                                ),
+                            ))
+                        }
+                    }
                 } else {
                     return Err(meta.error(format!(
                         "unknown `parameters` option `{}`; expected one of `namespace`, \
-                         `default`, `handles`",
+                         `default`, `handles`, `tag`, `rename_all`",
                         path_name(&meta.path),
                     )));
                 }
@@ -197,6 +218,34 @@ impl FieldAttrs {
             Some(explicit) => explicit.value(),
             None => self.doc.clone().unwrap_or_default(),
         }
+    }
+
+    /// The span of any option other than `rename`, for reporting attributes that mean nothing on
+    /// an enum variant.
+    pub fn conflicts_with_rename(&self) -> Option<proc_macro2::Span> {
+        macro_rules! first_of {
+            ($($field:ident),*) => {
+                $(if let Some(value) = &self.$field {
+                    return Some(value.span());
+                })*
+            };
+        }
+        first_of!(
+            default,
+            description,
+            constraints,
+            range,
+            step,
+            read_only,
+            ignore_override,
+            discard_mismatching_prior_value,
+            validate,
+            on_change,
+            discriminate,
+            flatten,
+            skip
+        );
+        None
     }
 
     /// The span of any option other than `skip` itself, for reporting attributes that `skip`
