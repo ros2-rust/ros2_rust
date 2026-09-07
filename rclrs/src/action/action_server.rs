@@ -245,7 +245,7 @@ impl<A: Action> ActionServerState<A> {
         mut callback: impl FnMut(RequestedGoal<A>) -> Task + Send + Sync + 'static,
     ) -> Result<ActionServer<A>, RclrsError>
     where
-        Task: Future<Output = TerminatedGoal> + Send + Sync + 'static,
+        Task: Future<Output = TerminatedGoal> + Send + 'static,
     {
         let callback = Box::new(
             move |requested_goal| -> BoxFuture<'static, TerminatedGoal> {

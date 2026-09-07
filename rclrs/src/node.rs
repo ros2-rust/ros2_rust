@@ -404,7 +404,7 @@ impl NodeState {
         callback: impl FnMut(RequestedGoal<A>) -> Task + Send + Sync + 'static,
     ) -> Result<ActionServer<A>, RclrsError>
     where
-        Task: Future<Output = TerminatedGoal> + Send + Sync + 'static,
+        Task: Future<Output = TerminatedGoal> + Send + 'static,
     {
         ActionServerState::create(self, options, callback)
     }
