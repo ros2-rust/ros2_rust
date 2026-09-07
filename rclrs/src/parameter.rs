@@ -66,6 +66,23 @@ impl Default for ParameterOptions {
     }
 }
 
+/// Fills in the constraints a declaration did not give, from whatever the conversion has to say.
+///
+/// Introspection through `ros2 param describe` is only useful if the descriptor says what a value
+/// may be, and a type that has rules of its own should not need every declaration site to restate
+/// them. An explicit `constraints` on the declaration always wins.
+fn resolve_constraints<T: 'static>(
+    mut options: ParameterOptions,
+    conversion: &ParameterConversion<T>,
+) -> ParameterOptions {
+    if options.constraints.is_empty() {
+        if let Some(constraints) = conversion.constraints() {
+            options.constraints = constraints;
+        }
+    }
+    options
+}
+
 #[derive(Clone, Debug)]
 enum DeclaredValue {
     Mandatory(Arc<RwLock<ParameterValue>>),
@@ -359,7 +376,7 @@ impl<T: 'static> TryFrom<ParameterBuilder<'_, T>> for OptionalParameter<T> {
             DeclaredStorage {
                 value: DeclaredValue::Optional(value.clone()),
                 kind: builder.conversion.kind(),
-                options: builder.options,
+                options: resolve_constraints(builder.options, &builder.conversion),
                 type_check: type_check_of(builder.conversion.clone()),
                 validate: type_erased_validate,
                 on_change: None,
@@ -452,7 +469,7 @@ impl<T: 'static> TryFrom<ParameterBuilder<'_, T>> for MandatoryParameter<T> {
             DeclaredStorage {
                 value: DeclaredValue::Mandatory(value.clone()),
                 kind: builder.conversion.kind(),
-                options: builder.options,
+                options: resolve_constraints(builder.options, &builder.conversion),
                 type_check: type_check_of(builder.conversion.clone()),
                 validate: type_erased_validate,
                 on_change: None,
@@ -566,7 +583,7 @@ impl<T: 'static> TryFrom<ParameterBuilder<'_, T>> for ReadOnlyParameter<T> {
             DeclaredStorage {
                 value: DeclaredValue::ReadOnly(value.clone()),
                 kind: builder.conversion.kind(),
-                options: builder.options,
+                options: resolve_constraints(builder.options, &builder.conversion),
                 type_check: type_check_of(builder.conversion.clone()),
                 // A read-only parameter never changes, so it needs neither the validate
                 // callback nor a change notification channel.
@@ -1356,6 +1373,84 @@ impl ParameterInterface {
 
     pub(crate) fn allow_undeclared(&self) {
         self.parameter_map.lock().unwrap().allow_undeclared = true;
+    }
+}
+
+/// Shared support for the parameter tests in this module and its children.
+#[cfg(test)]
+pub(crate) mod test_support {
+    use super::*;
+    use crate::Node;
+    use ros_env::rcl_interfaces::{
+        msg::rmw::ParameterDescriptor, srv::rmw::DescribeParameters_Request,
+    };
+    use rosidl_runtime_rs::{seq, Sequence};
+
+    /// The descriptor a node reports for one of its parameters, as `ros2 param describe` gets it.
+    pub(crate) fn parameter_descriptor(node: &Node, name: &str) -> ParameterDescriptor {
+        let map = node.parameter_interface().parameter_map.lock().unwrap();
+        let response = crate::parameter::service::describe_parameters(
+            DescribeParameters_Request {
+                names: seq![name.into()],
+            },
+            &map,
+        );
+        response
+            .descriptors
+            .into_iter()
+            .next()
+            .expect("a descriptor is returned for every requested name")
+    }
+
+    /// A string-backed parameter type, of the kind a user can define today by implementing the
+    /// public [`ParameterVariant`] trait. Its conversion from [`ParameterValue`] is *partial*:
+    /// a value can be a `String`, and so pass any check based on [`ParameterKind`], and still
+    /// not be a valid `Switch`.
+    #[derive(Clone, Debug, PartialEq)]
+    pub(crate) enum Switch {
+        On,
+        Off,
+    }
+
+    impl From<Switch> for ParameterValue {
+        fn from(value: Switch) -> Self {
+            ParameterValue::String(
+                match value {
+                    Switch::On => "on",
+                    Switch::Off => "off",
+                }
+                .into(),
+            )
+        }
+    }
+
+    impl TryFrom<ParameterValue> for Switch {
+        type Error = ParameterValueError;
+
+        fn try_from(value: ParameterValue) -> Result<Self, Self::Error> {
+            match value {
+                ParameterValue::String(s) => match s.as_ref() {
+                    "on" => Ok(Switch::On),
+                    "off" => Ok(Switch::Off),
+                    other => Err(ParameterValueError::Invalid(format!(
+                        "unknown Switch '{other}', expected one of: on, off"
+                    ))),
+                },
+                _ => Err(ParameterValueError::TypeMismatch),
+            }
+        }
+    }
+
+    impl ParameterVariant for Switch {
+        type Range = ();
+
+        fn kind() -> ParameterKind {
+            ParameterKind::String
+        }
+
+        fn type_constraints() -> Option<Arc<str>> {
+            Some("one of: on, off".into())
+        }
     }
 }
 
@@ -2366,52 +2461,7 @@ mod tests {
         assert_eq!(sub.get(), 75);
     }
 
-    /// A string-backed parameter type, of the kind a user can define today by implementing the
-    /// public `ParameterVariant` trait. Its conversion from `ParameterValue` is *partial*: a
-    /// value can be a `String`, and so pass any check based on `ParameterKind`, and still not
-    /// be a valid `Switch`.
-    #[derive(Clone, Debug, PartialEq)]
-    enum Switch {
-        On,
-        Off,
-    }
-
-    impl From<Switch> for ParameterValue {
-        fn from(value: Switch) -> Self {
-            ParameterValue::String(
-                match value {
-                    Switch::On => "on",
-                    Switch::Off => "off",
-                }
-                .into(),
-            )
-        }
-    }
-
-    impl TryFrom<ParameterValue> for Switch {
-        type Error = ParameterValueError;
-
-        fn try_from(value: ParameterValue) -> Result<Self, Self::Error> {
-            match value {
-                ParameterValue::String(s) => match s.as_ref() {
-                    "on" => Ok(Switch::On),
-                    "off" => Ok(Switch::Off),
-                    other => Err(ParameterValueError::Invalid(format!(
-                        "unknown Switch '{other}', expected one of: on, off"
-                    ))),
-                },
-                _ => Err(ParameterValueError::TypeMismatch),
-            }
-        }
-    }
-
-    impl ParameterVariant for Switch {
-        type Range = ();
-
-        fn kind() -> ParameterKind {
-            ParameterKind::String
-        }
-    }
+    use super::test_support::Switch;
 
     fn rmw_string(value: &str) -> RmwParameterValue {
         RmwParameterValue {
