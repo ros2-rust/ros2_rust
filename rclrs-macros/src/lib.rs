@@ -4,7 +4,9 @@
 
 use proc_macro::TokenStream;
 
+mod errors;
 mod parameter_set;
+mod parameter_variant;
 
 /// Declares a struct's fields as a group of ROS 2 parameters.
 ///
@@ -50,6 +52,47 @@ mod parameter_set;
 pub fn derive_parameter_set(input: TokenStream) -> TokenStream {
     let input = syn::parse_macro_input!(input as syn::DeriveInput);
     match parameter_set::expand(&input) {
+        Ok(tokens) => tokens.into(),
+        Err(err) => err.to_compile_error().into(),
+    }
+}
+
+/// Represents a Rust type as a single ROS 2 parameter value.
+///
+/// See the `rclrs::ParameterVariant` trait for what this provides, and `rclrs::ParameterSet` for
+/// declaring parameters that use it.
+///
+/// This is for a type you own, since a derive cannot be applied to one you do not. To use a type
+/// from another crate, give the declaration a `rclrs::ParameterConversion` instead, with
+/// `#[param(convert = ...)]` on a set field or `declare_parameter_with` on the builder. The
+/// difference is where the representation is stated: a derive states it once for the type, a
+/// conversion states it at each declaration.
+///
+/// The representation is chosen by the shape of the type and by `#[parameter(...)]`:
+///
+/// * An **enum whose variants carry no data** becomes a string holding the name of one variant.
+///   `#[parameter(rename_all = "snake_case")]` sets the naming convention, one of `snake_case`,
+///   `kebab-case`, `lowercase`, `UPPERCASE` or `SCREAMING_SNAKE_CASE`, and
+///   `#[parameter(rename = "...")]` on a variant sets its stored value exactly. The valid values
+///   appear in the parameter descriptor's constraints and in the message a rejected value gets.
+/// * **`#[parameter(transparent)]`** on a type wrapping a single value gives it that value's
+///   representation, including its range type. Useful for units: a `Meters(f64)` parameter
+///   behaves exactly as an `f64` one, so its range is written in the units of the wrapped value,
+///   `0.0..=10.0` rather than `Meters(0.0)..=Meters(10.0)`.
+/// * **`#[parameter(from_str)]`** stores the type as a string, using its
+///   [`FromStr`](std::str::FromStr) and [`Display`](std::fmt::Display) implementations. The
+///   `FromStr` error is reported when a value is rejected, so it should say what was wrong.
+///
+/// The type also needs to be [`Clone`], which every parameter value must be.
+///
+/// A derived type works with the conversion-based API as well:
+/// `rclrs::ParameterConversion::of_variant` assembles a conversion from what this derive emits,
+/// so the kind and the constraints carry across and `ros2 param describe` reports them either
+/// way.
+#[proc_macro_derive(ParameterVariant, attributes(parameter))]
+pub fn derive_parameter_variant(input: TokenStream) -> TokenStream {
+    let input = syn::parse_macro_input!(input as syn::DeriveInput);
+    match parameter_variant::expand(&input) {
         Ok(tokens) => tokens.into(),
         Err(err) => err.to_compile_error().into(),
     }
