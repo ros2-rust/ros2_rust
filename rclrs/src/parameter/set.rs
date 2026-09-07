@@ -20,7 +20,12 @@
 //! [`NodeState::retain_parameters`]: crate::NodeState::retain_parameters
 //! [`NodeState::load_parameters`]: crate::NodeState::load_parameters
 
-use std::{fmt::Debug, path::PathBuf, sync::Arc};
+use std::{
+    collections::{BTreeMap, HashMap},
+    fmt::Debug,
+    path::PathBuf,
+    sync::Arc,
+};
 
 use crate::{
     AvailableValues, DeclarationError, NodeState, ParameterBuilder, ParameterValue,
@@ -447,6 +452,65 @@ pub fn declare_converted_read_only<T: 'static>(
         .read_only()
         .map_err(|e| ParameterSetError::new(name, e))
 }
+
+/// A map field is a parameter set per entry, with the entry names taken from the parameters the
+/// node was configured with.
+///
+/// ROS 2 has no map parameter type, and no way to ask what parameters were provided before
+/// declaring them, so the names are recovered from the node's parameter overrides: for
+/// `sensors.front.rate` and `sensors.rear.rate`, a `sensors` map declares an entry named `front`
+/// and one named `rear`, each a full [`ParameterSet`] in its own right.
+///
+/// Points worth knowing:
+///
+/// * The set of entries is fixed when the map is declared. A name that appears later, over
+///   `SetParameters`, refers to a parameter that was never declared and is rejected like any
+///   other undeclared parameter.
+/// * A default value contributes its entries too, so a map can have built-in entries that a
+///   parameter file adds to or overrides.
+/// * No overrides and no default means an empty map, not an error.
+macro_rules! declare_parameter_map {
+    ($($map:ident),* $(,)?) => { $(
+        impl<S: ParameterSet> DeclareField<Writable> for $map<String, S> {
+            type Value = Self;
+            type Handle = $map<String, S::Handles>;
+            type Range = ();
+
+            fn declare(
+                node: &NodeState,
+                name: &str,
+                spec: FieldSpec<Self::Value, Self::Range>,
+            ) -> Result<Self::Handle, ParameterSetError> {
+                let mut defaults = spec.default.unwrap_or_default();
+                // Declared in name order, so that which entry fails first does not depend on the
+                // iteration order of a hash map.
+                let mut entries = node.parameter_interface().override_names_under(name);
+                entries.extend(defaults.keys().cloned());
+
+                let mut handles = $map::new();
+                for entry in entries {
+                    let default = defaults.remove(&entry);
+                    let prefix = join_parameter_name(name, &entry);
+                    handles.insert(entry, S::declare(node, &prefix, default)?);
+                }
+                Ok(handles)
+            }
+
+            fn snapshot(handle: &Self::Handle) -> Self {
+                handle
+                    .iter()
+                    .map(|(entry, handles)| (entry.clone(), handles.snapshot()))
+                    .collect()
+            }
+
+            fn into_default(self) -> Option<Self::Value> {
+                Some(self)
+            }
+        }
+    )* };
+}
+
+declare_parameter_map!(BTreeMap, HashMap);
 
 /// Implements [`DeclareField`] for a [`ParameterVariant`], so that it can be used as the type of
 /// a [`ParameterSet`] field.

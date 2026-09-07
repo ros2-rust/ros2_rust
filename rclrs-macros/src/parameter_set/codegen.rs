@@ -164,8 +164,8 @@ fn handle_field_doc(field: &Field) -> String {
 /// The two are kept apart because they do not carry the same authority. See [`default_value`].
 #[derive(Clone, Copy)]
 pub(crate) enum DefaultSource {
-    /// The value passed in for this one instance of the set, from a parent field's `default` or
-    /// from the caller of `declare_parameters`.
+    /// The value passed in for this one instance of the set, from a parent field's `default`,
+    /// from the caller of `declare_parameters`, or from one entry of a map.
     Supplied,
     /// The set's own `#[parameters(default = ...)]`.
     Own,
