@@ -1,5 +1,6 @@
 [workspace]
 members = [
   "rclrs",
+  "rclrs-macros",
 ]
 resolver = "2"
