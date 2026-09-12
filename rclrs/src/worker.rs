@@ -273,12 +273,12 @@ impl<Payload: 'static + Send + Sync> WorkerState<Payload> {
 
     /// Creates a [`WorkerDynamicSubscription`], whose message type is only known at runtime.
     ///
-    /// Refer to ['Worker::create_subscription`] for the API and behavior except two key
+    /// Refer to [`WorkerState::create_subscription`] for the API and behavior except two key
     /// differences:
     ///
     ///   - The message type is determined at runtime through the `topic_type` function parameter.
     ///   - Only one type of callback is supported (returning both [`crate::DynamicMessage`] and
-    ///   [`crate::MessageInfo`]).
+    ///     [`crate::MessageInfo`]).
     ///
     /// ```
     /// # use rclrs::*;
@@ -615,7 +615,7 @@ impl<Payload: 'static + Send + Sync> WorkerState<Payload> {
         callback: AnyTimerCallback<Worker<Payload>>,
     ) -> Result<WorkerTimer<Payload>, RclrsError> {
         let options = options.into_timer_options();
-        let clock = options.clock.as_clock(&*self.node);
+        let clock = options.clock.as_clock(&self.node);
         let node = options.clock.is_node_time().then(|| Arc::clone(&self.node));
         TimerState::create(
             options.period,
@@ -732,10 +732,12 @@ impl<Payload: 'static + Send + Sync> ActivityListener<Payload> {
 /// This type is used by executor runtimes to keep track of listeners.
 pub type WeakActivityListener = Weak<Mutex<Option<ActivityListenerCallback>>>;
 
+type ActivityCallback = Box<dyn FnMut(&mut dyn Any) + 'static + Send>;
+
 /// Enum for the different types of callbacks that a listener may have
 pub enum ActivityListenerCallback {
     /// The listener is listening
-    Listen(Box<dyn FnMut(&mut dyn Any) + 'static + Send>),
+    Listen(ActivityCallback),
     /// The listener is inert
     Inert,
 }
@@ -817,7 +819,9 @@ mod tests {
         let client = node
             .create_client::<EmptySrv>("test_worker_service")
             .unwrap();
-        let _: Promise<Empty_Response> = client.call(Empty_Request::default()).unwrap();
+        let response_promise: Promise<Empty_Response> =
+            client.call(Empty_Request::default()).unwrap();
+        drop(response_promise);
 
         let (mut promise, notice) = executor.commands().create_notice(promise);
 

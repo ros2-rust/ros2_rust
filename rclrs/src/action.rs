@@ -103,12 +103,12 @@ impl CancelResponseCode {
 
 impl From<i8> for CancelResponseCode {
     fn from(value: i8) -> Self {
-        if 0 <= value && value <= 3 {
+        if (0..=3).contains(&value) {
             unsafe {
                 // SAFETY: We have already ensured that the integer value is
                 // within the acceptable range for the enum, so transmuting is
                 // safe.
-                return std::mem::transmute(value);
+                return std::mem::transmute::<i8, CancelResponseCode>(value);
             }
         }
 
@@ -205,12 +205,12 @@ impl GoalStatusCode {
 
 impl From<i8> for GoalStatusCode {
     fn from(value: i8) -> Self {
-        if 0 <= value && value <= 6 {
+        if (0..=6).contains(&value) {
             unsafe {
                 // SAFETY: We have already ensured that the integer value is
                 // within the acceptable range for the enum, so transmuting is
                 // safe.
-                return std::mem::transmute(value);
+                return std::mem::transmute::<i8, GoalStatusCode>(value);
             }
         }
 
@@ -579,7 +579,7 @@ mod tests {
             let mut current = 1;
 
             for _ in 0..goal_order {
-                if let Err(_) = sender.send(current) {
+                if sender.send(current).is_err() {
                     // The action has been cancelled early, so just drop this thread.
                     return;
                 }

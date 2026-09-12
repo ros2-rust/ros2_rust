@@ -323,7 +323,7 @@ impl NodeState {
     ///
     /// In the above example, `addition_client` and `result_publisher` can be
     /// created later inside a subscription or service callback using the [`Node`].
-    pub fn create_worker<'a, Payload>(
+    pub fn create_worker<Payload>(
         self: &Arc<Self>,
         options: impl Into<WorkerOptions<Payload>>,
     ) -> Worker<Payload>
@@ -895,7 +895,7 @@ impl NodeState {
     ///
     ///   - The message type is determined at runtime through the `topic_type` function parameter.
     ///   - Only one type of callback is supported (returning both [`crate::DynamicMessage`] and
-    ///   [`crate::MessageInfo`]).
+    ///     [`crate::MessageInfo`]).
     ///
     /// # Message type passing
     ///
@@ -951,7 +951,7 @@ impl NodeState {
     ///
     ///   - The message type is determined at runtime through the `topic_type` function parameter.
     ///   - Only one type of callback is supported (returning both [`crate::DynamicMessage`] and
-    ///   [`crate::MessageInfo`].
+    ///     [`crate::MessageInfo`].
     ///
     /// # Message type passing
     ///

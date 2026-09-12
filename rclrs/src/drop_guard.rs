@@ -26,13 +26,13 @@ impl<T> Deref for DropGuard<T> {
     type Target = T;
 
     fn deref(&self) -> &T {
-        &*self.value
+        &self.value
     }
 }
 
 impl<T> DerefMut for DropGuard<T> {
     fn deref_mut(&mut self) -> &mut T {
-        &mut *self.value
+        &mut self.value
     }
 }
 

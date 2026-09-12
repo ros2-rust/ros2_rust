@@ -36,7 +36,6 @@ impl<A: Action> RequestedGoal<A> {
 
     /// An alternative to [`RequestedGoal::accept`] which does not panic in the
     /// event of an error.
-    #[must_use]
     pub fn try_accept(mut self) -> Result<AcceptedGoal<A>, RclrsError> {
         let handle = {
             let mut goal_info = unsafe {

@@ -1,4 +1,8 @@
-use std::{ffi::CStr, mem, num::NonZeroUsize, os::raw::c_char, os::raw::c_void};
+use std::{
+    ffi::CStr,
+    num::NonZeroUsize,
+    os::raw::{c_char, c_void},
+};
 
 use super::TypeErasedSequence;
 use crate::rcl_bindings::{
@@ -47,7 +51,7 @@ pub enum BaseType {
 /// That is, the base types exist as single values, arrays, bounded sequences and unbounded sequences.
 ///
 /// [1]: crate::dynamic_message::DynamicMessage
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug)]
 pub struct MessageFieldInfo {
     /// The field name.
     pub name: String,
@@ -63,6 +67,29 @@ pub struct MessageFieldInfo {
 
 type ResizeFunction = Option<unsafe extern "C" fn(arg1: *mut c_void, size: usize) -> bool>;
 
+impl PartialEq for MessageFieldInfo {
+    fn eq(&self, other: &Self) -> bool {
+        let resize_functions_equal = match (self.resize_function, other.resize_function) {
+            (Some(left), Some(right)) => std::ptr::fn_addr_eq(left, right),
+            (None, None) => true,
+            _ => false,
+        };
+
+        self.name == other.name
+            && self.base_type == other.base_type
+            && self.value_kind == other.value_kind
+            && self.string_upper_bound == other.string_upper_bound
+            && resize_functions_equal
+            && self.offset == other.offset
+    }
+}
+
+impl Eq for MessageFieldInfo {}
+
+#[cfg(any(
+    test,
+    not(any(ros_distro = "humble", ros_distro = "jazzy", ros_distro = "kilted"))
+))]
 #[repr(C)]
 #[derive(Clone, Copy)]
 struct MessageMemberPrefix {
@@ -84,6 +111,10 @@ struct MessageMemberPrefix {
     resize_function: *const c_void,
 }
 
+#[cfg(any(
+    test,
+    not(any(ros_distro = "humble", ros_distro = "jazzy", ros_distro = "kilted"))
+))]
 impl MessageMemberPrefix {
     fn is_valid_for_message(&self, message_size: usize) -> bool {
         use rosidl_typesupport_introspection_c_field_types::*;
@@ -247,11 +278,15 @@ impl MessageFieldInfo {
         )
     }
 
+    #[cfg(any(
+        test,
+        not(any(ros_distro = "humble", ros_distro = "jazzy", ros_distro = "kilted"))
+    ))]
     unsafe fn from_prefix(rosidl_message_member: &MessageMemberPrefix) -> Self {
         let resize_function: ResizeFunction = if rosidl_message_member.resize_function.is_null() {
             None
         } else {
-            Some(mem::transmute::<
+            Some(std::mem::transmute::<
                 *const c_void,
                 unsafe extern "C" fn(*mut c_void, usize) -> bool,
             >(rosidl_message_member.resize_function))
@@ -270,6 +305,7 @@ impl MessageFieldInfo {
         )
     }
 
+    #[allow(clippy::too_many_arguments)]
     unsafe fn from_parts(
         name: *const c_char,
         type_id: u8,
@@ -326,9 +362,13 @@ impl MessageFieldInfo {
 // ========================= impl for MessageStructure =========================
 
 impl MessageStructure {
+    #[cfg(any(
+        test,
+        not(any(ros_distro = "humble", ros_distro = "jazzy", ros_distro = "kilted"))
+    ))]
     unsafe fn message_member_stride(message_members: &rosidl_message_members_t) -> usize {
-        let current_stride = mem::size_of::<rosidl_message_member_t>();
-        let prefix_stride = mem::size_of::<MessageMemberPrefix>();
+        let current_stride = std::mem::size_of::<rosidl_message_member_t>();
+        let prefix_stride = std::mem::size_of::<MessageMemberPrefix>();
         if message_members.member_count_ < 2 {
             return current_stride;
         }
