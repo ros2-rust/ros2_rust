@@ -125,9 +125,19 @@ impl DynamicPublisherState {
         }
         let rcl_publisher = &mut *self.handle.rcl_publisher.lock().unwrap();
         unsafe {
-            // SAFETY: The message type is guaranteed to match the publisher type by the type system.
+            // SAFETY: Unlike `Publisher<T>`, nothing here is enforced by the type system --
+            // a `DynamicMessage`'s type is a runtime value. What guarantees the match is the
+            // `message_type` comparison at the top of this function.
+            //
+            // That comparison is by name (`MessageTypeName`), so it stands on the two type
+            // support libraries for a given package describing the same layout: the
+            // introspection one laid out `message.storage` (via `DynamicMessageMetadata`),
+            // while `rcl_publish` serialises those bytes through the `rosidl_typesupport_c`
+            // one. `DynamicPublisher::create` resolves both from the same package name, so
+            // they come from one install prefix.
+            //
             // The message does not need to be valid beyond the duration of this function call.
-            // The third argument is explictly allowed to be NULL.
+            // The third argument is explicitly allowed to be NULL.
             rcl_publish(
                 rcl_publisher,
                 message.storage.as_mut_ptr() as *mut _,
