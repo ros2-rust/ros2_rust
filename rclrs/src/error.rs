@@ -80,6 +80,16 @@ pub enum RclrsError {
     /// However, the implementation of rclrs automatically protects from all of
     /// these errors except memory allocation failure.
     GoalAcceptanceError,
+    /// A second push "on ready" callback was registered on an entity that
+    /// already has one active.
+    ///
+    /// rcl stores a single callback per entity slot, so an overlapping
+    /// registration would silently clobber the existing one, and later dropping
+    /// the earlier registration would clear the newer callback. rclrs entities
+    /// register their callback exactly once and never replace it, so the second
+    /// registration is rejected rather than allowed to corrupt the RAII
+    /// handle's semantics.
+    OnReadyAlreadyRegistered,
 }
 
 impl RclrsError {
@@ -168,6 +178,13 @@ impl Display for RclrsError {
                     "An error occurred while trying to accept an action server goal",
                 )
             }
+            RclrsError::OnReadyAlreadyRegistered => {
+                write!(
+                    f,
+                    "A push on-ready callback is already registered for this entity. \
+                    rcl allows only one callback per entity slot",
+                )
+            }
         }
     }
 }
@@ -216,6 +233,7 @@ impl Error for RclrsError {
             RclrsError::PoisonedMutex => None,
             RclrsError::InvalidReadyInformation { .. } => None,
             RclrsError::GoalAcceptanceError => None,
+            RclrsError::OnReadyAlreadyRegistered => None,
         }
     }
 }

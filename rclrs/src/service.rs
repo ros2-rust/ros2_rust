@@ -2,7 +2,7 @@ use std::{
     any::Any,
     boxed::Box,
     ffi::{CStr, CString},
-    sync::{Arc, Mutex, MutexGuard},
+    sync::{atomic::AtomicBool, Arc, Mutex, MutexGuard},
 };
 
 use rosidl_runtime_rs::{Message, Service as ServiceIDL};
@@ -146,6 +146,7 @@ where
             rcl_service: Mutex::new(rcl_service),
             node_handle: Arc::clone(node.handle()),
             clock: node.get_clock(),
+            on_ready_slot: AtomicBool::new(false),
         });
 
         let (waitable, lifecycle) = Waitable::new(
@@ -307,6 +308,39 @@ where
     fn handle(&self) -> RclPrimitiveHandle<'_> {
         RclPrimitiveHandle::Service(self.handle.lock())
     }
+
+    fn register_on_ready(
+        &self,
+        on_ready: Box<dyn Fn(ReadyKind, usize) + Send + Sync>,
+    ) -> Result<Option<Box<dyn crate::OnReadyHandle>>, RclrsError> {
+        // A service has a single readiness path; report it as `Basic`.
+        let on_ready = move |n| on_ready(ReadyKind::Basic, n);
+        let registration = crate::executor::event_callback::OnReadyRegistration::new(
+            Arc::clone(&self.handle),
+            set_service_on_new_request,
+            service_on_ready_slot,
+            Box::new(on_ready),
+        )?;
+        Ok(Some(Box::new(registration)))
+    }
+}
+
+/// Install (or, with a null callback/user_data, clear) the "on new request"
+/// push callback used by the event-driven executor. Encapsulates the service
+/// lock and the rcl call within this module.
+pub(crate) unsafe fn set_service_on_new_request(
+    handle: &ServiceHandle,
+    callback: rcl_event_callback_t,
+    user_data: *const std::os::raw::c_void,
+) -> rcl_ret_t {
+    rcl_service_set_on_new_request_callback(&*handle.lock(), callback, user_data)
+}
+
+/// The guard for the service's single "on new request" callback slot, paired
+/// with [`set_service_on_new_request`] so a push registration can enforce that
+/// only one callback owns the slot at a time.
+fn service_on_ready_slot(handle: &ServiceHandle) -> &AtomicBool {
+    &handle.on_ready_slot
 }
 
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
@@ -322,6 +356,12 @@ pub struct ServiceHandle {
     rcl_service: Mutex<rcl_service_t>,
     node_handle: Arc<NodeHandle>,
     clock: Clock,
+    /// Guards the single rcl "on new request" callback slot so only one push
+    /// registration can own it at a time. Selected via [`service_on_ready_slot`];
+    /// see [`OnReadySlotFn`].
+    ///
+    /// [`OnReadySlotFn`]: crate::executor::event_callback::OnReadySlotFn
+    on_ready_slot: AtomicBool,
 }
 
 impl ServiceHandle {
