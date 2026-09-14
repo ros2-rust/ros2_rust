@@ -6,6 +6,7 @@ use rosidl_runtime_rs::Action;
 use std::{
     future::Future,
     ops::{Deref, DerefMut},
+    panic::UnwindSafe,
     sync::Arc,
 };
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver};
@@ -47,7 +48,7 @@ impl<A: Action> ActionGoalReceiver<A> {
     #[must_use]
     pub fn into_action_server<Task>(
         self,
-        callback: impl FnMut(RequestedGoal<A>) -> Task + Send + Sync + 'static,
+        callback: impl FnMut(RequestedGoal<A>) -> Task + Send + Sync + UnwindSafe + 'static,
     ) -> ActionServer<A>
     where
         Task: Future<Output = TerminatedGoal> + Send + Sync + 'static,

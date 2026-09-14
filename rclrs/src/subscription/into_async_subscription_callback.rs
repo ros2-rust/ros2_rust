@@ -3,7 +3,7 @@ use rosidl_runtime_rs::Message;
 use super::{AnySubscriptionCallback, MessageInfo, NodeSubscriptionCallback};
 use crate::ReadOnlyLoanedMessage;
 
-use std::future::Future;
+use std::{future::Future, panic::UnwindSafe};
 
 /// A trait for async callbacks of subscriptions.
 ///
@@ -14,7 +14,7 @@ use std::future::Future;
 /// - [`FnMut`] ( [`Box`]<`Message`>, [`MessageInfo`] ) -> impl [`Future`]<Output=()>
 /// - [`FnMut`] ( [`ReadOnlyLoanedMessage`]<`Message`> ) -> impl [`Future`]<Output=()>
 /// - [`FnMut`] ( [`ReadOnlyLoanedMessage`]<`Message`>, [`MessageInfo`] ) -> impl [`Future`]<Output=()>
-pub trait IntoAsyncSubscriptionCallback<T, Args>: Send + 'static
+pub trait IntoAsyncSubscriptionCallback<T, Args>: Send + UnwindSafe + 'static
 where
     T: Message,
 {
@@ -27,7 +27,7 @@ where
 impl<T, Out, Func> IntoAsyncSubscriptionCallback<T, (T,)> for Func
 where
     T: Message,
-    Func: FnMut(T) -> Out + Send + 'static,
+    Func: FnMut(T) -> Out + Send + UnwindSafe + 'static,
     Out: Future<Output = ()> + Send + 'static,
 {
     fn into_async_subscription_callback(mut self) -> AnySubscriptionCallback<T, ()> {
@@ -38,7 +38,7 @@ where
 impl<T, Out, Func> IntoAsyncSubscriptionCallback<T, (T, MessageInfo)> for Func
 where
     T: Message,
-    Func: FnMut(T, MessageInfo) -> Out + Send + 'static,
+    Func: FnMut(T, MessageInfo) -> Out + Send + UnwindSafe + 'static,
     Out: Future<Output = ()> + Send + 'static,
 {
     fn into_async_subscription_callback(mut self) -> AnySubscriptionCallback<T, ()> {
@@ -52,7 +52,7 @@ where
 impl<T, Out, Func> IntoAsyncSubscriptionCallback<T, (Box<T>,)> for Func
 where
     T: Message,
-    Func: FnMut(Box<T>) -> Out + Send + 'static,
+    Func: FnMut(Box<T>) -> Out + Send + UnwindSafe + 'static,
     Out: Future<Output = ()> + Send + 'static,
 {
     fn into_async_subscription_callback(mut self) -> AnySubscriptionCallback<T, ()> {
@@ -63,7 +63,7 @@ where
 impl<T, F, Func> IntoAsyncSubscriptionCallback<T, (Box<T>, MessageInfo)> for Func
 where
     T: Message,
-    Func: FnMut(Box<T>, MessageInfo) -> F + Send + 'static,
+    Func: FnMut(Box<T>, MessageInfo) -> F + Send + UnwindSafe + 'static,
     F: Future<Output = ()> + Send + 'static,
 {
     fn into_async_subscription_callback(mut self) -> AnySubscriptionCallback<T, ()> {
@@ -77,7 +77,7 @@ where
 impl<T, F, Func> IntoAsyncSubscriptionCallback<T, (ReadOnlyLoanedMessage<T>,)> for Func
 where
     T: Message,
-    Func: FnMut(ReadOnlyLoanedMessage<T>) -> F + Send + 'static,
+    Func: FnMut(ReadOnlyLoanedMessage<T>) -> F + Send + UnwindSafe + 'static,
     F: Future<Output = ()> + Send + 'static,
 {
     fn into_async_subscription_callback(mut self) -> AnySubscriptionCallback<T, ()> {
@@ -88,7 +88,7 @@ where
 impl<T, F, Func> IntoAsyncSubscriptionCallback<T, (ReadOnlyLoanedMessage<T>, MessageInfo)> for Func
 where
     T: Message,
-    Func: FnMut(ReadOnlyLoanedMessage<T>, MessageInfo) -> F + Send + 'static,
+    Func: FnMut(ReadOnlyLoanedMessage<T>, MessageInfo) -> F + Send + UnwindSafe + 'static,
     F: Future<Output = ()> + Send + 'static,
 {
     fn into_async_subscription_callback(mut self) -> AnySubscriptionCallback<T, ()> {

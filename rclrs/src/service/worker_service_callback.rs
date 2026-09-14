@@ -2,7 +2,7 @@ use rosidl_runtime_rs::Service;
 
 use crate::{RclrsError, RclrsErrorFilter, RequestId, ServiceHandle, ServiceInfo};
 
-use std::{any::Any, sync::Arc};
+use std::{any::Any, panic::UnwindSafe, sync::Arc};
 
 /// An enum capturing the various possible function signatures for service
 /// callbacks that can be used by a [`Worker`][crate::Worker].
@@ -16,11 +16,13 @@ where
     Payload: 'static + Send,
 {
     /// A callback that only takes in the request value
-    OnlyRequest(Box<dyn FnMut(&mut Payload, T::Request) -> T::Response + Send>),
+    OnlyRequest(Box<dyn FnMut(&mut Payload, T::Request) -> T::Response + Send + UnwindSafe>),
     /// A callback that takes in the request value and the ID of the request
-    WithId(Box<dyn FnMut(&mut Payload, T::Request, RequestId) -> T::Response + Send>),
+    WithId(Box<dyn FnMut(&mut Payload, T::Request, RequestId) -> T::Response + Send + UnwindSafe>),
     /// A callback that takes in the request value and all available
-    WithInfo(Box<dyn FnMut(&mut Payload, T::Request, ServiceInfo) -> T::Response + Send>),
+    WithInfo(
+        Box<dyn FnMut(&mut Payload, T::Request, ServiceInfo) -> T::Response + Send + UnwindSafe>,
+    ),
 }
 
 impl<T, Payload> WorkerServiceCallback<T, Payload>

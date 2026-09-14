@@ -13,6 +13,7 @@ use futures::channel::oneshot;
 use rosidl_runtime_rs::{Message, Service as ServiceIDL};
 use std::{
     any::Any,
+    panic::{AssertUnwindSafe, UnwindSafe},
     sync::{Arc, Mutex, Weak},
 };
 
@@ -31,6 +32,10 @@ use std::{
 ///
 /// The API for the worker is provided through [`WorkerState`].
 pub type Worker<Payload> = Arc<WorkerState<Payload>>;
+
+fn send_unwind_safe<T>(sender: AssertUnwindSafe<oneshot::Sender<T>>, value: T) {
+    sender.0.send(value).ok();
+}
 
 /// The inner state of a [`Worker`].
 ///
@@ -56,10 +61,11 @@ impl<Payload: 'static + Send + Sync> WorkerState<Payload> {
     /// what happened inside the callback.
     pub fn run<Out, F>(&self, f: F) -> Promise<Out>
     where
-        F: FnOnce(&mut Payload) -> Out + 'static + Send,
+        F: FnOnce(&mut Payload) -> Out + 'static + Send + UnwindSafe,
         Out: 'static + Send,
     {
         let (sender, receiver) = oneshot::channel();
+        let sender = AssertUnwindSafe(sender);
         self.commands.run_on_payload(Box::new(move |any_payload| {
             let Some(payload) = any_payload.downcast_mut::<Payload>() else {
                 log_fatal!(
@@ -71,7 +77,7 @@ impl<Payload: 'static + Send + Sync> WorkerState<Payload> {
             };
 
             let out = f(payload);
-            sender.send(out).ok();
+            send_unwind_safe(sender, out);
         }));
         receiver
     }
@@ -83,11 +89,13 @@ impl<Payload: 'static + Send + Sync> WorkerState<Payload> {
     /// [1]: crate::SpinOptions::until_promise_resolved
     pub fn run_with_notice<Out, F>(&self, f: F) -> (Promise<Out>, Promise<()>)
     where
-        F: FnOnce(&mut Payload) -> Out + 'static + Send,
+        F: FnOnce(&mut Payload) -> Out + 'static + Send + UnwindSafe,
         Out: 'static + Send,
     {
         let (notice_sender, notice_receiver) = oneshot::channel();
+        let notice_sender = AssertUnwindSafe(notice_sender);
         let (sender, receiver) = oneshot::channel();
+        let sender = AssertUnwindSafe(sender);
         self.commands.run_on_payload(Box::new(move |any_payload| {
             let Some(payload) = any_payload.downcast_mut::<Payload>() else {
                 log_fatal!(
@@ -99,8 +107,8 @@ impl<Payload: 'static + Send + Sync> WorkerState<Payload> {
             };
 
             let out = f(payload);
-            sender.send(out).ok();
-            notice_sender.send(()).ok();
+            send_unwind_safe(sender, out);
+            send_unwind_safe(notice_sender, ());
         }));
         (receiver, notice_receiver)
     }
@@ -109,7 +117,7 @@ impl<Payload: 'static + Send + Sync> WorkerState<Payload> {
     /// listening will continue until the [`ActivityListener`] is dropped.
     pub fn listen<F>(&self, mut f: F) -> ActivityListener<Payload>
     where
-        F: FnMut(&mut Payload) + 'static + Send + Sync,
+        F: FnMut(&mut Payload) + 'static + Send + UnwindSafe + Sync,
         Payload: Sync,
     {
         let f = Box::new(move |any_payload: &mut dyn Any| {
@@ -139,32 +147,32 @@ impl<Payload: 'static + Send + Sync> WorkerState<Payload> {
     /// the listener will keep running.
     pub fn listen_until<Out, F>(&self, mut f: F) -> Promise<Out>
     where
-        F: FnMut(&mut Payload) -> Option<Out> + 'static + Send + Sync,
+        F: FnMut(&mut Payload) -> Option<Out> + 'static + Send + UnwindSafe + Sync,
         Out: 'static + Send + Sync,
         Payload: Sync,
     {
         let (sender, receiver) = oneshot::channel();
-        let mut captured_sender = Some(sender);
+        let mut captured_sender = Some(AssertUnwindSafe(sender));
         let listener = ActivityListener::new(ActivityListenerCallback::Inert);
 
         // We capture the listener so that its lifecycle is tied to the success
         // of the callback.
-        let mut _captured_listener = Some(listener.clone());
+        let mut _captured_listener = AssertUnwindSafe(Some(listener.clone()));
         listener.set_callback(move |payload| {
             if let Some(sender) = captured_sender.take() {
                 if sender.is_canceled() {
-                    _captured_listener = None;
+                    *_captured_listener = None;
                     return;
                 }
 
                 if let Some(out) = f(payload) {
-                    sender.send(out).ok();
-                    _captured_listener = None;
+                    send_unwind_safe(sender, out);
+                    *_captured_listener = None;
                 } else {
                     captured_sender = Some(sender);
                 }
             } else {
-                _captured_listener = None;
+                *_captured_listener = None;
             }
         });
 
@@ -317,7 +325,7 @@ impl<Payload: 'static + Send + Sync> WorkerState<Payload> {
         callback: F,
     ) -> Result<WorkerDynamicSubscription<Payload>, RclrsError>
     where
-        F: FnMut(&mut Payload, DynamicMessage, MessageInfo) + Send + Sync + 'static,
+        F: FnMut(&mut Payload, DynamicMessage, MessageInfo) + Send + Sync + UnwindSafe + 'static,
     {
         DynamicSubscriptionState::<Worker<Payload>>::create(
             topic_type,
@@ -700,7 +708,7 @@ impl<Payload: 'static + Send + Sync> ActivityListener<Payload> {
     /// Change the callback for this listener.
     pub fn set_callback<F>(&self, mut f: F)
     where
-        F: FnMut(&mut Payload) + 'static + Send + Sync,
+        F: FnMut(&mut Payload) + 'static + Send + UnwindSafe + Sync,
     {
         let f = Box::new(move |any_payload: &mut dyn Any| {
             let Some(payload) = any_payload.downcast_mut::<Payload>() else {
@@ -735,7 +743,7 @@ pub type WeakActivityListener = Weak<Mutex<Option<ActivityListenerCallback>>>;
 /// Enum for the different types of callbacks that a listener may have
 pub enum ActivityListenerCallback {
     /// The listener is listening
-    Listen(Box<dyn FnMut(&mut dyn Any) + 'static + Send>),
+    Listen(Box<dyn FnMut(&mut dyn Any) + 'static + Send + UnwindSafe>),
     /// The listener is inert
     Inert,
 }
