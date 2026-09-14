@@ -50,6 +50,21 @@ impl TypeShape {
         }
     }
 
+    /// Whether the type is definitely a single parameter rather than a set.
+    ///
+    /// Used to reject a newtype variant holding a single value, which has no name to declare
+    /// itself under. An unrecognised type is not definitely anything, so it is let through and
+    /// left to trait resolution.
+    pub fn is_definitely_leaf(&self) -> bool {
+        matches!(
+            self,
+            TypeShape::Leaf { .. }
+                | TypeShape::OptionalLeaf { .. }
+                | TypeShape::Array
+                | TypeShape::OptionalArray
+        )
+    }
+
     /// Whether the field is an `Option`, as far as the macro can tell. Used to reject
     /// combinations such as `read_only` on an optional parameter, whose message is much better
     /// coming from here than from a missing trait implementation.

@@ -15,7 +15,7 @@
 //! derive is for a type you own. A conversion is what a type from another crate needs, since a
 //! derive cannot be applied to one.
 
-mod attrs;
+pub(crate) mod attrs;
 mod codegen;
 
 use syn::{Data, DeriveInput, Fields};

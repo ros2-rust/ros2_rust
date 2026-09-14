@@ -22,6 +22,7 @@
 
 mod attrs;
 mod codegen;
+mod enum_set;
 mod known_types;
 
 use proc_macro2::TokenStream;
@@ -30,6 +31,14 @@ use syn::{spanned::Spanned, Data, DeriveInput, Fields, Ident};
 use crate::errors::Errors;
 use attrs::{FieldAttrs, SetAttrs};
 use known_types::{shape_of, TypeShape};
+
+/// The parameter name an identifier stands for.
+///
+/// A raw identifier is written `r#type` in Rust but names the parameter `type`, which is the
+/// point of using one: it lets a field be called after a parameter whose name is a keyword.
+pub(crate) fn parameter_name(ident: &Ident) -> String {
+    ident.to_string().trim_start_matches("r#").to_string()
+}
 
 /// One field of the struct, with everything needed to generate its declaration.
 pub(crate) struct Field<'a> {
@@ -48,39 +57,14 @@ pub(crate) fn expand(input: &DeriveInput) -> syn::Result<TokenStream> {
     if !input.generics.params.is_empty() {
         errors.at(
             &input.generics,
-            "`ParameterSet` cannot be derived for a generic struct: the parameters to declare \
-             have to be known when the struct is defined",
+            "`ParameterSet` cannot be derived for a generic type: the parameters to declare have \
+             to be known when the type is defined",
         );
     }
 
-    // Only a struct with named fields can describe a set of parameters, since each field name is
-    // a parameter name.
-    let named_fields = match &input.data {
-        Data::Struct(data) => match &data.fields {
-            Fields::Named(fields) => Some(&fields.named),
-            Fields::Unnamed(_) => {
-                errors.at(
-                    &data.fields,
-                    "`ParameterSet` requires named fields, because each field's name is the name \
-                     of the parameter it declares",
-                );
-                None
-            }
-            Fields::Unit => {
-                errors.at(
-                    &input.ident,
-                    "`ParameterSet` requires a struct with at least one field",
-                );
-                None
-            }
-        },
-        Data::Enum(data) => {
-            errors.at(
-                data.enum_token,
-                "`ParameterSet` cannot yet be derived for an enum",
-            );
-            None
-        }
+    let generated = match &input.data {
+        Data::Struct(data) => expand_struct(input, &set_attrs, data, &mut errors),
+        Data::Enum(data) => expand_enum(input, &set_attrs, data, &mut errors),
         Data::Union(data) => {
             errors.at(
                 data.union_token,
@@ -90,9 +74,51 @@ pub(crate) fn expand(input: &DeriveInput) -> syn::Result<TokenStream> {
         }
     };
 
-    // Nothing further can be said about a struct whose shape is wrong, so report what is known.
-    let Some(named_fields) = named_fields else {
-        return Err(errors.into_result().expect_err("an error was recorded"));
+    // Generating code from a type that was rejected only produces a second round of errors about
+    // the code that was generated from it.
+    errors.into_result()?;
+    Ok(generated.expect("code was generated when no error was recorded"))
+}
+
+/// A struct: every field is a parameter.
+fn expand_struct(
+    input: &DeriveInput,
+    set_attrs: &SetAttrs,
+    data: &syn::DataStruct,
+    errors: &mut Errors,
+) -> Option<TokenStream> {
+    if let Some(tag) = &set_attrs.tag {
+        errors.at(
+            tag,
+            "`tag` names the parameter that says which variant of an enum is in use, so it has \
+             no meaning for a struct",
+        );
+    }
+    if let Some((_, span)) = &set_attrs.rename_all {
+        errors.at(
+            span,
+            "`rename_all` names the variants of an enum, so it has no meaning for a struct. Use \
+             `#[param(rename = \"...\")]` to rename an individual parameter",
+        );
+    }
+
+    let named_fields = match &data.fields {
+        Fields::Named(fields) => &fields.named,
+        Fields::Unnamed(_) => {
+            errors.at(
+                &data.fields,
+                "`ParameterSet` requires named fields, because each field's name is the name of \
+                 the parameter it declares",
+            );
+            return None;
+        }
+        Fields::Unit => {
+            errors.at(
+                &input.ident,
+                "`ParameterSet` requires a struct with at least one field",
+            );
+            return None;
+        }
     };
 
     // Parse each field's attributes, check them against its type, and settle the name of the
@@ -105,13 +131,13 @@ pub(crate) fn expand(input: &DeriveInput) -> syn::Result<TokenStream> {
             .as_ref()
             .expect("fields of a named struct have idents");
 
-        let attrs = FieldAttrs::parse(&field.attrs, &mut errors);
+        let attrs = FieldAttrs::parse(&field.attrs, errors);
 
-        check_field(field, &attrs, &mut errors);
+        check_field(field, &attrs, errors);
 
         let name = match &attrs.rename {
             Some(rename) => rename.value(),
-            None => ident.to_string(),
+            None => parameter_name(ident),
         };
 
         fields.push(Field {
@@ -134,11 +160,43 @@ pub(crate) fn expand(input: &DeriveInput) -> syn::Result<TokenStream> {
         );
     }
 
-    // Generating code from a struct that was rejected only produces a second round of errors
-    // about the code that was generated from it. Return the errors already collected instead.
-    errors.into_result()?;
+    if !errors.is_empty() {
+        return None;
+    }
 
-    Ok(codegen::generate(input, &set_attrs, &fields))
+    Some(codegen::generate(input, set_attrs, &fields))
+}
+
+/// An enum: a read-only tag parameter says which variant is in use, and that variant's
+/// parameters are declared alongside it.
+fn expand_enum(
+    input: &DeriveInput,
+    set_attrs: &SetAttrs,
+    data: &syn::DataEnum,
+    errors: &mut Errors,
+) -> Option<TokenStream> {
+    let tag = set_attrs
+        .tag
+        .as_ref()
+        .map(|tag| tag.value())
+        .unwrap_or_else(|| enum_set::DEFAULT_TAG.to_string());
+
+    let variants = enum_set::variants(
+        data,
+        &input.ident,
+        set_attrs
+            .rename_all
+            .as_ref()
+            .map(|(convention, _)| *convention),
+        &tag,
+        errors,
+    );
+
+    if !errors.is_empty() {
+        return None;
+    }
+
+    Some(codegen::generate_enum(input, set_attrs, &tag, &variants))
 }
 
 /// The `T` of an `Option<T>`, by syntax alone.
@@ -160,7 +218,7 @@ fn option_inner(ty: &syn::Type) -> Option<&syn::Type> {
 }
 
 /// Reports the mistakes the macro can recognise from the field's type and attributes.
-fn check_field(field: &syn::Field, attrs: &FieldAttrs, errors: &mut Errors) {
+pub(crate) fn check_field(field: &syn::Field, attrs: &FieldAttrs, errors: &mut Errors) {
     let shape = shape_of(&field.ty);
 
     // Check the attributes on a skipped field. A skipped field is not a parameter, so any other
@@ -248,7 +306,7 @@ fn check_field(field: &syn::Field, attrs: &FieldAttrs, errors: &mut Errors) {
 }
 
 /// Two fields declaring the same parameter name, which `rename` makes possible.
-fn duplicate_parameter_name<'a>(fields: &'a [Field<'a>]) -> Option<&'a Field<'a>> {
+pub(crate) fn duplicate_parameter_name<'a>(fields: &'a [Field<'a>]) -> Option<&'a Field<'a>> {
     let mut seen = std::collections::HashSet::new();
     fields
         .iter()
