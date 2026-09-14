@@ -1,0 +1,33 @@
+# Its own workspace, and not a member of the one in the parent directory, so that building
+# rclrs-macros does not have to resolve rclrs's dependencies. rclrs depends on this crate by
+# version, which colcon-ros-cargo resolves to the installed copy, the same arrangement rclrs
+# already has with rosidl_runtime_rs.
+[workspace]
+
+[package]
+name = "rclrs-macros"
+# These are spelled out rather than inherited from [workspace.package]. `cargo ament-build`
+# installs this crate by copying Cargo.toml into its own prefix, where there is no workspace root
+# to inherit from, and cargo then refuses to parse the copy.
+version = "0.7.0"
+authors = ["Mathieu David <mathieudavid@mathieudavid.org>"]
+edition = "2021"
+license = "Apache-2.0"
+description = "Procedural macros for rclrs, a ROS 2 client library for Rust"
+rust-version = "1.85"
+
+[lib]
+path = "src/lib.rs"
+proc-macro = true
+
+# Please keep the list of dependencies alphabetically sorted,
+# and also state why each dependency is needed.
+[dependencies]
+# Needed to build up the generated code
+proc-macro2 = "1.0"
+
+# Needed to quasi-quote the generated code
+quote = "1.0"
+
+# Needed to parse the annotated struct and the contents of its attributes
+syn = { version = "2.0", features = ["full", "extra-traits"] }
