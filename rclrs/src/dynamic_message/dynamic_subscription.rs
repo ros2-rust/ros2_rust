@@ -236,6 +236,23 @@ impl<Payload: 'static> RclPrimitive for DynamicSubscriptionExecutable<Payload> {
     fn handle(&self) -> RclPrimitiveHandle {
         RclPrimitiveHandle::Subscription(self.handle.lock())
     }
+
+    fn register_on_ready(
+        &self,
+        on_ready: Box<dyn Fn(ReadyKind, usize) + Send + Sync>,
+    ) -> Result<Option<Box<dyn crate::OnReadyHandle>>, RclrsError> {
+        // A dynamic subscription shares the rcl subscription readiness path with a
+        // regular subscription, so report it as `Basic` and reuse the same setter.
+        // Without this, an event-driven executor never learns the subscription has
+        // a message and its callback never fires.
+        let on_ready = move |n| on_ready(ReadyKind::Basic, n);
+        let registration = crate::executor::event_callback::OnReadyRegistration::new(
+            Arc::clone(&self.handle),
+            crate::subscription::set_subscription_on_new_message,
+            Box::new(on_ready),
+        )?;
+        Ok(Some(Box::new(registration)))
+    }
 }
 
 /// Struct for receiving messages whose type is only known at runtime.
