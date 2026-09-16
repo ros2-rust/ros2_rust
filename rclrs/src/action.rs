@@ -264,6 +264,45 @@ mod tests {
     use std::time::Duration;
     use tokio::sync::mpsc::unbounded_channel;
 
+    /// Regression: the action server's expired-goals timer borrows the node's
+    /// clock by raw pointer (`rcl_action_server_init`), and
+    /// `rcl_action_notify_goal_done` — called whenever a goal terminates or is
+    /// dropped — dereferences it. The server must keep that clock alive for as
+    /// long as it, and any goal handle holding an `Arc<ActionServerHandle>`,
+    /// lives; otherwise a goal that outlives the node (e.g. a goal-handler future
+    /// still being torn down) dereferences a freed clock in its `Drop` — an
+    /// intermittent use-after-free at teardown.
+    ///
+    /// We verify the invariant directly: creating the server must take a strong
+    /// reference to the node clock it borrows. Without the fix this is byte-for-
+    /// byte the precondition for the crash, and the assertion fails.
+    #[test]
+    fn action_server_holds_a_reference_to_its_borrowed_clock() {
+        let executor = Context::default().create_basic_executor();
+        let node = executor
+            .create_node(&format!("test_action_clock_uaf_{}", line!()))
+            .unwrap();
+        let action_name = format!("test_action_clock_uaf_{}_action", line!());
+
+        let clock = node.get_clock();
+        let before = std::sync::Arc::strong_count(clock.get_rcl_clock());
+
+        let _action_server = node
+            .create_action_server(&action_name, |handle| {
+                fibonacci_action(handle, TestActionSettings::default())
+            })
+            .unwrap();
+
+        let after = std::sync::Arc::strong_count(clock.get_rcl_clock());
+        assert!(
+            after > before,
+            "action server does not hold a reference to the node clock it borrows \
+             by raw pointer (strong count before={before}, after={after}); a goal \
+             outliving the node would hit a use-after-free in \
+             rcl_action_notify_goal_done",
+        );
+    }
+
     #[test]
     fn test_action_server_availability() {
         let mut executor = Context::default().create_basic_executor();

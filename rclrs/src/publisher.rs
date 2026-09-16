@@ -356,7 +356,7 @@ mod tests {
 
     #[test]
     fn test_publishers() -> Result<(), RclrsError> {
-        use crate::TopicEndpointInfo;
+        use crate::{QoSDurabilityPolicy, QoSReliabilityPolicy};
         use ros_env::test_msgs::msg;
 
         let namespace = "/test_publishers_graph";
@@ -401,19 +401,17 @@ mod tests {
         assert!(types.contains(&"test_msgs/msg/Defaults".to_string()));
 
         // Test get_publishers_info_by_topic()
-        let expected_publishers_info = vec![TopicEndpointInfo {
-            node_name: String::from("graph_test_node_1"),
-            node_namespace: String::from(namespace),
-            topic_type: String::from("test_msgs/msg/Empty"),
-        }];
-        assert_eq!(
-            graph.node1.get_publishers_info_by_topic(&topic1)?,
-            expected_publishers_info
-        );
-        assert_eq!(
-            graph.node2.get_publishers_info_by_topic(&topic1)?,
-            expected_publishers_info
-        );
+        for node in [&graph.node1, &graph.node2] {
+            let publishers_info = node.get_publishers_info_by_topic(&topic1)?;
+            assert_eq!(publishers_info.len(), 1);
+
+            let info = &publishers_info[0];
+            assert_eq!(info.node_name, "graph_test_node_1");
+            assert_eq!(info.node_namespace, namespace);
+            assert_eq!(info.topic_type, "test_msgs/msg/Empty");
+            assert_eq!(info.qos_profile.reliability, QoSReliabilityPolicy::Reliable);
+            assert_eq!(info.qos_profile.durability, QoSDurabilityPolicy::Volatile);
+        }
 
         // Test get_subscription_count()
         assert_eq!(node_1_empty_publisher.get_subscription_count(), Ok(0));

@@ -69,6 +69,36 @@ pub(crate) mod log_handler {
     };
 
     use crate::{rcl_bindings::*, LogSeverity, ENTITY_LIFECYCLE_MUTEX};
+    use std::{cell::RefCell, ffi::CString, thread::ThreadId};
+
+    thread_local! {
+        /// The fully-formatted message for the log record currently being emitted
+        /// on this thread. `impl_log` stashes it here right before calling
+        /// `rcutils_log` so the capture handler can read the finished string
+        /// without parsing the C `va_list` (the messy problem noted above). Only
+        /// read on the capture thread; cleared by `impl_log` after each record.
+        static CURRENT_MESSAGE: RefCell<Option<CString>> = const { RefCell::new(None) };
+    }
+
+    /// The thread that installed the capture handler (the logging test's thread).
+    /// The custom handler captures only records emitted on this thread, so logs
+    /// from concurrently-running tests don't pollute the captured output.
+    static CAPTURE_THREAD: OnceLock<ThreadId> = OnceLock::new();
+
+    /// Stash the formatted message for the current log record (called by
+    /// `impl_log` before `rcutils_log`).
+    pub(crate) fn stash_current_message(message: &std::ffi::CStr) {
+        CURRENT_MESSAGE.with(|m| *m.borrow_mut() = Some(message.to_owned()));
+    }
+
+    /// Clear the stashed message (called by `impl_log` after `rcutils_log`).
+    pub(crate) fn clear_current_message() {
+        CURRENT_MESSAGE.with(|m| *m.borrow_mut() = None);
+    }
+
+    fn current_message() -> Option<CString> {
+        CURRENT_MESSAGE.with(|m| m.borrow().clone())
+    }
 
     /// Global variable that allows a custom log handler to be set. This log
     /// handler will be applied throughout the entire application and cannot be
@@ -148,12 +178,12 @@ pub(crate) mod log_handler {
                   raw_severity: std::os::raw::c_int,
                   raw_logger_name: *const std::os::raw::c_char,
                   raw_timestamp: rcutils_time_point_value_t,
-                  raw_format: *const std::os::raw::c_char,
-                  // NOTE: In the rclrs logging test we are choosing to format
-                  // the full message in advance when using the custom handler,
-                  // so the format field always contains the finished formatted
-                  // message. Therefore we can just ignore the raw formatting
-                  // arguments.
+                  _raw_format: *const std::os::raw::c_char,
+                  // We read the finished message from the per-thread stash set by
+                  // `impl_log` (see `stash_current_message`) rather than from the
+                  // format string + `va_list`, which avoids parsing C varargs in
+                  // Rust. The raw format/args are forwarded to the default rcl
+                  // handler separately (in the trampoline) so /rosout still works.
                   _raw_formatting_arguments: *mut va_list| {
                 unsafe {
                     // NOTE: We use .unwrap() extensively inside this function because
@@ -174,7 +204,13 @@ pub(crate) mod log_handler {
                     let logger_name =
                         Cow::Borrowed(CStr::from_ptr(raw_logger_name).to_str().unwrap());
                     let timestamp: i64 = raw_timestamp;
-                    let message = Cow::Borrowed(CStr::from_ptr(raw_format).to_str().unwrap());
+                    let message = Cow::Owned(
+                        current_message()
+                            .unwrap_or_default()
+                            .to_str()
+                            .unwrap()
+                            .to_owned(),
+                    );
                     handler(LogEntry {
                         location,
                         severity,
@@ -196,6 +232,9 @@ pub(crate) mod log_handler {
         LOGGING_OUTPUT_HANDLER
             .set(handler)
             .map_err(|_| OutputHandlerAlreadySet)?;
+        // Records are captured only when emitted on the thread that installed the
+        // handler, so concurrent tests' logs don't pollute the captured output.
+        let _ = CAPTURE_THREAD.set(std::thread::current().id());
         let _lifecycle = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
         unsafe {
             // SAFETY:
@@ -225,6 +264,26 @@ pub(crate) mod log_handler {
         message: *const std::os::raw::c_char,
         logging_output: *mut va_list,
     ) {
+        // Chain to the default rcl handler so console/file/`/rosout` output keeps
+        // working while our capture handler is installed. Our custom handler used
+        // to *replace* this, which silently disabled `/rosout` publishing
+        // process-wide for the duration — breaking concurrently-running tests that
+        // rely on `/rosout`. The format string and `va_list` are passed through
+        // unchanged (`impl_log` uses a safe `"%s"` + message form), so this is
+        // printf-safe.
+        rcl_logging_multiple_output_handler(
+            location,
+            severity,
+            logger_name,
+            timestamp,
+            message,
+            logging_output,
+        );
+
+        // Capture only records emitted on the thread that installed the handler.
+        if Some(std::thread::current().id()) != CAPTURE_THREAD.get().copied() {
+            return;
+        }
         let handler = LOGGING_OUTPUT_HANDLER.get().unwrap();
         (*handler)(
             location,

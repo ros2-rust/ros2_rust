@@ -15,7 +15,7 @@ path = "src/lib.rs"
 # and also state why each dependency is needed.
 [dependencies]
 # Needed for dynamically finding type support libraries
-ament_rs = "0.2"
+ament_rs = "0.3"
 
 # Needed to create the GoalClientStream
 async-stream = "0.3.6"
@@ -38,7 +38,7 @@ libloading = "0.8"
 ros-env = "0.2"
 
 # Needed for the Message trait, among others
-rosidl_runtime_rs = "0.6"
+rosidl_runtime_rs = "0.7"
 
 # Needed for serliazation and deserialization of vendored messages
 serde = { version = "1", optional = true, features = ["derive"] }

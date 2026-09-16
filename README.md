@@ -196,6 +196,21 @@ ros2 launch examples_rclrs_minimal_pub_sub minimal_pub_sub.launch.xml
 
 For detailed building instructions and additional setup options, see the [in-depth guide](docs/building.md).
 
+## AI Policy
+Generative tools are allowed in producing contributions to its projects, with some qualifications:
+
+- Any contribution may consist, in whole or in part, of the output of one or more generative tools.
+- Any use of generative tools in a contribution must be disclosed at the time of making the contribution.
+- The disclosure must be recorded in a way that ensures it has the same or greater lifetime as the contribution itself.
+
+For source code contributions, you should add a disclosure statement in the commit message for all commits where some portion of the source code was generated.
+
+`Assisted-by: AGENT_NAME:MODEL_VERSION [TOOL1] [TOOL2]`
+
+Provide a similar disclosure statement in the PR description.
+
+See the projects [AI Policy](docs/AI_POLICY.md) for more details.
+
 ## Further Documentation
 
 - [Tutorial on writing your first node with `rclrs`](docs/writing-your-first-rclrs-node.md)

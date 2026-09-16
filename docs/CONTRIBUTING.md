@@ -5,6 +5,8 @@ Work is coordinated in via GitHub issues, and there also exists a [Matrix chat](
 
 There are also occasional ROS 2 Rust WG meetings that are announced on the [ROS discourse forum](https://discourse.ros.org/).
 
+## AI Policy
+Follow the projects [AI Policy](docs/AI_POLICY.md). It applies to all contributions to this repository even if a human edits it.
 
 ## Coding guidelines
 This section is not comprehensive, and conventions from the broader Rust community should be followed.

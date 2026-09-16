@@ -452,7 +452,7 @@ mod tests {
 
     #[test]
     fn test_subscriptions() -> Result<(), RclrsError> {
-        use crate::TopicEndpointInfo;
+        use crate::{QoSDurabilityPolicy, QoSReliabilityPolicy};
 
         let namespace = "/test_subscriptions_graph";
         let graph = construct_test_graph(namespace)?;
@@ -498,19 +498,17 @@ mod tests {
         assert!(types.contains(&"test_msgs/msg/BasicTypes".to_string()));
 
         // Test get_subscriptions_info_by_topic()
-        let expected_subscriptions_info = vec![TopicEndpointInfo {
-            node_name: String::from("graph_test_node_2"),
-            node_namespace: String::from(namespace),
-            topic_type: String::from("test_msgs/msg/Empty"),
-        }];
-        assert_eq!(
-            graph.node1.get_subscriptions_info_by_topic(&topic1)?,
-            expected_subscriptions_info
-        );
-        assert_eq!(
-            graph.node2.get_subscriptions_info_by_topic(&topic1)?,
-            expected_subscriptions_info
-        );
+        for node in [&graph.node1, &graph.node2] {
+            let subscriptions_info = node.get_subscriptions_info_by_topic(&topic1)?;
+            assert_eq!(subscriptions_info.len(), 1);
+
+            let info = &subscriptions_info[0];
+            assert_eq!(info.node_name, "graph_test_node_2");
+            assert_eq!(info.node_namespace, namespace);
+            assert_eq!(info.topic_type, "test_msgs/msg/Empty");
+            assert_eq!(info.qos_profile.reliability, QoSReliabilityPolicy::Reliable);
+            assert_eq!(info.qos_profile.durability, QoSDurabilityPolicy::Volatile);
+        }
         Ok(())
     }
 

@@ -288,6 +288,9 @@ unsafe extern "C" {
     ) -> ::std::os::raw::c_int;
 }
 unsafe extern "C" {
+    pub fn rcutils_strnlen(s: *const ::std::os::raw::c_char, maxlen: usize) -> usize;
+}
+unsafe extern "C" {
     pub fn rcutils_fault_injection_is_test_complete() -> bool;
 }
 unsafe extern "C" {
@@ -551,6 +554,11 @@ unsafe extern "C" {
     ) -> rcutils_ret_t;
 }
 unsafe extern "C" {
+    pub fn rcutils_logging_allocator_initialize(
+        allocator: *const rcutils_allocator_t,
+    ) -> rcutils_ret_t;
+}
+unsafe extern "C" {
     pub fn rcutils_logging_initialize_with_allocator(
         allocator: rcutils_allocator_t,
     ) -> rcutils_ret_t;
@@ -806,14 +814,19 @@ unsafe extern "C" {
     pub fn rmw_discovery_options_fini(discovery_options: *mut rmw_discovery_options_t)
         -> rmw_ret_t;
 }
-#[repr(u32)]
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
-pub enum rmw_localhost_only_e {
-    RMW_LOCALHOST_ONLY_DEFAULT = 0,
-    RMW_LOCALHOST_ONLY_ENABLED = 1,
-    RMW_LOCALHOST_ONLY_DISABLED = 2,
+unsafe extern "C" {
+    pub fn rmw_enclave_options_copy(
+        src: *const ::std::os::raw::c_char,
+        allocator: *const rcutils_allocator_t,
+        dst: *mut *mut ::std::os::raw::c_char,
+    ) -> rmw_ret_t;
 }
-pub use self::rmw_localhost_only_e as rmw_localhost_only_t;
+unsafe extern "C" {
+    pub fn rmw_enclave_options_fini(
+        enclave_options: *mut ::std::os::raw::c_char,
+        allocator: *const rcutils_allocator_t,
+    ) -> rmw_ret_t;
+}
 #[repr(u32)]
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub enum rmw_security_enforcement_policy_e {
@@ -867,7 +880,6 @@ pub struct rmw_init_options_s {
     pub implementation_identifier: *const ::std::os::raw::c_char,
     pub domain_id: usize,
     pub security_options: rmw_security_options_t,
-    pub localhost_only: rmw_localhost_only_t,
     pub discovery_options: rmw_discovery_options_t,
     pub enclave: *mut ::std::os::raw::c_char,
     pub allocator: rcutils_allocator_t,
@@ -1000,6 +1012,8 @@ pub enum rmw_endpoint_type_e {
     RMW_ENDPOINT_INVALID = 0,
     RMW_ENDPOINT_PUBLISHER = 1,
     RMW_ENDPOINT_SUBSCRIPTION = 2,
+    RMW_ENDPOINT_CLIENT = 3,
+    RMW_ENDPOINT_SERVER = 4,
 }
 pub use self::rmw_endpoint_type_e as rmw_endpoint_type_t;
 #[repr(u32)]
@@ -1035,6 +1049,7 @@ pub struct rmw_subscription_options_s {
     pub ignore_local_publications: bool,
     pub require_unique_network_flow_endpoints: rmw_unique_network_flow_endpoints_requirement_t,
     pub content_filter_options: *mut rmw_subscription_content_filter_options_t,
+    pub acceptable_buffer_backends: *const ::std::os::raw::c_char,
 }
 pub type rmw_subscription_options_t = rmw_subscription_options_s;
 #[repr(C)]
@@ -1046,6 +1061,7 @@ pub struct rmw_subscription_s {
     pub options: rmw_subscription_options_t,
     pub can_loan_messages: bool,
     pub is_cft_enabled: bool,
+    pub is_cft_supported: bool,
 }
 pub type rmw_subscription_t = rmw_subscription_s;
 #[repr(C)]
@@ -1178,7 +1194,6 @@ pub use self::rmw_qos_durability_policy_e as rmw_qos_durability_policy_t;
 pub enum rmw_qos_liveliness_policy_e {
     RMW_QOS_POLICY_LIVELINESS_SYSTEM_DEFAULT = 0,
     RMW_QOS_POLICY_LIVELINESS_AUTOMATIC = 1,
-    RMW_QOS_POLICY_LIVELINESS_MANUAL_BY_NODE = 2,
     RMW_QOS_POLICY_LIVELINESS_MANUAL_BY_TOPIC = 3,
     RMW_QOS_POLICY_LIVELINESS_UNKNOWN = 4,
     RMW_QOS_POLICY_LIVELINESS_BEST_AVAILABLE = 5,
@@ -1303,6 +1318,113 @@ unsafe extern "C" {
 }
 #[repr(C)]
 #[derive(Debug)]
+pub struct rmw_service_endpoint_info_s {
+    pub node_name: *const ::std::os::raw::c_char,
+    pub node_namespace: *const ::std::os::raw::c_char,
+    pub service_type: *const ::std::os::raw::c_char,
+    pub service_type_hash: rosidl_type_hash_t,
+    pub endpoint_type: rmw_endpoint_type_t,
+    pub endpoint_count: usize,
+    pub endpoint_gids: *mut [u8; 16usize],
+    pub qos_profiles: *mut rmw_qos_profile_t,
+}
+pub type rmw_service_endpoint_info_t = rmw_service_endpoint_info_s;
+unsafe extern "C" {
+    pub fn rmw_get_zero_initialized_service_endpoint_info() -> rmw_service_endpoint_info_t;
+}
+unsafe extern "C" {
+    pub fn rmw_service_endpoint_info_fini(
+        service_endpoint_info: *mut rmw_service_endpoint_info_t,
+        allocator: *mut rcutils_allocator_t,
+    ) -> rmw_ret_t;
+}
+unsafe extern "C" {
+    pub fn rmw_service_endpoint_info_set_service_type(
+        service_endpoint_info: *mut rmw_service_endpoint_info_t,
+        service_type: *const ::std::os::raw::c_char,
+        allocator: *mut rcutils_allocator_t,
+    ) -> rmw_ret_t;
+}
+unsafe extern "C" {
+    pub fn rmw_service_endpoint_info_set_service_type_hash(
+        service_endpoint_info: *mut rmw_service_endpoint_info_t,
+        type_hash: *const rosidl_type_hash_t,
+    ) -> rmw_ret_t;
+}
+unsafe extern "C" {
+    pub fn rmw_service_endpoint_info_set_node_name(
+        service_endpoint_info: *mut rmw_service_endpoint_info_t,
+        node_name: *const ::std::os::raw::c_char,
+        allocator: *mut rcutils_allocator_t,
+    ) -> rmw_ret_t;
+}
+unsafe extern "C" {
+    pub fn rmw_service_endpoint_info_set_node_namespace(
+        service_endpoint_info: *mut rmw_service_endpoint_info_t,
+        node_namespace: *const ::std::os::raw::c_char,
+        allocator: *mut rcutils_allocator_t,
+    ) -> rmw_ret_t;
+}
+unsafe extern "C" {
+    pub fn rmw_service_endpoint_info_set_endpoint_type(
+        service_endpoint_info: *mut rmw_service_endpoint_info_t,
+        type_: rmw_endpoint_type_t,
+    ) -> rmw_ret_t;
+}
+unsafe extern "C" {
+    pub fn rmw_service_endpoint_info_set_endpoint_count(
+        service_endpoint_info: *mut rmw_service_endpoint_info_t,
+        endpoint_count: usize,
+    ) -> rmw_ret_t;
+}
+unsafe extern "C" {
+    pub fn rmw_service_endpoint_info_set_gids(
+        service_endpoint_info: *mut rmw_service_endpoint_info_t,
+        gids: *const u8,
+        endpoint_count: usize,
+        size: usize,
+        allocator: *mut rcutils_allocator_t,
+    ) -> rmw_ret_t;
+}
+unsafe extern "C" {
+    pub fn rmw_service_endpoint_info_set_qos_profiles(
+        service_endpoint_info: *mut rmw_service_endpoint_info_t,
+        qos_profiles: *const rmw_qos_profile_t,
+        endpoint_count: usize,
+        allocator: *mut rcutils_allocator_t,
+    ) -> rmw_ret_t;
+}
+#[repr(C)]
+#[derive(Debug)]
+pub struct rmw_service_endpoint_info_array_s {
+    pub size: usize,
+    pub info_array: *mut rmw_service_endpoint_info_t,
+}
+pub type rmw_service_endpoint_info_array_t = rmw_service_endpoint_info_array_s;
+unsafe extern "C" {
+    pub fn rmw_get_zero_initialized_service_endpoint_info_array(
+    ) -> rmw_service_endpoint_info_array_t;
+}
+unsafe extern "C" {
+    pub fn rmw_service_endpoint_info_array_check_zero(
+        service_endpoint_info_array: *mut rmw_service_endpoint_info_array_t,
+    ) -> rmw_ret_t;
+}
+unsafe extern "C" {
+    pub fn rmw_service_endpoint_info_array_init_with_size(
+        service_endpoint_info_array: *mut rmw_service_endpoint_info_array_t,
+        size: usize,
+        allocator: *mut rcutils_allocator_t,
+    ) -> rmw_ret_t;
+}
+unsafe extern "C" {
+    pub fn rmw_service_endpoint_info_array_fini(
+        service_endpoint_info_array: *mut rmw_service_endpoint_info_array_t,
+        allocator: *mut rcutils_allocator_t,
+    ) -> rmw_ret_t;
+}
+#[repr(C)]
+#[derive(Debug)]
 pub struct rmw_topic_endpoint_info_s {
     pub node_name: *const ::std::os::raw::c_char,
     pub node_namespace: *const ::std::os::raw::c_char,
@@ -1402,6 +1524,8 @@ pub struct rosidl_runtime_c__float__Sequence {
     pub data: *mut f32,
     pub size: usize,
     pub capacity: usize,
+    pub is_rosidl_buffer: bool,
+    pub owns_rosidl_buffer: bool,
 }
 #[repr(C)]
 #[derive(Debug)]
@@ -1409,6 +1533,8 @@ pub struct rosidl_runtime_c__double__Sequence {
     pub data: *mut f64,
     pub size: usize,
     pub capacity: usize,
+    pub is_rosidl_buffer: bool,
+    pub owns_rosidl_buffer: bool,
 }
 #[repr(C)]
 #[derive(Debug)]
@@ -1416,6 +1542,8 @@ pub struct rosidl_runtime_c__long_double__Sequence {
     pub data: *mut u128,
     pub size: usize,
     pub capacity: usize,
+    pub is_rosidl_buffer: bool,
+    pub owns_rosidl_buffer: bool,
 }
 #[repr(C)]
 #[derive(Debug)]
@@ -1423,6 +1551,8 @@ pub struct rosidl_runtime_c__char__Sequence {
     pub data: *mut ::std::os::raw::c_schar,
     pub size: usize,
     pub capacity: usize,
+    pub is_rosidl_buffer: bool,
+    pub owns_rosidl_buffer: bool,
 }
 #[repr(C)]
 #[derive(Debug)]
@@ -1430,6 +1560,8 @@ pub struct rosidl_runtime_c__wchar__Sequence {
     pub data: *mut u16,
     pub size: usize,
     pub capacity: usize,
+    pub is_rosidl_buffer: bool,
+    pub owns_rosidl_buffer: bool,
 }
 #[repr(C)]
 #[derive(Debug)]
@@ -1437,6 +1569,8 @@ pub struct rosidl_runtime_c__boolean__Sequence {
     pub data: *mut bool,
     pub size: usize,
     pub capacity: usize,
+    pub is_rosidl_buffer: bool,
+    pub owns_rosidl_buffer: bool,
 }
 #[repr(C)]
 #[derive(Debug)]
@@ -1444,6 +1578,8 @@ pub struct rosidl_runtime_c__octet__Sequence {
     pub data: *mut u8,
     pub size: usize,
     pub capacity: usize,
+    pub is_rosidl_buffer: bool,
+    pub owns_rosidl_buffer: bool,
 }
 #[repr(C)]
 #[derive(Debug)]
@@ -1451,6 +1587,8 @@ pub struct rosidl_runtime_c__uint8__Sequence {
     pub data: *mut u8,
     pub size: usize,
     pub capacity: usize,
+    pub is_rosidl_buffer: bool,
+    pub owns_rosidl_buffer: bool,
 }
 #[repr(C)]
 #[derive(Debug)]
@@ -1458,6 +1596,8 @@ pub struct rosidl_runtime_c__int8__Sequence {
     pub data: *mut i8,
     pub size: usize,
     pub capacity: usize,
+    pub is_rosidl_buffer: bool,
+    pub owns_rosidl_buffer: bool,
 }
 #[repr(C)]
 #[derive(Debug)]
@@ -1465,6 +1605,8 @@ pub struct rosidl_runtime_c__uint16__Sequence {
     pub data: *mut u16,
     pub size: usize,
     pub capacity: usize,
+    pub is_rosidl_buffer: bool,
+    pub owns_rosidl_buffer: bool,
 }
 #[repr(C)]
 #[derive(Debug)]
@@ -1472,6 +1614,8 @@ pub struct rosidl_runtime_c__int16__Sequence {
     pub data: *mut i16,
     pub size: usize,
     pub capacity: usize,
+    pub is_rosidl_buffer: bool,
+    pub owns_rosidl_buffer: bool,
 }
 #[repr(C)]
 #[derive(Debug)]
@@ -1479,6 +1623,8 @@ pub struct rosidl_runtime_c__uint32__Sequence {
     pub data: *mut u32,
     pub size: usize,
     pub capacity: usize,
+    pub is_rosidl_buffer: bool,
+    pub owns_rosidl_buffer: bool,
 }
 #[repr(C)]
 #[derive(Debug)]
@@ -1486,6 +1632,8 @@ pub struct rosidl_runtime_c__int32__Sequence {
     pub data: *mut i32,
     pub size: usize,
     pub capacity: usize,
+    pub is_rosidl_buffer: bool,
+    pub owns_rosidl_buffer: bool,
 }
 #[repr(C)]
 #[derive(Debug)]
@@ -1493,6 +1641,8 @@ pub struct rosidl_runtime_c__uint64__Sequence {
     pub data: *mut u64,
     pub size: usize,
     pub capacity: usize,
+    pub is_rosidl_buffer: bool,
+    pub owns_rosidl_buffer: bool,
 }
 #[repr(C)]
 #[derive(Debug)]
@@ -1500,6 +1650,8 @@ pub struct rosidl_runtime_c__int64__Sequence {
     pub data: *mut i64,
     pub size: usize,
     pub capacity: usize,
+    pub is_rosidl_buffer: bool,
+    pub owns_rosidl_buffer: bool,
 }
 pub type rosidl_runtime_c__bool__Sequence = rosidl_runtime_c__boolean__Sequence;
 pub type rosidl_runtime_c__byte__Sequence = rosidl_runtime_c__octet__Sequence;
@@ -1518,6 +1670,8 @@ pub struct rosidl_runtime_c__String__Sequence {
     pub data: *mut rosidl_runtime_c__String,
     pub size: usize,
     pub capacity: usize,
+    pub is_rosidl_buffer: bool,
+    pub owns_rosidl_buffer: bool,
 }
 pub const rosidl_runtime_c__type_description__FieldType__FIELD_TYPE_NOT_SET: _bindgen_ty_2 =
     _bindgen_ty_2::rosidl_runtime_c__type_description__FieldType__FIELD_TYPE_NOT_SET;
@@ -2293,6 +2447,16 @@ pub type rmw_event_callback_t = ::std::option::Option<
     unsafe extern "C" fn(user_data: *const ::std::os::raw::c_void, number_of_events: usize),
 >;
 pub type rcl_event_callback_t = rmw_event_callback_t;
+#[repr(C)]
+#[derive(Debug)]
+pub struct rcl_event_callback_with_data_s {
+    pub callback: rcl_event_callback_t,
+    pub user_data: *const ::std::os::raw::c_void,
+}
+pub type rcl_event_callback_with_data_t = rcl_event_callback_with_data_s;
+unsafe extern "C" {
+    pub fn rcl_get_zero_initialized_event_callback_with_data() -> rcl_event_callback_with_data_t;
+}
 pub type rcl_ret_t = rmw_ret_t;
 pub type rcl_serialized_message_t = rmw_serialized_message_t;
 pub use self::RCUTILS_LOG_SEVERITY as rcl_log_severity_t;
@@ -3282,6 +3446,8 @@ unsafe extern "C" {
 pub type rcl_names_and_types_t = rmw_names_and_types_t;
 pub type rcl_topic_endpoint_info_t = rmw_topic_endpoint_info_t;
 pub type rcl_topic_endpoint_info_array_t = rmw_topic_endpoint_info_array_t;
+pub type rcl_service_endpoint_info_t = rmw_service_endpoint_info_t;
+pub type rcl_service_endpoint_info_array_t = rmw_service_endpoint_info_array_t;
 unsafe extern "C" {
     pub fn rcl_get_publisher_names_and_types_by_node(
         node: *const rcl_node_t,
@@ -3411,6 +3577,26 @@ unsafe extern "C" {
     ) -> rcl_ret_t;
 }
 unsafe extern "C" {
+    pub fn rcl_wait_for_clients(
+        node: *const rcl_node_t,
+        allocator: *mut rcl_allocator_t,
+        service_name: *const ::std::os::raw::c_char,
+        count: usize,
+        timeout: rcutils_duration_value_t,
+        success: *mut bool,
+    ) -> rcl_ret_t;
+}
+unsafe extern "C" {
+    pub fn rcl_wait_for_servers(
+        node: *const rcl_node_t,
+        allocator: *mut rcl_allocator_t,
+        service_name: *const ::std::os::raw::c_char,
+        count: usize,
+        timeout: rcutils_duration_value_t,
+        success: *mut bool,
+    ) -> rcl_ret_t;
+}
+unsafe extern "C" {
     pub fn rcl_get_publishers_info_by_topic(
         node: *const rcl_node_t,
         allocator: *mut rcutils_allocator_t,
@@ -3426,6 +3612,24 @@ unsafe extern "C" {
         topic_name: *const ::std::os::raw::c_char,
         no_mangle: bool,
         subscriptions_info: *mut rcl_topic_endpoint_info_array_t,
+    ) -> rcl_ret_t;
+}
+unsafe extern "C" {
+    pub fn rcl_get_clients_info_by_service(
+        node: *const rcl_node_t,
+        allocator: *mut rcutils_allocator_t,
+        service_name: *const ::std::os::raw::c_char,
+        no_mangle: bool,
+        clients_info: *mut rcl_service_endpoint_info_array_t,
+    ) -> rcl_ret_t;
+}
+unsafe extern "C" {
+    pub fn rcl_get_servers_info_by_service(
+        node: *const rcl_node_t,
+        allocator: *mut rcutils_allocator_t,
+        service_name: *const ::std::os::raw::c_char,
+        no_mangle: bool,
+        servers_info: *mut rcl_service_endpoint_info_array_t,
     ) -> rcl_ret_t;
 }
 unsafe extern "C" {
@@ -3619,17 +3823,6 @@ pub struct rosidl_dynamic_typesupport_serialization_support_interface_s {
         ) -> rcutils_ret_t,
     >,
     pub dynamic_type_builder_add_float64_member: ::std::option::Option<
-        unsafe extern "C" fn(
-            serialization_support: *mut rosidl_dynamic_typesupport_serialization_support_impl_t,
-            dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_impl_t,
-            id: rosidl_dynamic_typesupport_member_id_t,
-            name: *const ::std::os::raw::c_char,
-            name_length: usize,
-            default_value: *const ::std::os::raw::c_char,
-            default_value_length: usize,
-        ) -> rcutils_ret_t,
-    >,
-    pub dynamic_type_builder_add_float128_member: ::std::option::Option<
         unsafe extern "C" fn(
             serialization_support: *mut rosidl_dynamic_typesupport_serialization_support_impl_t,
             dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_impl_t,
@@ -3859,18 +4052,6 @@ pub struct rosidl_dynamic_typesupport_serialization_support_interface_s {
         ) -> rcutils_ret_t,
     >,
     pub dynamic_type_builder_add_float64_array_member: ::std::option::Option<
-        unsafe extern "C" fn(
-            serialization_support: *mut rosidl_dynamic_typesupport_serialization_support_impl_t,
-            dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_impl_t,
-            id: rosidl_dynamic_typesupport_member_id_t,
-            name: *const ::std::os::raw::c_char,
-            name_length: usize,
-            default_value: *const ::std::os::raw::c_char,
-            default_value_length: usize,
-            array_length: usize,
-        ) -> rcutils_ret_t,
-    >,
-    pub dynamic_type_builder_add_float128_array_member: ::std::option::Option<
         unsafe extern "C" fn(
             serialization_support: *mut rosidl_dynamic_typesupport_serialization_support_impl_t,
             dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_impl_t,
@@ -4120,17 +4301,6 @@ pub struct rosidl_dynamic_typesupport_serialization_support_interface_s {
             default_value_length: usize,
         ) -> rcutils_ret_t,
     >,
-    pub dynamic_type_builder_add_float128_unbounded_sequence_member: ::std::option::Option<
-        unsafe extern "C" fn(
-            serialization_support: *mut rosidl_dynamic_typesupport_serialization_support_impl_t,
-            dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_impl_t,
-            id: rosidl_dynamic_typesupport_member_id_t,
-            name: *const ::std::os::raw::c_char,
-            name_length: usize,
-            default_value: *const ::std::os::raw::c_char,
-            default_value_length: usize,
-        ) -> rcutils_ret_t,
-    >,
     pub dynamic_type_builder_add_int8_unbounded_sequence_member: ::std::option::Option<
         unsafe extern "C" fn(
             serialization_support: *mut rosidl_dynamic_typesupport_serialization_support_impl_t,
@@ -4350,18 +4520,6 @@ pub struct rosidl_dynamic_typesupport_serialization_support_interface_s {
         ) -> rcutils_ret_t,
     >,
     pub dynamic_type_builder_add_float64_bounded_sequence_member: ::std::option::Option<
-        unsafe extern "C" fn(
-            serialization_support: *mut rosidl_dynamic_typesupport_serialization_support_impl_t,
-            dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_impl_t,
-            id: rosidl_dynamic_typesupport_member_id_t,
-            name: *const ::std::os::raw::c_char,
-            name_length: usize,
-            default_value: *const ::std::os::raw::c_char,
-            default_value_length: usize,
-            sequence_bound: usize,
-        ) -> rcutils_ret_t,
-    >,
-    pub dynamic_type_builder_add_float128_bounded_sequence_member: ::std::option::Option<
         unsafe extern "C" fn(
             serialization_support: *mut rosidl_dynamic_typesupport_serialization_support_impl_t,
             dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_impl_t,
@@ -4820,14 +4978,6 @@ pub struct rosidl_dynamic_typesupport_serialization_support_interface_s {
             value: *mut f64,
         ) -> rcutils_ret_t,
     >,
-    pub dynamic_data_get_float128_value: ::std::option::Option<
-        unsafe extern "C" fn(
-            serialization_support: *mut rosidl_dynamic_typesupport_serialization_support_impl_t,
-            dynamic_data: *const rosidl_dynamic_typesupport_dynamic_data_impl_t,
-            id: rosidl_dynamic_typesupport_member_id_t,
-            value: *mut u128,
-        ) -> rcutils_ret_t,
-    >,
     pub dynamic_data_get_int8_value: ::std::option::Option<
         unsafe extern "C" fn(
             serialization_support: *mut rosidl_dynamic_typesupport_serialization_support_impl_t,
@@ -4996,14 +5146,6 @@ pub struct rosidl_dynamic_typesupport_serialization_support_interface_s {
             dynamic_data: *mut rosidl_dynamic_typesupport_dynamic_data_impl_t,
             id: rosidl_dynamic_typesupport_member_id_t,
             value: f64,
-        ) -> rcutils_ret_t,
-    >,
-    pub dynamic_data_set_float128_value: ::std::option::Option<
-        unsafe extern "C" fn(
-            serialization_support: *mut rosidl_dynamic_typesupport_serialization_support_impl_t,
-            dynamic_data: *mut rosidl_dynamic_typesupport_dynamic_data_impl_t,
-            id: rosidl_dynamic_typesupport_member_id_t,
-            value: u128,
         ) -> rcutils_ret_t,
     >,
     pub dynamic_data_set_int8_value: ::std::option::Option<
@@ -5193,14 +5335,6 @@ pub struct rosidl_dynamic_typesupport_serialization_support_interface_s {
             serialization_support: *mut rosidl_dynamic_typesupport_serialization_support_impl_t,
             dynamic_data: *mut rosidl_dynamic_typesupport_dynamic_data_impl_t,
             value: f64,
-            out_id: *mut rosidl_dynamic_typesupport_member_id_t,
-        ) -> rcutils_ret_t,
-    >,
-    pub dynamic_data_insert_float128_value: ::std::option::Option<
-        unsafe extern "C" fn(
-            serialization_support: *mut rosidl_dynamic_typesupport_serialization_support_impl_t,
-            dynamic_data: *mut rosidl_dynamic_typesupport_dynamic_data_impl_t,
-            value: u128,
             out_id: *mut rosidl_dynamic_typesupport_member_id_t,
         ) -> rcutils_ret_t,
     >,
@@ -5549,13 +5683,6 @@ unsafe extern "C" {
     ) -> rcutils_ret_t;
 }
 unsafe extern "C" {
-    pub fn rosidl_dynamic_typesupport_dynamic_data_get_float128_value(
-        dynamic_data: *const rosidl_dynamic_typesupport_dynamic_data_t,
-        id: rosidl_dynamic_typesupport_member_id_t,
-        value: *mut u128,
-    ) -> rcutils_ret_t;
-}
-unsafe extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_get_int8_value(
         dynamic_data: *const rosidl_dynamic_typesupport_dynamic_data_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -5703,13 +5830,6 @@ unsafe extern "C" {
         dynamic_data: *mut rosidl_dynamic_typesupport_dynamic_data_t,
         id: rosidl_dynamic_typesupport_member_id_t,
         value: f64,
-    ) -> rcutils_ret_t;
-}
-unsafe extern "C" {
-    pub fn rosidl_dynamic_typesupport_dynamic_data_set_float128_value(
-        dynamic_data: *mut rosidl_dynamic_typesupport_dynamic_data_t,
-        id: rosidl_dynamic_typesupport_member_id_t,
-        value: u128,
     ) -> rcutils_ret_t;
 }
 unsafe extern "C" {
@@ -5876,13 +5996,6 @@ unsafe extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_data_insert_float64_value(
         dynamic_data: *mut rosidl_dynamic_typesupport_dynamic_data_t,
         value: f64,
-        out_id: *mut rosidl_dynamic_typesupport_member_id_t,
-    ) -> rcutils_ret_t;
-}
-unsafe extern "C" {
-    pub fn rosidl_dynamic_typesupport_dynamic_data_insert_float128_value(
-        dynamic_data: *mut rosidl_dynamic_typesupport_dynamic_data_t,
-        value: u128,
         out_id: *mut rosidl_dynamic_typesupport_member_id_t,
     ) -> rcutils_ret_t;
 }
@@ -6226,16 +6339,6 @@ unsafe extern "C" {
     ) -> rcutils_ret_t;
 }
 unsafe extern "C" {
-    pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_float128_member(
-        dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
-        id: rosidl_dynamic_typesupport_member_id_t,
-        name: *const ::std::os::raw::c_char,
-        name_length: usize,
-        default_value: *const ::std::os::raw::c_char,
-        default_value_length: usize,
-    ) -> rcutils_ret_t;
-}
-unsafe extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_int8_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -6436,17 +6539,6 @@ unsafe extern "C" {
 }
 unsafe extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_float64_array_member(
-        dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
-        id: rosidl_dynamic_typesupport_member_id_t,
-        name: *const ::std::os::raw::c_char,
-        name_length: usize,
-        default_value: *const ::std::os::raw::c_char,
-        default_value_length: usize,
-        array_length: usize,
-    ) -> rcutils_ret_t;
-}
-unsafe extern "C" {
-    pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_float128_array_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
         name: *const ::std::os::raw::c_char,
@@ -6675,16 +6767,6 @@ unsafe extern "C" {
     ) -> rcutils_ret_t;
 }
 unsafe extern "C" {
-    pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_float128_unbounded_sequence_member(
-        dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
-        id: rosidl_dynamic_typesupport_member_id_t,
-        name: *const ::std::os::raw::c_char,
-        name_length: usize,
-        default_value: *const ::std::os::raw::c_char,
-        default_value_length: usize,
-    ) -> rcutils_ret_t;
-}
-unsafe extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_int8_unbounded_sequence_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
@@ -6885,17 +6967,6 @@ unsafe extern "C" {
 }
 unsafe extern "C" {
     pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_float64_bounded_sequence_member(
-        dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
-        id: rosidl_dynamic_typesupport_member_id_t,
-        name: *const ::std::os::raw::c_char,
-        name_length: usize,
-        default_value: *const ::std::os::raw::c_char,
-        default_value_length: usize,
-        sequence_bound: usize,
-    ) -> rcutils_ret_t;
-}
-unsafe extern "C" {
-    pub fn rosidl_dynamic_typesupport_dynamic_type_builder_add_float128_bounded_sequence_member(
         dynamic_type_builder: *mut rosidl_dynamic_typesupport_dynamic_type_builder_t,
         id: rosidl_dynamic_typesupport_member_id_t,
         name: *const ::std::os::raw::c_char,
@@ -7399,6 +7470,12 @@ unsafe extern "C" {
     ) -> rcl_ret_t;
 }
 unsafe extern "C" {
+    pub fn rcl_subscription_options_set_acceptable_buffer_backends(
+        acceptable_buffer_backends: *const ::std::os::raw::c_char,
+        options: *mut rcl_subscription_options_t,
+    ) -> rcl_ret_t;
+}
+unsafe extern "C" {
     pub fn rcl_get_zero_initialized_subscription_content_filter_options(
     ) -> rcl_subscription_content_filter_options_t;
 }
@@ -7527,6 +7604,9 @@ unsafe extern "C" {
         user_data: *const ::std::os::raw::c_void,
     ) -> rcl_ret_t;
 }
+unsafe extern "C" {
+    pub fn rcl_subscription_is_cft_supported(subscription: *const rcl_subscription_t) -> bool;
+}
 #[repr(C)]
 #[derive(Debug)]
 pub struct rcl_service_impl_s {
@@ -7641,18 +7721,19 @@ pub struct rosidl_runtime_c__Sequence__bound {
 #[repr(u32)]
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub enum rmw_event_type_e {
-    RMW_EVENT_LIVELINESS_CHANGED = 0,
-    RMW_EVENT_REQUESTED_DEADLINE_MISSED = 1,
-    RMW_EVENT_REQUESTED_QOS_INCOMPATIBLE = 2,
-    RMW_EVENT_MESSAGE_LOST = 3,
-    RMW_EVENT_SUBSCRIPTION_INCOMPATIBLE_TYPE = 4,
-    RMW_EVENT_SUBSCRIPTION_MATCHED = 5,
-    RMW_EVENT_LIVELINESS_LOST = 6,
-    RMW_EVENT_OFFERED_DEADLINE_MISSED = 7,
-    RMW_EVENT_OFFERED_QOS_INCOMPATIBLE = 8,
-    RMW_EVENT_PUBLISHER_INCOMPATIBLE_TYPE = 9,
-    RMW_EVENT_PUBLICATION_MATCHED = 10,
-    RMW_EVENT_INVALID = 11,
+    RMW_EVENT_INVALID = 0,
+    RMW_EVENT_LIVELINESS_CHANGED = 1,
+    RMW_EVENT_REQUESTED_DEADLINE_MISSED = 2,
+    RMW_EVENT_REQUESTED_QOS_INCOMPATIBLE = 3,
+    RMW_EVENT_MESSAGE_LOST = 4,
+    RMW_EVENT_SUBSCRIPTION_INCOMPATIBLE_TYPE = 5,
+    RMW_EVENT_SUBSCRIPTION_MATCHED = 6,
+    RMW_EVENT_LIVELINESS_LOST = 7,
+    RMW_EVENT_OFFERED_DEADLINE_MISSED = 8,
+    RMW_EVENT_OFFERED_QOS_INCOMPATIBLE = 9,
+    RMW_EVENT_PUBLISHER_INCOMPATIBLE_TYPE = 10,
+    RMW_EVENT_PUBLICATION_MATCHED = 11,
+    RMW_EVENT_TYPE_MAX = 12,
 }
 pub use self::rmw_event_type_e as rmw_event_type_t;
 #[repr(C)]
@@ -7712,6 +7793,9 @@ unsafe extern "C" {
     pub static rmw_qos_profile_parameter_events: rmw_qos_profile_t;
 }
 unsafe extern "C" {
+    pub static rmw_qos_profile_rosout_default: rmw_qos_profile_t;
+}
+unsafe extern "C" {
     pub static rmw_qos_profile_system_default: rmw_qos_profile_t;
 }
 unsafe extern "C" {
@@ -7755,9 +7839,6 @@ unsafe extern "C" {
 }
 unsafe extern "C" {
     pub fn rmw_destroy_node(node: *mut rmw_node_t) -> rmw_ret_t;
-}
-unsafe extern "C" {
-    pub fn rmw_node_assert_liveliness(node: *const rmw_node_t) -> rmw_ret_t;
 }
 unsafe extern "C" {
     pub fn rmw_node_get_graph_guard_condition(
@@ -8214,7 +8295,7 @@ pub struct rcl_timer_call_info_s {
 }
 pub type rcl_timer_call_info_t = rcl_timer_call_info_s;
 pub type rcl_timer_callback_t =
-    ::std::option::Option<unsafe extern "C" fn(arg1: *mut rcl_timer_t, arg2: i64)>;
+    ::std::option::Option<unsafe extern "C" fn(arg1: *mut rcl_timer_t, arg2: i64, arg3: usize)>;
 unsafe extern "C" {
     pub fn rcl_get_zero_initialized_timer() -> rcl_timer_t;
 }
@@ -8227,16 +8308,6 @@ unsafe extern "C" {
         callback: rcl_timer_callback_t,
         allocator: rcl_allocator_t,
         autostart: bool,
-    ) -> rcl_ret_t;
-}
-unsafe extern "C" {
-    pub fn rcl_timer_init(
-        timer: *mut rcl_timer_t,
-        clock: *mut rcl_clock_t,
-        context: *mut rcl_context_t,
-        period: i64,
-        callback: rcl_timer_callback_t,
-        allocator: rcl_allocator_t,
     ) -> rcl_ret_t;
 }
 unsafe extern "C" {
@@ -8289,10 +8360,16 @@ unsafe extern "C" {
     pub fn rcl_timer_get_callback(timer: *const rcl_timer_t) -> rcl_timer_callback_t;
 }
 unsafe extern "C" {
+    pub fn rcl_timer_get_callback_data(timer: *const rcl_timer_t) -> usize;
+}
+unsafe extern "C" {
     pub fn rcl_timer_exchange_callback(
         timer: *mut rcl_timer_t,
         new_callback: rcl_timer_callback_t,
     ) -> rcl_timer_callback_t;
+}
+unsafe extern "C" {
+    pub fn rcl_timer_exchange_callback_data(timer: *mut rcl_timer_t, data: usize) -> usize;
 }
 unsafe extern "C" {
     pub fn rcl_timer_cancel(timer: *mut rcl_timer_t) -> rcl_ret_t;
@@ -8744,6 +8821,30 @@ unsafe extern "C" {
     pub fn rcl_action_client_is_valid(action_client: *const rcl_action_client_t) -> bool;
 }
 unsafe extern "C" {
+    pub fn rcl_action_client_configure_action_introspection(
+        action_client: *mut rcl_action_client_t,
+        node: *mut rcl_node_t,
+        clock: *mut rcl_clock_t,
+        type_support: *const rosidl_action_type_support_t,
+        publisher_options: rcl_publisher_options_t,
+        introspection_state: rcl_service_introspection_state_t,
+    ) -> rcl_ret_t;
+}
+unsafe extern "C" {
+    pub fn rcl_action_client_configure_feedback_subscription_filter_add_goal_id(
+        action_client: *const rcl_action_client_t,
+        goal_id_array: *const u8,
+        array_size: usize,
+    ) -> rcl_ret_t;
+}
+unsafe extern "C" {
+    pub fn rcl_action_client_configure_feedback_subscription_filter_remove_goal_id(
+        action_client: *const rcl_action_client_t,
+        goal_id_array: *const u8,
+        array_size: usize,
+    ) -> rcl_ret_t;
+}
+unsafe extern "C" {
     pub fn rcl_action_client_set_goal_client_callback(
         action_client: *const rcl_action_client_t,
         callback: rcl_event_callback_t,
@@ -8842,6 +8943,11 @@ unsafe extern "C" {
     ) -> bool;
 }
 unsafe extern "C" {
+    pub fn rcl_action_goal_handle_is_abortable(
+        goal_handle: *const rcl_action_goal_handle_t,
+    ) -> bool;
+}
+unsafe extern "C" {
     pub fn rcl_action_goal_handle_is_valid(goal_handle: *const rcl_action_goal_handle_t) -> bool;
 }
 #[repr(C)]
@@ -8870,6 +8976,16 @@ pub struct rcl_action_server_options_s {
 pub type rcl_action_server_options_t = rcl_action_server_options_s;
 unsafe extern "C" {
     pub fn rcl_action_get_zero_initialized_server() -> rcl_action_server_t;
+}
+unsafe extern "C" {
+    pub fn rcl_action_server_init2(
+        action_server: *mut rcl_action_server_t,
+        node: *mut rcl_node_t,
+        expire_timer: *const rcl_timer_t,
+        type_support: *const rosidl_action_type_support_t,
+        action_name: *const ::std::os::raw::c_char,
+        options: *const rcl_action_server_options_t,
+    ) -> rcl_ret_t;
 }
 unsafe extern "C" {
     pub fn rcl_action_server_init(
@@ -9006,6 +9122,23 @@ unsafe extern "C" {
     ) -> bool;
 }
 unsafe extern "C" {
+    pub fn rcl_action_server_configure_action_introspection(
+        action_server: *mut rcl_action_server_t,
+        node: *mut rcl_node_t,
+        clock: *mut rcl_clock_t,
+        type_support: *const rosidl_action_type_support_t,
+        publisher_options: rcl_publisher_options_t,
+        introspection_state: rcl_service_introspection_state_t,
+    ) -> rcl_ret_t;
+}
+unsafe extern "C" {
+    pub fn rcl_action_server_set_expired_event_callback(
+        action_server: *const rcl_action_server_t,
+        callback: rcl_event_callback_t,
+        user_data: *const ::std::os::raw::c_void,
+    ) -> rcl_ret_t;
+}
+unsafe extern "C" {
     pub fn rcl_action_server_set_goal_service_callback(
         action_server: *const rcl_action_server_t,
         callback: rcl_event_callback_t,
@@ -9052,6 +9185,20 @@ unsafe extern "C" {
         node: *const rcl_node_t,
         allocator: *mut rcl_allocator_t,
         action_names_and_types: *mut rcl_names_and_types_t,
+    ) -> rcl_ret_t;
+}
+unsafe extern "C" {
+    pub fn rcl_action_count_clients(
+        node: *const rcl_node_t,
+        action_name: *const ::std::os::raw::c_char,
+        count: *mut usize,
+    ) -> rcl_ret_t;
+}
+unsafe extern "C" {
+    pub fn rcl_action_count_servers(
+        node: *const rcl_node_t,
+        action_name: *const ::std::os::raw::c_char,
+        count: *mut usize,
     ) -> rcl_ret_t;
 }
 unsafe extern "C" {
@@ -9189,9 +9336,6 @@ unsafe extern "C" {
 pub type rcl_error_state_t = rcutils_error_state_t;
 pub type rcl_error_string_t = rcutils_error_string_t;
 unsafe extern "C" {
-    pub static rcl_qos_profile_rosout_default: rmw_qos_profile_t;
-}
-unsafe extern "C" {
     pub fn rcl_logging_rosout_init(allocator: *const rcl_allocator_t) -> rcl_ret_t;
 }
 unsafe extern "C" {
@@ -9311,6 +9455,7 @@ pub struct rosidl_typesupport_introspection_c__MessageMember_s {
     pub resize_function: ::std::option::Option<
         unsafe extern "C" fn(arg1: *mut ::std::os::raw::c_void, size: usize) -> bool,
     >,
+    pub is_rosidl_buffer_: bool,
 }
 pub type rosidl_typesupport_introspection_c__MessageMember =
     rosidl_typesupport_introspection_c__MessageMember_s;

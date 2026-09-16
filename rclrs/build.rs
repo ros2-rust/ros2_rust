@@ -2,7 +2,7 @@ use ament_rs::search_paths::get_search_paths;
 use std::{env, path::PathBuf};
 
 const ROS_DISTRO: &str = "ROS_DISTRO";
-const KNOWN_DISTROS: &[&str] = &["humble", "jazzy", "kilted", "rolling"];
+const KNOWN_DISTROS: &[&str] = &["humble", "jazzy", "kilted", "lyrical", "rolling"];
 
 fn get_ros_distro() -> String {
     env::var(ROS_DISTRO)

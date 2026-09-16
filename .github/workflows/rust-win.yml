@@ -39,13 +39,16 @@ jobs:
 
       - name: Install ros2_rust prerequisites 
         # prerequisites and fixes for windows build ros2_rust:
-        #     * Libclang has to be added (from the ros2_rust instructions) and the dll has to be renamed
+        #     * Libclang has to be added (from the ros2_rust instructions). Older builds of the
+        #       conda package only shipped a versioned libclang-13.dll, which bindgen does not
+        #       find, so it gets renamed. Newer builds ship libclang.dll themselves, in which
+        #       case there is nothing to rename.
         #     * colcon-ros-cargo and colcon-cargo have to be added as PyPI packages
         run: |
           pixi add libclang --manifest-path C:\pixi_ws\pixi.toml
           $src = "C:\pixi_ws\.pixi\envs\default\Library\bin\libclang-13.dll"
           $dst = "C:\pixi_ws\.pixi\envs\default\Library\bin\libclang.dll"
-          if (Test-Path $src) { Rename-Item -Path $src -NewName "libclang.dll" }
+          if ((Test-Path $src) -and -not (Test-Path $dst)) { Rename-Item -Path $src -NewName "libclang.dll" }
           pixi add --pypi "colcon-ros-cargo@git+https://github.com/colcon/colcon-ros-cargo.git" --manifest-path C:\pixi_ws\pixi.toml
           pixi add --pypi "colcon-cargo@git+https://github.com/colcon/colcon-cargo.git" --manifest-path C:\pixi_ws\pixi.toml
           pixi upgrade colcon-core --manifest-path C:\pixi_ws\pixi.toml
