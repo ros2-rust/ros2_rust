@@ -360,14 +360,12 @@ impl QoSProfile {
     
     #[cfg(not(ros_distro = "humble"))]
     pub fn best_available() -> Self {
-        unsafe {
+        #[cfg(target_os = "windows")] { &RMW_QOS_PROFILE_BEST_AVAILABLE }
+        #[cfg(not(target_os = "windows"))] unsafe {
             // SAFETY: There are no preconditions for using this static const
             // global variable
-             if cfg!(not(target_os = "windows")) {
-                 (&rmw_qos_profile_best_available).into()
-             } else {
-                 (&RMW_QOS_PROFILE_BEST_AVAILABLE).into()
-             }
+             
+            (&rmw_qos_profile_best_available).into()
         }
     }
 }
