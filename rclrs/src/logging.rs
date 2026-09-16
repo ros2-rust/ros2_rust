@@ -341,35 +341,28 @@ pub unsafe fn impl_log(
 
         #[cfg(test)]
         {
-            // If we are compiling for testing purposes, when the default log
-            // output handler is being used we need to use the format_string,
-            // but when our custom log output handler is being used we need to
-            // pass the raw message string so that it can be viewed by the
-            // custom log output handler, allowing us to use it for test assertions.
-            if log_handler::is_using_custom_handler() {
-                // We are using the custom log handler that is only used during
-                // logging tests, so pass the raw message as the format string.
-                unsafe {
-                    // SAFETY: The global mutex is locked as _lifecycle
-                    rcutils_log(
-                        &location,
-                        severity as i32,
-                        logger_name.as_ptr(),
-                        message.as_ptr(),
-                    );
-                }
-            } else {
-                // We are using the normal log handler so call rcutils_log the normal way.
-                unsafe {
-                    // SAFETY: The global mutex is locked as _lifecycle
-                    rcutils_log(
-                        &location,
-                        severity as i32,
-                        logger_name.as_ptr(),
-                        format_string.as_ptr(),
-                        message.as_ptr(),
-                    );
-                }
+            // Always call rcutils_log the safe way ("%s" + message), so the record
+            // can be forwarded to the default rcl handler (console/`/rosout`)
+            // without printf-interpreting any `%` in the message. When the custom
+            // capture handler is active we additionally stash the finished message
+            // in a per-thread slot so the handler can read it back without parsing
+            // the C `va_list`. The stash is cleared after the call.
+            let using_custom_handler = log_handler::is_using_custom_handler();
+            if using_custom_handler {
+                log_handler::stash_current_message(message.as_c_str());
+            }
+            unsafe {
+                // SAFETY: The global mutex is locked as _lifecycle
+                rcutils_log(
+                    &location,
+                    severity as i32,
+                    logger_name.as_ptr(),
+                    format_string.as_ptr(),
+                    message.as_ptr(),
+                );
+            }
+            if using_custom_handler {
+                log_handler::clear_current_message();
             }
         }
 
