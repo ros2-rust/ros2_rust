@@ -363,10 +363,11 @@ impl QoSProfile {
         unsafe {
             // SAFETY: There are no preconditions for using this static const
             // global variable
-            #[cfg(not(target_os = "windows"))]
-            (&rmw_qos_profile_best_available).into()
-            #[cfg(target_os = "windows")]
-            (&RMW_QOS_PROFILE_BEST_AVAILABLE).into()
+             if cfg!(not(target_os = "windows")) {
+                 (&rmw_qos_profile_best_available).into()
+             } else {
+                 (&RMW_QOS_PROFILE_BEST_AVAILABLE).into()
+             }
         }
     }
 }
