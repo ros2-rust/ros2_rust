@@ -46,7 +46,6 @@ fn main() {
         "rcutils",
         "rmw",
         "rmw_implementation",
-        "rmw_dds_common",
     ]
     .iter()
     .for_each(|lib| println!("cargo:rustc-link-lib=dylib={lib}"));
