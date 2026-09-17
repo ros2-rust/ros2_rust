@@ -649,7 +649,7 @@ impl<T> TakeFailedAsNone for Result<T, RclrsError> {
                     return Ok(None);
                 }
 
-                return Err(err);
+                Err(err)
             }
         }
     }

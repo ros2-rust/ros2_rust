@@ -94,7 +94,7 @@ impl WaitSet {
     ///
     /// - Passing a wait set with no wait-able items in it will return an error.
     /// - The timeout must not be so large so as to overflow an `i64` with its nanosecond
-    /// representation, or an error will occur.
+    ///   representation, or an error will occur.
     ///
     /// This list is not comprehensive, since further errors may occur in the `rmw` or `rcl` layers.
     ///
@@ -140,10 +140,10 @@ impl WaitSet {
         }
 
         // Do not check the readiness if an error was reported.
-        if !r.is_err() {
+        if r.is_ok() {
             // For the remaining entities, check if they were activated and then run
             // the callback for those that were.
-            for waiter in self.primitives.values_mut().flat_map(|v| v) {
+            for waiter in self.primitives.values_mut().flatten() {
                 if let Some(ready) = waiter.is_ready(&self.handle.rcl_wait_set) {
                     f(ready, &mut *waiter.primitive)?;
                 }
@@ -208,7 +208,7 @@ impl WaitSet {
     ///
     /// [1]: crate::RclReturnCode
     fn register_rcl_primitives(&mut self) -> Result<(), RclrsError> {
-        for entity in self.primitives.values_mut().flat_map(|c| c) {
+        for entity in self.primitives.values_mut().flatten() {
             entity.add_to_wait_set(&mut self.handle.rcl_wait_set)?;
         }
         Ok(())
