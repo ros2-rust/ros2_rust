@@ -50,7 +50,7 @@ impl<A: Action> ActionGoalReceiver<A> {
         callback: impl FnMut(RequestedGoal<A>) -> Task + Send + Sync + 'static,
     ) -> ActionServer<A>
     where
-        Task: Future<Output = TerminatedGoal> + Send + Sync + 'static,
+        Task: Future<Output = TerminatedGoal> + Send + 'static,
     {
         let Self { server, receiver } = self;
         server.drain_receiver_into_callback(receiver, callback);
