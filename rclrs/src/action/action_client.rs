@@ -490,7 +490,7 @@ impl<A: Action> ActionClientGoalBoard<A> {
         let accepted = A::get_goal_response_accepted(&response_rmw);
         let stamp = A::get_goal_response_stamp(&response_rmw);
 
-        let Some(mut pending) = self
+        let Some(pending) = self
             .pending_goal_clients
             .lock()
             .unwrap()
