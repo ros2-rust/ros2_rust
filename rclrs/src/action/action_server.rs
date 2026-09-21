@@ -1,4 +1,5 @@
 use super::empty_goal_status_array;
+use crate::action_msgs::srv::CancelGoal_Response;
 use crate::{
     action::GoalUuid, error::ToResult, rcl_bindings::*, ActionGoalReceiver, CancelResponseCode,
     Clock, DropGuard, GoalStatusCode, Node, NodeHandle, QoSProfile, RclPrimitive,
@@ -6,7 +7,6 @@ use crate::{
     WaitableLifecycle, ENTITY_LIFECYCLE_MUTEX,
 };
 use futures::future::BoxFuture;
-use ros_env::action_msgs::srv::CancelGoal_Response;
 use rosidl_runtime_rs::{Action, Message, RmwGoalRequest, RmwResultRequest};
 use std::{
     any::Any,

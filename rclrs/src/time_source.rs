@@ -1,9 +1,9 @@
+use crate::rosgraph_msgs::msg::Clock as ClockMsg;
 use crate::{
     clock::{Clock, ClockSource, ClockType},
     IntoPrimitiveOptions, Node, NodeState, QoSProfile, ReadOnlyParameter, Subscription,
     QOS_PROFILE_CLOCK,
 };
-use ros_env::rosgraph_msgs::msg::Clock as ClockMsg;
 use std::sync::{Arc, Mutex, RwLock, Weak};
 
 /// Time source for a node that drives the attached clock.
