@@ -33,6 +33,11 @@ impl Errors {
         }
     }
 
+    /// Whether anything has been recorded yet.
+    pub fn is_empty(&self) -> bool {
+        self.0.is_none()
+    }
+
     /// Returns the accumulated errors, if any.
     pub fn into_result(self) -> syn::Result<()> {
         match self.0 {

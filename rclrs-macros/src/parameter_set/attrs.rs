@@ -2,7 +2,7 @@
 
 use syn::{spanned::Spanned, Attribute, Expr, ExprRange, Ident, LitStr, RangeLimits};
 
-use super::errors::Errors;
+use crate::errors::Errors;
 
 /// Struct-level configuration from `#[parameters(...)]`.
 #[derive(Default)]
