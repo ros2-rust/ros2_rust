@@ -3,3 +3,13 @@ members = [
   "rclrs",
 ]
 resolver = "2"
+
+# rclrs-macros is deliberately not a member. rclrs depends on it by version, which
+# colcon-ros-cargo resolves to the installed copy, the same arrangement rclrs already has with
+# rosidl_runtime_rs. A path dependency would be simpler here, but `cargo ament-build` copies
+# Cargo.toml into the install prefix verbatim, where a relative path no longer resolves and the
+# installed crate becomes unusable to anything that depends on it.
+#
+# Since it is not a member, colcon would not discover it on its own.
+[workspace.metadata.colcon]
+additional-packages = ["rclrs-macros"]
