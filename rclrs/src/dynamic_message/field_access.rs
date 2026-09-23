@@ -603,7 +603,6 @@ macro_rules! define_value_types {
                             mutable => DynamicBoundedPrimitiveSequenceMut::new_primitive(
                                 bytes,
                                 sequence_upper_bound,
-                                field_info.resize_function.unwrap(),
                             )
                         ))
                     }
@@ -618,7 +617,6 @@ macro_rules! define_value_types {
                             mutable => DynamicBoundedPrimitiveSequenceMut::new_primitive(
                                 bytes,
                                 sequence_upper_bound,
-                                field_info.resize_function.unwrap(),
                             )
                         ))
                     }
@@ -640,7 +638,6 @@ macro_rules! define_value_types {
                             mutable => DynamicBoundedPrimitiveSequenceMut::new_primitive(
                                 bytes,
                                 sequence_upper_bound,
-                                field_info.resize_function.unwrap(),
                             )
                         ))
                     }
@@ -655,7 +652,6 @@ macro_rules! define_value_types {
                             mutable => DynamicBoundedPrimitiveSequenceMut::new_primitive(
                                 bytes,
                                 sequence_upper_bound,
-                                field_info.resize_function.unwrap(),
                             )
                         ))
                     }
@@ -670,7 +666,6 @@ macro_rules! define_value_types {
                             mutable => DynamicBoundedPrimitiveSequenceMut::new_primitive(
                                 bytes,
                                 sequence_upper_bound,
-                                field_info.resize_function.unwrap(),
                             )
                         ))
                     }
@@ -685,7 +680,6 @@ macro_rules! define_value_types {
                             mutable => DynamicBoundedPrimitiveSequenceMut::new_primitive(
                                 bytes,
                                 sequence_upper_bound,
-                                field_info.resize_function.unwrap(),
                             )
                         ))
                     }
@@ -700,7 +694,6 @@ macro_rules! define_value_types {
                             mutable => DynamicBoundedPrimitiveSequenceMut::new_primitive(
                                 bytes,
                                 sequence_upper_bound,
-                                field_info.resize_function.unwrap(),
                             )
                         ))
                     }
@@ -715,7 +708,6 @@ macro_rules! define_value_types {
                             mutable => DynamicBoundedPrimitiveSequenceMut::new_primitive(
                                 bytes,
                                 sequence_upper_bound,
-                                field_info.resize_function.unwrap(),
                             )
                         ))
                     }
@@ -730,7 +722,6 @@ macro_rules! define_value_types {
                             mutable => DynamicBoundedPrimitiveSequenceMut::new_primitive(
                                 bytes,
                                 sequence_upper_bound,
-                                field_info.resize_function.unwrap(),
                             )
                         ))
                     }
@@ -745,7 +736,6 @@ macro_rules! define_value_types {
                             mutable => DynamicBoundedPrimitiveSequenceMut::new_primitive(
                                 bytes,
                                 sequence_upper_bound,
-                                field_info.resize_function.unwrap(),
                             )
                         ))
                     }
@@ -760,7 +750,6 @@ macro_rules! define_value_types {
                             mutable => DynamicBoundedPrimitiveSequenceMut::new_primitive(
                                 bytes,
                                 sequence_upper_bound,
-                                field_info.resize_function.unwrap(),
                             )
                         ))
                     }
@@ -775,7 +764,6 @@ macro_rules! define_value_types {
                             mutable => DynamicBoundedPrimitiveSequenceMut::new_primitive(
                                 bytes,
                                 sequence_upper_bound,
-                                field_info.resize_function.unwrap(),
                             )
                         ))
                     }
@@ -790,7 +778,6 @@ macro_rules! define_value_types {
                             mutable => DynamicBoundedPrimitiveSequenceMut::new_primitive(
                                 bytes,
                                 sequence_upper_bound,
-                                field_info.resize_function.unwrap(),
                             )
                         ))
                     }
@@ -805,7 +792,6 @@ macro_rules! define_value_types {
                             mutable => DynamicBoundedPrimitiveSequenceMut::new_primitive(
                                 bytes,
                                 sequence_upper_bound,
-                                field_info.resize_function.unwrap(),
                             )
                         ))
                     }

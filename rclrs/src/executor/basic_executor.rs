@@ -24,8 +24,7 @@ use crate::{
     Waitable, WeakActivityListener, WorkerChannel,
 };
 
-static FAILED_TO_SEND_WORKER: &'static str =
-    "Failed to send the new runner. This should never happen. \
+static FAILED_TO_SEND_WORKER: &str = "Failed to send the new runner. This should never happen. \
     Please report this to the rclrs maintainers with a minimal reproducible example.";
 
 /// The implementation of this runtime is based off of the async Rust reference book:

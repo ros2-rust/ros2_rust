@@ -1032,12 +1032,12 @@ impl Parameters<'_> {
     ///
     /// Returns:
     /// * `Ok(())` if setting was successful.
-    /// * [`Err(ParameterValueError::TypeMismatch)`] if the type of the requested value is different
+    /// * [`ParameterValueError::TypeMismatch`] if the type of the requested value is different
     ///   from the parameter's type.
-    /// * [`Err(ParameterValueError::OutOfRange)`] if the requested value is out of the parameter's
+    /// * [`ParameterValueError::OutOfRange`] if the requested value is out of the parameter's
     ///   range.
-    /// * [`Err(ParameterValueError::ReadOnly)`] if the parameter is read only.
-    /// * [`Err(ParameterValueError::ValidationFailed)`] if the validate callback rejects the value.
+    /// * [`ParameterValueError::ReadOnly`] if the parameter is read only.
+    /// * [`ParameterValueError::ValidationFailed`] if the validate callback rejects the value.
     pub fn set<T: ParameterVariant>(
         &self,
         name: impl Into<Arc<str>>,

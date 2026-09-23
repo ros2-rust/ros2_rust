@@ -654,3 +654,12 @@ impl<T> TakeFailedAsNone for Result<T, RclrsError> {
         }
     }
 }
+
+impl From<rosidl_runtime_rs::BufferError> for RclrsError {
+    fn from(error: rosidl_runtime_rs::BufferError) -> Self {
+        Self::RclError {
+            code: RclReturnCode::Error,
+            msg: Some(RclErrorMsg(error.to_string())),
+        }
+    }
+}
