@@ -23,6 +23,48 @@ fn get_ros_distro() -> String {
         .expect("Failed to determine ROS distro")
 }
 
+#[cfg(unix)]
+fn link_search_paths(prefixes: &[String]) {
+    use std::{collections::BTreeSet, fs, os::unix::fs::symlink};
+
+    // One directory preserves AMENT precedence when Rustdoc sorts search paths.
+    let directory =
+        PathBuf::from(env::var_os("OUT_DIR").expect("OUT_DIR is set")).join("native-libraries");
+    if directory.exists() {
+        fs::remove_dir_all(&directory).expect("remove previous native link directory");
+    }
+    fs::create_dir_all(&directory).expect("create native link directory");
+    let mut names = BTreeSet::new();
+    for prefix in prefixes {
+        let Ok(entries) = fs::read_dir(PathBuf::from(prefix).join("lib")) else {
+            continue;
+        };
+        for entry in entries {
+            let entry = entry.expect("read native library entry");
+            let source = entry.path();
+            if !source.is_file() || !names.insert(entry.file_name()) {
+                continue;
+            }
+            symlink(
+                fs::canonicalize(source).expect("resolve native library"),
+                directory.join(entry.file_name()),
+            )
+            .expect("link native library");
+        }
+    }
+    println!("cargo:rustc-link-search=native={}", directory.display());
+}
+
+#[cfg(not(unix))]
+fn link_search_paths(prefixes: &[String]) {
+    for prefix in prefixes {
+        println!(
+            "cargo:rustc-link-search=native={}",
+            PathBuf::from(prefix).join("lib").display()
+        );
+    }
+}
+
 fn main() {
     println!(
         "cargo:rustc-check-cfg=cfg(ros_distro, values(\"{}\"))",
@@ -33,11 +75,9 @@ fn main() {
 
     let ament_prefix_paths = get_search_paths().unwrap_or_default();
 
-    for ament_prefix_path in &ament_prefix_paths {
-        // Link the native libraries
-        let library_path = PathBuf::from(ament_prefix_path).join("lib");
-        println!("cargo:rustc-link-search=native={}", library_path.display());
-    }
+    link_search_paths(&ament_prefix_paths);
+    println!("cargo:rerun-if-env-changed=AMENT_PREFIX_PATH");
+    println!("cargo:rerun-if-changed=build.rs");
 
     [
         "rcl",

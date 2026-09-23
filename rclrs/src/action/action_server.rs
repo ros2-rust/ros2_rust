@@ -1,9 +1,9 @@
 use super::empty_goal_status_array;
 use crate::{
     action::GoalUuid, error::ToResult, rcl_bindings::*, ActionGoalReceiver, CancelResponseCode,
-    DropGuard, GoalStatusCode, Node, NodeHandle, QoSProfile, RclPrimitive, RclPrimitiveHandle,
-    RclPrimitiveKind, RclrsError, ReadyKind, TakeFailedAsNone, Waitable, WaitableLifecycle,
-    ENTITY_LIFECYCLE_MUTEX,
+    Clock, DropGuard, GoalStatusCode, Node, NodeHandle, QoSProfile, RclPrimitive,
+    RclPrimitiveHandle, RclPrimitiveKind, RclrsError, ReadyKind, TakeFailedAsNone, Waitable,
+    WaitableLifecycle, ENTITY_LIFECYCLE_MUTEX,
 };
 use futures::future::BoxFuture;
 use ros_env::action_msgs::srv::CancelGoal_Response;
@@ -29,7 +29,7 @@ mod cancellation_state;
 use cancellation_state::*;
 
 mod cancelling_goal;
-use cancelling_goal::*;
+pub use cancelling_goal::*;
 
 mod executing_goal;
 pub use executing_goal::*;
@@ -232,7 +232,7 @@ impl<A: Action> ActionServerState<A> {
     ///
     /// It is unusual to switch from an action server to an action goal receiver,
     /// so consider carefully whether this is what you really want to do. Usually
-    /// an action goal receiver is created by [`NodeState::create_action_goal_receiver`]
+    /// an action goal receiver is created by [`crate::NodeState::create_goal_receiver`]
     /// when the action server is being initialized.
     #[must_use]
     pub fn into_goal_receiver(self) -> ActionGoalReceiver<A> {
@@ -285,10 +285,10 @@ impl<A: Action> ActionServerState<A> {
             })?;
 
         let action_server_options = (&options).into();
+        let clock = node.get_clock();
 
         {
             let mut rcl_node = node.handle().rcl_node.lock().unwrap();
-            let clock = node.get_clock();
             let rcl_clock = clock.get_rcl_clock();
             let mut rcl_clock = rcl_clock.lock().unwrap();
             let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
@@ -315,7 +315,8 @@ impl<A: Action> ActionServerState<A> {
 
         let handle = Arc::new(ActionServerHandle {
             rcl_action_server: Mutex::new(rcl_action_server),
-            node_handle: Arc::clone(&node.handle()),
+            node_handle: Arc::clone(node.handle()),
+            _clock: clock,
             goals: Default::default(),
         });
 
@@ -410,7 +411,7 @@ impl<A: Action> ActionServerGoalBoard<A> {
         let (uuid, request) = <A as Action>::split_goal_request(request);
         let requested_goal = RequestedGoal::new(
             Arc::clone(self),
-            Arc::new(Message::from_rmw_message(request)),
+            Arc::new(Message::try_from_rmw_message(request)?),
             GoalUuid(uuid),
             goal_request_id,
         );
@@ -674,12 +675,26 @@ impl<A: Action> RclPrimitive for ActionServerExecutable<A> {
 /// [1]: <https://doc.rust-lang.org/reference/destructors.html>
 pub(crate) struct ActionServerHandle<A: Action> {
     rcl_action_server: Mutex<rcl_action_server_t>,
-    /// Ensure the node remains active while the action server is running.
-    #[allow(unused)]
+    /// Node retained through native server finalization.
     node_handle: Arc<NodeHandle>,
+    /// Clock borrowed by the native action expiry timer.
+    _clock: Clock,
     /// Ensure the `impl_*` of the action server goals remain valid until they
     /// have expired or until the rcl_action_server_t gets fini-ed.
     goals: Mutex<HashMap<GoalUuid, Arc<ActionServerGoalHandle<A>>>>,
+}
+
+impl<A: Action> Drop for ActionServerHandle<A> {
+    fn drop(&mut self) {
+        // Release native goal handles before finalizing the server.
+        self.goals.get_mut().unwrap().clear();
+        let mut node = self.node_handle.rcl_node.lock().unwrap();
+        let _lifecycle = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
+        unsafe {
+            // SAFETY: this is the final owner; the node and clock remain live.
+            rcl_action_server_fini(self.rcl_action_server.get_mut().unwrap(), &mut *node);
+        }
+    }
 }
 
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
@@ -795,4 +810,41 @@ enum TerminalStatus {
     Succeeded = 4,
     Cancelled = 5,
     Aborted = 6,
+}
+
+#[cfg(test)]
+mod lifecycle_tests {
+    use super::*;
+    use crate::{Context, CreateBasicExecutor};
+    use ros_env::test_msgs::action::Fibonacci;
+
+    #[test]
+    fn native_server_retains_clock_after_node_state_drops() {
+        let executor = Context::default().create_basic_executor();
+        let node = executor.create_node("action_clock_lifetime").unwrap();
+        let node_lifetime = Arc::downgrade(&node);
+        let clock_lifetime = Arc::downgrade(node.get_clock().get_rcl_clock());
+        let server = node
+            .create_action_server(
+                "action_clock_lifetime",
+                |goal: RequestedGoal<Fibonacci>| async move { goal.reject() },
+            )
+            .unwrap();
+        let native = Arc::clone(&server.board.handle);
+        drop(server);
+        drop(node);
+        drop(executor);
+        let deadline = std::time::Instant::now() + Duration::from_secs(2);
+        while node_lifetime.upgrade().is_some() {
+            assert!(
+                std::time::Instant::now() < deadline,
+                "node state was retained"
+            );
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        assert!(clock_lifetime.upgrade().is_some());
+        native.publish_status().unwrap();
+        drop(native);
+        assert!(clock_lifetime.upgrade().is_none());
+    }
 }

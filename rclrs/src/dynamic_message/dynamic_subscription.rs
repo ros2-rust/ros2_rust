@@ -233,7 +233,7 @@ impl<Payload: 'static> RclPrimitive for DynamicSubscriptionExecutable<Payload> {
         RclPrimitiveKind::Subscription
     }
 
-    fn handle(&self) -> RclPrimitiveHandle {
+    fn handle(&self) -> RclPrimitiveHandle<'_> {
         RclPrimitiveHandle::Subscription(self.handle.lock())
     }
 }
@@ -351,12 +351,12 @@ where
         let options_fini_result =
             unsafe { rcl_subscription_options_fini(&mut rcl_subscription_options).ok() };
         init_result?;
-        options_fini_result?;
 
         let handle = Arc::new(SubscriptionHandle {
             rcl_subscription: Mutex::new(rcl_subscription),
             node_handle: Arc::clone(node_handle),
         });
+        options_fini_result?;
 
         let callback = Arc::new(Mutex::new(callback.into()));
         let metadata = Arc::new(metadata);
@@ -475,5 +475,38 @@ mod tests {
             expected_subscriptions_info
         );
         Ok(())
+    }
+
+    #[test]
+    #[cfg(ros_distro = "rolling")]
+    fn dynamic_buffer_backend_options_reject_nul_and_recover_after_init_failure() {
+        use crate::*;
+        let executor = Context::default().create_basic_executor();
+        let node = executor
+            .create_node("dynamic_buffer_option_errors")
+            .unwrap();
+        let result = node.create_dynamic_subscription(
+            "test_msgs/msg/Empty".try_into().unwrap(),
+            SubscriptionOptions::new("dynamic_options").acceptable_buffer_backends("cuda\0cpu"),
+            |_, _| {},
+        );
+        assert!(matches!(result, Err(RclrsError::StringContainsNul { .. })));
+        assert!(node
+            .create_dynamic_subscription(
+                "test_msgs/msg/Empty".try_into().unwrap(),
+                SubscriptionOptions::new("invalid topic").acceptable_buffer_backends("cuda"),
+                |_, _| {},
+            )
+            .is_err());
+        let backends = String::from("cuda");
+        let subscription = node
+            .create_dynamic_subscription(
+                "test_msgs/msg/Empty".try_into().unwrap(),
+                SubscriptionOptions::new("dynamic_options").acceptable_buffer_backends(&backends),
+                |_, _| {},
+            )
+            .unwrap();
+        drop(backends);
+        assert!(subscription.topic_name().ends_with("dynamic_options"));
     }
 }

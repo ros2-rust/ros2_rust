@@ -5,7 +5,7 @@ use std::{
     sync::{Arc, Mutex, MutexGuard},
 };
 
-use rosidl_runtime_rs::{Message, Service as ServiceIDL};
+use rosidl_runtime_rs::{Message, RmwMessage, Service as ServiceIDL};
 
 use crate::{
     error::ToResult, rcl_bindings::*, Clock, IntoPrimitiveOptions, MessageCow, Node, NodeHandle,
@@ -376,7 +376,10 @@ impl ServiceHandle {
             )
         }
         .ok()?;
-        Ok((T::Request::from_rmw_message(request_out), request_id_out))
+        Ok((
+            T::Request::try_from_rmw_message(request_out)?,
+            request_id_out,
+        ))
     }
 
     /// Same as [`Self::take_request`] but includes additional info about the service
@@ -396,7 +399,10 @@ impl ServiceHandle {
             )
         }
         .ok()?;
-        Ok((T::Request::from_rmw_message(request_out), service_info_out))
+        Ok((
+            T::Request::try_from_rmw_message(request_out)?,
+            service_info_out,
+        ))
     }
 
     fn send_response<T: ServiceIDL>(
@@ -404,14 +410,17 @@ impl ServiceHandle {
         request_id: &mut rmw_request_id_t,
         response: T::Response,
     ) -> Result<(), RclrsError> {
-        let rmw_message = <T::Response as Message>::into_rmw_message(response.into_cow());
+        // Service serialization consumes contiguous native sequences.
+        let rmw_message = <T::Response as Message>::into_rmw_message(response.into_cow())
+            .into_owned()
+            .try_into_cpu()?;
         let handle = &*self.lock();
         unsafe {
             // SAFETY: The response type is guaranteed to match the service type by the type system.
             rcl_send_response(
                 handle,
                 request_id,
-                rmw_message.as_ref() as *const <T::Response as Message>::RmwMsg as *mut _,
+                &rmw_message as *const <T::Response as Message>::RmwMsg as *mut _,
             )
         }
         .ok()

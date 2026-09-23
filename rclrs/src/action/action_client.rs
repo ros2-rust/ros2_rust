@@ -6,7 +6,9 @@ use crate::{
     Waitable, WaitableLifecycle, ENTITY_LIFECYCLE_MUTEX,
 };
 use ros_env::{action_msgs::srv::CancelGoal_Response, builtin_interfaces::msg::Time};
-use rosidl_runtime_rs::{Action, Message, RmwFeedbackMessage, RmwGoalResponse, RmwResultResponse};
+use rosidl_runtime_rs::{
+    Action, Message, RmwFeedbackMessage, RmwGoalResponse, RmwMessage, RmwResultResponse,
+};
 use std::{
     any::Any,
     borrow::{Borrow, Cow},
@@ -41,7 +43,7 @@ pub use requested_goal_client::*;
 /// `ActionClientOptions` are used by [`Node::create_action_client`][1] to initialize an
 /// [`ActionClient`].
 ///
-/// [1]: crate::Node::create_action_client
+/// [1]: crate::NodeState::create_action_client
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub struct ActionClientOptions<'a> {
@@ -147,7 +149,7 @@ impl<'a> From<&'_ ActionClientOptions<'a>> for rcl_action_client_options_t {
 /// Receiving feedback and results requires the node's executor to [spin][2].
 ///
 /// [1]: crate::NodeState::create_action_client
-/// [2]: crate::spin
+/// [2]: crate::Executor::spin
 pub type ActionClient<A> = Arc<ActionClientState<A>>;
 
 /// The inner state of an [`ActionClient`].
@@ -407,7 +409,7 @@ impl<A: Action> ActionClientGoalBoard<A> {
         };
 
         let (goal_uuid, feedback) = A::split_feedback_message(feedback_rmw);
-        let feedback: A::Feedback = Message::from_rmw_message(feedback);
+        let feedback: A::Feedback = Message::try_from_rmw_message(feedback)?;
         if let Some(senders) = self
             .feedback_senders
             .lock()
@@ -568,7 +570,7 @@ impl<A: Action> ActionClientGoalBoard<A> {
             return Ok(());
         };
 
-        let result = Message::from_rmw_message(result);
+        let result = Message::try_from_rmw_message(result)?;
         let _ = sender.send((status_code, result));
         Ok(())
     }
@@ -579,7 +581,9 @@ impl<A: Action> ActionClientGoalBoard<A> {
         goal: A::Goal,
     ) -> Result<RequestedGoalClient<A>, RclrsError> {
         let goal_id: GoalUuid = uuid::Uuid::new_v4().as_bytes().into();
-        let goal_rmw = <A::Goal as Message>::into_rmw_message(Cow::Owned(goal)).into_owned();
+        let goal_rmw = <A::Goal as Message>::into_rmw_message(Cow::Owned(goal))
+            .into_owned()
+            .try_into_cpu()?;
         let request = A::create_goal_request(&*goal_id, goal_rmw);
 
         let mut seq: i64 = 0;
@@ -997,7 +1001,7 @@ impl ActionClientHandle {
         }
         .ok()?;
 
-        let result = Message::from_rmw_message(result_rmw);
+        let result = Message::try_from_rmw_message(result_rmw)?;
         Ok((result, header))
     }
 }

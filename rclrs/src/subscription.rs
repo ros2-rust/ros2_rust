@@ -193,12 +193,12 @@ where
         let options_fini_result =
             unsafe { rcl_subscription_options_fini(&mut rcl_subscription_options).ok() };
         init_result?;
-        options_fini_result?;
 
         let handle = Arc::new(SubscriptionHandle {
             rcl_subscription: Mutex::new(rcl_subscription),
             node_handle: Arc::clone(node_handle),
         });
+        options_fini_result?;
 
         let (waitable, lifecycle) = Waitable::new(
             Box::new(SubscriptionExecutable {
@@ -393,7 +393,7 @@ impl SubscriptionHandle {
     fn take<T: Message>(&self) -> Result<(T, MessageInfo), RclrsError> {
         let mut rmw_message = <T as Message>::RmwMsg::default();
         let message_info = Self::take_inner::<T>(self, &mut rmw_message)?;
-        Ok((T::from_rmw_message(rmw_message), message_info))
+        Ok((T::try_from_rmw_message(rmw_message)?, message_info))
     }
 
     /// This is a version of take() that returns a boxed message.
@@ -404,7 +404,7 @@ impl SubscriptionHandle {
         let message_info = Self::take_inner::<T>(self, &mut *rmw_message)?;
         // TODO: This will still use the stack in general. Change signature of
         // from_rmw_message to allow placing the result in a Box directly.
-        let message = Box::new(T::from_rmw_message(*rmw_message));
+        let message = Box::new(T::try_from_rmw_message(*rmw_message)?);
         Ok((message, message_info))
     }
 
@@ -771,5 +771,34 @@ mod tests {
         let qos = subscription.qos();
         assert_eq!(expected_qos.reliability, qos.reliability);
         assert_eq!(qos.reliability, QoSReliabilityPolicy::BestEffort);
+    }
+
+    #[test]
+    #[cfg(ros_distro = "rolling")]
+    fn buffer_backend_options_reject_nul_and_recover_after_init_failure() {
+        use crate::*;
+        use ros_env::example_interfaces::msg::Empty;
+        let executor = Context::default().create_basic_executor();
+        let node = executor.create_node("static_buffer_option_errors").unwrap();
+        let result = node.create_subscription(
+            SubscriptionOptions::new("buffer_options").acceptable_buffer_backends("cuda\0cpu"),
+            |_: Empty| {},
+        );
+        assert!(matches!(result, Err(RclrsError::StringContainsNul { .. })));
+        assert!(node
+            .create_subscription(
+                SubscriptionOptions::new("invalid topic").acceptable_buffer_backends("cuda"),
+                |_: Empty| {},
+            )
+            .is_err());
+        let backends = String::from("cuda");
+        let subscription = node
+            .create_subscription(
+                SubscriptionOptions::new("buffer_options").acceptable_buffer_backends(&backends),
+                |_: Empty| {},
+            )
+            .unwrap();
+        drop(backends);
+        assert!(subscription.topic_name().ends_with("buffer_options"));
     }
 }

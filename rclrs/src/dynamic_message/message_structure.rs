@@ -47,7 +47,7 @@ pub enum BaseType {
 /// That is, the base types exist as single values, arrays, bounded sequences and unbounded sequences.
 ///
 /// [1]: crate::dynamic_message::DynamicMessage
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, Eq)]
 pub struct MessageFieldInfo {
     /// The field name.
     pub name: String,
@@ -59,6 +59,21 @@ pub struct MessageFieldInfo {
     pub(crate) resize_function:
         Option<unsafe extern "C" fn(arg1: *mut std::os::raw::c_void, size: usize) -> bool>,
     pub(crate) offset: usize,
+}
+
+impl PartialEq for MessageFieldInfo {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name
+            && self.base_type == other.base_type
+            && self.value_kind == other.value_kind
+            && self.string_upper_bound == other.string_upper_bound
+            && self.offset == other.offset
+            && match (self.resize_function, other.resize_function) {
+                (Some(lhs), Some(rhs)) => std::ptr::fn_addr_eq(lhs, rhs),
+                (None, None) => true,
+                _ => false,
+            }
+    }
 }
 
 type ResizeFunction = Option<unsafe extern "C" fn(arg1: *mut c_void, size: usize) -> bool>;
@@ -231,8 +246,7 @@ impl BaseType {
 // ========================= impl for MessageFieldInfo =========================
 
 impl MessageFieldInfo {
-    // That function must be unsafe, since it is possible to safely create a garbage non-null
-    // pointer and store it in a rosidl_message_member_t.
+    #[cfg(any(ros_distro = "humble", ros_distro = "jazzy", ros_distro = "kilted"))]
     unsafe fn from(rosidl_message_member: &rosidl_message_member_t) -> Self {
         Self::from_parts(
             rosidl_message_member.name_,
@@ -310,15 +324,19 @@ impl MessageFieldInfo {
 impl MessageFieldInfo {
     /// Returns the size of the field in the message.
     ///
-    /// For sequences, it's the size of the sequence struct (ptr + size + capacity),
-    /// not the size that the elements take up in memory.
+    /// Sequences occupy their native owner layout; elements are stored separately.
     pub(crate) fn size(&self) -> Option<usize> {
         match self.value_kind {
             ValueKind::Simple => self.base_type.size(),
             ValueKind::Array { length } => self.base_type.size().map(|size| length * size),
-            ValueKind::Sequence | ValueKind::BoundedSequence { .. } => {
-                Some(std::mem::size_of::<TypeErasedSequence>())
-            }
+            ValueKind::Sequence | ValueKind::BoundedSequence { .. } => Some(match self.base_type {
+                BaseType::String
+                | BaseType::BoundedString { .. }
+                | BaseType::WString
+                | BaseType::BoundedWString { .. }
+                | BaseType::Message(_) => mem::size_of::<TypeErasedSequence>(),
+                _ => mem::size_of::<rosidl_runtime_rs::PrimitiveSequence<u8>>(),
+            }),
         }
     }
 }

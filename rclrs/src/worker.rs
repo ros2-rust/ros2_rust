@@ -147,24 +147,23 @@ impl<Payload: 'static + Send + Sync> WorkerState<Payload> {
         let mut captured_sender = Some(sender);
         let listener = ActivityListener::new(ActivityListenerCallback::Inert);
 
-        // We capture the listener so that its lifecycle is tied to the success
-        // of the callback.
-        let mut _captured_listener = Some(listener.clone());
+        // Retain the listener until the callback resolves or the receiver closes.
+        let mut captured_listener = Some(listener.clone());
         listener.set_callback(move |payload| {
             if let Some(sender) = captured_sender.take() {
                 if sender.is_canceled() {
-                    _captured_listener = None;
+                    drop(captured_listener.take());
                     return;
                 }
 
                 if let Some(out) = f(payload) {
                     sender.send(out).ok();
-                    _captured_listener = None;
+                    drop(captured_listener.take());
                 } else {
                     captured_sender = Some(sender);
                 }
             } else {
-                _captured_listener = None;
+                drop(captured_listener.take());
             }
         });
 
@@ -273,7 +272,7 @@ impl<Payload: 'static + Send + Sync> WorkerState<Payload> {
 
     /// Creates a [`WorkerDynamicSubscription`], whose message type is only known at runtime.
     ///
-    /// Refer to ['Worker::create_subscription`] for the API and behavior except two key
+    /// Refer to [`Self::create_subscription`] for the API and behavior except two key
     /// differences:
     ///
     ///   - The message type is determined at runtime through the `topic_type` function parameter.
