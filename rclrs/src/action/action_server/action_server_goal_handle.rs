@@ -148,8 +148,8 @@ impl<A: Action> ResponseState<A> {
             let action_server = action_server_handle.lock();
 
             // Respond to all queued requests.
-            for mut result_request in result_requests {
-                Self::send_result(&*action_server, &mut result_request, &mut result)?;
+            for result_request in result_requests {
+                Self::send_result(&action_server, result_request, &mut result)?;
             }
         }
 
@@ -168,7 +168,7 @@ impl<A: Action> ResponseState<A> {
             }
             Self::Available(result) => {
                 let action_server = action_server_handle.lock();
-                Self::send_result(&*action_server, &mut result_request, result)?;
+                Self::send_result(&action_server, &mut result_request, result)?;
             }
         }
         Ok(())

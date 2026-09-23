@@ -95,7 +95,7 @@ pub struct ParameterBuilder<'a, T: ParameterVariant> {
     discriminator: DiscriminatorFunction<'a, T>,
     options: ParameterOptions<T>,
     interface: &'a ParameterInterface,
-    validate: Option<Arc<dyn Fn(&T) -> Result<(), String> + Send + Sync>>,
+    validate: Option<TypedValidateCallback<T>>,
 }
 
 impl<'a, T: ParameterVariant> ParameterBuilder<'a, T> {
@@ -275,6 +275,7 @@ pub fn default_initial_value_discriminator<T: ParameterVariant>(
 }
 
 type DiscriminatorFunction<'a, T> = Box<dyn FnOnce(AvailableValues<T>) -> Option<T> + 'a>;
+type TypedValidateCallback<T> = Arc<dyn Fn(&T) -> Result<(), String> + Send + Sync>;
 
 /// Wraps a typed validate callback into a type-erased one that operates on `ParameterValue`.
 ///
@@ -282,7 +283,7 @@ type DiscriminatorFunction<'a, T> = Box<dyn FnOnce(AvailableValues<T>) -> Option
 /// `validate_parameter_setting` which checks the type discriminant first,
 /// and from `Parameters::set()` which checks `T::kind() == param.kind`.
 fn wrap_validate_callback<T: ParameterVariant>(
-    callback: Arc<dyn Fn(&T) -> Result<(), String> + Send + Sync>,
+    callback: TypedValidateCallback<T>,
 ) -> ValidateCallback {
     Arc::new(move |pv: &ParameterValue| {
         let typed: T = pv.clone().try_into().ok().expect(
@@ -352,7 +353,7 @@ pub struct MandatoryParameter<T: ParameterVariant> {
     ranges: ParameterRanges,
     map: Weak<Mutex<ParameterMap>>,
     change_tx: watch::Sender<()>,
-    validate: Option<Arc<dyn Fn(&T) -> Result<(), String> + Send + Sync>>,
+    validate: Option<TypedValidateCallback<T>>,
     _marker: PhantomData<T>,
 }
 
@@ -439,7 +440,7 @@ pub struct OptionalParameter<T: ParameterVariant> {
     ranges: ParameterRanges,
     map: Weak<Mutex<ParameterMap>>,
     change_tx: watch::Sender<()>,
-    validate: Option<Arc<dyn Fn(&T) -> Result<(), String> + Send + Sync>>,
+    validate: Option<TypedValidateCallback<T>>,
     _marker: PhantomData<T>,
 }
 
@@ -1032,12 +1033,12 @@ impl Parameters<'_> {
     ///
     /// Returns:
     /// * `Ok(())` if setting was successful.
-    /// * [`Err(ParameterValueError::TypeMismatch)`] if the type of the requested value is different
+    /// * `Err(`[`ParameterValueError::TypeMismatch`]`)` if the type of the requested value is different
     ///   from the parameter's type.
-    /// * [`Err(ParameterValueError::OutOfRange)`] if the requested value is out of the parameter's
+    /// * `Err(`[`ParameterValueError::OutOfRange`]`)` if the requested value is out of the parameter's
     ///   range.
-    /// * [`Err(ParameterValueError::ReadOnly)`] if the parameter is read only.
-    /// * [`Err(ParameterValueError::ValidationFailed)`] if the validate callback rejects the value.
+    /// * `Err(`[`ParameterValueError::ReadOnly`]`)` if the parameter is read only.
+    /// * `Err(`[`ParameterValueError::ValidationFailed`]`)` if the validate callback rejects the value.
     pub fn set<T: ParameterVariant>(
         &self,
         name: impl Into<Arc<str>>,
