@@ -1,3 +1,6 @@
+// Copyright 2026 Open Source Robotics Foundation, Inc.
+// SPDX-License-Identifier: Apache-2.0
+
 //! Receive images as CPU-backed buffers.
 use std::borrow::Cow;
 

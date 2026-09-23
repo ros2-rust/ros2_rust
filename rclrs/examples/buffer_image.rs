@@ -1,3 +1,6 @@
+// Copyright 2026 Open Source Robotics Foundation, Inc.
+// SPDX-License-Identifier: Apache-2.0
+
 //! Convert a CPU-backed buffer image into the existing CPU representation.
 use ros_env::sensor_msgs::msg::{buffer, Image};
 

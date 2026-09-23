@@ -1,3 +1,6 @@
+// Copyright 2026 Open Source Robotics Foundation, Inc.
+// SPDX-License-Identifier: Apache-2.0
+
 use rclrs::{
     BoundedSequenceValue, BoundedSequenceValueMut, DynamicMessage, SequenceValue, SequenceValueMut,
     Value, ValueMut,
