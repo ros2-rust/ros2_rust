@@ -133,7 +133,6 @@ where
     ) -> Result<Arc<Self>, RclrsError> {
         let options = options.into();
         let topic = options.topic;
-        let qos = options.qos;
         let callback = Arc::new(Mutex::new(callback));
 
         // SAFETY: Getting a zero-initialized value is always safe.
@@ -145,32 +144,9 @@ where
             s: topic.into(),
         })?;
 
-        // SAFETY: No preconditions for this function.
-        let mut rcl_subscription_options = unsafe { rcl_subscription_get_default_options() };
-        rcl_subscription_options.qos = qos.into();
-        #[cfg(ros_distro = "rolling")]
-        if let Some(backends) = options.acceptable_buffer_backends {
-            let backends_c_string =
-                CString::new(backends).map_err(|err| RclrsError::StringContainsNul {
-                    err,
-                    s: backends.into(),
-                })?;
-            let set_result = unsafe {
-                rcl_subscription_options_set_acceptable_buffer_backends(
-                    backends_c_string.as_ptr(),
-                    &mut rcl_subscription_options,
-                )
-                .ok()
-            };
-            if let Err(error) = set_result {
-                unsafe {
-                    rcl_subscription_options_fini(&mut rcl_subscription_options);
-                }
-                return Err(error);
-            }
-        }
+        let rcl_subscription_options = options.to_rcl_options()?;
 
-        let init_result = {
+        {
             let rcl_node = node_handle.rcl_node.lock().unwrap();
             let _lifecycle_lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
             unsafe {
@@ -185,20 +161,16 @@ where
                     &*rcl_node,
                     type_support,
                     topic_c_string.as_ptr(),
-                    &rcl_subscription_options,
+                    &*rcl_subscription_options,
                 )
-                .ok()
+                .ok()?;
             }
-        };
-        let options_fini_result =
-            unsafe { rcl_subscription_options_fini(&mut rcl_subscription_options).ok() };
-        init_result?;
+        }
 
         let handle = Arc::new(SubscriptionHandle {
             rcl_subscription: Mutex::new(rcl_subscription),
             node_handle: Arc::clone(node_handle),
         });
-        options_fini_result?;
 
         let (waitable, lifecycle) = Waitable::new(
             Box::new(SubscriptionExecutable {
@@ -280,6 +252,36 @@ pub struct SubscriptionOptions<'a> {
 }
 
 impl<'a> SubscriptionOptions<'a> {
+    pub(crate) fn to_rcl_options(
+        &self,
+    ) -> Result<crate::DropGuard<rcl_subscription_options_t>, RclrsError> {
+        // SAFETY: default options are initialized and finalized exactly once.
+        let mut options = crate::DropGuard::new(
+            unsafe { rcl_subscription_get_default_options() },
+            |mut options| unsafe {
+                let _ = rcl_subscription_options_fini(&mut options);
+            },
+        );
+        options.qos = self.qos.into();
+        #[cfg(ros_distro = "rolling")]
+        if let Some(backends) = self.acceptable_buffer_backends {
+            let backends_c_string =
+                CString::new(backends).map_err(|err| RclrsError::StringContainsNul {
+                    err,
+                    s: backends.into(),
+                })?;
+            // SAFETY: the setter copies the string into these initialized options.
+            unsafe {
+                rcl_subscription_options_set_acceptable_buffer_backends(
+                    backends_c_string.as_ptr(),
+                    &mut *options,
+                )
+                .ok()?;
+            }
+        }
+        Ok(options)
+    }
+
     /// Initialize a new [`SubscriptionOptions`] with default settings.
     pub fn new(topic: &'a str) -> Self {
         Self {
