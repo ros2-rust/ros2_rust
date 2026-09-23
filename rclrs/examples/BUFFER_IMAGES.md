@@ -1,3 +1,8 @@
+<!--
+Copyright 2026 Open Source Robotics Foundation, Inc.
+SPDX-License-Identifier: Apache-2.0
+-->
+
 # CPU image buffers
 
 These snippets use an existing ROS `node`. `process_pixels` represents CPU work

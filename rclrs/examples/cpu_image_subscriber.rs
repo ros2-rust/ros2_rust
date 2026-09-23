@@ -1,3 +1,6 @@
+// Copyright 2026 Open Source Robotics Foundation, Inc.
+// SPDX-License-Identifier: Apache-2.0
+
 //! Receive host pixels through the existing Image API.
 use rclrs::{Context, CreateBasicExecutor, RclrsErrorFilter, SpinOptions};
 use ros_env::sensor_msgs::msg::Image;

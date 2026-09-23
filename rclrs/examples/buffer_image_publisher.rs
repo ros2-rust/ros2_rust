@@ -1,3 +1,6 @@
+// Copyright 2026 Open Source Robotics Foundation, Inc.
+// SPDX-License-Identifier: Apache-2.0
+
 //! Publish CPU-backed images using the opt-in buffer representation.
 use std::time::Duration;
 
