@@ -91,7 +91,10 @@ impl AllGuardConditions {
 
 impl ExecutorRuntime for BasicExecutorRuntime {
     fn spin(&mut self, conditions: SpinConditions) -> Vec<RclrsError> {
-        let conditions = self.process_spin_conditions(conditions);
+        // Tasks created for this spin hold a weak reference to this token so
+        // they can tell whether this spin is still running.
+        let spin_token = Arc::new(());
+        let conditions = self.process_spin_conditions(conditions, Arc::downgrade(&spin_token));
 
         let new_workers = self.new_worker_receiver.take().expect(
             "Basic executor was missing its new_worker_receiver at the start of its spinning. \
@@ -217,12 +220,25 @@ impl BasicExecutorRuntime {
         }
     }
 
-    fn process_spin_conditions(&self, mut conditions: SpinConditions) -> WaitSetRunConditions {
+    fn process_spin_conditions(
+        &self,
+        mut conditions: SpinConditions,
+        spin_token: Weak<()>,
+    ) -> WaitSetRunConditions {
         if let Some(promise) = conditions.options.until_promise_resolved.take() {
             let halt_spinning = Arc::clone(&conditions.halt_spinning);
             let all_guard_conditions = self.all_guard_conditions.clone();
             self.task_sender.add_async_task(Box::pin(async move {
-                if let Err(err) = promise.await {
+                let result = promise.await;
+
+                // Async tasks are only polled while the executor is spinning,
+                // so if the token is gone then the spin that created this task
+                // has already ended and a later spin must not be halted.
+                if spin_token.upgrade().is_none() {
+                    return;
+                }
+
+                if let Err(err) = result {
                     log_warn!(
                         "rclrs.executor.basic_executor",
                         "Sender for SpinOptions::until_promise_resolved was \
