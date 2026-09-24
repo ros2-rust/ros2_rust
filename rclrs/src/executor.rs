@@ -15,7 +15,7 @@ use std::{
     future::Future,
     sync::{
         atomic::{AtomicBool, Ordering},
-        Arc,
+        Arc, Mutex,
     },
     time::Duration,
 };
@@ -52,9 +52,7 @@ impl Executor {
     /// Executor to keep spinning indefinitely.
     pub fn spin(&mut self, options: SpinOptions) -> Vec<RclrsError> {
         let conditions = self.make_spin_conditions(options);
-        let result = self.runtime.spin(conditions);
-        self.commands.halt_spinning.store(false, Ordering::Release);
-        result
+        self.runtime.spin(conditions)
     }
 
     /// Spin the Executor as an async task. This does not block the current thread.
@@ -75,7 +73,6 @@ impl Executor {
         } = self;
 
         let (runtime, result) = runtime.spin_async(conditions).await;
-        commands.halt_spinning.store(false, Ordering::Release);
 
         (
             Self {
@@ -107,7 +104,7 @@ impl Executor {
                 handle: Arc::clone(&context),
             },
             executor_channel,
-            halt_spinning: Arc::new(AtomicBool::new(false)),
+            current_halt: Mutex::new(Arc::new(AtomicBool::new(false))),
             async_worker_commands,
         });
 
@@ -119,10 +116,11 @@ impl Executor {
     }
 
     fn make_spin_conditions(&self, options: SpinOptions) -> SpinConditions {
-        self.commands.halt_spinning.store(false, Ordering::Release);
+        let halt_spinning = Arc::new(AtomicBool::new(false));
+        *self.commands.current_halt.lock().unwrap() = Arc::clone(&halt_spinning);
         SpinConditions {
             options,
-            halt_spinning: Arc::clone(&self.commands.halt_spinning),
+            halt_spinning,
             context: Context {
                 handle: Arc::clone(&self.context),
             },
@@ -136,7 +134,8 @@ pub struct ExecutorCommands {
     context: Context,
     executor_channel: Arc<dyn ExecutorChannel>,
     async_worker_commands: Arc<WorkerCommands>,
-    halt_spinning: Arc<AtomicBool>,
+    /// Halt flag of the most recent spin.
+    current_halt: Mutex<Arc<AtomicBool>>,
 }
 
 impl ExecutorCommands {
@@ -151,7 +150,10 @@ impl ExecutorCommands {
 
     /// Tell the [`Executor`] to halt its spinning.
     pub fn halt_spinning(&self) {
-        self.halt_spinning.store(true, Ordering::Release);
+        self.current_halt
+            .lock()
+            .unwrap()
+            .store(true, Ordering::Release);
         self.executor_channel.wake_all_wait_sets();
     }
 
@@ -491,7 +493,7 @@ impl CreateBasicExecutor for Context {
 #[cfg(test)]
 mod tests {
     use crate::*;
-    use std::time::Duration;
+    use std::{sync::Arc, time::Duration};
 
     #[test]
     fn test_timeout() {
@@ -512,5 +514,48 @@ mod tests {
                 }
             ));
         }
+    }
+
+    #[test]
+    fn test_stale_promise_does_not_halt_later_spin() {
+        let context = Context::default();
+        let mut executor = context.create_basic_executor();
+        let _node = executor
+            .create_node(&format!("test_stale_promise_{}", line!()))
+            .unwrap();
+
+        // The first spin times out while its promise is still pending.
+        let (sender, promise) = futures::channel::oneshot::channel::<()>();
+        executor.spin(
+            SpinOptions::default()
+                .until_promise_resolved(promise)
+                .timeout(Duration::from_millis(50)),
+        );
+
+        // Resolving the promise afterwards must not affect the next spin.
+        sender.send(()).unwrap();
+
+        let start = std::time::Instant::now();
+        executor.spin(SpinOptions::default().timeout(Duration::from_millis(500)));
+        assert!(start.elapsed() >= Duration::from_millis(400));
+    }
+
+    #[test]
+    fn test_halt_spinning_stops_current_spin() {
+        let context = Context::default();
+        let mut executor = context.create_basic_executor();
+        let _node = executor
+            .create_node(&format!("test_halt_spinning_{}", line!()))
+            .unwrap();
+
+        let commands = Arc::clone(executor.commands());
+        std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(100));
+            commands.halt_spinning();
+        });
+
+        let start = std::time::Instant::now();
+        executor.spin(SpinOptions::default().timeout(Duration::from_secs(5)));
+        assert!(start.elapsed() < Duration::from_secs(4));
     }
 }
