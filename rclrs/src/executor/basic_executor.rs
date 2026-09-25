@@ -10,7 +10,7 @@ use futures::{
 };
 use std::{
     sync::{
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicU64, Ordering},
         mpsc::{channel, Receiver, Sender},
         Arc, Mutex, Weak,
     },
@@ -48,6 +48,7 @@ pub struct BasicExecutorRuntime {
     all_guard_conditions: AllGuardConditions,
     new_worker_receiver: Option<StreamFuture<UnboundedReceiver<WaitSetRunner>>>,
     new_worker_sender: UnboundedSender<WaitSetRunner>,
+    spin_count: Arc<AtomicU64>,
 }
 
 #[derive(Clone, Default)]
@@ -214,15 +215,24 @@ impl BasicExecutorRuntime {
             all_guard_conditions: AllGuardConditions::default(),
             new_worker_receiver: Some(new_worker_receiver.into_future()),
             new_worker_sender,
+            spin_count: Arc::new(AtomicU64::new(0)),
         }
     }
 
     fn process_spin_conditions(&self, mut conditions: SpinConditions) -> WaitSetRunConditions {
+        let this_spin = self.spin_count.fetch_add(1, Ordering::AcqRel) + 1;
         if let Some(promise) = conditions.options.until_promise_resolved.take() {
             let halt_spinning = Arc::clone(&conditions.halt_spinning);
             let all_guard_conditions = self.all_guard_conditions.clone();
+            let spin_count = Arc::clone(&self.spin_count);
             self.task_sender.add_async_task(Box::pin(async move {
-                if let Err(err) = promise.await {
+                let result = promise.await;
+
+                if spin_count.load(Ordering::Acquire) != this_spin {
+                    return;
+                }
+
+                if let Err(err) = result {
                     log_warn!(
                         "rclrs.executor.basic_executor",
                         "Sender for SpinOptions::until_promise_resolved was \

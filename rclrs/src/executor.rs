@@ -491,7 +491,7 @@ impl CreateBasicExecutor for Context {
 #[cfg(test)]
 mod tests {
     use crate::*;
-    use std::time::Duration;
+    use std::{sync::Arc, time::Duration};
 
     #[test]
     fn test_timeout() {
@@ -512,5 +512,46 @@ mod tests {
                 }
             ));
         }
+    }
+
+    #[test]
+    fn test_stale_promise_does_not_halt_later_spin() {
+        let context = Context::default();
+        let mut executor = context.create_basic_executor();
+        let _node = executor
+            .create_node(&format!("test_stale_promise_{}", line!()))
+            .unwrap();
+
+        let (sender, promise) = futures::channel::oneshot::channel::<()>();
+        executor.spin(
+            SpinOptions::default()
+                .until_promise_resolved(promise)
+                .timeout(Duration::from_millis(50)),
+        );
+
+        sender.send(()).unwrap();
+
+        let start = std::time::Instant::now();
+        executor.spin(SpinOptions::default().timeout(Duration::from_millis(500)));
+        assert!(start.elapsed() >= Duration::from_millis(400));
+    }
+
+    #[test]
+    fn test_halt_spinning_stops_current_spin() {
+        let context = Context::default();
+        let mut executor = context.create_basic_executor();
+        let _node = executor
+            .create_node(&format!("test_halt_spinning_{}", line!()))
+            .unwrap();
+
+        let commands = Arc::clone(executor.commands());
+        std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(100));
+            commands.halt_spinning();
+        });
+
+        let start = std::time::Instant::now();
+        executor.spin(SpinOptions::default().timeout(Duration::from_secs(5)));
+        assert!(start.elapsed() < Duration::from_secs(4));
     }
 }
