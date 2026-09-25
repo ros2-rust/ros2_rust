@@ -15,7 +15,7 @@ use std::{
     future::Future,
     sync::{
         atomic::{AtomicBool, Ordering},
-        Arc, Mutex,
+        Arc,
     },
     time::Duration,
 };
@@ -52,7 +52,9 @@ impl Executor {
     /// Executor to keep spinning indefinitely.
     pub fn spin(&mut self, options: SpinOptions) -> Vec<RclrsError> {
         let conditions = self.make_spin_conditions(options);
-        self.runtime.spin(conditions)
+        let result = self.runtime.spin(conditions);
+        self.commands.halt_spinning.store(false, Ordering::Release);
+        result
     }
 
     /// Spin the Executor as an async task. This does not block the current thread.
@@ -73,6 +75,7 @@ impl Executor {
         } = self;
 
         let (runtime, result) = runtime.spin_async(conditions).await;
+        commands.halt_spinning.store(false, Ordering::Release);
 
         (
             Self {
@@ -104,7 +107,7 @@ impl Executor {
                 handle: Arc::clone(&context),
             },
             executor_channel,
-            current_halt: Mutex::new(Arc::new(AtomicBool::new(false))),
+            halt_spinning: Arc::new(AtomicBool::new(false)),
             async_worker_commands,
         });
 
@@ -116,11 +119,10 @@ impl Executor {
     }
 
     fn make_spin_conditions(&self, options: SpinOptions) -> SpinConditions {
-        let halt_spinning = Arc::new(AtomicBool::new(false));
-        *self.commands.current_halt.lock().unwrap() = Arc::clone(&halt_spinning);
+        self.commands.halt_spinning.store(false, Ordering::Release);
         SpinConditions {
             options,
-            halt_spinning,
+            halt_spinning: Arc::clone(&self.commands.halt_spinning),
             context: Context {
                 handle: Arc::clone(&self.context),
             },
@@ -134,8 +136,7 @@ pub struct ExecutorCommands {
     context: Context,
     executor_channel: Arc<dyn ExecutorChannel>,
     async_worker_commands: Arc<WorkerCommands>,
-    /// Halt flag of the most recent spin.
-    current_halt: Mutex<Arc<AtomicBool>>,
+    halt_spinning: Arc<AtomicBool>,
 }
 
 impl ExecutorCommands {
@@ -150,10 +151,7 @@ impl ExecutorCommands {
 
     /// Tell the [`Executor`] to halt its spinning.
     pub fn halt_spinning(&self) {
-        self.current_halt
-            .lock()
-            .unwrap()
-            .store(true, Ordering::Release);
+        self.halt_spinning.store(true, Ordering::Release);
         self.executor_channel.wake_all_wait_sets();
     }
 
@@ -524,7 +522,6 @@ mod tests {
             .create_node(&format!("test_stale_promise_{}", line!()))
             .unwrap();
 
-        // The first spin times out while its promise is still pending.
         let (sender, promise) = futures::channel::oneshot::channel::<()>();
         executor.spin(
             SpinOptions::default()
@@ -532,7 +529,6 @@ mod tests {
                 .timeout(Duration::from_millis(50)),
         );
 
-        // Resolving the promise afterwards must not affect the next spin.
         sender.send(()).unwrap();
 
         let start = std::time::Instant::now();
