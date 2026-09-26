@@ -1,4 +1,4 @@
-use ament_rs::search_paths::get_search_paths;
+use ament_rs::{search_paths::get_search_paths, AMENT_PREFIX_PATH_ENV_VAR};
 use std::{env, path::PathBuf};
 
 const ROS_DISTRO: &str = "ROS_DISTRO";
@@ -32,6 +32,10 @@ fn main() {
     println!("cargo:rerun-if-env-changed={ROS_DISTRO}");
 
     let ament_prefix_paths = get_search_paths().unwrap_or_default();
+    // The link search paths below come from this variable. Declaring it is
+    // required, not optional: once a build script emits any rerun-if line,
+    // Cargo reruns it only for the listed triggers.
+    println!("cargo:rerun-if-env-changed={AMENT_PREFIX_PATH_ENV_VAR}");
 
     for ament_prefix_path in &ament_prefix_paths {
         // Link the native libraries
