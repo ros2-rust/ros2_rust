@@ -2,7 +2,7 @@ use std::{
     any::Any,
     collections::HashMap,
     ffi::{CStr, CString},
-    sync::{Arc, Mutex, MutexGuard},
+    sync::{atomic::AtomicBool, Arc, Mutex, MutexGuard},
 };
 
 use rosidl_runtime_rs::Message;
@@ -354,6 +354,7 @@ where
         let handle = Arc::new(ClientHandle {
             rcl_client: Mutex::new(rcl_client),
             node: Arc::clone(&node),
+            on_ready_slot: AtomicBool::new(false),
         });
 
         let board = Arc::new(Mutex::new(ClientRequestBoard::new()));
@@ -468,6 +469,39 @@ where
     fn kind(&self) -> RclPrimitiveKind {
         RclPrimitiveKind::Client
     }
+
+    fn register_on_ready(
+        &self,
+        on_ready: Box<dyn Fn(ReadyKind, usize) + Send + Sync>,
+    ) -> Result<Option<Box<dyn crate::OnReadyHandle>>, RclrsError> {
+        // A client has a single readiness path; report it as `Basic`.
+        let on_ready = move |n| on_ready(ReadyKind::Basic, n);
+        let registration = crate::executor::event_callback::OnReadyRegistration::new(
+            Arc::clone(&self.handle),
+            set_client_on_new_response,
+            client_on_ready_slot,
+            Box::new(on_ready),
+        )?;
+        Ok(Some(Box::new(registration)))
+    }
+}
+
+/// Install (or, with a null callback/user_data, clear) the "on new response"
+/// push callback used by the event-driven executor. Encapsulates the client
+/// lock and the rcl call within this module.
+unsafe fn set_client_on_new_response(
+    handle: &ClientHandle,
+    callback: rcl_event_callback_t,
+    user_data: *const std::os::raw::c_void,
+) -> rcl_ret_t {
+    rcl_client_set_on_new_response_callback(&*handle.lock(), callback, user_data)
+}
+
+/// The guard for the client's single "on new response" callback slot, paired
+/// with [`set_client_on_new_response`] so a push registration can enforce that
+/// only one callback owns the slot at a time.
+fn client_on_ready_slot(handle: &ClientHandle) -> &AtomicBool {
+    &handle.on_ready_slot
 }
 
 type SequenceNumber = i64;
@@ -581,6 +615,12 @@ struct ClientHandle {
     /// We store the whole node here because we use some of its user-facing API
     /// in some of the Client methods.
     node: Node,
+    /// Guards the single rcl "on new response" callback slot so only one push
+    /// registration can own it at a time. Selected via [`client_on_ready_slot`];
+    /// see [`OnReadySlotFn`].
+    ///
+    /// [`OnReadySlotFn`]: crate::executor::event_callback::OnReadySlotFn
+    on_ready_slot: AtomicBool,
 }
 
 impl ClientHandle {
