@@ -4,9 +4,8 @@
 // Further adapted from https://github.com/mvukov/rules_ros2/pull/371
 
 use std::{
-    cell::RefCell,
     collections::HashMap,
-    ffi::CString,
+    ffi::{CStr, CString},
     sync::{Mutex, OnceLock},
 };
 
@@ -312,36 +311,27 @@ macro_rules! log_unconditional {
     }}
 }
 
-/// Checks whether a log with this severity would be output by the logger.
-/// Don't call this directly, use the logging macros instead, i.e. [`log`].
 #[doc(hidden)]
 pub fn impl_log_enabled(severity: LogSeverity, logger_name: &LoggerName) -> bool {
     let severity = severity.as_native() as i32;
-    let is_enabled = |c_name: &CString| unsafe {
-        // SAFETY: c_name is a valid null-terminated string for the duration of the call.
-        rcutils_logging_logger_is_enabled_for(c_name.as_ptr(), severity)
-    };
+    let is_enabled =
+        |c_name: &CStr| unsafe { rcutils_logging_logger_is_enabled_for(c_name.as_ptr(), severity) };
 
     match logger_name {
         LoggerName::Validated(c_name) => is_enabled(c_name),
-        LoggerName::Unvalidated(str_name) => {
-            thread_local! {
-                static NAMES: RefCell<HashMap<String, CString>> = RefCell::default();
-            }
-            NAMES.with_borrow_mut(|names| {
-                if let Some(c_name) = names.get(*str_name) {
-                    return is_enabled(c_name);
-                }
-                match CString::new(*str_name) {
-                    Ok(c_name) => {
-                        let enabled = is_enabled(&c_name);
-                        names.insert(str_name.to_string(), c_name);
-                        enabled
-                    }
-                    // Let impl_log report the invalid logger name.
+        LoggerName::Unvalidated(name) => {
+            const STACK_LEN: usize = 128;
+            let bytes = name.as_bytes();
+            if bytes.len() < STACK_LEN {
+                let mut buf = [0u8; STACK_LEN];
+                buf[..bytes.len()].copy_from_slice(bytes);
+                match CStr::from_bytes_with_nul(&buf[..=bytes.len()]) {
+                    Ok(c_name) => is_enabled(c_name),
                     Err(_) => true,
                 }
-            })
+            } else {
+                CString::new(*name).map_or(true, |c_name| is_enabled(&c_name))
+            }
         }
     }
 }
