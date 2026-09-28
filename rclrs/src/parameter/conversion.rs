@@ -44,6 +44,9 @@ pub struct ParameterConversion<T> {
     /// What a value of this conversion may be, in words, for the descriptor's
     /// `additional_constraints`. Nothing enforces it, and a declaration that states its own wins.
     constraints: Option<Arc<str>>,
+    /// The bounds the representation itself imposes, such as the range a `u16` can hold. Used by
+    /// a declaration that sets no range of its own.
+    ranges: super::ParameterRanges,
     to_value: Arc<dyn Fn(&T) -> ParameterValue + Send + Sync>,
     from_value: Arc<dyn Fn(ParameterValue) -> Result<T, String> + Send + Sync>,
 }
@@ -55,6 +58,7 @@ impl<T> Clone for ParameterConversion<T> {
         Self {
             kind: self.kind,
             constraints: self.constraints.clone(),
+            ranges: self.ranges.clone(),
             to_value: Arc::clone(&self.to_value),
             from_value: Arc::clone(&self.from_value),
         }
@@ -89,6 +93,7 @@ macro_rules! conversion_constructor {
             ParameterConversion {
                 kind: ParameterKind::$variant,
                 constraints: ::core::option::Option::None,
+                ranges: ::core::default::Default::default(),
                 to_value: Arc::new(move |value| ParameterValue::$variant(to(value))),
                 from_value: Arc::new(move |value| match value {
                     ParameterValue::$variant(wire) => from(wire).map_err(|err| err.to_string()),
@@ -145,6 +150,11 @@ impl<T: 'static> ParameterConversion<T> {
         self.constraints.clone()
     }
 
+    /// The bounds the representation imposes on its own, before any the declaration adds.
+    pub fn ranges(&self) -> super::ParameterRanges {
+        self.ranges.clone()
+    }
+
     /// Converts a value into the parameter value that represents it.
     pub fn to_value(&self, value: &T) -> ParameterValue {
         (self.to_value)(value)
@@ -166,6 +176,8 @@ impl<T: ParameterVariant> ParameterConversion<T> {
         Self {
             kind: T::kind(),
             constraints: T::type_constraints(),
+            // A narrow type is bounded by what it can hold, whether or not a declaration says so.
+            ranges: <T::Range as Default>::default().into(),
             to_value: Arc::new(|value: &T| value.clone().into()),
             from_value: Arc::new(|value| T::try_from(value).map_err(|err| err.to_string())),
         }

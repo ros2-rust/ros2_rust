@@ -136,6 +136,18 @@ impl From<Arc<[Arc<str>]>> for ParameterValue {
 }
 
 /// A trait that describes a value that can be converted into a parameter.
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` cannot be used as a ROS 2 parameter",
+    label = "not a parameter type",
+    note = "the parameter types are bool, i64, f64, f32, i8, i16, i32, u8, u16, u32, String, \
+            PathBuf, ParameterValue, a Vec of any of those, and the Arc<[..]> forms of the ROS 2 \
+            array types",
+    note = "u64, usize, i128 and u128 are not among them because a parameter value is stored as \
+            an i64, and every way of handling a value outside its range would silently change it. \
+            Use i64, or u32 if the value must be unsigned",
+    note = "to use a type of your own, implement this trait for it, or give the declaration a \
+            `ParameterConversion` with `declare_parameter_with`"
+)]
 pub trait ParameterVariant:
     Into<ParameterValue> + Clone + TryFrom<ParameterValue, Error: std::fmt::Display> + 'static
 {
