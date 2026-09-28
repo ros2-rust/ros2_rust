@@ -125,8 +125,13 @@ pub(crate) unsafe fn resolve_parameter_overrides(
                 for (node_name, node_params) in RclParamsIter::new(rcl_params) {
                     if node_name == name_to_match {
                         for (param_name, variant) in RclNodeParamsIter::new(node_params) {
-                            let value = ParameterValue::from_rcl_variant(variant);
-                            map.insert(param_name, value);
+                            // Skip ambiguous variants (e.g. empty arrays whose element type the
+                            // rcl YAML parser could not infer). The user will get a clearer
+                            // error later if they actually require this parameter via
+                            // `declare_parameter`.
+                            if let Some(value) = ParameterValue::from_rcl_variant(variant) {
+                                map.insert(param_name, value);
+                            }
                         }
                     }
                 }
