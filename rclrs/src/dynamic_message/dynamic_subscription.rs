@@ -3,7 +3,7 @@ use std::{
     boxed::Box,
     ffi::CString,
     ops::{Deref, DerefMut},
-    sync::{Arc, Mutex},
+    sync::{atomic::AtomicBool, Arc, Mutex},
 };
 
 use futures::future::BoxFuture;
@@ -329,6 +329,7 @@ where
         let handle = Arc::new(SubscriptionHandle {
             rcl_subscription: Mutex::new(rcl_subscription),
             node_handle: Arc::clone(node_handle),
+            on_ready_slot: AtomicBool::new(false),
         });
 
         let callback = Arc::new(Mutex::new(callback.into()));
