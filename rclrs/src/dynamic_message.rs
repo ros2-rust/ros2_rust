@@ -595,6 +595,25 @@ mod tests {
     }
 
     #[test]
+    fn unbounded_sequences_of_primitives_and_strings_are_readable() {
+        // From Lyrical on, primitive and string sequences are wider than message sequences.
+        let message = make_message("test_msgs", "UnboundedSequences");
+
+        let value = message.get("int32_values_default").unwrap();
+        let Value::Sequence(SequenceValue::Int32Sequence(seq)) = value else {
+            panic!("Expected Int32Sequence");
+        };
+        assert_eq!(seq.as_slice(), &[0, i32::MAX, i32::MIN]);
+
+        let value = message.get("string_values_default").unwrap();
+        let Value::Sequence(SequenceValue::StringSequence(seq)) = value else {
+            panic!("Expected StringSequence");
+        };
+        let strings: Vec<_> = seq.iter().map(|s| s.to_string()).collect();
+        assert_eq!(strings, ["", "max value", "min value"]);
+    }
+
+    #[test]
     fn unbounded_sequence_of_messages_resize_and_edit() {
         // For message sequences, DynamicSequenceMut exposes reset() to add elements.
         let mut message = make_message("test_msgs", "UnboundedSequences");
