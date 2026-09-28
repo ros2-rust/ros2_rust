@@ -13,8 +13,8 @@ use std::{
 };
 
 use crate::{
-    log_debug, log_fatal, ActivityListenerCallback, Context, ExecutorWorkerOptions, GuardCondition,
-    PayloadTask, Promise, RclReturnCode, RclrsError, WaitSet, Waitable, WeakActivityListener,
+    log_debug, log_fatal, Context, ExecutorWorkerOptions, GuardCondition, PayloadTask, Promise,
+    RclReturnCode, RclrsError, WaitSet, Waitable, WeakActivityListener,
 };
 
 /// This is a utility class that executors can use to easily run and manage
@@ -135,7 +135,6 @@ impl WaitSetRunner {
     /// [1]: crate::SpinOptions::until_promise_resolved
     pub fn run_blocking(&mut self, conditions: WaitSetRunConditions) -> Result<(), RclrsError> {
         let mut first_spin = true;
-        let mut listeners = Vec::new();
         loop {
             // TODO(@mxgrey): SmallVec would be better suited here if we are
             // okay with adding that as a dependency.
@@ -193,47 +192,7 @@ impl WaitSetRunner {
             })?;
 
             if at_least_one {
-                // We drain all listeners from activity_listeners to ensure that we
-                // don't get a deadlock from double-locking the activity_listeners
-                // mutex while executing one of the listeners. If the listener has
-                // access to the Worker<T> then it could attempt to add another
-                // listener while we have the vector locked, which would cause a
-                // deadlock.
-                listeners.extend(
-                    self.activity_listeners
-                        .lock()
-                        .unwrap()
-                        .drain(..)
-                        .filter_map(|x| x.upgrade()),
-                );
-
-                for arc_listener in &listeners {
-                    // We pull the callback out of its mutex entirely and release
-                    // the lock on the mutex before executing the callback. Otherwise
-                    // if the callback triggers its own WorkerActivity to change the
-                    // callback then we would get a deadlock from double-locking the
-                    // mutex.
-                    let listener = { arc_listener.lock().unwrap().take() };
-                    if let Some(mut listener) = listener {
-                        match &mut listener {
-                            ActivityListenerCallback::Listen(listen) => {
-                                listen(&mut *self.payload);
-                            }
-                            ActivityListenerCallback::Inert => {
-                                // Do nothing
-                            }
-                        }
-
-                        // We replace instead of assigning in case the callback
-                        // inserted its own
-                        arc_listener.lock().unwrap().replace(listener);
-                    }
-                }
-
-                self.activity_listeners
-                    .lock()
-                    .unwrap()
-                    .extend(listeners.drain(..).map(|x| Arc::downgrade(&x)));
+                crate::worker::run_activity_listeners(&self.activity_listeners, &mut *self.payload);
             }
 
             if let Some(stop_time) = conditions.stop_time {
