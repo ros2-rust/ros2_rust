@@ -211,11 +211,21 @@ impl<'a, T: 'static> ParameterBuilder<'a, T> {
 impl<'a, T: ParameterVariant> ParameterBuilder<'a, T> {
     /// Sets the range for the parameter, in the terms of its own type.
     ///
+    /// Takes the parameter type's own range, which for a numeric parameter is a
+    /// [`ParameterRange`], or anything that converts into one. Every standard Rust range does, so
+    /// a bound can be written the way it is anywhere else in the language: `a..=b`, `a..`, `..=b`,
+    /// `a..b` and `..` are all accepted.
+    ///
+    /// A ROS 2 range is inclusive of both ends, so an exclusive Rust range converts by naming the
+    /// value just below its end. Writing a [`ParameterRange`] out is what a `step` needs, since no
+    /// Rust range carries one.
+    ///
     /// Only available where the type describes a range of its own, which is what keeps the bounds
     /// in the units the parameter is read back in and makes a literal that does not fit a compile
     /// error. A parameter declared with a [`ParameterConversion`] has no `Range` to name and uses
     /// [`Self::stored_ranges`] instead.
-    pub fn range(self, range: T::Range) -> Self {
+    pub fn range(self, range: impl Into<T::Range>) -> Self {
+        let range: T::Range = range.into();
         self.stored_ranges(range.into())
     }
 }
