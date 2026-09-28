@@ -189,7 +189,12 @@ impl WaitSetRunner {
                 // SAFETY: The user of WaitSetRunner is responsible for ensuring
                 // the runner has the same payload type as the executables that
                 // are given to it.
-                unsafe { executable.execute(ready, &mut *self.payload) }
+                match unsafe { executable.execute(ready, &mut *self.payload) } {
+                    // A wake-up with nothing left to take is not an error:
+                    // rclcpp skips the callback in the same case.
+                    Err(error) if error.is_take_failed() => Ok(()),
+                    other => other,
+                }
             })?;
 
             if at_least_one {
@@ -249,5 +254,54 @@ impl WaitSetRunner {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{RclPrimitive, RclPrimitiveHandle, RclPrimitiveKind, ReadyKind};
+
+    /// Reports ready like the guard condition it wraps, then fails its take.
+    struct TakeFails(Box<dyn RclPrimitive>);
+
+    impl RclPrimitive for TakeFails {
+        unsafe fn execute(&mut self, _: ReadyKind, _: &mut dyn Any) -> Result<(), RclrsError> {
+            Err(RclrsError::RclError {
+                code: RclReturnCode::SubscriptionTakeFailed,
+                msg: None,
+            })
+        }
+
+        fn kind(&self) -> RclPrimitiveKind {
+            self.0.kind()
+        }
+
+        fn handle(&self) -> RclPrimitiveHandle<'_> {
+            self.0.handle()
+        }
+    }
+
+    #[test]
+    fn a_failed_take_does_not_end_the_run() -> Result<(), RclrsError> {
+        let context = Context::default();
+        let (guard_condition, _) = GuardCondition::new(&context.handle, None);
+        let mut runner = WaitSetRunner::new(ExecutorWorkerOptions {
+            context: context.clone(),
+            payload: Box::new(()),
+            guard_condition,
+        });
+
+        let (spurious, mut waitable) = GuardCondition::new(&context.handle, None);
+        waitable.primitive = Box::new(TakeFails(waitable.primitive));
+        runner.waitable_sender().unbounded_send(waitable).unwrap();
+        spurious.trigger()?;
+
+        runner.run_blocking(WaitSetRunConditions {
+            only_next_available_work: true,
+            stop_time: Some(Instant::now() + Duration::from_secs(1)),
+            context,
+            halt_spinning: Arc::default(),
+        })
     }
 }

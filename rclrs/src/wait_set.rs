@@ -140,12 +140,17 @@ impl WaitSet {
         }
 
         // Do not check the readiness if an error was reported.
-        if !r.is_err() {
+        let mut r = r;
+        if r.is_ok() {
             // For the remaining entities, check if they were activated and then run
-            // the callback for those that were.
+            // the callback for those that were. Stop at the first error, but still
+            // re-register below: rcl_wait has nulled every entity that wasn't ready.
             for waiter in self.primitives.values_mut().flat_map(|v| v) {
                 if let Some(ready) = waiter.is_ready(&self.handle.rcl_wait_set) {
-                    f(ready, &mut *waiter.primitive)?;
+                    r = f(ready, &mut *waiter.primitive);
+                    if r.is_err() {
+                        break;
+                    }
                 }
             }
         }
@@ -281,6 +286,49 @@ mod tests {
         // that is guaranteed to be stable we could write a custom executor for
         // testing that will give us more introspection.
         assert!(std::time::Instant::now() - start < Duration::from_secs(1));
+
+        Ok(())
+    }
+
+    #[test]
+    fn wait_set_stays_registered_after_a_callback_error() -> Result<(), RclrsError> {
+        use std::sync::{
+            atomic::{AtomicUsize, Ordering},
+            Arc,
+        };
+
+        let context = Context::default();
+        let mut wait_set = WaitSet::new(&context)?;
+        let counter = |count: &Arc<AtomicUsize>| {
+            let count = Arc::clone(count);
+            Some(Box::new(move || {
+                count.fetch_add(1, Ordering::Relaxed);
+            }) as Box<dyn FnMut() + Send + Sync>)
+        };
+        let (a_count, b_count) = (Arc::new(AtomicUsize::new(0)), Arc::new(AtomicUsize::new(0)));
+        let (a, a_waitable) = GuardCondition::new(&context.handle, counter(&a_count));
+        let (b, b_waitable) = GuardCondition::new(&context.handle, counter(&b_count));
+        wait_set.add([a_waitable, b_waitable])?;
+
+        // Only `a` is ready, and executing it fails.
+        a.trigger()?;
+        let result = wait_set.wait(Some(Duration::from_millis(100)), |ready, primitive| {
+            unsafe { primitive.execute(ready, &mut ())? };
+            Err(RclrsError::RclError {
+                code: RclReturnCode::SubscriptionTakeFailed,
+                msg: None,
+            })
+        });
+        assert!(result.is_err());
+        assert_eq!(a_count.load(Ordering::Relaxed), 1);
+
+        // `b` must still be waited on.
+        b.trigger()?;
+        wait_set.wait(
+            Some(Duration::from_millis(100)),
+            |ready, primitive| unsafe { primitive.execute(ready, &mut ()) },
+        )?;
+        assert!(b_count.load(Ordering::Relaxed) >= 1);
 
         Ok(())
     }
