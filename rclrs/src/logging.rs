@@ -314,6 +314,7 @@ macro_rules! log_unconditional {
 #[doc(hidden)]
 pub fn impl_log_enabled(severity: LogSeverity, logger_name: &LoggerName) -> bool {
     let severity = severity.as_native() as i32;
+    let _lifecycle = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
     let is_enabled =
         |c_name: &CStr| unsafe { rcutils_logging_logger_is_enabled_for(c_name.as_ptr(), severity) };
 
