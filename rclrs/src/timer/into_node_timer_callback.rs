@@ -1,14 +1,15 @@
 use crate::{AnyTimerCallback, Node, Time, Timer};
+use std::panic::UnwindSafe;
 
 /// This trait is used to create timer callbacks for repeating timers in a Node.
-pub trait IntoNodeTimerRepeatingCallback<Args>: 'static + Send {
+pub trait IntoNodeTimerRepeatingCallback<Args>: 'static + Send + UnwindSafe {
     /// Convert a suitable object into a repeating timer callback for the node scope
     fn into_node_timer_repeating_callback(self) -> AnyTimerCallback<Node>;
 }
 
 impl<Func> IntoNodeTimerRepeatingCallback<()> for Func
 where
-    Func: FnMut() + 'static + Send,
+    Func: FnMut() + 'static + Send + UnwindSafe,
 {
     fn into_node_timer_repeating_callback(mut self) -> AnyTimerCallback<Node> {
         AnyTimerCallback::Repeating(Box::new(move |_, _| self())).into()
@@ -17,7 +18,7 @@ where
 
 impl<Func> IntoNodeTimerRepeatingCallback<Timer> for Func
 where
-    Func: FnMut(&Timer) + 'static + Send,
+    Func: FnMut(&Timer) + 'static + Send + UnwindSafe,
 {
     fn into_node_timer_repeating_callback(mut self) -> AnyTimerCallback<Node> {
         AnyTimerCallback::Repeating(Box::new(move |_, t| self(t))).into()
@@ -26,7 +27,7 @@ where
 
 impl<Func> IntoNodeTimerRepeatingCallback<Time> for Func
 where
-    Func: FnMut(Time) + 'static + Send,
+    Func: FnMut(Time) + 'static + Send + UnwindSafe,
 {
     fn into_node_timer_repeating_callback(mut self) -> AnyTimerCallback<Node> {
         AnyTimerCallback::Repeating(Box::new(move |_, t| self(t.handle.clock.now()))).into()
@@ -34,14 +35,14 @@ where
 }
 
 /// This trait is used to create timer callbacks for one-shot timers in a Node.
-pub trait IntoNodeTimerOneshotCallback<Args>: 'static + Send {
+pub trait IntoNodeTimerOneshotCallback<Args>: 'static + Send + UnwindSafe {
     /// Convert a suitable object into a one-shot timer callback for a node scope
     fn into_node_timer_oneshot_callback(self) -> AnyTimerCallback<Node>;
 }
 
 impl<Func> IntoNodeTimerOneshotCallback<()> for Func
 where
-    Func: FnOnce() + 'static + Send,
+    Func: FnOnce() + 'static + Send + UnwindSafe,
 {
     fn into_node_timer_oneshot_callback(self) -> AnyTimerCallback<Node> {
         AnyTimerCallback::OneShot(Box::new(move |_, _| self())).into()
@@ -50,7 +51,7 @@ where
 
 impl<Func> IntoNodeTimerOneshotCallback<Timer> for Func
 where
-    Func: FnOnce(&Timer) + 'static + Send,
+    Func: FnOnce(&Timer) + 'static + Send + UnwindSafe,
 {
     fn into_node_timer_oneshot_callback(self) -> AnyTimerCallback<Node> {
         AnyTimerCallback::OneShot(Box::new(move |_, t| self(t))).into()
@@ -59,7 +60,7 @@ where
 
 impl<Func> IntoNodeTimerOneshotCallback<Time> for Func
 where
-    Func: FnOnce(Time) + 'static + Send,
+    Func: FnOnce(Time) + 'static + Send + UnwindSafe,
 {
     fn into_node_timer_oneshot_callback(self) -> AnyTimerCallback<Node> {
         AnyTimerCallback::OneShot(Box::new(move |_, t| self(t.handle.clock.now()))).into()

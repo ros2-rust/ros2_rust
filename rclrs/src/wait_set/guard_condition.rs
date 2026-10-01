@@ -1,5 +1,6 @@
 use std::{
     any::Any,
+    panic::UnwindSafe,
     sync::{Arc, Mutex},
 };
 
@@ -55,7 +56,7 @@ impl GuardCondition {
     /// users of rclrs do not need to access guard conditions.
     pub(crate) fn new(
         context: &Arc<ContextHandle>,
-        callback: Option<Box<dyn FnMut() + Send + Sync>>,
+        callback: Option<Box<dyn FnMut() + Send + Sync + UnwindSafe>>,
     ) -> (Arc<Self>, Waitable) {
         let rcl_guard_condition = {
             // SAFETY: Getting a zero initialized value is always safe
@@ -96,7 +97,7 @@ impl GuardCondition {
         context: &Arc<ContextHandle>,
         rcl_guard_condition: *const rcl_guard_condition_t,
         owner: Box<dyn Any>,
-        callback: Option<Box<dyn FnMut() + Send + Sync>>,
+        callback: Option<Box<dyn FnMut() + Send + Sync + UnwindSafe>>,
     ) -> (Self, Waitable) {
         let rcl_guard_condition = Mutex::new(InnerGuardConditionHandle::Unowned {
             handle: rcl_guard_condition,
@@ -202,7 +203,7 @@ struct GuardConditionExecutable {
     /// The callback that will be triggered when execute is called. Not all
     /// guard conditions need to have a callback associated, so this could be
     /// [`None`].
-    callback: Option<Box<dyn FnMut() + Send + Sync>>,
+    callback: Option<Box<dyn FnMut() + Send + Sync + UnwindSafe>>,
 }
 
 impl RclPrimitive for GuardConditionExecutable {

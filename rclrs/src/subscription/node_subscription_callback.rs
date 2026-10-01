@@ -5,7 +5,7 @@ use crate::{RclrsError, RclrsErrorFilter, ReadOnlyLoanedMessage, WorkerCommands}
 
 use futures::future::BoxFuture;
 
-use std::sync::Arc;
+use std::{panic::UnwindSafe, sync::Arc};
 
 /// An enum capturing the various possible function signatures for subscription callbacks
 /// that can be used with the async worker.
@@ -17,20 +17,28 @@ use std::sync::Arc;
 /// [2]: crate::IntoAsyncSubscriptionCallback
 pub enum NodeSubscriptionCallback<T: Message> {
     /// A callback with only the message as an argument.
-    Regular(Box<dyn FnMut(T) -> BoxFuture<'static, ()> + Send>),
+    Regular(Box<dyn FnMut(T) -> BoxFuture<'static, ()> + Send + UnwindSafe>),
     /// A callback with the message and the message info as arguments.
-    RegularWithMessageInfo(Box<dyn FnMut(T, MessageInfo) -> BoxFuture<'static, ()> + Send>),
+    RegularWithMessageInfo(
+        Box<dyn FnMut(T, MessageInfo) -> BoxFuture<'static, ()> + Send + UnwindSafe>,
+    ),
     /// A callback with only the boxed message as an argument.
-    Boxed(Box<dyn FnMut(Box<T>) -> BoxFuture<'static, ()> + Send>),
+    Boxed(Box<dyn FnMut(Box<T>) -> BoxFuture<'static, ()> + Send + UnwindSafe>),
     /// A callback with the boxed message and the message info as arguments.
-    BoxedWithMessageInfo(Box<dyn FnMut(Box<T>, MessageInfo) -> BoxFuture<'static, ()> + Send>),
+    BoxedWithMessageInfo(
+        Box<dyn FnMut(Box<T>, MessageInfo) -> BoxFuture<'static, ()> + Send + UnwindSafe>,
+    ),
     /// A callback with only the loaned message as an argument.
     #[allow(clippy::type_complexity)]
-    Loaned(Box<dyn FnMut(ReadOnlyLoanedMessage<T>) -> BoxFuture<'static, ()> + Send>),
+    Loaned(Box<dyn FnMut(ReadOnlyLoanedMessage<T>) -> BoxFuture<'static, ()> + Send + UnwindSafe>),
     /// A callback with the loaned message and the message info as arguments.
     #[allow(clippy::type_complexity)]
     LoanedWithMessageInfo(
-        Box<dyn FnMut(ReadOnlyLoanedMessage<T>, MessageInfo) -> BoxFuture<'static, ()> + Send>,
+        Box<
+            dyn FnMut(ReadOnlyLoanedMessage<T>, MessageInfo) -> BoxFuture<'static, ()>
+                + Send
+                + UnwindSafe,
+        >,
     ),
 }
 

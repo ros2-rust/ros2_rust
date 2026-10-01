@@ -1,4 +1,5 @@
 use rosidl_runtime_rs::Service;
+use std::panic::UnwindSafe;
 
 use crate::{AnyServiceCallback, RequestId, ServiceInfo, Worker, WorkerServiceCallback};
 
@@ -13,7 +14,7 @@ use crate::{AnyServiceCallback, RequestId, ServiceInfo, Worker, WorkerServiceCal
 /// - [`FnMut`] ( `&mut Payload`, `Request` ) -> `Response`
 /// - [`FnMut`] ( `&mut Payload`, `Request`,  [`RequestId`] ) -> `Response`
 /// - [`FnMut`] ( `&mut Payload`, `Request`, [`ServiceInfo`] ) -> `Response`
-pub trait IntoWorkerServiceCallback<T, Payload, Args>: Send + 'static
+pub trait IntoWorkerServiceCallback<T, Payload, Args>: Send + UnwindSafe + 'static
 where
     T: Service,
     Payload: 'static + Send,
@@ -28,7 +29,7 @@ impl<T, Payload, Func> IntoWorkerServiceCallback<T, Payload, ()> for Func
 where
     T: Service,
     Payload: 'static + Send,
-    Func: FnMut(T::Request) -> T::Response + Send + 'static,
+    Func: FnMut(T::Request) -> T::Response + Send + UnwindSafe + 'static,
 {
     fn into_worker_service_callback(mut self) -> AnyServiceCallback<T, Payload> {
         let f = Box::new(move |_: &mut Payload, request| self(request));
@@ -40,7 +41,7 @@ impl<T, Payload, Func> IntoWorkerServiceCallback<T, Payload, Worker<Payload>> fo
 where
     T: Service,
     Payload: 'static + Send,
-    Func: FnMut(&mut Payload, T::Request) -> T::Response + Send + 'static,
+    Func: FnMut(&mut Payload, T::Request) -> T::Response + Send + UnwindSafe + 'static,
 {
     fn into_worker_service_callback(self) -> AnyServiceCallback<T, Payload> {
         WorkerServiceCallback::OnlyRequest(Box::new(self)).into()
@@ -51,7 +52,7 @@ impl<T, Payload, Func> IntoWorkerServiceCallback<T, Payload, RequestId> for Func
 where
     T: Service,
     Payload: 'static + Send,
-    Func: FnMut(T::Request, RequestId) -> T::Response + Send + 'static,
+    Func: FnMut(T::Request, RequestId) -> T::Response + Send + UnwindSafe + 'static,
 {
     fn into_worker_service_callback(mut self) -> AnyServiceCallback<T, Payload> {
         let f = Box::new(move |_: &mut Payload, request, request_id| self(request, request_id));
@@ -63,7 +64,7 @@ impl<T, Payload, Func> IntoWorkerServiceCallback<T, Payload, (Worker<Payload>, R
 where
     T: Service,
     Payload: 'static + Send,
-    Func: FnMut(&mut Payload, T::Request, RequestId) -> T::Response + Send + 'static,
+    Func: FnMut(&mut Payload, T::Request, RequestId) -> T::Response + Send + UnwindSafe + 'static,
 {
     fn into_worker_service_callback(self) -> AnyServiceCallback<T, Payload> {
         WorkerServiceCallback::WithId(Box::new(self)).into()
@@ -74,7 +75,7 @@ impl<T, Payload, Func> IntoWorkerServiceCallback<T, Payload, ServiceInfo> for Fu
 where
     T: Service,
     Payload: 'static + Send,
-    Func: FnMut(T::Request, ServiceInfo) -> T::Response + Send + 'static,
+    Func: FnMut(T::Request, ServiceInfo) -> T::Response + Send + UnwindSafe + 'static,
 {
     fn into_worker_service_callback(mut self) -> AnyServiceCallback<T, Payload> {
         let f = Box::new(move |_: &mut Payload, request, info| self(request, info));
@@ -86,7 +87,7 @@ impl<T, Payload, Func> IntoWorkerServiceCallback<T, Payload, (Worker<T>, Service
 where
     T: Service,
     Payload: 'static + Send,
-    Func: FnMut(&mut Payload, T::Request, ServiceInfo) -> T::Response + Send + 'static,
+    Func: FnMut(&mut Payload, T::Request, ServiceInfo) -> T::Response + Send + UnwindSafe + 'static,
 {
     fn into_worker_service_callback(self) -> AnyServiceCallback<T, Payload> {
         WorkerServiceCallback::WithInfo(Box::new(self)).into()

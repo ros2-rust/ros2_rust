@@ -5,7 +5,7 @@ use crate::{
     ReadOnlyLoanedMessage,
 };
 
-use std::{any::Any, sync::Arc};
+use std::{any::Any, panic::UnwindSafe, sync::Arc};
 
 /// An enum capturing the various possible function signatures for subscription
 /// callbacks that can be used by a [`Worker`][crate::Worker].
@@ -15,18 +15,18 @@ use std::{any::Any, sync::Arc};
 /// [1]: crate::IntoWorkerSubscriptionCallback
 pub enum WorkerSubscriptionCallback<T: Message, Payload> {
     /// A callback that only takes the payload and the message as arguments.
-    Regular(Box<dyn FnMut(&mut Payload, T) + Send>),
+    Regular(Box<dyn FnMut(&mut Payload, T) + Send + UnwindSafe>),
     /// A callback with the payload, message, and the message info as arguments.
-    RegularWithMessageInfo(Box<dyn FnMut(&mut Payload, T, MessageInfo) + Send>),
+    RegularWithMessageInfo(Box<dyn FnMut(&mut Payload, T, MessageInfo) + Send + UnwindSafe>),
     /// A callback with only the payload and boxed message as arguments.
-    Boxed(Box<dyn FnMut(&mut Payload, Box<T>) + Send>),
+    Boxed(Box<dyn FnMut(&mut Payload, Box<T>) + Send + UnwindSafe>),
     /// A callback with the payload, boxed message, and the message info as arguments.
-    BoxedWithMessageInfo(Box<dyn FnMut(&mut Payload, Box<T>, MessageInfo) + Send>),
+    BoxedWithMessageInfo(Box<dyn FnMut(&mut Payload, Box<T>, MessageInfo) + Send + UnwindSafe>),
     /// A callback with only the payload and loaned message as arguments.
-    Loaned(Box<dyn FnMut(&mut Payload, ReadOnlyLoanedMessage<T>) + Send>),
+    Loaned(Box<dyn FnMut(&mut Payload, ReadOnlyLoanedMessage<T>) + Send + UnwindSafe>),
     /// A callback with the payload, loaned message, and the message info as arguments.
     LoanedWithMessageInfo(
-        Box<dyn FnMut(&mut Payload, ReadOnlyLoanedMessage<T>, MessageInfo) + Send>,
+        Box<dyn FnMut(&mut Payload, ReadOnlyLoanedMessage<T>, MessageInfo) + Send + UnwindSafe>,
     ),
 }
 
