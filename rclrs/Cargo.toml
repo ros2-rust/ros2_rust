@@ -1,6 +1,7 @@
 [package]
 name = "rclrs"
 version = "0.7.0"
+# This project is not military-sponsored, Jacob's employment contract just requires him to use this email address
 authors = ["Esteve Fernandez <esteve@apache.org>", "Nikolai Morin <nnmmgit@gmail.com>", "Jacob Hassold <jacob.a.hassold.civ@army.mil>"]
 edition = "2021"
 license = "Apache-2.0"
@@ -32,6 +33,8 @@ rosidl_runtime_rs = "0.6"
 serde = { version = "1", optional = true, features = ["derive"] }
 serde-big-array = { version = "0.5.1", optional = true }
 
+# Action cancellation uses Tokio synchronization primitives, not its runtime.
+# This keeps the client library runtime-agnostic.
 tokio = { version = "1", features = ["sync"] }
 
 tokio-stream = "0.1"
@@ -54,6 +57,7 @@ ament_rs = "0.3"
 [features]
 default = []
 serde = ["dep:serde", "dep:serde-big-array", "rosidl_runtime_rs/serde", "ros-env/serde"]
+# Only for building documentation on docs.rs without a ROS installation.
 use_ros_shim = ["paste", "ros-env/use_ros_shim", "rosidl_runtime_rs/use_ros_shim"]
 
 [package.metadata.docs.rs]
