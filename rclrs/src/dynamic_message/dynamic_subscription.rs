@@ -233,7 +233,7 @@ impl<Payload: 'static> RclPrimitive for DynamicSubscriptionExecutable<Payload> {
         RclPrimitiveKind::Subscription
     }
 
-    fn handle(&self) -> RclPrimitiveHandle<'_> {
+    fn handle(&self) -> RclPrimitiveHandle {
         RclPrimitiveHandle::Subscription(self.handle.lock())
     }
 }

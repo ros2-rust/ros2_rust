@@ -29,7 +29,7 @@ mod cancellation_state;
 use cancellation_state::*;
 
 mod cancelling_goal;
-pub use cancelling_goal::*;
+use cancelling_goal::*;
 
 mod executing_goal;
 pub use executing_goal::*;
@@ -232,7 +232,7 @@ impl<A: Action> ActionServerState<A> {
     ///
     /// It is unusual to switch from an action server to an action goal receiver,
     /// so consider carefully whether this is what you really want to do. Usually
-    /// an action goal receiver is created by [`crate::NodeState::create_goal_receiver`]
+    /// an action goal receiver is created by [`NodeState::create_action_goal_receiver`]
     /// when the action server is being initialized.
     #[must_use]
     pub fn into_goal_receiver(self) -> ActionGoalReceiver<A> {
@@ -315,7 +315,7 @@ impl<A: Action> ActionServerState<A> {
 
         let handle = Arc::new(ActionServerHandle {
             rcl_action_server: Mutex::new(rcl_action_server),
-            node_handle: Arc::clone(node.handle()),
+            node_handle: Arc::clone(&node.handle()),
             _clock: clock,
             goals: Default::default(),
         });
@@ -675,7 +675,8 @@ impl<A: Action> RclPrimitive for ActionServerExecutable<A> {
 /// [1]: <https://doc.rust-lang.org/reference/destructors.html>
 pub(crate) struct ActionServerHandle<A: Action> {
     rcl_action_server: Mutex<rcl_action_server_t>,
-    /// Node retained through native server finalization.
+    /// Ensure the node remains active while the action server is running.
+    #[allow(unused)]
     node_handle: Arc<NodeHandle>,
     /// Clock borrowed by the native action expiry timer.
     _clock: Clock,

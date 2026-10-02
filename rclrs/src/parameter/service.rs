@@ -354,7 +354,7 @@ mod tests {
             Ok(())
         }
     }
-    use rosidl_runtime_rs::seq;
+    use rosidl_runtime_rs::{seq, Sequence};
     use std::{
         sync::{
             atomic::{AtomicBool, Ordering},

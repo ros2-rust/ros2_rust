@@ -173,7 +173,7 @@ impl<A: Action> LiveActionServerGoal<A> {
                 return;
             }
         };
-        let mut feedback_msg = <A as Action>::create_feedback_message(self.goal_id(), feedback_rmw);
+        let mut feedback_msg = <A as Action>::create_feedback_message(&*self.goal_id(), feedback_rmw);
         let r = unsafe {
             // SAFETY: The action server is locked through the handle, meaning that no other
             // non-thread-safe functions can be called on it at the same time. The feedback_msg is

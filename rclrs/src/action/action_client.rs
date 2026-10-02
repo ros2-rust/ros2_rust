@@ -43,7 +43,7 @@ pub use requested_goal_client::*;
 /// `ActionClientOptions` are used by [`Node::create_action_client`][1] to initialize an
 /// [`ActionClient`].
 ///
-/// [1]: crate::NodeState::create_action_client
+/// [1]: crate::Node::create_action_client
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub struct ActionClientOptions<'a> {
@@ -149,7 +149,7 @@ impl<'a> From<&'_ ActionClientOptions<'a>> for rcl_action_client_options_t {
 /// Receiving feedback and results requires the node's executor to [spin][2].
 ///
 /// [1]: crate::NodeState::create_action_client
-/// [2]: crate::Executor::spin
+/// [2]: crate::spin
 pub type ActionClient<A> = Arc<ActionClientState<A>>;
 
 /// The inner state of an [`ActionClient`].
