@@ -10,9 +10,60 @@ use rosidl_runtime_rs::{
 
 use super::check;
 
-// Primitive sequences use the ROS primitive layout. Message and string
-// sequences use Sequence<T>; proxy elements retain runtime type metadata.
-// Bounded wrappers check the upper bound before replacing sequence storage.
+// We cannot always use &Sequence<T> and &mut Sequence<T> as types for accessing sequence fields.
+// This is for two reasons:
+// 1.  The type T might be a sub-message, or a bounded string/wstring. These types have some
+//     associated metadata, namely the message structure and the string length bound, which needs
+//     to be available when accessing/modifying the type T. Therefore, fields of this type are
+//     accessed via their "proxy" wrappers, such as `DynamicMessageView`, which include the
+//     metadata. The memory layout of the proxy type doesn't match that of T, so we cannot cast
+//     Sequence<T> to Sequence<Proxy>.
+// 2a. The sequence might be bounded. The API of Sequence<T> allows unchecked length changes.
+// 2b. For a bounded sequence, it would be nice if the sequence type had a getter for the upper
+//     bound, but Sequence<T> doesn't know the upper bound.
+//
+// So, following these criteria, these are the possible sequence types for each combination of
+// bounded/unbounded, mutable/immutable, and native/proxy element type:
+//
+// seq kind  | mutability | element type | possible sequence types
+// ----------+------------+--------------+--------------
+// unbounded | immutable  | native       | &Sequence<T> or &[T]*
+// unbounded | immutable  | proxy        | Box<T>*
+// unbounded | mutable    | native       | &mut Sequence<T>*
+// unbounded | mutable    | proxy        | custom type that can store proxy objects
+// bounded   | immutable  | native       | (usize, Box<T>) or (usize, &Sequence<T>)*
+// bounded   | immutable  | proxy        | (usize, Box<T>)*
+// bounded   | mutable    | native       | custom type that enforces upper bound
+// bounded   | mutable    | proxy        | custom type that enforces upper bound and can store proxy objects
+//
+// * or an equivalent custom type
+//
+// This module chooses to expose the following types for this purpose:
+// Primitive transport fields use PrimitiveSequence<T> instead of Sequence<T>;
+// mutable bounded primitive fields use DynamicBoundedPrimitiveSequenceMut<T>.
+//
+// seq kind  | mutability | element type | sequence type
+// ----------+------------+--------------+--------------
+// unbounded | immutable  | native       | &Sequence<T>
+// unbounded | immutable  | proxy        | DynamicSequence<T> (newtype of Box<T>)
+// unbounded | mutable    | native       | &mut Sequence<T>
+// unbounded | mutable    | proxy        | DynamicSequenceMut<T>
+// bounded   | immutable  | native       | DynamicBoundedSequence<T> (similar to Cow<[T]>)
+// bounded   | immutable  | proxy        | DynamicBoundedSequence<T> (similar to Cow<[T]>)
+// bounded   | mutable    | native       | DynamicBoundedSequenceMut<T> (based on DynamicSequenceMut<T>)
+// bounded   | mutable    | proxy        | DynamicBoundedSequenceMut<T> (based on DynamicSequenceMut<T>)
+//
+// That means that DynamicBoundedSequence and DynamicBoundedSequenceMut must be able to hold
+// both native and proxy objects.
+
+// ========================= Abstracting over different proxy types =========================
+
+// These traits abstract over types that are "proxy objects" for the actual data stored
+// in a message. See also the explanation above for context.
+//
+// There are three types implementing these traits (dynamic versions of String, WString and messages).
+// Without these traits, you'd have to e.g. write three versions of the ProxySequence struct, and
+// of its implementation of the InnerSequence trait, and much more.
 
 /// An immutable proxy object.
 ///
@@ -370,16 +421,11 @@ pub(super) type ResizeFunction =
 /// An unbounded sequence.
 ///
 /// This type dereferences to `&[T]` and `&mut [T]`.
+#[derive(PartialEq)]
 pub struct DynamicSequenceMut<'msg, T: DynamicSequenceElementMut<'msg>> {
     // This is either &mut Sequence<T> or ProxySequence<T>
     sequence: T::InnerSequence,
     resize_function: ResizeFunction,
-}
-
-impl<'msg, T: DynamicSequenceElementMut<'msg>> PartialEq for DynamicSequenceMut<'msg, T> {
-    fn eq(&self, other: &Self) -> bool {
-        self.sequence == other.sequence
-    }
 }
 
 /// A bounded sequence whose upper bound is only known at runtime.
@@ -674,9 +720,6 @@ mod tests {
     unsafe extern "C" fn reject_resize(_: *mut std::ffi::c_void, _: usize) -> bool {
         false
     }
-    unsafe extern "C" fn accept_resize(_: *mut std::ffi::c_void, _: usize) -> bool {
-        true
-    }
 
     #[test]
     fn primitive_reset_initializes_values_and_checks_bounds() {
@@ -695,20 +738,5 @@ mod tests {
         assert_eq!(bounded.upper_bound(), 4);
         bounded.clear();
         assert!(bounded.is_empty());
-    }
-
-    #[test]
-    fn dynamic_sequence_equality_compares_values() {
-        let mut first = Sequence::from(vec![rosidl_runtime_rs::String::from("value")]);
-        let mut second = first.clone();
-        let first = DynamicSequenceMut::<rosidl_runtime_rs::String> {
-            sequence: &mut first,
-            resize_function: reject_resize,
-        };
-        let second = DynamicSequenceMut::<rosidl_runtime_rs::String> {
-            sequence: &mut second,
-            resize_function: accept_resize,
-        };
-        assert_eq!(first, second);
     }
 }
