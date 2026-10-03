@@ -7,6 +7,14 @@ use crate::{
 
 use std::{any::Any, sync::Arc};
 
+type RegularCallback<T, Payload> = Box<dyn FnMut(&mut Payload, T) + Send>;
+type RegularWithInfoCallback<T, Payload> = Box<dyn FnMut(&mut Payload, T, MessageInfo) + Send>;
+type BoxedCallback<T, Payload> = Box<dyn FnMut(&mut Payload, Box<T>) + Send>;
+type BoxedWithInfoCallback<T, Payload> = Box<dyn FnMut(&mut Payload, Box<T>, MessageInfo) + Send>;
+type LoanedCallback<T, Payload> = Box<dyn FnMut(&mut Payload, ReadOnlyLoanedMessage<T>) + Send>;
+type LoanedWithInfoCallback<T, Payload> =
+    Box<dyn FnMut(&mut Payload, ReadOnlyLoanedMessage<T>, MessageInfo) + Send>;
+
 /// An enum capturing the various possible function signatures for subscription
 /// callbacks that can be used by a [`Worker`][crate::Worker].
 ///
@@ -15,19 +23,17 @@ use std::{any::Any, sync::Arc};
 /// [1]: crate::IntoWorkerSubscriptionCallback
 pub enum WorkerSubscriptionCallback<T: Message, Payload> {
     /// A callback that only takes the payload and the message as arguments.
-    Regular(Box<dyn FnMut(&mut Payload, T) + Send>),
+    Regular(RegularCallback<T, Payload>),
     /// A callback with the payload, message, and the message info as arguments.
-    RegularWithMessageInfo(Box<dyn FnMut(&mut Payload, T, MessageInfo) + Send>),
+    RegularWithMessageInfo(RegularWithInfoCallback<T, Payload>),
     /// A callback with only the payload and boxed message as arguments.
-    Boxed(Box<dyn FnMut(&mut Payload, Box<T>) + Send>),
+    Boxed(BoxedCallback<T, Payload>),
     /// A callback with the payload, boxed message, and the message info as arguments.
-    BoxedWithMessageInfo(Box<dyn FnMut(&mut Payload, Box<T>, MessageInfo) + Send>),
+    BoxedWithMessageInfo(BoxedWithInfoCallback<T, Payload>),
     /// A callback with only the payload and loaned message as arguments.
-    Loaned(Box<dyn FnMut(&mut Payload, ReadOnlyLoanedMessage<T>) + Send>),
+    Loaned(LoanedCallback<T, Payload>),
     /// A callback with the payload, loaned message, and the message info as arguments.
-    LoanedWithMessageInfo(
-        Box<dyn FnMut(&mut Payload, ReadOnlyLoanedMessage<T>, MessageInfo) + Send>,
-    ),
+    LoanedWithMessageInfo(LoanedWithInfoCallback<T, Payload>),
 }
 
 impl<T: Message, Payload: 'static> WorkerSubscriptionCallback<T, Payload> {

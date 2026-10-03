@@ -75,10 +75,12 @@ jobs:
         run: |
           call C:\pixi_ws\ros2-windows\setup.bat
           cd C:\workspace
+          set /a rust_package_count=0
           for /f "tokens=1,2,3" %%A in ('pixi run --manifest-path C:\pixi_ws\pixi.toml colcon list') do (
-            if "%%C"=="(ament_cargo)" (
+            if "%%C"=="(ros.ament_cargo)" (
               if /I not "%%A"=="examples_rclrs_minimal_pub_sub" if /I not "%%A"=="examples_rclrs_minimal_client_service" if /I not "%%A"=="rust_pubsub" (
-                cd %%B
+                set /a rust_package_count+=1
+                cd /d %%B
                 echo Running cargo test in %%B
                 if /I "%%~nxB"=="rclrs" (
                   cargo test -F default
@@ -87,9 +89,14 @@ jobs:
                 ) else (
                   cargo test --all-features
                 )
-                cd ..
+                if errorlevel 1 exit /b 1
+                cd /d C:\workspace
               )
             )
+          )
+          if %rust_package_count% EQU 0 (
+            echo No target ros.ament_cargo packages found 1>&2
+            exit /b 1
           )
         shell: cmd
         working-directory: C:\workspace

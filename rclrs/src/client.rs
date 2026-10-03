@@ -353,7 +353,7 @@ where
         let commands = node.commands().async_worker_commands();
         let handle = Arc::new(ClientHandle {
             rcl_client: Mutex::new(rcl_client),
-            node: Arc::clone(&node),
+            node: Arc::clone(node),
         });
 
         let board = Arc::new(Mutex::new(ClientRequestBoard::new()));
@@ -363,7 +363,7 @@ where
                 handle: Arc::clone(&handle),
                 board: Arc::clone(&board),
             }),
-            Some(Arc::clone(&commands.get_guard_condition())),
+            Some(Arc::clone(commands.get_guard_condition())),
         );
         commands.add_to_wait_set(waitable);
 

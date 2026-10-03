@@ -133,14 +133,21 @@ fn list_parameters(req: ListParameters_Request, map: &ParameterMap) -> ListParam
         if req.depth == ListParameters_Request::DEPTH_RECURSIVE {
             return true;
         }
-        u64::try_from(substring.iter().filter(|c| **c == ('.' as _)).count()).unwrap() < req.depth
+        u64::try_from(
+            substring
+                .iter()
+                .filter(|c| i32::from(**c) == i32::from(b'.'))
+                .count(),
+        )
+        .unwrap()
+            < req.depth
     };
     let names: Sequence<_> = map
         .storage
         .keys()
         .filter_map(|name| {
             let name: rosidl_runtime_rs::String = name.clone().into();
-            if req.prefixes.len() == 0 && check_parameter_name_depth(&name[..]) {
+            if req.prefixes.is_empty() && check_parameter_name_depth(&name[..]) {
                 return Some(name);
             }
             req.prefixes

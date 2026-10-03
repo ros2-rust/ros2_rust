@@ -30,7 +30,7 @@ where
         commands: &Arc<WorkerCommands>,
     ) -> Result<(), RclrsError> {
         match self {
-            Self::Node(node) => node.execute(Arc::clone(&handle), commands),
+            Self::Node(node) => node.execute(Arc::clone(handle), commands),
             Self::Worker(worker) => worker.execute(handle, payload),
         }
     }

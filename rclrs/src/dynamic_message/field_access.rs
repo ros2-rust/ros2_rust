@@ -238,6 +238,8 @@ macro_rules! define_value_types {
         // * This function does not transmute & to &mut
         // * This is only used for primitive values and rosidl_runtime_rs types marked as repr(C),
         //   so there is no risk of reinterpreting as a type with undefined layout.
+        // The macro needs an explicit lifetime token to select `&'a` or `&'a mut`.
+        #[allow(clippy::needless_lifetimes)]
         unsafe fn reinterpret<'a, T>(bytes: make_ref!('a, [u8])) -> make_ref!('a, T) {
             check::<T>(bytes);
             $select!(
@@ -253,6 +255,8 @@ macro_rules! define_value_types {
         //
         // std::slice::from_raw_parts is the correct way to transmute a slice.
         // We can't rely on the internal representation of slices (or other stdlib types).
+        // The macro needs an explicit lifetime token to select `&'a` or `&'a mut`.
+        #[allow(clippy::needless_lifetimes)]
         unsafe fn reinterpret_array<'a, T>(bytes: make_ref!('a, [u8]), array_size: usize) -> make_ref!('a, [T]) {
             check::<T>(bytes);
             $select!(

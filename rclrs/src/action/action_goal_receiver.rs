@@ -43,7 +43,7 @@ impl<A: Action> ActionGoalReceiver<A> {
     ///
     /// It is unusual to switch from an action goal receiver to an action server,
     /// so consider carefully whether this is what you really want to do. Usually
-    /// an action server is created by [`NodeState::create_action_server`].
+    /// an action server is created by [`crate::NodeState::create_action_server`].
     #[must_use]
     pub fn into_action_server<Task>(
         self,

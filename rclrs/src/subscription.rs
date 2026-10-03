@@ -583,7 +583,7 @@ mod tests {
             // conditions can settle down.
             std::thread::sleep(std::time::Duration::from_millis(10));
 
-            let _ = commands.run(async move {
+            drop(commands.run(async move {
                 let (sender, mut receiver) = mpsc::unbounded();
                 let _subscription = node
                     .create_subscription("test_delayed_subscription", move |_: Empty| {
@@ -598,13 +598,13 @@ mod tests {
                 // Publish the message, which should trigger the executor to stop spinning
                 publisher.publish(Empty::default()).unwrap();
 
-                if let Some(_) = receiver.next().await {
+                if receiver.next().await.is_some() {
                     send_success.store(true, Ordering::Release);
                     if let Some(promise) = promise.lock().unwrap().take() {
                         promise.send(()).unwrap();
                     }
                 }
-            });
+            }));
         });
 
         let r = executor.spin(

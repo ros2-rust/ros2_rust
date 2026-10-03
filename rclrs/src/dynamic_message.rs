@@ -74,7 +74,7 @@ impl DynamicMessageLibraryCache {
 pub fn get_dynamic_message_package_cache() -> &'static Mutex<DynamicMessageLibraryCache> {
     static DYNAMIC_MESSAGE_PACKAGE_CACHE: OnceLock<Mutex<DynamicMessageLibraryCache>> =
         OnceLock::new();
-    DYNAMIC_MESSAGE_PACKAGE_CACHE.get_or_init(|| Default::default())
+    DYNAMIC_MESSAGE_PACKAGE_CACHE.get_or_init(Default::default)
 }
 
 /// A parsed/validated message type name of the form `<package_name>/msg/<type_name>`.
@@ -147,7 +147,7 @@ fn get_type_support_library(
     #[cfg(all(not(target_os = "windows"), not(target_os = "macos")))]
     let library_path = prefix.join("lib").join(format!(
         "lib{}__{}.so",
-        &package_name, type_support_identifier
+        package_name, type_support_identifier
     ));
     Ok({
         // SAFETY: This function is unsafe because it may execute initialization/termination routines
@@ -169,7 +169,7 @@ unsafe fn get_type_support_handle(
 ) -> Result<*const rosidl_message_type_support_t, DynamicMessageError> {
     let symbol_name = format!(
         "{}__get_message_type_support_handle__{}__msg__{}",
-        type_support_identifier, &message_type.package_name, &message_type.type_name
+        type_support_identifier, message_type.package_name, message_type.type_name
     );
 
     // SAFETY: We know that the symbol has this type, from the safety requirement of this function.
@@ -225,7 +225,7 @@ impl TryFrom<&str> for MessageTypeName {
 
 impl Display for MessageTypeName {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}/msg/{}", &self.package_name, &self.type_name)
+        write!(f, "{}/msg/{}", self.package_name, self.type_name)
     }
 }
 
@@ -260,7 +260,7 @@ impl DynamicMessageMetadata {
             .get_or_load(&message_type.package_name)?;
         let type_support_ptr = unsafe {
             get_type_support_handle(
-                &*library,
+                &library,
                 INTROSPECTION_TYPE_SUPPORT_IDENTIFIER,
                 &message_type,
             )?
@@ -459,6 +459,8 @@ impl DynamicMessage {
     ///
     /// If the RMW-native message type does not match the underlying message type of this `DynamicMessage`,
     /// it is not converted but instead returned unchanged.
+    // Returning `Self` lets callers recover the original dynamic message without allocation.
+    #[allow(clippy::result_large_err)]
     pub fn convert_into_rmw_message<T>(mut self) -> Result<T, Self>
     where
         T: RmwMessage,

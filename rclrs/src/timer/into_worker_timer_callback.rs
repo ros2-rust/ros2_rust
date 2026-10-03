@@ -12,7 +12,7 @@ where
     Func: FnMut() + 'static + Send,
 {
     fn into_worker_timer_repeating_callback(mut self) -> AnyTimerCallback<Scope> {
-        AnyTimerCallback::Repeating(Box::new(move |_, _| self())).into()
+        AnyTimerCallback::Repeating(Box::new(move |_, _| self()))
     }
 }
 
@@ -21,7 +21,7 @@ where
     Func: FnMut(&mut Scope::Payload) + 'static + Send,
 {
     fn into_worker_timer_repeating_callback(mut self) -> AnyTimerCallback<Scope> {
-        AnyTimerCallback::Repeating(Box::new(move |payload, _| self(payload))).into()
+        AnyTimerCallback::Repeating(Box::new(move |payload, _| self(payload)))
     }
 }
 
@@ -31,7 +31,7 @@ where
     Func: FnMut(&mut Scope::Payload, &Arc<TimerState<Scope>>) + 'static + Send,
 {
     fn into_worker_timer_repeating_callback(self) -> AnyTimerCallback<Scope> {
-        AnyTimerCallback::Repeating(Box::new(self)).into()
+        AnyTimerCallback::Repeating(Box::new(self))
     }
 }
 
@@ -44,7 +44,6 @@ where
         AnyTimerCallback::Repeating(Box::new(move |payload, t| {
             self(payload, t.handle.clock.now())
         }))
-        .into()
     }
 }
 
@@ -59,7 +58,7 @@ where
     Func: FnOnce() + 'static + Send,
 {
     fn into_worker_timer_oneshot_callback(self) -> AnyTimerCallback<Scope> {
-        AnyTimerCallback::OneShot(Box::new(move |_, _| self())).into()
+        AnyTimerCallback::OneShot(Box::new(move |_, _| self()))
     }
 }
 
@@ -68,7 +67,7 @@ where
     Func: FnOnce(&mut Scope::Payload) + 'static + Send,
 {
     fn into_worker_timer_oneshot_callback(self) -> AnyTimerCallback<Scope> {
-        AnyTimerCallback::OneShot(Box::new(move |payload, _| self(payload))).into()
+        AnyTimerCallback::OneShot(Box::new(move |payload, _| self(payload)))
     }
 }
 
@@ -78,7 +77,7 @@ where
     Func: FnOnce(&mut Scope::Payload, &Arc<TimerState<Scope>>) + 'static + Send,
 {
     fn into_worker_timer_oneshot_callback(self) -> AnyTimerCallback<Scope> {
-        AnyTimerCallback::OneShot(Box::new(self)).into()
+        AnyTimerCallback::OneShot(Box::new(self))
     }
 }
 
@@ -90,6 +89,5 @@ where
         AnyTimerCallback::OneShot(Box::new(move |payload, t| {
             self(payload, t.handle.clock.now())
         }))
-        .into()
     }
 }
