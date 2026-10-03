@@ -28,6 +28,11 @@ pub trait RclPrimitive: Send + Sync {
 
     /// Provide the handle for this primitive
     fn handle(&self) -> RclPrimitiveHandle<'_>;
+
+    /// Whether this primitive should be included in the next wait.
+    fn is_armed(&self) -> bool {
+        true
+    }
 }
 
 /// Enum to describe the kind of an executable.

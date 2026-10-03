@@ -1,11 +1,6 @@
 use rosidl_runtime_rs::Message;
 
-use crate::{
-    subscription::SubscriptionHandle, NodeSubscriptionCallback, RclrsError, WorkerCommands,
-    WorkerSubscriptionCallback,
-};
-
-use std::{any::Any, sync::Arc};
+use crate::{NodeSubscriptionCallback, WorkerSubscriptionCallback};
 
 /// An enum capturing the various possible function signatures for subscription callbacks.
 ///
@@ -20,20 +15,6 @@ pub enum AnySubscriptionCallback<T: Message, Payload> {
     Node(NodeSubscriptionCallback<T>),
     /// A callback in the worker scope
     Worker(WorkerSubscriptionCallback<T, Payload>),
-}
-
-impl<T: Message, Payload: 'static> AnySubscriptionCallback<T, Payload> {
-    pub(super) fn execute(
-        &mut self,
-        handle: &Arc<SubscriptionHandle>,
-        payload: &mut dyn Any,
-        commands: &WorkerCommands,
-    ) -> Result<(), RclrsError> {
-        match self {
-            Self::Node(node) => node.execute(handle, commands),
-            Self::Worker(worker) => worker.execute(handle, payload),
-        }
-    }
 }
 
 impl<T: Message> From<NodeSubscriptionCallback<T>> for AnySubscriptionCallback<T, ()> {

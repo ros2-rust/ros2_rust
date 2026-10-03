@@ -1,15 +1,19 @@
 use std::{
     any::Any,
     ffi::{CStr, CString},
-    sync::{Arc, Mutex, MutexGuard},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Mutex, MutexGuard,
+    },
 };
 
 use rosidl_runtime_rs::{Message, RmwMessage};
 
 use crate::{
-    error::ToResult, log_error, qos::QoSProfile, rcl_bindings::*, IntoPrimitiveOptions, Node,
-    NodeHandle, RclPrimitive, RclPrimitiveHandle, RclPrimitiveKind, RclrsError, ReadyKind,
-    Waitable, WaitableLifecycle, WorkScope, Worker, WorkerCommands, ENTITY_LIFECYCLE_MUTEX,
+    error::ToResult, log_error, qos::QoSProfile, rcl_bindings::*, GuardCondition,
+    IntoPrimitiveOptions, Node, NodeHandle, RclPrimitive, RclPrimitiveHandle, RclPrimitiveKind,
+    RclrsError, ReadyKind, Waitable, WaitableLifecycle, WorkScope, Worker, WorkerCommands,
+    ENTITY_LIFECYCLE_MUTEX,
 };
 
 mod any_subscription_callback;
@@ -178,6 +182,7 @@ where
                 handle: Arc::clone(&handle),
                 callback: Arc::clone(&callback),
                 commands: Arc::clone(commands),
+                in_flight: Arc::new(AtomicBool::new(false)),
             }),
             Some(Arc::clone(commands.get_guard_condition())),
         );
@@ -269,6 +274,7 @@ struct SubscriptionExecutable<T: Message, Payload> {
     handle: Arc<SubscriptionHandle>,
     callback: Arc<Mutex<AnySubscriptionCallback<T, Payload>>>,
     commands: Arc<WorkerCommands>,
+    in_flight: Arc<AtomicBool>,
 }
 
 impl<T, Payload: 'static> RclPrimitive for SubscriptionExecutable<T, Payload>
@@ -281,10 +287,39 @@ where
         payload: &mut dyn Any,
     ) -> Result<(), RclrsError> {
         ready.for_basic()?;
-        self.callback
-            .lock()
-            .unwrap()
-            .execute(&self.handle, payload, &self.commands)
+        let task = match &mut *self.callback.lock().unwrap() {
+            AnySubscriptionCallback::Node(node) => node.take_and_call(&self.handle)?,
+            AnySubscriptionCallback::Worker(worker) => {
+                return worker.execute(&self.handle, payload)
+            }
+        };
+
+        if let Some(task) = task {
+            self.in_flight.store(true, Ordering::Release);
+            let rearm = RearmOnDrop {
+                in_flight: Arc::clone(&self.in_flight),
+                wakeup: Arc::clone(self.commands.get_guard_condition()),
+            };
+            let handle = Arc::clone(&self.handle);
+            let callback = Arc::clone(&self.callback);
+            self.commands.run_async(async move {
+                let _rearm = rearm;
+                task.await;
+
+                for _ in 1..MAX_MESSAGES_PER_WAKEUP {
+                    futures_lite::future::yield_now().await;
+                    let next = match &mut *callback.lock().unwrap() {
+                        AnySubscriptionCallback::Node(node) => node.take_and_call(&handle),
+                        AnySubscriptionCallback::Worker(_) => Ok(None),
+                    };
+                    match next {
+                        Ok(Some(task)) => task.await,
+                        Ok(None) | Err(_) => break,
+                    }
+                }
+            });
+        }
+        Ok(())
     }
 
     fn kind(&self) -> RclPrimitiveKind {
@@ -293,6 +328,29 @@ where
 
     fn handle(&self) -> RclPrimitiveHandle<'_> {
         RclPrimitiveHandle::Subscription(self.handle.lock())
+    }
+
+    fn is_armed(&self) -> bool {
+        !self.in_flight.load(Ordering::Acquire)
+    }
+}
+
+const MAX_MESSAGES_PER_WAKEUP: usize = 64;
+
+struct RearmOnDrop {
+    in_flight: Arc<AtomicBool>,
+    wakeup: Arc<GuardCondition>,
+}
+
+impl Drop for RearmOnDrop {
+    fn drop(&mut self) {
+        self.in_flight.store(false, Ordering::Release);
+        if let Err(err) = self.wakeup.trigger() {
+            log_error!(
+                "rclrs.subscription",
+                "Failed to wake up the wait set after a callback: {err}",
+            );
+        }
     }
 }
 
@@ -714,5 +772,65 @@ mod tests {
         let qos = subscription.qos();
         assert_eq!(expected_qos.reliability, qos.reliability);
         assert_eq!(qos.reliability, QoSReliabilityPolicy::BestEffort);
+    }
+
+    #[test]
+    fn test_slow_node_subscription_respects_keep_last() {
+        use crate::*;
+        use std::{sync::Mutex, time::Duration};
+
+        let mut executor = Context::default().create_basic_executor();
+        let node = executor
+            .create_node(&format!("test_slow_subscription_{}", line!()))
+            .unwrap();
+        let topic = "test_slow_subscription_topic";
+
+        let received = Arc::new(Mutex::new(Vec::new()));
+        let received_cb = Arc::clone(&received);
+        let _subscription = node
+            .create_subscription::<msg::BasicTypes, _>(
+                topic.keep_last(1).reliable(),
+                move |msg: msg::BasicTypes| {
+                    received_cb.lock().unwrap().push(msg.int32_value);
+                    std::thread::sleep(Duration::from_millis(20));
+                },
+            )
+            .unwrap();
+        let publisher = node
+            .create_publisher::<msg::BasicTypes>(topic.keep_last(1).reliable())
+            .unwrap();
+        std::thread::sleep(Duration::from_millis(200));
+
+        let count = 50;
+        let publish_thread = std::thread::spawn(move || {
+            for i in 0..count {
+                let msg = msg::BasicTypes {
+                    int32_value: i,
+                    ..Default::default()
+                };
+                publisher.publish(msg).unwrap();
+                std::thread::sleep(Duration::from_millis(2));
+            }
+            std::thread::sleep(Duration::from_millis(200));
+        });
+
+        let commands = Arc::clone(executor.commands());
+        let halt = std::thread::spawn(move || {
+            publish_thread.join().unwrap();
+            commands.halt_spinning();
+        });
+        executor
+            .spin(SpinOptions::default().timeout(Duration::from_secs(10)))
+            .first_error()
+            .unwrap();
+        halt.join().unwrap();
+
+        let received = received.lock().unwrap();
+        assert!(
+            received.len() < count as usize / 2,
+            "the callback should skip stale messages, received {} of {count}",
+            received.len(),
+        );
+        assert_eq!(received.last().copied(), Some(count - 1));
     }
 }

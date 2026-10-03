@@ -17,6 +17,7 @@ pub struct Waitable {
     pub(super) primitive: Box<dyn RclPrimitive>,
     in_use: Arc<AtomicBool>,
     index_in_wait_set: Option<usize>,
+    registered: bool,
 }
 
 impl Waitable {
@@ -30,6 +31,7 @@ impl Waitable {
             primitive,
             in_use: Arc::clone(&in_use),
             index_in_wait_set: None,
+            registered: false,
         };
 
         let lifecycle = WaitableLifecycle {
@@ -48,6 +50,10 @@ impl Waitable {
     }
 
     pub(super) fn is_ready(&self, wait_set: &rcl_wait_set_t) -> Option<ReadyKind> {
+        if !self.registered {
+            return None;
+        }
+
         match self.primitive.kind() {
             RclPrimitiveKind::Subscription => {
                 self.index_in_wait_set.and_then(|index| {
@@ -142,6 +148,11 @@ impl Waitable {
         &mut self,
         wait_set: &mut rcl_wait_set_t,
     ) -> Result<(), RclrsError> {
+        self.registered = self.primitive.is_armed();
+        if !self.registered {
+            return Ok(());
+        }
+
         let mut index = 0;
         unsafe {
             // SAFETY: The Executable is responsible for maintaining the lifecycle

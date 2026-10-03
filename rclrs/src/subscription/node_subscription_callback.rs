@@ -1,7 +1,7 @@
 use rosidl_runtime_rs::Message;
 
 use super::{MessageInfo, SubscriptionHandle};
-use crate::{RclrsError, RclrsErrorFilter, ReadOnlyLoanedMessage, WorkerCommands};
+use crate::{RclrsError, ReadOnlyLoanedMessage};
 
 use futures::future::BoxFuture;
 
@@ -35,41 +35,44 @@ pub enum NodeSubscriptionCallback<T: Message> {
 }
 
 impl<T: Message> NodeSubscriptionCallback<T> {
-    pub(super) fn execute(
+    pub(super) fn take_and_call(
         &mut self,
         handle: &Arc<SubscriptionHandle>,
-        commands: &WorkerCommands,
-    ) -> Result<(), RclrsError> {
+    ) -> Result<Option<BoxFuture<'static, ()>>, RclrsError> {
         let mut evaluate = || {
-            match self {
+            let task = match self {
                 NodeSubscriptionCallback::Regular(cb) => {
                     let (msg, _) = handle.take::<T>()?;
-                    commands.run_async(cb(msg));
+                    cb(msg)
                 }
                 NodeSubscriptionCallback::RegularWithMessageInfo(cb) => {
                     let (msg, msg_info) = handle.take::<T>()?;
-                    commands.run_async(cb(msg, msg_info));
+                    cb(msg, msg_info)
                 }
                 NodeSubscriptionCallback::Boxed(cb) => {
                     let (msg, _) = handle.take_boxed::<T>()?;
-                    commands.run_async(cb(msg));
+                    cb(msg)
                 }
                 NodeSubscriptionCallback::BoxedWithMessageInfo(cb) => {
                     let (msg, msg_info) = handle.take_boxed::<T>()?;
-                    commands.run_async(cb(msg, msg_info));
+                    cb(msg, msg_info)
                 }
                 NodeSubscriptionCallback::Loaned(cb) => {
                     let (msg, _) = handle.take_loaned::<T>()?;
-                    commands.run_async(cb(msg));
+                    cb(msg)
                 }
                 NodeSubscriptionCallback::LoanedWithMessageInfo(cb) => {
                     let (msg, msg_info) = handle.take_loaned::<T>()?;
-                    commands.run_async(cb(msg, msg_info));
+                    cb(msg, msg_info)
                 }
-            }
-            Ok(())
+            };
+            Ok::<_, RclrsError>(task)
         };
 
-        evaluate().take_failed_ok()
+        match evaluate() {
+            Ok(task) => Ok(Some(task)),
+            Err(err) if err.is_take_failed() => Ok(None),
+            Err(err) => Err(err),
+        }
     }
 }
