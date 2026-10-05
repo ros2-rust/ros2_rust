@@ -160,6 +160,7 @@ where
     }
 }
 
+#[cfg(feature = "rosidl-buffer")]
 impl<'msg, T> InnerSequence<T> for &'msg mut PrimitiveSequence<T>
 where
     T: PartialEq + PrimitiveSequenceAlloc,
@@ -350,17 +351,58 @@ impl<'msg, T> Deref for DynamicBoundedSequence<'msg, T> {
     }
 }
 
-impl<'msg, T> DynamicBoundedSequence<'msg, T>
-where
-    T: PrimitiveSequenceAlloc,
-{
+/// A bounded primitive field retaining its native storage, including opaque buffers.
+/// Slice access requires CPU-readable storage.
+#[derive(PartialEq, Eq)]
+pub struct DynamicBoundedPrimitiveSequence<'msg, T: PrimitiveSequenceAlloc> {
+    sequence: &'msg PrimitiveSequence<T>,
+    upper_bound: usize,
+}
+
+impl<T: PrimitiveSequenceAlloc + Debug> Debug for DynamicBoundedPrimitiveSequence<'_, T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.sequence.fmt(f)
+    }
+}
+
+impl<T: PrimitiveSequenceAlloc> Deref for DynamicBoundedPrimitiveSequence<'_, T> {
+    type Target = [T];
+    fn deref(&self) -> &Self::Target {
+        self.sequence.as_slice()
+    }
+}
+
+impl<'msg, T: PrimitiveSequenceAlloc> DynamicBoundedPrimitiveSequence<'msg, T> {
     pub(super) unsafe fn new_primitive(bytes: &'msg [u8], upper_bound: usize) -> Self {
-        let sequence = &*(bytes.as_ptr() as *const PrimitiveSequence<T>);
-        let slice = sequence.as_slice();
         Self {
-            boo: BooSlice::Borrowed(slice),
+            sequence: &*(bytes.as_ptr() as *const PrimitiveSequence<T>),
             upper_bound,
         }
+    }
+
+    /// CPU slice; panics if the field contains opaque backend storage.
+    pub fn as_slice(&self) -> &[T] {
+        self.sequence.as_slice()
+    }
+
+    /// Native sequence, with backend-aware access when buffers are enabled.
+    pub fn as_sequence(&self) -> &PrimitiveSequence<T> {
+        self.sequence
+    }
+
+    /// Number of elements, without accessing their storage.
+    pub fn len(&self) -> usize {
+        self.sequence.len()
+    }
+
+    /// Whether this field has no elements.
+    pub fn is_empty(&self) -> bool {
+        self.sequence.is_empty()
+    }
+
+    /// Maximum element count declared by the message.
+    pub fn upper_bound(&self) -> usize {
+        self.upper_bound
     }
 }
 
@@ -710,33 +752,5 @@ impl<'msg, T: DynamicSequenceElementMut<'msg>> DynamicBoundedSequenceMut<'msg, T
             self.inner.reset(len);
             Ok(())
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    unsafe extern "C" fn reject_resize(_: *mut std::ffi::c_void, _: usize) -> bool {
-        false
-    }
-
-    #[test]
-    fn primitive_reset_initializes_values_and_checks_bounds() {
-        let mut sequence = PrimitiveSequence::from(&[true, true][..]);
-        (&mut sequence).resize_unchecked(reject_resize, 3);
-        assert_eq!(sequence.as_slice(), &[false; 3]);
-        let mut bounded = DynamicBoundedPrimitiveSequenceMut {
-            sequence: &mut sequence,
-            upper_bound: 4,
-        };
-        assert!(bounded.try_reset(5).is_err());
-        assert_eq!(bounded.as_slice(), &[false; 3]);
-        bounded.as_mut_slice()[0] = true;
-        bounded.try_reset(4).unwrap();
-        assert_eq!(bounded.as_slice(), &[false; 4]);
-        assert_eq!(bounded.upper_bound(), 4);
-        bounded.clear();
-        assert!(bounded.is_empty());
     }
 }

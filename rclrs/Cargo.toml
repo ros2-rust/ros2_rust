@@ -57,8 +57,6 @@ tokio-stream = "0.1"
 uuid = { version = "1", features = ["v4"] }
 
 [dev-dependencies]
-# Needed for buffer message serialization tests
-serde_json = "1"
 # Needed for e.g. writing yaml files in tests
 tempfile = "3.3.0"
 # Needed for parameter service tests
@@ -74,6 +72,7 @@ ament_rs = "0.3"
 
 [features]
 default = []
+rosidl-buffer = ["rosidl_runtime_rs/rosidl-buffer"]
 serde = ["dep:serde", "dep:serde-big-array", "rosidl_runtime_rs/serde", "ros-env/serde"]
 # This feature is solely for the purpose of being able to generate documetation without a ROS installation
 # The only intended usage of this feature is for docs.rs builders to work, and is not intended to be used by end users

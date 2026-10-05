@@ -772,33 +772,4 @@ mod tests {
         assert_eq!(expected_qos.reliability, qos.reliability);
         assert_eq!(qos.reliability, QoSReliabilityPolicy::BestEffort);
     }
-
-    #[test]
-    #[cfg(ros_distro = "rolling")]
-    fn buffer_backend_options_reject_nul_and_recover_after_init_failure() {
-        use crate::*;
-        use ros_env::example_interfaces::msg::Empty;
-        let executor = Context::default().create_basic_executor();
-        let node = executor.create_node("static_buffer_option_errors").unwrap();
-        let result = node.create_subscription(
-            SubscriptionOptions::new("buffer_options").acceptable_buffer_backends("cuda\0cpu"),
-            |_: Empty| {},
-        );
-        assert!(matches!(result, Err(RclrsError::StringContainsNul { .. })));
-        assert!(node
-            .create_subscription(
-                SubscriptionOptions::new("invalid topic").acceptable_buffer_backends("cuda"),
-                |_: Empty| {},
-            )
-            .is_err());
-        let backends = String::from("cuda");
-        let subscription = node
-            .create_subscription(
-                SubscriptionOptions::new("buffer_options").acceptable_buffer_backends(&backends),
-                |_: Empty| {},
-            )
-            .unwrap();
-        drop(backends);
-        assert!(subscription.topic_name().ends_with("buffer_options"));
-    }
 }

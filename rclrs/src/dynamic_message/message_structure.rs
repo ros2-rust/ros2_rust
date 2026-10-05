@@ -316,11 +316,13 @@ impl MessageFieldInfo {
             ValueKind::Simple => self.base_type.size(),
             ValueKind::Array { length } => self.base_type.size().map(|size| length * size),
             ValueKind::Sequence | ValueKind::BoundedSequence { .. } => Some(match self.base_type {
-                BaseType::String
-                | BaseType::BoundedString { .. }
-                | BaseType::WString
-                | BaseType::BoundedWString { .. }
-                | BaseType::Message(_) => mem::size_of::<TypeErasedSequence>(),
+                BaseType::String | BaseType::BoundedString { .. } => {
+                    mem::size_of::<rosidl_runtime_rs::Sequence<rosidl_runtime_rs::String>>()
+                }
+                BaseType::WString | BaseType::BoundedWString { .. } => {
+                    mem::size_of::<rosidl_runtime_rs::Sequence<rosidl_runtime_rs::WString>>()
+                }
+                BaseType::Message(_) => mem::size_of::<TypeErasedSequence>(),
                 _ => mem::size_of::<rosidl_runtime_rs::PrimitiveSequence<u8>>(),
             }),
         }

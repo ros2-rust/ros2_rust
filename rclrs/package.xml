@@ -22,7 +22,6 @@
 
   <test_depend>test_msgs</test_depend>
   <test_depend>sensor_msgs</test_depend>
-  <test_depend>std_msgs</test_depend>
   <test_depend>example_interfaces</test_depend>
 
   <export>

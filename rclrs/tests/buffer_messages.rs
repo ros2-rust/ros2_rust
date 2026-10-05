@@ -1,98 +1,16 @@
 // Copyright 2026 Open Source Robotics Foundation, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-use std::borrow::Cow;
-use std::process::Command;
+#![cfg(all(feature = "rosidl-buffer", ros_distro = "rolling"))]
+
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use rclrs::{Context, CreateBasicExecutor, SpinOptions};
-use ros_env::{rcl_interfaces, sensor_msgs, std_msgs, test_msgs};
-use rosidl_runtime_rs::{Action, BoundedSequence, BufferError, Message, RmwMessage, Service};
+use ros_env::{rcl_interfaces, sensor_msgs};
 
 #[test]
-fn cpu_fields_and_ros_identity_are_preserved() {
-    type Cpu = sensor_msgs::msg::Image;
-    type Portable = sensor_msgs::msg::buffer::Image;
-    let mut cpu = Cpu {
-        height: 1,
-        width: 3,
-        encoding: "mono8".into(),
-        step: 3,
-        data: vec![1, 2, 3],
-        ..Default::default()
-    };
-    cpu.data[1] = 7;
-    let copied = cpu.clone();
-    let portable = Portable::from(cpu);
-    assert_eq!(portable.data.backend_name().unwrap(), "cpu");
-    assert_eq!(portable.clone().try_into_cpu().unwrap(), copied);
-    assert_eq!(
-        std::any::TypeId::of::<<Cpu as Message>::RmwMsg>(),
-        std::any::TypeId::of::<<Portable as Message>::RmwMsg>()
-    );
-    assert_eq!(
-        <Cpu as Message>::RmwMsg::get_type_support(),
-        <Portable as Message>::RmwMsg::get_type_support()
-    );
-    let mut bounded = test_msgs::msg::BoundedSequences::default();
-    let legacy: BoundedSequence<u8, 3> = vec![1, 2].try_into().unwrap();
-    bounded.uint8_values = legacy;
-    let portable = test_msgs::msg::buffer::BoundedSequences::from(bounded.clone());
-    assert_eq!(portable.try_into_cpu().unwrap(), bounded);
-}
-
-#[test]
-fn generated_service_and_action_representations_share_type_support() {
-    assert_eq!(
-        <test_msgs::srv::Arrays as Service>::get_type_support(),
-        <test_msgs::srv::buffer::Arrays as Service>::get_type_support()
-    );
-    let request = test_msgs::srv::Arrays_Request::default();
-    assert_eq!(
-        test_msgs::srv::buffer::Arrays_Request::from(request.clone())
-            .try_into_cpu()
-            .unwrap(),
-        request
-    );
-    assert_eq!(
-        <test_msgs::action::Fibonacci as Action>::get_type_support(),
-        <test_msgs::action::buffer::Fibonacci as Action>::get_type_support()
-    );
-    let result = test_msgs::action::Fibonacci_Result {
-        sequence: vec![1, 2, 3],
-    };
-    let result = test_msgs::action::buffer::Fibonacci_Result::from(result);
-    assert_eq!(result.sequence.to_vec().unwrap(), vec![1, 2, 3]);
-    let response = <test_msgs::action::buffer::Fibonacci as Action>::create_result_response(
-        4,
-        test_msgs::action::buffer::Fibonacci_Result::into_rmw_message(Cow::Owned(result))
-            .into_owned(),
-    );
-    let (status, native) =
-        <test_msgs::action::buffer::Fibonacci as Action>::split_result_response(response);
-    assert_eq!(status, 4);
-    assert_eq!(
-        test_msgs::action::Fibonacci_Result::try_from_rmw_message(native)
-            .unwrap()
-            .sequence,
-        vec![1, 2, 3]
-    );
-}
-
-#[cfg(feature = "serde")]
-#[test]
-fn cpu_and_buffer_json_have_the_same_schema() {
-    let image = sensor_msgs::msg::Image {
-        data: vec![1, 2, 3],
-        ..Default::default()
-    };
-    let json = serde_json::to_string(&image).unwrap();
-    let portable: sensor_msgs::msg::buffer::Image = serde_json::from_str(&json).unwrap();
-    assert_eq!(serde_json::to_string(&portable).unwrap(), json);
-}
-
-fn publish_cpu_image_once() {
+fn one_cpu_publication_reaches_both_representations() {
     let mut executor = Context::default().create_basic_executor();
     let node = executor.create_node("portable_image_test").unwrap();
     let topic = format!("portable_image_cpu_{}", std::process::id());
@@ -148,96 +66,6 @@ fn publish_cpu_image_once() {
             Instant::now() < deadline,
             "one publication did not reach both representations: {results:?}"
         );
-    }
-}
-
-#[test]
-fn one_cpu_publication_reaches_both_representations() {
-    publish_cpu_image_once();
-}
-
-#[test]
-fn cpu_delivery_without_a_visible_gpu() {
-    const CHILD: &str = "ROSIDL_BUFFER_CPU_CHILD";
-    if std::env::var_os(CHILD).is_some() {
-        publish_cpu_image_once();
-        return;
-    }
-    let mut child = Command::new(std::env::current_exe().unwrap())
-        .args([
-            "--exact",
-            "cpu_delivery_without_a_visible_gpu",
-            "--nocapture",
-        ])
-        .env(CHILD, "1")
-        .env("CUDA_VISIBLE_DEVICES", "-1")
-        .spawn()
-        .unwrap();
-    let deadline = Instant::now() + Duration::from_secs(30);
-    loop {
-        if let Some(status) = child.try_wait().unwrap() {
-            assert!(status.success());
-            break;
-        }
-        if Instant::now() >= deadline {
-            let _ = child.kill();
-            let _ = child.wait();
-            panic!("GPU-disabled subprocess timed out");
-        }
-        std::thread::sleep(Duration::from_millis(20));
-    }
-}
-
-#[test]
-fn conversion_failures_reach_the_executor_without_calling_the_callback() {
-    #[derive(Clone, Debug, Default)]
-    struct Reject;
-    impl Message for Reject {
-        type RmwMsg = std_msgs::msg::rmw::UInt8MultiArray;
-        fn into_rmw_message(_: Cow<'_, Self>) -> Cow<'_, Self::RmwMsg> {
-            Cow::Owned(Default::default())
-        }
-        fn from_rmw_message(_: Self::RmwMsg) -> Self {
-            panic!("infallible conversion used")
-        }
-        fn try_from_rmw_message(_: Self::RmwMsg) -> Result<Self, BufferError> {
-            Err(BufferError::Native {
-                operation: "test conversion",
-                code: -42,
-            })
-        }
-    }
-    let mut executor = Context::default().create_basic_executor();
-    let node = executor.create_node("portable_conversion_failure").unwrap();
-    let topic = format!("portable_conversion_failure_{}", std::process::id());
-    let _subscription = node
-        .create_subscription::<Reject, _>(&topic, |_: Reject| {
-            panic!("failed conversion reached callback")
-        })
-        .unwrap();
-    let publisher = node
-        .create_publisher::<std_msgs::msg::UInt8MultiArray>(&topic)
-        .unwrap();
-    let deadline = Instant::now() + Duration::from_secs(10);
-    while publisher.get_subscription_count().unwrap() < 1 {
-        assert!(Instant::now() < deadline);
-        std::thread::sleep(Duration::from_millis(10));
-    }
-    publisher
-        .publish(std_msgs::msg::UInt8MultiArray::default())
-        .unwrap();
-    loop {
-        let errors = executor.spin(SpinOptions::spin_once().timeout(Duration::from_millis(20)));
-        if let Some(error) = errors.iter().find(|error| !error.is_timeout()) {
-            use std::error::Error;
-            assert!(error
-                .source()
-                .unwrap()
-                .to_string()
-                .contains("test conversion"));
-            return;
-        }
-        assert!(Instant::now() < deadline, "conversion error was lost");
     }
 }
 

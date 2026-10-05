@@ -42,7 +42,7 @@ fn bounded_primitive_fields_preserve_contents_when_reset_exceeds_bound() {
     else {
         panic!("expected a bounded byte sequence");
     };
-    assert_eq!(&*values, &[10, 20, 30]);
+    assert_eq!(values.as_slice(), &[10, 20, 30]);
     assert!(message.get("string_values").is_some());
     assert!(message.get("basic_types_values").is_some());
 }
@@ -67,4 +67,33 @@ fn sequence_messages_support_field_iteration_and_debug() {
         assert_eq!(message.iter_mut().count(), message.structure().fields.len());
         assert!(!format!("{:?}", message.view()).is_empty());
     }
+}
+
+#[cfg(feature = "rosidl-buffer")]
+#[test]
+fn bounded_opaque_fields_support_lookup_iteration_and_debug() {
+    use ros_env::test_msgs;
+    use rosidl_runtime_rs::{native, Message};
+
+    let buffer = native::into_buffer(native::ffi::create_cpu(&[7, 8, 9]).unwrap()).unwrap();
+    let message = test_msgs::msg::buffer::BoundedSequences {
+        uint8_values: buffer.try_into().unwrap(),
+        ..Default::default()
+    };
+    let native = test_msgs::msg::buffer::BoundedSequences::into_rmw_message(
+        std::borrow::Cow::Owned(message),
+    )
+    .into_owned();
+    let message = DynamicMessage::convert_from_rmw_message(native).unwrap();
+    let Some(Value::BoundedSequence(BoundedSequenceValue::Uint8BoundedSequence(values))) =
+        message.get("uint8_values")
+    else {
+        panic!("expected a bounded byte sequence");
+    };
+    assert!(values.as_sequence().is_rosidl_buffer());
+    assert_eq!(values.len(), 3);
+    assert_eq!(values.upper_bound(), 3);
+    assert_eq!(values.as_sequence().try_to_vec().unwrap(), [7, 8, 9]);
+    assert_eq!(message.iter().count(), message.structure().fields.len());
+    assert!(!format!("{:?}", message.view()).is_empty());
 }
