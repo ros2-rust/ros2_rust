@@ -247,6 +247,7 @@ pub struct SubscriptionOptions<'a> {
     ///
     /// `None`, an empty string, or `"cpu"` selects CPU buffers. `"any"` accepts
     /// every installed backend. A comma-separated list selects specific backends.
+    /// Non-CPU backends require the runtime's `rosidl-buffer` feature.
     #[cfg(ros_distro = "rolling")]
     pub acceptable_buffer_backends: Option<&'a str>,
 }
@@ -265,6 +266,18 @@ impl<'a> SubscriptionOptions<'a> {
         options.qos = self.qos.into();
         #[cfg(ros_distro = "rolling")]
         if let Some(backends) = self.acceptable_buffer_backends {
+            if !rosidl_runtime_rs::BUFFER_SUPPORT_ENABLED
+                && !backends
+                    .split(',')
+                    .all(|name| matches!(name.trim(), "" | "cpu"))
+            {
+                return Err(RclrsError::RclError {
+                    code: crate::RclReturnCode::InvalidArgument,
+                    msg: Some(crate::RclErrorMsg(
+                        "non-CPU buffer backends require rosidl-buffer".into(),
+                    )),
+                });
+            }
             let backends_c_string =
                 CString::new(backends).map_err(|err| RclrsError::StringContainsNul {
                     err,
@@ -293,6 +306,9 @@ impl<'a> SubscriptionOptions<'a> {
     }
 
     /// Sets the Buffer backends accepted by this subscription.
+    ///
+    /// Subscription creation rejects non-CPU backends unless the runtime's
+    /// `rosidl-buffer` feature is enabled.
     #[cfg(ros_distro = "rolling")]
     pub fn acceptable_buffer_backends(mut self, backends: &'a str) -> Self {
         self.acceptable_buffer_backends = Some(backends);
@@ -715,7 +731,7 @@ mod tests {
         assert_eq!(expected_qos.reliability, qos.reliability);
         assert_eq!(qos.reliability, QoSReliabilityPolicy::BestEffort);
 
-        #[cfg(ros_distro = "rolling")]
+        #[cfg(all(ros_distro = "rolling", feature = "rosidl-buffer"))]
         node.create_subscription(
             SubscriptionOptions {
                 topic: "test_subscription_cuda_buffer_backend",

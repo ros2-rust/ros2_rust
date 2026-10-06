@@ -2,11 +2,10 @@ use std::{
     fmt::{self, Debug},
     marker::PhantomData,
     ops::{Deref, DerefMut},
+    panic::RefUnwindSafe,
 };
 
-use rosidl_runtime_rs::{
-    PrimitiveSequence, PrimitiveSequenceAlloc, Sequence, SequenceAlloc, SequenceExceedsBoundsError,
-};
+use rosidl_runtime_rs::{Sequence, SequenceAlloc, SequenceExceedsBoundsError};
 
 use super::check;
 
@@ -39,8 +38,6 @@ use super::check;
 // * or an equivalent custom type
 //
 // This module chooses to expose the following types for this purpose:
-// Primitive transport fields use PrimitiveSequence<T> instead of Sequence<T>;
-// mutable bounded primitive fields use DynamicBoundedPrimitiveSequenceMut<T>.
 //
 // seq kind  | mutability | element type | sequence type
 // ----------+------------+--------------+--------------
@@ -104,6 +101,24 @@ pub trait InnerSequence<T: PartialEq>: PartialEq {
     fn as_mut_slice(&mut self) -> &mut [T];
     // "Unchecked" means that it doesn't know about the upper bound of the sequence.
     fn resize_unchecked(&mut self, resize_function: ResizeFunction, len: usize);
+
+    /// Number of elements without requiring a CPU slice.
+    fn len(&self) -> usize {
+        self.as_slice().len()
+    }
+
+    /// Whether the sequence is empty.
+    fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    /// Format elements or backend metadata.
+    fn fmt_sequence(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
+    where
+        T: Debug,
+    {
+        self.as_slice().fmt(f)
+    }
 }
 
 #[doc(hidden)]
@@ -153,28 +168,21 @@ where
         Sequence::as_mut_slice(self)
     }
 
+    fn len(&self) -> usize {
+        Sequence::len(self)
+    }
+
+    fn fmt_sequence(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
+    where
+        T: Debug,
+    {
+        Debug::fmt(&**self, f)
+    }
+
     /// This will fini all messages in the sequence and re-initialize it from scratch.
     fn resize_unchecked(&mut self, resize_function: ResizeFunction, len: usize) {
         let is_ok = unsafe { resize_function(*self as *mut _ as *mut std::os::raw::c_void, len) };
         assert!(is_ok);
-    }
-}
-
-#[cfg(feature = "rosidl-buffer")]
-impl<T> InnerSequence<T> for &mut PrimitiveSequence<T>
-where
-    T: PartialEq + PrimitiveSequenceAlloc,
-{
-    fn as_slice(&self) -> &[T] {
-        PrimitiveSequence::as_slice(self)
-    }
-
-    fn as_mut_slice(&mut self) -> &mut [T] {
-        PrimitiveSequence::as_mut_slice(self)
-    }
-
-    fn resize_unchecked(&mut self, _resize_function: ResizeFunction, len: usize) {
-        **self = PrimitiveSequence::new(len);
     }
 }
 
@@ -267,13 +275,58 @@ where
     phantom: PhantomData<&'msg u8>,
 }
 
-// BorrowedOrOwnedSlice – a specialized version of Cow.
-// Cow cannot be used because it requires T to be Clone.
-#[derive(PartialEq, Eq)]
+// Native sequences remain borrowed so lookup does not require a CPU slice.
 enum BooSlice<'msg, T> {
-    Borrowed(&'msg [T]),
+    Native(&'msg (dyn NativeSequenceView<T> + Sync + RefUnwindSafe)),
     Owned(Box<[T]>),
 }
+
+trait NativeSequenceView<T>: Debug {
+    fn as_slice(&self) -> &[T];
+    fn len(&self) -> usize;
+    fn is_rosidl_buffer(&self) -> bool;
+    fn as_any(&self) -> &dyn std::any::Any;
+    fn equals(&self, other: &dyn NativeSequenceView<T>) -> bool;
+    #[cfg(feature = "rosidl-buffer")]
+    fn try_to_vec(&self) -> Result<Vec<T>, rosidl_runtime_rs::BufferError>;
+}
+
+impl<T: SequenceAlloc + Clone + Debug + PartialEq + 'static> NativeSequenceView<T> for Sequence<T> {
+    fn as_slice(&self) -> &[T] {
+        self.as_slice()
+    }
+    fn len(&self) -> usize {
+        self.len()
+    }
+    fn is_rosidl_buffer(&self) -> bool {
+        self.is_rosidl_buffer()
+    }
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+    fn equals(&self, other: &dyn NativeSequenceView<T>) -> bool {
+        other
+            .as_any()
+            .downcast_ref::<Self>()
+            .is_some_and(|other| self == other)
+    }
+    #[cfg(feature = "rosidl-buffer")]
+    fn try_to_vec(&self) -> Result<Vec<T>, rosidl_runtime_rs::BufferError> {
+        self.try_to_vec()
+    }
+}
+
+impl<T: PartialEq> PartialEq for BooSlice<'_, T> {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Native(lhs), Self::Native(rhs)) => lhs.equals(*rhs),
+            (Self::Owned(lhs), Self::Owned(rhs)) => lhs == rhs,
+            _ => false,
+        }
+    }
+}
+
+impl<T: Eq> Eq for BooSlice<'_, T> {}
 
 /// A bounded sequence whose upper bound is only known at runtime.
 #[derive(PartialEq, Eq)]
@@ -329,7 +382,7 @@ where
 impl<'msg, T> BooSlice<'msg, T> {
     fn as_slice(&self) -> &[T] {
         match self {
-            BooSlice::Borrowed(slice) => slice,
+            BooSlice::Native(sequence) => sequence.as_slice(),
             BooSlice::Owned(boxed_slice) => &**boxed_slice,
         }
     }
@@ -340,7 +393,10 @@ where
     T: Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        self.boo.as_slice().fmt(f)
+        match &self.boo {
+            BooSlice::Native(sequence) => Debug::fmt(sequence, f),
+            BooSlice::Owned(elements) => elements.fmt(f),
+        }
     }
 }
 
@@ -351,70 +407,15 @@ impl<'msg, T> Deref for DynamicBoundedSequence<'msg, T> {
     }
 }
 
-/// A bounded primitive field retaining its native storage, including opaque buffers.
-/// Slice access requires CPU-readable storage.
-#[derive(PartialEq, Eq)]
-pub struct DynamicBoundedPrimitiveSequence<'msg, T: PrimitiveSequenceAlloc> {
-    sequence: &'msg PrimitiveSequence<T>,
-    upper_bound: usize,
-}
-
-impl<T: PrimitiveSequenceAlloc + Debug> Debug for DynamicBoundedPrimitiveSequence<'_, T> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.sequence.fmt(f)
-    }
-}
-
-impl<T: PrimitiveSequenceAlloc> Deref for DynamicBoundedPrimitiveSequence<'_, T> {
-    type Target = [T];
-    fn deref(&self) -> &Self::Target {
-        self.sequence.as_slice()
-    }
-}
-
-impl<'msg, T: PrimitiveSequenceAlloc> DynamicBoundedPrimitiveSequence<'msg, T> {
-    pub(super) unsafe fn new_primitive(bytes: &'msg [u8], upper_bound: usize) -> Self {
-        Self {
-            sequence: &*(bytes.as_ptr() as *const PrimitiveSequence<T>),
-            upper_bound,
-        }
-    }
-
-    /// CPU slice; panics if the field contains opaque backend storage.
-    pub fn as_slice(&self) -> &[T] {
-        self.sequence.as_slice()
-    }
-
-    /// Native sequence, with backend-aware access when buffers are enabled.
-    pub fn as_sequence(&self) -> &PrimitiveSequence<T> {
-        self.sequence
-    }
-
-    /// Number of elements, without accessing their storage.
-    pub fn len(&self) -> usize {
-        self.sequence.len()
-    }
-
-    /// Whether this field has no elements.
-    pub fn is_empty(&self) -> bool {
-        self.sequence.is_empty()
-    }
-
-    /// Maximum element count declared by the message.
-    pub fn upper_bound(&self) -> usize {
-        self.upper_bound
-    }
-}
-
 impl<'msg, T> DynamicBoundedSequence<'msg, T>
 where
-    T: SequenceAlloc,
+    T: SequenceAlloc + Clone + Debug + PartialEq + Sync + 'static,
+    Sequence<T>: RefUnwindSafe,
 {
     pub(super) unsafe fn new_native(bytes: &'msg [u8], upper_bound: usize) -> Self {
         let sequence = &*(bytes.as_ptr() as *const Sequence<T>);
-        let slice = sequence.as_slice();
         Self {
-            boo: BooSlice::Borrowed(slice),
+            boo: BooSlice::Native(sequence),
             upper_bound,
         }
     }
@@ -438,6 +439,36 @@ where
 }
 
 impl<'msg, T> DynamicBoundedSequence<'msg, T> {
+    /// Number of elements, without reading backend storage.
+    pub fn len(&self) -> usize {
+        match &self.boo {
+            BooSlice::Native(sequence) => sequence.len(),
+            BooSlice::Owned(elements) => elements.len(),
+        }
+    }
+
+    /// Whether the field is empty.
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    /// Whether the field contains opaque backend storage.
+    pub fn is_rosidl_buffer(&self) -> bool {
+        matches!(&self.boo, BooSlice::Native(sequence) if sequence.is_rosidl_buffer())
+    }
+
+    /// Copies field contents to CPU memory.
+    #[cfg(feature = "rosidl-buffer")]
+    pub fn try_to_vec(&self) -> Result<Vec<T>, rosidl_runtime_rs::BufferError>
+    where
+        T: Clone,
+    {
+        match &self.boo {
+            BooSlice::Native(sequence) => sequence.try_to_vec(),
+            BooSlice::Owned(elements) => Ok(elements.to_vec()),
+        }
+    }
+
     /// See [`Sequence::as_slice()`][1].
     ///
     /// [1]: rosidl_runtime_rs::Sequence::as_slice
@@ -483,77 +514,6 @@ pub struct DynamicBoundedSequenceMut<'msg, T: DynamicSequenceElementMut<'msg>> {
     upper_bound: usize,
 }
 
-/// A mutable bounded primitive sequence whose bound is known at runtime.
-#[derive(PartialEq)]
-pub struct DynamicBoundedPrimitiveSequenceMut<'msg, T: PrimitiveSequenceAlloc> {
-    sequence: &'msg mut PrimitiveSequence<T>,
-    upper_bound: usize,
-}
-
-impl<T> Debug for DynamicBoundedPrimitiveSequenceMut<'_, T>
-where
-    T: Debug + PrimitiveSequenceAlloc,
-{
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        self.sequence.fmt(f)
-    }
-}
-
-impl<T: PrimitiveSequenceAlloc> Deref for DynamicBoundedPrimitiveSequenceMut<'_, T> {
-    type Target = [T];
-
-    fn deref(&self) -> &Self::Target {
-        self.sequence.as_slice()
-    }
-}
-
-impl<T: PrimitiveSequenceAlloc> DerefMut for DynamicBoundedPrimitiveSequenceMut<'_, T> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        self.sequence.as_mut_slice()
-    }
-}
-
-impl<'msg, T: PrimitiveSequenceAlloc> DynamicBoundedPrimitiveSequenceMut<'msg, T> {
-    pub(super) unsafe fn new_primitive(bytes: &'msg mut [u8], upper_bound: usize) -> Self {
-        Self {
-            sequence: &mut *(bytes.as_mut_ptr() as *mut PrimitiveSequence<T>),
-            upper_bound,
-        }
-    }
-
-    /// Returns the maximum length of this sequence.
-    pub fn upper_bound(&self) -> usize {
-        self.upper_bound
-    }
-
-    /// Returns the sequence elements as a slice.
-    pub fn as_slice(&self) -> &[T] {
-        self.sequence.as_slice()
-    }
-
-    /// Returns the sequence elements as a mutable slice.
-    pub fn as_mut_slice(&mut self) -> &mut [T] {
-        self.sequence.as_mut_slice()
-    }
-
-    /// Tries to reset this sequence to `len` zero-initialized elements.
-    pub fn try_reset(&mut self, len: usize) -> Result<(), SequenceExceedsBoundsError> {
-        if len > self.upper_bound {
-            return Err(SequenceExceedsBoundsError {
-                len,
-                upper_bound: self.upper_bound,
-            });
-        }
-        *self.sequence = PrimitiveSequence::new(len);
-        Ok(())
-    }
-
-    /// Resets this sequence to empty.
-    pub fn clear(&mut self) {
-        self.try_reset(0).unwrap();
-    }
-}
-
 // ------------------------- impl for DynamicSequenceMut -------------------------
 
 impl<'msg, T> Debug for DynamicSequenceMut<'msg, T>
@@ -561,7 +521,7 @@ where
     T: DynamicSequenceElementMut<'msg>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        self.sequence.as_slice().fmt(f)
+        self.sequence.fmt_sequence(f)
     }
 }
 
@@ -712,6 +672,16 @@ where
 }
 
 impl<'msg, T: DynamicSequenceElementMut<'msg>> DynamicBoundedSequenceMut<'msg, T> {
+    /// Number of elements, without reading backend storage.
+    pub fn len(&self) -> usize {
+        self.inner.sequence.len()
+    }
+
+    /// Whether the field is empty.
+    pub fn is_empty(&self) -> bool {
+        self.inner.sequence.is_empty()
+    }
+
     /// See [`Sequence::as_slice()`][1].
     ///
     /// [1]: rosidl_runtime_rs::Sequence::as_slice

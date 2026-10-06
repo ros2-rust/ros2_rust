@@ -31,3 +31,40 @@ fn cpu_messages_round_trip_without_requiring_buffer_support() {
         bounded
     );
 }
+
+#[cfg(ros_distro = "rolling")]
+#[test]
+fn accelerator_subscriptions_require_runtime_buffer_support() {
+    use rclrs::{Context, CreateBasicExecutor, SubscriptionOptions};
+
+    let executor = Context::default().create_basic_executor();
+    let node = executor.create_node("buffer_feature_gate_test").unwrap();
+    for backends in ["cuda", "any", "cpu,cuda"] {
+        let options = SubscriptionOptions::new("image").acceptable_buffer_backends(backends);
+        let typed = node.create_subscription::<Image, _>(options.clone(), |_: Image| {});
+        let dynamic = node.create_dynamic_subscription(
+            "sensor_msgs/msg/Image".try_into().unwrap(),
+            options,
+            |_, _| {},
+        );
+        if rosidl_runtime_rs::BUFFER_SUPPORT_ENABLED {
+            assert!(typed.is_ok());
+            assert!(dynamic.is_ok());
+        } else {
+            for error in [typed.err().unwrap(), dynamic.err().unwrap()] {
+                assert!(matches!(
+                    error,
+                    rclrs::RclrsError::RclError {
+                        code: rclrs::RclReturnCode::InvalidArgument,
+                        ..
+                    }
+                ));
+            }
+        }
+    }
+    node.create_subscription::<Image, _>(
+        SubscriptionOptions::new("cpu_image").acceptable_buffer_backends("cpu"),
+        |_: Image| {},
+    )
+    .unwrap();
+}
