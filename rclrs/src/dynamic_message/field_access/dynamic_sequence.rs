@@ -161,7 +161,7 @@ where
 }
 
 #[cfg(feature = "rosidl-buffer")]
-impl<'msg, T> InnerSequence<T> for &'msg mut PrimitiveSequence<T>
+impl<T> InnerSequence<T> for &mut PrimitiveSequence<T>
 where
     T: PartialEq + PrimitiveSequenceAlloc,
 {
