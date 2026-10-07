@@ -6,9 +6,7 @@ use crate::{
     ToResult, Waitable, WaitableLifecycle, ENTITY_LIFECYCLE_MUTEX,
 };
 use ros_env::{action_msgs::srv::CancelGoal_Response, builtin_interfaces::msg::Time};
-use rosidl_runtime_rs::{
-    Action, Message, RmwFeedbackMessage, RmwGoalResponse, RmwMessage, RmwResultResponse,
-};
+use rosidl_runtime_rs::{Action, Message, RmwFeedbackMessage, RmwGoalResponse, RmwResultResponse};
 use std::{
     any::Any,
     borrow::{Borrow, Cow},
@@ -616,9 +614,7 @@ impl<A: Action> ActionClientGoalBoard<A> {
         goal: A::Goal,
     ) -> Result<RequestedGoalClient<A>, RclrsError> {
         let goal_id: GoalUuid = uuid::Uuid::new_v4().as_bytes().into();
-        let goal_rmw = <A::Goal as Message>::into_rmw_message(Cow::Owned(goal))
-            .into_owned()
-            .try_into_cpu()?;
+        let goal_rmw = <A::Goal as Message>::into_rmw_message(Cow::Owned(goal)).into_owned();
         let request = A::create_goal_request(&*goal_id, goal_rmw);
 
         let mut seq: i64 = 0;

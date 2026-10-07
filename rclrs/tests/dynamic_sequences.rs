@@ -86,17 +86,15 @@ fn sequence_messages_support_field_iteration_and_debug() {
 #[test]
 fn bounded_opaque_fields_support_lookup_iteration_and_debug() {
     use ros_env::test_msgs;
-    use rosidl_runtime_rs::{native, Message};
+    use rosidl_runtime_rs::{native, BoundedBuffer};
 
     let buffer = native::into_buffer(native::ffi::create_cpu(&[7, 8, 9]).unwrap()).unwrap();
-    let message = test_msgs::msg::buffer::BoundedSequences {
-        uint8_values: buffer.try_into().unwrap(),
+    let buffer: BoundedBuffer<u8, 3> = buffer.try_into().unwrap();
+    // Exercise the native view directly; generated bounded fields are CPU-only.
+    let native = test_msgs::msg::rmw::BoundedSequences {
+        uint8_values: buffer.into_sequence().into(),
         ..Default::default()
     };
-    let native = test_msgs::msg::buffer::BoundedSequences::into_rmw_message(
-        std::borrow::Cow::Owned(message),
-    )
-    .into_owned();
     let mut message = DynamicMessage::convert_from_rmw_message(native).unwrap();
     let Some(Value::BoundedSequence(BoundedSequenceValue::Uint8BoundedSequence(values))) =
         message.get("uint8_values")

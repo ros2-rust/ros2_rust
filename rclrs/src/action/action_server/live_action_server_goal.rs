@@ -3,7 +3,7 @@ use super::{
     GoalStatusCode, TerminalStatus,
 };
 use crate::{log_error, rcl_bindings::*, RclrsError, ToResult};
-use rosidl_runtime_rs::{Action, Message, RmwMessage};
+use rosidl_runtime_rs::{Action, Message};
 use std::{borrow::Cow, ops::Deref, sync::Arc};
 
 /// This struct is the bridge to the rcl_action API for action server goals that
@@ -163,16 +163,8 @@ impl<A: Action> LiveActionServerGoal<A> {
     /// This should only be called in between a goal being accepted and terminated,
     /// but that is not enforced in this method.
     pub(super) fn publish_feedback(&self, feedback: A::Feedback) {
-        let feedback_rmw = match <A::Feedback as Message>::into_rmw_message(Cow::Owned(feedback))
-            .into_owned()
-            .try_into_cpu()
-        {
-            Ok(message) => message,
-            Err(error) => {
-                log_error!("live_action_server_goal.publish_feedback", "{error}");
-                return;
-            }
-        };
+        let feedback_rmw =
+            <A::Feedback as Message>::into_rmw_message(Cow::Owned(feedback)).into_owned();
         let mut feedback_msg =
             <A as Action>::create_feedback_message(&*self.goal_id(), feedback_rmw);
         let r = unsafe {
@@ -226,9 +218,7 @@ impl<A: Action> LiveActionServerGoal<A> {
     }
 
     fn terminate_goal(&self, status: TerminalStatus, result: A::Result) -> Result<(), RclrsError> {
-        let result_rmw = <A::Result as Message>::into_rmw_message(Cow::Owned(result))
-            .into_owned()
-            .try_into_cpu()?;
+        let result_rmw = <A::Result as Message>::into_rmw_message(Cow::Owned(result)).into_owned();
         let response_rmw = <A as Action>::create_result_response(status as i8, result_rmw);
         self.handle
             .provide_result(self.server.as_ref(), response_rmw)?;

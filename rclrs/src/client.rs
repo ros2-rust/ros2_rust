@@ -5,7 +5,7 @@ use std::{
     sync::{Arc, Mutex, MutexGuard},
 };
 
-use rosidl_runtime_rs::{Message, RmwMessage};
+use rosidl_runtime_rs::Message;
 
 use crate::{
     error::ToResult, log_fatal, rcl_bindings::*, IntoPrimitiveOptions, MessageCow, Node, Promise,
@@ -81,17 +81,14 @@ where
         Out: ClientOutput<T::Response>,
     {
         let (sender, promise) = Out::create_channel();
-        // Service serialization consumes contiguous native sequences.
-        let rmw_message = T::Request::into_rmw_message(request.into_cow())
-            .into_owned()
-            .try_into_cpu()?;
+        let rmw_message = T::Request::into_rmw_message(request.into_cow());
         let mut sequence_number = -1;
         unsafe {
             // SAFETY: The client handle ensures the rcl_client is valid and
             // our generic system ensures it has the correct type.
             rcl_send_request(
                 &*self.handle.lock() as *const _,
-                &rmw_message as *const <T::Request as Message>::RmwMsg as *mut _,
+                rmw_message.as_ref() as *const <T::Request as Message>::RmwMsg as *mut _,
                 &mut sequence_number,
             )
         }
