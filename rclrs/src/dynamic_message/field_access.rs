@@ -591,12 +591,12 @@ macro_rules! define_value_types {
                     BaseType::Float => {
                         BoundedSequenceValue::FloatBoundedSequence($select!(
                             immutable => {
-                                DynamicBoundedSequence::new_native(
+                                DynamicBoundedSequence::new_primitive(
                                     bytes,
                                     sequence_upper_bound
                                 )
                             },
-                            mutable => DynamicBoundedSequenceMut::new_native(
+                            mutable => DynamicBoundedSequenceMut::new_primitive(
                                 bytes,
                                 sequence_upper_bound,
                                 field_info.resize_function.unwrap(),
@@ -606,12 +606,12 @@ macro_rules! define_value_types {
                     BaseType::Double => {
                         BoundedSequenceValue::DoubleBoundedSequence($select!(
                             immutable => {
-                                DynamicBoundedSequence::new_native(
+                                DynamicBoundedSequence::new_primitive(
                                     bytes,
                                     sequence_upper_bound
                                 )
                             },
-                            mutable => DynamicBoundedSequenceMut::new_native(
+                            mutable => DynamicBoundedSequenceMut::new_primitive(
                                 bytes,
                                 sequence_upper_bound,
                                 field_info.resize_function.unwrap(),
@@ -628,12 +628,12 @@ macro_rules! define_value_types {
                     BaseType::Char => {
                         BoundedSequenceValue::CharBoundedSequence($select!(
                             immutable => {
-                                DynamicBoundedSequence::new_native(
+                                DynamicBoundedSequence::new_primitive(
                                     bytes,
                                     sequence_upper_bound
                                 )
                             },
-                            mutable => DynamicBoundedSequenceMut::new_native(
+                            mutable => DynamicBoundedSequenceMut::new_primitive(
                                 bytes,
                                 sequence_upper_bound,
                                 field_info.resize_function.unwrap(),
@@ -643,12 +643,12 @@ macro_rules! define_value_types {
                     BaseType::WChar => {
                         BoundedSequenceValue::WCharBoundedSequence($select!(
                             immutable => {
-                                DynamicBoundedSequence::new_native(
+                                DynamicBoundedSequence::new_primitive(
                                     bytes,
                                     sequence_upper_bound
                                 )
                             },
-                            mutable => DynamicBoundedSequenceMut::new_native(
+                            mutable => DynamicBoundedSequenceMut::new_primitive(
                                 bytes,
                                 sequence_upper_bound,
                                 field_info.resize_function.unwrap(),
@@ -658,12 +658,12 @@ macro_rules! define_value_types {
                     BaseType::Boolean => {
                         BoundedSequenceValue::BooleanBoundedSequence($select!(
                             immutable => {
-                                DynamicBoundedSequence::new_native(
+                                DynamicBoundedSequence::new_primitive(
                                     bytes,
                                     sequence_upper_bound
                                 )
                             },
-                            mutable => DynamicBoundedSequenceMut::new_native(
+                            mutable => DynamicBoundedSequenceMut::new_primitive(
                                 bytes,
                                 sequence_upper_bound,
                                 field_info.resize_function.unwrap(),
@@ -673,12 +673,12 @@ macro_rules! define_value_types {
                     BaseType::Octet => {
                         BoundedSequenceValue::OctetBoundedSequence($select!(
                             immutable => {
-                                DynamicBoundedSequence::new_native(
+                                DynamicBoundedSequence::new_primitive(
                                     bytes,
                                     sequence_upper_bound
                                 )
                             },
-                            mutable => DynamicBoundedSequenceMut::new_native(
+                            mutable => DynamicBoundedSequenceMut::new_primitive(
                                 bytes,
                                 sequence_upper_bound,
                                 field_info.resize_function.unwrap(),
@@ -688,12 +688,12 @@ macro_rules! define_value_types {
                     BaseType::Uint8 => {
                         BoundedSequenceValue::Uint8BoundedSequence($select!(
                             immutable => {
-                                DynamicBoundedSequence::new_native(
+                                DynamicBoundedSequence::new_primitive(
                                     bytes,
                                     sequence_upper_bound
                                 )
                             },
-                            mutable => DynamicBoundedSequenceMut::new_native(
+                            mutable => DynamicBoundedSequenceMut::new_primitive(
                                 bytes,
                                 sequence_upper_bound,
                                 field_info.resize_function.unwrap(),
@@ -703,12 +703,12 @@ macro_rules! define_value_types {
                     BaseType::Int8 => {
                         BoundedSequenceValue::Int8BoundedSequence($select!(
                             immutable => {
-                                DynamicBoundedSequence::new_native(
+                                DynamicBoundedSequence::new_primitive(
                                     bytes,
                                     sequence_upper_bound
                                 )
                             },
-                            mutable => DynamicBoundedSequenceMut::new_native(
+                            mutable => DynamicBoundedSequenceMut::new_primitive(
                                 bytes,
                                 sequence_upper_bound,
                                 field_info.resize_function.unwrap(),
@@ -718,12 +718,12 @@ macro_rules! define_value_types {
                     BaseType::Uint16 => {
                         BoundedSequenceValue::Uint16BoundedSequence($select!(
                             immutable => {
-                                DynamicBoundedSequence::new_native(
+                                DynamicBoundedSequence::new_primitive(
                                     bytes,
                                     sequence_upper_bound
                                 )
                             },
-                            mutable => DynamicBoundedSequenceMut::new_native(
+                            mutable => DynamicBoundedSequenceMut::new_primitive(
                                 bytes,
                                 sequence_upper_bound,
                                 field_info.resize_function.unwrap(),
@@ -733,12 +733,12 @@ macro_rules! define_value_types {
                     BaseType::Int16 => {
                         BoundedSequenceValue::Int16BoundedSequence($select!(
                             immutable => {
-                                DynamicBoundedSequence::new_native(
+                                DynamicBoundedSequence::new_primitive(
                                     bytes,
                                     sequence_upper_bound
                                 )
                             },
-                            mutable => DynamicBoundedSequenceMut::new_native(
+                            mutable => DynamicBoundedSequenceMut::new_primitive(
                                 bytes,
                                 sequence_upper_bound,
                                 field_info.resize_function.unwrap(),
@@ -748,12 +748,12 @@ macro_rules! define_value_types {
                     BaseType::Uint32 => {
                         BoundedSequenceValue::Uint32BoundedSequence($select!(
                             immutable => {
-                                DynamicBoundedSequence::new_native(
+                                DynamicBoundedSequence::new_primitive(
                                     bytes,
                                     sequence_upper_bound
                                 )
                             },
-                            mutable => DynamicBoundedSequenceMut::new_native(
+                            mutable => DynamicBoundedSequenceMut::new_primitive(
                                 bytes,
                                 sequence_upper_bound,
                                 field_info.resize_function.unwrap(),
@@ -763,12 +763,12 @@ macro_rules! define_value_types {
                     BaseType::Int32 => {
                         BoundedSequenceValue::Int32BoundedSequence($select!(
                             immutable => {
-                                DynamicBoundedSequence::new_native(
+                                DynamicBoundedSequence::new_primitive(
                                     bytes,
                                     sequence_upper_bound
                                 )
                             },
-                            mutable => DynamicBoundedSequenceMut::new_native(
+                            mutable => DynamicBoundedSequenceMut::new_primitive(
                                 bytes,
                                 sequence_upper_bound,
                                 field_info.resize_function.unwrap(),
@@ -778,12 +778,12 @@ macro_rules! define_value_types {
                     BaseType::Uint64 => {
                         BoundedSequenceValue::Uint64BoundedSequence($select!(
                             immutable => {
-                                DynamicBoundedSequence::new_native(
+                                DynamicBoundedSequence::new_primitive(
                                     bytes,
                                     sequence_upper_bound
                                 )
                             },
-                            mutable => DynamicBoundedSequenceMut::new_native(
+                            mutable => DynamicBoundedSequenceMut::new_primitive(
                                 bytes,
                                 sequence_upper_bound,
                                 field_info.resize_function.unwrap(),
@@ -793,12 +793,12 @@ macro_rules! define_value_types {
                     BaseType::Int64 => {
                         BoundedSequenceValue::Int64BoundedSequence($select!(
                             immutable => {
-                                DynamicBoundedSequence::new_native(
+                                DynamicBoundedSequence::new_primitive(
                                     bytes,
                                     sequence_upper_bound
                                 )
                             },
-                            mutable => DynamicBoundedSequenceMut::new_native(
+                            mutable => DynamicBoundedSequenceMut::new_primitive(
                                 bytes,
                                 sequence_upper_bound,
                                 field_info.resize_function.unwrap(),
@@ -808,12 +808,12 @@ macro_rules! define_value_types {
                     BaseType::String => {
                         BoundedSequenceValue::StringBoundedSequence($select!(
                             immutable => {
-                                DynamicBoundedSequence::new_native(
+                                DynamicBoundedSequence::new_primitive(
                                     bytes,
                                     sequence_upper_bound
                                 )
                             },
-                            mutable => DynamicBoundedSequenceMut::new_native(
+                            mutable => DynamicBoundedSequenceMut::new_primitive(
                                 bytes,
                                 sequence_upper_bound,
                                 field_info.resize_function.unwrap()
@@ -834,12 +834,12 @@ macro_rules! define_value_types {
                     BaseType::WString => {
                         BoundedSequenceValue::WStringBoundedSequence($select!(
                             immutable => {
-                                DynamicBoundedSequence::new_native(
+                                DynamicBoundedSequence::new_primitive(
                                     bytes,
                                     sequence_upper_bound
                                 )
                             },
-                            mutable => DynamicBoundedSequenceMut::new_native(
+                            mutable => DynamicBoundedSequenceMut::new_primitive(
                                 bytes,
                                 sequence_upper_bound,
                                 field_info.resize_function.unwrap()

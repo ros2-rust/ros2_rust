@@ -1,7 +1,7 @@
 // Copyright 2026 Open Source Robotics Foundation, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-#![cfg(all(feature = "rosidl-buffer", ros_distro = "rolling"))]
+#![cfg(feature = "rosidl-buffer")]
 
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};

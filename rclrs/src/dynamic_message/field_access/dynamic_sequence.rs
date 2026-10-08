@@ -275,6 +275,8 @@ where
     phantom: PhantomData<&'msg u8>,
 }
 
+// BorrowedOrOwnedSlice – a specialized version of Cow.
+// Cow cannot be used because it requires T to be Clone.
 // Native sequences remain borrowed so lookup does not require a CPU slice.
 enum BooSlice<'msg, T> {
     Native(&'msg (dyn NativeSequenceView<T> + Sync + RefUnwindSafe)),
@@ -412,7 +414,7 @@ where
     T: SequenceAlloc + Clone + Debug + PartialEq + Sync + 'static,
     Sequence<T>: RefUnwindSafe,
 {
-    pub(super) unsafe fn new_native(bytes: &'msg [u8], upper_bound: usize) -> Self {
+    pub(super) unsafe fn new_primitive(bytes: &'msg [u8], upper_bound: usize) -> Self {
         let sequence = &*(bytes.as_ptr() as *const Sequence<T>);
         Self {
             boo: BooSlice::Native(sequence),
@@ -550,7 +552,7 @@ where
         + DynamicSequenceElementMut<'msg, InnerSequence = &'msg mut Sequence<T>>
         + 'static,
 {
-    pub(super) unsafe fn new_native(
+    pub(super) unsafe fn new_primitive(
         bytes: &'msg mut [u8],
         resize_function: ResizeFunction,
     ) -> Self {
@@ -646,12 +648,12 @@ where
         + DynamicSequenceElementMut<'msg, InnerSequence = &'msg mut Sequence<T>>
         + 'static,
 {
-    pub(super) unsafe fn new_native(
+    pub(super) unsafe fn new_primitive(
         bytes: &'msg mut [u8],
         upper_bound: usize,
         resize_function: ResizeFunction,
     ) -> Self {
-        let inner = DynamicSequenceMut::new_native(bytes, resize_function);
+        let inner = DynamicSequenceMut::new_primitive(bytes, resize_function);
         Self { inner, upper_bound }
     }
 }

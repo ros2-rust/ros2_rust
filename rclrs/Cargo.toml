@@ -80,4 +80,4 @@ use_ros_shim = ["ros-env/use_ros_shim", "rosidl_runtime_rs/use_ros_shim"]
 
 [package.metadata.docs.rs]
 features = ["use_ros_shim"]
-rustc-args = ["--cfg", "ros_distro=\"humble\""]
+rustc-args = ["--cfg", "ros_distro=\"rolling\""]

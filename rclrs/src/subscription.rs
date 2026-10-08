@@ -248,7 +248,6 @@ pub struct SubscriptionOptions<'a> {
     /// `None`, an empty string, or `"cpu"` selects CPU buffers. `"any"` accepts
     /// every installed backend. A comma-separated list selects specific backends.
     /// Non-CPU backends require the runtime's `rosidl-buffer` feature.
-    #[cfg(ros_distro = "rolling")]
     pub acceptable_buffer_backends: Option<&'a str>,
 }
 
@@ -264,7 +263,6 @@ impl<'a> SubscriptionOptions<'a> {
             },
         );
         options.qos = self.qos.into();
-        #[cfg(ros_distro = "rolling")]
         if let Some(backends) = self.acceptable_buffer_backends {
             if !rosidl_runtime_rs::BUFFER_SUPPORT_ENABLED
                 && !backends
@@ -300,7 +298,6 @@ impl<'a> SubscriptionOptions<'a> {
         Self {
             topic,
             qos: QoSProfile::topics_default(),
-            #[cfg(ros_distro = "rolling")]
             acceptable_buffer_backends: None,
         }
     }
@@ -309,7 +306,6 @@ impl<'a> SubscriptionOptions<'a> {
     ///
     /// Subscription creation rejects non-CPU backends unless the runtime's
     /// `rosidl-buffer` feature is enabled.
-    #[cfg(ros_distro = "rolling")]
     pub fn acceptable_buffer_backends(mut self, backends: &'a str) -> Self {
         self.acceptable_buffer_backends = Some(backends);
         self
@@ -718,7 +714,6 @@ mod tests {
                 SubscriptionOptions {
                     topic: "test_subscription_qos_topic_3",
                     qos: expected_qos,
-                    #[cfg(ros_distro = "rolling")]
                     acceptable_buffer_backends: None,
                 },
                 |_: Empty| {
@@ -731,7 +726,7 @@ mod tests {
         assert_eq!(expected_qos.reliability, qos.reliability);
         assert_eq!(qos.reliability, QoSReliabilityPolicy::BestEffort);
 
-        #[cfg(all(ros_distro = "rolling", feature = "rosidl-buffer"))]
+        #[cfg(feature = "rosidl-buffer")]
         node.create_subscription(
             SubscriptionOptions {
                 topic: "test_subscription_cuda_buffer_backend",

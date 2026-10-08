@@ -310,7 +310,8 @@ impl MessageFieldInfo {
 impl MessageFieldInfo {
     /// Returns the size of the field in the message.
     ///
-    /// Sequences occupy their native owner layout; elements are stored separately.
+    /// For sequences, it's the size of the sequence struct,
+    /// not the size that the elements take up in memory.
     pub(crate) fn size(&self) -> Option<usize> {
         match self.value_kind {
             ValueKind::Simple => self.base_type.size(),

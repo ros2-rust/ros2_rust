@@ -32,7 +32,6 @@ fn cpu_messages_round_trip_without_requiring_buffer_support() {
     );
 }
 
-#[cfg(ros_distro = "rolling")]
 #[test]
 fn accelerator_subscriptions_require_runtime_buffer_support() {
     use rclrs::{Context, CreateBasicExecutor, SubscriptionOptions};
