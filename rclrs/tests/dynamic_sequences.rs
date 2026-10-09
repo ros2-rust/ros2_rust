@@ -86,7 +86,7 @@ fn sequence_messages_support_field_iteration_and_debug() {
 #[test]
 fn bounded_opaque_fields_support_lookup_iteration_and_debug() {
     use ros_env::test_msgs;
-    use rosidl_runtime_rs::{native, BoundedBuffer};
+    use rosidl_buffer_rs::{native, BoundedBuffer};
 
     let buffer = native::into_buffer(native::ffi::create_cpu(&[7, 8, 9]).unwrap()).unwrap();
     let buffer: BoundedBuffer<u8, 3> = buffer.try_into().unwrap();

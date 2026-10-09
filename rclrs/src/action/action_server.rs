@@ -29,7 +29,7 @@ mod cancellation_state;
 use cancellation_state::*;
 
 mod cancelling_goal;
-use cancelling_goal::*;
+pub use cancelling_goal::*;
 
 mod executing_goal;
 pub use executing_goal::*;
@@ -285,7 +285,6 @@ impl<A: Action> ActionServerState<A> {
             })?;
 
         let action_server_options = (&options).into();
-        let clock = node.get_clock();
 
         // The rcl_action_server borrows this clock by raw pointer for its
         // expired-goals timer (see `rcl_action_server_init` below), so the handle
@@ -695,25 +694,14 @@ pub(crate) struct ActionServerHandle<A: Action> {
     goals: Mutex<HashMap<GoalUuid, Arc<ActionServerGoalHandle<A>>>>,
 }
 
-impl<A: Action> Drop for ActionServerHandle<A> {
-    fn drop(&mut self) {
-        // Release native goal handles before finalizing the server.
-        self.goals.get_mut().unwrap().clear();
-        let mut node = self.node_handle.rcl_node.lock().unwrap();
-        let _lifecycle = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
-        unsafe {
-            // SAFETY: this is the final owner; the node and clock remain live.
-            rcl_action_server_fini(self.rcl_action_server.get_mut().unwrap(), &mut *node);
-        }
-    }
-}
-
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
 // they are running in. Therefore, this type can be safely sent to another thread.
 unsafe impl Send for rcl_action_server_t {}
 
 impl<A: Action> Drop for ActionServerHandle<A> {
     fn drop(&mut self) {
+        // Release native goal handles before finalizing the server.
+        self.goals.get_mut().unwrap().clear();
         // Finalize the rcl action server (mirrors `ActionClientHandle`'s Drop).
         // This runs before the struct's fields are dropped, so `_clock` is still
         // alive — `rcl_action_server_fini` touches the expired-goals timer, which

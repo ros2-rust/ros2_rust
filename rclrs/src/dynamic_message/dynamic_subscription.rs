@@ -312,7 +312,8 @@ where
                 // SAFETY:
                 // * The rcl_subscription is zero-initialized as mandated by this function.
                 // * The rcl_node is kept alive by the NodeHandle because it is a dependency of the subscription.
-                // * The topic name and the options are copied by this function, so they can be dropped afterwards.
+                // * The topic name is copied. The options are valid for this call;
+                //   their backend-selector allocation is left for rcl to release.
                 // * The entity lifecycle mutex is locked to protect against the risk of global
                 //   variables in the rmw implementation being unsafely modified during cleanup.
                 rcl_subscription_init(
@@ -320,7 +321,7 @@ where
                     &*rcl_node,
                     type_support_ptr,
                     topic_c_string.as_ptr(),
-                    &*rcl_subscription_options,
+                    &rcl_subscription_options,
                 )
                 .ok()?;
             }

@@ -120,3 +120,84 @@ fn cpu_client_receives_buffer_service_response() {
         assert!(Instant::now() < deadline, "service response timed out");
     }
 }
+
+#[test]
+fn cpu_and_buffer_clients_receive_buffer_action_feedback_and_results() {
+    use rclrs::GoalStatusCode;
+    use ros_env::example_interfaces::action;
+
+    let mut executor = Context::default().create_basic_executor();
+    let server_node = executor.create_node("buffer_action_server_test").unwrap();
+    let client_node = executor.create_node("buffer_action_client_test").unwrap();
+    let name = format!("buffer_action_cpu_{}", std::process::id());
+    let _server = server_node
+        .create_action_server::<action::buffer::Fibonacci, _>(&name, |requested| async move {
+            assert_eq!(requested.goal().order, 5);
+            let executing = requested.accept().execute();
+            executing.publish_feedback(action::buffer::Fibonacci_Feedback {
+                sequence: vec![1, 1, 2].into(),
+            });
+            executing.succeeded_with(action::buffer::Fibonacci_Result {
+                sequence: vec![1, 1, 2, 3, 5].into(),
+            })
+        })
+        .unwrap();
+    let cpu_client = client_node
+        .create_action_client::<action::Fibonacci>(&name)
+        .unwrap();
+    let buffer_client = client_node
+        .create_action_client::<action::buffer::Fibonacci>(&name)
+        .unwrap();
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while !cpu_client.server_is_available().unwrap()
+        || !buffer_client.server_is_available().unwrap()
+    {
+        assert!(Instant::now() < deadline, "action discovery timed out");
+        std::thread::sleep(Duration::from_millis(10));
+    }
+
+    // Fibonacci's int32 sequences remain CPU-backed in both representations.
+    let cpu_request = cpu_client.request_goal(action::Fibonacci_Goal { order: 5 });
+    let buffer_request = buffer_client.request_goal(action::buffer::Fibonacci_Goal { order: 5 });
+    let response = executor.commands().run(async move {
+        let mut cpu_goal = cpu_request.await.expect("CPU goal was rejected");
+        let mut buffer_goal = buffer_request.await.expect("buffer goal was rejected");
+        let cpu_feedback = cpu_goal
+            .feedback
+            .recv()
+            .await
+            .expect("missing CPU feedback");
+        let buffer_feedback = buffer_goal
+            .feedback
+            .recv()
+            .await
+            .expect("missing buffer feedback");
+        (
+            cpu_feedback,
+            cpu_goal.result.await,
+            buffer_feedback,
+            buffer_goal.result.await,
+        )
+    });
+    let (mut response, done) = executor.commands().create_notice(response);
+    let errors = executor.spin(
+        SpinOptions::default()
+            .until_promise_resolved(done)
+            .timeout(Duration::from_secs(10)),
+    );
+    assert!(
+        errors.iter().all(rclrs::RclrsError::is_timeout),
+        "{errors:?}"
+    );
+    let (cpu_feedback, (cpu_status, cpu_result), buffer_feedback, (buffer_status, buffer_result)) =
+        response
+            .try_recv()
+            .expect("action task failed")
+            .expect("action response timed out");
+    assert_eq!(cpu_status, GoalStatusCode::Succeeded);
+    assert_eq!(buffer_status, GoalStatusCode::Succeeded);
+    assert_eq!(cpu_feedback.sequence, [1, 1, 2]);
+    assert_eq!(cpu_result.sequence, [1, 1, 2, 3, 5]);
+    assert_eq!(buffer_feedback.sequence, [1, 1, 2]);
+    assert_eq!(buffer_result.sequence, [1, 1, 2, 3, 5]);
+}

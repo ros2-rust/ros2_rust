@@ -153,7 +153,8 @@ where
                 // SAFETY:
                 // * The rcl_subscription is zero-initialized as mandated by this function.
                 // * The rcl_node is kept alive by the NodeHandle because it is a dependency of the subscription.
-                // * The topic name and the options are copied by this function, so they can be dropped afterwards.
+                // * The topic name is copied. The options are valid for this call;
+                //   their backend-selector allocation is left for rcl to release.
                 // * The entity lifecycle mutex is locked to protect against the risk of global
                 //   variables in the rmw implementation being unsafely modified during cleanup.
                 rcl_subscription_init(
@@ -161,7 +162,7 @@ where
                     &*rcl_node,
                     type_support,
                     topic_c_string.as_ptr(),
-                    &*rcl_subscription_options,
+                    &rcl_subscription_options,
                 )
                 .ok()?;
             }
@@ -252,16 +253,11 @@ pub struct SubscriptionOptions<'a> {
 }
 
 impl<'a> SubscriptionOptions<'a> {
-    pub(crate) fn to_rcl_options(
-        &self,
-    ) -> Result<crate::DropGuard<rcl_subscription_options_t>, RclrsError> {
-        // SAFETY: default options are initialized and finalized exactly once.
-        let mut options = crate::DropGuard::new(
-            unsafe { rcl_subscription_get_default_options() },
-            |mut options| unsafe {
-                let _ = rcl_subscription_options_fini(&mut options);
-            },
-        );
+    pub(crate) fn to_rcl_options(&self) -> Result<rcl_subscription_options_t, RclrsError> {
+        // Match rclcpp's handoff of the allocated backend selector to rcl.
+        // Do not finalize these options; early initialization failures can leak the selector.
+        // SAFETY: no preconditions for obtaining default options.
+        let mut options = unsafe { rcl_subscription_get_default_options() };
         options.qos = self.qos.into();
         if let Some(backends) = self.acceptable_buffer_backends {
             if !rosidl_runtime_rs::BUFFER_SUPPORT_ENABLED
@@ -285,7 +281,7 @@ impl<'a> SubscriptionOptions<'a> {
             unsafe {
                 rcl_subscription_options_set_acceptable_buffer_backends(
                     backends_c_string.as_ptr(),
-                    &mut *options,
+                    &mut options,
                 )
                 .ok()?;
             }
