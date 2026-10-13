@@ -357,11 +357,14 @@ impl QoSProfile {
     /// > with newly discovered endpoints. Therefore, this profile should be used
     /// > with care since non-deterministic behavior can occur due to races with
     /// > discovery.
+    
     #[cfg(not(ros_distro = "humble"))]
     pub fn best_available() -> Self {
-        unsafe {
+        #[cfg(target_os = "windows")] { (&RMW_QOS_PROFILE_BEST_AVAILABLE).into() }
+        #[cfg(not(target_os = "windows"))] unsafe {
             // SAFETY: There are no preconditions for using this static const
             // global variable
+             
             (&rmw_qos_profile_best_available).into()
         }
     }
@@ -674,6 +677,33 @@ pub const QOS_PROFILE_SYSTEM_DEFAULT: QoSProfile = QoSProfile {
     lifespan: QoSDuration::SystemDefault,
     liveliness: QoSLivelinessPolicy::SystemDefault,
     liveliness_lease: QoSDuration::SystemDefault,
+    avoid_ros_namespace_conventions: false,
+};
+
+/// Equivalent to `rmw_qos_profile_best_available` from the [`rmw` package][1].
+///
+/// [1]: https://github.com/ros2/rmw/blob/master/rmw/include/rmw/qos_profiles.h
+pub const QOS_PROFILE_BEST_AVAILABLE: QoSProfile = QoSProfile {
+    history: QoSHistoryPolicy::KeepLast { depth: 1 },
+    reliability: QoSReliabilityPolicy::BestAvailable,
+    durability: QoSDurabilityPolicy::BestAvailable,
+    deadline: QoSDuration::SystemDefault,
+    lifespan: QoSDuration::SystemDefault,
+    liveliness: QoSLivelinessPolicy::BestAvailable,
+    liveliness_lease: QoSDuration::SystemDefault,
+    avoid_ros_namespace_conventions: false,
+};
+
+#[cfg(target_os = "windows")]
+pub const RMW_QOS_PROFILE_BEST_AVAILABLE: rmw_qos_profile_t = rmw_qos_profile_t {
+    history: rmw_qos_history_policy_t::RMW_QOS_POLICY_HISTORY_KEEP_LAST,
+    depth: 10,
+    reliability: rmw_qos_reliability_policy_t::RMW_QOS_POLICY_RELIABILITY_BEST_AVAILABLE,
+    durability: rmw_qos_durability_policy_t::RMW_QOS_POLICY_DURABILITY_BEST_AVAILABLE,
+    deadline: rmw_time_t { sec: 0, nsec: 0 }, // RMW_QOS_DEADLINE_BEST_AVAILABLE
+    lifespan: rmw_time_t { sec: 0, nsec: 0 }, // RMW_QOS_LIFESPAN_DEFAULT
+    liveliness: rmw_qos_liveliness_policy_t::RMW_QOS_POLICY_LIVELINESS_BEST_AVAILABLE,
+    liveliness_lease_duration: rmw_time_t { sec: 0, nsec: 0 }, // RMW_QOS_LIVELINESS_LEASE_DURATION_BEST_AVAILABLE
     avoid_ros_namespace_conventions: false,
 };
 
