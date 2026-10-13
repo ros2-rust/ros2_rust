@@ -307,6 +307,31 @@ where
     fn handle(&self) -> RclPrimitiveHandle<'_> {
         RclPrimitiveHandle::Service(self.handle.lock())
     }
+
+    fn register_on_ready(
+        &self,
+        on_ready: Box<dyn Fn(ReadyKind, usize) + Send + Sync>,
+    ) -> Result<Option<Box<dyn crate::OnReadyHandle>>, RclrsError> {
+        // A service has a single readiness path; report it as `Basic`.
+        let on_ready = move |n| on_ready(ReadyKind::Basic, n);
+        let registration = crate::executor::event_callback::OnReadyRegistration::new(
+            Arc::clone(&self.handle),
+            set_service_on_new_request,
+            Box::new(on_ready),
+        )?;
+        Ok(Some(Box::new(registration)))
+    }
+}
+
+/// Install (or, with a null callback/user_data, clear) the "on new request"
+/// push callback used by the event-driven executor. Encapsulates the service
+/// lock and the rcl call within this module.
+pub(crate) unsafe fn set_service_on_new_request(
+    handle: &ServiceHandle,
+    callback: rcl_event_callback_t,
+    user_data: *const std::os::raw::c_void,
+) -> rcl_ret_t {
+    rcl_service_set_on_new_request_callback(&*handle.lock(), callback, user_data)
 }
 
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
