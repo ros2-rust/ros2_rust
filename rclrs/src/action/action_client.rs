@@ -6,7 +6,10 @@ use crate::{
     ToResult, Waitable, WaitableLifecycle, ENTITY_LIFECYCLE_MUTEX,
 };
 use ros_env::{action_msgs::srv::CancelGoal_Response, builtin_interfaces::msg::Time};
-use rosidl_runtime_rs::{Action, Message, RmwFeedbackMessage, RmwGoalResponse, RmwResultResponse};
+use rosidl_runtime_rs::{
+    Action, Message, RmwFeedbackMessage, RmwGoalRequest, RmwGoalResponse, RmwResultRequest,
+    RmwResultResponse,
+};
 use std::{
     any::Any,
     borrow::{Borrow, Cow},
@@ -628,13 +631,7 @@ impl<A: Action> ActionClientGoalBoard<A> {
         };
 
         let seq = send_and_register(&self.pending_goal_clients, pending, || {
-            let mut seq: i64 = 0;
-            unsafe {
-                let handle = self.handle.lock();
-                rcl_action_send_goal_request(&*handle, &request as *const _ as *const _, &mut seq)
-            }
-            .ok()?;
-            Ok(seq)
+            self.handle.send_goal_request::<A>(&request)
         })?;
 
         Ok(RequestedGoalClient::new(
@@ -768,17 +765,7 @@ impl<A: Action> ActionClientGoalBoard<A> {
         let request_rmw = A::create_result_request(&*goal_id);
         let (sender, receiver) = oneshot_channel();
         let seq = send_and_register(&self.result_senders, sender, || {
-            let mut seq: i64 = 0;
-            unsafe {
-                let handle = self.handle.lock();
-                rcl_action_send_result_request(
-                    &*handle,
-                    &request_rmw as *const _ as *const _,
-                    &mut seq,
-                )
-            }
-            .ok()?;
-            Ok(seq)
+            self.handle.send_result_request::<A>(&request_rmw)
         })?;
         let lifecycle = GoalClientLifecycle {
             client,
@@ -993,6 +980,31 @@ impl ActionClientHandle {
         .ok()?;
 
         Ok((result_rmw, response_header))
+    }
+
+    fn send_goal_request<A: Action>(&self, request: &RmwGoalRequest<A>) -> Result<i64, RclrsError> {
+        let mut seq: i64 = 0;
+        unsafe {
+            let handle = self.lock();
+            rcl_action_send_goal_request(&*handle, request as *const _ as *const _, &mut seq)
+        }
+        .ok()?;
+
+        Ok(seq)
+    }
+
+    fn send_result_request<A: Action>(
+        &self,
+        request: &RmwResultRequest<A>,
+    ) -> Result<i64, RclrsError> {
+        let mut seq: i64 = 0;
+        unsafe {
+            let handle = self.lock();
+            rcl_action_send_result_request(&*handle, request as *const _ as *const _, &mut seq)
+        }
+        .ok()?;
+
+        Ok(seq)
     }
 
     fn send_cancel_goal(&self, goal_id: GoalUuid, stamp: Time) -> Result<i64, RclrsError> {
