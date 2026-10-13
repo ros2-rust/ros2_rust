@@ -1,6 +1,8 @@
 mod basic_executor;
 pub use self::basic_executor::*;
 
+pub(crate) mod event_callback;
+
 use crate::{
     Context, ContextHandle, GuardCondition, IntoNodeOptions, Node, RclrsError, Waitable,
     WeakActivityListener,
