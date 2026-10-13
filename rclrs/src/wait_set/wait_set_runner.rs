@@ -5,6 +5,7 @@ use futures::channel::{
 
 use std::{
     any::Any,
+    panic::{self, AssertUnwindSafe},
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc, Mutex,
@@ -28,6 +29,14 @@ pub struct WaitSetRunner {
     activity_listeners: Arc<Mutex<Vec<WeakActivityListener>>>,
     guard_condition: Arc<GuardCondition>,
     payload: Box<dyn Any + Send>,
+}
+
+/// The outcome produced when a [`WaitSetRunner`] finishes running on its thread.
+pub enum WaitSetRunnerOutcome {
+    /// The runner completed, possibly with an [`RclrsError`].
+    Completed(Result<(), RclrsError>),
+    /// A callback panicked while the runner was executing.
+    Panicked(Box<dyn Any + Send + 'static>),
 }
 
 /// These are the conditions used by the [`WaitSetRunner`] to determine when it
@@ -107,11 +116,17 @@ impl WaitSetRunner {
     pub fn run(
         mut self,
         conditions: WaitSetRunConditions,
-    ) -> Promise<(Self, Result<(), RclrsError>)> {
+    ) -> Promise<(Self, WaitSetRunnerOutcome)> {
         let (sender, promise) = channel();
         std::thread::spawn(move || {
-            let result = self.run_blocking(conditions);
-            if let Err(_) = sender.send((self, result)) {
+            let result = panic::catch_unwind(AssertUnwindSafe(|| self.run_blocking(conditions)));
+
+            let outcome = match result {
+                Ok(run_result) => WaitSetRunnerOutcome::Completed(run_result),
+                Err(panic_payload) => WaitSetRunnerOutcome::Panicked(panic_payload),
+            };
+
+            if let Err(_) = sender.send((self, outcome)) {
                 // This is a debug log because this is a normal thing to occur
                 // when an executor is winding down.
                 log_debug!(
