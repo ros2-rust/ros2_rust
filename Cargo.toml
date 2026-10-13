@@ -8,4 +8,4 @@ members = [
 exclude = [
   "ros_ws",
 ]
-resolver = "2"
+resolver = "3"
