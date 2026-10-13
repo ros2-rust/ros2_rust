@@ -299,7 +299,6 @@ impl<'a> NodeOptions<'a> {
                 s: self.namespace.to_owned(),
             })?;
         let rcl_node_options = self.create_rcl_node_options()?;
-        let rcl_context = &mut *commands.context().handle.rcl_context.lock().unwrap();
 
         let handle = Arc::new(NodeHandle {
             // SAFETY: Getting a zero-initialized value is always safe.
@@ -309,6 +308,8 @@ impl<'a> NodeOptions<'a> {
             #[cfg(not(ros_distro = "humble"))]
             rosout_initialized: AtomicBool::new(false),
         });
+        // Lock after creating `handle` so the guard is released before `handle` is dropped on error.
+        let rcl_context = &mut *commands.context().handle.rcl_context.lock().unwrap();
 
         unsafe {
             // SAFETY:
