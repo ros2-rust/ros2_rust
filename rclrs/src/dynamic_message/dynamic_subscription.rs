@@ -278,7 +278,8 @@ where
     ) -> Result<Arc<Self>, RclrsError> {
         // This loads the introspection type support library.
         let metadata = DynamicMessageMetadata::new(topic_type)?;
-        let SubscriptionOptions { topic, qos } = options.into();
+        let options = options.into();
+        let topic = options.topic;
         // However, we also need the regular type support library –
         // the rosidl_typesupport_c one.
         let message_type = &metadata.message_type;
@@ -300,9 +301,8 @@ where
             s: topic.into(),
         })?;
 
-        // SAFETY: No preconditions for this function.
-        let mut rcl_subscription_options = unsafe { rcl_subscription_get_default_options() };
-        rcl_subscription_options.qos = qos.into();
+        let rcl_subscription_options = options.to_rcl_options()?;
+
         // SAFETY: Getting a zero-initialized value is always safe.
         let mut rcl_subscription = unsafe { rcl_get_zero_initialized_subscription() };
         {
@@ -312,7 +312,8 @@ where
                 // SAFETY:
                 // * The rcl_subscription is zero-initialized as mandated by this function.
                 // * The rcl_node is kept alive by the NodeHandle because it is a dependency of the subscription.
-                // * The topic name and the options are copied by this function, so they can be dropped afterwards.
+                // * The topic name is copied. The options are valid for this call;
+                //   their backend-selector allocation is left for rcl to release.
                 // * The entity lifecycle mutex is locked to protect against the risk of global
                 //   variables in the rmw implementation being unsafely modified during cleanup.
                 rcl_subscription_init(

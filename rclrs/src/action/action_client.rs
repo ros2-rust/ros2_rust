@@ -417,7 +417,7 @@ impl<A: Action> ActionClientGoalBoard<A> {
         };
 
         let (goal_uuid, feedback) = A::split_feedback_message(feedback_rmw);
-        let feedback: A::Feedback = Message::from_rmw_message(feedback);
+        let feedback: A::Feedback = Message::try_from_rmw_message(feedback)?;
         if let Some(senders) = self
             .feedback_senders
             .lock()
@@ -603,7 +603,7 @@ impl<A: Action> ActionClientGoalBoard<A> {
             return Ok(());
         };
 
-        let result = Message::from_rmw_message(result);
+        let result = Message::try_from_rmw_message(result)?;
         let _ = sender.send((status_code, result));
         Ok(())
     }
@@ -1032,7 +1032,7 @@ impl ActionClientHandle {
         }
         .ok()?;
 
-        let result = Message::from_rmw_message(result_rmw);
+        let result = Message::try_from_rmw_message(result_rmw)?;
         Ok((result, header))
     }
 }
