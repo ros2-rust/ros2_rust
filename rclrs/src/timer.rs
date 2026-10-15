@@ -109,7 +109,7 @@ impl<Scope: WorkScope> TimerState<Scope> {
     /// a cancelled state. [`TimerState::reset`] can be used to revert the timer
     /// out of the cancelled state.
     pub fn cancel(&self) -> Result<(), RclrsError> {
-        let cancel_result = unsafe {
+        unsafe {
             // SAFETY: The unwrap is safe here since we never use the rcl_timer
             // in a way that could panic while the mutex is locked.
             let mut rcl_timer = self.handle.rcl_timer.lock().unwrap();
@@ -120,7 +120,7 @@ impl<Scope: WorkScope> TimerState<Scope> {
             rcl_timer_cancel(&mut *rcl_timer)
         }
         .ok()?;
-        Ok(cancel_result)
+        Ok(())
     }
 
     /// Checks whether the timer is canceled or not
@@ -256,7 +256,7 @@ impl<Scope: WorkScope> TimerState<Scope> {
     /// Creates a new timer. Users should call one of [`Node::create_timer`],
     /// [`Node::create_timer_repeating`], [`Node::create_timer_oneshot`], or
     /// [`Node::create_timer_inert`].
-    pub(crate) fn create<'a>(
+    pub(crate) fn create(
         period: Duration,
         clock: Clock,
         callback: AnyTimerCallback<Scope>,
@@ -375,7 +375,7 @@ impl<Scope: WorkScope> TimerState<Scope> {
         match callback {
             AnyTimerCallback::Repeating(mut callback) => {
                 callback(payload, self);
-                self.restore_callback(AnyTimerCallback::Repeating(callback).into());
+                self.restore_callback(AnyTimerCallback::Repeating(callback));
             }
             AnyTimerCallback::OneShot(callback) => {
                 callback(payload, self);
