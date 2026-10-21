@@ -35,7 +35,7 @@ pub struct ParameterService {
     set_parameters_atomically_service: Service<SetParametersAtomically>,
 }
 
-fn describe_parameters(
+pub(crate) fn describe_parameters(
     req: DescribeParameters_Request,
     map: &ParameterMap,
 ) -> DescribeParameters_Response {
@@ -831,6 +831,49 @@ mod tests {
         assert!(callback_ran.load(Ordering::Acquire));
 
         Ok(())
+    }
+
+    /// A parameter's own type can describe what it accepts, so that `ros2 param describe`
+    /// reports it without the declaration having to restate it, and without that restatement
+    /// drifting from the type as it gains variants.
+    #[test]
+    fn test_descriptor_constraints_come_from_the_parameter_type() {
+        use crate::parameter::test_support::{parameter_descriptor, Switch};
+
+        let node = Context::default()
+            .create_basic_executor()
+            .create_node("describe_type_constraints")
+            .unwrap();
+
+        // No `.constraints()` on either declaration: the type supplies the text.
+        let _inherited: MandatoryParameter<Switch> = node
+            .declare_parameter("inherited")
+            .default(Switch::On)
+            .mandatory()
+            .unwrap();
+        // An explicit constraint still wins, for rules specific to this declaration.
+        let _explicit: MandatoryParameter<Switch> = node
+            .declare_parameter("explicit")
+            .default(Switch::On)
+            .constraints("must be off on tuesdays")
+            .mandatory()
+            .unwrap();
+        // Types that say nothing about themselves are unaffected.
+        let _plain: MandatoryParameter<i64> = node
+            .declare_parameter("plain")
+            .default(1)
+            .mandatory()
+            .unwrap();
+
+        let constraints = |name| {
+            parameter_descriptor(&node, name)
+                .additional_constraints
+                .to_string()
+        };
+
+        assert_eq!(constraints("inherited"), "one of: on, off");
+        assert_eq!(constraints("explicit"), "must be off on tuesdays");
+        assert_eq!(constraints("plain"), "");
     }
 
     #[test]
