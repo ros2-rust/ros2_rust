@@ -6,7 +6,10 @@ use crate::{
     ToResult, Waitable, WaitableLifecycle, ENTITY_LIFECYCLE_MUTEX,
 };
 use ros_env::{action_msgs::srv::CancelGoal_Response, builtin_interfaces::msg::Time};
-use rosidl_runtime_rs::{Action, Message, RmwFeedbackMessage, RmwGoalResponse, RmwResultResponse};
+use rosidl_runtime_rs::{
+    Action, Message, RmwFeedbackMessage, RmwGoalRequest, RmwGoalResponse, RmwResultRequest,
+    RmwResultResponse,
+};
 use std::{
     any::Any,
     borrow::{Borrow, Cow},
@@ -617,26 +620,19 @@ impl<A: Action> ActionClientGoalBoard<A> {
         let goal_rmw = <A::Goal as Message>::into_rmw_message(Cow::Owned(goal)).into_owned();
         let request = A::create_goal_request(&*goal_id, goal_rmw);
 
-        let mut seq: i64 = 0;
-        unsafe {
-            let handle = self.handle.lock();
-            rcl_action_send_goal_request(&*handle, &request as *const _ as *const _, &mut seq)
-        }
-        .ok()?;
-
         let (sender, receiver) = oneshot_channel();
         let feedback = self.create_feedback_client(client, goal_id);
         let status = self.create_status_watcher(client, goal_id);
+        let pending = PendingGoalClient {
+            goal_id,
+            feedback,
+            status,
+            sender,
+        };
 
-        self.pending_goal_clients.lock().unwrap().insert(
-            seq,
-            PendingGoalClient {
-                goal_id,
-                feedback,
-                status,
-                sender,
-            },
-        );
+        let seq = send_and_register(&self.pending_goal_clients, pending, || {
+            self.handle.send_goal_request::<A>(&request)
+        })?;
 
         Ok(RequestedGoalClient::new(
             goal_id,
@@ -721,14 +717,15 @@ impl<A: Action> ActionClientGoalBoard<A> {
         client: &ActionClient<A>,
         goal_id: GoalUuid,
     ) -> Result<CancelResponseClient<A>, RclrsError> {
-        let seq = self
-            .handle
-            .send_cancel_goal(goal_id, Time { sec: 0, nanosec: 0 })?;
         let (sender, receiver) = oneshot_channel();
-        self.cancel_response_senders
-            .lock()
-            .unwrap()
-            .insert(seq, CancelResponseSender::SingleGoalCancel(sender));
+        let seq = send_and_register(
+            &self.cancel_response_senders,
+            CancelResponseSender::SingleGoalCancel(sender),
+            || {
+                self.handle
+                    .send_cancel_goal(goal_id, Time { sec: 0, nanosec: 0 })
+            },
+        )?;
         Ok(CancelResponseClient::new(
             receiver,
             GoalClientLifecycle {
@@ -745,12 +742,12 @@ impl<A: Action> ActionClientGoalBoard<A> {
     ) -> Result<MultiCancelResponseClient<A>, RclrsError> {
         let goal_id = GoalUuid::zero();
         let stamp = stamp.unwrap_or(Time { sec: 0, nanosec: 0 });
-        let seq = self.handle.send_cancel_goal(goal_id, stamp)?;
         let (sender, receiver) = oneshot_channel();
-        self.cancel_response_senders
-            .lock()
-            .unwrap()
-            .insert(seq, CancelResponseSender::MultiGoalCancel(sender));
+        let seq = send_and_register(
+            &self.cancel_response_senders,
+            CancelResponseSender::MultiGoalCancel(sender),
+            || self.handle.send_cancel_goal(goal_id, stamp),
+        )?;
         Ok(MultiCancelResponseClient::new(
             receiver,
             GoalClientLifecycle {
@@ -766,15 +763,10 @@ impl<A: Action> ActionClientGoalBoard<A> {
         goal_id: GoalUuid,
     ) -> Result<ResultClient<A>, RclrsError> {
         let request_rmw = A::create_result_request(&*goal_id);
-        let mut seq: i64 = 0;
-        unsafe {
-            let handle = self.handle.lock();
-            rcl_action_send_result_request(&*handle, &request_rmw as *const _ as *const _, &mut seq)
-        }
-        .ok()?;
-
         let (sender, receiver) = oneshot_channel();
-        self.result_senders.lock().unwrap().insert(seq, sender);
+        let seq = send_and_register(&self.result_senders, sender, || {
+            self.handle.send_result_request::<A>(&request_rmw)
+        })?;
         let lifecycle = GoalClientLifecycle {
             client,
             kind: GoalClientKind::Result(seq),
@@ -990,6 +982,31 @@ impl ActionClientHandle {
         Ok((result_rmw, response_header))
     }
 
+    fn send_goal_request<A: Action>(&self, request: &RmwGoalRequest<A>) -> Result<i64, RclrsError> {
+        let mut seq: i64 = 0;
+        unsafe {
+            let handle = self.lock();
+            rcl_action_send_goal_request(&*handle, request as *const _ as *const _, &mut seq)
+        }
+        .ok()?;
+
+        Ok(seq)
+    }
+
+    fn send_result_request<A: Action>(
+        &self,
+        request: &RmwResultRequest<A>,
+    ) -> Result<i64, RclrsError> {
+        let mut seq: i64 = 0;
+        unsafe {
+            let handle = self.lock();
+            rcl_action_send_result_request(&*handle, request as *const _ as *const _, &mut seq)
+        }
+        .ok()?;
+
+        Ok(seq)
+    }
+
     fn send_cancel_goal(&self, goal_id: GoalUuid, stamp: Time) -> Result<i64, RclrsError> {
         let cancel_request_rmw = action_msgs__srv__CancelGoal_Request {
             goal_info: action_msgs__msg__GoalInfo {
@@ -1053,3 +1070,57 @@ impl Drop for ActionClientHandle {
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread
 // they are running in. Therefore, this type can be safely sent to another thread.
 unsafe impl Send for rcl_action_client_t {}
+
+/// Sends a request and adds `value` to the map, holding the map lock across
+/// both. This ensures that if a response is received in between the request
+/// being sent and the value being added, the response will block until the
+/// value is added, preventing a race condition where the response is dropped
+/// because the sender isn't registered yet.
+fn send_and_register<V>(
+    map: &Mutex<HashMap<i64, V>>,
+    value: V,
+    send: impl FnOnce() -> Result<i64, RclrsError>,
+) -> Result<i64, RclrsError> {
+    let mut map = map.lock().unwrap();
+    let seq = send()?;
+    map.insert(seq, value);
+    Ok(seq)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::RclReturnCode;
+
+    #[test]
+    fn send_and_register_holds_map_lock_during_send() {
+        let pending = Mutex::new(HashMap::new());
+
+        let seq = send_and_register(&pending, "slot", || {
+            assert!(
+                pending.try_lock().is_err(),
+                "the map must stay locked while the request is sent"
+            );
+            Ok(42)
+        })
+        .unwrap();
+
+        assert_eq!(seq, 42);
+        assert_eq!(pending.lock().unwrap().get(&42), Some(&"slot"));
+    }
+
+    #[test]
+    fn send_and_register_does_not_register_failed_send() {
+        let pending = Mutex::new(HashMap::new());
+
+        let result = send_and_register(&pending, "slot", || {
+            Err(RclrsError::RclError {
+                code: RclReturnCode::Error,
+                msg: None,
+            })
+        });
+
+        assert!(result.is_err());
+        assert!(pending.lock().unwrap().is_empty());
+    }
+}
