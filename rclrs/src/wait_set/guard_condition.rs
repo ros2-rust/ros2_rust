@@ -224,6 +224,41 @@ impl RclPrimitive for GuardConditionExecutable {
 }
 
 #[cfg(test)]
+pub(crate) fn failing_guard_condition(
+    context: &Arc<ContextHandle>,
+) -> (Arc<GuardCondition>, Waitable) {
+    struct FailingExecutable(Arc<GuardConditionHandle>);
+
+    impl RclPrimitive for FailingExecutable {
+        unsafe fn execute(&mut self, _: ReadyKind, _: &mut dyn Any) -> Result<(), RclrsError> {
+            Err(RclrsError::RclError {
+                code: crate::RclReturnCode::Error,
+                msg: None,
+            })
+        }
+
+        fn kind(&self) -> RclPrimitiveKind {
+            RclPrimitiveKind::GuardCondition
+        }
+
+        fn handle(&self) -> RclPrimitiveHandle<'_> {
+            RclPrimitiveHandle::GuardCondition(self.0.rcl_guard_condition.lock().unwrap())
+        }
+    }
+
+    let (guard_condition, _) = GuardCondition::new(context, None);
+    let (waitable, lifecycle) = Waitable::new(
+        Box::new(FailingExecutable(Arc::clone(&guard_condition.handle))),
+        None,
+    );
+    let guard_condition = Arc::new(GuardCondition {
+        handle: Arc::clone(&guard_condition.handle),
+        lifecycle,
+    });
+    (guard_condition, waitable)
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
 
