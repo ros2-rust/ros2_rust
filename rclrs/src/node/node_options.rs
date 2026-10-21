@@ -166,6 +166,18 @@ pub trait IntoNodeOptions<'a>: Sized {
         options
     }
 
+    /// Enables or disables the logger configuration services.
+    ///
+    /// When enabled, the node exposes `~/get_logger_levels` and
+    /// `~/set_logger_levels` services that allow external nodes to query and
+    /// change logger severity levels at runtime. Disabled by default.
+    #[cfg(not(ros_distro = "humble"))]
+    fn enable_logger_service(self, enable: bool) -> NodeOptions<'a> {
+        let mut options = self.into_node_options();
+        options.enable_logger_service = enable;
+        options
+    }
+
     /// Sets the node's clock type.
     fn clock_type(self, clock_type: ClockType) -> NodeOptions<'a> {
         let mut options = self.into_node_options();
@@ -192,6 +204,7 @@ pub trait IntoNodeOptions<'a>: Sized {
 /// - `arguments: []`
 /// - `enable_rosout: true`
 /// - `start_parameter_services: true`
+/// - `enable_logger_service: false`
 /// - `clock_type: ClockType::RosTime`
 /// - `clock_qos: QOS_PROFILE_CLOCK`
 ///
@@ -233,6 +246,8 @@ pub struct NodeOptions<'a> {
     arguments: Vec<String>,
     enable_rosout: bool,
     start_parameter_services: bool,
+    #[cfg(not(ros_distro = "humble"))]
+    enable_logger_service: bool,
     clock_type: ClockType,
     clock_qos: QoSProfile,
 }
@@ -279,6 +294,8 @@ impl<'a> NodeOptions<'a> {
             arguments: vec![],
             enable_rosout: true,
             start_parameter_services: true,
+            #[cfg(not(ros_distro = "humble"))]
+            enable_logger_service: false,
             clock_type: ClockType::RosTime,
             clock_qos: QOS_PROFILE_CLOCK,
         }
@@ -418,6 +435,8 @@ impl<'a> NodeOptions<'a> {
                 .build(),
             parameter,
             logger: Logger::new(logger_name)?,
+            #[cfg(not(ros_distro = "humble"))]
+            logger_service: Mutex::new(None),
             graph_change_action,
             commands: Arc::clone(&commands),
             handle,
@@ -426,6 +445,11 @@ impl<'a> NodeOptions<'a> {
 
         if self.start_parameter_services {
             node.parameter.create_services(&node)?;
+        }
+
+        #[cfg(not(ros_distro = "humble"))]
+        if self.enable_logger_service {
+            node.create_logger_service()?;
         }
 
         Ok(node)
