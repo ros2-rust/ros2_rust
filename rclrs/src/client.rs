@@ -561,13 +561,11 @@ where
                 &mut response_out as *mut <T::Response as Message>::RmwMsg as *mut _,
             )
         }
-        .ok()
-        .map(|_| {
-            (
-                T::Response::from_rmw_message(response_out),
-                service_info_out,
-            )
-        })
+        .ok()?;
+        Ok((
+            T::Response::try_from_rmw_message(response_out)?,
+            service_info_out,
+        ))
     }
 }
 

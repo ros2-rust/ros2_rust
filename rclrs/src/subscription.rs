@@ -131,7 +131,8 @@ where
         node_handle: &Arc<NodeHandle>,
         commands: &Arc<WorkerCommands>,
     ) -> Result<Arc<Self>, RclrsError> {
-        let SubscriptionOptions { topic, qos } = options.into();
+        let options = options.into();
+        let topic = options.topic;
         let callback = Arc::new(Mutex::new(callback));
 
         // SAFETY: Getting a zero-initialized value is always safe.
@@ -143,9 +144,7 @@ where
             s: topic.into(),
         })?;
 
-        // SAFETY: No preconditions for this function.
-        let mut rcl_subscription_options = unsafe { rcl_subscription_get_default_options() };
-        rcl_subscription_options.qos = qos.into();
+        let rcl_subscription_options = options.to_rcl_options()?;
 
         {
             let rcl_node = node_handle.rcl_node.lock().unwrap();
@@ -154,7 +153,8 @@ where
                 // SAFETY:
                 // * The rcl_subscription is zero-initialized as mandated by this function.
                 // * The rcl_node is kept alive by the NodeHandle because it is a dependency of the subscription.
-                // * The topic name and the options are copied by this function, so they can be dropped afterwards.
+                // * The topic name is copied. The options are valid for this call;
+                //   their backend-selector allocation is left for rcl to release.
                 // * The entity lifecycle mutex is locked to protect against the risk of global
                 //   variables in the rmw implementation being unsafely modified during cleanup.
                 rcl_subscription_init(
@@ -244,15 +244,67 @@ pub struct SubscriptionOptions<'a> {
     pub topic: &'a str,
     /// The quality of service settings for the subscription.
     pub qos: QoSProfile,
+    /// Buffer backends accepted by the subscription.
+    ///
+    /// `None`, an empty string, or `"cpu"` selects CPU buffers. `"any"` accepts
+    /// every installed backend. A comma-separated list selects specific backends.
+    /// Non-CPU backends require the runtime's `rosidl-buffer` feature.
+    pub acceptable_buffer_backends: Option<&'a str>,
 }
 
 impl<'a> SubscriptionOptions<'a> {
+    pub(crate) fn to_rcl_options(&self) -> Result<rcl_subscription_options_t, RclrsError> {
+        // Match rclcpp's handoff of the allocated backend selector to rcl.
+        // Do not finalize these options; early initialization failures can leak the selector.
+        // SAFETY: no preconditions for obtaining default options.
+        let mut options = unsafe { rcl_subscription_get_default_options() };
+        options.qos = self.qos.into();
+        if let Some(backends) = self.acceptable_buffer_backends {
+            if !rosidl_runtime_rs::BUFFER_SUPPORT_ENABLED
+                && !backends
+                    .split(',')
+                    .all(|name| matches!(name.trim(), "" | "cpu"))
+            {
+                return Err(RclrsError::RclError {
+                    code: crate::RclReturnCode::InvalidArgument,
+                    msg: Some(crate::RclErrorMsg(
+                        "non-CPU buffer backends require rosidl-buffer".into(),
+                    )),
+                });
+            }
+            let backends_c_string =
+                CString::new(backends).map_err(|err| RclrsError::StringContainsNul {
+                    err,
+                    s: backends.into(),
+                })?;
+            // SAFETY: the setter copies the string into these initialized options.
+            unsafe {
+                rcl_subscription_options_set_acceptable_buffer_backends(
+                    backends_c_string.as_ptr(),
+                    &mut options,
+                )
+                .ok()?;
+            }
+        }
+        Ok(options)
+    }
+
     /// Initialize a new [`SubscriptionOptions`] with default settings.
     pub fn new(topic: &'a str) -> Self {
         Self {
             topic,
             qos: QoSProfile::topics_default(),
+            acceptable_buffer_backends: None,
         }
+    }
+
+    /// Sets the Buffer backends accepted by this subscription.
+    ///
+    /// Subscription creation rejects non-CPU backends unless the runtime's
+    /// `rosidl-buffer` feature is enabled.
+    pub fn acceptable_buffer_backends(mut self, backends: &'a str) -> Self {
+        self.acceptable_buffer_backends = Some(backends);
+        self
     }
 }
 
@@ -351,7 +403,7 @@ impl SubscriptionHandle {
     fn take<T: Message>(&self) -> Result<(T, MessageInfo), RclrsError> {
         let mut rmw_message = <T as Message>::RmwMsg::default();
         let message_info = Self::take_inner::<T>(self, &mut rmw_message)?;
-        Ok((T::from_rmw_message(rmw_message), message_info))
+        Ok((T::try_from_rmw_message(rmw_message)?, message_info))
     }
 
     /// This is a version of take() that returns a boxed message.
@@ -362,7 +414,7 @@ impl SubscriptionHandle {
         let message_info = Self::take_inner::<T>(self, &mut *rmw_message)?;
         // TODO: This will still use the stack in general. Change signature of
         // from_rmw_message to allow placing the result in a Box directly.
-        let message = Box::new(T::from_rmw_message(*rmw_message));
+        let message = Box::new(T::try_from_rmw_message(*rmw_message)?);
         Ok((message, message_info))
     }
 
@@ -658,6 +710,7 @@ mod tests {
                 SubscriptionOptions {
                     topic: "test_subscription_qos_topic_3",
                     qos: expected_qos,
+                    acceptable_buffer_backends: None,
                 },
                 |_: Empty| {
                     // Do nothing
@@ -668,6 +721,17 @@ mod tests {
         let qos = subscription.qos();
         assert_eq!(expected_qos.reliability, qos.reliability);
         assert_eq!(qos.reliability, QoSReliabilityPolicy::BestEffort);
+
+        #[cfg(feature = "rosidl-buffer")]
+        node.create_subscription(
+            SubscriptionOptions {
+                topic: "test_subscription_cuda_buffer_backend",
+                qos: QoSProfile::topics_default(),
+                acceptable_buffer_backends: Some("cuda"),
+            },
+            |_: Empty| {},
+        )
+        .unwrap();
     }
 
     #[test]
