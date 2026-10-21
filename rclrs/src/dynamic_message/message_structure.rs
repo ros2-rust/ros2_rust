@@ -316,9 +316,12 @@ impl MessageFieldInfo {
         match self.value_kind {
             ValueKind::Simple => self.base_type.size(),
             ValueKind::Array { length } => self.base_type.size().map(|size| length * size),
-            ValueKind::Sequence | ValueKind::BoundedSequence { .. } => {
-                Some(std::mem::size_of::<TypeErasedSequence>())
-            }
+            // From Lyrical on, primitive and string sequences carry trailing buffer
+            // flags; message sequences do not.
+            ValueKind::Sequence | ValueKind::BoundedSequence { .. } => match self.base_type {
+                BaseType::Message(_) => Some(std::mem::size_of::<TypeErasedSequence>()),
+                _ => Some(std::mem::size_of::<rosidl_runtime_rs::Sequence<u8>>()),
+            },
         }
     }
 }
