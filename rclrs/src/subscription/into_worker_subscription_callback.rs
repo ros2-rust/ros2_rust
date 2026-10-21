@@ -1,8 +1,8 @@
-use rosidl_runtime_rs::Message;
-
 use crate::{
     AnySubscriptionCallback, MessageInfo, ReadOnlyLoanedMessage, WorkerSubscriptionCallback,
 };
+use rosidl_runtime_rs::Message;
+use std::panic::UnwindSafe;
 
 /// A trait for callbacks of subscriptions that run on a worker.
 ///
@@ -19,7 +19,7 @@ use crate::{
 /// - [`FnMut`] ( [`ReadOnlyLoanedMessage`]<`Message`>, [`MessageInfo`] )
 /// - [`FnMut`] ( `&mut Payload`, [`ReadOnlyLoanedMessage`]<`Message`> )
 /// - [`FnMut`] ( `&mut Payload`, [`ReadOnlyLoanedMessage`]<`Message`>, [`MessageInfo`] )
-pub trait IntoWorkerSubscriptionCallback<T, Payload, Args>: Send + 'static
+pub trait IntoWorkerSubscriptionCallback<T, Payload, Args>: Send + UnwindSafe + 'static
 where
     T: Message,
     Payload: 'static,
@@ -34,7 +34,7 @@ impl<T, Payload, Func> IntoWorkerSubscriptionCallback<T, Payload, (T,)> for Func
 where
     T: Message,
     Payload: 'static,
-    Func: FnMut(T) + Send + 'static,
+    Func: FnMut(T) + Send + UnwindSafe + 'static,
 {
     fn into_worker_subscription_callback(mut self) -> AnySubscriptionCallback<T, Payload> {
         let f = Box::new(move |_: &mut Payload, message| self(message));
@@ -46,7 +46,7 @@ impl<T, Payload, Func> IntoWorkerSubscriptionCallback<T, Payload, (Payload, T)> 
 where
     T: Message,
     Payload: 'static,
-    Func: FnMut(&mut Payload, T) + Send + 'static,
+    Func: FnMut(&mut Payload, T) + Send + UnwindSafe + 'static,
 {
     fn into_worker_subscription_callback(self) -> AnySubscriptionCallback<T, Payload> {
         WorkerSubscriptionCallback::Regular(Box::new(self)).into()
@@ -57,7 +57,7 @@ impl<T, Payload, Func> IntoWorkerSubscriptionCallback<T, Payload, (T, MessageInf
 where
     T: Message,
     Payload: 'static,
-    Func: FnMut(T, MessageInfo) + Send + 'static,
+    Func: FnMut(T, MessageInfo) + Send + UnwindSafe + 'static,
 {
     fn into_worker_subscription_callback(mut self) -> AnySubscriptionCallback<T, Payload> {
         let f = Box::new(move |_: &mut Payload, message, info| self(message, info));
@@ -70,7 +70,7 @@ impl<T, Payload, Func> IntoWorkerSubscriptionCallback<T, Payload, (Payload, T, M
 where
     T: Message,
     Payload: 'static,
-    Func: FnMut(&mut Payload, T, MessageInfo) + Send + 'static,
+    Func: FnMut(&mut Payload, T, MessageInfo) + Send + UnwindSafe + 'static,
 {
     fn into_worker_subscription_callback(self) -> AnySubscriptionCallback<T, Payload> {
         WorkerSubscriptionCallback::RegularWithMessageInfo(Box::new(self)).into()
@@ -81,7 +81,7 @@ impl<T, Payload, Func> IntoWorkerSubscriptionCallback<T, Payload, (Box<T>,)> for
 where
     T: Message,
     Payload: 'static,
-    Func: FnMut(Box<T>) + Send + 'static,
+    Func: FnMut(Box<T>) + Send + UnwindSafe + 'static,
 {
     fn into_worker_subscription_callback(mut self) -> AnySubscriptionCallback<T, Payload> {
         let f = Box::new(move |_: &mut Payload, message| self(message));
@@ -93,7 +93,7 @@ impl<T, Payload, Func> IntoWorkerSubscriptionCallback<T, Payload, (Payload, Box<
 where
     T: Message,
     Payload: 'static,
-    Func: FnMut(&mut Payload, Box<T>) + Send + 'static,
+    Func: FnMut(&mut Payload, Box<T>) + Send + UnwindSafe + 'static,
 {
     fn into_worker_subscription_callback(self) -> AnySubscriptionCallback<T, Payload> {
         WorkerSubscriptionCallback::Boxed(Box::new(self)).into()
@@ -104,7 +104,7 @@ impl<T, Payload, Func> IntoWorkerSubscriptionCallback<T, Payload, (Box<T>, Messa
 where
     T: Message,
     Payload: 'static,
-    Func: FnMut(Box<T>, MessageInfo) + Send + 'static,
+    Func: FnMut(Box<T>, MessageInfo) + Send + UnwindSafe + 'static,
 {
     fn into_worker_subscription_callback(mut self) -> AnySubscriptionCallback<T, Payload> {
         let f = Box::new(move |_: &mut Payload, message, info| self(message, info));
@@ -117,7 +117,7 @@ impl<T, Payload, Func> IntoWorkerSubscriptionCallback<T, Payload, (Payload, Box<
 where
     T: Message,
     Payload: 'static,
-    Func: FnMut(&mut Payload, Box<T>, MessageInfo) + Send + 'static,
+    Func: FnMut(&mut Payload, Box<T>, MessageInfo) + Send + UnwindSafe + 'static,
 {
     fn into_worker_subscription_callback(self) -> AnySubscriptionCallback<T, Payload> {
         WorkerSubscriptionCallback::BoxedWithMessageInfo(Box::new(self)).into()
@@ -129,7 +129,7 @@ impl<T, Payload, Func> IntoWorkerSubscriptionCallback<T, Payload, (ReadOnlyLoane
 where
     T: Message,
     Payload: 'static,
-    Func: FnMut(ReadOnlyLoanedMessage<T>) + Send + 'static,
+    Func: FnMut(ReadOnlyLoanedMessage<T>) + Send + UnwindSafe + 'static,
 {
     fn into_worker_subscription_callback(mut self) -> AnySubscriptionCallback<T, Payload> {
         let f = Box::new(move |_: &mut Payload, message| self(message));
@@ -142,7 +142,7 @@ impl<T, Payload, Func>
 where
     T: Message,
     Payload: 'static,
-    Func: FnMut(&mut Payload, ReadOnlyLoanedMessage<T>) + Send + 'static,
+    Func: FnMut(&mut Payload, ReadOnlyLoanedMessage<T>) + Send + UnwindSafe + 'static,
 {
     fn into_worker_subscription_callback(self) -> AnySubscriptionCallback<T, Payload> {
         WorkerSubscriptionCallback::Loaned(Box::new(self)).into()
@@ -154,7 +154,7 @@ impl<T, Payload, Func>
 where
     T: Message,
     Payload: 'static,
-    Func: FnMut(ReadOnlyLoanedMessage<T>, MessageInfo) + Send + 'static,
+    Func: FnMut(ReadOnlyLoanedMessage<T>, MessageInfo) + Send + UnwindSafe + 'static,
 {
     fn into_worker_subscription_callback(mut self) -> AnySubscriptionCallback<T, Payload> {
         let f = Box::new(move |_: &mut Payload, message, info| self(message, info));
@@ -168,7 +168,7 @@ impl<T, Payload, Func>
 where
     T: Message,
     Payload: 'static,
-    Func: FnMut(&mut Payload, ReadOnlyLoanedMessage<T>, MessageInfo) + Send + 'static,
+    Func: FnMut(&mut Payload, ReadOnlyLoanedMessage<T>, MessageInfo) + Send + UnwindSafe + 'static,
 {
     fn into_worker_subscription_callback(self) -> AnySubscriptionCallback<T, Payload> {
         WorkerSubscriptionCallback::LoanedWithMessageInfo(Box::new(self)).into()
