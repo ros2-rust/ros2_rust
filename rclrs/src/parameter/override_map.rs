@@ -1,6 +1,6 @@
 use std::{collections::BTreeMap, ffi::CStr, os::raw::c_char};
 
-use crate::{rcl_bindings::*, ParameterValue, RclrsError, ToResult};
+use crate::{rcl_bindings::*, ParameterValue, RclErrorMsg, RclReturnCode, RclrsError, ToResult};
 
 // Internal helper struct, iterator for rcl_params_t
 struct RclParamsIter<'a> {
@@ -125,7 +125,17 @@ pub(crate) unsafe fn resolve_parameter_overrides(
                 for (node_name, node_params) in RclParamsIter::new(rcl_params) {
                     if node_name == name_to_match {
                         for (param_name, variant) in RclNodeParamsIter::new(node_params) {
-                            let value = ParameterValue::from_rcl_variant(variant);
+                            // An empty array (`[]`) has no element type, so it cannot be converted.
+                            let Some(value) = ParameterValue::from_rcl_variant(variant) else {
+                                rcl_yaml_node_struct_fini(rcl_params);
+                                return Err(RclrsError::RclError {
+                                    code: RclReturnCode::InvalidArgument,
+                                    msg: Some(RclErrorMsg(format!(
+                                        "parameter override '{param_name}' has an empty array \
+                                        or ambiguous value whose type cannot be determined"
+                                    ))),
+                                });
+                            };
                             map.insert(param_name, value);
                         }
                     }
@@ -256,6 +266,34 @@ mod tests {
                 ("o", ParameterValue::Integer(4)),
             ]
         );
+        Ok(())
+    }
+
+    #[test]
+    fn test_resolve_parameter_overrides_empty_array_is_error() -> Result<(), Box<dyn Error>> {
+        let params = "/**:\n  ros__parameters:\n    my_list: [1, 2]\n\
+                      /my_ns/my_node:\n  ros__parameters:\n    my_list: []\n";
+        let mut rcl_global_arguments = convert_to_rcl_arguments(params)?;
+        let mut rcl_node_arguments = unsafe { rcl_get_zero_initialized_arguments() };
+        let result = unsafe {
+            resolve_parameter_overrides(
+                "/my_ns/my_node",
+                &rcl_node_arguments,
+                &rcl_global_arguments,
+            )
+        };
+        unsafe {
+            rcl_arguments_fini(&mut rcl_node_arguments);
+            rcl_arguments_fini(&mut rcl_global_arguments);
+        }
+        let Err(RclrsError::RclError {
+            code: RclReturnCode::InvalidArgument,
+            msg: Some(msg),
+        }) = result
+        else {
+            panic!("expected an InvalidArgument error, got {result:?}");
+        };
+        assert!(msg.to_string().contains("'my_list'"));
         Ok(())
     }
 }
