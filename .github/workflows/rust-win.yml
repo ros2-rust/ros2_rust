@@ -64,6 +64,9 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           pixi add --pypi "colcon-cargo@git+https://github.com/colcon/colcon-cargo.git" --manifest-path C:\pixi_ws\pixi.toml
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          # With multiple environments, pixi add updates the lock without installing the added packages.
+          pixi install --locked -e default --manifest-path C:\pixi_ws\pixi.toml
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       # Load MSVC variables after the dependency environment is installed.
       - uses: ilammy/msvc-dev-cmd@v1.4.1
