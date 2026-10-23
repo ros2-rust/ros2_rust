@@ -63,14 +63,14 @@ pub struct DynamicBoundedWStringMut<'msg> {
 
 // ========================= impl for DynamicBounded(W)String =========================
 
-impl<'msg> Deref for DynamicBoundedString<'msg> {
+impl Deref for DynamicBoundedString<'_> {
     type Target = rosidl_runtime_rs::String;
     fn deref(&self) -> &Self::Target {
         self.inner
     }
 }
 
-impl<'msg> Display for DynamicBoundedString<'msg> {
+impl Display for DynamicBoundedString<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         self.inner.fmt(f)
     }
@@ -92,28 +92,28 @@ unsafe impl<'msg> Proxy<'msg> for DynamicBoundedString<'msg> {
     }
 }
 
-impl<'msg> DynamicBoundedString<'msg> {
+impl DynamicBoundedString<'_> {
     /// Returns the maximum length of this string.
     pub fn upper_bound(&self) -> NonZeroUsize {
         self.upper_bound
     }
 }
 
-impl<'msg> DynamicBoundedWString<'msg> {
+impl DynamicBoundedWString<'_> {
     /// Returns the maximum length of this string.
     pub fn upper_bound(&self) -> NonZeroUsize {
         self.upper_bound
     }
 }
 
-impl<'msg> Deref for DynamicBoundedWString<'msg> {
+impl Deref for DynamicBoundedWString<'_> {
     type Target = rosidl_runtime_rs::WString;
     fn deref(&self) -> &Self::Target {
         self.inner
     }
 }
 
-impl<'msg> Display for DynamicBoundedWString<'msg> {
+impl Display for DynamicBoundedWString<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         self.inner.fmt(f)
     }
@@ -137,20 +137,20 @@ unsafe impl<'msg> Proxy<'msg> for DynamicBoundedWString<'msg> {
 
 // ========================= impl for DynamicBounded(W)StringMut =========================
 
-impl<'msg> AsMut<[std::os::raw::c_char]> for DynamicBoundedStringMut<'msg> {
+impl AsMut<[std::os::raw::c_char]> for DynamicBoundedStringMut<'_> {
     fn as_mut(&mut self) -> &mut [std::os::raw::c_char] {
         self.inner.deref_mut()
     }
 }
 
-impl<'msg> Deref for DynamicBoundedStringMut<'msg> {
+impl Deref for DynamicBoundedStringMut<'_> {
     type Target = rosidl_runtime_rs::String;
     fn deref(&self) -> &Self::Target {
         self.inner
     }
 }
 
-impl<'msg> Display for DynamicBoundedStringMut<'msg> {
+impl Display for DynamicBoundedStringMut<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         self.inner.fmt(f)
     }
@@ -176,7 +176,7 @@ unsafe impl<'msg> ProxyMut<'msg> for DynamicBoundedStringMut<'msg> {
     }
 }
 
-impl<'msg> DynamicBoundedStringMut<'msg> {
+impl DynamicBoundedStringMut<'_> {
     /// Returns the maximum length of this string.
     pub fn upper_bound(&self) -> NonZeroUsize {
         self.upper_bound
@@ -197,20 +197,20 @@ impl<'msg> DynamicBoundedStringMut<'msg> {
     }
 }
 
-impl<'msg> AsMut<[std::os::raw::c_ushort]> for DynamicBoundedWStringMut<'msg> {
+impl AsMut<[std::os::raw::c_ushort]> for DynamicBoundedWStringMut<'_> {
     fn as_mut(&mut self) -> &mut [std::os::raw::c_ushort] {
         self.inner.deref_mut()
     }
 }
 
-impl<'msg> Deref for DynamicBoundedWStringMut<'msg> {
+impl Deref for DynamicBoundedWStringMut<'_> {
     type Target = rosidl_runtime_rs::WString;
     fn deref(&self) -> &Self::Target {
         self.inner
     }
 }
 
-impl<'msg> Display for DynamicBoundedWStringMut<'msg> {
+impl Display for DynamicBoundedWStringMut<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         self.inner.fmt(f)
     }
@@ -236,7 +236,7 @@ unsafe impl<'msg> ProxyMut<'msg> for DynamicBoundedWStringMut<'msg> {
     }
 }
 
-impl<'msg> DynamicBoundedWStringMut<'msg> {
+impl DynamicBoundedWStringMut<'_> {
     /// Returns the maximum length of this string.
     pub fn upper_bound(&self) -> NonZeroUsize {
         self.upper_bound

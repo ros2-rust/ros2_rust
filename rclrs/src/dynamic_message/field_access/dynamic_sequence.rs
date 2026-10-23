@@ -135,7 +135,7 @@ where
     }
 }
 
-impl<'msg, T> InnerSequence<T> for &'msg mut Sequence<T>
+impl<T> InnerSequence<T> for &mut Sequence<T>
 where
     T: PartialEq + SequenceAlloc,
 {
@@ -277,7 +277,7 @@ where
 {
     type Target = [T];
     fn deref(&self) -> &Self::Target {
-        &*self.elements
+        &self.elements
     }
 }
 
@@ -298,22 +298,22 @@ where
     ///
     /// [1]: rosidl_runtime_rs::Sequence::as_slice
     pub fn as_slice(&self) -> &[T] {
-        &*self.elements
+        &self.elements
     }
 }
 
 // ------------------------- impl for DynamicBoundedSequence -------------------------
 
-impl<'msg, T> BooSlice<'msg, T> {
+impl<T> BooSlice<'_, T> {
     fn as_slice(&self) -> &[T] {
         match self {
             BooSlice::Borrowed(slice) => slice,
-            BooSlice::Owned(boxed_slice) => &**boxed_slice,
+            BooSlice::Owned(boxed_slice) => boxed_slice,
         }
     }
 }
 
-impl<'msg, T> Debug for DynamicBoundedSequence<'msg, T>
+impl<T> Debug for DynamicBoundedSequence<'_, T>
 where
     T: Debug,
 {
@@ -322,7 +322,7 @@ where
     }
 }
 
-impl<'msg, T> Deref for DynamicBoundedSequence<'msg, T> {
+impl<T> Deref for DynamicBoundedSequence<'_, T> {
     type Target = [T];
     fn deref(&self) -> &Self::Target {
         self.boo.as_slice()
@@ -360,7 +360,7 @@ where
     }
 }
 
-impl<'msg, T: SequenceAlloc> DynamicBoundedSequence<'msg, T> {
+impl<T: SequenceAlloc> DynamicBoundedSequence<'_, T> {
     /// See [`Sequence::as_slice()`][1].
     ///
     /// [1]: rosidl_runtime_rs::Sequence::as_slice
@@ -386,11 +386,20 @@ pub(super) type ResizeFunction =
 /// An unbounded sequence.
 ///
 /// This type dereferences to `&[T]` and `&mut [T]`.
-#[derive(PartialEq)]
 pub struct DynamicSequenceMut<'msg, T: DynamicSequenceElementMut<'msg>> {
     // This is either &mut Sequence<T> or ProxySequence<T>
     sequence: T::InnerSequence,
     resize_function: ResizeFunction,
+}
+
+impl<'msg, T> PartialEq for DynamicSequenceMut<'msg, T>
+where
+    T: DynamicSequenceElementMut<'msg>,
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.sequence == other.sequence
+            && std::ptr::fn_addr_eq(self.resize_function, other.resize_function)
+    }
 }
 
 /// A bounded sequence whose upper bound is only known at runtime.

@@ -28,7 +28,7 @@ pub struct DynamicMessageViewMut<'msg> {
 
 // ========================= impl for DynamicMessageView =========================
 
-impl<'msg> Debug for DynamicMessageView<'msg> {
+impl Debug for DynamicMessageView<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         let mut struct_ = f.debug_struct(&self.structure().type_name);
         for field in &self.structure().fields {
@@ -39,7 +39,7 @@ impl<'msg> Debug for DynamicMessageView<'msg> {
     }
 }
 
-impl<'msg> Deref for DynamicMessageView<'msg> {
+impl Deref for DynamicMessageView<'_> {
     type Target = MessageStructure;
     fn deref(&self) -> &Self::Target {
         self.structure
@@ -90,7 +90,7 @@ impl<'msg> DynamicMessageView<'msg> {
 
 // ========================= impl for DynamicMessageViewMut =========================
 
-impl<'msg> Debug for DynamicMessageViewMut<'msg> {
+impl Debug for DynamicMessageViewMut<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         DynamicMessageView {
             structure: self.structure,
@@ -100,7 +100,7 @@ impl<'msg> Debug for DynamicMessageViewMut<'msg> {
     }
 }
 
-impl<'msg> Deref for DynamicMessageViewMut<'msg> {
+impl Deref for DynamicMessageViewMut<'_> {
     type Target = MessageStructure;
     fn deref(&self) -> &Self::Target {
         self.structure

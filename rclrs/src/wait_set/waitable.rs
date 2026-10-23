@@ -151,7 +151,7 @@ impl Waitable {
                     rcl_wait_set_add_subscription(wait_set, &*handle, &mut index)
                 }
                 RclPrimitiveHandle::GuardCondition(handle) => handle.use_handle(|handle| {
-                    rcl_wait_set_add_guard_condition(wait_set, &*handle, &mut index)
+                    rcl_wait_set_add_guard_condition(wait_set, handle, &mut index)
                 }),
                 RclPrimitiveHandle::Service(handle) => {
                     rcl_wait_set_add_service(wait_set, &*handle, &mut index)

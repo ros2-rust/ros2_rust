@@ -58,7 +58,7 @@ impl PartialEq for DynamicMessageError {
             return false;
         }
         // TODO(luca) this is not very efficient, revisit
-        return self.to_string() == other.to_string();
+        self.to_string() == other.to_string()
     }
 }
 

@@ -11,7 +11,9 @@ pub trait RclPrimitive: Send + Sync {
     ///   primitives sent through a [`WorkerChannel`][2] by a [`Worker`][3] this must be
     ///   the same type as the `Worker`'s generic argument.
     ///
-    /// SAFETY: Make sure the type of the payload always matches what the primitive
+    /// # Safety
+    ///
+    /// Make sure the type of the payload always matches what the primitive
     /// expects to receive. For now we will return an error if there is a mismatch.
     /// In the future we may use `std::Any::downcast_mut_unchecked` once it
     /// stabilizes, which would give undefined behavior in a mismatch, making it
@@ -138,7 +140,7 @@ impl ReadyKind {
 /// Action servers provide multiple services bundled together. When a wait set
 /// wakes up it is possible for any number of those services to be ready for
 /// processing. This struct conveys which of an action's services are ready.
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Default)]
 pub struct ActionServerReady {
     /// True if there is a goal request message ready to take, false otherwise.
     pub goal_request: bool,
@@ -148,17 +150,6 @@ pub struct ActionServerReady {
     pub result_request: bool,
     /// True if a goal has expired, false otherwise.
     pub goal_expired: bool,
-}
-
-impl Default for ActionServerReady {
-    fn default() -> Self {
-        Self {
-            goal_request: false,
-            cancel_request: false,
-            result_request: false,
-            goal_expired: false,
-        }
-    }
 }
 
 impl ActionServerReady {
@@ -216,7 +207,7 @@ impl ActionServerReady {
 /// some subscribers. When a wait set wakes up it is possible for any number of
 /// those services or subscriptions to be ready for processing. This struct
 /// conveys which of an action client's messages are ready.
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Default)]
 pub struct ActionClientReady {
     /// True if there is a feedback message ready to take, false otherwise.
     pub feedback: bool,
@@ -274,17 +265,5 @@ impl ActionClientReady {
             || self.goal_response
             || self.cancel_response
             || self.result_response
-    }
-}
-
-impl Default for ActionClientReady {
-    fn default() -> Self {
-        Self {
-            feedback: false,
-            status: false,
-            goal_response: false,
-            cancel_response: false,
-            result_response: false,
-        }
     }
 }
