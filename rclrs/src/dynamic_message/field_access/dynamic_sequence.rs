@@ -6,8 +6,6 @@ use std::{
 
 use rosidl_runtime_rs::{Sequence, SequenceAlloc, SequenceExceedsBoundsError};
 
-use super::check;
-
 // We cannot always use &Sequence<T> and &mut Sequence<T> as types for accessing sequence fields.
 // This is for two reasons:
 // 1.  The type T might be a sub-message, or a bounded string/wstring. These types have some
@@ -203,7 +201,8 @@ impl TypeErasedSequence {
         };
         let sequence_data =
             std::slice::from_raw_parts(self.data as *const u8, self.size * element_size);
-        check::<T>(sequence_data);
+        // These bytes store C elements, not Rust proxy objects. The proxy constructor
+        // receives each element-sized slice; the proxy itself has a different layout.
         sequence_data
             .chunks(element_size)
             .map(|bytes| T::new(bytes, metadata))
@@ -220,7 +219,8 @@ impl TypeErasedSequence {
         };
         let sequence_data =
             std::slice::from_raw_parts_mut(self.data as *mut u8, self.size * element_size);
-        check::<T>(sequence_data);
+        // These bytes store C elements, not Rust proxy objects. The proxy constructor
+        // receives each element-sized slice; the proxy itself has a different layout.
         sequence_data
             .chunks_mut(element_size)
             .map(|bytes| T::new(bytes, metadata))
@@ -604,5 +604,51 @@ impl<'msg, T: DynamicSequenceElementMut<'msg>> DynamicBoundedSequenceMut<'msg, T
             self.inner.reset(len);
             Ok(())
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        DynamicMessage, DynamicMessageView, DynamicMessageViewMut, SimpleValue, SimpleValueMut,
+        Value, ValueMut,
+    };
+    use ros_env::builtin_interfaces::msg::rmw::Time;
+
+    #[test]
+    fn proxies_for_small_message_sequence() {
+        let message =
+            DynamicMessage::new("builtin_interfaces/msg/Time".try_into().unwrap()).unwrap();
+        let view = message.view();
+        let mut time = Time {
+            sec: 7,
+            nanosec: 42,
+        };
+        let sequence = TypeErasedSequence {
+            data: (&mut time as *mut Time).cast(),
+            size: 1,
+            capacity: 1,
+        };
+        // Time occupies 8 bytes, less than the Rust proxy's size.
+        // SAFETY: The sequence points to one initialized Time with matching metadata.
+        // Its storage remains alive and is not accessed while the proxies are borrowed.
+        let proxies = unsafe { sequence.proxy_elems::<DynamicMessageView>(view.structure()) };
+        let Some(Value::Simple(SimpleValue::Int32(sec))) = proxies[0].get("sec") else {
+            panic!("Expected Int32");
+        };
+        assert_eq!(*sec, 7);
+        drop(proxies);
+
+        // SAFETY: The same storage and metadata remain valid; immutable proxies were dropped.
+        let mut proxies =
+            unsafe { sequence.proxy_elems_mut::<DynamicMessageViewMut>(view.structure()) };
+        let Some(ValueMut::Simple(SimpleValueMut::Int32(sec))) = proxies[0].get_mut("sec") else {
+            panic!("Expected Int32");
+        };
+        *sec = 9;
+        drop(proxies);
+        assert_eq!(time.sec, 9);
+        assert_eq!(time.nanosec, 42);
     }
 }
