@@ -11,7 +11,7 @@ where
     Func: FnMut() + 'static + Send,
 {
     fn into_node_timer_repeating_callback(mut self) -> AnyTimerCallback<Node> {
-        AnyTimerCallback::Repeating(Box::new(move |_, _| self())).into()
+        AnyTimerCallback::Repeating(Box::new(move |_, _| self()))
     }
 }
 
@@ -20,7 +20,7 @@ where
     Func: FnMut(&Timer) + 'static + Send,
 {
     fn into_node_timer_repeating_callback(mut self) -> AnyTimerCallback<Node> {
-        AnyTimerCallback::Repeating(Box::new(move |_, t| self(t))).into()
+        AnyTimerCallback::Repeating(Box::new(move |_, t| self(t)))
     }
 }
 
@@ -29,7 +29,7 @@ where
     Func: FnMut(Time) + 'static + Send,
 {
     fn into_node_timer_repeating_callback(mut self) -> AnyTimerCallback<Node> {
-        AnyTimerCallback::Repeating(Box::new(move |_, t| self(t.handle.clock.now()))).into()
+        AnyTimerCallback::Repeating(Box::new(move |_, t| self(t.handle.clock.now())))
     }
 }
 
@@ -44,7 +44,7 @@ where
     Func: FnOnce() + 'static + Send,
 {
     fn into_node_timer_oneshot_callback(self) -> AnyTimerCallback<Node> {
-        AnyTimerCallback::OneShot(Box::new(move |_, _| self())).into()
+        AnyTimerCallback::OneShot(Box::new(move |_, _| self()))
     }
 }
 
@@ -53,7 +53,7 @@ where
     Func: FnOnce(&Timer) + 'static + Send,
 {
     fn into_node_timer_oneshot_callback(self) -> AnyTimerCallback<Node> {
-        AnyTimerCallback::OneShot(Box::new(move |_, t| self(t))).into()
+        AnyTimerCallback::OneShot(Box::new(move |_, t| self(t)))
     }
 }
 
@@ -62,6 +62,6 @@ where
     Func: FnOnce(Time) + 'static + Send,
 {
     fn into_node_timer_oneshot_callback(self) -> AnyTimerCallback<Node> {
-        AnyTimerCallback::OneShot(Box::new(move |_, t| self(t.handle.clock.now()))).into()
+        AnyTimerCallback::OneShot(Box::new(move |_, t| self(t.handle.clock.now())))
     }
 }

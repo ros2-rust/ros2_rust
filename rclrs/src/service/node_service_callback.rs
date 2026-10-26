@@ -9,17 +9,28 @@ use futures::future::BoxFuture;
 
 use std::sync::Arc;
 
+type OnlyRequestCallback<T> =
+    Box<dyn FnMut(<T as Service>::Request) -> BoxFuture<'static, <T as Service>::Response> + Send>;
+type WithIdCallback<T> = Box<
+    dyn FnMut(<T as Service>::Request, RequestId) -> BoxFuture<'static, <T as Service>::Response>
+        + Send,
+>;
+type WithInfoCallback<T> = Box<
+    dyn FnMut(<T as Service>::Request, ServiceInfo) -> BoxFuture<'static, <T as Service>::Response>
+        + Send,
+>;
+
 /// An enum capturing the various possible function signatures for service callbacks.
 pub enum NodeServiceCallback<T>
 where
     T: Service,
 {
     /// A callback that only takes in the request value
-    OnlyRequest(Box<dyn FnMut(T::Request) -> BoxFuture<'static, T::Response> + Send>),
+    OnlyRequest(OnlyRequestCallback<T>),
     /// A callback that takes in the request value and the ID of the request
-    WithId(Box<dyn FnMut(T::Request, RequestId) -> BoxFuture<'static, T::Response> + Send>),
+    WithId(WithIdCallback<T>),
     /// A callback that takes in the request value and all available
-    WithInfo(Box<dyn FnMut(T::Request, ServiceInfo) -> BoxFuture<'static, T::Response> + Send>),
+    WithInfo(WithInfoCallback<T>),
 }
 
 impl<T: Service> NodeServiceCallback<T> {
@@ -37,7 +48,7 @@ impl<T: Service> NodeServiceCallback<T> {
                         if let Err(err) =
                             handle.send_response::<T>(&mut rmw_request_id, response.await)
                         {
-                            log_service_send_error(&*handle, rmw_request_id, err);
+                            log_service_send_error(&handle, rmw_request_id, err);
                         }
                     });
                 }
@@ -49,7 +60,7 @@ impl<T: Service> NodeServiceCallback<T> {
                         if let Err(err) =
                             handle.send_response::<T>(&mut rmw_request_id, response.await)
                         {
-                            log_service_send_error(&*handle, rmw_request_id, err);
+                            log_service_send_error(&handle, rmw_request_id, err);
                         }
                     });
                 }
@@ -62,7 +73,7 @@ impl<T: Service> NodeServiceCallback<T> {
                         if let Err(err) =
                             handle.send_response::<T>(&mut rmw_request_id, response.await)
                         {
-                            log_service_send_error(&*handle, rmw_request_id, err);
+                            log_service_send_error(&handle, rmw_request_id, err);
                         }
                     });
                 }

@@ -320,3 +320,118 @@ mod tests {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod logging_lifetime_tests {
+    use super::*;
+    use crate::CreateBasicExecutor;
+    use std::{
+        process::{Command, Stdio},
+        time::{Duration, Instant},
+    };
+
+    // Logging is process-global. Reexecute only this test so other parallel
+    // tests cannot keep a context alive and mask the last-reference transition.
+    fn isolated(test_name: &str, deferred: bool) {
+        const CHILD: &str = "RCLRS_LOGGING_LIFETIME_TEST_CHILD";
+        if std::env::var(CHILD).as_deref() == Ok(test_name) {
+            check_drop_order(deferred);
+            return;
+        }
+
+        let mut child = Command::new(std::env::current_exe().unwrap())
+            .args(["--exact", test_name, "--nocapture"])
+            .env(CHILD, test_name)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .expect("failed to start isolated logging test");
+        let deadline = Instant::now() + Duration::from_secs(45);
+        let mut timed_out = false;
+        while child.try_wait().unwrap().is_none() {
+            if Instant::now() >= deadline {
+                timed_out = true;
+                let _ = child.kill();
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        let output = child.wait_with_output().unwrap();
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(
+            !timed_out && output.status.success(),
+            "isolated logging test failed (timeout={timed_out}):\n{stdout}\n{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert!(
+            stdout.contains("running 1 test") && stdout.contains("1 passed; 0 failed"),
+            "the isolated process did not execute exactly one test: {stdout}"
+        );
+    }
+
+    fn check_drop_order(deferred: bool) {
+        let old = Context::default();
+        let handle = Arc::try_unwrap(old.handle)
+            .unwrap_or_else(|_| panic!("the isolated context must be uniquely owned"));
+        let weak = Arc::downgrade(&handle.logging);
+        // Detach the value without running Drop yet. A failing Weak::upgrade
+        // does not mean the previous LoggingLifecycle destructor has finished.
+        // This models that interval without a scheduler race or production hook.
+        let pending = Arc::try_unwrap(handle.logging)
+            .unwrap_or_else(|_| panic!("the isolated logging lease must be uniquely owned"));
+        drop(handle.rcl_context);
+        assert!(weak.upgrade().is_none());
+
+        let pending = if deferred {
+            Some(pending)
+        } else {
+            drop(pending);
+            None
+        };
+        let context = Context::default();
+        drop(pending);
+
+        let context_weak = Arc::downgrade(&context.handle);
+        let executor = context.create_basic_executor();
+        let node_name = format!("logging_lifetime_node_{}", std::process::id());
+        let node = executor.create_node(node_name.as_str()).unwrap();
+        drop(context);
+        drop(executor);
+        assert!(context_weak.upgrade().is_some());
+        assert!(
+            node.get_publisher_names_and_types_by_node(&node_name, "")
+                .unwrap()
+                .contains_key("/rosout"),
+            "new context lost its /rosout publisher after old logging cleanup"
+        );
+        drop(node);
+        assert!(context_weak.upgrade().is_none());
+
+        // Once the last node has released its context, another context must
+        // still be able to initialize logging and create a rosout publisher.
+        let context = Context::default();
+        let executor = context.create_basic_executor();
+        let node_name = format!("logging_reinitialized_node_{}", std::process::id());
+        let node = executor.create_node(node_name.as_str()).unwrap();
+        assert!(node
+            .get_publisher_names_and_types_by_node(&node_name, "")
+            .unwrap()
+            .contains_key("/rosout"));
+    }
+
+    #[test]
+    fn test_logging_after_completed_drop() {
+        isolated(
+            "context::logging_lifetime_tests::test_logging_after_completed_drop",
+            false,
+        );
+    }
+
+    #[test]
+    fn test_logging_with_pending_drop() {
+        isolated(
+            "context::logging_lifetime_tests::test_logging_with_pending_drop",
+            true,
+        );
+    }
+}

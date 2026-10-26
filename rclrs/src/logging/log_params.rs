@@ -182,7 +182,7 @@ pub enum LoggerName<'a> {
 // of RCUTILS_LOG_SEVERITY to just LogSeverity so it's more idiomatic and then
 // export it from the rclrs module.
 #[doc(hidden)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub enum LogSeverity {
     /// Use the severity level of the parent logger (or the root logger if the
     /// current logger has no parent)
@@ -191,6 +191,7 @@ pub enum LogSeverity {
     Debug,
     /// For messages that provide useful information about the state of the
     /// application.
+    #[default]
     Info,
     /// For messages that indicate something unusual or unintended might have happened.
     Warn,
@@ -236,16 +237,11 @@ impl LogSeverity {
     }
 }
 
-impl Default for LogSeverity {
-    fn default() -> Self {
-        Self::Info
-    }
-}
-
 /// Specify when a log message should be published
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Default)]
 pub enum LogOccurrence {
     /// Every message will be published if all other conditions are met
+    #[default]
     All,
     /// The message will only be published on the first occurrence (Note: no other conditions apply)
     Once,
@@ -264,12 +260,6 @@ pub enum ThrottleClock<'a> {
     SystemTime,
     /// Use some [`Clock`] as a clock.
     Clock(&'a Clock),
-}
-
-impl Default for LogOccurrence {
-    fn default() -> Self {
-        Self::All
-    }
 }
 
 // Anything that we can borrow a string from can be used as if it's a logger and

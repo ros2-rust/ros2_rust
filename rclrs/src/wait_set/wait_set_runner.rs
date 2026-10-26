@@ -111,7 +111,9 @@ impl WaitSetRunner {
         let (sender, promise) = channel();
         std::thread::spawn(move || {
             let result = self.run_blocking(conditions);
-            if let Err(_) = sender.send((self, result)) {
+            // Keep the runner alive while reporting a failed return.
+            let send_result = sender.send((self, result));
+            if send_result.is_err() {
                 // This is a debug log because this is a normal thing to occur
                 // when an executor is winding down.
                 log_debug!(
@@ -119,6 +121,7 @@ impl WaitSetRunner {
                     "Unable to return the wait set runner from an async run"
                 );
             }
+            drop(send_result);
         });
 
         promise

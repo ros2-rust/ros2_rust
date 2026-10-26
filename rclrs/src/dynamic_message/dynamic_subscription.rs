@@ -56,15 +56,18 @@ pub(crate) struct NodeDynamicSubscriptionCallback(
     Box<dyn Fn(DynamicMessage, MessageInfo) + Send + Sync>,
 );
 
+type AsyncDynamicSubscriptionCallback =
+    dyn FnMut(DynamicMessage, MessageInfo) -> BoxFuture<'static, ()> + Send + Sync;
+type WorkerDynamicCallback<Payload> =
+    dyn FnMut(&mut Payload, DynamicMessage, MessageInfo) + Send + Sync;
+
 impl NodeDynamicSubscriptionCallback {
     pub(crate) fn new(f: impl Fn(DynamicMessage, MessageInfo) + Send + Sync + 'static) -> Self {
         NodeDynamicSubscriptionCallback(Box::new(f))
     }
 }
 
-pub(crate) struct NodeAsyncDynamicSubscriptionCallback(
-    Box<dyn FnMut(DynamicMessage, MessageInfo) -> BoxFuture<'static, ()> + Send + Sync>,
-);
+pub(crate) struct NodeAsyncDynamicSubscriptionCallback(Box<AsyncDynamicSubscriptionCallback>);
 
 impl NodeAsyncDynamicSubscriptionCallback {
     pub(crate) fn new(
@@ -74,9 +77,7 @@ impl NodeAsyncDynamicSubscriptionCallback {
     }
 }
 
-pub(crate) struct WorkerDynamicSubscriptionCallback<Payload>(
-    Box<dyn FnMut(&mut Payload, DynamicMessage, MessageInfo) + Send + Sync>,
-);
+pub(crate) struct WorkerDynamicSubscriptionCallback<Payload>(Box<WorkerDynamicCallback<Payload>>);
 
 impl<Payload> WorkerDynamicSubscriptionCallback<Payload> {
     pub(crate) fn new(
@@ -94,8 +95,7 @@ impl Deref for NodeDynamicSubscriptionCallback {
 }
 
 impl Deref for NodeAsyncDynamicSubscriptionCallback {
-    type Target =
-        Box<dyn FnMut(DynamicMessage, MessageInfo) -> BoxFuture<'static, ()> + Send + Sync>;
+    type Target = Box<AsyncDynamicSubscriptionCallback>;
     fn deref(&self) -> &Self::Target {
         &self.0
     }
@@ -226,14 +226,14 @@ impl<Payload: 'static> RclPrimitive for DynamicSubscriptionExecutable<Payload> {
         self.callback
             .lock()
             .unwrap()
-            .execute(&self, payload, &self.commands)
+            .execute(self, payload, &self.commands)
     }
 
     fn kind(&self) -> RclPrimitiveKind {
         RclPrimitiveKind::Subscription
     }
 
-    fn handle(&self) -> RclPrimitiveHandle {
+    fn handle(&self) -> RclPrimitiveHandle<'_> {
         RclPrimitiveHandle::Subscription(self.handle.lock())
     }
 }
