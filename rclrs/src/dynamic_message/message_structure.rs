@@ -1,4 +1,9 @@
-use std::{ffi::CStr, mem, num::NonZeroUsize, os::raw::c_char, os::raw::c_void};
+use std::{
+    ffi::CStr,
+    mem,
+    num::NonZeroUsize,
+    os::raw::{c_char, c_void},
+};
 
 use super::TypeErasedSequence;
 use crate::rcl_bindings::{

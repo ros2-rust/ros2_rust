@@ -1,0 +1,50 @@
+[package]
+name = "rosidl_runtime_rs"
+version = "0.7.0"
+# This project is not military-sponsored, Jacob's employment contract just requires him to use this email address
+authors = ["Esteve Fernandez <esteve@apache.org>", "Nikolai Morin <nnmmgit@gmail.com>", "Jacob Hassold <jacob.a.hassold.civ@army.mil>"]
+edition = "2021"
+license = "Apache-2.0"
+description = "Message generation code shared by Rust projects in ROS 2"
+repository.workspace = true
+rust-version.workspace = true
+
+[lib]
+path = "src/lib.rs"
+
+# Please keep the list of dependencies alphabetically sorted,
+# and also state why each dependency is needed.
+[dependencies]
+# Optional dependency for making it possible to convert messages to and from
+# formats such as JSON, YAML, Pickle, etc.
+serde = { version = "1", optional = true }
+
+[features]
+default = []
+# This feature is solely for the purpose of being able to generate documentation without a ROS installation
+# The only intended usage of this feature is for docs.rs builders to work, and is not intended to be used by end users
+use_ros_shim = []
+# Adds the C compiler to build and link the C probe to test size/layout against the installed ROS 2 C headers
+# This is only intended to be used for testing, and is not intended to be used by end users
+abi_check = ["dep:cc"]
+
+[dev-dependencies]
+# Trick to enable the abi_check feature for the tests, without enabling it for the library itself
+rosidl_runtime_rs = { path = ".", features = ["abi_check"] }
+# Needed for writing property tests
+quickcheck = "1"
+# Needed for testing serde support
+serde_json = "1"
+
+[build-dependencies]
+# Compiles the probe that reports the layout of the installed C sequence structs
+cc = { version = "1", optional = true }
+# Needed for uploading documentation to docs.rs
+cfg-if = "1.0.0"
+# Reads the --cfg ros_distro flag under the ROS shim (matches rclrs)
+rustflags = "0.1"
+
+[package.metadata.docs.rs]
+features = ["use_ros_shim"]
+# build.rs reads this via rustflags under use_ros_shim (same pattern as rclrs)
+rustc-args = ["--cfg", "ros_distro=\"humble\""]

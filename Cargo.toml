@@ -1,5 +1,30 @@
 [workspace]
 members = [
+  "ament_rs",
   "rclrs",
+  "ros-env",
+  "rosidl_runtime_rs",
+  "examples/*",
 ]
+# A CMake interface package, built by colcon.
+exclude = ["examples/rclrs_example_msgs"]
+# The examples need a colcon workspace, see examples/README.md.
+default-members = ["ament_rs", "rclrs", "ros-env", "rosidl_runtime_rs"]
 resolver = "3"
+
+# colcon-cargo only finds workspace members, so the excluded message package
+# is listed here. The library crates carry a COLCON_IGNORE.
+[workspace.metadata.colcon]
+additional-packages = ["examples/rclrs_example_msgs"]
+
+[workspace.package]
+repository = "https://github.com/ros2-rust/ros2_rust"
+rust-version = "1.85"
+
+# `cargo publish` keeps only the version, so published crates depend on each
+# other through crates.io. The examples use plain paths instead, because their
+# installed Cargo.toml must resolve outside this workspace.
+[workspace.dependencies]
+rclrs = { version = "0.8", path = "rclrs" }
+ros-env = { version = "0.3", path = "ros-env" }
+rosidl_runtime_rs = { version = "0.7", path = "rosidl_runtime_rs" }

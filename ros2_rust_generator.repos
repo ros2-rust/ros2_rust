@@ -1,0 +1,7 @@
+# The rosidl_rust commit that CI builds the interface packages with. See
+# docs/CONTRIBUTING.md for testing a generator change.
+repositories:
+  ros2-rust/rosidl_rust:
+    type: git
+    url: https://github.com/ros2-rust/rosidl_rust.git
+    version: 19d57818dab3b51e418c0893b70b3a1a8b64c495

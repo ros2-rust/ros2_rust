@@ -1,0 +1,21 @@
+[package]
+name = "ament_rs"
+version = "0.4.0"
+authors = ["Gérald Lelong <gerald.lelong@easymov.fr>", "Sam Privett <sam@privett.dev>"]
+edition = "2018"
+description = "Utilities for querying the ament resource index used by ROS 2 packages."
+license = "Apache-2.0"
+repository.workspace = true
+rust-version.workspace = true
+documentation = "https://docs.rs/ament_rs/"
+readme = "README.md"
+keywords = ["ament", "ros2", "ros"]
+categories = [
+    "development-tools::build-utils",
+    "filesystem",
+    "science::robotics",
+]
+
+[dev-dependencies]
+itertools = "0.15"
+tempfile = "3"

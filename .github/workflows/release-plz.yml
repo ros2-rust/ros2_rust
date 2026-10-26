@@ -41,15 +41,21 @@ jobs:
           GITHUB_TOKEN: ${{ steps.generate-token.outputs.token }}
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
 
+  # One release PR per crate. release-plz manages the PRs whose branch starts
+  # with pr_branch_prefix, so every crate gets its own prefix.
   release-plz-pr:
-    name: Release-plz PR
+    name: Release-plz PR (${{ matrix.package }})
     runs-on: ubuntu-latest
     if: ${{ github.repository_owner == 'ros2-rust' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        package: [rclrs, ros-env, rosidl_runtime_rs]
     permissions:
       pull-requests: write
       contents: write
     concurrency:
-      group: release-plz-${{ github.ref }}
+      group: release-plz-${{ github.ref }}-${{ matrix.package }}
       cancel-in-progress: false
     steps:
       # Generating a GitHub token, so that PRs and tags created by
@@ -69,10 +75,18 @@ jobs:
           token: ${{ steps.generate-token.outputs.token }}
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
-      - name: Run release-plz
-        uses: release-plz/action@v0.5
+      # The release-plz action cannot select a package.
+      - name: Install release-plz
+        uses: taiki-e/install-action@v2
         with:
-          command: release-pr
+          tool: release-plz,cargo-semver-checks
+      - name: Run release-plz
         env:
-          GITHUB_TOKEN: ${{ steps.generate-token.outputs.token }}
+          GIT_TOKEN: ${{ steps.generate-token.outputs.token }}
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          PACKAGE: ${{ matrix.package }}
+        run: |
+          git config user.name "release-plz"
+          git config user.email "release-plz@users.noreply.github.com"
+          sed "/^\[workspace\]$/a pr_branch_prefix = \"release-plz-$PACKAGE-\"" release-plz.toml > "$RUNNER_TEMP/release-plz.toml"
+          release-plz release-pr --config "$RUNNER_TEMP/release-plz.toml" --package "$PACKAGE" --git-token "$GIT_TOKEN"

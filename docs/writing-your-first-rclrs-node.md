@@ -16,7 +16,7 @@ cargo new republisher_node && cd republisher_node
 
 In the `Cargo.toml` file, add a dependency on `rclrs = "*"` and `std_msgs = "*"`.
 
-Additionally, create a new `package.xml` if you want your node to be buildable with `colcon`. Make sure to change the build type to `ament_cargo` and to include the two packages mentioned above in the dependencies, as such:
+Additionally, create a new `package.xml` if you want your node to be buildable with `colcon`. Make sure to change the build type to `ament_cargo` and to list the ROS packages whose interfaces your node uses, here `std_msgs`, as dependencies. `rclrs` comes from crates.io and is not a ROS package, so it is not listed:
 
 ```xml
 <package format="3">
@@ -26,7 +26,6 @@ Additionally, create a new `package.xml` if you want your node to be buildable w
   <maintainer email="user@todo.todo">user</maintainer>
   <license>TODO: License declaration</license>
 
-  <depend>rclrs</depend>
   <depend>std_msgs</depend>
 
   <export>

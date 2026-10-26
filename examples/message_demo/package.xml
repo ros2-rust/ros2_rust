@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<?xml-model
+   href="http://download.ros.org/schema/package_format3.xsd"
+   schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>examples_rclrs_message_demo</name>
+  <version>0.5.0</version>
+  <description>Package containing an example of message-related functionality in rclrs.</description>
+  <maintainer email="nnmmgit@gmail.com">Nikolai Morin</maintainer>
+  <license>Apache License 2.0</license>
+
+  <depend>rclrs_example_msgs</depend>
+
+  <export>
+    <build_type>ament_cargo</build_type>
+  </export>
+</package>

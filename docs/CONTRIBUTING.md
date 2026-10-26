@@ -8,6 +8,18 @@ There are also occasional ROS 2 Rust WG meetings that are announced on the [ROS 
 ## AI Policy
 Follow the projects [AI Policy](docs/AI_POLICY.md). It applies to all contributions to this repository even if a human edits it.
 
+## Repository layout and CI
+`rclrs`, `rosidl_runtime_rs`, `ros-env`, `ament_rs` and the examples live in this repository as a single cargo workspace, see the [README](../README.md#repository-layout).
+A change that spans several of them goes into one pull request.
+
+The code generator lives in [`rosidl_rust`](https://github.com/ros2-rust/rosidl_rust). CI builds the interface packages with the generator commit pinned in `ros2_rust_generator.repos`, so a change in `rosidl_rust` reaches this repository only when the pin moves.
+A scheduled workflow opens a pull request to move the pin whenever `rosidl_rust` `main` changes.
+
+For a change that needs both a generator and a runtime change, open the `rosidl_rust` pull request first and point `version` in `ros2_rust_generator.repos` at the commit of its branch, so that CI tests the pair.
+If that branch lives on your fork, point `url` at your fork as well.
+To build and test the pair locally, run `docker/overlay.sh` (see [Importing repositories](building.md#importing-repositories)) and build the workspace with its overlay sourced.
+Once the generator change is merged, point the pin back at `ros2-rust/rosidl_rust` and at the merged commit. CI refuses a pin that is not on `rosidl_rust` `main`.
+
 ## Coding guidelines
 This section is not comprehensive, and conventions from the broader Rust community should be followed.
 

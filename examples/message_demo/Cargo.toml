@@ -1,0 +1,17 @@
+[package]
+name = "examples_rclrs_message_demo"
+version = "0.5.0"
+authors = ["Nikolai Morin <nnmmgit@gmail.com>"]
+edition = "2021"
+publish = false
+
+[[bin]]
+name = "message_demo"
+path = "src/message_demo.rs"
+
+[dependencies]
+anyhow = {version = "1", features = ["backtrace"]}
+rclrs = { path = "../../rclrs", features = ["serde"] }
+# TODO (SP) This shouldn't need the serde feature once the next version of rclrs is released
+ros-env = { path = "../../ros-env", features = ["serde"] }
+serde_json = "1.0"

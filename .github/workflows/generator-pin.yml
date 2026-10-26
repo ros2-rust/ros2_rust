@@ -1,0 +1,62 @@
+name: Bump generator pin
+
+on:
+  schedule:
+    # Run at 03:33 UTC every day
+    - cron: '33 3 * * *'
+  workflow_dispatch:
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    if: |
+        github.event_name == 'workflow_dispatch' || (
+          github.event_name == 'schedule' && github.repository == 'ros2-rust/ros2_rust'
+        )
+    steps:
+    # Pull requests opened with GITHUB_TOKEN do not trigger CI.
+    - name: Generate GitHub token
+      uses: actions/create-github-app-token@v2
+      id: generate-token
+      with:
+        app-id: ${{ secrets.APP_ID }}
+        private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+    - uses: actions/checkout@v4
+      with:
+        token: ${{ steps.generate-token.outputs.token }}
+
+    - name: Point ros2_rust_generator.repos at rosidl_rust main
+      id: bump
+      run: |
+        sha=$(git ls-remote https://github.com/ros2-rust/rosidl_rust.git refs/heads/main | cut -f1)
+        sed -i -E "s/^(    version: ).*/\1$sha/" ros2_rust_generator.repos
+        echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
+    - name: Open or update the pull request
+      env:
+        GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+        SHA: ${{ steps.bump.outputs.sha }}
+      run: |
+        if git diff --exit-code; then
+          echo "The generator pin is already at rosidl_rust main"
+          exit 0
+        fi
+
+        git config --global user.email "action@github.com"
+        git config --global user.name "GitHub Action"
+
+        BRANCH_NAME="bump-generator-pin"
+        TITLE="build: bump the generator pin to rosidl_rust@${SHA:0:7}"
+        git commit -am "$TITLE"
+        git push -f origin HEAD:refs/heads/$BRANCH_NAME
+
+        if gh pr list --head "$BRANCH_NAME" --state open --json number --jq length | grep -q '^0$'; then
+          gh pr create \
+            --base main \
+            --head "$BRANCH_NAME" \
+            --title "$TITLE" \
+            --body "Moves ros2_rust_generator.repos to the tip of rosidl_rust main (ros2-rust/rosidl_rust@$SHA). If CI fails here, generator main and ros2_rust main disagree."
+        else
+          gh pr edit "$BRANCH_NAME" --title "$TITLE"
+        fi
