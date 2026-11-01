@@ -32,8 +32,7 @@ pub trait IntoTimerOptions<'a>: Sized {
     /// [`Duration`] or [`TimerOptions`] itself.
     fn into_timer_options(self) -> TimerOptions<'a>;
 
-    /// Use [`std::time::Instant`] for the timer. This the default so you
-    /// shouldn't generally have to call this.
+    /// Use [`std::time::Instant`] for the timer.
     fn steady_time(self) -> TimerOptions<'a> {
         let mut options = self.into_timer_options();
         options.clock = TimerClock::SteadyTime;
@@ -47,7 +46,8 @@ pub trait IntoTimerOptions<'a>: Sized {
         options
     }
 
-    /// Use the node clock for the timer
+    /// Use the node clock for the timer. This is the default, so you
+    /// shouldn't generally have to call this.
     fn node_time(self) -> TimerOptions<'a> {
         let mut options = self.into_timer_options();
         options.clock = TimerClock::NodeTime;
@@ -66,11 +66,11 @@ pub trait IntoTimerOptions<'a>: Sized {
 #[derive(Debug, Default, Clone, Copy)]
 pub enum TimerClock<'a> {
     /// Use [`std::time::Instant`] for tracking time
-    #[default]
     SteadyTime,
     /// Use [`std::time::SystemTime`] for tracking time
     SystemTime,
     /// Use the parent node's clock for tracking time
+    #[default]
     NodeTime,
     /// Use a specific clock for tracking time
     Clock(&'a Clock),

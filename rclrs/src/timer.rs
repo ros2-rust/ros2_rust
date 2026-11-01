@@ -601,6 +601,91 @@ mod tests {
     }
 
     #[test]
+    fn test_timer_options_default_to_node_time() {
+        assert!(matches!(TimerClock::default(), TimerClock::NodeTime));
+        assert!(matches!(
+            TimerOptions::new(Duration::from_millis(1)).clock,
+            TimerClock::NodeTime
+        ));
+        assert!(matches!(
+            Duration::from_millis(1).into_timer_options().clock,
+            TimerClock::NodeTime
+        ));
+        // Explicit clock selections still override the default.
+        assert!(matches!(
+            Duration::from_millis(1).steady_time().clock,
+            TimerClock::SteadyTime
+        ));
+        assert!(matches!(
+            Duration::from_millis(1).system_time().clock,
+            TimerClock::SystemTime
+        ));
+    }
+
+    #[test]
+    fn test_node_timer_defaults_to_node_clock() {
+        let executor = Context::default().create_basic_executor();
+        let node = executor
+            .create_node(&format!("timer_default_clock_node_{}", line!()))
+            .unwrap();
+
+        let timer = node
+            .create_timer_repeating(Duration::from_millis(1), || {})
+            .unwrap();
+        // Without use_sim_time the node clock is system-backed; a timer
+        // on the old steady-clock default would report SteadyTime here.
+        assert!(matches!(timer.clock().clock_type(), ClockType::SystemTime));
+
+        let steady_timer = node
+            .create_timer_repeating(Duration::from_millis(1).steady_time(), || {})
+            .unwrap();
+        assert!(matches!(
+            steady_timer.clock().clock_type(),
+            ClockType::SteadyTime
+        ));
+    }
+
+    #[test]
+    fn test_node_timer_default_follows_sim_time() {
+        let executor = Context::new(
+            [
+                String::from("--ros-args"),
+                String::from("-p"),
+                String::from("use_sim_time:=true"),
+            ],
+            InitOptions::default(),
+        )
+        .unwrap()
+        .create_basic_executor();
+        let node = executor
+            .create_node(&format!("timer_sim_clock_node_{}", line!()))
+            .unwrap();
+
+        let timer = node
+            .create_timer_repeating(Duration::from_millis(1), || {})
+            .unwrap();
+        // With use_sim_time the node clock is ROS time, starting at 0
+        // until a /clock message arrives. A steady-clock timer would
+        // report real elapsed time instead.
+        assert!(matches!(timer.clock().clock_type(), ClockType::RosTime));
+        assert_eq!(timer.clock().now().nsec, 0);
+    }
+
+    #[test]
+    fn test_worker_timer_defaults_to_node_clock() {
+        let executor = Context::default().create_basic_executor();
+        let node = executor
+            .create_node(&format!("worker_timer_default_clock_node_{}", line!()))
+            .unwrap();
+        let worker = node.create_worker::<()>(());
+
+        let timer = worker
+            .create_timer_repeating(Duration::from_millis(1), |_: &mut ()| {})
+            .unwrap();
+        assert!(matches!(timer.clock().clock_type(), ClockType::SystemTime));
+    }
+
+    #[test]
     fn test_new_with_source_clock() {
         let (clock, source) = Clock::with_source();
         // No manual time set, it should default to 0
