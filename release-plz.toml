@@ -1,6 +1,25 @@
 [workspace]
+# Older rclrs releases are tagged v*.
+git_tag_name = "{{ package }}-v{{ version }}"
+# Publish only when a release PR is merged.
+release_always = false
 
 [[package]]
 name = "rclrs"
 publish_features = ["use_ros_shim"]
 publish_all_features = false
+
+[[package]]
+name = "rosidl_runtime_rs"
+publish_features = ["use_ros_shim"]
+publish_all_features = false
+
+[[package]]
+name = "ros-env"
+publish_features = ["use_ros_shim"]
+publish_all_features = false
+
+# Not released until ros2-rust owns ament_rs on crates.io.
+[[package]]
+name = "ament_rs"
+release = false

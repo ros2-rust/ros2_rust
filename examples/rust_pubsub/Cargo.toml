@@ -1,0 +1,17 @@
+[package]
+name = "rust_pubsub"
+version = "0.5.0"
+edition = "2021"
+publish = false
+
+[[bin]]
+name="simple_publisher"
+path="src/simple_publisher.rs"
+
+[[bin]]
+name="simple_subscriber"
+path="src/simple_subscriber.rs"
+
+[dependencies]
+rclrs = { path = "../../rclrs" }
+ros-env = { path = "../../ros-env" }

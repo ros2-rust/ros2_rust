@@ -53,7 +53,7 @@ Build the Docker image with
 
 ```shell
 # Make sure to run this in the workspace directory
-# ROS_DISTRO can be humble|rolling
+# ROS_DISTRO can be humble|jazzy|kilted|lyrical|rolling
 docker build -f src/ros2_rust/Dockerfile --build-arg "ROS_DISTRO=humble" -t ros2_rust_dev .
 ```
 
@@ -65,21 +65,26 @@ docker run --rm -it --volume $(pwd):/workspace ros2_rust_dev /bin/bash
 ```
 
 As you can see, this maps the workspace directory to `/workspace` inside the container. So, if you're using Docker, that is now the "workspace directory".
+The image already contains the [overlay](#importing-repositories) with the interface packages and the pinned code generator, and sources it for you.
 
 
 ### Importing repositories
 
-`ros2_rust` also expects a few other repositories to be in the workspace. They can be imported from a `repos` file contained in `ros2_rust`, like this:
+ROS distributions ship Rust bindings for their interface packages, built with the released `rosidl_rust` code generator.
+`rclrs` on `main` sometimes needs a newer generator than that. In that case, build the interface packages and the generator from source in a separate overlay workspace, and source it before you build your own workspace.
+The `ros2_rust_<distro>.repos` files of `ros2_rust` list them for each distribution, and `ros2_rust_generator.repos` pins the generator to the commit that CI tests `rclrs` with.
+`docker/overlay.sh` builds the same overlay as CI:
 
 ```shell
-# Make sure to run this in the workspace directory
-vcs import src < src/ros2_rust/ros2_rust_humble.repos
+# With the ROS 2 installation sourced, from your workspace directory
+src/ros2_rust/docker/overlay.sh ../overlay
+. ../overlay/install/setup.sh
 ```
 
-This uses the [`vcs` tool](https://github.com/dirk-thomas/vcstool), which is preinstalled in the Docker image.
+It imports the repositories for `$ROS_DISTRO` with the [`vcs` tool](https://github.com/dirk-thomas/vcstool) and builds them with colcon. Pass `--rosdep` to install their dependencies first. To update the overlay later, remove its directory and run the script again.
 
-The new repositories are now in `src/ros2`.
-The list of needed repositories should very rarely change, so you typically only need to do this once.
+`ros-env` picks the first provider of an interface package in `$AMENT_PREFIX_PATH`, so once the overlay is sourced, its bindings take precedence over the ones in `/opt/ros`.
+Don't import these repositories into the `src` directory of your workspace instead. colcon only puts a package on the build environment of the packages that depend on it, and Rust packages don't list the interface packages that `rclrs` itself uses, so they would still get the bindings from `/opt/ros`.
 
 
 ### Sourcing the ROS 2 installation
@@ -93,6 +98,8 @@ In the pre-made Docker image, sourcing is already done for you. Otherwise, if `$
 # You can also do `source /opt/ros/humble/setup.bash` in bash
 . /opt/ros/humble/setup.sh
 ````
+
+If you built an [overlay](#importing-repositories), source its `install/setup.sh` instead. It sources the ROS 2 installation as well.
 
 If `$AMENT_PREFIX_PATH` contains undesired paths, exit and reopen your shell. If the problem persists, it's probably because of a sourcing command in your `~/.bashrc` or similar.
 
@@ -110,10 +117,11 @@ colcon list
 without errors and see a line like this in the output:
 
 ```
-rclrs   src/ros2_rust/rclrs   (ament_cargo)
+examples_rclrs_minimal_pub_sub   src/ros2_rust/examples/minimal_pub_sub   (ros.ament_cargo)
 ```
 
 The build type `ament_cargo` means that the `colcon-ros-cargo` plugin works as expected.
+The library crates do not show up, because colcon does not build them.
 
 
 ## Building with `colcon`
@@ -126,8 +134,6 @@ colcon build --packages-up-to $YOUR_PACKAGE
 ```
 
 where `$YOUR_PACKAGE` could be e.g. `examples_rclrs_minimal_pub_sub`. See `colcon build --help` for a complete list of options.
-
-It's normal to see a `Some selected packages are already built in one or more underlay workspace` warning. This is because the standard message definitions that are part of ROS 2 need to be regenerated in order to create Rust bindings. If and when `ros2_rust` becomes an officially supported client library, this issue will disappear.
 
 In addition to the standard `build`, `install` and `log` directories, `colcon` will have created a `.cargo/config.toml` file.
 
@@ -146,6 +152,40 @@ The plugin to build `cargo` projects with `colcon` currently has the issue that 
 ## Building with `cargo`
 
 Rust packages for ROS 2 can also be built with pure `cargo`, and still integrate with ROS 2 tools like `ros2 run`.
+
+### Working on the `ros2_rust` crates
+
+The library crates, `rclrs`, `rosidl_runtime_rs`, `ros-env` and `ament_rs`, are plain cargo packages in a single cargo workspace. Source the workspace, so that `ros-env` finds the interface packages, then use cargo from `src/ros2_rust`:
+
+```shell
+# Make sure to run this in the workspace directory
+. install/setup.sh
+cd src/ros2_rust
+cargo build
+cargo test --features rclrs/serde
+```
+
+The examples are workspace members too, but they are not built by default because some of them need `rclrs_example_msgs` from the colcon workspace. After a `colcon build`, build one with `cargo build -p examples_rclrs_message_demo`.
+
+### Using `rclrs` from git or a local checkout
+
+Packages outside of this repository depend on `rclrs` from crates.io.
+To use `rclrs` from `main`, or from a local checkout, patch it in the `Cargo.toml` of your package, or of your cargo workspace if you have one.
+Patch `rclrs`, `ros-env` and `rosidl_runtime_rs` together. `rclrs` takes the other two from the same repository, so patching only `rclrs` leaves a second copy of each in the build, and the generated messages no longer fit `rclrs`.
+
+```toml
+[patch.crates-io]
+rclrs = { git = "https://github.com/ros2-rust/ros2_rust", branch = "main" }
+ros-env = { git = "https://github.com/ros2-rust/ros2_rust", branch = "main" }
+rosidl_runtime_rs = { git = "https://github.com/ros2-rust/ros2_rust", branch = "main" }
+# Or, for a local checkout:
+# rclrs = { path = "../ros2_rust/rclrs" }
+# ros-env = { path = "../ros2_rust/ros-env" }
+# rosidl_runtime_rs = { path = "../ros2_rust/rosidl_runtime_rs" }
+```
+
+`cargo tree -d` lists no `ros-env` or `rosidl_runtime_rs` when the patch is complete.
+If `rclrs` on `main` needs a newer code generator than your distribution ships, also build the [overlay](#importing-repositories).
 
 
 ## Integration with ROS 2 tools

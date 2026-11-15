@@ -1,0 +1,226 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  schedule:
+    # Run the CI at 02:22 UTC every Tuesday
+    # We pick an arbitrary time outside of most of the world's work hours
+    # to minimize the likelihood of running alongside a heavy workload.
+    - cron: '22 2 * * 2'
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+# Cancel superseded runs, except on main.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+# ros2-rust/ros2_rust tests pull requests and main, forks test every push.
+jobs:
+  fmt:
+    if: github.event_name != 'push' || github.ref == 'refs/heads/main' || github.repository_owner != 'ros2-rust'
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: dtolnay/rust-toolchain@nightly
+      with:
+        components: rustfmt
+    - name: Check formatting
+      run: cargo +nightly fmt --all --check
+
+  # Without ROS, the way docs.rs and release-plz build the crates.
+  shim:
+    if: github.event_name != 'push' || github.ref == 'refs/heads/main' || github.repository_owner != 'ros2-rust'
+    runs-on: ubuntu-latest
+    env:
+      RUSTFLAGS: --cfg ros_distro="humble"
+      RUSTDOCFLAGS: --cfg ros_distro="humble"
+    steps:
+    - uses: actions/checkout@v4
+    - uses: dtolnay/rust-toolchain@stable
+    - name: Document with the ROS shim
+      run: cargo doc --no-deps -p rclrs -p ros-env -p rosidl_runtime_rs --features rclrs/use_ros_shim
+    - name: Check that there is exactly one rosidl_runtime_rs
+      run: |
+        # Fails if a second copy, for example from crates.io, is in the graph.
+        cargo tree --workspace -i rosidl_runtime_rs -e normal,build --depth 0 | tee tree.txt
+        grep -q '/rosidl_runtime_rs)' tree.txt
+
+  # A pull request may pin an unmerged rosidl_rust commit for testing, but only
+  # a commit on rosidl_rust main can be merged.
+  generator-pin:
+    if: (github.event_name != 'push' || github.ref == 'refs/heads/main' || github.repository_owner != 'ros2-rust') && (github.event_name != 'pull_request' || github.base_ref == 'main')
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Check that the pinned generator commit is on rosidl_rust main
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        url=$(awk '/url:/ { print $2 }' ros2_rust_generator.repos)
+        if [ "$url" != https://github.com/ros2-rust/rosidl_rust.git ]; then
+          echo "::error file=ros2_rust_generator.repos::The generator is imported from $url. Point it back at ros2-rust/rosidl_rust before merging."
+          exit 1
+        fi
+        sha=$(awk '/version:/ { print $2 }' ros2_rust_generator.repos)
+        status=$(gh api "repos/ros2-rust/rosidl_rust/compare/main...$sha" --jq .status)
+        echo "rosidl_rust main...$sha: $status"
+        if [ "$status" != behind ] && [ "$status" != identical ]; then
+          echo "::error file=ros2_rust_generator.repos::The pinned rosidl_rust commit $sha is not on main ($status). Pin a merged commit before merging."
+          exit 1
+        fi
+
+  build:
+    if: github.event_name != 'push' || github.ref == 'refs/heads/main' || github.repository_owner != 'ros2-rust'
+    strategy:
+      fail-fast: false
+      matrix:
+        ros_distribution:
+          - humble
+          - jazzy
+          - kilted
+          - lyrical
+          - rolling
+        rust_toolchain:
+          - "1.85"
+          - stable
+        include:
+          # Humble Hawksbill (May 2022 - May 2027)
+          - docker_image: rostooling/setup-ros-docker:ubuntu-jammy-ros-humble-ros-base-latest
+            ros_distribution: humble
+          # Jazzy Jalisco (May 2024 - May 2029)
+          - docker_image: rostooling/setup-ros-docker:ubuntu-noble-ros-jazzy-ros-base-latest
+            ros_distribution: jazzy
+          # Kilted Kaiju (May 2025 - Dec 2026)
+          - docker_image: rostooling/setup-ros-docker:ubuntu-noble-ros-kilted-ros-base-latest
+            ros_distribution: kilted
+          # Lyrical Luth (May 2026 - May 2031)
+          - docker_image: rostooling/setup-ros-docker:ubuntu-resolute-ros-lyrical-ros-base-latest
+            ros_distribution: lyrical
+          # Rolling Ridley  (June 2020 - Present)
+          - docker_image: rostooling/setup-ros-docker:ubuntu-resolute-ros-rolling-ros-base-latest
+            ros_distribution: rolling
+    name: build (${{ matrix.ros_distribution }}, ${{ matrix.rust_toolchain }})
+    runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.ros_distribution == 'rolling' }}
+    container:
+      image: ${{ matrix.docker_image }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        path: ws/src/ros2_rust
+
+    - name: Setup ROS environment
+      uses: ros-tooling/setup-ros@v0.7
+      with:
+        required-ros-distributions: ${{ matrix.ros_distribution }}
+        use-ros2-testing: ${{ matrix.ros_distribution == 'rolling' }}
+
+    # Installing the ros metapackage (in setup-ros) leaves the packages already baked into the image
+    # untouched. This forces an upgrade of all packages to test against the latest available versions.
+    - name: Update environment and force upgrade new packages
+      run: |
+        sudo apt-get update
+        sudo apt-get dist-upgrade -y
+
+    - name: Setup Rust
+      uses: dtolnay/rust-toolchain@master
+      with:
+        toolchain: ${{ matrix.rust_toolchain }}
+        components: clippy
+
+    - name: Install cargo-ament-build
+      uses: taiki-e/install-action@v2
+      with:
+        tool: cargo-ament-build
+
+    # Colcon can not be run in a venv which is required from Ubuntu Noble on
+    # Removing the externally managed file
+    - name: Install colcon-cargo and colcon-ros-cargo
+      run: |
+        sudo rm -f /usr/lib/python3.*/EXTERNALLY-MANAGED
+        sudo pip3 install git+https://github.com/colcon/colcon-cargo.git
+        sudo pip3 install git+https://github.com/colcon/colcon-ros-cargo.git
+
+    # test_msgs recently added ament_mypy as a test dependency, but rosdep
+    # may fail to install it when building from source on rolling
+    - name: Install ament_cmake_mypy for rolling
+      if: matrix.ros_distribution == 'rolling'
+      run: sudo apt-get install -y ros-rolling-ament-cmake-mypy
+
+    # ros-env takes the first provider in AMENT_PREFIX_PATH, so the bindings from
+    # this overlay win over /opt/ros.
+    - name: Import the overlay repositories
+      run: |
+        mkdir -p overlay/src
+        vcs import overlay/src < ws/src/ros2_rust/ros2_rust_${{ matrix.ros_distribution }}.repos
+        vcs import overlay/src < ws/src/ros2_rust/ros2_rust_generator.repos
+
+    - name: Install dependencies
+      run: |
+        rosdep update --rosdistro ${{ matrix.ros_distribution }}
+        rosdep install -y --rosdistro ${{ matrix.ros_distribution }} --ignore-src \
+          --from-paths overlay/src ws/src
+
+    # The repos files and the image track branches, so the cache expires weekly.
+    - name: Compute the overlay cache week
+      id: week
+      run: echo "week=$(date -u +%G-%V)" >> "$GITHUB_OUTPUT"
+
+    - name: Restore the overlay
+      id: overlay-cache
+      uses: actions/cache/restore@v4
+      with:
+        path: overlay/install
+        key: overlay-${{ matrix.docker_image }}-${{ steps.week.outputs.week }}-${{ hashFiles(format('ws/src/ros2_rust/ros2_rust_{0}.repos', matrix.ros_distribution), 'ws/src/ros2_rust/ros2_rust_generator.repos') }}
+
+    - name: Build the overlay
+      if: steps.overlay-cache.outputs.cache-hit != 'true'
+      working-directory: overlay
+      run: |
+        . /opt/ros/${{ matrix.ros_distribution }}/setup.sh
+        colcon build --event-handlers console_cohesion+
+
+    - name: Save the overlay
+      if: steps.overlay-cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v4
+      with:
+        path: overlay/install
+        key: ${{ steps.overlay-cache.outputs.cache-primary-key }}
+
+    # Builds the examples the way users do.
+    - name: Build the examples with colcon
+      working-directory: ws
+      run: |
+        . ../overlay/install/setup.sh
+        colcon build --event-handlers console_cohesion+
+
+    # Warnings in rclrs and the examples are not denied yet.
+    - name: Clippy
+      working-directory: ws/src/ros2_rust
+      run: |
+        . ../../install/setup.sh
+        # Never use --all-features, it would turn on use_ros_shim.
+        cargo clippy --workspace --exclude rclrs --exclude 'examples_*' --exclude rust_pubsub \
+          --all-targets --features ros-env/serde -- -D warnings
+        cargo clippy --workspace --all-targets --features rclrs/serde
+
+    - name: Test
+      working-directory: ws/src/ros2_rust
+      run: |
+        . ../../install/setup.sh
+        cargo test --features rclrs/serde
+
+    - name: Rustdoc
+      working-directory: ws/src/ros2_rust
+      run: |
+        . ../../install/setup.sh
+        RUSTDOCFLAGS="-D warnings" cargo doc --no-deps \
+          --workspace --exclude rclrs --exclude 'examples_*' --exclude rust_pubsub
+        cargo doc --no-deps

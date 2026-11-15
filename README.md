@@ -1,8 +1,7 @@
 ROS 2 for Rust
 ==============
 
-[![Minimal Version Status](https://github.com/ros2-rust/ros2_rust/actions/workflows/rust-minimal.yml/badge.svg?branch=main)](https://github.com/ros2-rust/ros2_rust/actions/workflows/rust-minimal.yml)
-[![Stable CI Status](https://github.com/ros2-rust/ros2_rust/actions/workflows/rust-stable.yml/badge.svg?branch=main)](https://github.com/ros2-rust/ros2_rust/actions/workflows/rust-stable.yml)
+[![CI Status](https://github.com/ros2-rust/ros2_rust/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/ros2-rust/ros2_rust/actions/workflows/ci.yml)
 [![Win CI Status](https://github.com/ros2-rust/ros2_rust/actions/workflows/rust-win.yml/badge.svg?branch=main)](https://github.com/ros2-rust/ros2_rust/actions/workflows/rust-win.yml)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
@@ -34,6 +33,21 @@ Some things are still missing however, see the [issue list](https://github.com/r
 
 Since the client library is still rapidly evolving, there are no stability guarantees for the moment.
 
+## Repository layout
+
+| Path | Contents |
+|---|---|
+| [`rclrs`](rclrs) | The client library, published as [`rclrs`](https://crates.io/crates/rclrs) |
+| [`rosidl_runtime_rs`](rosidl_runtime_rs) | Runtime support for generated messages, published as [`rosidl_runtime_rs`](https://crates.io/crates/rosidl_runtime_rs) |
+| [`ros-env`](ros-env) | Re-exports the generated interface packages of the sourced workspace, published as [`ros-env`](https://crates.io/crates/ros-env) |
+| [`ament_rs`](ament_rs) | Queries the ament resource index, published as [`ament_rs`](https://crates.io/crates/ament_rs) |
+| [`examples`](examples) | Example ROS packages that use `rclrs` |
+| [`docker`](docker) | A development container, and a script that builds the interface packages and the code generator from source |
+| `ros2_rust_*.repos` | `vcs` files for building the interface packages and the code generator from source |
+
+All crates form a single cargo workspace. The libraries are built with cargo only and are hidden from colcon, which only sees the examples.
+The code generator, [`rosidl_rust`](https://github.com/ros2-rust/rosidl_rust), lives in its own repository because it is released into the ROS distributions.
+
 ## Installation
 
 ### Prerequisites
@@ -61,13 +75,16 @@ pip install --break-system-packages colcon-cargo colcon-ros-cargo
 rclrs = "0.8"
 ```
 
-To build and run the examples, install the `example_interfaces` and `test_msgs` ROS packages, then clone the examples repository into a workspace:
+To build and run the examples, install the `example_interfaces` and `test_msgs` ROS packages, then clone this repository into a workspace:
 
 ```shell
 sudo apt install -y ros-$ROS_DISTRO-example-interfaces ros-$ROS_DISTRO-test-msgs
 mkdir -p workspace/src && cd workspace
-git clone https://github.com/ros2-rust/examples.git src/examples
+git clone https://github.com/ros2-rust/ros2_rust.git src/ros2_rust
 ```
+
+The examples on `main` are built against `rclrs` from `main`, so they may use features that are not released yet.
+To get the examples that match a released `rclrs`, check out its `rclrs-vX.Y.Z` tag. Examples for releases up to 0.8.0 are in the [examples repository](https://github.com/ros2-rust/examples).
 
 Build the workspace:
 
@@ -96,6 +113,8 @@ Or:
 . ./install/setup.sh
 ros2 launch examples_rclrs_minimal_pub_sub minimal_pub_sub.launch.xml
 ```
+
+If the Rust bindings that your distribution ships are too old for `rclrs` on `main`, also build the interface packages and the code generator from source, see [Importing repositories](docs/building.md#importing-repositories).
 
 For detailed building instructions and additional setup options, see the [in-depth guide](docs/building.md).
 
