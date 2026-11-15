@@ -220,6 +220,14 @@ impl Error for RclrsError {
     }
 }
 
+/// Base of the `rcl_action` return codes. ros2/rcl#1191 moved them from 2XXX to
+/// 4XXX, starting with Kilted, because `RCL_RET_ACTION_NAME_INVALID` (2000)
+/// had the same value as `RCL_RET_EVENT_INVALID`.
+#[cfg(any(ros_distro = "humble", ros_distro = "jazzy"))]
+const ACTION_BASE: i32 = 2000;
+#[cfg(not(any(ros_distro = "humble", ros_distro = "jazzy")))]
+const ACTION_BASE: i32 = 4000;
+
 /// Return codes of `rcl` functions.
 ///
 /// This type corresponds to `rcl_ret_t`.
@@ -310,26 +318,26 @@ pub enum RclReturnCode {
     EventInvalid = 2000,
     /// Failed to take an event from the event handle
     EventTakeFailed = 2001,
-    // ====== 2XXX: action-specific errors ======
-    /// Action name does not pass validation
-    // TODO(nwn): Consult with upstream about this reused error code.
-    // ActionNameInvalid = 2000,
+    // ====== 2XXX (Humble, Jazzy) or 4XXX (Kilted on): action-specific errors ======
+    // ActionNameInvalid (action name does not pass validation) is not a
+    // variant: on Humble and Jazzy its value is 2000, the same as EventInvalid.
+    // Kilted and later use 4000.
     /// Action goal accepted
-    ActionGoalAccepted = 2100,
+    ActionGoalAccepted = ACTION_BASE + 100,
     /// Action goal rejected
-    ActionGoalRejected = 2101,
+    ActionGoalRejected = ACTION_BASE + 101,
     /// Action client is invalid
-    ActionClientInvalid = 2102,
+    ActionClientInvalid = ACTION_BASE + 102,
     /// Action client failed to take response
-    ActionClientTakeFailed = 2103,
+    ActionClientTakeFailed = ACTION_BASE + 103,
     /// Action server is invalid
-    ActionServerInvalid = 2200,
+    ActionServerInvalid = ACTION_BASE + 200,
     /// Action server failed to take request
-    ActionServerTakeFailed = 2201,
+    ActionServerTakeFailed = ACTION_BASE + 201,
     /// Action goal handle invalid
-    ActionGoalHandleInvalid = 2300,
+    ActionGoalHandleInvalid = ACTION_BASE + 300,
     /// Action invalid event
-    ActionGoalEventInvalid = 2301,
+    ActionGoalEventInvalid = ACTION_BASE + 301,
     // ====== 30XX: lifecycle-specific errors ======
     /// `rcl_lifecycle` state registered
     LifecycleStateRegistered = 3000,
@@ -652,5 +660,51 @@ impl<T> TakeFailedAsNone for Result<T, RclrsError> {
                 return Err(err);
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// `rcl_action` return codes, from `rcl/types.h` of each distro.
+    #[cfg(any(ros_distro = "humble", ros_distro = "jazzy"))]
+    const ACTION_SERVER_TAKE_FAILED: i32 = 2201;
+    #[cfg(not(any(ros_distro = "humble", ros_distro = "jazzy")))]
+    const ACTION_SERVER_TAKE_FAILED: i32 = 4201;
+
+    #[test]
+    fn action_codes_match_the_distro() {
+        assert_eq!(
+            RclReturnCode::try_from(ACTION_SERVER_TAKE_FAILED).unwrap(),
+            RclReturnCode::ActionServerTakeFailed
+        );
+        assert_eq!(
+            RclReturnCode::ActionServerTakeFailed as i32,
+            ACTION_SERVER_TAKE_FAILED
+        );
+    }
+
+    #[test]
+    fn action_take_failed_is_a_take_failure() {
+        let code = RclReturnCode::try_from(ACTION_SERVER_TAKE_FAILED).unwrap();
+        let error = RclrsError::RclError { code, msg: None };
+        assert!(error.is_take_failed());
+        assert!(matches!(
+            Err::<(), _>(error).take_failed_as_none(),
+            Ok(None)
+        ));
+    }
+
+    #[test]
+    fn event_codes_are_not_action_codes() {
+        assert_eq!(
+            RclReturnCode::try_from(2000).unwrap(),
+            RclReturnCode::EventInvalid
+        );
+        assert_eq!(
+            RclReturnCode::try_from(2001).unwrap(),
+            RclReturnCode::EventTakeFailed
+        );
     }
 }
