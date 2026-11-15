@@ -2,7 +2,12 @@
 
 # Introduction
 
-Tools that use generative technology, also known as “Generative AI”, “GenAI”, and “GAI”, have exploded in both capability and popularity. Their use by contributors to open-source projects is not just inevitable, but already occurring, and it is generally accepted that the use of such tools in software development, document writing, website creation, and other related tasks of open-source development will become commonplace.
+Tools that use generative technology, also known as “Generative AI”, “GenAI”, and “GAI”, have exploded in both capability and popularity.
+Their use by contributors to open-source projects is not just inevitable, but already occurring, and it is generally accepted that the use of such tools in software development, document writing, website creation, and other related tasks of open-source development is becoming commonplace.
+These tools are capable of greatly speeding up the production of source code, allowing the same number of contributors to produce more and larger proprosed changes.
+However, there is a trend of submitting large Pull Requests (PRs) without sufficient (or even any) verification or human review prior to submission, and a similar trend of letting AI agents produce wordy and obtuse PR descriptions rather than writing a short and clear description by hand.
+**Maintainer time is a finite resource**.
+Generative tools can be useful assistants in software development, but using them to throw large and barely verified PRs shifts the development, debugging, and verification work from the contributor to the maintainers - without any speed up in project development.
 
 This document provides the official policy as well as general guidance from the Open Source Robotics Foundation (OSRF) on the use of generative tools to produce any contribution to an OSRF project, both in whole and in part.
 
@@ -10,19 +15,52 @@ This document provides the official policy as well as general guidance from the 
 
 For the purposes of this document, “Generative Tools” refers to tools that are used by a human contributor to automatically create some or all of the content of a contribution, where the tool’s generation method relies on “training” of a “model” using existing content previously created by one or more humans.
 
-For the avoidance of doubt, “Generative Tools” does not refer to tools that automatically create content using well-known algorithmic methods, such as procedural texture generators, and tools that rely on (appropriately licensed) libraries of content, such as model-to-code generators.
+For the avoidance of doubt, “Generative Tools” does not refer to tools that automatically create content using well-known algorithmic methods, such as procedural texture generators, and tools that rely on (appropriately licensed) libraries of content, such as model-to-code generators and templating systems ("snippets").
 
 # Policy
 
-**The OSRF permits the use of generative tools in producing contributions to its projects, with some qualifications:**
+**The OSRF permits the use of generative tools in producing contributions to its projects, subject to the following rules.**
 
-* Any contribution may consist, in whole or in part, of the output of one or more generative tools.
-* Any use of generative tools in a contribution must be disclosed at the time of making the contribution.
-* The disclosure must be recorded in a way that ensures it has the same or greater lifetime as the contribution itself.
+1. Generative tools may only be used for producing the content of the contribution - the source code or equivalent, e.g. documentation, diagrams, and similar.
+   This content may consist, in whole or in part, of the output of one or more generative tools.
+1. The author of the contribution must take ownership of, be fully responsible for, and fully understand every part of their contribution.
+   They must be able to explain all aspects of why the contribution is done the way it is, and defend its technical merits.
+1. All contributions must function correctly, as verified directly by the submitter prior to submission.
+   The contribution must not contain any artifacts due to hallucinating generative tools.
+1. Generative tools may not be used for producing the non-content parts of the contribution.
+   Most importantly, this includes issue content and PR descriptions.
+   Do not have an AI agent generate the description for a PR.
+   Follow the project's PR description and write a short and clear description of the proposed changes by hand to demonstrate your understanding of them.
+1. Generative tools may not be used in discussions, except as a (natural) language aid.
+   Using an AI translation tool to aide in understanding the conversation and formulating replies is acceptable, but the final text of any reply should be written by hand.
+   Having an AI agent directly participate in a discussion, whether via its own account or a person's, is forbidden.
+1. Any use of generative tools in a contribution must be disclosed at the time of making the contribution.  
+   The disclosure must be recorded in a way that ensures it has the same or greater lifetime as the contribution itself.
 
-Below we provide additional guidance that all contributors must take into account when deciding whether to use generative tools in the production of their contributions.
+Any failure to comply with the above rules is grounds for the contribution to be rejected without discussion.
+Repeated non-compliance is grounds for banning.
+What being banned means is project-specific, but may include restrictions on contributing to OSRA-controlled repositories.
 
 # Guidance \- Responsibilities of Contributors
+
+The maintainers of the project you are contributing to want to work with you, as a person, to improve the project.
+They want to hear from you what the contribution is, why it is worth accepting, and how you respond to review feedback.
+They **do not** want to talk to your chatbot or read an AI agent-generated essay about a two-line proprosed change.
+When making a contribution and engaging in discussion, keep in mind the need to avoid ["slop grenades"](https://noslopgrenade.com/).
+
+Contributions should follow these general guidelines.
+
+* Confirm that the issue is still valid and that any proposed solution is still preferred.
+  Start a conversation on the issue thread to ensure maintainers agree with the approach **before** beginning any implementation work.
+  Opening PRs for stale or invalid issues simply because an AI agent identified them creates unnecessary overhead for maintainers and is strongly discouraged.
+* Run the code locally.
+  Verify it compiles, passes linting, and passes all relevant tests before opening a PR.
+* Before hitting “Submit,” read through your own diff line-by-line.
+  Remove any redundant logic, overly verbose AI-generated comments, or structural weirdness introduced by the tool.
+* Explain your changes in plain technical language.
+  If you can’t describe the contribution yourself, you aren’t ready to submit it.
+
+Below we provide additional guidance that all contributors must take into account when deciding whether to use generative tools in the production of their contributions.
 
 ### Understand the tools
 
@@ -38,7 +76,7 @@ Knowing what data, or at least what type of data, a tool was trained on will hel
 
 You should understand what it means to own copyright over all or part of a contribution, and what rights that gives you with respect to making the contribution to an open source project.
 
-You should also be aware that, at the time of writing, **copyright cannot be held on the output of generative tools**, including by the user and by the provider of the tool, but also that this does not prevent you holding copyright on the parts of a contribution you created yourself.
+You should also be aware that, at the time of writing, **copyright cannot be held on the output of generative tools** in some jurisdictions, including by the user and by the provider of the tool, but also that this does not prevent you holding copyright on the parts of a contribution you created yourself.
 
 ### Review and understand terms of use, privacy policy, and other documents
 
@@ -62,13 +100,13 @@ Some generative tool providers may provide such tools themselves. Other provider
 
 Do not assume content created by generative tools is perfect. In fact it deserves greater scrutiny than that produced solely by humans due to the well-known problem in generative tools of “hallucination”. This can cause the tool to produce flawed output with the appearance of accuracy.
 
-As the contributor, it is your responsibility to ensure that the whole of the contribution is accurate to the intended use within the project, including parts generated by tools. Some actions you may need to take include (but are not limited to):
+As the contributor, it is your responsibility to ensure that the whole of the contribution is accurate to the intended use within the project, including parts generated by tools. Some actions you are required to take include (but are not limited to):
 
-* Perform all the normal verification processes that you would for any contribution.
-* Perform thorough code reviews, ensure the contribution is fully tested, with all tests (including pre-existing tests) passing.
-* Perform an appropriate security audit.
-* Proof-read comments and documentation.
-* Verify the readability and understandability of diagrams and figures.
+* Perform, yourself, all the normal verification processes that you would for any contribution.
+* Perform, yourself, thorough code reviews, ensure the contribution is fully tested, with all tests (including pre-existing tests) passing.  
+* Perform, yourself, an appropriate security audit.  
+* Proof-read comments and documentation.  
+* Verify the readability and understandability of diagrams and figures.  
 * Check for intellectual property problems.
 
 ### Be transparent
@@ -77,13 +115,16 @@ As with any open-source contribution, the safe and effective use of generative t
 
 ### Use common disclosure statement formats
 
-To support automated methods of tracing and locating contributions that use generative tools, all contributors have a responsibility to use common formatting of their disclosure statements.
+To guide the review of contributions, and support automated methods of locating contributions that use generative tools, all contributors have a responsibility to use common formatting of their disclosure statements.
+The disclosure statement must be provided in the PR description.
+If the project's PR template includes a field for it, then use that field.
+If it does not, then state it clearly in the PR description using the following format.
 
-The method of disclosure depends on the nature of the contribution being made.
+> This pull request adds the capability to do amazing things to nodes. Closes \#42.
+>
+> This pull request was assisted by: Claude:claude-3-opus
 
-#### Source code
-
-For source code contributions, you should add a disclosure statement in the commit message for all commits where some portion of the source code was generated. This statement must list the tools used. It must comply with the following format.
+For source code contributions, you may optionally add a disclosure statement in the commit message for all commits where some portion of the source code was generated. This statement must list the tools used. It must comply with the following format.
 
 `Assisted-by: AGENT_NAME:MODEL_VERSION [TOOL1] [TOOL2]`
 
@@ -91,37 +132,17 @@ Where:
 
 * `AGENT_NAME` is the name of the AI tool or framework.
 * `MODEL_VERSION` is the specific model version used.
-* `[TOOL1] [TOOL2]` are optional specialised analysis tools used (e.g. coccinelle, sparse, smatch, clang-tidy). Do not list basic development tools, such as git, gcc, and vs-code (but do list the AI assitant behind vs-code if you use it).
+* `[TOOL1] [TOOL2]` are optional specialised analysis tools used. Do not list basic development tools, such as git, gcc, and vs-code (but do list the AI assitant behind vs-code if you use it).
 
 For example:
 
-`Fix a memory leak when deleting nodes early.`
+```
+Fix a memory leak when deleting nodes early.
 
-`Assisted-by: Claude:claude-3-opus coccinelle sparse`
+Assisted-by: Claude:claude-3-opus
+```
 
 Note the fully-qualified name of the tools, including the version/release information. Note also that the disclosure statement is after the first line of the commit message, as it does not need to be constantly visible in commit logs, just capable of being found when necessary. Including the disclosure in the commit message is considered the most robust method of disclosure as it is permanently stored in the repository and so will live as long as, or longer than, the generated code itself.
-
-You should also include the same statement in the pull request description for the pull request containing those commits. Although considered inferior in strength to the commit message statements, the pull request description statement has the benefit of greater visibility to reviewers. The pull request description, including the disclosure statement, may look like the following example.
-
-> This pull request adds the capability to do amazing things to nodes. Closes \#42.
->
-> This pull request was assisted by Claude:claude-3-opus coccinelle sparse.
-
-You may also add a comment in each source code file that includes generated tool output. However this is not mandatory and is considered inferior to including the disclosure statement in the commit message and the pull request description, as it has relatively weak traceability over time. For example:
-
-`// Assisted-by: Claude:claude-3-opus coccinelle sparse`
-
-#### Documentation
-
-For documentation that is stored in a Git repository, you should add the disclosure statement to the relevant commits and the pull request description, as with source code contributions. If the documentation format supports comments, you may also add the disclosure statement as a comment in each relevant documentation file.
-
-For documentation not stored in a Git repository, the disclosure statement should be included in the meta-data of the document in some way, such as using a review comment in Microsoft Word or Google Docs, or adding a comment to the document’s description.
-
-#### Translations of documentation and of strings included in source code
-
-Follow the same approach for including the disclosure statement as for source code and documentation.
-
-#### Graphical works
 
 Each graphical work must include a copyright statement and license assignment when contributed. If a generative tool was used to create all or part of the graphical work, the disclosure must be included in that statement.
 
@@ -149,15 +170,15 @@ This guidance applies to any and all contributions made to OSRF projects, includ
 
 In general, any generated output that is usable as part of a contribution, in the way that contribution is intended to be made and intended to be used within the target project, is suitable. However, this is limited by the need to comply with copyright and intellectual property laws, and with the license of the target project. Any generated content to be included in a contribution in whole or part must meet at least one of the following requirements.
 
-1. The output is not copyrightable subject matter, even if produced by a human.
-2. The output does not include any third party materials.
+1. The output is not copyrightable subject matter, even if produced by a human.  
+2. The output does not include any third party materials.  
 3. The output does include third party materials but those materials are used with permission (e.g. under a compatible open-source license) of the third party copyright holders and in compliance with the relevant license terms.
 
 Examples of “third party materials” include:
 
-* verbatim copies of source material,
-* large code snippets that are substantially similar to existing copyrighted code,
-* text passages that are copied verbatim from copyrighted sources, and
+* verbatim copies of source material,  
+* large code snippets that are substantially similar to existing copyrighted code,  
+* text passages that are copied verbatim from copyrighted sources, and  
 * images or other media that are derived from copyrighted works without permission.
 
 It is your responsibility as the contributor to ensure that one or more of the above is met through any suitable means, including but not limited to awareness and documentation of the copyright status of all training data used in creating the tool, and running the output through suitable tools for detecting intellectual property problems.
@@ -173,3 +194,4 @@ The same process should be followed in these situations as for any other contrib
 ## Does the OSRF have a list of approved or recommended Generative Tools?
 
 The OSRF is not able to evaluate all available Generative Tools, nor is it in the OSRF’s interests to limit or otherwise tell contributors what tools they should use to produce their contributions. You may use any tools you see fit, provided that the outputs of those tools and how you contribute those outputs follow the guidance in this document and respect copyright.
+
