@@ -833,6 +833,79 @@ mod tests {
         Ok(())
     }
 
+    /// A remote caller cannot put a value into a parameter that the type it was declared with
+    /// cannot hold, even when the value's ROS 2 type is the right one. Were it able to, the
+    /// node would panic the next time it read the parameter.
+    #[test]
+    fn test_set_parameters_service_enforces_the_declared_rust_type() -> Result<(), RclrsError> {
+        let mut executor = Context::default().create_basic_executor();
+        let node = executor
+            .create_node(NodeOptions::new("node").namespace("narrow"))
+            .unwrap();
+        let port: MandatoryParameter<u16> = node
+            .declare_parameter("port")
+            .default(8080)
+            .mandatory()
+            .unwrap();
+
+        let client_node = executor
+            .create_node(NodeOptions::new("client").namespace("narrow"))
+            .unwrap();
+        let set_client =
+            client_node.create_client::<SetParameters>("/narrow/node/set_parameters")?;
+
+        let set_client_inner = Arc::clone(&set_client);
+        let ready = client_node
+            .notify_on_graph_change_with_period(Duration::from_millis(1), move || {
+                set_client_inner.service_is_ready().unwrap()
+            });
+        executor
+            .spin(SpinOptions::default().until_promise_resolved(ready))
+            .first_error()?;
+
+        let integer = |value: i64| RmwParameter {
+            name: "port".into(),
+            value: RmwParameterValue {
+                type_: ParameterType::PARAMETER_INTEGER,
+                integer_value: value,
+                ..Default::default()
+            },
+        };
+        let request = SetParameters_Request {
+            // 70000 is a valid ROS 2 integer, so the kind matches, but it is not a u16.
+            parameters: seq![integer(70000), integer(-1), integer(9000)],
+        };
+
+        let callback_ran = Arc::new(AtomicBool::new(false));
+        let callback_ran_inner = Arc::clone(&callback_ran);
+        let promise = set_client
+            .call_then(&request, move |response: SetParameters_Response| {
+                assert_eq!(response.results.len(), 3);
+                assert!(!response.results[0].successful);
+                // Asserted in full: this is the text `ros2 param set` prints back at whoever
+                // made the call, so it is part of the interface rather than a detail.
+                let reason = response.results[0].reason.to_string();
+                assert_eq!(
+                    reason,
+                    "Parameter value is not valid for this parameter's type: \
+                     70000 is out of range for u16, which accepts 0..=65535"
+                );
+                assert!(!response.results[1].successful, "negative port");
+                assert!(response.results[2].successful, "9000 is a valid u16");
+                callback_ran_inner.store(true, Ordering::Release);
+            })
+            .unwrap();
+
+        executor
+            .spin(SpinOptions::default().until_promise_resolved(promise))
+            .first_error()?;
+        assert!(callback_ran.load(Ordering::Acquire));
+
+        // Only the valid value was applied, and reading the parameter does not panic.
+        assert_eq!(port.get(), 9000);
+        Ok(())
+    }
+
     /// A parameter's own type can describe what it accepts, so that `ros2 param describe`
     /// reports it without the declaration having to restate it, and without that restatement
     /// drifting from the type as it gains variants.
@@ -870,7 +943,6 @@ mod tests {
                 .additional_constraints
                 .to_string()
         };
-
         assert_eq!(constraints("inherited"), "one of: on, off");
         assert_eq!(constraints("explicit"), "must be off on tuesdays");
         assert_eq!(constraints("plain"), "");

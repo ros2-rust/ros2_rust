@@ -4,6 +4,7 @@ mod range;
 mod service;
 pub use conversion::*;
 
+mod std_types;
 mod value;
 
 pub(crate) use override_map::*;
@@ -66,12 +67,17 @@ impl Default for ParameterOptions {
     }
 }
 
-/// Fills in the constraints a declaration did not give, from whatever the conversion has to say.
+/// Fills in what a declaration did not say from what its conversion knows about itself.
 ///
-/// Introspection through `ros2 param describe` is only useful if the descriptor says what a value
-/// may be, and a type that has rules of its own should not need every declaration site to restate
-/// them. An explicit `constraints` on the declaration always wins.
-fn resolve_constraints<T: 'static>(
+/// Two things come from the representation rather than the declaration. Introspection through
+/// `ros2 param describe` is only useful if the descriptor says what a value may be, and a type
+/// with rules of its own should not need every declaration site to restate them. And a narrow
+/// type is bounded by what it can hold whether or not anyone asked, so a `u16` reports 0..=65535
+/// on its own and 1024..=65535 when the declaration asks for `1024..`.
+///
+/// Constraints are a statement, so the declaration's replaces the type's. Ranges are a
+/// restriction, and a value has to satisfy both, so they narrow rather than replace.
+fn resolve_options<T: 'static>(
     mut options: ParameterOptions,
     conversion: &ParameterConversion<T>,
 ) -> ParameterOptions {
@@ -80,6 +86,7 @@ fn resolve_constraints<T: 'static>(
             options.constraints = constraints;
         }
     }
+    options.ranges = options.ranges.narrowed_by(&conversion.ranges());
     options
 }
 
@@ -341,7 +348,8 @@ impl<T: 'static> TryFrom<ParameterBuilder<'_, T>> for OptionalParameter<T> {
     type Error = DeclarationError;
 
     fn try_from(builder: ParameterBuilder<T>) -> Result<Self, Self::Error> {
-        let ranges = builder.options.ranges.clone();
+        let options = resolve_options(builder.options, &builder.conversion);
+        let ranges = options.ranges.clone();
         let initial_value = builder.interface.get_declaration_initial_value::<T>(
             &builder.name,
             builder.default_value,
@@ -376,7 +384,7 @@ impl<T: 'static> TryFrom<ParameterBuilder<'_, T>> for OptionalParameter<T> {
             DeclaredStorage {
                 value: DeclaredValue::Optional(value.clone()),
                 kind: builder.conversion.kind(),
-                options: resolve_constraints(builder.options, &builder.conversion),
+                options,
                 type_check: type_check_of(builder.conversion.clone()),
                 validate: type_erased_validate,
                 on_change: None,
@@ -433,7 +441,8 @@ impl<T: 'static> TryFrom<ParameterBuilder<'_, T>> for MandatoryParameter<T> {
     type Error = DeclarationError;
 
     fn try_from(builder: ParameterBuilder<T>) -> Result<Self, Self::Error> {
-        let ranges = builder.options.ranges.clone();
+        let options = resolve_options(builder.options, &builder.conversion);
+        let ranges = options.ranges.clone();
         let initial_value = builder.interface.get_declaration_initial_value::<T>(
             &builder.name,
             builder.default_value,
@@ -469,7 +478,7 @@ impl<T: 'static> TryFrom<ParameterBuilder<'_, T>> for MandatoryParameter<T> {
             DeclaredStorage {
                 value: DeclaredValue::Mandatory(value.clone()),
                 kind: builder.conversion.kind(),
-                options: resolve_constraints(builder.options, &builder.conversion),
+                options,
                 type_check: type_check_of(builder.conversion.clone()),
                 validate: type_erased_validate,
                 on_change: None,
@@ -556,7 +565,8 @@ impl<T: 'static> TryFrom<ParameterBuilder<'_, T>> for ReadOnlyParameter<T> {
     type Error = DeclarationError;
 
     fn try_from(builder: ParameterBuilder<T>) -> Result<Self, Self::Error> {
-        let ranges = builder.options.ranges.clone();
+        let options = resolve_options(builder.options, &builder.conversion);
+        let ranges = options.ranges.clone();
         let initial_value = builder.interface.get_declaration_initial_value::<T>(
             &builder.name,
             builder.default_value,
@@ -583,7 +593,7 @@ impl<T: 'static> TryFrom<ParameterBuilder<'_, T>> for ReadOnlyParameter<T> {
             DeclaredStorage {
                 value: DeclaredValue::ReadOnly(value.clone()),
                 kind: builder.conversion.kind(),
-                options: resolve_constraints(builder.options, &builder.conversion),
+                options,
                 type_check: type_check_of(builder.conversion.clone()),
                 // A read-only parameter never changes, so it needs neither the validate
                 // callback nor a change notification channel.
