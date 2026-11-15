@@ -152,7 +152,7 @@ where
             Box::new(ServiceExecutable::<T, Scope> {
                 handle: Arc::clone(&handle),
                 callback: Arc::clone(&callback),
-                commands: Arc::clone(&commands),
+                commands: Arc::clone(commands),
             }),
             Some(Arc::clone(commands.get_guard_condition())),
         );
@@ -321,6 +321,7 @@ unsafe impl Send for rcl_service_t {}
 pub struct ServiceHandle {
     rcl_service: Mutex<rcl_service_t>,
     node_handle: Arc<NodeHandle>,
+    #[cfg_attr(ros_distro = "humble", allow(dead_code))]
     clock: Clock,
 }
 

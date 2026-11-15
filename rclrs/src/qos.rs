@@ -359,10 +359,19 @@ impl QoSProfile {
     /// > discovery.
     #[cfg(not(ros_distro = "humble"))]
     pub fn best_available() -> Self {
-        unsafe {
-            // SAFETY: There are no preconditions for using this static const
-            // global variable
-            (&rmw_qos_profile_best_available).into()
+        // The RMW profile is a static const in the C header, not a linkable symbol.
+        // Both best-available durations are RMW_DURATION_INFINITE minus one nanosecond.
+        let best_available_duration =
+            QoSDuration::Custom(Duration::from_nanos(i64::MAX as u64 - 1));
+        Self {
+            history: QoSHistoryPolicy::KeepLast { depth: 10 },
+            reliability: QoSReliabilityPolicy::BestAvailable,
+            durability: QoSDurabilityPolicy::BestAvailable,
+            deadline: best_available_duration,
+            lifespan: QoSDuration::SystemDefault,
+            liveliness: QoSLivelinessPolicy::BestAvailable,
+            liveliness_lease: best_available_duration,
+            avoid_ros_namespace_conventions: false,
         }
     }
 }
@@ -690,3 +699,44 @@ pub const QOS_PROFILE_ACTION_STATUS_DEFAULT: QoSProfile = QoSProfile {
     liveliness_lease: QoSDuration::SystemDefault,
     avoid_ros_namespace_conventions: false,
 };
+
+#[cfg(all(test, not(ros_distro = "humble")))]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn best_available_matches_rmw_header() {
+        // rmw/qos_profiles.h defines this profile in each translation unit.
+        let raw: rmw_qos_profile_t = QoSProfile::best_available().into();
+        assert_eq!(
+            raw.history,
+            rmw_qos_history_policy_t::RMW_QOS_POLICY_HISTORY_KEEP_LAST
+        );
+        assert_eq!(raw.depth, 10);
+        assert_eq!(
+            raw.reliability,
+            rmw_qos_reliability_policy_t::RMW_QOS_POLICY_RELIABILITY_BEST_AVAILABLE
+        );
+        assert_eq!(
+            raw.durability,
+            rmw_qos_durability_policy_t::RMW_QOS_POLICY_DURABILITY_BEST_AVAILABLE
+        );
+        assert_eq!(
+            (raw.deadline.sec, raw.deadline.nsec),
+            (9_223_372_036, 854_775_806)
+        );
+        assert_eq!((raw.lifespan.sec, raw.lifespan.nsec), (0, 0));
+        assert_eq!(
+            raw.liveliness,
+            rmw_qos_liveliness_policy_t::RMW_QOS_POLICY_LIVELINESS_BEST_AVAILABLE
+        );
+        assert_eq!(
+            (
+                raw.liveliness_lease_duration.sec,
+                raw.liveliness_lease_duration.nsec
+            ),
+            (9_223_372_036, 854_775_806)
+        );
+        assert!(!raw.avoid_ros_namespace_conventions);
+    }
+}

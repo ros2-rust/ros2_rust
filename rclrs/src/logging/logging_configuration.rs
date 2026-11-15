@@ -1,9 +1,16 @@
-use std::sync::{Arc, Mutex, OnceLock, Weak};
+use std::sync::{Arc, Mutex, OnceLock};
 
 use crate::{rcl_bindings::*, RclrsError, ToResult, ENTITY_LIFECYCLE_MUTEX};
 
 struct LoggingConfiguration {
-    lifecycle: Mutex<Weak<LoggingLifecycle>>,
+    users: Mutex<usize>,
+}
+
+fn logging_configuration() -> &'static LoggingConfiguration {
+    static CONFIGURATION: OnceLock<LoggingConfiguration> = OnceLock::new();
+    CONFIGURATION.get_or_init(|| LoggingConfiguration {
+        users: Mutex::new(0),
+    })
 }
 
 pub(crate) struct LoggingLifecycle;
@@ -26,23 +33,28 @@ impl LoggingLifecycle {
     pub(crate) unsafe fn configure(
         context: &rcl_context_t,
     ) -> Result<Arc<LoggingLifecycle>, RclrsError> {
-        static CONFIGURATION: OnceLock<LoggingConfiguration> = OnceLock::new();
-        let configuration = CONFIGURATION.get_or_init(|| LoggingConfiguration {
-            lifecycle: Mutex::new(Weak::new()),
-        });
-
-        let mut lifecycle = configuration.lifecycle.lock().unwrap();
-        if let Some(arc_lifecycle) = lifecycle.upgrade() {
-            return Ok(arc_lifecycle);
-        }
-        let arc_lifecycle = Arc::new(LoggingLifecycle::new(&context.global_arguments)?);
-        *lifecycle = Arc::downgrade(&arc_lifecycle);
-        Ok(arc_lifecycle)
+        let mut users = logging_configuration().users.lock().unwrap();
+        let lifecycle = if *users == 0 {
+            Self::new(&context.global_arguments)?
+        } else {
+            Self
+        };
+        // Each ContextHandle owns one lease. A pending destructor still counts,
+        // even after the last Arc reference to its lease has reached zero.
+        *users += 1;
+        Ok(Arc::new(lifecycle))
     }
 }
 
 impl Drop for LoggingLifecycle {
     fn drop(&mut self) {
+        // Keep the user count locked through finalization so a new context
+        // cannot configure logging while the last lease is being finalized.
+        let mut users = logging_configuration().users.lock().unwrap();
+        *users -= 1;
+        if *users != 0 {
+            return;
+        }
         let _lock = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
         unsafe {
             rcl_logging_fini();

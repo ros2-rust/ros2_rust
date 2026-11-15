@@ -66,7 +66,7 @@ impl<A: Action> GoalClient<A> {
             let initial_value = (*status.borrow_and_update()).clone();
             yield GoalEvent::Status(initial_value);
 
-            while let Ok(_) = status.changed().await {
+            while status.changed().await.is_ok() {
                 let value = (*status.borrow_and_update()).clone();
                 yield GoalEvent::Status(value);
             }

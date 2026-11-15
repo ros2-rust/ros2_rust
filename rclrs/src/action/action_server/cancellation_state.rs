@@ -93,7 +93,7 @@ impl<A: Action> CancellationState<A> {
                 *mode = CancellationMode::None;
                 // We do not need to worry about errors from sending this state
                 // since it is okay for the receiver to be dropped.
-                let _ = self.change_cancel_requested_status(false);
+                self.change_cancel_requested_status(false);
             }
             CancellationMode::None => {
                 // Do nothing
@@ -120,7 +120,7 @@ impl<A: Action> CancellationState<A> {
                 // a true value in the cancel requested channel. We can ignore
                 // errors from this because it is okay for the receiver to be
                 // dropped.
-                let _ = self.change_cancel_requested_status(true);
+                self.change_cancel_requested_status(true);
             }
             CancellationMode::None => {
                 // Skip straight to cancellation mode since the user has accepted
@@ -128,7 +128,7 @@ impl<A: Action> CancellationState<A> {
                 *mode = CancellationMode::Cancelling;
                 // Make sure the cancellation is signalled. We can ignore errors
                 // from this because it is okay for the receiver to be dropped.
-                let _ = self.change_cancel_requested_status(true);
+                self.change_cancel_requested_status(true);
             }
             CancellationMode::Cancelling => {
                 // Do nothing
@@ -261,13 +261,16 @@ impl<A: Action> CancellationRequestInner<A> {
 
         self.response_sent = true;
 
-        let mut response = CancelGoal_Response::default();
-        response.goals_canceling = self.accepted.drain(..).collect();
-        if response.goals_canceling.is_empty() {
-            response.return_code = CancelResponseCode::Reject as i8;
+        let goals_canceling = std::mem::take(&mut self.accepted);
+        let return_code = if goals_canceling.is_empty() {
+            CancelResponseCode::Reject as i8
         } else {
-            response.return_code = CancelResponseCode::Accept as i8;
-        }
+            CancelResponseCode::Accept as i8
+        };
+        let response = CancelGoal_Response {
+            return_code,
+            goals_canceling,
+        };
 
         let mut response_rmw =
             CancelGoal_Response::into_rmw_message(Cow::Owned(response)).into_owned();
