@@ -148,8 +148,69 @@ impl<'a, T: ParameterVariant> ParameterBuilder<'a, T> {
     }
 
     /// Sets the range for the parameter.
-    pub fn range(mut self, range: T::Range) -> Self {
-        self.options.ranges = range;
+    ///
+    /// Numeric parameters accept standard Rust ranges without a step size. Inclusive
+    /// and unbounded ranges support integers and floating-point values; exclusive upper
+    /// bounds support integers only. Explicit [`ParameterRange`] values can specify a step.
+    /// Empty or reversed integer ranges result in [`DeclarationError::InvalidRange`]
+    /// when the parameter is declared.
+    ///
+    /// ```no_run
+    /// # fn example(node: &rclrs::Node) -> Result<(), rclrs::DeclarationError> {
+    /// let speed = node.declare_parameter("speed").default(0.5).range(0.0..=1.0).mandatory()?;
+    /// let count = node.declare_parameter("count").default(5).range(0..10).mandatory()?;
+    /// let offset = node.declare_parameter("offset").default(-3).range(..=0).read_only()?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// Exclusive floating-point upper bounds are unsupported. The existing inclusive
+    /// range validation, including its floating-point tolerance, is preserved.
+    ///
+    /// ```compile_fail
+    /// # fn example(builder: rclrs::ParameterBuilder<'_, f64>) {
+    /// builder.range(0.0..1.0);
+    /// # }
+    /// ```
+    ///
+    /// ```compile_fail
+    /// # fn example(builder: rclrs::ParameterBuilder<'_, f64>) {
+    /// builder.range(..1.0);
+    /// # }
+    /// ```
+    ///
+    /// # Type inference
+    ///
+    /// Since this method accepts a convertible input, an untyped default is ambiguous:
+    ///
+    /// ```compile_fail
+    /// # fn example(builder: rclrs::ParameterBuilder<'_, i64>) {
+    /// builder.range(Default::default());
+    /// # }
+    /// ```
+    ///
+    /// An explicit `.into()` can also leave its intermediate type ambiguous:
+    ///
+    /// ```compile_fail
+    /// # fn example(builder: rclrs::ParameterBuilder<'_, i64>) {
+    /// let bounds = rclrs::ParameterRange::<i64>::default();
+    /// builder.range(bounds.into());
+    /// # }
+    /// ```
+    ///
+    /// Existing callers can specify the default's type or pass their bounds directly:
+    ///
+    /// ```no_run
+    /// # fn example(node: &rclrs::Node) -> Result<(), rclrs::DeclarationError> {
+    /// let count = node.declare_parameter("count").default(5)
+    ///     .range(rclrs::ParameterRange::<i64>::default()).mandatory()?;
+    /// let bounds = rclrs::ParameterRange { lower: Some(0), upper: Some(10), step: Some(2) };
+    /// let stepped = node.declare_parameter("stepped").default(4).range(bounds).mandatory()?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn range(mut self, range: impl Into<T::Range>) -> Self {
+        self.options.ranges = range.into();
         self
     }
 
@@ -1675,6 +1736,132 @@ mod tests {
             .use_undeclared_parameters()
             .set("double_param", -4.0)
             .is_ok());
+    }
+
+    #[test]
+    fn test_standard_parameter_ranges() {
+        fn forward_range<T: ParameterVariant, R: Into<T::Range>>(
+            builder: ParameterBuilder<'_, T>,
+            range: R,
+        ) -> ParameterBuilder<'_, T> {
+            builder.range(range)
+        }
+
+        enum SpeedRange {
+            Normal,
+        }
+        impl From<SpeedRange> for ParameterRange<f64> {
+            fn from(_: SpeedRange) -> Self {
+                (0.0..=1.0).into()
+            }
+        }
+
+        let node = Context::default()
+            .create_basic_executor()
+            .create_node(&format!("param_test_node_{}", line!()))
+            .unwrap();
+        let count = forward_range(node.declare_parameter("count").default(5), 0..10)
+            .mandatory()
+            .unwrap();
+        assert!(count.set(0).is_ok());
+        assert!(count.set(9).is_ok());
+        assert!(matches!(
+            count.set(10),
+            Err(ParameterValueError::OutOfRange)
+        ));
+        assert!(matches!(
+            count.set(-1),
+            Err(ParameterValueError::OutOfRange)
+        ));
+
+        let speed = node
+            .declare_parameter("speed")
+            .default(0.5)
+            .range(SpeedRange::Normal)
+            .optional()
+            .unwrap();
+        assert!(speed.set(0.0).is_ok());
+        assert!(speed.set(1.0).is_ok());
+        assert!(matches!(
+            speed.set(2.0),
+            Err(ParameterValueError::OutOfRange)
+        ));
+        speed.unset();
+        assert!(speed.get().is_none());
+
+        let offset = node
+            .declare_parameter("offset")
+            .default(-3)
+            .range(..=0)
+            .read_only()
+            .unwrap();
+        assert_eq!(offset.get(), -3);
+        assert!(matches!(
+            node.declare_parameter("bad_offset")
+                .default(1)
+                .range(..=0)
+                .read_only(),
+            Err(DeclarationError::InitialValueOutOfRange)
+        ));
+        assert!(matches!(
+            node.declare_parameter("bad_count")
+                .default(10)
+                .range(0..10)
+                .mandatory(),
+            Err(DeclarationError::InitialValueOutOfRange)
+        ));
+        assert!(matches!(
+            node.declare_parameter("bad_speed")
+                .default(2.0)
+                .range(0.0..=1.0)
+                .optional(),
+            Err(DeclarationError::InitialValueOutOfRange)
+        ));
+
+        let unbounded = node
+            .declare_parameter("unbounded")
+            .range(..)
+            .default(i64::MIN)
+            .mandatory()
+            .unwrap();
+        assert!(unbounded.set(i64::MAX).is_ok());
+        let flag = node
+            .declare_parameter("flag")
+            .default(true)
+            .range(())
+            .mandatory()
+            .unwrap();
+        assert!(flag.get());
+    }
+
+    #[test]
+    fn test_empty_standard_ranges_reject_all_declaration_kinds() {
+        let node = Context::default()
+            .create_basic_executor()
+            .create_node(&format!("param_test_node_{}", line!()))
+            .unwrap();
+        for range in [ParameterRange::from(0..0), ParameterRange::from(..i64::MIN)] {
+            assert!(matches!(
+                node.declare_parameter("empty_mandatory")
+                    .default(0)
+                    .range(range.clone())
+                    .mandatory(),
+                Err(DeclarationError::InvalidRange)
+            ));
+            assert!(matches!(
+                node.declare_parameter::<i64>("empty_optional")
+                    .range(range.clone())
+                    .optional(),
+                Err(DeclarationError::InvalidRange)
+            ));
+            assert!(matches!(
+                node.declare_parameter("empty_read_only")
+                    .default(0)
+                    .range(range)
+                    .read_only(),
+                Err(DeclarationError::InvalidRange)
+            ));
+        }
     }
 
     #[test]
