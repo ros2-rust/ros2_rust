@@ -1162,9 +1162,29 @@ impl NodeState {
     ///
     /// Both of these choices are expressed by [`TimerOptions`][1].
     ///
-    /// By default the steady clock time will be used, but you could choose
-    /// node time instead if you want the timer to automatically use simulated
-    /// time when running as part of a simulation:
+    /// By default the node clock will be used, matching `rclcpp` and
+    /// `rclpy`. This means the timer will automatically use simulated
+    /// time when the node is running as part of a simulation. If you are
+    /// okay with the default choice of clock (node clock) then you can
+    /// choose to simply pass a duration in as the options:
+    /// ```
+    /// # use rclrs::*;
+    /// # let executor = Context::default().create_basic_executor();
+    /// # let node = executor.create_node("my_node").unwrap();
+    /// use std::time::Duration;
+    ///
+    /// let timer = node.create_timer_repeating(
+    ///     Duration::from_secs(1),
+    ///     || {
+    ///         println!("Triggering once each node clock second");
+    ///     },
+    /// )?;
+    /// # Ok::<(), RclrsError>(())
+    /// ```
+    ///
+    /// If you want the timer to be driven by the steady clock instead,
+    /// unaffected by simulated time or system clock adjustments, select
+    /// it explicitly:
     /// ```
     /// # use rclrs::*;
     /// # let executor = Context::default().create_basic_executor();
@@ -1173,9 +1193,9 @@ impl NodeState {
     ///
     /// let timer = node.create_timer_repeating(
     ///     TimerOptions::new(Duration::from_secs(1))
-    ///     .node_time(),
+    ///     .steady_time(),
     ///     || {
-    ///         println!("Triggering once each simulated second");
+    ///         println!("Triggering per steady clock second");
     ///     },
     /// )?;
     /// # Ok::<(), RclrsError>(())
@@ -1200,23 +1220,6 @@ impl NodeState {
     /// )?;
     ///
     /// my_source.set_ros_time_override(1_500_000_000);
-    /// # Ok::<(), RclrsError>(())
-    /// ```
-    ///
-    /// If you are okay with the default choice of clock (steady clock) then you
-    /// can choose to simply pass a duration in as the options:
-    /// ```
-    /// # use rclrs::*;
-    /// # let executor = Context::default().create_basic_executor();
-    /// # let node = executor.create_node("my_node").unwrap();
-    /// use std::time::Duration;
-    ///
-    /// let timer = node.create_timer_repeating(
-    ///     Duration::from_secs(1),
-    ///     || {
-    ///         println!("Triggering per steady clock second");
-    ///     },
-    /// )?;
     /// # Ok::<(), RclrsError>(())
     /// ```
     ///
