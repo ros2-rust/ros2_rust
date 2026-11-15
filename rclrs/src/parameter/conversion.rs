@@ -41,6 +41,9 @@ use super::{ParameterKind, ParameterValue, ParameterVariant};
 /// ```
 pub struct ParameterConversion<T> {
     kind: ParameterKind,
+    /// What a value of this conversion may be, in words, for the descriptor's
+    /// `additional_constraints`. Nothing enforces it, and a declaration that states its own wins.
+    constraints: Option<Arc<str>>,
     to_value: Arc<dyn Fn(&T) -> ParameterValue + Send + Sync>,
     from_value: Arc<dyn Fn(ParameterValue) -> Result<T, String> + Send + Sync>,
 }
@@ -51,6 +54,7 @@ impl<T> Clone for ParameterConversion<T> {
     fn clone(&self) -> Self {
         Self {
             kind: self.kind,
+            constraints: self.constraints.clone(),
             to_value: Arc::clone(&self.to_value),
             from_value: Arc::clone(&self.from_value),
         }
@@ -84,6 +88,7 @@ macro_rules! conversion_constructor {
         ) -> ParameterConversion<T> {
             ParameterConversion {
                 kind: ParameterKind::$variant,
+                constraints: ::core::option::Option::None,
                 to_value: Arc::new(move |value| ParameterValue::$variant(to(value))),
                 from_value: Arc::new(move |value| match value {
                     ParameterValue::$variant(wire) => from(wire).map_err(|err| err.to_string()),
@@ -125,6 +130,21 @@ impl<T: 'static> ParameterConversion<T> {
         self.kind
     }
 
+    /// Describes in words what a value of this conversion may be.
+    ///
+    /// Reported as the descriptor's `additional_constraints` by any declaration that does not
+    /// state constraints of its own, so that `ros2 param describe` can say what a value has to
+    /// satisfy when the rule is not one a range can express.
+    pub fn with_constraints(mut self, constraints: impl Into<Arc<str>>) -> Self {
+        self.constraints = Some(constraints.into());
+        self
+    }
+
+    /// The constraints this conversion describes, if any.
+    pub fn constraints(&self) -> Option<Arc<str>> {
+        self.constraints.clone()
+    }
+
     /// Converts a value into the parameter value that represents it.
     pub fn to_value(&self, value: &T) -> ParameterValue {
         (self.to_value)(value)
@@ -145,6 +165,7 @@ impl<T: ParameterVariant> ParameterConversion<T> {
     pub fn of_variant() -> Self {
         Self {
             kind: T::kind(),
+            constraints: T::type_constraints(),
             to_value: Arc::new(|value: &T| value.clone().into()),
             from_value: Arc::new(|value| T::try_from(value).map_err(|err| err.to_string())),
         }
