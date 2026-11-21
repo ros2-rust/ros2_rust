@@ -272,18 +272,23 @@ impl<'a> SubscriptionOptions<'a> {
                     )),
                 });
             }
-            let backends_c_string =
-                CString::new(backends).map_err(|err| RclrsError::StringContainsNul {
-                    err,
-                    s: backends.into(),
-                })?;
-            // SAFETY: the setter copies the string into these initialized options.
-            unsafe {
-                rcl_subscription_options_set_acceptable_buffer_backends(
-                    backends_c_string.as_ptr(),
-                    &mut options,
-                )
-                .ok()?;
+            // rcl gained buffer backend selection in Lyrical. Earlier distros only
+            // have CPU buffers, which is all the check above lets through there.
+            #[cfg(not(any(ros_distro = "humble", ros_distro = "jazzy", ros_distro = "kilted")))]
+            {
+                let backends_c_string =
+                    CString::new(backends).map_err(|err| RclrsError::StringContainsNul {
+                        err,
+                        s: backends.into(),
+                    })?;
+                // SAFETY: the setter copies the string into these initialized options.
+                unsafe {
+                    rcl_subscription_options_set_acceptable_buffer_backends(
+                        backends_c_string.as_ptr(),
+                        &mut options,
+                    )
+                    .ok()?;
+                }
             }
         }
         Ok(options)
