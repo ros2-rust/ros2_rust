@@ -414,7 +414,7 @@ impl<A: Action> ActionServerGoalBoard<A> {
         let (uuid, request) = <A as Action>::split_goal_request(request);
         let requested_goal = RequestedGoal::new(
             Arc::clone(self),
-            Arc::new(Message::from_rmw_message(request)),
+            Arc::new(Message::try_from_rmw_message(request)?),
             GoalUuid(uuid),
             goal_request_id,
         );
@@ -700,6 +700,8 @@ unsafe impl Send for rcl_action_server_t {}
 
 impl<A: Action> Drop for ActionServerHandle<A> {
     fn drop(&mut self) {
+        // Release native goal handles before finalizing the server.
+        self.goals.get_mut().unwrap().clear();
         // Finalize the rcl action server (mirrors `ActionClientHandle`'s Drop).
         // This runs before the struct's fields are dropped, so `_clock` is still
         // alive — `rcl_action_server_fini` touches the expired-goals timer, which

@@ -376,7 +376,10 @@ impl ServiceHandle {
             )
         }
         .ok()?;
-        Ok((T::Request::from_rmw_message(request_out), request_id_out))
+        Ok((
+            T::Request::try_from_rmw_message(request_out)?,
+            request_id_out,
+        ))
     }
 
     /// Same as [`Self::take_request`] but includes additional info about the service
@@ -396,7 +399,10 @@ impl ServiceHandle {
             )
         }
         .ok()?;
-        Ok((T::Request::from_rmw_message(request_out), service_info_out))
+        Ok((
+            T::Request::try_from_rmw_message(request_out)?,
+            service_info_out,
+        ))
     }
 
     fn send_response<T: ServiceIDL>(
