@@ -9209,6 +9209,51 @@ unsafe extern "C" {
         count: *mut usize,
     ) -> rcl_ret_t;
 }
+#[repr(C)]
+#[derive(Debug)]
+pub struct rcl_action_endpoint_info_s {
+    pub goal_service_info: rcl_service_endpoint_info_t,
+    pub cancel_service_info: rcl_service_endpoint_info_t,
+    pub result_service_info: rcl_service_endpoint_info_t,
+    pub feedback_topic_info: rcl_topic_endpoint_info_t,
+    pub status_topic_info: rcl_topic_endpoint_info_t,
+}
+pub type rcl_action_endpoint_info_t = rcl_action_endpoint_info_s;
+#[repr(C)]
+#[derive(Debug)]
+pub struct rcl_action_endpoint_info_array_s {
+    pub size: usize,
+    pub info_array: *mut rcl_action_endpoint_info_t,
+}
+pub type rcl_action_endpoint_info_array_t = rcl_action_endpoint_info_array_s;
+unsafe extern "C" {
+    pub fn rcl_action_get_zero_initialized_endpoint_info() -> rcl_action_endpoint_info_t;
+}
+unsafe extern "C" {
+    pub fn rcl_action_get_zero_initialized_endpoint_info_array() -> rcl_action_endpoint_info_array_t;
+}
+unsafe extern "C" {
+    pub fn rcl_action_endpoint_info_array_fini(
+        info_array: *mut rcl_action_endpoint_info_array_t,
+        allocator: *mut rcutils_allocator_t,
+    ) -> rcl_ret_t;
+}
+unsafe extern "C" {
+    pub fn rcl_action_get_clients_info_by_action(
+        node: *const rcl_node_t,
+        allocator: *mut rcutils_allocator_t,
+        action_name: *const ::std::os::raw::c_char,
+        clients_info: *mut rcl_action_endpoint_info_array_t,
+    ) -> rcl_ret_t;
+}
+unsafe extern "C" {
+    pub fn rcl_action_get_servers_info_by_action(
+        node: *const rcl_node_t,
+        allocator: *mut rcutils_allocator_t,
+        action_name: *const ::std::os::raw::c_char,
+        servers_info: *mut rcl_action_endpoint_info_array_t,
+    ) -> rcl_ret_t;
+}
 unsafe extern "C" {
     pub fn rcl_action_wait_set_add_action_client(
         wait_set: *mut rcl_wait_set_t,

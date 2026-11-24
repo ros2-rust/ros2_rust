@@ -205,13 +205,6 @@ mod test_helpers;
 
 mod rcl_bindings;
 
-#[cfg(feature = "use_ros_shim")]
-#[allow(missing_docs)]
-pub mod vendor;
-
-#[cfg(feature = "use_ros_shim")]
-pub use vendor::*;
-
 pub use action::*;
 pub use arguments::*;
 pub use client::*;

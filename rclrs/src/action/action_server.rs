@@ -29,7 +29,7 @@ mod cancellation_state;
 use cancellation_state::*;
 
 mod cancelling_goal;
-use cancelling_goal::*;
+pub use cancelling_goal::*;
 
 mod executing_goal;
 pub use executing_goal::*;
@@ -206,7 +206,7 @@ impl<A: Action> ActionServerState<A> {
         &self,
         mut callback: impl FnMut(RequestedGoal<A>) -> Task + Send + Sync + 'static,
     ) where
-        Task: Future<Output = TerminatedGoal> + Send + Sync + 'static,
+        Task: Future<Output = TerminatedGoal> + Send + 'static,
     {
         let callback = Box::new(
             move |requested_goal| -> BoxFuture<'static, TerminatedGoal> {
@@ -245,7 +245,7 @@ impl<A: Action> ActionServerState<A> {
         mut callback: impl FnMut(RequestedGoal<A>) -> Task + Send + Sync + 'static,
     ) -> Result<ActionServer<A>, RclrsError>
     where
-        Task: Future<Output = TerminatedGoal> + Send + Sync + 'static,
+        Task: Future<Output = TerminatedGoal> + Send + 'static,
     {
         let callback = Box::new(
             move |requested_goal| -> BoxFuture<'static, TerminatedGoal> {
@@ -354,7 +354,7 @@ impl<A: Action> ActionServerState<A> {
         mut receiver: UnboundedReceiver<RequestedGoal<A>>,
         mut callback: impl FnMut(RequestedGoal<A>) -> Task + Send + Sync + 'static,
     ) where
-        Task: Future<Output = TerminatedGoal> + Send + Sync + 'static,
+        Task: Future<Output = TerminatedGoal> + Send + 'static,
     {
         let mut callback = Box::new(
             move |requested_goal| -> BoxFuture<'static, TerminatedGoal> {

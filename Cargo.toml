@@ -2,4 +2,4 @@
 members = [
   "rclrs",
 ]
-resolver = "2"
+resolver = "3"

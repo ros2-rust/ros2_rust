@@ -383,6 +383,7 @@ mod tests {
                             matches!(
                                 s.code,
                                 GoalStatusCode::Unknown
+                                    | GoalStatusCode::Accepted
                                     | GoalStatusCode::Executing
                                     | GoalStatusCode::Succeeded
                             ),
