@@ -13,6 +13,7 @@ use futures::{
 use std::{
     any::Any,
     future::Future,
+    panic::UnwindSafe,
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
@@ -338,7 +339,7 @@ pub trait WorkerChannel: Send + Sync {
 }
 
 /// Encapsulates a task that can operate on the payload of a worker
-pub type PayloadTask = Box<dyn FnOnce(&mut dyn Any) + Send>;
+pub type PayloadTask = Box<dyn FnOnce(&mut dyn Any) + Send + UnwindSafe>;
 
 /// This is constructed by [`ExecutorCommands`] and passed to the [`ExecutorRuntime`]
 /// to create a new worker. Downstream users of rclrs should not be using this class

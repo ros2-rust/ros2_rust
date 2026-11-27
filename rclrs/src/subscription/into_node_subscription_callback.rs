@@ -4,7 +4,10 @@ use crate::{
     AnySubscriptionCallback, MessageInfo, NodeSubscriptionCallback, ReadOnlyLoanedMessage,
 };
 
-use std::sync::Arc;
+use std::{
+    panic::{RefUnwindSafe, UnwindSafe},
+    sync::Arc,
+};
 
 /// A trait for regular callbacks of subscriptions.
 ///
@@ -15,7 +18,7 @@ use std::sync::Arc;
 /// - [`Fn`] ( [`Box`]<`Message`>, [`MessageInfo`] )
 /// - [`Fn`] ( [`ReadOnlyLoanedMessage`]<`Message`> )
 /// - [`Fn`] ( [`ReadOnlyLoanedMessage`]<`Message`>, [`MessageInfo`] )
-pub trait IntoNodeSubscriptionCallback<T, Args>: Send + 'static
+pub trait IntoNodeSubscriptionCallback<T, Args>: Send + UnwindSafe + 'static
 where
     T: Message,
 {
@@ -28,7 +31,7 @@ where
 impl<T, Func> IntoNodeSubscriptionCallback<T, (T,)> for Func
 where
     T: Message,
-    Func: Fn(T) + Send + Sync + 'static,
+    Func: Fn(T) + Send + Sync + UnwindSafe + RefUnwindSafe + 'static,
 {
     fn into_node_subscription_callback(self) -> AnySubscriptionCallback<T, ()> {
         let func = Arc::new(self);
@@ -45,7 +48,7 @@ where
 impl<T, Func> IntoNodeSubscriptionCallback<T, (T, MessageInfo)> for Func
 where
     T: Message,
-    Func: Fn(T, MessageInfo) + Send + Sync + 'static,
+    Func: Fn(T, MessageInfo) + Send + Sync + UnwindSafe + RefUnwindSafe + 'static,
 {
     fn into_node_subscription_callback(self) -> AnySubscriptionCallback<T, ()> {
         let func = Arc::new(self);
@@ -62,7 +65,7 @@ where
 impl<T, Func> IntoNodeSubscriptionCallback<T, (Box<T>,)> for Func
 where
     T: Message,
-    Func: Fn(Box<T>) + Send + Sync + 'static,
+    Func: Fn(Box<T>) + Send + Sync + UnwindSafe + RefUnwindSafe + 'static,
 {
     fn into_node_subscription_callback(self) -> AnySubscriptionCallback<T, ()> {
         let func = Arc::new(self);
@@ -79,7 +82,7 @@ where
 impl<T, Func> IntoNodeSubscriptionCallback<T, (Box<T>, MessageInfo)> for Func
 where
     T: Message,
-    Func: Fn(Box<T>, MessageInfo) + Send + Sync + 'static,
+    Func: Fn(Box<T>, MessageInfo) + Send + Sync + UnwindSafe + RefUnwindSafe + 'static,
 {
     fn into_node_subscription_callback(self) -> AnySubscriptionCallback<T, ()> {
         let func = Arc::new(self);
@@ -96,7 +99,7 @@ where
 impl<T, Func> IntoNodeSubscriptionCallback<T, (ReadOnlyLoanedMessage<T>,)> for Func
 where
     T: Message,
-    Func: Fn(ReadOnlyLoanedMessage<T>) + Send + Sync + 'static,
+    Func: Fn(ReadOnlyLoanedMessage<T>) + Send + Sync + UnwindSafe + RefUnwindSafe + 'static,
 {
     fn into_node_subscription_callback(self) -> AnySubscriptionCallback<T, ()> {
         let func = Arc::new(self);
@@ -113,7 +116,12 @@ where
 impl<T, Func> IntoNodeSubscriptionCallback<T, (ReadOnlyLoanedMessage<T>, MessageInfo)> for Func
 where
     T: Message,
-    Func: Fn(ReadOnlyLoanedMessage<T>, MessageInfo) + Send + Sync + 'static,
+    Func: Fn(ReadOnlyLoanedMessage<T>, MessageInfo)
+        + Send
+        + Sync
+        + UnwindSafe
+        + RefUnwindSafe
+        + 'static,
 {
     fn into_node_subscription_callback(self) -> AnySubscriptionCallback<T, ()> {
         let func = Arc::new(self);

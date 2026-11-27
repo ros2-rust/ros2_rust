@@ -7,7 +7,7 @@ use crate::{
 
 use futures::future::BoxFuture;
 
-use std::sync::Arc;
+use std::{panic::UnwindSafe, sync::Arc};
 
 /// An enum capturing the various possible function signatures for service callbacks.
 pub enum NodeServiceCallback<T>
@@ -15,11 +15,21 @@ where
     T: Service,
 {
     /// A callback that only takes in the request value
-    OnlyRequest(Box<dyn FnMut(T::Request) -> BoxFuture<'static, T::Response> + Send>),
+    OnlyRequest(Box<dyn FnMut(T::Request) -> BoxFuture<'static, T::Response> + Send + UnwindSafe>),
     /// A callback that takes in the request value and the ID of the request
-    WithId(Box<dyn FnMut(T::Request, RequestId) -> BoxFuture<'static, T::Response> + Send>),
+    WithId(
+        Box<
+            dyn FnMut(T::Request, RequestId) -> BoxFuture<'static, T::Response> + Send + UnwindSafe,
+        >,
+    ),
     /// A callback that takes in the request value and all available
-    WithInfo(Box<dyn FnMut(T::Request, ServiceInfo) -> BoxFuture<'static, T::Response> + Send>),
+    WithInfo(
+        Box<
+            dyn FnMut(T::Request, ServiceInfo) -> BoxFuture<'static, T::Response>
+                + Send
+                + UnwindSafe,
+        >,
+    ),
 }
 
 impl<T: Service> NodeServiceCallback<T> {

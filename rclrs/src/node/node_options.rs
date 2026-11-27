@@ -1,6 +1,7 @@
 use std::{
     borrow::Borrow,
     ffi::{CStr, CString},
+    panic::AssertUnwindSafe,
     sync::{atomic::AtomicBool, Arc, Mutex},
 };
 
@@ -385,7 +386,7 @@ impl<'a> NodeOptions<'a> {
 
         // --- Set up guard condition for graph change events ---
         let (graph_change_action, graph_change_receiver) = unbounded();
-        let graph_change_execute_sender = graph_change_action.clone();
+        let graph_change_execute_sender = AssertUnwindSafe(graph_change_action.clone());
 
         let rcl_graph_change_guard_condition = unsafe {
             // SAFETY: The node is valid because we just instantiated it.

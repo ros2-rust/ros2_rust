@@ -2,7 +2,7 @@ use rosidl_runtime_rs::Service;
 
 use super::{AnyServiceCallback, NodeServiceCallback, RequestId, ServiceInfo};
 
-use std::future::Future;
+use std::{future::Future, panic::UnwindSafe};
 
 /// A trait for async callbacks of services.
 ///
@@ -10,7 +10,7 @@ use std::future::Future;
 /// - [`FnMut`] ( `Request` ) -> impl [`Future`]<Output=`Response`>
 /// - [`FnMut`] ( `Request`, [`RequestId`] ) -> impl [`Future`]<Output=`Response`>
 /// - [`FnMut`] ( `Request`, [`ServiceInfo`] ) -> impl [`Future`]<Output=`Response`>
-pub trait IntoAsyncServiceCallback<T, Args>: Send + 'static
+pub trait IntoAsyncServiceCallback<T, Args>: Send + UnwindSafe + 'static
 where
     T: Service,
 {
@@ -23,7 +23,7 @@ where
 impl<T, F, Func> IntoAsyncServiceCallback<T, ()> for Func
 where
     T: Service,
-    Func: FnMut(T::Request) -> F + Send + 'static,
+    Func: FnMut(T::Request) -> F + Send + UnwindSafe + 'static,
     F: Future<Output = T::Response> + Send + 'static,
 {
     fn into_async_service_callback(mut self) -> AnyServiceCallback<T, ()> {
@@ -34,7 +34,7 @@ where
 impl<T, F, Func> IntoAsyncServiceCallback<T, RequestId> for Func
 where
     T: Service,
-    Func: FnMut(T::Request, RequestId) -> F + Send + 'static,
+    Func: FnMut(T::Request, RequestId) -> F + Send + UnwindSafe + 'static,
     F: Future<Output = T::Response> + Send + 'static,
 {
     fn into_async_service_callback(mut self) -> AnyServiceCallback<T, ()> {
@@ -48,7 +48,7 @@ where
 impl<T, F, Func> IntoAsyncServiceCallback<T, ServiceInfo> for Func
 where
     T: Service,
-    Func: FnMut(T::Request, ServiceInfo) -> F + Send + 'static,
+    Func: FnMut(T::Request, ServiceInfo) -> F + Send + UnwindSafe + 'static,
     F: Future<Output = T::Response> + Send + 'static,
 {
     fn into_async_service_callback(mut self) -> AnyServiceCallback<T, ()> {

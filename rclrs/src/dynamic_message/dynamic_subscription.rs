@@ -3,6 +3,7 @@ use std::{
     boxed::Box,
     ffi::CString,
     ops::{Deref, DerefMut},
+    panic::{RefUnwindSafe, UnwindSafe},
     sync::{Arc, Mutex},
 };
 
@@ -53,49 +54,60 @@ struct DynamicSubscriptionExecutable<Payload> {
 }
 
 pub(crate) struct NodeDynamicSubscriptionCallback(
-    Box<dyn Fn(DynamicMessage, MessageInfo) + Send + Sync>,
+    Box<dyn Fn(DynamicMessage, MessageInfo) + Send + Sync + UnwindSafe + RefUnwindSafe>,
 );
 
 impl NodeDynamicSubscriptionCallback {
-    pub(crate) fn new(f: impl Fn(DynamicMessage, MessageInfo) + Send + Sync + 'static) -> Self {
+    pub(crate) fn new(
+        f: impl Fn(DynamicMessage, MessageInfo) + Send + Sync + UnwindSafe + RefUnwindSafe + 'static,
+    ) -> Self {
         NodeDynamicSubscriptionCallback(Box::new(f))
     }
 }
 
 pub(crate) struct NodeAsyncDynamicSubscriptionCallback(
-    Box<dyn FnMut(DynamicMessage, MessageInfo) -> BoxFuture<'static, ()> + Send + Sync>,
+    Box<
+        dyn FnMut(DynamicMessage, MessageInfo) -> BoxFuture<'static, ()> + Send + Sync + UnwindSafe,
+    >,
 );
 
 impl NodeAsyncDynamicSubscriptionCallback {
     pub(crate) fn new(
-        f: impl FnMut(DynamicMessage, MessageInfo) -> BoxFuture<'static, ()> + Send + Sync + 'static,
+        f: impl FnMut(DynamicMessage, MessageInfo) -> BoxFuture<'static, ()>
+            + Send
+            + Sync
+            + UnwindSafe
+            + 'static,
     ) -> Self {
         NodeAsyncDynamicSubscriptionCallback(Box::new(f))
     }
 }
 
 pub(crate) struct WorkerDynamicSubscriptionCallback<Payload>(
-    Box<dyn FnMut(&mut Payload, DynamicMessage, MessageInfo) + Send + Sync>,
+    Box<dyn FnMut(&mut Payload, DynamicMessage, MessageInfo) + Send + Sync + UnwindSafe>,
 );
 
 impl<Payload> WorkerDynamicSubscriptionCallback<Payload> {
     pub(crate) fn new(
-        f: impl FnMut(&mut Payload, DynamicMessage, MessageInfo) + Send + Sync + 'static,
+        f: impl FnMut(&mut Payload, DynamicMessage, MessageInfo) + Send + Sync + UnwindSafe + 'static,
     ) -> Self {
         WorkerDynamicSubscriptionCallback(Box::new(f))
     }
 }
 
 impl Deref for NodeDynamicSubscriptionCallback {
-    type Target = Box<dyn Fn(DynamicMessage, MessageInfo) + 'static + Send + Sync>;
+    type Target = Box<
+        dyn Fn(DynamicMessage, MessageInfo) + 'static + Send + Sync + UnwindSafe + RefUnwindSafe,
+    >;
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
 impl Deref for NodeAsyncDynamicSubscriptionCallback {
-    type Target =
-        Box<dyn FnMut(DynamicMessage, MessageInfo) -> BoxFuture<'static, ()> + Send + Sync>;
+    type Target = Box<
+        dyn FnMut(DynamicMessage, MessageInfo) -> BoxFuture<'static, ()> + Send + Sync + UnwindSafe,
+    >;
     fn deref(&self) -> &Self::Target {
         &self.0
     }
@@ -114,7 +126,8 @@ impl DerefMut for NodeAsyncDynamicSubscriptionCallback {
 }
 
 impl<Payload> Deref for WorkerDynamicSubscriptionCallback<Payload> {
-    type Target = Box<dyn FnMut(&mut Payload, DynamicMessage, MessageInfo) + Send + Sync>;
+    type Target =
+        Box<dyn FnMut(&mut Payload, DynamicMessage, MessageInfo) + Send + Sync + UnwindSafe>;
     fn deref(&self) -> &Self::Target {
         &self.0
     }
