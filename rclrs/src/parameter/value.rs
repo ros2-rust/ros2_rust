@@ -144,6 +144,19 @@ pub trait ParameterVariant:
 
     /// Returns the `ParameterKind` of the implemented type.
     fn kind() -> ParameterKind;
+
+    /// Human-readable constraints that are inherent to this type, such as the set of variants
+    /// a string-backed enum accepts.
+    ///
+    /// Used for the parameter descriptor's `additional_constraints` field when the declaration
+    /// does not set its own with [`ParameterBuilder::constraints`], so that introspection
+    /// through `ros2 param describe` can report what a value of this type may be without every
+    /// declaration site having to restate it.
+    ///
+    /// [`ParameterBuilder::constraints`]: crate::ParameterBuilder::constraints
+    fn type_constraints() -> Option<Arc<str>> {
+        None
+    }
 }
 
 impl TryFrom<ParameterValue> for bool {
