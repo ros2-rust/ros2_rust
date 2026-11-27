@@ -35,10 +35,13 @@ async-std = "1.13"
 # Needed for dynamic messages
 libloading = "0.8"
 
-ros-env = "0.3"
+# Replace this Git pin with a crates.io version once a compatible
+# release includes https://github.com/ros2-rust/ros-env/pull/16.
+ros-env = { version = "0.3", git = "https://github.com/yuanknv/ros-env.git", rev = "c490916f90ed50797fff3aad031a1f2ec047e2c6" }
 
 # Needed for the Message trait, among others
 rosidl_runtime_rs = "0.7"
+rosidl_buffer_rs = { version = "0.1", optional = true }
 
 # Needed for serialization and deserialization of generated messages
 serde = { version = "1", optional = true, features = ["derive"] }
@@ -72,6 +75,7 @@ ament_rs = "0.3"
 
 [features]
 default = []
+rosidl-buffer = ["rosidl_runtime_rs/rosidl-buffer", "dep:rosidl_buffer_rs", "ros-env/rosidl-buffer"]
 serde = ["dep:serde", "dep:serde-big-array", "rosidl_runtime_rs/serde", "ros-env/serde"]
 # This feature is solely for the purpose of being able to generate documetation without a ROS installation
 # The only intended usage of this feature is for docs.rs builders to work, and is not intended to be used by end users
@@ -79,4 +83,4 @@ use_ros_shim = ["ros-env/use_ros_shim", "rosidl_runtime_rs/use_ros_shim"]
 
 [package.metadata.docs.rs]
 features = ["use_ros_shim"]
-rustc-args = ["--cfg", "ros_distro=\"humble\""]
+rustc-args = ["--cfg", "ros_distro=\"rolling\""]
