@@ -201,6 +201,12 @@ impl<Payload> DynamicSubscriptionExecutable<Payload> {
             // SAFETY: The first two pointers are valid/initialized, and do not need to be valid
             // beyond the function call.
             // The latter two pointers are explicitly allowed to be NULL.
+            //
+            // `rmw_message` points at storage laid out by the *introspection* type support
+            // (`self.metadata.create()`), while `rcl_take` writes it through the
+            // `rosidl_typesupport_c` one. Those must describe the same layout;
+            // `DynamicSubscription::create` resolves both from the same package name, so they
+            // come from one install prefix.
             rcl_take(
                 rcl_subscription,
                 rmw_message as *mut _,
