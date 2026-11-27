@@ -103,6 +103,16 @@ where
         self.handle.topic_name()
     }
 
+    /// Access the handle for this subscription's underlying `rcl_subscription_t`.
+    ///
+    /// Returns the subscription handle. Only the `event_callback` tests use this
+    /// accessor (production code reaches the handle through its own field), so it
+    /// is compiled only under test rather than carried as dead code.
+    #[cfg(test)]
+    pub(crate) fn handle(&self) -> &Arc<SubscriptionHandle> {
+        &self.handle
+    }
+
     /// Returns the QoS settings of the subscription.
     pub fn qos(&self) -> QoSProfile {
         let options = unsafe {
@@ -294,6 +304,31 @@ where
     fn handle(&self) -> RclPrimitiveHandle<'_> {
         RclPrimitiveHandle::Subscription(self.handle.lock())
     }
+
+    fn register_on_ready(
+        &self,
+        on_ready: Box<dyn Fn(ReadyKind, usize) + Send + Sync>,
+    ) -> Result<Option<Box<dyn crate::OnReadyHandle>>, RclrsError> {
+        // A subscription has a single readiness path; report it as `Basic`.
+        let on_ready = move |n| on_ready(ReadyKind::Basic, n);
+        let registration = crate::executor::event_callback::OnReadyRegistration::new(
+            Arc::clone(&self.handle),
+            set_subscription_on_new_message,
+            Box::new(on_ready),
+        )?;
+        Ok(Some(Box::new(registration)))
+    }
+}
+
+/// Install (or, with a null callback/user_data, clear) the "on new message"
+/// push callback used by the event-driven executor. Encapsulates the
+/// subscription lock and the rcl call within this module.
+pub(crate) unsafe fn set_subscription_on_new_message(
+    handle: &SubscriptionHandle,
+    callback: rcl_event_callback_t,
+    user_data: *const std::os::raw::c_void,
+) -> rcl_ret_t {
+    rcl_subscription_set_on_new_message_callback(&*handle.lock(), callback, user_data)
 }
 
 // SAFETY: The functions accessing this type, including drop(), shouldn't care about the thread

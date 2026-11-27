@@ -509,6 +509,10 @@ impl<Scope: WorkScope> RclPrimitive for TimerExecutable<Scope> {
     fn handle(&self) -> RclPrimitiveHandle<'_> {
         RclPrimitiveHandle::Timer(self.handle.rcl_timer.lock().unwrap())
     }
+
+    fn timer_handle(&self) -> Option<Arc<Mutex<rcl_timer_t>>> {
+        Some(Arc::clone(&self.handle.rcl_timer))
+    }
 }
 
 impl<Scope: WorkScope> PartialEq for TimerState<Scope> {
