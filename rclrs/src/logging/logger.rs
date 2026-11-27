@@ -58,7 +58,7 @@ impl Logger {
         if self.name.is_empty() {
             Self::new(child_name)
         } else {
-            Self::new(format!("{}.{}", &self.name, child_name.borrow()))
+            Self::new(format!("{}.{}", self.name, child_name.borrow()))
         }
     }
 

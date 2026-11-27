@@ -68,6 +68,8 @@ impl<A: Action> ExecutingGoal<A> {
     /// until the goal reaches a terminal state.
     //
     // TODO(@mxgrey): Add a doctest and example for this.
+    // The unit error is intentional: cancellation is the only error state and carries no data.
+    #[allow(clippy::result_unit_err)]
     pub async fn unless_cancel_requested<F: Future>(&self, f: F) -> Result<F::Output, ()> {
         self.live.cancellation().unless_cancel_requested(f).await
     }
