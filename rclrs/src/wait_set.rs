@@ -128,6 +128,12 @@ impl WaitSet {
             Err(error) => match error {
                 RclrsError::RclError { code, msg } => match code {
                     RclReturnCode::WaitSetEmpty => Ok(()),
+                    // rcl_wait can report a timeout even though no timeout was given. It
+                    // wakes up when the earliest timer is due, and returns a timeout if that
+                    // timer turns out not to be ready, e.g. because it was canceled or the
+                    // clock was set back in the meantime. Nothing is ready in that case, so
+                    // there is nothing to do and the caller can simply wait again.
+                    RclReturnCode::Timeout if timeout.is_none() => Ok(()),
                     _ => Err(RclrsError::RclError { code, msg }),
                 },
                 _ => Err(error),
@@ -281,6 +287,35 @@ mod tests {
         // that is guaranteed to be stable we could write a custom executor for
         // testing that will give us more introspection.
         assert!(std::time::Instant::now() - start < Duration::from_secs(1));
+
+        Ok(())
+    }
+
+    #[test]
+    fn wait_without_a_timeout_survives_a_timer_that_is_not_ready() -> Result<(), RclrsError> {
+        let mut executor = Context::default().create_basic_executor();
+        let node = executor.create_node(&format!("test_timer_not_ready_{}", line!()))?;
+
+        // rcl_wait wakes up when the earliest timer is due and returns a timeout if that
+        // timer is not ready after all. Canceling the timer while the wait set is waiting
+        // for it is one way to get there. The system clock being set back is another.
+        let timer = node.create_timer_repeating(Duration::from_millis(200), || {})?;
+        let commands = executor.commands().clone();
+        let canceler = std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(50));
+            timer.cancel().unwrap();
+            // Keep spinning past the moment the timer would have fired, then stop.
+            std::thread::sleep(Duration::from_millis(500));
+            commands.halt_spinning();
+        });
+
+        // No timeout was given, so the only way for this to end is the halt above.
+        let start = std::time::Instant::now();
+        let errors = executor.spin(SpinOptions::default());
+        canceler.join().unwrap();
+
+        assert!(errors.is_empty(), "spinning ended with {errors:?}");
+        assert!(start.elapsed() >= Duration::from_millis(500));
 
         Ok(())
     }
