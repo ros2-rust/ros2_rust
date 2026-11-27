@@ -5,7 +5,7 @@
 
 use std::{
     collections::HashMap,
-    ffi::CString,
+    ffi::{CStr, CString},
     sync::{Mutex, OnceLock},
 };
 
@@ -96,12 +96,16 @@ macro_rules! log {
                 return;
             }
 
+            let logger_name = params.get_logger_name();
+            let severity = params.get_severity();
+
+            if !$crate::impl_log_enabled(severity, logger_name) {
+                return;
+            }
+
             let mut first_time = false;
             static REMEMBER_FIRST_TIME: Once = Once::new();
             REMEMBER_FIRST_TIME.call_once(|| first_time = true);
-
-            let logger_name = params.get_logger_name();
-            let severity = params.get_severity();
 
             match params.get_occurence() {
                 // Create the static variables here so we get a per-instance static
@@ -305,6 +309,32 @@ macro_rules! log_unconditional {
             }
         }
     }}
+}
+
+#[doc(hidden)]
+pub fn impl_log_enabled(severity: LogSeverity, logger_name: &LoggerName) -> bool {
+    let severity = severity.as_native() as i32;
+    let _lifecycle = ENTITY_LIFECYCLE_MUTEX.lock().unwrap();
+    let is_enabled =
+        |c_name: &CStr| unsafe { rcutils_logging_logger_is_enabled_for(c_name.as_ptr(), severity) };
+
+    match logger_name {
+        LoggerName::Validated(c_name) => is_enabled(c_name),
+        LoggerName::Unvalidated(name) => {
+            const STACK_LEN: usize = 128;
+            let bytes = name.as_bytes();
+            if bytes.len() < STACK_LEN {
+                let mut buf = [0u8; STACK_LEN];
+                buf[..bytes.len()].copy_from_slice(bytes);
+                match CStr::from_bytes_with_nul(&buf[..=bytes.len()]) {
+                    Ok(c_name) => is_enabled(c_name),
+                    Err(_) => true,
+                }
+            } else {
+                CString::new(*name).map_or(true, |c_name| is_enabled(&c_name))
+            }
+        }
+    }
 }
 
 /// Calls the underlying rclutils logging function
