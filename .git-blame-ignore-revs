@@ -1,0 +1,5 @@
+# Formatting-only commits, skipped in GitHub's blame view. Locally:
+# git config blame.ignoreRevsFile .git-blame-ignore-revs
+
+# style: format the workspace and fix lints in ament_rs and ros-env
+155eaeaa8f92f0190dc6a3441736bdeaab5547f9

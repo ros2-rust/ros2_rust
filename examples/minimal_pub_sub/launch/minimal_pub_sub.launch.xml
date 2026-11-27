@@ -1,0 +1,6 @@
+<launch>
+
+  <node pkg="examples_rclrs_minimal_pub_sub" exec="minimal_publisher" name="publisher" output="screen" />
+  <node pkg="examples_rclrs_minimal_pub_sub" exec="minimal_subscriber" name="subscriber" output="screen" />
+
+</launch>

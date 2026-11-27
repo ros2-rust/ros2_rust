@@ -6,7 +6,8 @@ authors = ["Esteve Fernandez <esteve@apache.org>", "Nikolai Morin <nnmmgit@gmail
 edition = "2021"
 license = "Apache-2.0"
 description = "A ROS 2 client library for developing robotics applications in Rust"
-rust-version = "1.85"
+repository.workspace = true
+rust-version.workspace = true
 
 [lib]
 path = "src/lib.rs"
@@ -35,10 +36,10 @@ async-std = "1.13"
 # Needed for dynamic messages
 libloading = "0.8"
 
-ros-env = "0.3"
+ros-env.workspace = true
 
 # Needed for the Message trait, among others
-rosidl_runtime_rs = "0.7"
+rosidl_runtime_rs.workspace = true
 
 # Needed for serialization and deserialization of generated messages
 serde = { version = "1", optional = true, features = ["derive"] }

@@ -59,7 +59,7 @@ edition = "2021"
 rclrs = "*"
 std_msgs = "*"
 ```
-Additionally, create a new `package.xml` if you want your node to be buildable with [`colcon`](https://colcon.readthedocs.io/en/released/user/installation.html). Make sure to change the build type to `ament_cargo` and to include the two packages mentioned above in the dependencies, as such:
+Additionally, create a new `package.xml` if you want your node to be buildable with [`colcon`](https://colcon.readthedocs.io/en/released/user/installation.html). Make sure to change the build type to `ament_cargo` and to list the ROS packages whose interfaces your node uses, here `std_msgs`, as dependencies. `rclrs` comes from crates.io and is not a ROS package, so it is not listed:
 ```xml
 <package format="3">
   <name>rust_pubsub</name>
@@ -68,7 +68,6 @@ Additionally, create a new `package.xml` if you want your node to be buildable w
   <maintainer email="user@todo.todo">user</maintainer>
   <license>TODO: License declaration.</license>
 
-  <depend>rclrs</depend>
   <depend>std_msgs</depend>
 
   <export>
