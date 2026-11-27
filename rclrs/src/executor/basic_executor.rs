@@ -449,6 +449,11 @@ async fn manage_workers(
 
                 active_runners = remaining_workers;
                 new_workers = new_worker_stream;
+
+                if !active_runners.is_empty() {
+                    conditions.halt_spinning.store(true, Ordering::Release);
+                    all_guard_conditions.trigger();
+                }
             }
             Either::Right(((new_worker, new_worker_receiver), remaining_workers)) => {
                 active_runners = remaining_workers.into_inner();

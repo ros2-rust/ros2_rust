@@ -556,4 +556,65 @@ mod tests {
 
         halt_thread.join().unwrap();
     }
+
+    #[test]
+    fn spin_once_is_not_blocked_by_idle_worker() {
+        use std::time::Instant;
+
+        let mut executor = Context::default().create_basic_executor();
+        let node = executor
+            .create_node(&format!("test_spin_once_idle_worker_{}", line!()))
+            .unwrap();
+        let _worker = node.create_worker::<()>(());
+
+        executor
+            .commands()
+            .async_worker_commands()
+            .get_guard_condition()
+            .trigger()
+            .unwrap();
+
+        let start = Instant::now();
+        let errors = executor.spin(SpinOptions::spin_once().timeout(Duration::from_secs(5)));
+        let elapsed = start.elapsed();
+        assert!(
+            elapsed < Duration::from_secs(1),
+            "spin_once waited {elapsed:?} for an idle worker",
+        );
+        assert!(errors.is_empty(), "unexpected errors: {errors:?}");
+    }
+
+    #[test]
+    fn error_in_one_wait_set_ends_the_spin() {
+        use std::time::Instant;
+
+        let mut executor = Context::default().create_basic_executor();
+        let node = executor
+            .create_node(&format!("test_error_ends_spin_{}", line!()))
+            .unwrap();
+        let _worker = node.create_worker::<()>(());
+
+        let (guard_condition, waitable) =
+            crate::wait_set::failing_guard_condition(&executor.commands().context().handle);
+        executor.commands().add_to_wait_set(waitable);
+        guard_condition.trigger().unwrap();
+
+        let start = Instant::now();
+        let errors = executor.spin(SpinOptions::default().timeout(Duration::from_secs(5)));
+        let elapsed = start.elapsed();
+        assert!(
+            elapsed < Duration::from_secs(1),
+            "the error was only reported after {elapsed:?}",
+        );
+        assert!(
+            errors.iter().any(|err| matches!(
+                err,
+                RclrsError::RclError {
+                    code: RclReturnCode::Error,
+                    ..
+                }
+            )),
+            "the error was not reported: {errors:?}",
+        );
+    }
 }
