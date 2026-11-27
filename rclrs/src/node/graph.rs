@@ -489,11 +489,25 @@ mod tests {
             .map(|value: usize| if value != 99 { 99 } else { 98 })
             .unwrap_or(99);
 
-        let executor = Context::new([], InitOptions::new().with_domain_id(Some(domain_id)))
+        let mut executor = Context::new([], InitOptions::new().with_domain_id(Some(domain_id)))
             .unwrap()
             .create_basic_executor();
         let node_name = "test_publisher_names_and_types";
         let node = executor.create_node(node_name).unwrap();
+
+        assert!(
+            test_helpers::spin_until_condition(
+                &mut executor,
+                || {
+                    node.get_publisher_names_and_types_by_node(node_name, "")
+                        .unwrap()
+                        .contains_key("/rosout")
+                        && node.get_service_names_and_types().unwrap().len() == 6
+                },
+                std::time::Duration::from_secs(5),
+            ),
+            "Timed out waiting for rosout and parameter service discovery"
+        );
 
         let check_rosout = |topics: HashMap<String, Vec<String>>| {
             // rosout shows up when a node is created (on all distros after enabling rosout)

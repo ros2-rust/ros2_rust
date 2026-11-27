@@ -681,14 +681,17 @@ mod tests {
             "rcl_logging_rosout should be enabled for this test"
         );
 
-        // Verify rosout publisher exists immediately after node creation
-        // (when enable_rosout is true, which is the default)
-        let topics = node
-            .get_publisher_names_and_types_by_node("rosout_default_node", &namespace)
-            .unwrap();
         assert!(
-            topics.contains_key("/rosout"),
-            "Node should have /rosout publisher immediately when enable_rosout is true"
+            spin_until_condition(
+                &mut executor,
+                || {
+                    node.get_publisher_names_and_types_by_node("rosout_default_node", &namespace)
+                        .unwrap()
+                        .contains_key("/rosout")
+                },
+                Duration::from_secs(5),
+            ),
+            "Timed out waiting for rosout publisher discovery"
         );
 
         let received_logs: Arc<Mutex<Vec<Log>>> = Arc::new(Mutex::new(Vec::new()));
