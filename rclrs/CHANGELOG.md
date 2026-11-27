@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- [**breaking**] Accept standard Rust ranges in `ParameterBuilder::range()` ([#675](https://github.com/ros2-rust/ros2_rust/issues/675)).
+  Inclusive and unbounded ranges support integer and floating-point parameters; exclusive upper bounds
+  support integers only. Calls using `.range(Default::default())` must specify the default's type,
+  such as `ParameterRange::<i64>::default()`. Pass existing bounds directly instead of calling
+  `.range(bounds.into())`, which can now be ambiguous. Explicit stepped ranges remain supported.
+
 ## [0.8.0](https://github.com/ros2-rust/ros2_rust/compare/v0.7.0...v0.8.0) - 2026-09-23
 
 ### Added
